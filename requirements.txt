@@ -1,4 +1,4 @@
-# SESTRAV Dependencies
+# SESTRAV Dependencies (Check noting this is tentative and is the idea for the requirements as of right now- this is to be changed and updated!)
 biopython>=1.81
 pandas>=2.0
 numpy>=1.24
