@@ -1,0 +1,11 @@
+antigens:
+  - HPV_8_FASTAs
+  - EBV_8_FASTAs
+
+alleles:
+  - HLA-A*02:01
+  - HLA-A*01:01
+  - HLA-B*07:02
+  - HLA-B*08:01
+  - HLA-A*03:01
+  - HLA-A*24:02
