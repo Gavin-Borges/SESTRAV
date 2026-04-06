@@ -1,0 +1,11 @@
+name: sestrav
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12.10
+  - snakemake
+  - numpy
+  - pandas
+  - pip:
+    - -r requirements.txt
