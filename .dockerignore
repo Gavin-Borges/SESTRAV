@@ -1,0 +1,15 @@
+.git
+.gitignore
+.snakemake
+.pytest_cache
+__pycache__
+*.pyc
+release_artifacts
+results
+models/*.joblib
+models/*.pkl
+models/*.pt
+*.egg-info
+.env
+.venv
+.DS_Store

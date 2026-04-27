@@ -1,11 +1,55 @@
 antigens:
-  - HPV_8_FASTAs
-  - EBV_8_FASTAs
+  - HPV16_18_panel8
+  - EBV_B95_8_panel8
+
+proteome_files:
+  HPV16_18_panel8: data/proteomes/HPV16_18_panel8.fasta
+  EBV_B95_8_panel8: data/proteomes/EBV_B95_8_panel8.fasta
+  # Legacy one-release alias
+  EBV_panel8_B958: data/proteomes/EBV_B95_8_panel8.fasta
 
 alleles:
   - HLA-A*02:01
   - HLA-A*01:01
-  - HLA-B*07:02
-  - HLA-B*08:01
   - HLA-A*03:01
   - HLA-A*24:02
+  - HLA-A*11:01
+  - HLA-B*07:02
+  - HLA-B*08:01
+  - HLA-B*27:05
+  - HLA-B*35:01
+  - HLA-B*44:02
+
+peptide_lengths:
+  - 8
+  - 9
+  - 10
+  - 11
+
+binding_backend: mhcflurry
+
+# Feature mode: 21 (legacy sequence-only) or 30 (physico + multi-allele binding)
+feature_mode: 30
+
+# Model path — set to 30-feature RF by default; alternatives:
+#   models/rf_21feature_legacy.joblib        (21-feature legacy RF)
+#   models/rf_30feature_integrated.joblib    (30-feature RF canonical)
+#   models/ann_30feature_integrated.pt       (30-feature PyTorch ANN)
+#   models/xgb_30feature_integrated.joblib   (30-feature XGBoost)
+model_path: models/rf_30feature_integrated.joblib
+
+# Calibration and thresholds (used by Stage 4 when present)
+calibration_path: models/platt_calibrator.joblib
+thresholds_path: models/optimal_thresholds.json
+
+# Binding matrix for 30-feature training
+binding_matrix_path: models/peptide_binding_matrix.csv
+
+# MC Dropout uncertainty (PyTorch ANN only)
+mc_dropout: false
+
+# Interpretation metadata for summary artifact naming
+dataset_mode: modeB_updated
+dataset_version: IEDB-20260424-EBV_HPV16_UPDATED-v2
+
+output_dir: results

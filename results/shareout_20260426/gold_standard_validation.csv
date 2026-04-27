@@ -1,0 +1,16 @@
+peptide,protein,allele,virus,stage1_found,stage2_found,stage2_strong_binder,stage4_found,rank,in_top_25pct
+CLGGLLTMV,LMP2A,HLA-A*02:01,EBV,True,True,True,True,2,True
+GLCTLVAML,BMLF1,HLA-A*02:01,EBV,True,True,True,True,5884,False
+FLRGRAYGI,EBNA3A,HLA-B*08:01,EBV,True,True,True,True,7599,False
+RAKFKQLL,BZLF1,HLA-B*08:01,EBV,True,True,True,True,13094,False
+IVTDFSVIK,EBNA3B,HLA-A*11:01,EBV,True,True,True,True,17462,False
+RPPIFIRRL,EBNA3A,HLA-B*27:05,EBV,True,True,True,True,645,True
+HPVGEADYFEY,EBNA1,HLA-B*35:01,EBV,True,True,True,True,29,True
+TYSAGIVQI,EBNA3B,HLA-A*24:02,EBV,True,True,True,True,7500,False
+AVFDRKSDAK,EBNA3B,HLA-A*11:01,EBV,True,True,True,True,2957,True
+YVLDHLIVV,BRLF1,HLA-A*02:01,EBV,True,True,True,True,577,True
+YMLDLQPET,HPV16_E7,HLA-A*02:01,HPV,True,True,True,True,247,True
+RAHYNIVTF,HPV16_E7,HLA-B*35:01,HPV,True,True,True,True,84,True
+LLMGTLGIV,HPV16_E7,HLA-A*02:01,HPV,True,True,True,True,625,True
+KLPQLCTEL,HPV16_E6,HLA-A*02:01,HPV,True,True,True,True,2623,False
+TIHDIILECV,HPV16_E6,HLA-A*02:01,HPV,True,True,True,True,344,True

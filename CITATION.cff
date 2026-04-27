@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you reference this software, please cite it using the metadata from this file."
+type: software
+title: "SESTRAV — Structural Epitope Scoring via TCR Recognition And Vaccinology"
+version: 1.0.0
+date-released: 2026-04-26
+license: MIT
+repository-code: "https://github.com/Gavin-Borges/SESTRAV"
+abstract: >-
+  SESTRAV is an open-source pipeline engineered to overcome the computational
+  specificity bottleneck in therapeutic vaccine development for oncogenic viruses
+  such as Human Papillomavirus (HPV) and Epstein-Barr Virus (EBV). The four-stage
+  reproducible workflow couples multi-allele MHC binding predictions with a
+  structurally informed immunogenicity classifier that extracts per-position
+  physicochemical features (hydrophobicity, aromaticity, steric bulk, and charge)
+  at TCR-facing peptide residues. The classifier is trained on curated Immune
+  Epitope Database records and validated against experimentally confirmed T-cell
+  epitopes within a fully containerized high-performance computing environment.
+keywords:
+  - immunoinformatics
+  - epitope prediction
+  - vaccine design
+  - TCR recognition
+  - MHC binding
+  - HPV
+  - EBV
+authors:
+  - family-names: Borges
+    given-names: Gavin
+    affiliation: "University of Rhode Island"
+  - family-names: Eljamal
+    given-names: Abdelrahman
+    affiliation: "University of Rhode Island"
+  - family-names: Schellenberg
+    given-names: Iris
+    affiliation: "University of Rhode Island"
+  - family-names: Jouaneh
+    given-names: Charles
+    affiliation: "University of Rhode Island"
+  - family-names: Byers
+    given-names: Emine
+    affiliation: "University of Rhode Island"
