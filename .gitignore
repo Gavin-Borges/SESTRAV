@@ -206,11 +206,35 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-results/
+# Ignore generated run outputs by default, but keep canonical frozen snapshots.
+results/*
+!results/final_validation_report.md
+!results/h2_tier_a_summary.csv
+!results/h2_tier_a_summary.md
+!results/h2_tier_a_fold_metrics.csv
+!results/gold_standard_validation.csv
+!results/baseline_comparison.csv
+# v2 diagnostic artifacts (evidence for release)
+!results/multi_run_stability_report.md
+!results/shap_values_rf.csv
+!results/calibration_metrics.csv
+!results/gold_standard_negative_validation.csv
+!results/negative_class_analysis.csv
+!results/data_bias_audit.md
+!results/v1_v2_quality_comparison.md
+# Shareout presentation assets (PNGs + summary files)
+!results/shareout_20260426/
+release_artifacts/
 *.pyc
 __pycache__/
 .snakemake/
 *.egg-info/
 .DS_Store
+
+# Legacy alias FASTA (identical to canonical EBV_B95_8_panel8.fasta)
+data/proteomes/EBV_panel8_B958.fasta
+
+# Serialized model binaries (train locally with src/train_classifier.py)
 models/*.joblib
 models/*.pkl
+models/*.pt

@@ -3,9 +3,9 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12.10
-  - snakemake
+  - python=3.11
   - numpy
   - pandas
+  - pip
   - pip:
-    - -r requirements.txt
+      - -r requirements.txt

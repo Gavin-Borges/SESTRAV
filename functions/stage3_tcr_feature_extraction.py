@@ -1,23 +1,39 @@
-import numpy as np
+"""
+SESTRAV Stage 3 — TCR Feature Extraction
+Computes physicochemical properties at TCR contact positions p4-p8 for
+each peptide, using the shared feature hub in src/features.py.
+Canonical 30-feature mode adds 10 per-allele binding columns from Stage 2.
+"""
 
-def extract_tcr_features(binding_df, virus_name):
-    def tcr_core(peptide):
-        return peptide[3:-2] if len(peptide) >= 6 else peptide  # Positions 4 to Ω-2
+from src.features import compute_features_for_dataset
 
-    binding_df["tcr_core"] = binding_df["peptide"].apply(tcr_core)
 
-    # Physicochemical features
-    binding_df["hydrophobicity"] = binding_df["tcr_core"].apply(lambda x: sum(aa in "AILMFWYV" for aa in x))
-    binding_df["aromaticity"] = binding_df["tcr_core"].apply(lambda x: sum(aa in "FWY" for aa in x))
-    binding_df["positive_charge"] = binding_df["tcr_core"].apply(lambda x: sum(aa in "KR" for aa in x))
-    binding_df["negative_charge"] = binding_df["tcr_core"].apply(lambda x: sum(aa in "DE" for aa in x))
-    binding_df["net_charge"] = binding_df["positive_charge"] - binding_df["negative_charge"]
-    binding_df["length_tcr"] = binding_df["tcr_core"].apply(len)
-    binding_df["log_affinity"] = -np.log(binding_df["affinity"] + 1e-9)
+def extract_tcr_features(binding_df, proteome_id):
+    """
+    Extract 22 per-position physicochemical features for all peptide rows.
 
-    # Optionally, you can add molecular weight or VdW volume if you want more features
-    # For simplicity, we include ~10 TCR-facing features here
+    Uses presentation_score from Stage 2 as the binding_score feature.
+    Zero-imputes positions that fall outside the TCR core for short peptides.
 
-    binding_df.to_csv(f"results/{virus_name}_features.csv", index=False)
-    print(f"[Stage 3] Extracted TCR features for {len(binding_df)} peptide-allele pairs")
-    return binding_df
+    Args:
+        binding_df: DataFrame from Stage 2 with 'peptide' and 'presentation_score'
+        proteome_id: label used in output filename
+
+    Returns:
+        DataFrame with original columns + 22 new feature columns
+    """
+    binding_col = 'presentation_score'
+    if binding_col not in binding_df.columns:
+        binding_col = 'affinity'
+
+    features_df = compute_features_for_dataset(
+        binding_df,
+        peptide_col='peptide',
+        binding_col=binding_col
+    )
+
+    output_path = f"results/{proteome_id}_features.csv"
+    features_df.to_csv(output_path, index=False)
+    n_feat = len([c for c in features_df.columns if c.startswith(('p4_', 'p5_', 'p6_', 'p7_', 'p8_', 'bind_', 'binding_', 'peptide_length'))])
+    print(f"[Stage 3] Extracted {n_feat} features for {len(features_df)} peptide-allele pairs")
+    return features_df
