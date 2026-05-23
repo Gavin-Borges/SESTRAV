@@ -1,0 +1,22 @@
+[
+  {
+    "tool": "PredIG-Path",
+    "verdict": "Worse",
+    "auc_pr_delta_rf_minus_tool": 0.101,
+    "issr10_delta_rf_minus_tool": 0.0571,
+    "auc_pr_fdr_significant": true,
+    "issr10_fdr_significant": false,
+    "overlap_contaminated": true,
+    "rationale": "SESTRAV RF leads on both primary metrics (\u0394AUC-PR=+0.101, \u0394ISSR@10=+0.057). Bootstrap/FDR support RF advantage on AUC-PR. Overlap 36.9% exceeds 30.0% cap."
+  },
+  {
+    "tool": "PRIME 2.1",
+    "verdict": "Comparable \u2013 Contaminated",
+    "auc_pr_delta_rf_minus_tool": 0.0506,
+    "issr10_delta_rf_minus_tool": -0.0286,
+    "auc_pr_fdr_significant": false,
+    "issr10_fdr_significant": false,
+    "overlap_contaminated": true,
+    "rationale": "Mixed primary metrics (\u0394AUC-PR=+0.051, \u0394ISSR@10=-0.029); tie-break yields Comparable. Overlap 36.9% exceeds 30.0% cap."
+  }
+]

@@ -24,8 +24,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import shap
-from joblib import load as joblib_load
 
+from src.artifact_integrity import load_verified_joblib
 from src.features import TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
 from src.naming import proteome_id_candidates, resolve_model_path
@@ -113,8 +113,8 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
         xgb_path = os.path.join(model_dir, 'xgb_21feature_legacy.joblib')
         feature_cols = TRAIN_FEATURE_COLUMNS
 
-    rf_model = joblib_load(resolve_model_path(rf_path))
-    xgb_model = joblib_load(resolve_model_path(xgb_path))
+    rf_model = load_verified_joblib(resolve_model_path(rf_path), required_checksum=False)
+    xgb_model = load_verified_joblib(resolve_model_path(xgb_path), required_checksum=False)
 
     combined = _load_features(results_dir)
     cols = [c for c in feature_cols if c in combined.columns]

@@ -1,9 +1,9 @@
 {
-  "threshold": 0.3559,
-  "overall_precision": 0.7337367624810892,
-  "overall_recall": 0.9897959183673469,
-  "overall_f1": 0.842745438748914,
-  "min_subgroup_f1": 0.8329297820823244,
+  "threshold": 0.5217177646325478,
+  "overall_precision": 0.7729211087420043,
+  "overall_recall": 0.9577278731836195,
+  "overall_f1": 0.855457227138643,
+  "min_subgroup_f1": 0.8223938223938224,
   "method": "RandomForest",
   "feature_mode": 30,
   "selection_objective": "maximize minimum subgroup F1, then overall F1, then recall"

@@ -1,0 +1,2 @@
+model,auc_roc_mean,auc_roc_std,auc_pr_mean,auc_pr_std,issr_10_mean,issr_25_mean
+Bipartite Peptide-Allele GNN (lightweight),0.5610579304144048,0.05476048284114154,0.8119815750619764,0.03947126382208947,0.8105263233184814,0.8489795923233032

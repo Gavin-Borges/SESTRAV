@@ -23,16 +23,16 @@ import os
 import argparse
 import numpy as np
 import pandas as pd
-from joblib import load as joblib_load
 from sklearn.preprocessing import StandardScaler
 
+from src.artifact_integrity import load_verified_joblib, verify_artifact_checksum
 from src.features import FEATURE_COLUMNS, FEATURE_COLUMNS_30, TRAIN_FEATURE_COLUMNS
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
 from src.naming import proteome_id_candidates, resolve_model_path
 
 try:
     import torch
-    from src.ann_benchmark import ImmunogenicityMLP
+    from src.model import FlexibleMLP
     _HAS_TORCH = True
 except ImportError:
     _HAS_TORCH = False
@@ -48,26 +48,56 @@ def _select_model_columns(features_df, model):
     return [c for c in FEATURE_COLUMNS if c in features_df.columns]
 
 
-def _score_with_model(features_df, model):
+def _score_with_model(features_df, model, binding_matrix_path=None):
     """Score peptides using a trained model's predict_proba."""
+    expected_n = getattr(model, "n_features_in_", None)
+    if expected_n == len(FEATURE_COLUMNS_30) and binding_matrix_path:
+        from src.train_classifier import prepare_features_30
+        # If the features_df lacks the bind_ columns, we must compute them.
+        if 'bind_A0101' not in features_df.columns:
+            features_df = prepare_features_30(features_df, binding_matrix_path)
     cols = _select_model_columns(features_df, model)
     X = features_df[cols]
     return model.predict_proba(X)[:, 1]
 
 
-def _score_with_ann(features_df, model_path):
-    """Score peptides using the trained ANN (PyTorch MLP)."""
-    cols = [c for c in TRAIN_FEATURE_COLUMNS if c in features_df.columns]
-    X = features_df[cols].values
-
-    # PyTorch >=2.6 defaults to weights_only=True and may reject older
-    # checkpoints containing numpy objects. Fall back to weights_only=False
-    # for trusted in-repo checkpoints to preserve backward compatibility.
+def _load_torch_checkpoint(model_path):
+    """Load ANN checkpoints using the safe weights-only path only."""
+    verify_artifact_checksum(model_path, required=False)
     try:
-        checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
+        return torch.load(model_path, map_location='cpu', weights_only=True)
     except Exception:
-        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+        raise RuntimeError(
+            f"[Baseline] Unable to load ANN checkpoint '{model_path}' with weights_only=True. "
+            "Resave the checkpoint from a trusted training run before loading it."
+        )
+
+
+def _score_with_ann(features_df, model_path):
+    """Score peptides using a trained ANN checkpoint.
+
+    ANN checkpoints can be either legacy 21-feature or canonical 30-feature.
+    This helper reads checkpoint metadata and aligns feature columns to the
+    expected schema. Returned values are probabilities (sigmoid of logits).
+    """
+
+    checkpoint = _load_torch_checkpoint(model_path)
     n_features = checkpoint['n_features']
+
+    if n_features == len(FEATURE_COLUMNS_30):
+        cols = [c for c in FEATURE_COLUMNS_30 if c in features_df.columns]
+    elif n_features == len(TRAIN_FEATURE_COLUMNS):
+        cols = [c for c in TRAIN_FEATURE_COLUMNS if c in features_df.columns]
+    else:
+        raise ValueError(
+            f"Unsupported ANN checkpoint feature width: {n_features} "
+            f"(path: {model_path})"
+        )
+    if len(cols) != n_features:
+        raise ValueError(
+            f"ANN feature mismatch for {model_path}: expected {n_features}, got {len(cols)}"
+        )
+    X = features_df[cols].values
 
     scaler_mean = checkpoint['scaler_mean']
     scaler_scale = checkpoint['scaler_scale']
@@ -82,14 +112,23 @@ def _score_with_ann(features_df, model_path):
     scaler.n_features_in_ = n_features
     X_scaled = scaler.transform(X)
 
-    model = ImmunogenicityMLP(n_features)
+    arch_meta = checkpoint.get('architecture', {})
+    hidden = arch_meta.get('hidden', [64, 32])
+    activation = arch_meta.get('activation', 'relu')
+    dropout = arch_meta.get('dropout', 0.3)
+    model = FlexibleMLP(
+        input_dim=n_features,
+        hidden_sizes=hidden,
+        dropout=dropout,
+        activation=activation,
+    )
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     with torch.no_grad():
         X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
-        scores = model(X_tensor).numpy()
-    return scores
+        logits = model(X_tensor).numpy()
+    return 1.0 / (1.0 + np.exp(-np.clip(logits, -500, 500)))
 
 
 def _rank_and_evaluate(df, score_col, gs_peptides, label):
@@ -125,12 +164,12 @@ def _rank_and_evaluate(df, score_col, gs_peptides, label):
     }
 
 
-def compare_methods(results_dir, model_dir='models'):
+def compare_methods(results_dir, model_dir='models', strict_ann_loading=False, binding_matrix_path='models/peptide_binding_matrix.csv'):
     """Run the 3-way comparison on each virus and combined."""
     def _load_optional(paths):
         for path in paths:
             if os.path.isfile(path):
-                return joblib_load(path), path
+                return load_verified_joblib(path, required_checksum=False), path
         return None, None
 
     rf_model, rf_path = _load_optional([
@@ -169,19 +208,35 @@ def compare_methods(results_dir, model_dir='models'):
         df = pd.read_csv(features_path)
         gs_peptides = {gs['peptide'] for gs in GOLD_STANDARD if gs['virus'] == virus}
 
-        ann_path = resolve_model_path(os.path.join(model_dir, 'ann_21feature_legacy.pt'))
-        has_ann = _HAS_TORCH and os.path.isfile(ann_path)
+        ann_path = None
+        if _HAS_TORCH:
+            for candidate in [
+                'ann_30feature_integrated.pt',
+                'ann_21feature_legacy.pt',
+            ]:
+                resolved = resolve_model_path(os.path.join(model_dir, candidate))
+                if os.path.isfile(resolved):
+                    ann_path = resolved
+                    break
+        has_ann = ann_path is not None
         methods = []
 
         if rf_model is not None:
-            df['rf_score'] = _score_with_model(df, rf_model)
+            df['rf_score'] = _score_with_model(df, rf_model, binding_matrix_path)
             methods.append(('rf_score', 'RF (SESTRAV)'))
         if xgb_model is not None:
-            df['xgb_score'] = _score_with_model(df, xgb_model)
+            df['xgb_score'] = _score_with_model(df, xgb_model, binding_matrix_path)
             methods.append(('xgb_score', 'XGBoost'))
         if has_ann:
-            df['ann_score'] = _score_with_ann(df, ann_path)
-            methods.append(('ann_score', 'ANN (MLP)'))
+            try:
+                df['ann_score'] = _score_with_ann(df, ann_path)
+                methods.append(('ann_score', 'ANN (MLP)'))
+            except Exception as exc:
+                if strict_ann_loading:
+                    raise RuntimeError(
+                        f"[Baseline] Freeze mode requires ANN checkpoint compatibility: {exc}"
+                    ) from exc
+                print(f"[Baseline] Skipping ANN due to checkpoint load/scoring error: {exc}")
 
         binding_col = 'presentation_score' if 'presentation_score' in df.columns else 'binding_score'
         if binding_col in df.columns:

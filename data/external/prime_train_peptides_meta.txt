@@ -1,0 +1,4 @@
+generated_utc=2026-05-20T18:27:44.989471+00:00
+n_peptides=9228
+source=proxy_iedb_family_predig_train_modf
+note=PRIME published train list not in public PRIME2.1 zip; proxy from PredIG-Path training export (IEDB-family).

@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you reference this software, please cite it using the metadata from this file."
 type: software
 title: "SESTRAV — Structural Epitope Scoring via TCR Recognition And Vaccinology"
-version: 1.0.0
-date-released: 2026-04-26
+version: 2.0.0
+date-released: 2026-05-22
 license: MIT
 repository-code: "https://github.com/Gavin-Borges/SESTRAV"
 abstract: >-
@@ -16,12 +16,18 @@ abstract: >-
   at TCR-facing peptide residues. The classifier is trained on curated Immune
   Epitope Database records and validated against experimentally confirmed T-cell
   epitopes within a fully containerized high-performance computing environment.
+  Version 2 integrates a neural network architecture search (FlexibleMLP with
+  14 configurations), graph neural network benchmarks (GCN, GAT, bipartite
+  peptide-allele), feature group ablation analysis, and calibration/uncertainty
+  quantification from CMB 523 Project 2 coursework.
 keywords:
   - immunoinformatics
   - epitope prediction
   - vaccine design
   - TCR recognition
   - MHC binding
+  - neural network
+  - graph neural network
   - HPV
   - EBV
 authors:

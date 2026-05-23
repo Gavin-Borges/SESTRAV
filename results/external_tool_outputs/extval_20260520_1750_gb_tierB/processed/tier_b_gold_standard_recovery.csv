@@ -1,0 +1,13 @@
+method,n_peptides,gs_found,gs_in_top_10pct,gs_in_top_25pct,gs_recovery_top10,gs_recovery_top25,mean_rank_pct,median_rank_pct,scope,score_column
+SESTRAV RF (immunogenicity_score),2000,10,3,4,0.3,0.4,40.26,47.449999999999996,tierB_EBV,immunogenicity_score
+Binding-only (binding_score),2000,10,4,7,0.4,0.7,18.06,13.75,tierB_EBV,binding_score
+PredIG-Path (max),1947,10,2,2,0.2,0.2,52.54750898818696,55.31587057010786,tierB_EBV,predig_max_score
+PRIME 2.1 (max),2000,10,4,6,0.4,0.6,18.020000000000003,14.700000000000001,tierB_EBV,prime_score
+SESTRAV RF (immunogenicity_score),2000,5,2,2,0.4,0.4,40.120000000000005,52.05,tierB_HPV16,immunogenicity_score
+Binding-only (binding_score),2000,5,4,5,0.8,1.0,7.290000000000001,5.949999999999999,tierB_HPV16,binding_score
+PredIG-Path (max),1908,1,0,0,0.0,0.0,77.30607966457022,77.30607966457022,tierB_HPV16,predig_max_score
+PRIME 2.1 (max),2000,5,2,4,0.4,0.8,14.310000000000002,12.7,tierB_HPV16,prime_score
+SESTRAV RF (immunogenicity_score),4000,15,3,6,0.2,0.4,39.651666666666664,43.375,tierB_combined,immunogenicity_score
+Binding-only (binding_score),4000,15,7,12,0.4666666666666667,0.8,13.004999999999999,10.35,tierB_combined,binding_score
+PredIG-Path (max),3855,11,2,2,0.18181818181818182,0.18181818181818182,54.22473764886215,69.57198443579766,tierB_combined,predig_max_score
+PRIME 2.1 (max),4000,15,6,12,0.4,0.8,16.043333333333333,14.649999999999999,tierB_combined,prime_score

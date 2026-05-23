@@ -30,7 +30,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from src.features import (
-    FEATURE_COLUMNS, TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30,
+    FEATURE_COLUMNS, TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30, FEATURE_COLUMNS_50,
 )
 from src.naming import resolve_model_path
 
@@ -116,7 +116,7 @@ def _apply_thresholds(features_df, model_dir):
 
 
 def score_immunogenicity(features_df, proteome_id, model_path=None,
-                         calibrate=True, mc_dropout=False):
+                         calibrate=True, mc_dropout=False, freeze_mode=False):
     """
     Score each peptide's immunogenicity.
 
@@ -145,10 +145,30 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
         is_pytorch = model_path.endswith('.pt')
 
         if is_pytorch:
-            model_cols = [c for c in FEATURE_COLUMNS_30 if c in features_df.columns]
-            if len(model_cols) < 30:
-                missing = set(FEATURE_COLUMNS_30) - set(features_df.columns)
-                print(f"[Stage 4] WARNING: Missing {len(missing)} of 30 features: {missing}")
+            import torch
+            checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+            expected_n = checkpoint['n_features']
+            
+            if expected_n == len(FEATURE_COLUMNS_50):
+                model_cols = [c for c in FEATURE_COLUMNS_50 if c in features_df.columns]
+                expected_list = FEATURE_COLUMNS_50
+            elif expected_n == len(FEATURE_COLUMNS_30):
+                model_cols = [c for c in FEATURE_COLUMNS_30 if c in features_df.columns]
+                expected_list = FEATURE_COLUMNS_30
+            elif expected_n == len(TRAIN_FEATURE_COLUMNS):
+                model_cols = [c for c in TRAIN_FEATURE_COLUMNS if c in features_df.columns]
+                expected_list = TRAIN_FEATURE_COLUMNS
+            else:
+                model_cols = [c for c in FEATURE_COLUMNS if c in features_df.columns]
+                expected_list = FEATURE_COLUMNS
+
+            if len(model_cols) < expected_n:
+                missing = set(expected_list) - set(features_df.columns)
+                missing_sorted = sorted(missing)
+                msg = f"[Stage 4] Missing {len(missing)} of {expected_n} ANN features: {missing_sorted}"
+                if freeze_mode:
+                    raise RuntimeError(msg)
+                print(f"[Stage 4] WARNING: {msg}")
             scores, model = _load_pytorch_model(model_path, features_df, model_cols)
             features_df['immunogenicity_score'] = scores
             print(f"[Stage 4] Loaded PyTorch ANN from {model_path} ({len(model_cols)} features)")
@@ -169,7 +189,10 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
             model = joblib_load(model_path)
             expected_n = model.n_features_in_
 
-            if expected_n == len(FEATURE_COLUMNS_30):
+            if expected_n == len(FEATURE_COLUMNS_50):
+                model_cols = [c for c in FEATURE_COLUMNS_50 if c in features_df.columns]
+                print(f"[Stage 4] Using {len(model_cols)} features (50-feature multi-allele mode)")
+            elif expected_n == len(FEATURE_COLUMNS_30):
                 model_cols = [c for c in FEATURE_COLUMNS_30 if c in features_df.columns]
                 print(f"[Stage 4] Using {len(model_cols)} features (30-feature multi-allele mode)")
             elif expected_n == len(TRAIN_FEATURE_COLUMNS):
@@ -186,6 +209,11 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
             print("[Stage 4] WARNING: joblib not available, cannot load .joblib model")
 
     if 'immunogenicity_score' not in features_df.columns:
+        if freeze_mode:
+            raise RuntimeError(
+                "[Stage 4] Freeze mode requires a trained model; prototype inline "
+                "classifier fallback is disabled."
+            )
         from sklearn.ensemble import RandomForestClassifier
 
         available_cols = [c for c in FEATURE_COLUMNS if c in features_df.columns]

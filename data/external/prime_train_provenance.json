@@ -1,0 +1,14 @@
+{
+  "updated_utc": "2026-05-20T18:30:00Z",
+  "source_file": "data/external/prime_train_peptides.csv",
+  "n_peptides": 9228,
+  "authoritative_list_obtained": false,
+  "search_notes": [
+    "PRIME2.1 GitHub zip contains PerRank rank curves, not training peptide lists.",
+    "WSL find under ~/tools/sestrav_external/PRIME2.1: no train*pep* or immunogenic*pep* files.",
+    "Cell Systems 2023 supplement (PMC9811684) does not ship a machine-readable PRIME train peptide CSV in public repo."
+  ],
+  "proxy_used": "predig_train_modf.csv (IEDB-family export)",
+  "tier_a_overlap_pct": 36.9,
+  "action_if_authoritative_list_found": "Replace prime_train_peptides.csv and re-run external_validation_finalize overlap only if total_overlap_pct differs by >2pp"
+}

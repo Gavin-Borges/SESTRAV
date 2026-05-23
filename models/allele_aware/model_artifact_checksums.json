@@ -1,0 +1,33 @@
+{
+  "generated_utc": "2026-05-21T19:17:57.471851+00:00",
+  "artifacts": {
+    "rf_166feature_allele_aware.joblib": {
+      "sha256": "413e26afb18c8306199c8a5a0ecd6b345d100b4e0f48472c7687d647e63ecbe2",
+      "size_bytes": 2226761
+    },
+    "xgb_166feature_allele_aware.joblib": {
+      "sha256": "643350b75e2c13351a67f8d9156eb03a6a5f9af29804de2d78753507dc86b8a5",
+      "size_bytes": 217856
+    },
+    "training_results.csv": {
+      "sha256": "603e02cc2a8afe873439d3f925e4e42309c998bb1c5e59186e2875d63acf62c8",
+      "size_bytes": 878
+    },
+    "training_subgroup_metrics.csv": {
+      "sha256": "0cbe2467eda7fcc2d345cbd12ed3849deda9d03ae1eb311d3dc311073ab005ce",
+      "size_bytes": 5259
+    },
+    "feature_importances.csv": {
+      "sha256": "59031fc3c2d04ff11904929caf506448c8316406730a8c1e90ddcbc0246b09ea",
+      "size_bytes": 5333
+    },
+    "rf_oof_predictions.csv": {
+      "sha256": "c17b09158cb6d41728a287203922accea570cd0af5af6c5f130103a02a546765",
+      "size_bytes": 14395
+    },
+    "optimal_thresholds.json": {
+      "sha256": "6a9d3612f9ae50448c0ad5e6ae65608fb31d551e92d98e248adcc01e20aaa178",
+      "size_bytes": 315
+    }
+  }
+}

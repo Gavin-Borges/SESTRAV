@@ -19,13 +19,14 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from joblib import load as joblib_load
 from sklearn.base import clone
 from sklearn.model_selection import StratifiedKFold
+from scipy.stats import false_discovery_control
 
+from src.artifact_integrity import load_verified_joblib
 from src.evaluate_metrics import evaluate
 from src.features import BINDING_ALLELE_COLUMNS
-from src.train_classifier import prepare_features, prepare_features_30
+from src.train_classifier import prepare_features, prepare_features_30, prepare_features_50
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.subgroup_eval import evaluate_subgroups
 from src.naming import resolve_model_path
@@ -96,9 +97,11 @@ def _build_features(
         return prepare_features(df, include_binding=False)
     if model_n_features == 30:
         return prepare_features_30(df, binding_matrix_path)
+    if model_n_features == 50:
+        return prepare_features_50(df, binding_matrix_path)
     raise ValueError(
         f"Unsupported model feature count: {model_n_features}. "
-        "Expected 21 or 30."
+        "Expected 21, 30, or 50."
     )
 
 
@@ -165,10 +168,20 @@ def run_h2_tier_a(
 
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df.loc[~gs_mask].copy().reset_index(drop=True)
+    
+    # EXACT/SUBSTRING OVERLAP CHECK: Remove train pool items that are exact/substrings of Gold Standard
+    gs_peptides = set(GOLD_STANDARD_EPITOPES)
+    overlap_mask = train_pool["peptide"].apply(
+        lambda p: p in gs_peptides or any(p in gs or gs in p for gs in gs_peptides)
+    )
+    if overlap_mask.any():
+        print(f"Removed {overlap_mask.sum()} peptides from train pool due to exact/substring overlap with Gold Standard.")
+    train_pool = train_pool.loc[~overlap_mask].copy().reset_index(drop=True)
+    
     y = train_pool["label"].to_numpy()
     subgroup_columns = [c for c in ["virus", "strain"] if c in train_pool.columns]
 
-    template_model = joblib_load(model_path)
+    template_model = load_verified_joblib(model_path, required_checksum=False)
     model_n_features = getattr(template_model, "n_features_in_", None)
     if model_n_features is None:
         raise ValueError(
@@ -261,6 +274,9 @@ def run_h2_tier_a(
     ratio_10 = float(int_row["issr_10_mean"] / denom_10) if denom_10 > 0 else np.nan
     ratio_25 = float(int_row["issr_25_mean"] / denom_25) if denom_25 > 0 else np.nan
     fold_delta_p = _paired_sign_flip_pvalue(np.asarray(fold_issr10_delta, dtype=float))
+    
+    # FDR Correction (Benjamini-Hochberg) on the single p-value, or multiple if extended
+    fdr_corrected_p = float(false_discovery_control([fold_delta_p])[0])
 
     y_oof = np.concatenate(oof_y) if oof_y else np.array([])
     int_oof = np.concatenate(oof_int) if oof_int else np.array([])
@@ -295,6 +311,7 @@ def run_h2_tier_a(
                 "issr_10_ratio_bootstrap_ci_low": ratio_10_ci_lo,
                 "issr_10_ratio_bootstrap_ci_high": ratio_10_ci_hi,
                 "issr_10_delta_fold_signflip_p_greater": fold_delta_p,
+                "issr_10_delta_fdr_corrected_p": fdr_corrected_p,
                 "binding_issr_10_mean": denom_10,
                 "ratio_stable_binding_issr10_gte_0_08": stable_ratio,
                 "ratio_ci_low_gte_2": ci_supports_h2,
@@ -314,6 +331,7 @@ def run_h2_tier_a(
     summary_df["issr_10_ratio_bootstrap_ci_low"] = np.nan
     summary_df["issr_10_ratio_bootstrap_ci_high"] = np.nan
     summary_df["issr_10_delta_fold_signflip_p_greater"] = np.nan
+    summary_df["issr_10_delta_fdr_corrected_p"] = np.nan
     summary_df["binding_issr_10_mean"] = np.nan
     summary_df["ratio_stable_binding_issr10_gte_0_08"] = np.nan
     summary_df["ratio_ci_low_gte_2"] = np.nan
@@ -359,7 +377,7 @@ def run_h2_tier_a(
 - R10 = ISSR@10(integrated) / ISSR@10(binding-only): `{ratio_10:.4f}`
 - R25 = ISSR@25(integrated) / ISSR@25(binding-only): `{ratio_25:.4f}`
 - Bootstrap 95% CI for R10 (OOF): `[{ratio_10_ci_lo:.4f}, {ratio_10_ci_hi:.4f}]`
-- Fold-level paired sign-flip p-value for ISSR@10 delta > 0: `{fold_delta_p:.4f}`
+- Fold-level paired sign-flip p-value for ISSR@10 delta > 0: `{fold_delta_p:.4f}` (FDR Corrected: `{fdr_corrected_p:.4f}`)
 - Binding ISSR@10 denominator quality: `{stability_line}`
 
 ## H2 Decision
@@ -367,8 +385,8 @@ def run_h2_tier_a(
 - Result: **{decision_line}**
 
 ## Output files
-- Fold metrics CSV: `{fold_csv}`
-- Summary CSV: `{summary_csv}`
+- Fold metrics CSV: `h2_tier_a_fold_metrics.csv`
+- Summary CSV: `h2_tier_a_summary.csv`
 """
     with open(summary_md, "w", encoding="utf-8") as f:
         f.write(md)

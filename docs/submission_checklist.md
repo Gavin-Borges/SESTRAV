@@ -15,7 +15,7 @@ Canonical-selection support docs:
 ### 1.1 Code and tests
 
 - [x] Core tests pass (`python -m pytest tests/ -q`)  
-  Last verified: **20 passed**.
+  Last verified: **17 passed, 5 skipped**.
 - [x] Core scoring and integration modules present:
   - `src/features.py`
   - `src/evaluate_metrics.py`
@@ -47,9 +47,9 @@ Canonical-selection support docs:
 - [x] H2 Tier A script now emits inferential evidence fields:
       bootstrap 95% CI for `R10` and paired fold sign-flip p-value.
 - [x] Generated canonical release artifact bundle locally:
-      `python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v1`
-      (`release_artifacts/sestrav-v1-20260421T211338Z.manifest.json`,
-       `release_artifacts/sestrav-v1-20260421T211338Z.zip`)
+      `python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v2`
+      (`release_artifacts/sestrav-v2-20260514T181938Z.manifest.json`,
+       `release_artifacts/sestrav-v2-*.zip`)
 - [ ] Upload manifest and zip to GitHub Releases.
 
 ---
@@ -119,17 +119,38 @@ Confirm files exist:
 - `release_artifacts/*.manifest.json`
 - `release_artifacts/*.zip`
 
+### 3.2a Optional extension track boundary (ANN/GNN/Colab)
+
+- [x] The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate.
+- [x] ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev docs.
+- [x] ANN, GNN, and Colab workflows are documented as optional/exploratory.
+- [x] Canonical release gate remains tied to Stage 1-4 + `full_validation_report` outputs.
+- [x] No release-blocking claim depends on optional ANN/GNN benchmark execution.
+
+Optional smoke commands (recommended, non-blocking):
+
+```bash
+python -m src.ann_benchmark --help
+python -m src.gnn_benchmark --help
+python -m src.baseline_comparison --help
+```
+
+Optional-track provenance docs:
+- `docs/nn_gnn_project2_sync_matrix.md`
+- `docs/nn_gnn_optional_module_guide.md`
+- `docs/external_validation_data_expansion_roadmap.md`
+
 ### 3.3 Suggested release flow
 
 ```bash
 git add -A
 git add -f results/final_validation_report.md results/h2_tier_a_summary.csv results/h2_tier_a_summary.md results/h2_tier_a_fold_metrics.csv results/gold_standard_validation.csv results/baseline_comparison.csv
 git commit -m "Finalize SESTRAV core pipeline validation and submission artifacts"
-git tag -a v1.0.0 -m "SESTRAV semester-final core release"
+git tag -a v2.0.0 -m "SESTRAV v2 reproducible release with external validation"
 git push origin HEAD --tags
 ```
 
-Then create a GitHub Release from `v1.0.0` and include:
+Then create a GitHub Release from `v2.0.0` and include:
 
 - brief project description
 - exact run commands
@@ -148,19 +169,19 @@ Current status note: container definitions are present, but final closeout still
 Build:
 
 ```bash
-docker build -t sestrav:1.0 .
+docker build -t sestrav:2.0 .
 ```
 
 Run pipeline with mounted outputs:
 
 ```bash
-docker run --rm -v "$(pwd)/results:/app/results" sestrav:1.0 python pipeline.py
+docker run --rm -v "$(pwd)/results:/app/results" sestrav:2.0 python pipeline.py
 ```
 
 Run final validation bundle in container:
 
 ```bash
-docker run --rm -v "$(pwd)/results:/app/results" sestrav:1.0 \
+docker run --rm -v "$(pwd)/results:/app/results" sestrav:2.0 \
   python -m src.final_validation_report \
   --results-dir results \
   --model-dir models \

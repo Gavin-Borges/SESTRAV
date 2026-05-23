@@ -170,11 +170,12 @@ def test_get_tcr_positions_length_relative():
 
 
 def test_feature_count():
-    """Every call must return exactly 22 features."""
+    """Every call must return exactly 42 features (22 canonical + 20 expanded)."""
+    from src.features import EXPANDED_FEATURE_COLUMNS
     for pep in ["CLGGLLTMV", "RAKFKQLL", "TIHDIILECV", "HPVGEADYFEY"]:
         f = compute_features(pep)
-        assert len(f) == 22, f"{pep}: expected 22 features, got {len(f)}"
-        for col in FEATURE_COLUMNS:
+        assert len(f) == 42, f"{pep}: expected 42 features, got {len(f)}"
+        for col in EXPANDED_FEATURE_COLUMNS:
             assert col in f, f"{pep}: missing feature column '{col}'"
 
 

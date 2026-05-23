@@ -1,0 +1,9 @@
+virus,tool,negatives_in_pool,pushed_down_vs_binding
+EBV,SESTRAV RF (immunogenicity_score),8,4
+EBV,Binding-only (binding_score),8,0
+EBV,PredIG-Path (max),8,3
+EBV,PRIME 2.1 (max),8,3
+HPV16,SESTRAV RF (immunogenicity_score),9,4
+HPV16,Binding-only (binding_score),9,0
+HPV16,PredIG-Path (max),9,3
+HPV16,PRIME 2.1 (max),9,4

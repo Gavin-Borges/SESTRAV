@@ -161,7 +161,8 @@ def test_evaluate_metrics_on_scored_peptides():
     y_true = np.array([1, 1, 0, 1, 0, 0])
     metrics = evaluate(y_true, scores)
 
-    assert set(metrics.keys()) == {'auc_roc', 'auc_pr', 'issr_10', 'issr_25'}
+    core_keys = {'auc_roc', 'auc_pr', 'issr_10', 'issr_25'}
+    assert core_keys.issubset(set(metrics.keys()))
     for k, v in metrics.items():
         assert 0.0 <= v <= 1.0, f"{k}={v} out of [0,1]"
 
@@ -199,7 +200,8 @@ def test_end_to_end_score_and_rank():
     assert df['rank'].max() == len(df)
     assert not df['immunogenicity_score'].isna().any()
 
-    tmppath = os.path.join(tempfile.gettempdir(), 'sestrav_integration_test.csv')
+    fd, tmppath = tempfile.mkstemp(prefix="sestrav_integration_", suffix=".csv")
+    os.close(fd)
     try:
         df.to_csv(tmppath, index=False)
         reloaded = pd.read_csv(tmppath)

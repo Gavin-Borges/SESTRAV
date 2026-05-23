@@ -1,0 +1,22 @@
+{
+  "n_total_peptides": 720,
+  "tools": {
+    "SESTRAV RF": {
+      "scored": 704,
+      "fraction": 0.9778
+    },
+    "binding_max": {
+      "scored": 720,
+      "fraction": 1.0
+    },
+    "PredIG-Path": {
+      "scored": 720,
+      "fraction": 1.0
+    },
+    "PRIME 2.1": {
+      "scored": 720,
+      "fraction": 1.0
+    }
+  },
+  "intersection_n": 704
+}

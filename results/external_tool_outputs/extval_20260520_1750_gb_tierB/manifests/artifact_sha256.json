@@ -1,0 +1,13 @@
+{
+  "logs/commands.log": "c52f7fe450166b420db922cf4d179d1ed244c3d9585d0409aa3b486a2b8bf698",
+  "manifests/input_hashes.json": "42fbcacc7b0288f5a9c4c497f46f73b440db284e553a5956be75b42dcc281ad9",
+  "manifests/provenance.json": "6b6495a63bd44c7207e41ced068853d95ce30103323f37e64c88531fa6c582c1",
+  "manifests/run_manifest.csv": "5b96045a07976837a82bc8c288b7eddfb94b9f99b204a6fd4b942eaf1257c1f4",
+  "manifests/tier_b_prefilter_manifest.json": "ecb5c3277716c9b3993171c286d5c07d2393ec6fa7673b6de874571ff4d4551a",
+  "processed/tier_b_gold_standard_recovery.csv": "f81fe9ab18590f6f4a422c234c3467bde6b5834cb27c39335c11e78c1584b27e",
+  "processed/tier_b_negative_discrimination.csv": "1ee285d5a24f54ae81966887b85345de83e53810584c0bafab95816b73924e68",
+  "processed/tier_b_recovery_summary.json": "2391f7167dc43557c050c7b960cc5b7d16648273c3b1fefec53cd9ad4983f3fa",
+  "raw/predig_path_output.csv": "7563342ea700c0b56a6e6f96376d1643d3e07b288e79b33ab68a85376118af11",
+  "raw/prime21_output.txt": "1261a53c647b82ac68a067d435057aa22d7ab66dd404abb8bcba99b02ff62aa2",
+  "legacy/external_benchmark_comparison.md": "e7dbf5ecf7ecbc3ee9b51131baacf0469494fbcfa97e50e51b96fc0502ec339c"
+}

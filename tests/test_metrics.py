@@ -41,12 +41,15 @@ def test_issr_perfect():
 
 
 def test_metric_keys():
-    """evaluate() must return exactly the 4 expected metric keys."""
+    """evaluate() must return at least the 4 core metric keys plus extended metrics."""
     y_true = np.array([0, 1, 0, 1])
     y_scores = np.array([0.2, 0.8, 0.3, 0.9])
     result = evaluate(y_true, y_scores)
-    expected_keys = {'auc_roc', 'auc_pr', 'issr_10', 'issr_25'}
-    assert set(result.keys()) == expected_keys
+    core_keys = {'auc_roc', 'auc_pr', 'issr_10', 'issr_25'}
+    extended_keys = {'precision_10', 'recall_10', 'ndcg_10',
+                     'precision_25', 'recall_25', 'ndcg_25'}
+    assert core_keys.issubset(set(result.keys())), f"Missing core keys: {core_keys - set(result.keys())}"
+    assert extended_keys.issubset(set(result.keys())), f"Missing extended keys: {extended_keys - set(result.keys())}"
 
 
 if __name__ == "__main__":

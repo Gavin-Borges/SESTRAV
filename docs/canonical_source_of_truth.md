@@ -1,13 +1,13 @@
-# SESTRAV Canonical Source of Truth Policy (v1)
+# SESTRAV Canonical Source of Truth Policy (v2)
 
-This document defines the single authoritative project path and execution track for SESTRAV v1.
+This document defines the single authoritative project path and execution track for SESTRAV v2.
 Use this policy for every rerun, report, and presentation claim.
 
 ## Authoritative Repository
 
 - Canonical source: this repository (`main` branch)
 
-All active v1 work must originate from this repository only.
+All active v2 work must originate from this repository only.
 Earlier development workspace copies are superseded and should not be used as release evidence.
 
 ## Canonical Track Rule
@@ -16,6 +16,7 @@ Earlier development workspace copies are superseded and should not be used as re
 - Canonical defaults:
   - `config.yaml` `feature_mode: 30`
   - `config.yaml` `model_path: models/rf_30feature_integrated.joblib`
+  - ANN: `models/ann_30feature_integrated.pt` (256-128-64 ReLU d0.2)
 
 The 21-feature track is retained as a historical comparator only.
 
@@ -37,11 +38,15 @@ Naming migration references:
 
 ## Documentation Rule
 
-For v1 external communication, keep these documents aligned:
+For v2 external communication, keep these documents aligned:
 
 - `README.md`
+- `CITATION.cff`
 - `docs/reproducibility_finalization_status.md`
 - `docs/colloquium_evidence_freeze_v2.md`
 - `docs/final_release_notes_draft.md`
+- `docs/nn_gnn_project2_sync_matrix.md` (optional ANN/GNN provenance)
+- `docs/nn_gnn_optional_module_guide.md` (optional ANN/GNN runtime/metrics)
+- `docs/external_validation_data_expansion_roadmap.md` (promotion criteria and next validation steps)
 
 If wording conflicts with this policy, update the docs above before distribution.

@@ -1,0 +1,8 @@
+{
+  "results/external_validation_input.csv": "74d7637f48f30f9a8a07bc4f0c0ddfecf955d3514ffd72440a5b1eb1b8f4b35f",
+  "results/external_predig_peptide_allele_pairs.csv": "2b7e4c7ea5f2695f93fbeaf396232d5d0cf2a8a4e8132c3e298c564a38da4f18",
+  "results/external_prime_peptides.txt": "499fafc187ae78b5791bcda9b93cc9afbd3fbbb0ed67b0794e6a5cc1fa03473b",
+  "results/external_prime_alleles_compact.txt": "f3cc6c7e2d8f0c79be3050cee3848d1d5bd6e73c2d91777ad164c495912741d5",
+  "immunogenicity_dataset.csv": "11ce4d771e68ba977c2761d3ed3898016f772563e2728e3b188b8ee758c5bbff",
+  "models/peptide_binding_matrix.csv": "aad6c0a74fe39ad9b60d6661c406f16a1e6cb0253af647fc6d6fdd1926e594bf"
+}
