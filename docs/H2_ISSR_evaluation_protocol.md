@@ -84,7 +84,7 @@ Report Tier B as **“gold-standard recovery vs binding-only rank”** and avoid
 ## 5. Minimal acceptance checklist
 
 - [ ] Tier A run completed with documented **binding aggregate** (default: max presentation across 10 alleles).
-- [ ] Same **928 labels** and **same folds** as production training (or documented deviation).
+- [ ] Same **720 labels** (v2 `immunogenicity_dataset.csv`) and **same folds** as production training — or **928** only if explicitly re-running v1 legacy (document which).
 - [ ] Table: ISSR@10 / ISSR@25 for **binding rank** vs **integrated model** (mean ± std across folds).
 - [x] `src/h2_tier_a_evaluation.py` now exports bootstrap 95% CI for \(R_{10}\) and fold-level paired sign-flip p-value.
 - [ ] Optional: Tier B gold-standard table from `baseline_comparison.py` cited as complementary evidence only.

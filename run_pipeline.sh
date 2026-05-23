@@ -38,7 +38,7 @@ with open('config.yaml') as f:
 assert 'model_path' in cfg, 'config.yaml missing model_path'
 model_path = cfg['model_path']
 model = load(model_path)
-assert model.n_features_in_ in (21, 30), f'Model expects unsupported feature count: {model.n_features_in_}'
+assert model.n_features_in_ in (21, 30, 50), f'Model expects unsupported feature count: {model.n_features_in_}'
 
 print('Pre-flight checks PASSED')
 print(f'  Model path: {model_path}')

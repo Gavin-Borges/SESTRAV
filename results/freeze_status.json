@@ -1,0 +1,26 @@
+{
+  "valid": true,
+  "freeze_mode": true,
+  "generated_at_utc": "2026-05-23T21:02:31.691647+00:00",
+  "dataset_mode": "expansion_alpha",
+  "dataset_version": "2.0.0-alpha",
+  "h2": {
+    "r10": 0.9493670886075949,
+    "r25": 1.0207514198339884,
+    "status": "NOT SUPPORTED"
+  },
+  "inputs": {
+    "data_path": {
+      "path": "immunogenicity_dataset.csv",
+      "sha256": "b95199092c40afb156bcaca9fc97176b4ed2a187901eec1e31b5f62bb8e19e5b"
+    },
+    "binding_matrix_path": {
+      "path": "models/peptide_binding_matrix_v3.csv",
+      "sha256": "c7bb5ea187533b6d57ed453dc4fe975d0a36628165d494f36d4456c094ba2fe8"
+    },
+    "model_path": {
+      "path": "models/rf_30feature_integrated.joblib",
+      "sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3"
+    }
+  }
+}

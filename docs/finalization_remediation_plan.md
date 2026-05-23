@@ -41,6 +41,8 @@ Items marked "In progress" already started in this repository.
 ## 4) Final verification pass
 
 - [x] Run full test suite: `python -m pytest tests/ -q` (`20 passed`)
+  - Historical scope note: this value is from the dated remediation cycle and
+    should not be interpreted as the latest repository-wide baseline.
 - [x] Re-run final validation bundle:
   - `snakemake --snakefile pipeline.smk full_validation_report --cores 4 --forceall`
 - [x] Build release bundle:

@@ -1,0 +1,6 @@
+{
+  "generated_utc": "2026-05-20T18:27:07.387404+00:00",
+  "recovery_csv": "results/external_tool_outputs/extval_20260520_1750_gb_tierB\\processed\\tier_b_gold_standard_recovery.csv",
+  "negative_csv": "results/external_tool_outputs/extval_20260520_1750_gb_tierB\\processed\\tier_b_negative_discrimination.csv",
+  "recovery_rows": 12
+}

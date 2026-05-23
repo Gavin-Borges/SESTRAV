@@ -3,9 +3,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11
-  - numpy
-  - pandas
-  - pip
+  - python=3.11.15
+  - numpy=1.26.4
+  - pandas=2.2.1
+  - scikit-learn=1.4.1.post1
+  - pip=24.0
   - pip:
       - -r requirements.txt

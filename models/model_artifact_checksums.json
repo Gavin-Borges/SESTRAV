@@ -1,0 +1,45 @@
+{
+  "generated_utc": "2026-05-22T18:38:08.719216+00:00",
+  "artifacts": {
+    "rf_30feature_integrated.joblib": {
+      "sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3",
+      "size_bytes": 8174137
+    },
+    "xgb_30feature_integrated.joblib": {
+      "sha256": "5be54358895a2e7b03e58bd35d88032995b5392f36bafbb11a09d7439dc30dcd",
+      "size_bytes": 388663
+    },
+    "training_results.csv": {
+      "sha256": "3c11b3b90cf42cb22f0123378cd9a5286c4fd92127e6591c6c9081a649919078",
+      "size_bytes": 945
+    },
+    "training_subgroup_metrics.csv": {
+      "sha256": "71c8ca1191d9b1bdade484a461cfd39d92cef3e9406812b9cf525f728ac644f6",
+      "size_bytes": 11597
+    },
+    "feature_importances.csv": {
+      "sha256": "c1080732fc7896ba15c84598dd47de2e3ce633de5127580e5e40fca48f72b660",
+      "size_bytes": 1175
+    },
+    "rf_oof_predictions.csv": {
+      "sha256": "9d34c318ef3140f70ce1fa105ce0847e5d9f474be3cbdf215f58038fe942eee6",
+      "size_bytes": 47173
+    },
+    "optimal_thresholds.json": {
+      "sha256": "87a319ec761a6120b79e457ab231c47161ee8e19bb3b7c7bef3c3e3eeba4cb98",
+      "size_bytes": 342
+    },
+    "rf_50feature_integrated.joblib": {
+      "sha256": "8c3e2918f84cf13af8f44a62ac1826590bf6e1334d17a782123a0f03377b01b0",
+      "size_bytes": 4050009
+    },
+    "xgb_50feature_integrated.joblib": {
+      "sha256": "541c7935dc01b33cf875a0dd5731462ca0e7047ae62fa418a41e3d1629fab98d",
+      "size_bytes": 176713
+    },
+    "ann_30feature_integrated.pt": {
+      "sha256": "15491dd8d36c409e17b14e547b974f2e9f269b6c1b321d0fa15a49dbc47144ed",
+      "size_bytes": 201813
+    }
+  }
+}

@@ -66,10 +66,10 @@ def _detect_format(filepath):
     Returns ('epitope_table', has_subheader) or ('tcell_assay', None).
     """
     if filepath.endswith('.csv'):
-        df = pd.read_csv(filepath, nrows=3)
-        cols_lower = [str(c).lower().strip() for c in df.columns]
-        if any('qualitative' in c for c in cols_lower):
-            return 'tcell_assay', None
+        df = pd.read_csv(filepath, nrows=3, header=None)
+        for _, row in df.iterrows():
+            if any('qualitative' in str(c).lower() for c in row):
+                return 'tcell_assay', None
         return 'epitope_table', False
 
     wb = openpyxl.load_workbook(filepath, read_only=True)
@@ -153,7 +153,14 @@ def _load_epitope_table(filepath, has_subheader):
 def load_iedb_file(filepath):
     """Load a single IEDB file (.xlsx or .csv) into a DataFrame."""
     if filepath.endswith('.csv'):
-        return pd.read_csv(filepath)
+        df_test = pd.read_csv(filepath, nrows=2, header=None)
+        if len(df_test) > 1 and any('qualitative' in str(c).lower() for c in df_test.iloc[1]):
+            return pd.read_csv(filepath, header=1, low_memory=False)
+        return pd.read_csv(filepath, low_memory=False)
+    
+    df_test = pd.read_excel(filepath, nrows=2, header=None)
+    if len(df_test) > 1 and any('qualitative' in str(c).lower() for c in df_test.iloc[1]):
+        return pd.read_excel(filepath, header=1)
     return pd.read_excel(filepath)
 
 
@@ -302,14 +309,16 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
         if not filename.endswith(('.xlsx', '.csv')):
             continue
 
-        virus = _virus_from_filename(filename)
-        if virus is None:
-            continue
-        if virus == 'HPV11' and not include_hpv11:
+        file_virus = _virus_from_filename(filename)
+        if file_virus == 'HPV11' and not include_hpv11:
             continue
 
         filepath = os.path.join(data_dir, filename)
         fmt, has_subheader = _detect_format(filepath)
+
+        if fmt == 'epitope_table' and file_virus is None:
+            print(f"[IEDB Loader] SKIP {filename}: cannot determine virus from filename for Epitope Table")
+            continue
 
         if fmt == 'epitope_table':
             label = _label_from_filename(filename)
@@ -325,12 +334,12 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
                     continue
                 if not is_valid_peptide(seq):
                     continue
-                protein = _infer_protein_gene(rec.get('antigen_name'), virus)
-                strain = _infer_strain(rec.get('organism_name'), virus)
+                protein = _infer_protein_gene(rec.get('antigen_name'), file_virus)
+                strain = _infer_strain(rec.get('organism_name'), file_virus)
                 all_records.append({
                     'peptide': seq,
                     'label': label,
-                    'virus': virus,
+                    'virus': file_virus,
                     'protein': protein,
                     'strain': strain,
                 })
@@ -347,13 +356,13 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
             organism_col = None
             for col in df.columns:
                 cl = str(col).lower().strip()
-                if peptide_col is None and (cl == 'description' or ('epitope' in cl and 'linear' in cl)):
+                if peptide_col is None and (cl == 'description' or cl == 'name' or ('epitope' in cl and 'linear' in cl)):
                     peptide_col = col
                 if label_col is None and 'qualitative' in cl:
                     label_col = col
                 if allele_col is None and 'allele' in cl:
                     allele_col = col
-                if antigen_col is None and 'antigen name' in cl:
+                if antigen_col is None and ('antigen name' in cl or 'source molecule' in cl):
                     antigen_col = col
                 if organism_col is None and 'organism' in cl:
                     organism_col = col
@@ -384,13 +393,27 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
                 if organism_col and pd.notna(row.get(organism_col)):
                     organism_raw = str(row[organism_col]).strip()
 
-                protein = _infer_protein_gene(antigen_raw, virus)
-                strain = _infer_strain(organism_raw, virus)
+                row_virus = file_virus
+                if row_virus is None:
+                    org_lower = organism_raw.lower() if organism_raw else ""
+                    if 'human herpesvirus 4' in org_lower or 'epstein barr' in org_lower or 'epstein-barr' in org_lower or 'ebv' in org_lower:
+                        row_virus = 'EBV'
+                    elif 'human papillomavirus type 16' in org_lower or 'hpv16' in org_lower or 'hpv-16' in org_lower:
+                        row_virus = 'HPV16'
+                    elif 'human papillomavirus type 11' in org_lower or 'hpv11' in org_lower or 'hpv-11' in org_lower:
+                        if not include_hpv11:
+                            continue
+                        row_virus = 'HPV11'
+                    else:
+                        continue
+
+                protein = _infer_protein_gene(antigen_raw, row_virus)
+                strain = _infer_strain(organism_raw, row_virus)
 
                 record = {
                     'peptide': peptide,
                     'label': row_label,
-                    'virus': virus,
+                    'virus': row_virus,
                     'protein': protein,
                     'strain': strain,
                 }

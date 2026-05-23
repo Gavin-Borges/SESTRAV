@@ -222,12 +222,29 @@ results/*
 !results/negative_class_analysis.csv
 !results/data_bias_audit.md
 !results/v1_v2_quality_comparison.md
+# Freeze status (machine-readable validity flag)
+!results/freeze_status.json
+# External validation sidecar files (PredIG/PRIME input prep)
+!results/external_validation_input.csv
+!results/external_predig_peptide_allele_pairs.csv
+!results/external_prime_peptides.txt
+!results/external_prime_alleles_compact.txt
+# External benchmark comparison outputs (generated after PredIG/PRIME runs)
+!results/external_benchmark_comparison.md
+!results/external_validation_merged_scores.csv
+!results/external_benchmark_roc_pr_curves.png
+!results/external_benchmark_score_distributions.png
+!results/external_benchmark_rank_scatter.png
+!results/external_tool_metrics_by_virus.csv
+!results/external_validation_cross_virus.csv
+!results/external_tool_outputs/
 # Shareout presentation assets (PNGs + summary files)
 !results/shareout_20260426/
 release_artifacts/
 *.pyc
 __pycache__/
 .snakemake/
+.snakemake/**
 *.egg-info/
 .DS_Store
 
@@ -235,6 +252,20 @@ __pycache__/
 data/proteomes/EBV_panel8_B958.fasta
 
 # Serialized model binaries (train locally with src/train_classifier.py)
+# Covers root and all subdirectories (ann/, gnn/, allele_aware/), both .pt and .pth extensions
+models/**/*.joblib
+models/**/*.pkl
+models/**/*.pt
+models/**/*.pth
 models/*.joblib
 models/*.pkl
 models/*.pt
+models/*.pth
+
+# Large reference FASTA databases — download independently, do not commit
+data/proteomes/uniprot_sprot.fasta
+data/proteomes/uniprot_sprot.fasta.gz
+data/proteomes/*.fasta.gz
+
+# Pytest custom temp directory (contains local username — do not commit)
+.pytest_tmp/

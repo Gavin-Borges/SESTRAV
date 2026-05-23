@@ -1,0 +1,70 @@
+{
+  "generated_utc": "2026-05-20T17:50:11.377981+00:00",
+  "scope": "tierB",
+  "top_n_per_virus": 2000,
+  "alleles": [
+    "HLA-A*02:01",
+    "HLA-A*01:01",
+    "HLA-A*03:01",
+    "HLA-A*24:02",
+    "HLA-A*11:01",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01"
+  ],
+  "allele_count": 9,
+  "viruses": {
+    "EBV": {
+      "features_file": "EBV_B95_8_panel8_features.csv",
+      "unique_peptides_in_proteome": 21002,
+      "tier_b_pool_size": 2000,
+      "top_n_requested": 2000,
+      "binding_max_at_rank_n": 0.326654091825822,
+      "gold_standard_total": 10,
+      "gold_standard_in_pool": 10,
+      "gold_standard_missing": [],
+      "forced_gold_standard_count": 10,
+      "peptide_list": "results\\external_tier_b_EBV_peptides.txt"
+    },
+    "HPV16": {
+      "features_file": "HPV16_18_panel8_features.csv",
+      "unique_peptides_in_proteome": 5347,
+      "tier_b_pool_size": 2000,
+      "top_n_requested": 2000,
+      "binding_max_at_rank_n": 0.0213116536314903,
+      "gold_standard_total": 5,
+      "gold_standard_in_pool": 5,
+      "gold_standard_missing": [],
+      "forced_gold_standard_count": 5,
+      "peptide_list": "results\\external_tier_b_HPV16_peptides.txt"
+    }
+  },
+  "gold_standard_audit": {
+    "EBV": {
+      "present": [
+        "AVFDRKSDAK",
+        "CLGGLLTMV",
+        "FLRGRAYGI",
+        "GLCTLVAML",
+        "HPVGEADYFEY",
+        "IVTDFSVIK",
+        "RAKFKQLL",
+        "RPPIFIRRL",
+        "TYSAGIVQI",
+        "YVLDHLIVV"
+      ],
+      "missing": []
+    },
+    "HPV16": {
+      "present": [
+        "KLPQLCTEL",
+        "LLMGTLGIV",
+        "RAHYNIVTF",
+        "TIHDIILECV",
+        "YMLDLQPET"
+      ],
+      "missing": []
+    }
+  }
+}

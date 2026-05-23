@@ -2,6 +2,10 @@
 
 Date: 2026-04-25
 
+Canonical pointer: `docs/current_evidence_freeze.md`
+
+Status note (2026-05-14): This file captures the 2026-04-25 freeze cycle. For the latest pre-publish rerun and go/no-go decision, see `docs/final_publish_gate_report_20260514.md`.
+
 ## Scope of this pass
 
 - Full comparative finalization: v1 vs v2 dataset evaluation
@@ -19,6 +23,9 @@ Date: 2026-04-25
 
 ## Preflight Tests
 
+- Historical scope note: the pass count below reflects the dated 2026-04-25
+  environment snapshot for this document, not the latest repository-wide test
+  baseline.
 - **PASS** (`20 passed, 8 warnings`)
 - Command: `conda run -n sestrav python -m pytest tests/ -q`
 - sklearn version warnings (model trained on 1.8.0, env has 1.6.1) are non-blocking; models retrained fresh each cycle.

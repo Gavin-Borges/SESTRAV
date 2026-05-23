@@ -104,4 +104,24 @@ Note: v1 AUC-PR is inflated by high positive prevalence (84.8%); v2 above-trivia
 3. **HLA panel**: Training labels are allele-blind (derived from IEDB Epitope Table filenames). Inference uses a 10-allele HLA-A/B panel for binding features.
 4. **Score saturation**: RF produces tied scores for a small fraction of peptides at 1.0. XGBoost provides finer resolution.
 5. **8-mer bias**: 8-mers are overrepresented in top ranks. Length-stratified ranking is recommended for experimental follow-up.
-6. **No external validation**: Predictions have not been tested against an independent experimental dataset. This is the highest-priority follow-up.
+6. **External tool validation (Tier A complete, v2.0 protocol):** PredIG-Path and PRIME 2.1
+   benchmarks executed per
+   `11_External-Testing/SESTRAV_External_Validation_PRIME_PredIG_Plan.md` and
+   `External_More_Goals_and_Plans.txt`. Pipeline: input prep, batched PredIG Docker,
+   WSL PRIME, `external_benchmark_comparison`, `external_validation_fairness`,
+   `external_validation_finalize` (FDR, MCDA, provenance). **Computational
+   cross-tool benchmarking on the same labeled IEDB-derived set — not wet-lab
+   validation.** Run `extval_20260520_1607_gb_tierA` (2026-05-20). Intersection
+   (704 rows): RF AUC-PR 0.828 vs PredIG 0.731 vs PRIME 0.786 vs binding 0.800.
+   MCDA: PredIG **Worse**; PRIME **Comparable – Contaminated** (36.9% overlap,
+   IEDB-family proxy train list). Analysis memo:
+   `11_External-Testing/External_Validation_TierA_Analysis_Memo.md`. **Tier B
+   complete** (`extval_20260520_1750_gb_tierB`): 4000-peptide GS recovery — binding
+   47% @10%, PRIME 40%, RF 20%, PredIG 18% combined; memo
+   `11_External-Testing/External_Validation_TierB_Memo.md`. Sign-off:
+   `11_External-Testing/External_Validation_Sign_Off.md`. Cross-virus A1:
+   `results/external_validation_cross_virus.csv`.
+7. **No independent experimental validation**: Predictions have not been tested
+   against a held-out experimental assay dataset. Plan:
+   `11_External-Testing/External_Validation_Wet_Lab_Plan.md` (highest-priority
+   follow-up now that computational Tier A+B are frozen).

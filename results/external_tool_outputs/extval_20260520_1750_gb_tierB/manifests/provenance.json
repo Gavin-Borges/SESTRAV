@@ -1,0 +1,35 @@
+{
+  "run_id": "extval_20260520_1750_gb_tierB",
+  "scope": "tierB",
+  "finalized_utc": "2026-05-20T18:27:43.535753+00:00",
+  "host": "GROG",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "protocol": "H2_ISSR_evaluation_protocol.md \u00a73 (gold-standard recovery in top 10%/25%)",
+  "prefilter": "top 2000 peptides/virus by binding_max union 15 canonical GS epitopes",
+  "tools": [
+    "SESTRAV RF",
+    "Binding-only",
+    "PredIG-Path",
+    "PRIME 2.1"
+  ],
+  "predig": {
+    "path": "raw/predig_path_output.csv",
+    "sha256": "7563342ea700c0b56a6e6f96376d1643d3e07b288e79b33ab68a85376118af11",
+    "n_rows": 36000,
+    "n_unique_peptides": 34668
+  },
+  "prime": {
+    "path": "raw/prime21_output.txt",
+    "sha256": "1261a53c647b82ac68a067d435057aa22d7ab66dd404abb8bcba99b02ff62aa2",
+    "n_rows": 4000,
+    "n_unique_peptides": 4000
+  },
+  "recovery_summary": {
+    "n_rows": 12,
+    "scopes": [
+      "tierB_EBV",
+      "tierB_HPV16",
+      "tierB_combined"
+    ]
+  }
+}

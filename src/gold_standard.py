@@ -17,6 +17,8 @@ Strain notes:
                 Current FASTA uses B95-8 EBNA1.
 """
 
+import os
+
 import pandas as pd
 from src.naming import proteome_id_candidates
 
@@ -112,6 +114,34 @@ VIRUS_FILE_MAP = {
 }
 
 
+def _resolve_stage_paths(results_dir, prefix, strict_stems=False):
+    """Resolve one coherent stem for peptides/binding/ranked stage outputs."""
+    candidates = proteome_id_candidates(prefix)
+    stem_availability = {}
+    for cand in candidates:
+        stem_availability[cand] = {
+            suffix: os.path.isfile(os.path.join(results_dir, f"{cand}_{suffix}.csv"))
+            for suffix in ("peptides", "binding", "ranked")
+        }
+
+    present_stems = [cand for cand, present in stem_availability.items() if any(present.values())]
+    if strict_stems and len(present_stems) > 1:
+        details = ", ".join(
+            f"{cand}={','.join(sorted([k for k, v in stem_availability[cand].items() if v]))}"
+            for cand in present_stems
+        )
+        raise RuntimeError(
+            f"Mixed output stems detected for '{prefix}': {details}. "
+            "Clean stale legacy/canonical outputs before freeze validation."
+        )
+
+    selected = present_stems[0] if present_stems else candidates[0]
+    return {
+        suffix: os.path.join(results_dir, f"{selected}_{suffix}.csv")
+        for suffix in ("peptides", "binding", "ranked")
+    }
+
+
 def _filter_gs(virus):
     """Return gold-standard entries for a specific virus, or all if None."""
     if virus is None:
@@ -150,10 +180,15 @@ def validate_stage2(binding_csv, virus=None, ic50_threshold=500):
     return pd.DataFrame(results)
 
 
-def validate_stage4(ranked_csv, virus=None, top_pct=25):
+def validate_stage4(ranked_csv, virus=None, top_pct=25, require_score_column=False):
     """Check which gold-standard peptides rank in the top N% of predictions."""
     df = pd.read_csv(ranked_csv)
     if 'immunogenicity_score' not in df.columns:
+        if require_score_column:
+            raise RuntimeError(
+                f"Stage 4 ranked file '{ranked_csv}' is missing 'immunogenicity_score'."
+            )
+        print(f"[Gold Standard] Skipping Stage 4 for '{ranked_csv}' (missing immunogenicity_score)")
         return pd.DataFrame(), top_pct
     threshold_rank = len(df) * top_pct / 100
     results = []
@@ -174,7 +209,7 @@ def validate_stage4(ranked_csv, virus=None, top_pct=25):
     return pd.DataFrame(results), top_pct
 
 
-def full_validation_report(results_dir, top_pct=25):
+def full_validation_report(results_dir, top_pct=25, strict_stems=False, require_stage4_score=False):
     """Run all validation stages across both viruses and produce a combined report.
 
     Args:
@@ -184,29 +219,25 @@ def full_validation_report(results_dir, top_pct=25):
     Returns:
         DataFrame with one row per gold-standard epitope and all stage results
     """
-    import os
     all_s1, all_s2, all_s4 = [], [], []
 
     for virus, prefix in VIRUS_FILE_MAP.items():
-        candidates = proteome_id_candidates(prefix)
-
-        def _first_existing(suffix):
-            for cand in candidates:
-                path = os.path.join(results_dir, f"{cand}_{suffix}.csv")
-                if os.path.isfile(path):
-                    return path
-            return os.path.join(results_dir, f"{prefix}_{suffix}.csv")
-
-        peptides = _first_existing("peptides")
-        binding = _first_existing("binding")
-        ranked = _first_existing("ranked")
+        stage_paths = _resolve_stage_paths(results_dir, prefix, strict_stems=strict_stems)
+        peptides = stage_paths["peptides"]
+        binding = stage_paths["binding"]
+        ranked = stage_paths["ranked"]
 
         if os.path.isfile(peptides):
             all_s1.append(validate_stage1(peptides, virus=virus))
         if os.path.isfile(binding):
             all_s2.append(validate_stage2(binding, virus=virus))
         if os.path.isfile(ranked):
-            s4_df, _ = validate_stage4(ranked, virus=virus, top_pct=top_pct)
+            s4_df, _ = validate_stage4(
+                ranked,
+                virus=virus,
+                top_pct=top_pct,
+                require_score_column=require_stage4_score,
+            )
             if not s4_df.empty:
                 all_s4.append(s4_df)
 
@@ -281,7 +312,7 @@ def full_validation_report(results_dir, top_pct=25):
     return report
 
 
-def validate_negative_discrimination(results_dir, top_pct=25):
+def validate_negative_discrimination(results_dir, top_pct=25, strict_stems=False):
     """Check whether the integrated model pushes gold-standard negatives
     lower in the ranking than the binding-only baseline does.
 
@@ -294,22 +325,12 @@ def validate_negative_discrimination(results_dir, top_pct=25):
         DataFrame with one row per gold-standard negative and rank data
         for both scoring methods.
     """
-    import os
-    gs_neg_peptides = {gs['peptide'] for gs in GOLD_STANDARD_NEGATIVES}
     results = []
 
     for virus, prefix in VIRUS_FILE_MAP.items():
-        ranked_path = None
-        binding_path = None
-        for cand in proteome_id_candidates(prefix):
-            rp = os.path.join(results_dir, f"{cand}_ranked.csv")
-            bp = os.path.join(results_dir, f"{cand}_binding.csv")
-            if os.path.isfile(rp):
-                ranked_path = rp
-            if os.path.isfile(bp):
-                binding_path = bp
-            if ranked_path and binding_path:
-                break
+        stage_paths = _resolve_stage_paths(results_dir, prefix, strict_stems=strict_stems)
+        ranked_path = stage_paths["ranked"]
+        binding_path = stage_paths["binding"]
 
         if ranked_path is None or binding_path is None:
             continue
@@ -375,28 +396,19 @@ def validate_negative_discrimination(results_dir, top_pct=25):
     return report
 
 
-def validate_expanded_negative_discrimination(results_dir, top_pct=25):
+def validate_expanded_negative_discrimination(results_dir, top_pct=25, strict_stems=False):
     """Run negative discrimination on the expanded candidate set.
 
     Same methodology as validate_negative_discrimination but uses
     GOLD_STANDARD_NEGATIVES_EXPANDED (pending expert review).
     Results are kept separate from the primary validation.
     """
-    import os
     results = []
 
     for virus, prefix in VIRUS_FILE_MAP.items():
-        ranked_path = None
-        binding_path = None
-        for cand in proteome_id_candidates(prefix):
-            rp = os.path.join(results_dir, f"{cand}_ranked.csv")
-            bp = os.path.join(results_dir, f"{cand}_binding.csv")
-            if os.path.isfile(rp):
-                ranked_path = rp
-            if os.path.isfile(bp):
-                binding_path = bp
-            if ranked_path and binding_path:
-                break
+        stage_paths = _resolve_stage_paths(results_dir, prefix, strict_stems=strict_stems)
+        ranked_path = stage_paths["ranked"]
+        binding_path = stage_paths["binding"]
 
         if ranked_path is None or binding_path is None:
             continue

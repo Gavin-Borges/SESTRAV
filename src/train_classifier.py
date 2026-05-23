@@ -34,9 +34,13 @@ from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
 from joblib import dump
 
+from src.artifact_integrity import MODEL_CHECKSUM_MANIFEST, update_checksum_manifest
 from src.features import (
     compute_features, FEATURE_COLUMNS, TRAIN_FEATURE_COLUMNS,
     FEATURE_COLUMNS_30, BINDING_ALLELE_COLUMNS, PHYSICO_COLUMNS,
+    FEATURE_COLUMNS_ALLELE, HLA_PSEUDO_COLS,
+    FEATURE_COLUMNS_50, EXPANDED_PHYSICO_COLUMNS,
+    compute_sample_weights,
 )
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
@@ -95,6 +99,91 @@ def prepare_features_30(df, binding_matrix_path):
                       bind_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_30]
 
 
+def prepare_features_50(df, binding_matrix_path):
+    """Build the 50-feature expanded matrix."""
+    binding_df = pd.read_csv(binding_matrix_path)
+    bind_cols_present = [c for c in BINDING_ALLELE_COLUMNS if c in binding_df.columns]
+    if len(bind_cols_present) < 10:
+        raise ValueError(
+            f"Binding matrix has only {len(bind_cols_present)}/10 expected allele columns"
+        )
+    binding_lookup = binding_df.set_index('peptide')[bind_cols_present]
+
+    physico_records = []
+    for _, row in df.iterrows():
+        feats = compute_features(row['peptide'], binding_score=0.0)
+        physico_records.append(feats)
+    physico_df = pd.DataFrame(physico_records)[EXPANDED_PHYSICO_COLUMNS]
+
+    peptides = df['peptide'].values
+    bind_rows = []
+    for pep in peptides:
+        if pep in binding_lookup.index:
+            bind_rows.append(binding_lookup.loc[pep].values)
+        else:
+            bind_rows.append(np.zeros(10))
+    bind_df = pd.DataFrame(bind_rows, columns=BINDING_ALLELE_COLUMNS)
+
+    return pd.concat([physico_df.reset_index(drop=True),
+                      bind_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_50]
+
+
+def prepare_features_166(df, binding_matrix_path):
+    """Build the 166-feature allele-aware matrix.
+
+    Combines:
+    - 20 physicochemical features (p4-p8 positions)
+    - 10 per-allele MHCflurry binding scores
+    - 136 HLA pocket pseudo-sequence features (pre-computed in the allele-aware CSV)
+
+    The HLA pseudo-sequence columns (hla_p1_hydrophobicity ... hla_p34_charge)
+    are expected to already be present in `df` (written by extract_allele_aware_data.py).
+    The binding scores are looked up from the binding_matrix_path by peptide.
+
+    Returns a DataFrame with columns matching FEATURE_COLUMNS_ALLELE (166 cols).
+    """
+    # Check pseudo-sequence columns are present
+    missing_pseudo = [c for c in HLA_PSEUDO_COLS if c not in df.columns]
+    if missing_pseudo:
+        raise ValueError(
+            f"Allele-aware dataset is missing {len(missing_pseudo)} HLA pseudo-sequence columns "
+            f"(e.g. {missing_pseudo[0]}). Re-run scripts/extract_allele_aware_data.py."
+        )
+
+    # 20 physico features
+    physico_records = []
+    for _, row in df.iterrows():
+        feats = compute_features(row['peptide'], binding_score=0.0)
+        physico_records.append(feats)
+    physico_df = pd.DataFrame(physico_records)[PHYSICO_COLUMNS]
+
+    # 10 binding scores from matrix
+    binding_df = pd.read_csv(binding_matrix_path)
+    bind_cols_present = [c for c in BINDING_ALLELE_COLUMNS if c in binding_df.columns]
+    if bind_cols_present:
+        binding_lookup = binding_df.set_index('peptide')[bind_cols_present]
+        bind_rows = []
+        for pep in df['peptide'].values:
+            if pep in binding_lookup.index:
+                bind_rows.append(binding_lookup.loc[pep].values)
+            else:
+                bind_rows.append(np.zeros(len(bind_cols_present)))
+        bind_df_out = pd.DataFrame(bind_rows, columns=BINDING_ALLELE_COLUMNS)
+    else:
+        bind_df_out = pd.DataFrame(
+            np.zeros((len(df), 10)), columns=BINDING_ALLELE_COLUMNS
+        )
+
+    # 136 HLA pseudo-sequence features (already in df)
+    pseudo_df = df[HLA_PSEUDO_COLS].reset_index(drop=True)
+
+    return pd.concat([
+        physico_df.reset_index(drop=True),
+        bind_df_out.reset_index(drop=True),
+        pseudo_df,
+    ], axis=1)[FEATURE_COLUMNS_ALLELE]
+
+
 def _cross_validate(
     X,
     y,
@@ -105,6 +194,7 @@ def _cross_validate(
     random_state=42,
     subgroup_columns=None,
     min_group_size=15,
+    sample_weights=None,
 ):
     """Run stratified k-fold CV and return aggregate, subgroup rows, and OOF scores."""
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
@@ -115,8 +205,13 @@ def _cross_validate(
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_val = y[train_idx], y[val_idx]
 
+        # Sample weights for this fold's training split (if provided)
+        sw_tr = None
+        if sample_weights is not None:
+            sw_tr = sample_weights[train_idx]
+
         model = model_cls(**model_kwargs)
-        model.fit(X_tr, y_tr)
+        model.fit(X_tr, y_tr, sample_weight=sw_tr)
         scores = model.predict_proba(X_val)[:, 1]
         m = evaluate(y_val, scores)
         fold_metrics.append(m)
@@ -156,13 +251,15 @@ def _cross_validate(
 
 
 def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
-                  feature_mode=21, binding_matrix_path=None):
+                  feature_mode=21, binding_matrix_path=None,
+                  use_sample_weights=False):
     """
     Full training pipeline:
     1. Load cleaned IEDB data
     2. Remove gold-standard epitopes from training
     3. Compute feature matrix (21 or 30 features depending on mode)
     4. Stratified 5-fold cross-validation for reliable metric estimates
+       (optionally with EBV/HPV16 and 9-mer/non-9-mer sample weights)
     5. Retrain on full pool with class-imbalance handling
     6. Serialize final models
     """
@@ -177,7 +274,19 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
     print(f"Held out {len(gold_standard_df)} gold-standard epitope records")
     print(f"Training pool: {len(train_pool)} records")
 
-    if feature_mode == 30:
+    if feature_mode == 166:
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 166")
+        X = prepare_features_166(train_pool, binding_matrix_path)
+        feature_cols_used = FEATURE_COLUMNS_ALLELE
+        mode_label = "166-feature allele-aware (20 physico + 10 binding + 136 HLA pseudo-seq)"
+    elif feature_mode == 50:
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 50")
+        X = prepare_features_50(train_pool, binding_matrix_path)
+        feature_cols_used = FEATURE_COLUMNS_50
+        mode_label = "50-feature expanded multi-allele"
+    elif feature_mode == 30:
         if binding_matrix_path is None:
             raise ValueError("--binding-matrix is required for feature-mode 30")
         X = prepare_features_30(train_pool, binding_matrix_path)
@@ -198,6 +307,21 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
     n_pos = int(np.sum(y == 1))
     spw = n_neg / max(n_pos, 1)
 
+    # --- Sample weights (optional bias correction) ---
+    sample_weights = None
+    if use_sample_weights:
+        sample_weights = compute_sample_weights(train_pool)
+        # Normalize array to align with X index
+        sample_weights = np.array(sample_weights)
+        pos_rate_ebv = train_pool[train_pool['virus'] == 'EBV']['label'].mean() if 'virus' in train_pool.columns else None
+        pos_rate_hpv = train_pool[train_pool['virus'] == 'HPV16']['label'].mean() if 'virus' in train_pool.columns else None
+        nine_mer_pct = (train_pool['peptide'].str.len() == 9).mean()
+        print(f"  Sample weights enabled (virus_weight=0.5, length_weight=0.5)")
+        if pos_rate_ebv is not None:
+            print(f"    EBV positive rate: {pos_rate_ebv:.2%}  |  HPV16 positive rate: {pos_rate_hpv:.2%}")
+        print(f"    9-mer fraction: {nine_mer_pct:.2%}")
+        print(f"    Weight range: [{sample_weights.min():.3f}, {sample_weights.max():.3f}]")
+
     rf_kwargs = dict(
         n_estimators=200,
         class_weight='balanced',
@@ -208,7 +332,8 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         n_estimators=200,
         scale_pos_weight=spw,
         random_state=random_state,
-        eval_metric='logloss',
+        eval_metric='aucpr',
+        objective='binary:logistic',
         nthread=1,
     )
 
@@ -220,6 +345,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         X, y, metadata, RandomForestClassifier, rf_kwargs,
         n_splits=n_cv_folds, random_state=random_state,
         subgroup_columns=subgroup_columns,
+        sample_weights=sample_weights,
     )
     print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in rf_avg.items()))
     print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in rf_std.items()))
@@ -231,6 +357,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         X, y, metadata, XGBClassifier, xgb_kwargs,
         n_splits=n_cv_folds, random_state=random_state,
         subgroup_columns=subgroup_columns,
+        sample_weights=sample_weights,
     )
     print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_avg.items()))
     print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_std.items()))
@@ -242,6 +369,9 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
     if feature_mode == 21:
         rf_stem = 'rf_21feature_legacy'
         xgb_stem = 'xgb_21feature_legacy'
+    elif feature_mode == 166:
+        rf_stem = 'rf_166feature_allele_aware'
+        xgb_stem = 'xgb_166feature_allele_aware'
     else:
         rf_stem = f'rf_{feature_mode}feature_integrated'
         xgb_stem = f'xgb_{feature_mode}feature_integrated'
@@ -316,6 +446,20 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         print(f"OOF predictions saved to {rf_oof_path}")
         print(f"Optimal threshold summary saved to {threshold_path}")
 
+    checksum_manifest = os.path.join(model_dir, MODEL_CHECKSUM_MANIFEST)
+    update_checksum_manifest(
+        checksum_manifest,
+        [
+            rf_path,
+            xgb_path,
+            results_path,
+            subgroup_path,
+            imp_path,
+            *( [rf_oof_path, threshold_path] if not rf_oof.empty else [] ),
+        ],
+    )
+    print(f"Artifact checksums updated in {checksum_manifest}")
+
     return rf_final, xgb_final, rf_avg, xgb_avg
 
 
@@ -324,10 +468,13 @@ if __name__ == '__main__':
     parser.add_argument('--data', required=True, help='Path to immunogenicity_dataset.csv')
     parser.add_argument('--model-dir', default='models', help='Output directory for serialized models')
     parser.add_argument('--cv-folds', type=int, default=5, help='Number of CV folds (default: 5)')
-    parser.add_argument('--feature-mode', type=int, default=21, choices=[21, 30],
-                        help='Feature mode: 21 (sequence-only) or 30 (physico + multi-allele binding)')
+    parser.add_argument('--feature-mode', type=int, default=21, choices=[21, 30, 50, 166],
+                        help='Feature mode: 21 (sequence-only) or 30 (physico + multi-allele) or 50 (expanded)')
     parser.add_argument('--binding-matrix', default=None,
                         help='Path to peptide_binding_matrix.csv (required for --feature-mode 30)')
+    parser.add_argument('--sample-weights', action='store_true',
+                        help='Apply EBV/HPV16 and 9-mer/non-9-mer bias-correction weights during training')
     args = parser.parse_args()
     train_models(args.data, args.model_dir, n_cv_folds=args.cv_folds,
-                 feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix)
+                 feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix,
+                 use_sample_weights=args.sample_weights)

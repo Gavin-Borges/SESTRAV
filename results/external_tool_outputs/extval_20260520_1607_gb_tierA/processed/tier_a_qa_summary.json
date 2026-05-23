@@ -1,0 +1,22 @@
+{
+  "run_id": "extval_20260520_1607_gb_tierA",
+  "qa_utc": "2026-05-20T18:00:00Z",
+  "status": "pass",
+  "checks": {
+    "predig_rows": 7200,
+    "predig_unique_peptides": 720,
+    "prime_peptides": 720,
+    "labeled_peptides": 720,
+    "gold_standard_holdouts": 16,
+    "intersection_n": 704,
+    "figures_in_run_dir": true,
+    "missing_manifest_paths": [
+      "legacy/external_benchmark_comparison.md",
+      "legacy/external_validation_merged_scores.csv"
+    ]
+  },
+  "notes": [
+    "Headline metric table uses n=720 for external tools; MCDA primary uses n=704 intersection (16 holdouts lack RF OOF).",
+    "Legacy manifest entries are optional aliases; canonical report is results/external_benchmark_comparison.md."
+  ]
+}

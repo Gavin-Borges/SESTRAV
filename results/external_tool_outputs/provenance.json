@@ -1,0 +1,27 @@
+{
+  "run_id": "extval_20260520_1607_gb_tierA",
+  "created_utc": "2026-05-20T16:07:00Z",
+  "predig": {
+    "version": "bsceapm/predig:latest",
+    "model": "PredIG-Path (pathogen)",
+    "image_digest": "sha256:c1fc991295ea4c527e388ca8256605d1c7a4fc4f68fd2a0a34447385875b36ab",
+    "execution": "scripts/run_predig_batched.py (2 batches, 4800 row limit)",
+    "n_peptides_input": 720,
+    "n_rows_input": 7200,
+    "n_peptides_output": 720,
+    "score_column": "PredIG"
+  },
+  "prime": {
+    "version": "PRIME 2.1 (GfellerLab master + compiled PRIME.x)",
+    "mixmhcpred_version": "MixMHCpred3.0",
+    "platform": "WSL2 Ubuntu",
+    "alleles_used": "A0201,A0101,A0301,A2402,A1101,B0702,B0801,B2705,B3501 (B4402 unsupported)",
+    "score_column_used": "Score_bestAllele",
+    "n_peptides_input": 720,
+    "n_peptides_output": 720
+  },
+  "sestrav": {
+    "freeze_status": "results/freeze_status.json valid=true",
+    "dataset_sha256": "11ce4d771e68ba977c2761d3ed3898016f772563e2728e3b188b8ee758c5bbff"
+  }
+}
