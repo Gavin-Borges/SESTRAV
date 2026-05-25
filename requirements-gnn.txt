@@ -1,2 +1,2 @@
 -r requirements-ann.txt
-torch-geometric>=2.5.0
+torch-geometric>=2.7.0
