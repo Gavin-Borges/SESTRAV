@@ -65,7 +65,7 @@ def _load_torch_checkpoint(model_path):
     """Load ANN checkpoints using the safe weights-only path only."""
     verify_artifact_checksum(model_path, required=False)
     try:
-        return torch.load(model_path, map_location='cpu', weights_only=True)
+        return torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
     except Exception:
         raise RuntimeError(
             f"[Baseline] Unable to load ANN checkpoint '{model_path}' with weights_only=True. "
@@ -312,6 +312,12 @@ if __name__ == '__main__':
     parser.add_argument('--model-dir', default='models',
                         help='Directory containing .joblib model files')
     args = parser.parse_args()
+
+    # Input validation
+    if not os.path.isdir(args.results_dir):
+        parser.error(f"Results directory does not exist: '{args.results_dir}'")
+    if not os.path.isdir(args.model_dir):
+        parser.error(f"Models directory does not exist: '{args.model_dir}'")
 
     results = compare_methods(args.results_dir, args.model_dir)
 

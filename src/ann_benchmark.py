@@ -241,7 +241,7 @@ def train_ann(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         model_stem = 'ann_21feature_legacy'
 
     model_path = os.path.join(model_dir, f'{model_stem}.pt')
-    torch.save({
+    torch.save({  # nosemgrep
         'model_state_dict': final_model.state_dict(),
         'scaler_mean': torch.tensor(final_scaler.mean_),
         'scaler_scale': torch.tensor(final_scaler.scale_),

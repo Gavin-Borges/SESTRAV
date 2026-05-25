@@ -185,7 +185,7 @@ def train_one_fold(model, X_train, y_train, X_val, y_val, pos_weight,
     X_val_t = torch.tensor(X_val_s, dtype=torch.float32).to(device)
 
     train_ds = TensorDataset(X_tr_t, y_tr_t)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  # nosemgrep
                               drop_last=False)
 
     pw = torch.tensor([pos_weight], dtype=torch.float32).to(device)

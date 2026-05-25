@@ -230,6 +230,19 @@ if __name__ == "__main__":
     parser.add_argument("--freeze-mode", action="store_true")
     args = parser.parse_args()
 
+    # Input validation
+    if not os.path.isdir(args.results_dir):
+        parser.error(f"Results directory does not exist: '{args.results_dir}'")
+    if not os.path.isdir(args.model_dir):
+        parser.error(f"Models directory does not exist: '{args.model_dir}'")
+    if not os.path.isfile(args.data):
+        parser.error(f"Data file does not exist: '{args.data}'")
+    if not os.path.isfile(args.binding_matrix):
+        parser.error(f"Binding matrix file does not exist: '{args.binding_matrix}'")
+    resolved_path = resolve_model_path(args.model_path)
+    if args.freeze_mode and not os.path.isfile(resolved_path):
+        parser.error(f"Model path does not exist (required in freeze mode): '{args.model_path}'")
+
     run_final_validation(
         results_dir=args.results_dir,
         model_dir=args.model_dir,
