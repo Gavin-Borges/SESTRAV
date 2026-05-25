@@ -24,7 +24,13 @@ def _allele_to_col(allele):
     return 'bind_' + re.sub(r'[^A-Za-z0-9]', '', allele.replace('HLA-', ''))
 
 
+def _sanitize_name(name):
+    """Allow only alphanumeric, underscores, and hyphens."""
+    return re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
+
+
 def predict_binding(peptides_df, proteome_id, alleles=None):
+    proteome_id = _sanitize_name(proteome_id)
     """
     Predict MHC-I presentation using MHCflurry for all unique peptides.
 

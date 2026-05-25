@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY environments/requirements.lock ./environments/
-RUN pip install --no-cache-dir -r environments/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r environments/requirements.lock
 
 COPY . .
 
@@ -20,6 +20,8 @@ RUN useradd -m -s /bin/bash sestrav && chown -R sestrav:sestrav /app
 USER sestrav
 
 RUN mhcflurry-downloads fetch models_class1_presentation
+
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD python -c "import mhcflurry" || exit 1
 
 ENTRYPOINT ["python"]
 CMD ["pipeline.py"]
