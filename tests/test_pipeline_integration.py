@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import numpy as np
 import pandas as pd
-from joblib import load as joblib_load
+from src.artifact_integrity import load_verified_joblib
 
 from src.features import (
     compute_features, compute_features_for_dataset,
@@ -93,7 +93,7 @@ def test_legacy_rf_model_loads_and_scores():
         import pytest
         pytest.skip("rf_21feature_legacy.joblib not found (run training first)")
 
-    model = joblib_load(model_path)
+    model = load_verified_joblib(model_path, required_checksum=True)
     assert model.n_features_in_ == 21
 
     df = _make_synthetic_features_df()
@@ -114,7 +114,7 @@ def test_xgb_model_loads_and_scores():
         import pytest
         pytest.skip("xgb_21feature_legacy.joblib not found (run training first)")
 
-    model = joblib_load(model_path)
+    model = load_verified_joblib(model_path, required_checksum=True)
     assert model.n_features_in_ == 21
 
     df = _make_synthetic_features_df()
@@ -133,7 +133,7 @@ def test_canonical_rf_model_loads_and_scores():
         import pytest
         pytest.skip("rf_30feature_integrated.joblib not found (run canonical training first)")
 
-    model = joblib_load(model_path)
+    model = load_verified_joblib(model_path, required_checksum=True)
     assert model.n_features_in_ == 30
 
     df = _make_synthetic_features_df()
@@ -154,7 +154,7 @@ def test_evaluate_metrics_on_scored_peptides():
         import pytest
         pytest.skip("model not found (run training first)")
 
-    model = joblib_load(model_path)
+    model = load_verified_joblib(model_path, required_checksum=True)
     df = _make_synthetic_features_df()
     scores = model.predict_proba(df[TRAIN_FEATURE_COLUMNS])[:, 1]
 
@@ -189,7 +189,7 @@ def test_end_to_end_score_and_rank():
         import pytest
         pytest.skip("model not found (run training first)")
 
-    model = joblib_load(model_path)
+    model = load_verified_joblib(model_path, required_checksum=True)
     df = _make_synthetic_features_df()
     X = df[TRAIN_FEATURE_COLUMNS]
 

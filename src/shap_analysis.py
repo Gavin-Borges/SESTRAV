@@ -113,8 +113,8 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
         xgb_path = os.path.join(model_dir, 'xgb_21feature_legacy.joblib')
         feature_cols = TRAIN_FEATURE_COLUMNS
 
-    rf_model = load_verified_joblib(resolve_model_path(rf_path), required_checksum=False)
-    xgb_model = load_verified_joblib(resolve_model_path(xgb_path), required_checksum=False)
+    rf_model = load_verified_joblib(resolve_model_path(rf_path), required_checksum=True)
+    xgb_model = load_verified_joblib(resolve_model_path(xgb_path), required_checksum=True)
 
     combined = _load_features(results_dir)
     cols = [c for c in feature_cols if c in combined.columns]

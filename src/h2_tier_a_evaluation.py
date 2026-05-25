@@ -181,7 +181,7 @@ def run_h2_tier_a(
     y = train_pool["label"].to_numpy()
     subgroup_columns = [c for c in ["virus", "strain"] if c in train_pool.columns]
 
-    template_model = load_verified_joblib(model_path, required_checksum=False)
+    template_model = load_verified_joblib(model_path, required_checksum=True)
     model_n_features = getattr(template_model, "n_features_in_", None)
     if model_n_features is None:
         raise ValueError(

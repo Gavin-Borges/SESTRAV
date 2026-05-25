@@ -6,6 +6,10 @@ version: 2.0.0
 date-released: 2026-05-22
 license: MIT
 repository-code: "https://github.com/Gavin-Borges/SESTRAV"
+contact:
+  - family-names: Borges
+    given-names: Gavin
+    affiliation: "University of Rhode Island"
 abstract: >-
   SESTRAV is an open-source pipeline engineered to overcome the computational
   specificity bottleneck in therapeutic vaccine development for oncogenic viruses

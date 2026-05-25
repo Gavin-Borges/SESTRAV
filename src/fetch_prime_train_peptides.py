@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
+import re
+import shutil
+import subprocess  # nosec B404
 import sys
 from datetime import datetime, timezone
 
@@ -48,12 +50,29 @@ def from_proxy(proxy_path: str) -> pd.DataFrame:
     )
 
 
+def is_safe_wsl_path(path: str) -> bool:
+    """Validate that the path only contains safe alphanumeric or path characters."""
+    return bool(re.match(r"^[a-zA-Z0-9_\-\.\/\\~: ]+$", path))
+
+
 def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
     """Return peptides if a train-list file is found under PRIME install."""
+    if not is_safe_wsl_path(wsl_root):
+        print(f"[prime-train] Unsafe wsl_root path: {wsl_root}", file=sys.stderr)
+        return None
+
+    wsl_bin = shutil.which("wsl")
+    if not wsl_bin:
+        if os.path.exists(r"C:\Windows\System32\wsl.exe"):
+            wsl_bin = r"C:\Windows\System32\wsl.exe"
+        else:
+            wsl_bin = "wsl"
+
     try:
-        out = subprocess.check_output(
+        # Check command and run wsl find
+        out = subprocess.check_output(  # nosec B603
             [
-                "wsl",
+                wsl_bin,  # nosec B607
                 "find",
                 wsl_root,
                 "-maxdepth",
@@ -83,14 +102,16 @@ def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
 
     paths = [p.strip() for p in out.splitlines() if p.strip()][:5]
     for rel in paths:
+        if not is_safe_wsl_path(rel):
+            continue
         try:
-            cat = subprocess.check_output(["wsl", "head", "-3", rel], text=True)
+            cat = subprocess.check_output([wsl_bin, "head", "-3", rel], text=True)  # nosec B603 B607
         except subprocess.SubprocessError:
             continue
         if not cat or ("\t" not in cat and "," not in cat):
             continue
         try:
-            full = subprocess.check_output(["wsl", "cat", rel], text=True)
+            full = subprocess.check_output([wsl_bin, "cat", rel], text=True)  # nosec B603 B607
             from io import StringIO
 
             df = pd.read_csv(StringIO(full), sep=None, engine="python")
@@ -99,7 +120,7 @@ def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
             return pd.DataFrame(
                 {"epitope": peps, "source": f"prime_install:{rel}", "note": "Extracted from local PRIME install"}
             )
-        except Exception:
+        except (pd.errors.ParserError, ValueError, KeyError, FileNotFoundError, IndexError):
             continue
     return None
 

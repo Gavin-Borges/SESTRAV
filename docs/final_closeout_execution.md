@@ -48,7 +48,7 @@ Required fix path:
    - `pip install -r requirements.txt`
 3. Run `mhcflurry-downloads fetch models_class1_presentation`.
 4. Train canonical local model artifacts:
-   - `python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv`
+   - `python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv`
 5. Run `snakemake --snakefile pipeline.smk --cores 4 --forceall` in that environment for full artifact regeneration.
 6. Run `snakemake --snakefile pipeline.smk full_validation_report --cores 4 --forceall` to refresh validation artifacts from the same run.
 

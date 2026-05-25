@@ -16,6 +16,7 @@ Canonical-selection support docs:
 
 - [x] Core tests pass (`python -m pytest tests/ -q`)  
   Last verified: **17 passed, 5 skipped**.
+- [x] Static security scan (`bandit`) completed with no high/medium severity findings.
 - [x] Core scoring and integration modules present:
   - `src/features.py`
   - `src/evaluate_metrics.py`
@@ -35,6 +36,7 @@ Canonical-selection support docs:
   - `results/gold_standard_validation.csv`
   - `results/baseline_comparison.csv`
   - `results/final_validation_report.md`
+- [x] Dependency vulnerability check (`pip-audit`) ran successfully against `environments/requirements.lock` showing zero known vulnerabilities.
 - [x] Gold-standard stage recovery already demonstrated in Unity results.
 
 ### 1.3 Known reproducibility note
@@ -48,8 +50,8 @@ Canonical-selection support docs:
       bootstrap 95% CI for `R10` and paired fold sign-flip p-value.
 - [x] Generated canonical release artifact bundle locally:
       `python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v2`
-      (`release_artifacts/sestrav-v2-20260514T181938Z.manifest.json`,
-       `release_artifacts/sestrav-v2-*.zip`)
+      (`release_artifacts/sestrav-v2-20260524T050810Z.manifest.json`,
+       `release_artifacts/sestrav-v2-20260524T050810Z.zip`)
 - [ ] Upload manifest and zip to GitHub Releases.
 
 ---
@@ -63,18 +65,18 @@ conda env create -f environment.yml
 conda activate sestrav
 pip install -r requirements.txt
 mhcflurry-downloads fetch models_class1_presentation
-python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
+python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 21
 python -m pytest tests/ -v
-python -m src.h2_tier_a_evaluation --data immunogenicity_dataset.csv --model-path models/rf_30feature_integrated.joblib --binding-matrix models/peptide_binding_matrix.csv --output-dir results
-python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode modeB_updated --dataset-version IEDB-20260424-EBV_HPV16_UPDATED-v2
-python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v1
+python -m src.h2_tier_a_evaluation --data immunogenicity_dataset.csv --model-path models/rf_30feature_integrated.joblib --binding-matrix models/peptide_binding_matrix_v3.csv --output-dir results
+python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
+python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v2
 ```
 
 ## 2.2 Snakemake final chain
 
 ```bash
-python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
+python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 snakemake --snakefile pipeline.smk --cores 4
 snakemake --snakefile pipeline.smk full_validation_report --cores 4
 ```
@@ -107,7 +109,7 @@ Run before publishing final tag:
 
 ```bash
 python -m pytest tests/ -v
-python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode modeB_updated --dataset-version IEDB-20260424-EBV_HPV16_UPDATED-v2
+python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
 ```
 
 Confirm files exist:
@@ -175,18 +177,18 @@ docker build -t sestrav:2.0 .
 Run pipeline with mounted outputs:
 
 ```bash
-docker run --rm -v "$(pwd)/results:/app/results" sestrav:2.0 python pipeline.py
+docker run --rm -v "$(pwd)/results:/app/results" sestrav:2.0 pipeline.py
 ```
 
 Run final validation bundle in container:
 
 ```bash
 docker run --rm -v "$(pwd)/results:/app/results" sestrav:2.0 \
-  python -m src.final_validation_report \
+  -m src.final_validation_report \
   --results-dir results \
   --model-dir models \
   --data immunogenicity_dataset.csv \
-  --binding-matrix models/peptide_binding_matrix.csv \
+  --binding-matrix models/peptide_binding_matrix_v3.csv \
   --model-path models/rf_30feature_integrated.joblib
 ```
 
@@ -200,7 +202,7 @@ apptainer run sestrav.sif
 Optional validation command:
 
 ```bash
-apptainer exec sestrav.sif python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode modeB_updated --dataset-version IEDB-20260424-EBV_HPV16_UPDATED-v2
+apptainer exec sestrav.sif python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
 ```
 
 ---
