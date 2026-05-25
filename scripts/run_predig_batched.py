@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 
 import pandas as pd
@@ -29,7 +29,7 @@ def main() -> None:
     parser.add_argument("--repo-root", default=".")
     parser.add_argument(
         "--image",
-        default=os.environ.get("SESTRAV_PREDIG_IMAGE", "bsceapm/predig:latest"),
+        default=os.environ.get("SESTRAV_PREDIG_IMAGE", "bsceapm/predig@sha256:4a0c8b6b23a968600c4363290dc778a4b6e51cc24032d16ebfdb3119846b0a79"),
         help="PredIG Docker image reference (prefer a digest-pinned ref in production)",
     )
     args = parser.parse_args()
@@ -81,7 +81,7 @@ def main() -> None:
             "recombinant",
         ]
         print(f"[predig-batch] Running batch {i+1}/{n_batches} ({len(chunk)} rows)")
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True)  # nosec B603
         parts.append(pd.read_csv(out_path))
 
     merged = pd.concat(parts, ignore_index=True)

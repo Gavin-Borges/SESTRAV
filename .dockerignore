@@ -2,6 +2,9 @@
 .gitignore
 .snakemake
 .pytest_cache
+.pytest_tmp
+.pytest_tmp_new
+tmp_pytest
 __pycache__
 *.pyc
 release_artifacts

@@ -149,9 +149,11 @@ These aliases will be removed in the next release. Canonical names should be use
 
 ```
 .
+├── api/                   # Application programming interface endpoints
 ├── config.yaml            # Central configuration (alleles, antigens, parameters)
 ├── pipeline.smk           # Snakemake workflow (4 rules)
 ├── pipeline.py            # Standalone Python entry point
+├── check_secrets.py       # Secret validation script
 ├── functions/             # Core pipeline stage logic
 │   ├── stage1_peptide_generation.py
 │   ├── stage2_mhc_binding_prediction.py
@@ -172,9 +174,13 @@ These aliases will be removed in the next release. Canonical names should be use
 │   ├── baseline_comparison.py  # RF vs XGB vs binding-only comparison
 │   ├── shap_analysis.py        # SHAP explainability plots
 │   └── training_plots.py       # Cross-validation visualization
-├── data/proteomes/        # Curated 8:8 antigen FASTA files
+├── data/                  # Datasets and archives
+│   ├── proteomes/         # Curated 8:8 antigen FASTA files
+│   └── archive/           # Historical dataset versions
+├── environments/          # Dependency lock files
 ├── models/                # Training results CSVs (trained .joblib models are gitignored)
 ├── results/               # Committed validation snapshots + locally generated outputs
+├── semgrep-rules/         # Custom security rules
 ├── tests/                 # Unit and integration tests
 ├── docs/                  # Technical documentation
 ├── requirements.txt       # Core Python dependencies
@@ -211,6 +217,16 @@ Track definitions:
 
 Stage 4 auto-detects model feature expectations and applies compatible columns.
 
+## Biological Data Limitations & Bias
+
+The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the [data_bias_audit_v3.md](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/docs/data_bias_audit_v3.md) report.
+
+Specifically:
+- **Taxonomic Skew**: Epstein-Barr Virus (EBV) represents 68.13% of the dataset, while HPV16 constitutes 30.88%, and HPV11 is a tiny minority class at only 1.00%.
+- **Topological Length Skew**: 9-mer peptides represent 64.74% of the dataset, reflecting MHC Class I presentation preferences.
+
+To prevent machine learning models from over-indexing on EBV-specific anchor motifs and 9-mer length preferences (which would lead to poor generalization on minority taxa like HPV11 or non-canonical peptide lengths), the `compute_sample_weights()` function in [features.py](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/features.py) is **CRITICAL**. It dynamically calculates sample weights to up-weight minority taxa and non-9-mer peptides during model training, balancing the learning signal and ensuring robust pan-viral performance.
+
 ## Quick Start
 
 ### 1a. Setup (Conda)
@@ -243,7 +259,7 @@ Models must be trained before running the pipeline in production mode. The train
 python -m src.train_classifier \
   --data immunogenicity_dataset.csv \
   --feature-mode 30 \
-  --binding-matrix models/peptide_binding_matrix.csv
+  --binding-matrix models/peptide_binding_matrix_v3.csv
 
 # Legacy comparator track (used in baseline comparison reports)
 python -m src.train_classifier \
@@ -373,15 +389,15 @@ pip install -r requirements-ann.txt
 
 # Single architecture on canonical 30-feature track (default: 256-128-64)
 python -m src.ann_benchmark --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
+  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 
 # Architecture search (14 configs × 5-fold CV)
 python -m src.ann_benchmark --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv --search
+  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv --search
 
 # Custom architecture
 python -m src.ann_benchmark --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv \
+  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv \
   --architecture 128-64-32
 
 # Legacy 21-feature mode (backward compatible, defaults to 64-32)
@@ -406,7 +422,7 @@ Peptides are represented as molecular graphs where each amino acid residue is a 
 pip install -r requirements-gnn.txt
 
 python -m src.gnn_benchmark --data immunogenicity_dataset.csv \
-  --binding-matrix models/peptide_binding_matrix.csv
+  --binding-matrix models/peptide_binding_matrix_v3.csv
 
 # Skip the bipartite GNN (faster, sequence-graph GNNs only)
 python -m src.gnn_benchmark --data immunogenicity_dataset.csv --skip-bipartite
@@ -432,7 +448,7 @@ The ablation study evaluates the contribution of five feature groups to immunoge
 
 ```bash
 python -m src.ablation_study --data immunogenicity_dataset.csv \
-  --binding-matrix models/peptide_binding_matrix.csv
+  --binding-matrix models/peptide_binding_matrix_v3.csv
 ```
 
 Results are saved to `models/ablation_study_results.csv`.
@@ -485,9 +501,8 @@ SESTRAV is released so a new user can reproduce the canonical Stage 1-4 workflow
 Included in this repository:
 
 - `immunogenicity_dataset.csv` (training dataset used by the released classifiers)
-- `immunogenicity_dataset_v1_archived.csv` and `immunogenicity_dataset_v2.csv` (historical dataset versions retained for provenance; not used by any code path)
 - `data/proteomes/*.fasta` (EBV/HPV proteome inputs)
-- `models/peptide_binding_matrix.csv` and model metadata/report CSV/JSON files
+- `models/peptide_binding_matrix_v3.csv` and model metadata/report CSV/JSON files
 - Pipeline code, tests, and docs needed to regenerate results
 
 Generated locally by each user (not committed):
@@ -536,7 +551,7 @@ Train models inside the container (required before production scoring):
 ```bash
 docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
   -m src.train_classifier --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
+  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 ```
 
 Run pipeline with bind-mounted host output and model directories:
@@ -564,8 +579,10 @@ docker run --rm `
 Container smoke test (recommended before release):
 
 ```bash
-docker run --rm sestrav:latest python -m pytest tests/ -q
+docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q --basetemp=tmp_pytest
 ```
+
+
 
 ## Antigens
 
@@ -597,12 +614,15 @@ The first four (AUC-PR, AUC-ROC, ISSR@10, ISSR@25) are the core metrics used in 
 
 MIT License — see [LICENSE](LICENSE) for details.
 
-## Team
+## Maintainer
 
-- **Gavin Borges** — Scientific Integrator & ML/Computational Assistance
-- **Abdelrahman Eljamal** — ML Engineer & Computational Architect
-- **Iris Schellenberg** — Translational Vaccine Strategy
-- **Charles Jouaneh** — Vaccine Strategy & Bioinformatic Pipeline Development
-- **Emine Byers** — Structural Immunology & Data Curation
+* **Gavin Borges** — Lead Developer & Maintainer (SESTRAV 2.0)
 
-University of Rhode Island — BPS 542 / CMB 522 / CSC 522 / STA 522: Bioinformatics I | CMB 523: Bioinformatics II
+## Original SESTRAV 1.0 Foundation Team (URI)
+
+* **Abdelrahman Eljamal** — ML Engineer & Computational Architect
+* **Iris Schellenberg** — Translational Vaccine Strategy
+* **Charles Jouaneh** — Vaccine Strategy & Bioinformatic Pipeline Development
+* **Emine Byers** — Structural Immunology & Data Curation
+
+*University of Rhode Island — BPS 542 / CMB 522 / CSC 522 / STA 522: Bioinformatics I | CMB 523: Bioinformatics II*

@@ -41,12 +41,12 @@ Key fields:
 - `alleles`: canonical 10-allele panel
 - `feature_mode`: `30`
 - `model_path`: `models/rf_30feature_integrated.joblib`
-- `binding_matrix_path`: `models/peptide_binding_matrix.csv`
+- `binding_matrix_path`: `models/peptide_binding_matrix_v3.csv`
 
 Training data and model support files:
 
 - `immunogenicity_dataset.csv`
-- `models/peptide_binding_matrix.csv`
+- `models/peptide_binding_matrix_v3.csv`
 
 ## 4) Stage-by-Stage Execution
 

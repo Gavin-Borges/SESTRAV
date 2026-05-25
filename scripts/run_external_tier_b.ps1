@@ -63,7 +63,7 @@ $PredigInput = "results/external_tier_b_predig_input_recombinant.csv"
 $PredigRaw = Join-Path (Join-Path $RunDir "raw") "predig_path_output.csv"
 $PrimeRaw = Join-Path (Join-Path $RunDir "raw") "prime21_output.txt"
 $AliasDir = "results/external_tool_outputs"
-$PredigImage = if ($env:SESTRAV_PREDIG_IMAGE) { $env:SESTRAV_PREDIG_IMAGE } else { "bsceapm/predig:latest" }
+$PredigImage = if ($env:SESTRAV_PREDIG_IMAGE) { $env:SESTRAV_PREDIG_IMAGE } else { "bsceapm/predig@sha256:4a0c8b6b23a968600c4363290dc778a4b6e51cc24032d16ebfdb3119846b0a79" }
 New-Item -ItemType Directory -Force -Path $AliasDir | Out-Null
 
 if (-not $SkipDocker) {

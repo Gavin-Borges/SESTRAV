@@ -9,7 +9,7 @@ Date: 2026-04-21
 - Input data needed to reproduce training and scoring:
   - `immunogenicity_dataset.csv`
   - `data/proteomes/*.fasta`
-  - `models/peptide_binding_matrix.csv`
+  - `models/peptide_binding_matrix_v3.csv`
 - Frozen validation snapshot artifacts:
   - `results/final_validation_report.md`
   - `results/h2_tier_a_summary.csv`
@@ -28,7 +28,7 @@ Do **not** commit local-only artifacts such as:
 
 ```bash
 # Use project env and generate local model binaries first (gitignored by policy)
-python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
+python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 python -m pytest tests/ -q
 snakemake --snakefile pipeline.smk --cores 4 --forceall
 snakemake --snakefile pipeline.smk full_validation_report --cores 4 --forceall
@@ -42,7 +42,18 @@ Container verification:
 
 ```bash
 docker build -t sestrav:latest .
-docker run --rm sestrav:latest python -m pytest tests/ -q
+docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q --basetemp=tmp_pytest
+```
+
+Compliance verification (Static Analysis & Dependency Audit):
+
+Ensure that security checks and dependency audits are run and pass cleanly:
+```bash
+# 1) Run Bandit security scan
+bandit -r src/ functions/
+
+# 2) Run dependency vulnerability audit
+pip-audit -r environments/requirements.lock
 ```
 
 The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate.
