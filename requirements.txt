@@ -11,7 +11,7 @@ threadpoolctl==3.6.0
 xgboost==3.2.0
 
 # Pipeline feature/binding stack
-mhcflurry==2.1.1
+mhcflurry==2.2.1
 setuptools==80.9.0
 
 # Plotting and explainability
