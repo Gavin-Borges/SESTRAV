@@ -169,7 +169,7 @@ def compare_methods(results_dir, model_dir='models', strict_ann_loading=False, b
     def _load_optional(paths):
         for path in paths:
             if os.path.isfile(path):
-                return load_verified_joblib(path, required_checksum=False), path
+                return load_verified_joblib(path, required_checksum=True), path
         return None, None
 
     rf_model, rf_path = _load_optional([

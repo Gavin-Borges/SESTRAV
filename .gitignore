@@ -269,3 +269,6 @@ data/proteomes/*.fasta.gz
 
 # Pytest custom temp directory (contains local username — do not commit)
 .pytest_tmp/
+.pytest_tmp_new/
+tmp/
+tmp_pytest/

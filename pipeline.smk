@@ -2,8 +2,8 @@ configfile: "config.yaml"
 
 ANTIGENS = config["antigens"]
 
-DATASET_MODE = config.get("dataset_mode", "modeB_updated")
-DATASET_VERSION = config.get("dataset_version", "IEDB-unknown")
+DATASET_MODE = config.get("dataset_mode", "expansion_alpha")
+DATASET_VERSION = config.get("dataset_version", "2.0.0-alpha")
 
 rule Results:
     input:
@@ -76,12 +76,12 @@ rule train_ann:
     input:
         "immunogenicity_dataset.csv",
         "results/qc/dataset_qc.json",
-        config.get("binding_matrix_path", "models/peptide_binding_matrix.csv")
+        config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     output:
         "models/ann/ann_model.pth"
     params:
         feature_mode = config.get("feature_mode", 21),
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix.csv")
+        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     shell:
         "python -m src.train_ann --data {input[0]} --model-dir models/ann --feature-mode {params.feature_mode} --binding-matrix {params.binding_matrix}"
 
@@ -90,12 +90,12 @@ rule train_gnn:
     input:
         "immunogenicity_dataset.csv",
         "results/qc/dataset_qc.json",
-        config.get("binding_matrix_path", "models/peptide_binding_matrix.csv")
+        config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     output:
         "models/gnn/gnn_model.pth"
     params:
         feature_mode = config.get("feature_mode", 21),
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix.csv")
+        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     shell:
         "python -m src.train_gnn --data {input[0]} --model-dir models/gnn --feature-mode {params.feature_mode} --binding-matrix {params.binding_matrix}"
 
@@ -106,7 +106,7 @@ rule full_validation_report:
         expand("results/{proteome_id}_ranked.csv", proteome_id=ANTIGENS),
         "immunogenicity_dataset.csv",
         "results/qc/dataset_qc.json",
-        config.get("binding_matrix_path", "models/peptide_binding_matrix.csv"),
+        config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
         config.get("model_path", "models/rf_30feature_integrated.joblib")
     output:
         "results/gold_standard_validation.csv",
@@ -123,10 +123,10 @@ rule full_validation_report:
         results_dir = config.get("output_dir", "results"),
         model_dir = "models",
         data_path = "immunogenicity_dataset.csv",
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix.csv"),
+        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
         model_path = config.get("model_path", "models/rf_30feature_integrated.joblib"),
-        dataset_mode = config.get("dataset_mode", "modeB_updated"),
-        dataset_version = config.get("dataset_version", "IEDB-unknown"),
+        dataset_mode = config.get("dataset_mode", "expansion_alpha"),
+        dataset_version = config.get("dataset_version", "2.0.0-alpha"),
         freeze_flag = "--freeze-mode" if config.get("freeze_mode", False) else ""
     shell:
         "python -m src.final_validation_report "

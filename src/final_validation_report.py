@@ -32,10 +32,10 @@ def run_final_validation(
     results_dir: str = "results",
     model_dir: str = "models",
     data_path: str = "immunogenicity_dataset.csv",
-    binding_matrix_path: str = "models/peptide_binding_matrix.csv",
+    binding_matrix_path: str = "models/peptide_binding_matrix_v3.csv",
     model_path: str = "models/rf_30feature_integrated.joblib",
-    dataset_mode: str = "modeB_updated",
-    dataset_version: str = "IEDB-20260424-EBV_HPV16_UPDATED-v2",
+    dataset_mode: str = "expansion_alpha",
+    dataset_version: str = "2.0.0-alpha",
     freeze_mode: bool = False,
 ) -> Tuple[str, str, str]:
     """Generate all final validation artifacts and return key output paths."""
@@ -223,10 +223,10 @@ if __name__ == "__main__":
     parser.add_argument("--results-dir", default="results")
     parser.add_argument("--model-dir", default="models")
     parser.add_argument("--data", default="immunogenicity_dataset.csv")
-    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix.csv")
+    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v3.csv")
     parser.add_argument("--model-path", default="models/rf_30feature_integrated.joblib")
-    parser.add_argument("--dataset-mode", default="modeB_updated")
-    parser.add_argument("--dataset-version", default="IEDB-20260424-EBV_HPV16_UPDATED-v2")
+    parser.add_argument("--dataset-mode", default="expansion_alpha")
+    parser.add_argument("--dataset-version", default="2.0.0-alpha")
     parser.add_argument("--freeze-mode", action="store_true")
     args = parser.parse_args()
 
