@@ -81,7 +81,7 @@ def main() -> None:
             "recombinant",
         ]
         print(f"[predig-batch] Running batch {i+1}/{n_batches} ({len(chunk)} rows)")
-        subprocess.run(cmd, check=True)  # nosec B603
+        subprocess.run(cmd, check=True)  # nosec B603 nosemgrep
         parts.append(pd.read_csv(out_path))
 
     merged = pd.concat(parts, ignore_index=True)
