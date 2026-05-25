@@ -475,6 +475,13 @@ if __name__ == '__main__':
     parser.add_argument('--sample-weights', action='store_true',
                         help='Apply EBV/HPV16 and 9-mer/non-9-mer bias-correction weights during training')
     args = parser.parse_args()
+
+    # Input validation
+    if not os.path.isfile(args.data):
+        parser.error(f"Data file does not exist: '{args.data}'")
+    if args.binding_matrix and not os.path.isfile(args.binding_matrix):
+        parser.error(f"Binding matrix file does not exist: '{args.binding_matrix}'")
+
     train_models(args.data, args.model_dir, n_cv_folds=args.cv_folds,
                  feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix,
                  use_sample_weights=args.sample_weights)

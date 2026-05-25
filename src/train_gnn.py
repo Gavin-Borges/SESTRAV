@@ -214,8 +214,8 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
         train_dataset = GraphPeptideDataset(df_train, pd.DataFrame(X_train_scaled), y_train)
         val_dataset = GraphPeptideDataset(df_val, pd.DataFrame(X_val_scaled), y_val)
         
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
         
         # Initialize model
         model = PeptideGNN(num_continuous_features=X_feats.shape[1]).to(device)
@@ -251,7 +251,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     scaler_full = StandardScaler()
     X_full_scaled = scaler_full.fit_transform(X_feats)
     full_dataset = GraphPeptideDataset(train_pool, pd.DataFrame(X_full_scaled), y)
-    full_loader = DataLoader(full_dataset, batch_size=batch_size, shuffle=True)
+    full_loader = DataLoader(full_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
     
     model_final = PeptideGNN(num_continuous_features=X_feats.shape[1]).to(device)
     pos_weight_full = torch.tensor([(len(y) - y.sum()) / max(1, y.sum())]).to(device)

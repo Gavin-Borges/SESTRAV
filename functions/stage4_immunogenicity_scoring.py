@@ -24,6 +24,7 @@ Higher score = higher predicted immunogenicity.  Rank 1 = top candidate.
 
 import json
 import os
+import re
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -35,9 +36,9 @@ from src.features import (
 from src.naming import resolve_model_path
 
 try:
-    from joblib import load as joblib_load
+    from src.artifact_integrity import load_verified_joblib
 except ImportError:
-    joblib_load = None
+    load_verified_joblib = None
 
 
 def _load_pytorch_model(model_path, features_df, model_cols):
@@ -47,7 +48,7 @@ def _load_pytorch_model(model_path, features_df, model_cols):
     from src.artifact_integrity import verify_artifact_checksum
 
     verify_artifact_checksum(model_path, required=True)
-    checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
+    checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
     n_features = checkpoint['n_features']
     scaler_mean = checkpoint['scaler_mean'].numpy()
     scaler_scale = checkpoint['scaler_scale'].numpy()
@@ -95,11 +96,9 @@ def _mc_dropout_predict(pt_model, X_tensor, n_passes=50):
 def _apply_calibration(scores, model_dir):
     """Apply Platt calibrator if available; return calibrated scores or originals."""
     cal_path = os.path.join(model_dir, 'platt_calibrator.joblib')
-    if not os.path.isfile(cal_path) or joblib_load is None:
+    if not os.path.isfile(cal_path) or load_verified_joblib is None:
         return scores, False
-    from src.artifact_integrity import verify_artifact_checksum
-    verify_artifact_checksum(cal_path, required=True)
-    calibrator = joblib_load(cal_path)
+    calibrator = load_verified_joblib(cal_path, required_checksum=True)
     logits = np.log((scores + 1e-10) / (1 - scores + 1e-10)).reshape(-1, 1)
     calibrated = calibrator.predict_proba(logits)[:, 1]
     print("[Stage 4] Applied Platt calibration")
@@ -119,8 +118,14 @@ def _apply_thresholds(features_df, model_dir):
     print(f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f}")
 
 
+def _sanitize_name(name):
+    """Allow only alphanumeric, underscores, and hyphens."""
+    return re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
+
+
 def score_immunogenicity(features_df, proteome_id, model_path=None,
                          calibrate=True, mc_dropout=False, freeze_mode=False):
+    proteome_id = _sanitize_name(proteome_id)
     """
     Score each peptide's immunogenicity.
 
@@ -150,7 +155,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
 
         if is_pytorch:
             import torch
-            checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
+            checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
             expected_n = checkpoint['n_features']
             
             if expected_n == len(FEATURE_COLUMNS_50):
@@ -181,7 +186,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
                 import torch
                 from src.artifact_integrity import verify_artifact_checksum
                 verify_artifact_checksum(model_path, required=True)
-                checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
+                checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
                 X = features_df[model_cols].values.astype(np.float64)
                 X_scaled = (X - checkpoint['scaler_mean'].numpy()) / (checkpoint['scaler_scale'].numpy() + 1e-10)
                 X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
@@ -191,10 +196,8 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
                 print(f"[Stage 4] MC Dropout: {(mc_std < np.median(mc_std)).sum()} "
                       f"high-confidence predictions")
 
-        elif joblib_load is not None:
-            from src.artifact_integrity import verify_artifact_checksum
-            verify_artifact_checksum(model_path, required=True)
-            model = joblib_load(model_path)
+        elif load_verified_joblib is not None:
+            model = load_verified_joblib(model_path, required_checksum=True)
             expected_n = model.n_features_in_
 
             if expected_n == len(FEATURE_COLUMNS_50):

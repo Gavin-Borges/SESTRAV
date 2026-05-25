@@ -6,11 +6,23 @@ Runs all 4 stages sequentially without Snakemake for quick local testing.
 import os
 import re
 import yaml
+import logging
 from functions.stage1_peptide_generation import generate_peptides
 from functions.stage2_mhc_binding_prediction import predict_binding
 from functions.stage3_tcr_feature_extraction import extract_tcr_features
 from functions.stage4_immunogenicity_scoring import score_immunogenicity, plot_immunogenicity_scores
 from src.naming import canonicalize_proteome_id, resolve_model_path
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("sestrav.log", encoding="utf-8")
+    ]
+)
+logger = logging.getLogger("sestrav")
 
 
 def _sanitize_name(name):
@@ -27,7 +39,7 @@ def run_pipeline(proteome_id, fasta_path, config):
     raw_id = _sanitize_name(proteome_id)
     proteome_id = canonicalize_proteome_id(raw_id)
     if proteome_id != raw_id:
-        print(f"[Naming] Using canonical proteome_id '{proteome_id}' (from legacy '{raw_id}')")
+        logger.info(f"[Naming] Using canonical proteome_id '{proteome_id}' (from legacy '{raw_id}')")
 
     alleles = config.get("alleles", None)
     lengths = config.get("peptide_lengths", [8, 9, 10, 11])
@@ -43,7 +55,7 @@ def run_pipeline(proteome_id, fasta_path, config):
     )
     plot_immunogenicity_scores(ranked_df, proteome_id)
 
-    print(f"Pipeline complete for {proteome_id}\n")
+    logger.info(f"Pipeline complete for {proteome_id}\n")
 
 
 if __name__ == "__main__":

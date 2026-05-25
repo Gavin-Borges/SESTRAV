@@ -47,8 +47,10 @@ def download_zip(url: str, dest_dir: Path, rename_to: str, expected_sha256: str 
     if target.exists():
         print(f"[install-prime] Already present: {target}")
         return target
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise ValueError(f"URL must start with http:// or https://: {url}")
     print(f"[install-prime] Downloading {url}")
-    data = urllib.request.urlopen(url, timeout=120).read()  # nosec B310
+    data = urllib.request.urlopen(url, timeout=120).read()  # nosec B310 # nosemgrep
     _verify_expected_hash(data, expected_sha256, rename_to)
     tmp_dir = dest_dir / "_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
