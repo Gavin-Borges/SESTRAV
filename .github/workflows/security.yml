@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Set up Python
-        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.1.1
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: '3.11'
 
@@ -41,12 +41,12 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@2e230e8c6da3e55c78475513ea0183664f3337a7 # v3.25.7
+        uses: github/codeql-action/init@0878db6e4bd349fa79883a2ae820e035b0a6faf8 # v3.25.7
         with:
           languages: python
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@2e230e8c6da3e55c78475513ea0183664f3337a7 # v3.25.7
+        uses: github/codeql-action/analyze@0878db6e4bd349fa79883a2ae820e035b0a6faf8 # v3.25.7
 
   semgrep:
     name: Semgrep Security Scan
@@ -61,6 +61,6 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Run Semgrep
-        uses: semgrep/semgrep-action@a3f5a704040a4597b8364b4c73d2f97ebdf0a09e # v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: p/python
