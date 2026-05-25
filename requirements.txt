@@ -12,7 +12,7 @@ xgboost==3.2.0
 
 # Pipeline feature/binding stack
 mhcflurry==2.1.1
-setuptools==80.9.0
+setuptools==82.0.1
 
 # Plotting and explainability
 matplotlib==3.10.8
