@@ -1,9 +1,0 @@
-{
-  "generated_utc": "2026-05-21T22:17:47.891642+00:00",
-  "artifacts": {
-    "ann_30feature_integrated.pt": {
-      "sha256": "c17feb67f0bbbb4135087f13431264da90dda44bb8131bc6ccff47f2c1921256",
-      "size_bytes": 13
-    }
-  }
-}

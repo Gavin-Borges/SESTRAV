@@ -187,9 +187,11 @@ def compute_sample_weights(df, virus_col='virus', length_col=None,
     # Virus correction
     if virus_col in df.columns:
         virus_vals = df[virus_col].values
-        unique_viruses = [v for v in ["EBV", "HPV16"] if v in virus_vals]
+        # Dynamically extract all unique viruses
+        import pandas as pd
+        unique_viruses = pd.Series(virus_vals).dropna().unique().tolist()
         if len(unique_viruses) > 1:
-            target_freq = 1.0 / len(unique_viruses)  # 0.5 each
+            target_freq = 1.0 / len(unique_viruses)  # Equal weight for all taxa
             for virus in unique_viruses:
                 mask = (virus_vals == virus)
                 actual_freq = mask.sum() / n

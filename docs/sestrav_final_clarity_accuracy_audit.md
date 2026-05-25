@@ -7,7 +7,7 @@ Scope: committed code in this repository and current outputs in `results/`.
 
 SESTRAV runs from bundled repository assets and configuration by default:
 - Proteomes: `data/proteomes/*.fasta`
-- Training/eval tables: `immunogenicity_dataset.csv`, `models/peptide_binding_matrix.csv`
+- Training/eval tables: `immunogenicity_dataset.csv`, `models/peptide_binding_matrix_v3.csv`
 - Workflow config: `config.yaml`
 - Model artifact path: `config.yaml -> model_path`
 
@@ -118,7 +118,7 @@ Comparative/report lineage:
 3. `results/baseline_comparison.csv`, `results/final_validation_report.md`, `results/h2_tier_a_*`
 
 Training lineage:
-1. `immunogenicity_dataset.csv` (+ optional `models/peptide_binding_matrix.csv` for 30-feature mode)
+1. `immunogenicity_dataset.csv` (+ optional `models/peptide_binding_matrix_v3.csv` for 30-feature mode)
 2. `src/train_classifier.py`
 3. `models/*.joblib`, `models/training_results.csv`, `models/feature_importances.csv`
 

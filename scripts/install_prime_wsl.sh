@@ -3,8 +3,8 @@
 set -euo pipefail
 
 INSTALL_DIR="${HOME}/tools/sestrav_external"
-PRIME_SHA_ENV="${SESTRAV_PRIME_ZIP_SHA256:-}"
-MIX_SHA_ENV="${SESTRAV_MIXMHCPRED_ZIP_SHA256:-}"
+PRIME_SHA_ENV="${SESTRAV_PRIME_ZIP_SHA256:-da5e65fd4b142857f42167b15495600b3a6416641c73854a8a2cbc00d67ee6a8}"
+MIX_SHA_ENV="${SESTRAV_MIXMHCPRED_ZIP_SHA256:-9b3d96813368df42622ce13a96eed09b447133699d8eaf5a4793da8561981c9b}"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
@@ -13,7 +13,8 @@ verify_sha() {
   local expected="$2"
   local label="$3"
   if [[ -z "$expected" ]]; then
-    return 0
+    echo "Missing required SHA256 for $label" >&2
+    exit 1
   fi
   local actual
   actual="$(sha256sum "$file" | awk '{print $1}')"
@@ -99,9 +100,7 @@ grep -q 'sestrav_external' "$HOME/.bashrc" 2>/dev/null || \
 
 if [[ -x PRIME2.1/PRIME ]] && [[ -x PRIME2.1/lib/PRIME.x ]]; then
   echo "PRIME installed: wrapper=$(readlink -f PRIME2.1/PRIME) scorer=$(readlink -f PRIME2.1/lib/PRIME.x)"
-  if [[ -z "$PRIME_SHA_ENV" || -z "$MIX_SHA_ENV" ]]; then
-    echo "WARNING: archive SHA256 not provided; set SESTRAV_PRIME_ZIP_SHA256 and SESTRAV_MIXMHCPRED_SHA256 to pin downloads" >&2
-  fi
+
 else
   echo "PRIME install incomplete; check g++ and PRIME2.1 paths" >&2
   exit 1

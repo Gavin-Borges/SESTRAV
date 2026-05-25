@@ -1,0 +1,35 @@
+rules:
+  - id: sestrav-forbid-pickle-non-literal
+    message: "Avoid using pickle.load with non-literal file paths to prevent unsafe deserialization of untrusted data."
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern: pickle.load($FILE)
+      - pattern-not-inside: |
+          with open("...", ...) as $FILE:
+              ...
+              pickle.load($FILE)
+      - pattern-not-inside: |
+          $FILE = open("...", ...)
+          ...
+          pickle.load($FILE)
+
+  - id: sestrav-require-verified-joblib-load
+    message: "Avoid direct usage of joblib.load or required_checksum=False. Use src.artifact_integrity.load_verified_joblib with required_checksum=True to prevent unsafe deserialization."
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: joblib.load(...)
+          - pattern: joblib_load(...)
+          - pattern: load_verified_joblib(..., required_checksum=False)
+          - pattern: load_verified_joblib(..., False)
+      - pattern-not-inside: |
+          def load_verified_joblib(...):
+              ...
+
+  - id: sestrav-forbid-subprocess-shell-true
+    message: "Avoid using shell=True in subprocess calls to prevent command injection."
+    languages: [python]
+    severity: ERROR
+    pattern: subprocess.$FUNC(..., shell=True, ...)

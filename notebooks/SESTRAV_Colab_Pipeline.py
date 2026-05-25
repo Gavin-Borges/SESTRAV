@@ -34,13 +34,13 @@ Repository: https://github.com/Gavin-Borges/SESTRAV
 # =============================================================================
 
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 
 # Clone the repository (skip if already cloned)
 REPO_DIR = "/content/SESTRAV"
 if not os.path.isdir(REPO_DIR):
-    subprocess.run(
+    subprocess.run(  # nosec B603 B607
         ["git", "clone", "https://github.com/Gavin-Borges/SESTRAV.git", REPO_DIR],
         check=True,
     )

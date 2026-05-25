@@ -1,7 +1,7 @@
 {
   "valid": true,
-  "freeze_mode": true,
-  "generated_at_utc": "2026-05-23T21:02:31.691647+00:00",
+  "freeze_mode": false,
+  "generated_at_utc": "2026-05-25T14:53:50.954953+00:00",
   "dataset_mode": "expansion_alpha",
   "dataset_version": "2.0.0-alpha",
   "h2": {

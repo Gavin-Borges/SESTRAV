@@ -97,8 +97,8 @@ See `results/multi_run_stability_report.md` for full rationale. Key factors:
 
 ```bash
 conda run -n sestrav python -m pytest tests/ -q
-conda run -n sestrav python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
+conda run -n sestrav python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 conda run -n sestrav snakemake --snakefile pipeline.smk --cores 4 --forceall
-conda run -n sestrav python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode modeB_updated --dataset-version IEDB-20260424-EBV_HPV16_UPDATED-v2
+conda run -n sestrav python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
 conda run -n sestrav python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v2
 ```

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 import urllib.request
 import zipfile
@@ -24,7 +24,7 @@ def _sha256_bytes(data: bytes) -> str:
 
 def _verify_expected_hash(data: bytes, expected_sha256: str | None, label: str) -> None:
     if not expected_sha256:
-        return
+        raise RuntimeError(f"[install-prime] Missing required SHA256 for {label}")
     actual = _sha256_bytes(data)
     if actual.lower() != expected_sha256.lower():
         raise RuntimeError(
@@ -48,7 +48,7 @@ def download_zip(url: str, dest_dir: Path, rename_to: str, expected_sha256: str 
         print(f"[install-prime] Already present: {target}")
         return target
     print(f"[install-prime] Downloading {url}")
-    data = urllib.request.urlopen(url, timeout=120).read()
+    data = urllib.request.urlopen(url, timeout=120).read()  # nosec B310
     _verify_expected_hash(data, expected_sha256, rename_to)
     tmp_dir = dest_dir / "_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -69,7 +69,7 @@ def compile_prime(prime_dir: Path) -> Path:
         if not cc.exists():
             raise FileNotFoundError(f"Missing {cc}")
         print("[install-prime] Compiling PRIME.cc")
-        subprocess.run(
+        subprocess.run(  # nosec B603 B607
             ["g++", "-O3", str(cc), "-o", str(out)],
             check=True,
         )
@@ -87,8 +87,8 @@ def compile_prime(prime_dir: Path) -> Path:
 
 
 def main() -> None:
-    prime_sha = os.environ.get(PRIME_SHA_ENV)
-    mix_sha = os.environ.get(MIX_SHA_ENV)
+    prime_sha = os.environ.get(PRIME_SHA_ENV, "da5e65fd4b142857f42167b15495600b3a6416641c73854a8a2cbc00d67ee6a8")
+    mix_sha = os.environ.get(MIX_SHA_ENV, "9b3d96813368df42622ce13a96eed09b447133699d8eaf5a4793da8561981c9b")
     prime_dir = download_zip(PRIME_URL, INSTALL_DIR, "PRIME2.1", expected_sha256=prime_sha)
     download_zip(MIX_URL, INSTALL_DIR, "MixMHCpred", expected_sha256=mix_sha)
     prime_bin = compile_prime(prime_dir)
@@ -101,11 +101,7 @@ def main() -> None:
         bashrc.write_text(text + "\n" + path_line + "\n", encoding="utf-8")
     print(f"[install-prime] PRIME binary: {prime_bin}")
     print(path_line)
-    if not prime_sha or not mix_sha:
-        print(
-            f"[install-prime] WARNING: no archive SHA256 provided. "
-            f"Set {PRIME_SHA_ENV} and {MIX_SHA_ENV} to pin third-party downloads."
-        )
+
 
 
 if __name__ == "__main__":

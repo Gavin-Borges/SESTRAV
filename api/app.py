@@ -24,7 +24,8 @@ model = None
 def load_model():
     global model
     if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
+        from src.artifact_integrity import load_verified_joblib
+        model = load_verified_joblib(MODEL_PATH, required_checksum=True)
         print("Model loaded successfully.")
     else:
         print(f"Warning: Model not found at {MODEL_PATH}")
@@ -59,4 +60,4 @@ def score_peptide(request: PeptideRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -44,8 +44,10 @@ def _load_pytorch_model(model_path, features_df, model_cols):
     """Load a PyTorch .pt checkpoint and score peptides on the 30-feature set."""
     import torch
     import torch.nn as nn
+    from src.artifact_integrity import verify_artifact_checksum
 
-    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+    verify_artifact_checksum(model_path, required=True)
+    checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
     n_features = checkpoint['n_features']
     scaler_mean = checkpoint['scaler_mean'].numpy()
     scaler_scale = checkpoint['scaler_scale'].numpy()
@@ -95,6 +97,8 @@ def _apply_calibration(scores, model_dir):
     cal_path = os.path.join(model_dir, 'platt_calibrator.joblib')
     if not os.path.isfile(cal_path) or joblib_load is None:
         return scores, False
+    from src.artifact_integrity import verify_artifact_checksum
+    verify_artifact_checksum(cal_path, required=True)
     calibrator = joblib_load(cal_path)
     logits = np.log((scores + 1e-10) / (1 - scores + 1e-10)).reshape(-1, 1)
     calibrated = calibrator.predict_proba(logits)[:, 1]
@@ -146,7 +150,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
 
         if is_pytorch:
             import torch
-            checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+            checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
             expected_n = checkpoint['n_features']
             
             if expected_n == len(FEATURE_COLUMNS_50):
@@ -175,7 +179,9 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
 
             if mc_dropout:
                 import torch
-                checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+                from src.artifact_integrity import verify_artifact_checksum
+                verify_artifact_checksum(model_path, required=True)
+                checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)
                 X = features_df[model_cols].values.astype(np.float64)
                 X_scaled = (X - checkpoint['scaler_mean'].numpy()) / (checkpoint['scaler_scale'].numpy() + 1e-10)
                 X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
@@ -186,6 +192,8 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
                       f"high-confidence predictions")
 
         elif joblib_load is not None:
+            from src.artifact_integrity import verify_artifact_checksum
+            verify_artifact_checksum(model_path, required=True)
             model = joblib_load(model_path)
             expected_n = model.n_features_in_
 
