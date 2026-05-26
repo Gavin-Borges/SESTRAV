@@ -13,12 +13,5 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
-          allow-ghsas: |
-            GHSA-36fq-jgmw-4r9c
-            GHSA-hjqc-jx6g-rwp9
-            GHSA-4f3f-g24h-fr8m
-            GHSA-cjgq-5qmw-rcj6
-            GHSA-mq84-hjqx-cwf2
-            GHSA-48g7-3x6r-xfhp
-            GHSA-7gcm-g887-7qv7
+          allow-ghsas: 'GHSA-36fq-jgmw-4r9c, GHSA-hjqc-jx6g-rwp9, GHSA-4f3f-g24h-fr8m, GHSA-cjgq-5qmw-rcj6, GHSA-mq84-hjqx-cwf2, GHSA-48g7-3x6r-xfhp, GHSA-7gcm-g887-7qv7'
 
