@@ -1049,6 +1049,10 @@ numpy==1.26.4 \
     #   tensorboard
     #   tensorflow-intel
     #   xgboost
+nvidia-nccl-cu12==2.30.4 \
+    --hash=sha256:606fa9aa9215c00367d060188eb1a5bbd28396aff5e11b9200d99d1a6ab79a71 \
+    --hash=sha256:040974b261edec4b8b793e59e92ab7176fe4ab4bc61b800f9f3bfaeec2d436f3
+    # via xgboost
 oauthlib==3.3.1 \
     --hash=sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9 \
     --hash=sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1
