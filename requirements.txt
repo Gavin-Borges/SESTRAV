@@ -1,7 +1,7 @@
 # Core data and ML
 biopython==1.87
 joblib==1.5.3
-numpy==1.26.4
+numpy==2.4.6
 openpyxl==3.1.5
 pandas==3.0.3
 pyyaml==6.0.2
