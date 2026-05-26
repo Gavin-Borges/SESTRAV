@@ -105,13 +105,13 @@ def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
         if not is_safe_wsl_path(rel):
             continue
         try:
-            cat = subprocess.check_output([wsl_bin, "head", "-3", rel], text=True)  # nosec B603 B607
+            cat = subprocess.check_output([wsl_bin, "head", "-3", rel], text=True)  # nosec B603
         except subprocess.SubprocessError:
             continue
         if not cat or ("\t" not in cat and "," not in cat):
             continue
         try:
-            full = subprocess.check_output([wsl_bin, "cat", rel], text=True)  # nosec B603 B607
+            full = subprocess.check_output([wsl_bin, "cat", rel], text=True)  # nosec B603
             from io import StringIO
 
             df = pd.read_csv(StringIO(full), sep=None, engine="python")
