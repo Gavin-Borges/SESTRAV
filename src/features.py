@@ -242,7 +242,11 @@ def get_tcr_positions(length):
     Invalid positions are returned as (label, None) so callers can
     zero-impute them.
     """
-    fixed = [('p4', 3), ('p5', 4), ('p6', 5)]
+    fixed = [
+        ('p4', 3 if length > 3 else None),
+        ('p5', 4 if length > 4 else None),
+        ('p6', 5 if length > 5 else None),
+    ]
     p7_idx = length - 3
     p8_idx = length - 2
 
@@ -253,6 +257,7 @@ def get_tcr_positions(length):
         ('p7', p7_idx if p7_valid else None),
         ('p8', p8_idx if p8_valid else None),
     ]
+
 
 
 def compute_features(peptide, binding_score=0.0):

@@ -27,7 +27,7 @@ conda activate sestrav
 echo "Python: $(which python)"
 
 # Ensure shap is installed
-python -c "import shap" 2>/dev/null || pip install shap --quiet
+python -c "import shap" 2>/dev/null || { echo "ERROR: 'shap' is not installed in the active environment. Please install it using: pip install -r requirements.txt" >&2; exit 1; }
 
 # Pre-flight: verify pipeline output exists (canonical + legacy alias fallback)
 python -c "
