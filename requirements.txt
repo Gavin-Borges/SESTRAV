@@ -15,7 +15,7 @@ mhcflurry==2.1.1
 setuptools==80.9.0
 
 # Plotting and explainability
-matplotlib==3.10.8
+matplotlib==3.10.9
 shap==0.51.0
 
 # Test tooling
