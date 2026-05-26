@@ -1,11 +1,11 @@
 # Core data and ML
-biopython==1.84
+biopython==1.87
 joblib==1.5.3
-numpy==1.26.4
+numpy==2.4.6
 openpyxl==3.1.5
-pandas==3.0.1
+pandas==3.0.3
 pyyaml==6.0.2
-scikit-learn==1.6.1
+scikit-learn==1.8.0
 scipy==1.17.1
 threadpoolctl==3.6.0
 xgboost==3.2.0
@@ -16,7 +16,7 @@ setuptools==80.9.0
 
 # Plotting and explainability
 matplotlib==3.10.8
-shap==0.46.0
+shap==0.51.0
 
 # Test tooling
 pytest==9.0.3

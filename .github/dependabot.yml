@@ -1,5 +1,6 @@
 version: 2
 updates:
+  # Keep Python dependencies up to date
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -7,5 +8,11 @@ updates:
 
   - package-ecosystem: "pip"
     directory: "/environments"
+    schedule:
+      interval: "weekly"
+
+  # Keep GitHub Actions pinned SHAs up to date (helps Scorecard Pinned-Dependencies)
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
       interval: "weekly"
