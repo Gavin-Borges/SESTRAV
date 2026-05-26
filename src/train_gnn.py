@@ -262,7 +262,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
         train_epoch(model_final, full_loader, criterion_final, optimizer_final, device)
         
     # Save model and scaler
-    torch.save(model_final.state_dict(), os.path.join(model_dir, 'gnn_model.pth'))
+    torch.save(model_final.state_dict(), os.path.join(model_dir, 'gnn_model.pth'))  # nosec B614
     import joblib
     joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
     print(f"Final GNN model and scaler saved to {model_dir}/")
