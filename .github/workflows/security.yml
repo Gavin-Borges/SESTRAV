@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Bandit
-        run: pip install bandit
+        run: pip install --require-hashes -r environments/requirements-security.txt
 
       - name: Run Bandit
         # Scans recursively, skipping the tests/ directory
