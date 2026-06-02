@@ -2524,6 +2524,11 @@ yarl==1.24.2 \
     --hash=sha256:fecd17873a096036c1c87ab3486f1aef7f269ada7f23f7f856f93b1cc7744f14
     # via aiohttp
 
+nvidia-nccl-cu12==2.30.4; platform_system == "Linux" \
+    --hash=sha256:040974b261edec4b8b793e59e92ab7176fe4ab4bc61b800f9f3bfaeec2d436f3 \
+    --hash=sha256:606fa9aa9215c00367d060188eb1a5bbd28396aff5e11b9200d99d1a6ab79a71
+    # via -r requirements.in
+
 # The following packages are considered to be unsafe in a requirements file:
 setuptools==80.9.0 \
     --hash=sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922 \
