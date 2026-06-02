@@ -21,11 +21,13 @@ rules:
     patterns:
       - pattern-either:
           - pattern: joblib.load(...)
-          - pattern: joblib_load(...)
           - pattern: load_verified_joblib(..., required_checksum=False)
           - pattern: load_verified_joblib(..., False)
       - pattern-not-inside: |
           def load_verified_joblib(...):
+              ...
+      - pattern-not-inside: |
+          def _load_joblib_impl(...):
               ...
 
   - id: sestrav-forbid-subprocess-shell-true

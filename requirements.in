@@ -30,3 +30,14 @@ torch-geometric>=2.7.0
 fastapi!=0.136.3
 uvicorn
 pydantic
+
+# Security: minimum version pins to close known CVEs
+# keras < 3.13.2 is affected by multiple CVEs (directory traversal, SSRF,
+# untrusted deserialization, arbitrary code execution via safe_mode bypass).
+# GHSA-36fq-jgmw-4r9c, GHSA-4f3f-g24h-fr8m, GHSA-cjgq-5qmw-rcj6,
+# GHSA-hjqc-jx6g-rwp9, GHSA-mq84-hjqx-cwf2, GHSA-7gcm-g887-7qv7
+keras>=3.13.2
+
+# protobuf < 5.29.6 allows DoS via Any-message recursion depth bypass.
+# GHSA-m2f8-v8q4-3m59 / PYSEC-2025-121
+protobuf>=5.29.6

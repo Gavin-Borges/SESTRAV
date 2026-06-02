@@ -40,13 +40,14 @@ jobs:
             const approvals = reviews.filter(r => r.state === 'APPROVED');
 
             if (approvals.length === 0) {
-              core.warning(
+              // Hard-fail so this status check blocks the merge.
+              // The branch ruleset requires this check to pass before merging.
+              // This satisfies the Scorecard Code-Review check requirement.
+              core.setFailed(
                 'No approving reviews found. ' +
                 'This PR requires at least 1 human approval before merge. ' +
                 'See CODEOWNERS for required reviewers.'
               );
-              // Do not fail here — the branch ruleset blocks merge;
-              // this step records an audit trail in the check run log.
             } else {
               core.info(
                 `✅ Found ${approvals.length} approving review(s). Review requirement satisfied.`
