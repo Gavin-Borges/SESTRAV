@@ -40,15 +40,39 @@ try:
 except ImportError:
     load_verified_joblib = None
 
+def _load_torch_checkpoint(model_path, required=True):
+    """Load ANN checkpoints using the safe weights-only path only.
+
+    PyTorch 2.6+ enforces strict allowlisting for weights_only=True. SESTRAV
+    checkpoints embed numpy scalars and dtypes in scaler parameters
+    (scaler_mean / scaler_scale). Both are allowlisted explicitly here —
+    the PyTorch-recommended approach for trusted, internally-generated
+    checkpoints.
+    """
+    from src.artifact_integrity import verify_artifact_checksum
+    verify_artifact_checksum(model_path, required=required)
+    try:
+        import numpy as np
+        import torch.serialization
+        # Allowlist numpy types used in scaler_mean/scaler_scale checkpoint arrays.
+        # numpy._core is used (not deprecated numpy.core alias) to silence warnings.
+        # Safe: checkpoints are generated only by SESTRAV's own training pipeline.
+        torch.serialization.add_safe_globals([
+            np._core.multiarray.scalar,  # serialised numpy scalar values
+            np.dtype,                    # serialised numpy dtype objects
+        ])
+    except Exception:
+        pass
+    import torch
+    return torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
+
 
 def _load_pytorch_model(model_path, features_df, model_cols):
     """Load a PyTorch .pt checkpoint and score peptides on the 30-feature set."""
     import torch
     import torch.nn as nn
-    from src.artifact_integrity import verify_artifact_checksum
 
-    verify_artifact_checksum(model_path, required=True)
-    checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
+    checkpoint = _load_torch_checkpoint(model_path, required=True)
     n_features = checkpoint['n_features']
     scaler_mean = checkpoint['scaler_mean'].numpy()
     scaler_scale = checkpoint['scaler_scale'].numpy()
@@ -125,7 +149,6 @@ def _sanitize_name(name):
 
 def score_immunogenicity(features_df, proteome_id, model_path=None,
                          calibrate=True, mc_dropout=False, freeze_mode=False):
-    proteome_id = _sanitize_name(proteome_id)
     """
     Score each peptide's immunogenicity.
 
@@ -134,14 +157,16 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
 
     Args:
         features_df: DataFrame with feature columns from Stage 3
-        proteome_id: label used in output filename
+        proteome_id: label used in output filename (sanitized for filesystem safety)
         model_path:  path to a serialized model (optional)
         calibrate:   apply Platt calibration if calibrator file exists
         mc_dropout:  run MC Dropout uncertainty (PyTorch models only)
+        freeze_mode: raise on any missing artifact or model incompatibility
 
     Returns:
         (ranked_df, model) tuple.
     """
+    proteome_id = _sanitize_name(proteome_id)
     model = None
     if model_path:
         resolved_path = resolve_model_path(model_path)
@@ -154,8 +179,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
         is_pytorch = model_path.endswith('.pt')
 
         if is_pytorch:
-            import torch
-            checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
+            checkpoint = _load_torch_checkpoint(model_path, required=False)
             expected_n = checkpoint['n_features']
             
             if expected_n == len(FEATURE_COLUMNS_50):
@@ -183,10 +207,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
             print(f"[Stage 4] Loaded PyTorch ANN from {model_path} ({len(model_cols)} features)")
 
             if mc_dropout:
-                import torch
-                from src.artifact_integrity import verify_artifact_checksum
-                verify_artifact_checksum(model_path, required=True)
-                checkpoint = torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
+                checkpoint = _load_torch_checkpoint(model_path, required=True)
                 X = features_df[model_cols].values.astype(np.float64)
                 X_scaled = (X - checkpoint['scaler_mean'].numpy()) / (checkpoint['scaler_scale'].numpy() + 1e-10)
                 X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
