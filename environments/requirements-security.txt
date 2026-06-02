@@ -4,14 +4,10 @@
 #
 #    pip-compile --generate-hashes --output-file='environments\requirements-security.txt' 'environments\requirements-security.in'
 #
-bandit==1.8.2 \
-    --hash=sha256:df6146ad73dd30e8cbda4e29689ddda48364e36ff655dbfc86998401fcf1721f \
-    --hash=sha256:e00ad5a6bc676c0954669fe13818024d66b70e42cf5adb971480cf3b671e835f
+bandit==1.9.4 \
+    --hash=sha256:b589e5de2afe70bd4d53fa0c1da6199f4085af666fde00e8a034f152a52cd628 \
+    --hash=sha256:f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e
     # via -r environments/requirements-security.in
-colorama==0.4.6 \
-    --hash=sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44 \
-    --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
-    # via bandit
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
     --hash=sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a
