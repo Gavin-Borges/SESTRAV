@@ -25,8 +25,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --require-hashes -r requirements.txt
-          pip install --require-hashes -r environments/requirements-ci.txt
+          pip install --no-deps --require-hashes -r requirements.txt
+          pip install --no-deps --require-hashes -r environments/requirements-ci.txt
 
       - name: Run tests
         run: python -m pytest tests/ -v

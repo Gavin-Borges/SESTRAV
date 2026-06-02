@@ -61,10 +61,10 @@ def _load_torch_checkpoint(model_path, required=True):
             np._core.multiarray.scalar,  # serialised numpy scalar values
             np.dtype,                    # serialised numpy dtype objects
         ])
-    except Exception:
+    except Exception:  # nosec B110
         pass
     import torch
-    return torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
+    return torch.load(model_path, map_location='cpu', weights_only=True)  # nosec B614 nosemgrep
 
 
 def _load_pytorch_model(model_path, features_df, model_cols):
