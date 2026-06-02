@@ -62,15 +62,33 @@ def _score_with_model(features_df, model, binding_matrix_path=None):
 
 
 def _load_torch_checkpoint(model_path):
-    """Load ANN checkpoints using the safe weights-only path only."""
+    """Load ANN checkpoints using the safe weights-only path only.
+
+    PyTorch 2.6+ enforces strict allowlisting for weights_only=True. SESTRAV
+    checkpoints embed numpy scalars and dtypes in scaler parameters
+    (scaler_mean / scaler_scale). Both are allowlisted explicitly here —
+    the PyTorch-recommended approach for trusted, internally-generated
+    checkpoints.
+    See: https://pytorch.org/docs/stable/generated/torch.load.html
+    """
     verify_artifact_checksum(model_path, required=False)
     try:
+        import numpy as np
+        import torch.serialization
+        # Allowlist numpy types used in scaler_mean/scaler_scale checkpoint arrays.
+        # numpy._core is used (not deprecated numpy.core alias) to silence warnings.
+        # Safe: checkpoints are generated only by SESTRAV's own training pipeline.
+        torch.serialization.add_safe_globals([
+            np._core.multiarray.scalar,  # serialised numpy scalar values
+            np.dtype,                    # serialised numpy dtype objects
+        ])
         return torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
-    except Exception:
+    except Exception as exc:
         raise RuntimeError(
             f"[Baseline] Unable to load ANN checkpoint '{model_path}' with weights_only=True. "
-            "Resave the checkpoint from a trusted training run before loading it."
-        )
+            "Resave the checkpoint from a trusted training run before loading it. "
+            f"Original error: {exc}"
+        ) from exc
 
 
 def _score_with_ann(features_df, model_path):

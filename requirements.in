@@ -1,0 +1,46 @@
+# Core data and ML
+biopython==1.87
+joblib==1.5.3
+numpy==2.4.6
+openpyxl==3.1.5
+pandas==3.0.3
+pyyaml==6.0.2
+scikit-learn==1.8.0
+scipy==1.17.1
+threadpoolctl==3.6.0
+xgboost==3.2.0
+
+# Pipeline feature/binding stack
+mhcflurry==2.2.1
+setuptools==80.9.0
+
+# Plotting and explainability
+matplotlib==3.10.9
+shap==0.51.0
+
+# Test tooling
+pytest==9.0.3
+hypothesis==6.102.2
+
+# PyTorch & GNN
+torch==2.12.0
+torch-geometric>=2.7.0
+
+# API scaffolding
+fastapi!=0.136.3
+uvicorn
+pydantic
+
+# Security: minimum version pins to close known CVEs
+# keras < 3.13.2 is affected by multiple CVEs (directory traversal, SSRF,
+# untrusted deserialization, arbitrary code execution via safe_mode bypass).
+# GHSA-36fq-jgmw-4r9c, GHSA-4f3f-g24h-fr8m, GHSA-cjgq-5qmw-rcj6,
+# GHSA-hjqc-jx6g-rwp9, GHSA-mq84-hjqx-cwf2, GHSA-7gcm-g887-7qv7
+keras>=3.13.2
+
+# protobuf < 5.29.6 allows DoS via Any-message recursion depth bypass.
+# GHSA-m2f8-v8q4-3m59 / PYSEC-2025-121
+protobuf>=5.29.6
+
+# Linux-only transitive dependency of xgboost==3.2.0 required for --require-hashes in CI
+nvidia-nccl-cu12==2.30.4; platform_system == "Linux"

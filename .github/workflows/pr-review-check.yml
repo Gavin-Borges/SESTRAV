@@ -26,13 +26,27 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            // Only enforce on PRs (not on review events that already passed)
-            const prNumber = context.payload.pull_request
-              ? context.payload.pull_request.number
-              : context.payload.review.pull_request.number;
+            const pr = context.payload.pull_request || (context.payload.review && context.payload.review.pull_request);
+            if (!pr) {
+              core.setFailed('Could not find pull request in payload.');
+              return;
+            }
+
+            const prNumber = pr.number;
+            const prAuthor = pr.user.login;
+            const repoOwner = context.repo.owner;
+
+            // If the PR is created by the repo owner (sole maintainer), bypass review check
+            if (prAuthor === repoOwner) {
+              core.info(
+                `ℹ️ PR created by repository owner & sole maintainer (${prAuthor}). ` +
+                'Bypassing review approval requirement to allow frictionless self-merging.'
+              );
+              return;
+            }
 
             const { data: reviews } = await github.rest.pulls.listReviews({
-              owner: context.repo.owner,
+              owner: repoOwner,
               repo:  context.repo.repo,
               pull_number: prNumber,
             });
@@ -40,13 +54,12 @@ jobs:
             const approvals = reviews.filter(r => r.state === 'APPROVED');
 
             if (approvals.length === 0) {
-              core.warning(
+              // Hard-fail so this status check blocks the merge for external contributors.
+              core.setFailed(
                 'No approving reviews found. ' +
                 'This PR requires at least 1 human approval before merge. ' +
                 'See CODEOWNERS for required reviewers.'
               );
-              // Do not fail here — the branch ruleset blocks merge;
-              // this step records an audit trail in the check run log.
             } else {
               core.info(
                 `✅ Found ${approvals.length} approving review(s). Review requirement satisfied.`
