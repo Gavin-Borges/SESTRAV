@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -23,10 +23,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install CPU PyTorch
+        run: |
+          pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu
+
       - name: Install dependencies
         run: |
-          pip install --require-hashes -r requirements.txt
-          pip install --require-hashes -r environments/requirements-ci.txt
+          pip install --no-deps --require-hashes -r requirements.txt
+          pip install --no-deps --require-hashes -r environments/requirements-ci.txt
 
       - name: Run tests
         run: python -m pytest tests/ -v
