@@ -290,3 +290,23 @@ pipeline_legacy21.py
 inspect_checkpoint.py
 resave_checkpoint.py
 scan_checkpoint_globals.py
+
+
+# -- Security hygiene (added 2026-06-03 per forensic audit) -----------------
+# Local virtual environments — prevent accidental cert/key commits
+.ci_test_venv/
+
+# Security-sensitive file extensions (defensive catch-all)
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# SQLite databases (catch-all beyond the explicit db.sqlite3 entry)
+*.db
+*.sqlite
