@@ -105,7 +105,7 @@ Changed `core.warning()` → `core.setFailed()` so the status check blocks merge
 
 ### Scorecard Action Upgrade (`scorecard.yml`)
 Upgraded `ossf/scorecard-action` from v2.3.1 → v2.4.3 (bundles Scorecard v5.3.0).
-SHA pinned: `99c09fe975337306107572b4fdf4db224cf8e2f2`.
+SHA pinned: `4eaacf0543bb3f2c246792bd56e8cdeffafb205a`.
 
 ### Fuzzing Workflow (`.github/workflows/fuzzing.yml`)
 Added Hypothesis property-based fuzzing CI workflow. Runs `tests/test_fuzz.py` with
