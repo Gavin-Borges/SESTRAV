@@ -60,8 +60,8 @@ import pandas as pd
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
 # Load the immunogenicity dataset
-DATA_PATH = "immunogenicity_dataset.csv"
-BINDING_MATRIX_PATH = "models/peptide_binding_matrix.csv"
+DATA_PATH = "data/immunogenicity_dataset_v3.csv"
+BINDING_MATRIX_PATH = "models/peptide_binding_matrix_v3.csv"
 
 df = pd.read_csv(DATA_PATH)
 print(f"Loaded {len(df)} records from {DATA_PATH}")

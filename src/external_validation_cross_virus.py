@@ -5,7 +5,7 @@ Trains virus-specific RF models and evaluates on held-out virus peptides using
 OOF-style scoring, producing results/external_validation_cross_virus.csv.
 
 Usage:
-    python -m src.external_validation_cross_virus --data immunogenicity_dataset.csv
+    python -m src.external_validation_cross_virus --data data/immunogenicity_dataset_v3.csv
 """
 
 from __future__ import annotations
@@ -105,9 +105,9 @@ def run_cross_virus(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-virus transfer table (A1)")
-    parser.add_argument("--data", default="immunogenicity_dataset.csv")
+    parser.add_argument("--data", default="data/immunogenicity_dataset_v3.csv")
     parser.add_argument(
-        "--binding-matrix", default="models/peptide_binding_matrix.csv"
+        "--binding-matrix", default="models/peptide_binding_matrix_v3.csv"
     )
     parser.add_argument(
         "--output", default="results/external_validation_cross_virus.csv"

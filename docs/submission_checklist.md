@@ -65,18 +65,18 @@ conda env create -f environment.yml
 conda activate sestrav
 pip install -r requirements.txt
 mhcflurry-downloads fetch models_class1_presentation
-python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
-python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 21
+python -m src.train_classifier --data data/immunogenicity_dataset_v3.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
+python -m src.train_classifier --data data/immunogenicity_dataset_v3.csv --feature-mode 21
 python -m pytest tests/ -v
-python -m src.h2_tier_a_evaluation --data immunogenicity_dataset.csv --model-path models/rf_30feature_integrated.joblib --binding-matrix models/peptide_binding_matrix_v3.csv --output-dir results
-python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
+python -m src.h2_tier_a_evaluation --data data/immunogenicity_dataset_v3.csv --model-path models/rf_30feature_integrated.joblib --binding-matrix models/peptide_binding_matrix_v3.csv --output-dir results
+python -m src.final_validation_report --results-dir results --model-dir models --data data/immunogenicity_dataset_v3.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
 python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v2
 ```
 
 ## 2.2 Snakemake final chain
 
 ```bash
-python -m src.train_classifier --data immunogenicity_dataset.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
+python -m src.train_classifier --data data/immunogenicity_dataset_v3.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 snakemake --snakefile pipeline.smk --cores 4
 snakemake --snakefile pipeline.smk full_validation_report --cores 4
 ```
@@ -109,7 +109,7 @@ Run before publishing final tag:
 
 ```bash
 python -m pytest tests/ -v
-python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
+python -m src.final_validation_report --results-dir results --model-dir models --data data/immunogenicity_dataset_v3.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
 ```
 
 Confirm files exist:
@@ -138,7 +138,7 @@ python -m src.baseline_comparison --help
 ```
 
 Optional-track provenance docs:
-- `docs/nn_gnn_project2_sync_matrix.md`
+- `docs/archive/nn_gnn_project2_sync_matrix.md`
 - `docs/nn_gnn_optional_module_guide.md`
 - `docs/external_validation_data_expansion_roadmap.md`
 
@@ -187,7 +187,7 @@ docker run --rm -v "$(pwd)/results:/app/results" sestrav:2.0 \
   -m src.final_validation_report \
   --results-dir results \
   --model-dir models \
-  --data immunogenicity_dataset.csv \
+  --data data/immunogenicity_dataset_v3.csv \
   --binding-matrix models/peptide_binding_matrix_v3.csv \
   --model-path models/rf_30feature_integrated.joblib
 ```
@@ -202,7 +202,7 @@ apptainer run sestrav.sif
 Optional validation command:
 
 ```bash
-apptainer exec sestrav.sif python -m src.final_validation_report --results-dir results --model-dir models --data immunogenicity_dataset.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
+apptainer exec sestrav.sif python -m src.final_validation_report --results-dir results --model-dir models --data data/immunogenicity_dataset_v3.csv --binding-matrix models/peptide_binding_matrix_v3.csv --model-path models/rf_30feature_integrated.joblib --dataset-mode expansion_alpha --dataset-version 2.0.0-alpha
 ```
 
 ---

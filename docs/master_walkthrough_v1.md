@@ -13,7 +13,7 @@ Use this document to run, explain, and present the prototype consistently.
 Reference policy docs:
 
 - `docs/canonical_source_of_truth.md`
-- `docs/colloquium_evidence_freeze_v2.md`
+- `docs/archive/colloquium_evidence_freeze_v2.md`
 
 ## 2) System Architecture
 
@@ -45,7 +45,7 @@ Key fields:
 
 Training data and model support files:
 
-- `immunogenicity_dataset.csv`
+- `data/immunogenicity_dataset_v3.csv`
 - `models/peptide_binding_matrix_v3.csv`
 
 ## 4) Stage-by-Stage Execution

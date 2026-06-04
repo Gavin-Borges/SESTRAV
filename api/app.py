@@ -1,3 +1,9 @@
+# api/app.py — Optional FastAPI Web Server Scaffold (Placeholder)
+# =============================================================
+# This file is an optional web API stub designed for future REST endpoints.
+# It is a placeholder scaffold and is not required for running the core
+# SESTRAV pipeline.
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional

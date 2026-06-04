@@ -201,7 +201,7 @@ def write_audit_reports(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Refresh and audit SESTRAV training dataset")
     parser.add_argument("--source-data-dir", required=True, help="Directory with raw IEDB source xlsx/csv files")
-    parser.add_argument("--output-csv", default="immunogenicity_dataset.csv")
+    parser.add_argument("--output-csv", default="data/immunogenicity_dataset_v3.csv")
     parser.add_argument("--provenance-csv", default="results/immunogenicity_provenance.csv")
     parser.add_argument("--audit-csv", default="results/data_bias_audit_summary.csv")
     parser.add_argument("--audit-md", default="results/data_bias_audit.md")
