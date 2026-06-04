@@ -2,7 +2,7 @@
 Build Tier A join tables and PredIG/PRIME sidecar inputs before external runs.
 
 Reads:
-  - immunogenicity_dataset.csv (peptide, label, virus)
+  - data/immunogenicity_dataset_v3.csv (peptide, label, virus)
   - models/rf_oof_predictions.csv (OOF RF scores from train_classifier)
   - models/peptide_binding_matrix.csv (bind_* presentation-style columns)
   - config.yaml (alleles for expansion + optional proteome mapping)
@@ -76,7 +76,7 @@ def main() -> None:
         results_dir = os.path.join(root, results_dir)
     os.makedirs(results_dir, exist_ok=True)
 
-    data_path = os.path.join(root, "immunogenicity_dataset.csv")
+    data_path = os.path.join(root, "data", "immunogenicity_dataset_v3.csv")
     oof_path = os.path.join(root, "models", "rf_oof_predictions.csv")
     bind_path = os.path.join(root, "models", "peptide_binding_matrix.csv")
 
@@ -89,7 +89,7 @@ def main() -> None:
     bind = pd.read_csv(bind_path)
 
     if "peptide" not in ds.columns or "label" not in ds.columns:
-        raise ValueError("immunogenicity_dataset.csv needs peptide, label")
+        raise ValueError("data/immunogenicity_dataset_v3.csv needs peptide, label")
     if "score" not in oof.columns:
         raise ValueError("rf_oof_predictions.csv must contain 'score'")
 

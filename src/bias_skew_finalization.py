@@ -59,11 +59,11 @@ def _gate_status(
 
 def run_bias_skew_finalization(
     source_data_dir: str,
-    data_csv: str = "immunogenicity_dataset.csv",
+    data_csv: str = "data/immunogenicity_dataset_v3.csv",
     model_dir: str = "models",
     results_dir: str = "results",
     feature_mode: int = 30,
-    binding_matrix_path: str = "models/peptide_binding_matrix.csv",
+    binding_matrix_path: str = "models/peptide_binding_matrix_v3.csv",
 ) -> str:
     """Execute the full finalization pipeline and return release summary path."""
     os.makedirs(model_dir, exist_ok=True)
@@ -171,11 +171,11 @@ if __name__ == "__main__":
         default=os.path.join("..", "..", "09_Data"),
         help="Path to raw IEDB source files used for refresh",
     )
-    parser.add_argument("--data-csv", default="immunogenicity_dataset.csv")
+    parser.add_argument("--data-csv", default="data/immunogenicity_dataset_v3.csv")
     parser.add_argument("--model-dir", default="models")
     parser.add_argument("--results-dir", default="results")
     parser.add_argument("--feature-mode", type=int, default=30, choices=[21, 30])
-    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix.csv")
+    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v3.csv")
     args = parser.parse_args()
 
     out = run_bias_skew_finalization(
