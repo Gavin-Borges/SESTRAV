@@ -1,250 +1,128 @@
-# SESTRAV — Structural Epitope Scoring via TCR Recognition And Vaccinology
+# SESTRAV: Structural Epitope Scoring via TCR Recognition and Vaccinology
 
-A structurally informed immunogenicity prediction pipeline for therapeutic epitope discovery in oncogenic viruses (HPV and EBV). Version 2.0 centers a canonical reproducible 30-feature release path and includes ANN/GNN/Colab extensions as optional benchmark workflows.
+**Version 2.0**
 
-## What SESTRAV Does
+SESTRAV is a structurally informed computational pipeline for therapeutic epitope discovery in oncogenic viruses, with a primary focus on Human Papillomavirus (HPV) and Epstein-Barr Virus (EBV). It integrates MHC binding predictions with TCR-facing physicochemical features to improve immunogenicity classification beyond traditional MHC-binding tools.
 
-Most computational tools stop at predicting MHC binding — whether a peptide will be presented on the cell surface. But binding is necessary, not sufficient: many peptides bind MHC well yet never activate a T-cell response (AUC ~0.60 when binding is used as an immunogenicity proxy; Carri et al. 2023).
+The canonical release uses a reproducible 30-feature model (20 physicochemical properties at TCR-contact positions + 10 multi-allele MHC binding scores). Optional extensions include Artificial Neural Network (ANN), Graph Neural Network (GNN), and Google Colab workflows for benchmarking.
 
-SESTRAV addresses this **specificity bottleneck** by extracting physicochemical features at the peptide positions that face the TCR (positions p4–p8) and combining them with multi-allele MHC binding features (30 total) to train a classifier on experimentally validated immunogenicity data from the IEDB.
+## Background and Motivation
 
-## Release Tracks (Canonical + Progress)
+Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by extracting features from TCR-contact residues (primarily positions p4–p8) and training classifiers on experimentally validated immunogenicity data from the IEDB.
 
-SESTRAV is published as a dual-track project:
+This approach combines structural insights with multi-allele binding predictions to better discriminate true immunogenic epitopes.
 
-- **Canonical public track (main):** 30-feature configuration (20 physicochemical + 10 multi-allele MHC binding features) with `config.yaml` defaults. Release-gate validation is based on RF/XGBoost pipeline outputs and the frozen canonical artifact bundle.
-- **Legacy comparator track:** 21-feature sequence-only configuration retained for historical comparability with earlier artifacts.
+## Release Tracks and Policy
 
-The canonical track is the maintained default path, but committed validation artifacts currently indicate mixed biological support and should be interpreted as exploratory computational evidence rather than finalized biological validation.
-For release-grade reruns, enable `freeze_mode: true` in `config.yaml` so missing models, mixed output stems, and partial validation bundles fail fast.
+* **Canonical track (default):** 30-feature configuration (20 physicochemical + 10 multi-allele MHC binding). This is the maintained release path.
+* **Legacy comparator track:** 21-feature sequence-only configuration retained for historical reproducibility.
 
-## Canonical Source-of-Truth Policy
+**Source of Truth:** SESTRAV v2 designates this repository (main branch) as the single authoritative source. For release-grade reproducibility, enable `freeze_mode: true` in `config.yaml`. Freeze mode enforces strict guardrails: no Stage 4 prototype fallback, no mixed legacy/canonical output stems, and atomic artifact updates.
 
-SESTRAV v2 uses this repository as the single authoritative source and one default execution track.
+## Validation Status
 
-- Authoritative source: this repository (`main` branch)
-- Canonical execution track: 30-feature integrated (`feature_mode: 30`)
-- Canonical ANN architecture: 256-128-64 ReLU, dropout 0.2 (Project 2 best)
-- Reference policy: `docs/canonical_source_of_truth.md`
+The committed release evidence (v2 dataset, 720 peptides, 2.36:1 class ratio) provides the following computational validation:
 
-## Current Validation Status
+| Metric / Check | Result |
+| :--- | :--- |
+| H2 Tier A decision (R10 ≥ 2.0) | **Not supported** (R10 = 1.0930) |
+| Gold-standard positive recovery | 15/15 positives found; 7/15 in top 25% |
+| Binding-only baseline comparison | Baseline recovers 15/15 (expected for strong-binder set) |
+| Gold-standard negative discrimination | 9/10 negatives pushed down vs. binding-only |
+| SHAP feature contribution | ~60% MHC binding, ~40% TCR-contact features |
 
-The committed release evidence (v2 dataset, 720 peptides, 2.36:1 class ratio) currently reports:
-
-- `results/final_validation_report.md`: H2 Tier A decision is **NOT SUPPORTED** (`R10 = 1.0930`, below the `>= 2` threshold)
-- `results/gold_standard_validation.csv`: 15/15 gold-standard positives found, 7/15 in top 25%
-- `results/baseline_comparison.csv`: RF recovers 4/15 in top 10% and 7/15 in top 25%; binding-only baseline recovers 15/15 (expected for strong-binder gold set)
-- Gold-standard negative discrimination: 9/10 negatives pushed down vs binding-only (TCR features add value)
-- Feature contribution (SHAP): 60% binding / 40% TCR-contact features
-
-Use this repository as a reproducible computational framework and validation workbench; do not frame the current committed outputs as biologically validated endpoints.
+**Important:** These results constitute computational validation only and do not establish biological efficacy. Wet-lab experimental confirmation is required for any therapeutic claims. See `results/final_validation_report.md` and `docs/limitations_statement_v1.md` for full details.
 
 ## Pipeline Overview
 
-```
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│  Stage 1         │    │  Stage 2         │    │  Stage 3         │    │  Stage 4         │
-│  Peptide         │───▶│  MHC Binding     │───▶│  TCR Feature     │───▶│  Immunogenicity  │
-│  Generation      │    │  Prediction      │    │  Extraction      │    │  Scoring         │
-│                  │    │                  │    │                  │    │                  │
-│  FASTA → 8-11mer │    │  MHCflurry       │    │  20 physico +    │    │  RF / XGBoost /  │
-│  sliding window  │    │  10 HLA alleles  │    │  10 allele bind  │    │  ANN classifier  │
-│                  │    │                  │    │  = 30 features   │    │  → ranked output │
-└──────────────────┘    └──────────────────┘    └──────────────────┘    └──────────────────┘
-```
+SESTRAV proceeds through four stages:
 
-**Input:** Viral proteome FASTA files (16 antigens: 8 HPV + 8 EBV)
+1. **Peptide Generation:** Sliding-window extraction of 8-11mer peptides from viral proteome FASTA files.
+2. **MHC Binding Prediction:** MHCflurry presentation scores across 10 common HLA alleles.
+3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-facing positions plus 10 binding scores (30 features total).
+4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with optional ANN/GNN benchmarks; produces ranked candidates with SHAP interpretability.
 
-**Output:** Ranked epitope candidates with immunogenicity scores, SHAP interpretability, and optional calibration/uncertainty estimates
+**Input:** Viral proteome FASTA files (default: 8 HPV + 8 EBV antigens).
+**Output:** Ranked epitope candidates with immunogenicity scores, SHAP values, and visualizations.
 
 ## Input Data and Naming Conventions
 
-SESTRAV's default execution path runs on data already bundled in this repository:
+SESTRAV runs on bundled repository data by default. User-uploaded files are unnecessary unless intentionally overriding defaults.
 
-- `data/proteomes/*.fasta` for Stage 1-4 inference
-- `immunogenicity_dataset.csv` and `models/peptide_binding_matrix_v3.csv` for training/evaluation modules (canonical v3 matrix; `models/peptide_binding_matrix.csv` is the legacy v1 matrix)
-- `config.yaml` for antigen, allele, and model-path selection
-
-This means a local run does not require user-uploaded input files unless you intentionally replace repository data/config.
-
-### Proteome ID Naming
-
-Each pipeline run is identified by a **proteome ID** that encodes the virus, strain, and panel size:
+### Proteome Identifiers
 
 | Proteome ID | Virus | Strain(s) | Antigens | FASTA File |
-|---|---|---|---|---|
-| `HPV16_18_panel8` | Human Papillomavirus | HPV-16 and HPV-18 | 8 proteins (E2, E5, E6, E7 from each strain) | `data/proteomes/HPV16_18_panel8.fasta` |
-| `EBV_B95_8_panel8` | Epstein-Barr Virus | B95-8 | 8 proteins (EBNA1, EBNA3A, EBNA3B, LMP1, LMP2A, gp350, BZLF1, BRLF1) | `data/proteomes/EBV_B95_8_panel8.fasta` |
+| :--- | :--- | :--- | :--- | :--- |
+| `HPV16_18_panel8` | Human Papillomavirus | HPV-16, HPV-18 | 8 (E2, E5, E6, E7 from each strain) | `data/proteomes/HPV16_18_panel8.fasta` |
+| `EBV_B95_8_panel8` | Epstein-Barr Virus | B95-8 | 8 (EBNA1, EBNA3A, EBNA3B, LMP1, LMP2A, gp350, BZLF1, BRLF1) | `data/proteomes/EBV_B95_8_panel8.fasta` |
 
-Reading the ID: `EBV_B95_8_panel8` means "8-antigen panel from the EBV B95-8 strain." The `panel8` segment indicates the antigen count in this project (8 per virus). See [`docs/antigen_accessions.md`](docs/antigen_accessions.md) for full UniProt accessions and gene names.
+*Full UniProt accessions are available in `docs/antigen_accessions.md`.*
 
 ### Output File Naming
 
-The pipeline produces per-proteome output files using the pattern `results/{proteome_id}_{suffix}`:
+Per-proteome outputs follow the pattern `results/{proteome_id}_{suffix}`:
 
-| File Suffix | Pipeline Stage | Contents |
-|---|---|---|
-| `_peptides.csv` | Stage 1 — Peptide Generation | All 8-11mer peptides from sliding window over FASTA input |
-| `_binding.csv` | Stage 2 — MHC Binding Prediction | MHCflurry presentation scores for 10 HLA alleles |
-| `_features.csv` | Stage 3 — TCR Feature Extraction | 30 features per peptide (20 physicochemical + 10 per-allele binding) |
-| `_ranked.csv` | Stage 4 — Immunogenicity Scoring | Final scored and ranked epitope candidates |
-| `_top20_immunogenicity.png` | Stage 4 — Plotting | Bar chart of the top 20 predicted immunogenic peptides |
-| `_score_distribution.png` | Stage 4 — Plotting | Histogram of immunogenicity score distribution across all peptides |
+| Suffix | Contents |
+| :--- | :--- |
+| `_peptides.csv` | All 8-11mer peptides (Stage 1) |
+| `_binding.csv` | MHCflurry presentation scores (Stage 2) |
+| `_features.csv` | 30 features per peptide (Stage 3) |
+| `_ranked.csv` | Final scored and ranked epitope candidates (Stage 4) |
+| `_top20_immunogenicity.png` | Bar chart of top 20 predicted immunogenic peptides |
+| `_score_distribution.png` | Histogram of score distribution across all peptides |
 
-For example, `results/HPV16_18_panel8_ranked.csv` is the final ranked output for the HPV panel.
-
-### Validation and Analysis Outputs
-
-These committed files are cross-proteome validation summaries (not per-proteome):
-
-| File | Description |
-|---|---|
-| `results/gold_standard_validation.csv` | Recovery of 15 known immunogenic epitopes |
-| `results/gold_standard_negative_validation.csv` | Discrimination of 10 known non-immunogenic epitopes |
-| `results/baseline_comparison.csv` | RF vs XGBoost vs binding-only comparison |
-| `results/h2_tier_a_summary.csv` | H2 Tier A enrichment analysis |
-| `results/final_validation_report.md` | Headline validation decision and artifact links |
-| `results/calibration_metrics.csv` | Platt calibration reliability metrics |
-| `results/shap_values_rf.csv` | SHAP feature importance values for the RF model |
-| `results/multi_run_stability_report.md` | Stability across repeated training/evaluation cycles |
-
-### Shareout Snapshots
-
-Folders named `results/shareout_YYYYMMDD/` (e.g., `results/shareout_20260426/`) are dated presentation snapshots containing plots and summary files frozen for team shareouts. They duplicate a subset of the main results at a specific point in time.
-
-### Model Artifact Naming
-
-Model filenames encode the feature track and algorithm:
-
-| Naming Pattern | Meaning | Generator |
-|---|---|---|
-| `rf_30feature_integrated.joblib` | Random Forest, canonical 30-feature track | `src/train_classifier.py` |
-| `xgb_30feature_integrated.joblib` | XGBoost, canonical 30-feature track | `src/train_classifier.py` |
-| `ann_30feature_integrated.pt` | PyTorch ANN (FlexibleMLP), canonical 30-feature track | `src/ann_benchmark.py` |
-| `rf_21feature_legacy.joblib` | Random Forest, legacy 21-feature sequence-only track | `src/train_classifier.py` |
-| `xgb_21feature_legacy.joblib` | XGBoost, legacy 21-feature sequence-only track | `src/train_classifier.py` |
-| `ann_21feature_legacy.pt` | PyTorch ANN, legacy 21-feature track | `src/ann_benchmark.py` |
-
-ANN `.pt` checkpoints include embedded architecture metadata (`hidden`, `activation`, `dropout`) and scaler parameters. Stage 4 auto-detects architecture from the checkpoint; legacy checkpoints without metadata fall back to `[64, 32]` ReLU dropout 0.3.
-
-Model binaries are not committed to git (they are generated locally). Only model metadata CSVs and configuration JSONs are committed.
-
-### Legacy Alias Compatibility
-
-Earlier versions of this project used different proteome IDs and model names. For one release, the pipeline accepts legacy aliases transparently via `src/naming.py`:
-
-- `HPV_8_FASTAs` and `EBV_8_FASTAs` resolve to their canonical equivalents
-- `EBV_panel8_B958` resolves to `EBV_B95_8_panel8`
-- Old model names like `rf_30f_immunogenicity.joblib` resolve to `rf_30feature_integrated.joblib`
-
-These aliases will be removed in the next release. Canonical names should be used for all new work.
-
-### Further Reference
-
-- [`docs/output_naming_standard_v1.md`](docs/output_naming_standard_v1.md) — full naming policy for all output files
-- [`docs/feature_glossary.md`](docs/feature_glossary.md) — definitions of all 30 feature columns
-- [`docs/antigen_accessions.md`](docs/antigen_accessions.md) — protein names, UniProt IDs, and gene identifiers
-
-## Directory Structure
-
-```
-.
-├── api/                   # Application programming interface endpoints
-├── config.yaml            # Central configuration (alleles, antigens, parameters)
-├── pipeline.smk           # Snakemake workflow (4 rules)
-├── pipeline.py            # Standalone Python entry point
-├── check_secrets.py       # Secret validation script
-├── functions/             # Core pipeline stage logic
-│   ├── stage1_peptide_generation.py
-│   ├── stage2_mhc_binding_prediction.py
-│   ├── stage3_tcr_feature_extraction.py
-│   └── stage4_immunogenicity_scoring.py
-├── scripts/               # Snakemake wrapper scripts
-│   ├── stage1.py … stage4.py
-├── src/                   # Shared modules
-│   ├── features.py             # 22/30/31-feature extraction (Shared Hub)
-│   ├── evaluate_metrics.py     # 10 evaluation metrics (AUC, ISSR, Precision/Recall/NDCG@k)
-│   ├── model.py                # FlexibleMLP architecture, training loop, architecture search space
-│   ├── train_classifier.py     # RF/XGBoost model training with stratified CV
-│   ├── ann_benchmark.py        # ANN benchmark with 14-config architecture search (PyTorch)
-│   ├── gnn_benchmark.py        # GNN benchmark: GCN, GAT, Bipartite Peptide-Allele (PyG)
-│   ├── ablation_study.py       # 5-group feature ablation analysis
-│   ├── iedb_data_loader.py     # IEDB data cleaning and loading
-│   ├── gold_standard.py        # Gold-standard validation (15 epitopes)
-│   ├── baseline_comparison.py  # RF vs XGB vs binding-only comparison
-│   ├── shap_analysis.py        # SHAP explainability plots
-│   └── training_plots.py       # Cross-validation visualization
-├── data/                  # Datasets and archives
-│   ├── proteomes/         # Curated 8:8 antigen FASTA files
-│   └── archive/           # Historical dataset versions
-├── environments/          # Dependency lock files
-├── models/                # Training results CSVs (trained .joblib models are gitignored)
-├── results/               # Committed validation snapshots + locally generated outputs
-├── semgrep-rules/         # Custom security rules
-├── tests/                 # Unit and integration tests
-├── docs/                  # Technical documentation
-├── requirements.txt       # Core Python dependencies
-├── requirements-ann.txt   # Additional: PyTorch for ANN benchmark
-├── requirements-gnn.txt   # Additional: torch-geometric for GNN benchmark
-├── notebooks/             # Colab-ready pipeline scripts
-│   └── SESTRAV_Colab_Pipeline.py
-├── environment.yml        # Conda environment specification
-├── Dockerfile             # Docker container definition
-└── singularity.def        # Singularity container definition (HPC)
-```
+Validation and analysis outputs (committed) are summarized in `results/`; see the repository for the complete list.
 
 ## Feature Schemas
 
-At each TCR contact position, SESTRAV computes physicochemical properties:
+At each TCR contact position, SESTRAV computes the following physicochemical properties. Unless otherwise referenced, properties are based on canonical amino acid physicochemical classifications.
 
-| Property | Scale | Source |
-|---|---|---|
-| Hydrophobicity | Kyte-Doolittle (range -4.5 to +4.5) | Kyte & Doolittle, 1982 |
-| Aromaticity | Binary (F, W, Y, H = 1) | Standard biochemistry |
-| Van der Waals Volume | Å³ | Zamyatnin, 1972 |
-| Charge at pH 7 | K/R = +1, D/E = -1, others = 0 | Standard biochemistry |
+| Property | Scale / Definition | Source |
+| :--- | :--- | :--- |
+| Hydrophobicity | Kyte-Doolittle (-4.5 to +4.5) | Kyte & Doolittle, 1982 |
+| Aromaticity | Binary (F, W, Y, H = 1) | Canonical |
+| Van der Waals volume | Å³ | Zamyatnin, 1972 |
+| Charge at pH 7 | K/R = +1, D/E = -1, others = 0 | Canonical |
 | Flexibility | Vihinen flexibility (0.904 - 1.102) | Vihinen et al., 1994 |
 | Bulkiness | Zimmerman bulkiness (3.4 - 21.67) | Zimmerman et al., 1968 |
-| Hydrophilicity | Hopp & Woods (-3.4 to 3.0) | Hopp & Woods, 1981 |
-| TCR Upward Probability | Proxy from structural alignments | Structure alignment proxy |
+| Hydrophilicity | Hopp-Woods (-3.4 to 3.0) | Hopp & Woods, 1981 |
+| TCR upward probability | Heuristic derived from structural alignments | Internal structural mapping |
 
-Track definitions:
+### Track Definitions
 
-- **Legacy 21-feature track:** sequence-only training features (`binding_score` excluded); maintained as a reproducible comparator.
-- **Canonical 30-feature track:** physicochemical + multi-allele binding feature matrix, used as the default release track.
-- **Expanded 50-feature track:** utilizes all 8 properties (40 physicochemical features) + 10 per-allele binding features.
-- **Allele-aware 166-feature track:** canonical 30 features + 136 HLA pocket pseudo-sequence features (pan-allele approach).
+| Track | Features | Use Case |
+| :--- | :--- | :--- |
+| Canonical (30-feature) | 20 physicochemical + 10 binding | Default release track |
+| Legacy (21-feature) | Sequence-only (binding excluded) | Historical comparator |
+| Expanded (50-feature) | 40 physicochemical + 10 binding | Extended evaluation |
+| Allele-aware (166) | Canonical + 136 HLA pocket pseudo-sequences | Pan-allele modeling |
 
-Stage 4 auto-detects model feature expectations and applies compatible columns.
+Stage 4 auto-detects the appropriate feature set for each trained model.
 
-## Biological Data Limitations & Bias
+## Biological Data Limitations & Mitigation
 
-The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the [data_bias_audit_v3.md](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/docs/data_bias_audit_v3.md) report.
+Public immunogenicity datasets (e.g., IEDB) contain inherent biases:
 
-Specifically:
-- **Taxonomic Skew**: Epstein-Barr Virus (EBV) represents 68.13% of the dataset, while HPV16 constitutes 30.88%, and HPV11 is a tiny minority class at only 1.00%.
-- **Topological Length Skew**: 9-mer peptides represent 64.74% of the dataset, reflecting MHC Class I presentation preferences.
+* **Taxonomic skew:** EBV 68.13%, HPV16 30.88%, HPV11 1.00%.
+* **Length skew:** 9-mer peptides 64.74%.
 
-To prevent machine learning models from over-indexing on EBV-specific anchor motifs and 9-mer length preferences (which would lead to poor generalization on minority taxa like HPV11 or non-canonical peptide lengths), the `compute_sample_weights()` function in [features.py](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/features.py) is **CRITICAL**. It dynamically calculates sample weights to up-weight minority taxa and non-9-mer peptides during model training, balancing the learning signal and ensuring robust pan-viral performance.
+To prevent models from over-indexing on EBV-specific motifs and 9-mer length preferences, the `compute_sample_weights()` function in `features.py` dynamically up-weights minority taxa and non-9-mer peptides during training. This balances the learning signal for robust pan-viral performance.
 
 ## Quick Start
 
-### 1a. Setup (Conda)
+### 1. Environment Setup (Conda recommended)
+
 ```bash
 conda env create -f environment.yml
 conda activate sestrav
-pip install snakemake
 mhcflurry-downloads fetch models_class1_presentation
 ```
 
-The conda environment installs `requirements.txt` automatically via `environment.yml`.
-Use the conda environment (Python 3.11). Python 3.13 environments can fail in `mhcflurry-downloads` due upstream incompatibilities.
+For a `venv`-based setup:
 
-### 1b. Setup (venv — alternative)
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Linux/Mac
-.venv\Scripts\activate      # Windows
+source .venv/bin/activate      # Linux/macOS
 pip install -r requirements.txt
 pip install snakemake
 mhcflurry-downloads fetch models_class1_presentation
@@ -252,311 +130,87 @@ mhcflurry-downloads fetch models_class1_presentation
 
 ### 2. Train Models
 
-Models must be trained before running the pipeline in production mode. The training dataset (`immunogenicity_dataset.csv`) is included in the repository.
+Models must be trained before production pipeline execution.
 
 ```bash
-# Canonical release track (default in config.yaml)
+# Canonical 30-feature track
 python -m src.train_classifier \
-  --data immunogenicity_dataset.csv \
+  --data data/immunogenicity_dataset_v3.csv \
   --feature-mode 30 \
   --binding-matrix models/peptide_binding_matrix_v3.csv
 
-# Legacy comparator track (used in baseline comparison reports)
+# Legacy comparator track
 python -m src.train_classifier \
-  --data immunogenicity_dataset.csv \
+  --data data/immunogenicity_dataset_v3.csv \
   --feature-mode 21
 ```
 
-This produces model artifacts in `models/` for both tracks using 5-fold stratified cross-validation. Gold-standard epitopes are automatically held out from training.
-
-Model binaries (`*.joblib`, `*.pt`) are intentionally excluded from git. A fresh clone must run training before canonical pipeline scoring/validation.
-
-> **Note:** Without trained models, the pipeline falls back to a prototype mode that uses binding-derived pseudo-labels. This mode exists for end-to-end testing only and is **not scientifically valid**.
+*Note:* Without trained models, the pipeline falls back to a prototype mode using binding-derived pseudo-labels (for testing only; not scientifically valid).
 
 ### 3. Run the Pipeline
 
 ```bash
-# Via Snakemake (recommended)
+# Snakemake (recommended)
 snakemake --snakefile pipeline.smk --cores 4
 
-# Standalone
+# Standalone entry point
 python pipeline.py
 ```
 
-The default Snakemake target (`Results`) runs Stages 1-4, plotting outputs, and also trains the optional ANN and GNN benchmark models. For a leaner run that skips ANN/GNN training, use `python pipeline.py` (the standalone entry point) or run individual Snakemake rules explicitly.
-
-`snakemake` is installed separately from `requirements.txt` to avoid dependency conflicts with TensorFlow-backed `mhcflurry`.
-
-### 4. Run Tests
-```bash
-python -m pytest tests/ -v
-
-# Or run individually
-python tests/test_features.py
-python tests/test_metrics.py
-python tests/test_pipeline_integration.py
-```
-
-### 5. Validate Release Readiness (recommended before GitHub commit)
-
-Run this exact sequence before committing:
+### 4. Validate Release Readiness
 
 ```bash
-# 1) Confirm your staged/unstaged Git state
 git status
-
-# 2) Validate pipeline logic
 python -m pytest tests/test_features.py tests/test_metrics.py tests/test_pipeline_integration.py -q
-
-# 3) (Optional) Validate workflow rule wiring
-snakemake --snakefile pipeline.smk --dry-run --cores 1
+snakemake --snakefile pipeline.smk --dry-run --cores 1   # optional
 ```
 
-For freeze-grade publication checks, set `freeze_mode: true` and run:
+For freeze-grade validation:
 
 ```bash
 snakemake --snakefile pipeline.smk full_validation_report --cores 4 --forceall
 ```
 
-Freeze mode enforces strict guardrails:
-- no Stage 4 prototype fallback
-- no mixed legacy/canonical output stem pairing
-- no partial final-validation publish (atomic artifact update)
+### 5. Post-Pipeline Analysis (Optional)
 
-Sanity-check that these files exist and remain accurate in your commit:
-
-- `README.md`: setup, run, and validation commands that match the current code.
-- `requirements.txt`: all Python packages needed for pipeline + tests.
-- `requirements-ann.txt`: optional PyTorch dependency for ANN benchmarks.
-- `requirements-gnn.txt`: optional torch-geometric dependency for GNN benchmarks.
-- `environment.yml`: conda bootstrap that installs `requirements.txt`.
-- `config.yaml`: canonical defaults (antigens, alleles, feature mode, model path).
-- `pipeline.smk`: source-of-truth stage wiring and expected outputs.
-- `CITATION.cff`: version, date, and keywords current.
-
-### 6. Post-Pipeline Analysis (optional)
-
-After the pipeline completes, run gold-standard validation, baseline comparison, and SHAP analysis:
+Generate full validation report:
 
 ```bash
-python run_analysis.py
-```
-
-To generate the full validation bundle explicitly (gold-standard + baseline comparison + H2 Tier A):
-
-```bash
-# requires locally generated model binaries (see "Train Models" above)
 snakemake --snakefile pipeline.smk full_validation_report --cores 4
 ```
 
-The command writes `results/freeze_status.json` with a machine-readable validity flag and reason on failure.
-
-To prepare input files for external tool comparison (PredIG, PRIME):
+Prepare inputs for external tool comparison (PredIG, PRIME):
 
 ```bash
 python -m src.prepare_external_validation_inputs
+python -m src.external_benchmark_comparison --predig ... --prime ...
 ```
 
-This generates `results/external_validation_input.csv` (Tier A join table with OOF scores and binding max), `results/external_predig_peptide_allele_pairs.csv` (peptide x allele expansion for PredIG), and PRIME-formatted peptide and allele lists. See `docs/external_validation_data_expansion_roadmap.md` for the full external validation methodology.
+See `docs/external_validation_data_expansion_roadmap.md` for the complete workflow.
 
-After running PredIG and PRIME externally, generate the head-to-head comparison report:
+### 6. ANN / GNN Benchmarks (Optional)
 
-```bash
-python scripts/run_predig_batched.py   # PredIG Docker (5000-row batches)
-python -m src.external_benchmark_comparison \
-  --predig results/external_tool_outputs/predig_path_output.csv \
-  --prime results/external_tool_outputs/prime21_output.txt \
-  --results-dir results
-python -m src.external_validation_fairness \
-  --merged results/external_validation_merged_scores.csv \
-  --run-dir results/external_tool_outputs/<run_id> \
-  --predig-raw results/external_tool_outputs/predig_path_output.csv \
-  --prime-raw results/external_tool_outputs/prime21_output.txt
-```
+* **ANN:** `pip install -r requirements-ann.txt`, then `python -m src.ann_benchmark --help`.
+Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
+* **GNN:** `pip install -r requirements-gnn.txt`, then `python -m src.gnn_benchmark --help`.
+Implements GCN, GAT, and Bipartite GNN on peptide backbone graphs.
 
-PRIME must be run in WSL2 after `python3 scripts/install_prime_wsl.py`.
+### 7. Google Colab
 
-This parses external tool outputs, merges all scores into a unified table, runs the full 10-metric evaluation for every tool, computes ISSR enrichment ratios, Spearman rank correlations, gold-standard negative discrimination, bootstrap 95% CIs, and generates ROC/PR overlay curves, score distribution plots, and rank scatter figures. The comparison report is written to `results/external_benchmark_comparison.md`.
-
-### 7. ANN Benchmark (optional, requires PyTorch)
-
-The ANN benchmark trains a `FlexibleMLP` (from `src/model.py`) and supports both single-architecture evaluation and a full 14-configuration architecture search derived from CMB 523 Project 2.
-
-The default architecture for the 30-feature track is **256-128-64 ReLU dropout 0.2** (Project 2 best: AUC-PR = 0.8252 ± 0.0248, 5-fold CV).
-
-```bash
-pip install -r requirements-ann.txt
-
-# Single architecture on canonical 30-feature track (default: 256-128-64)
-python -m src.ann_benchmark --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
-
-# Architecture search (14 configs × 5-fold CV)
-python -m src.ann_benchmark --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv --search
-
-# Custom architecture
-python -m src.ann_benchmark --data immunogenicity_dataset.csv \
-  --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv \
-  --architecture 128-64-32
-
-# Legacy 21-feature mode (backward compatible, defaults to 64-32)
-python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 21
-```
-
-Reference:
-- `docs/nn_gnn_project2_sync_matrix.md`
-- `docs/nn_gnn_optional_module_guide.md`
-
-### 8. GNN Benchmark (optional, requires torch-geometric)
-
-The GNN benchmark evaluates three graph neural network architectures as exploratory alternatives to tabular models:
-
-- **GCN** — 2-layer Graph Convolutional Network (peptide backbone graph)
-- **GAT** — 2-layer Graph Attention Network with 4 attention heads
-- **Bipartite GNN** — Lightweight message-passing model over peptide ↔ allele edges
-
-Peptides are represented as molecular graphs where each amino acid residue is a node with 4 physicochemical features, and edges represent sequential backbone adjacency.
-
-```bash
-pip install -r requirements-gnn.txt
-
-python -m src.gnn_benchmark --data immunogenicity_dataset.csv \
-  --binding-matrix models/peptide_binding_matrix_v3.csv
-
-# Skip the bipartite GNN (faster, sequence-graph GNNs only)
-python -m src.gnn_benchmark --data immunogenicity_dataset.csv --skip-bipartite
-```
-
-> **Note:** GNNs are included as exploratory benchmarks to characterize the representation space. On the current dataset, tabular models (RF AUC-PR ≈ 0.81, ANN AUC-PR ≈ 0.83) outperform GNNs (GAT AUC-PR ≈ 0.80). Results are saved to `models/gnn_sequence_benchmark.csv` and `models/gnn_bipartite_benchmark.csv`.
-
-Reference:
-- `docs/nn_gnn_project2_sync_matrix.md`
-- `docs/nn_gnn_optional_module_guide.md`
-
-### 9. Ablation Study (optional, requires PyTorch)
-
-The ablation study evaluates the contribution of five feature groups to immunogenicity prediction using the best ANN architecture:
-
-| Group | Features | Description |
-|---|---|---|
-| `physico_20` | 20 | TCR-contact physicochemical features only |
-| `binding_10` | 10 | Per-allele MHC binding features only |
-| `sestrav_21` | 21 | Physicochemical + peptide_length (legacy track) |
-| `combined_30` | 30 | Physicochemical + binding (canonical track) |
-| `full_31` | 31 | All features including peptide_length |
-
-```bash
-python -m src.ablation_study --data immunogenicity_dataset.csv \
-  --binding-matrix models/peptide_binding_matrix_v3.csv
-```
-
-Results are saved to `models/ablation_study_results.csv`.
-
-### 10. Build a release artifact bundle (recommended)
-
-```bash
-python -m src.release_bundle --output-dir release_artifacts --bundle-name sestrav-v2
-```
-
-This command creates:
-
-- a SHA256 checksum manifest (`*.manifest.json`) for canonical validation outputs
-- a zipped bundle (`*.zip`) suitable for GitHub Release assets
-
-### 11. Google Colab (cloud execution)
-
-A Colab-ready pipeline script is provided in `notebooks/SESTRAV_Colab_Pipeline.py`. It handles repository cloning, dependency installation, and runs the full training/evaluation pipeline (RF, XGB, ANN, GNN, ablation) directly in Google Colab without any local setup.
-
-See `notebooks/README.md` for detailed usage instructions.
-
-> **Release scope note:** The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate.
-> ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev docs.
-
-### 12. Optional Track Reproducibility Smoke Checks
-
-Use these to quickly verify the optional ANN/GNN benchmark track without altering the
-canonical publish gate.
-
-```bash
-# ANN module import + CLI help
-python -m src.ann_benchmark --help
-
-# GNN module import + CLI help (works even without torch-geometric installed)
-python -m src.gnn_benchmark --help
-
-# Optional module baseline comparison wiring
-python -m src.baseline_comparison --help
-```
-
-For provenance, exact benchmark lineage, and threshold/calibration boundaries:
-- `docs/nn_gnn_project2_sync_matrix.md`
-- `docs/nn_gnn_optional_module_guide.md`
-- `docs/external_validation_data_expansion_roadmap.md`
-
-## Public Data and Reproducibility
-
-SESTRAV is released so a new user can reproduce the canonical Stage 1-4 workflow from a fresh clone.
-
-Included in this repository:
-
-- `immunogenicity_dataset.csv` (training dataset used by the released classifiers)
-- `data/proteomes/*.fasta` (EBV/HPV proteome inputs)
-- `models/peptide_binding_matrix_v3.csv` and model metadata/report CSV/JSON files
-- Pipeline code, tests, and docs needed to regenerate results
-
-Generated locally by each user (not committed):
-
-- Trained model binaries (`models/*.joblib`, `models/*.pkl`, `models/*.pt`)
-- Most workflow outputs in `results/` (except committed validation snapshots)
-- Runtime caches (`.snakemake/`, `.pytest_cache/`)
-
-Reproducibility note:
-
-- The default release path is the canonical 30-feature track.
-- A fresh clone should run canonical model training before production scoring.
-- If you need strict model compatibility, run with package versions in `requirements.txt`.
-- For strict verification of a specific run, publish the output bundle generated by `src.release_bundle`.
-
-Data provenance and citation:
-
-- The training labels are derived from curated immunogenicity evidence prepared from IEDB-linked records in this project workflow.
-- Publications or downstream reuse should cite both the SESTRAV repository and original upstream data sources used to build the released dataset.
-
-Validation scope:
-
-- This repository provides computational validation evidence (CV metrics, H2 Tier A analysis, and gold-standard recovery).
-- Wet-lab biological validation is not included in this release and should be described as future work.
-- Standardized external-communication language is maintained in `docs/limitations_statement_v1.md`.
-
-Naming references for collaborators:
-
-- `docs/naming_migration_spec.md`
-- `docs/output_naming_standard_v1.md`
-- `docs/naming_surface_audit_20260424.md`
-- `docs/current_evidence_freeze.md`
+A Colab-ready script is available in `notebooks/SESTRAV_Colab_Pipeline.py`; see `notebooks/README.md` for details.
 
 ## Container Quick Start
 
-> **Important:** The Docker image does not include trained model binaries (`*.joblib`, `*.pt`) or Snakemake. Without models, the pipeline falls back to a prototype mode with binding-derived pseudo-labels that is **not scientifically valid**. You must either train models inside the container or bind-mount a host directory containing pre-trained models.
-
-Build image:
+The Docker image does **not** include trained models. Build and then train:
 
 ```bash
 docker build -t sestrav:latest .
-```
-
-Train models inside the container (required before production scoring):
-
-```bash
 docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
-  -m src.train_classifier --data immunogenicity_dataset.csv \
+  -m src.train_classifier --data data/immunogenicity_dataset_v3.csv \
   --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
 ```
 
-Run pipeline with bind-mounted host output and model directories:
-
-Linux/macOS:
+Run the pipeline with bind-mounted directories:
 
 ```bash
 mkdir -p results
@@ -566,63 +220,64 @@ docker run --rm \
   sestrav:latest
 ```
 
-Windows PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force results | Out-Null
-docker run --rm `
-  -v "${PWD}/models:/app/models" `
-  -v "${PWD}/results:/app/results" `
-  sestrav:latest
-```
-
-Container smoke test (recommended before release):
-
-```bash
-docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q --basetemp=tmp_pytest
-```
-
-
-
-## Antigens
-
-| Virus | Antigens |
-|---|---|
-| EBV (8) | EBNA1, EBNA3A, EBNA3B, LMP1, LMP2A, gp350, BZLF1, BRLF1 |
-| HPV (8) | HPV16 E2, E5, E6, E7; HPV18 E2, E5, E6, E7 |
-
 ## Evaluation Metrics
 
-All metrics are computed by `src/evaluate_metrics.py` and returned by the `evaluate()` function.
+All metrics are computed by `src/evaluate_metrics.py`.
 
-| Metric | Description | Role |
-|---|---|---|
-| AUC-PR | Area Under Precision-Recall Curve | **Primary metric** — robust to class imbalance |
-| AUC-ROC | Area Under ROC Curve | Overall discrimination |
-| ISSR@10 | True positive fraction in top 10% | Enrichment (PredIG convention) |
-| ISSR@25 | True positive fraction in top 25% | Enrichment |
-| Precision@10 | Precision among top 10% predictions | Ranking quality |
-| Precision@25 | Precision among top 25% predictions | Ranking quality |
-| Recall@10 | Recall captured in top 10% | Sensitivity at cutoff |
-| Recall@25 | Recall captured in top 25% | Sensitivity at cutoff |
-| NDCG@10 | Normalized DCG at top 10% | Position-weighted ranking quality |
-| NDCG@25 | Normalized DCG at top 25% | Position-weighted ranking quality |
+| Metric | Description |
+| --- | --- |
+| AUC-PR | Area Under Precision-Recall Curve (primary metric, robust to class imbalance) |
+| AUC-ROC | Area Under ROC Curve |
+| ISSR@10/25 | True positive fraction in top 10% / 25% (enrichment) |
+| Precision@10/25 | Precision among top 10% / 25% predictions |
+| Recall@10/25 | Recall captured in top 10% / 25% |
+| NDCG@10/25 | Normalized Discounted Cumulative Gain at top 10% / 25% |
 
-The first four (AUC-PR, AUC-ROC, ISSR@10, ISSR@25) are the core metrics used in all reports. The extended six (Precision/Recall/NDCG at 10% and 25%) were added in v2.0 for comprehensive benchmark comparison.
+## Reproducibility and Data Provenance
+
+**Included in this repository:**
+
+* Training dataset (`data/immunogenicity_dataset_v3.csv`)
+* Viral proteomes (`data/proteomes/`)
+* Binding matrix (`models/peptide_binding_matrix_v3.csv`) and model metadata
+* All pipeline code, tests, and documentation
+
+**Generated locally (excluded from git):**
+
+* Trained model binaries (`*.joblib`, `*.pt`)
+* Most workflow outputs in `results/` (except committed validation snapshots)
+* Runtime caches
+
+A fresh clone must run model training before production scoring. Release bundles with SHA256 manifests can be created via `python -m src.release_bundle`.
+
+Training labels are derived from curated IEDB-linked immunogenicity evidence. Publications should cite both this repository and the original upstream data sources.
+
+## Documentation
+
+| Document | Description |
+| --- | --- |
+| `docs/feature_glossary.md` | Feature definitions and track schemas |
+| `docs/antigen_accessions.md` | Full UniProt accessions and gene names |
+| `docs/output_naming_standard_v1.md` | Output file naming policy |
+| `docs/naming_migration_spec.md` | Legacy alias compatibility details |
+| `docs/validation_summary.md` | Detailed validation results and interpretation |
+| `docs/limitations_statement_v1.md` | Standardized external communication language |
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT License. See `LICENSE` for details.
 
-## Maintainer
+## Maintainers and Contributors
 
-* **Gavin Borges** — Lead Developer & Maintainer (SESTRAV 2.0)
+**Lead Developer & Maintainer (SESTRAV 2.0)**
 
-## Original SESTRAV 1.0 Foundation Team (URI)
+* Gavin Borges
 
-* **Abdelrahman Eljamal** — ML Engineer & Computational Architect
-* **Iris Schellenberg** — Translational Vaccine Strategy
-* **Charles Jouaneh** — Vaccine Strategy & Bioinformatic Pipeline Development
-* **Emine Byers** — Structural Immunology & Data Curation
+**Original SESTRAV 1.0 Foundation Team (University of Rhode Island)**
 
-*University of Rhode Island — BPS 542 / CMB 522 / CSC 522 / STA 522: Bioinformatics I | CMB 523: Bioinformatics II*
+* Abdelrahman Eljamal: ML Engineer & Computational Architect
+* Iris Schellenberg: Translational Vaccine Strategy, Data Finding, and Curation
+* Charles Jouaneh: Vaccine Strategy & Bioinformatic Pipeline Development
+* Emine Byers: Structural Immunology & Data Curation
+
+*Academic affiliations: BPS 542 / CMB 522 / CSC 522 / STA 522: Bioinformatics I | CMB 523: Bioinformatics II*

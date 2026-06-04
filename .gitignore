@@ -290,3 +290,12 @@ pipeline_legacy21.py
 inspect_checkpoint.py
 resave_checkpoint.py
 scan_checkpoint_globals.py
+
+# Root-level duplicate dataset — canonical path is data/immunogenicity_dataset_v3.csv
+immunogenicity_dataset.csv
+
+# Local developer utility scripts (not part of the release, not wired into CI)
+check_secrets.py
+
+# Pipeline-generated hidden intermediates inside results/ (dot-prefixed files)
+results/.*

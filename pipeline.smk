@@ -65,7 +65,7 @@ rule score_immunogenicity:
 
 rule qc_dataset:
     input:
-        "immunogenicity_dataset.csv"
+        "data/immunogenicity_dataset_v3.csv"
     output:
         "results/qc/dataset_qc.json"
     shell:
@@ -74,7 +74,7 @@ rule qc_dataset:
 
 rule train_ann:
     input:
-        "immunogenicity_dataset.csv",
+        "data/immunogenicity_dataset_v3.csv",
         "results/qc/dataset_qc.json",
         config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     output:
@@ -88,7 +88,7 @@ rule train_ann:
 
 rule train_gnn:
     input:
-        "immunogenicity_dataset.csv",
+        "data/immunogenicity_dataset_v3.csv",
         "results/qc/dataset_qc.json",
         config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     output:
@@ -104,7 +104,7 @@ rule full_validation_report:
     input:
         expand("results/{proteome_id}_features.csv", proteome_id=ANTIGENS),
         expand("results/{proteome_id}_ranked.csv", proteome_id=ANTIGENS),
-        "immunogenicity_dataset.csv",
+        "data/immunogenicity_dataset_v3.csv",
         "results/qc/dataset_qc.json",
         config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
         config.get("model_path", "models/rf_30feature_integrated.joblib")
@@ -122,7 +122,7 @@ rule full_validation_report:
     params:
         results_dir = config.get("output_dir", "results"),
         model_dir = "models",
-        data_path = "immunogenicity_dataset.csv",
+        data_path = "data/immunogenicity_dataset_v3.csv",
         binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
         model_path = config.get("model_path", "models/rf_30feature_integrated.joblib"),
         dataset_mode = config.get("dataset_mode", "expansion_alpha"),

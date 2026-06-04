@@ -397,8 +397,8 @@ def build_input_hashes(repo_root: str) -> dict:
         "results/external_prime_peptides.txt",
         "results/external_prime_alleles_compact.txt",
         "results/external_predig_input_reformatted.csv",
-        "immunogenicity_dataset.csv",
-        "models/peptide_binding_matrix.csv",
+        "data/immunogenicity_dataset_v3.csv",
+        "models/peptide_binding_matrix_v3.csv",
     ]
     out = {}
     for rel in candidates:
@@ -632,8 +632,8 @@ def run_finalize(
             from src.external_validation_cross_virus import run_cross_virus
 
             run_cross_virus(
-                "immunogenicity_dataset.csv",
-                "models/peptide_binding_matrix.csv",
+                "data/immunogenicity_dataset_v3.csv",
+                "models/peptide_binding_matrix_v3.csv",
                 os.path.join(results_dir, "external_validation_cross_virus.csv"),
             )
         except Exception as exc:
