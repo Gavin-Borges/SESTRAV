@@ -1,5 +1,9 @@
 # SESTRAV — Structural Epitope Scoring via TCR Recognition And Vaccinology
 
+![CI — Contamination Gate](https://img.shields.io/badge/CI-contamination_gate-blue?style=flat-square)
+![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.0-informational?style=flat-square)
+
 A structurally informed immunogenicity prediction pipeline for therapeutic epitope discovery in oncogenic viruses (HPV and EBV). Version 2.0 centers a canonical reproducible 30-feature release path and includes ANN/GNN/Colab extensions as optional benchmark workflows.
 
 ## What SESTRAV Does
@@ -38,6 +42,42 @@ The committed release evidence (v2 dataset, 720 peptides, 2.36:1 class ratio) cu
 - Feature contribution (SHAP): 60% binding / 40% TCR-contact features
 
 Use this repository as a reproducible computational framework and validation workbench; do not frame the current committed outputs as biologically validated endpoints.
+
+## External Benchmark Results (v2.0.0, Frozen)
+
+SESTRAV RF was benchmarked head-to-head against two state-of-the-art tools — PRIME 2.1 (Nielsen & Andreatta, 2021) and PredIG-Path (Farriol-Duran et al., 2025) — on a curated T-cell immunogenicity dataset (EBV + HPV16, MHC class I, IEDB-sourced).
+
+### Tier A Results (N=720 intersection set)
+
+| Tool | AUC-PR | AUC-ROC | ISSR@10 | ISSR@25 |
+|------|--------|---------|---------|----------|
+| **RF (SESTRAV 2.0)** | **0.828** | **0.776** | — | — |
+| PRIME 2.1 | 0.777 | 0.724 | — | — |
+| PredIG-Path | 0.727 | — | — | — |
+
+> **Primary metric:** AUC-PR is the primary metric because the dataset is class-imbalanced (positives ≈ 70%).
+> AUC-PR baseline (random model) ≈ positive class prevalence.
+
+### Contamination Finding (Critical Methodological Result)
+
+A systematic overlap analysis revealed that **external tools show 36.9% training set intersection with the evaluation set** (exact + substring matching against IEDB-proxy peptides). When overlap peptides are excluded:
+
+| Tool | AUC-PR (clean holdout, N=451) | Δ vs. intersection set |
+|------|-------------------------------|------------------------|
+| **RF (SESTRAV 2.0)** | **0.822** | −0.006 (robust) |
+| PRIME 2.1 | 0.720 | −0.057 (substantial drop) |
+
+This contamination analysis explains a substantial fraction of PRIME's published benchmark performance. SESTRAV was trained on IEDB data and benchmarked on IEDB data; published tool training sets were not designed for this eval set — making the clean holdout the appropriate rigorous comparator.
+
+### SHAP Feature Attribution
+
+SHAP analysis (Random Forest, 720 samples) attributes the decision to:
+- **60%** MHC binding features (per-allele presentation scores)
+- **40%** TCR-contact physicochemical features (positions p4–p8)
+
+This 60/40 split confirms that TCR features provide meaningful independent signal beyond binding alone, consistent with the 9/10 gold-standard negative discrimination result.
+
+See [`results/external_benchmark_comparison.md`](results/external_benchmark_comparison.md) for full methodology and [`results/shap_values_rf.csv`](results/shap_values_rf.csv) for per-feature SHAP values.
 
 ## Pipeline Overview
 
@@ -609,6 +649,23 @@ All metrics are computed by `src/evaluate_metrics.py` and returned by the `evalu
 | NDCG@25 | Normalized DCG at top 25% | Position-weighted ranking quality |
 
 The first four (AUC-PR, AUC-ROC, ISSR@10, ISSR@25) are the core metrics used in all reports. The extended six (Precision/Recall/NDCG at 10% and 25%) were added in v2.0 for comprehensive benchmark comparison.
+
+## Cite This Work
+
+If you use SESTRAV in your research, please cite this repository:
+
+```bibtex
+@software{borges2026sestrav,
+  author    = {Borges, Gavin and Eljamal, Abdelrahman and Schellenberg, Iris and
+               Jouaneh, Charles and Byers, Emine},
+  title     = {{SESTRAV}: Structural Epitope Scoring via {TCR} Recognition And Vaccinology},
+  year      = {2026},
+  url       = {https://github.com/gavin-borges/SESTRAV},
+  version   = {2.0.0}
+}
+```
+
+See [`CITATION.cff`](CITATION.cff) for the full machine-readable citation.
 
 ## License
 
