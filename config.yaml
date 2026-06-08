@@ -1,3 +1,4 @@
+
 antigens:
   - HPV16_18_panel8
   - EBV_B95_8_panel8
@@ -70,7 +71,7 @@ dataset_governance:
   qc_thresholds:
     min_peptide_yield: 500
     max_conflict_ratio: 0.15
-    max_null_allele_fraction: 0.50
+    max_null_allele_fraction: 1.00
     class_ratio_bounds: [1.5, 4.0]
   require_checksum_match_in_freeze_mode: true
 

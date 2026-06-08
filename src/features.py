@@ -317,3 +317,68 @@ def compute_features_for_dataset(df, peptide_col='peptide',
     features_df = pd.DataFrame(feature_records)
     return pd.concat([df.reset_index(drop=True),
                       features_df.reset_index(drop=True)], axis=1)
+
+
+def compute_erap_trimming_score(peptide: str, flanking_seq: str = None) -> float:
+    """
+    Compute an ERAP1/2 N-terminal trimming likelihood score.
+    
+    Parameters
+    ----------
+    peptide : str
+        The mature peptide sequence.
+    flanking_seq : str, optional
+        Flanking residues upstream of the peptide's N-terminus.
+        
+    Returns
+    -------
+    float
+        Trimming likelihood score bounded in [0.0, 10.0].
+    """
+    if not peptide:
+        return 0.0
+        
+    # Standardize inputs
+    peptide = str(peptide).strip().upper()
+    if flanking_seq is not None:
+        flanking_seq = str(flanking_seq).strip().upper()
+        
+    # Get N-terminal 3 residues of the precursor/mature sequence to analyze
+    if flanking_seq:
+        if len(flanking_seq) >= 3:
+            seq = flanking_seq[-3:]
+        else:
+            needed = 3 - len(flanking_seq)
+            seq = flanking_seq + peptide[:needed]
+    else:
+        seq = peptide[:3]
+        
+    # Pad to length 3 if necessary
+    if len(seq) < 3:
+        seq = (seq + "XXX")[:3]
+        
+    score = 5.0  # Baseline offset
+    
+    # Position 1: ERAP1/2 favors hydrophobic or basic residues
+    aa1 = seq[0]
+    if aa1 in {"L", "F", "I", "V", "M", "W", "Y"}:
+        score += 2.0
+    elif aa1 in {"R", "K"}:
+        score += 1.5
+    elif aa1 == "P":
+        score -= 2.0
+        
+    # Position 2: ERAP1/2 strongly penalizes proline at P2 (stops trimming)
+    aa2 = seq[1]
+    if aa2 == "P":
+        score -= 3.0
+    elif aa2 in {"L", "F", "I", "V", "M", "W", "Y"}:
+        score += 1.0
+        
+    # Position 3: ERAP1 favors hydrophobic residue at P3
+    aa3 = seq[2]
+    if aa3 in {"L", "F", "I", "V", "M", "W", "Y"}:
+        score += 0.5
+        
+    return max(0.0, min(10.0, score))
+

@@ -21,6 +21,7 @@ shap==0.51.0
 # Test tooling
 pytest==9.0.3
 hypothesis==6.102.2
+pyahocorasick==2.1.0
 
 # PyTorch & GNN
 torch==2.12.0

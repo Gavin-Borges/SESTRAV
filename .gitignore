@@ -310,3 +310,14 @@ id_ed25519
 # SQLite databases (catch-all beyond the explicit db.sqlite3 entry)
 *.db
 *.sqlite
+
+# Scratch folder and dryrun/test logs
+scratch/
+results/external_tool_outputs/20260606_frozen/
+results/external_tool_outputs/20260606_v1/
+results/external_tool_outputs/ci_dryrun/
+results/external_tool_outputs/run_test_ahocorasick/
+results/external_tool_outputs/run_test_metrics/
+results/external_tool_outputs/run_test_tierb_ahocorasick/
+results/external_tool_outputs/verify_run_A_dryrun/
+pytest_temp/
