@@ -504,6 +504,65 @@ def split_gold_standard(df):
     return df[~gs_mask].reset_index(drop=True), df[gs_mask].reset_index(drop=True)
 
 
+def load_schmidt_2021(filepath, gold_standard_peptides=None):
+    """
+    Load and clean Schmidt et al. (2021) Cell Reports Medicine dataset.
+    Serves as the hard-negative benchmark.
+    Isolates (excludes) the gold-standard epitopes.
+    """
+    if gold_standard_peptides is None:
+        gold_standard_peptides = set(GOLD_STANDARD_EPITOPES)
+        
+    if not os.path.isfile(filepath):
+        print(f"[Schmidt Loader] WARNING: File {filepath} not found. Returning empty DataFrame.")
+        return pd.DataFrame(columns=['peptide', 'hla', 'label', 'hard_negative_flag'])
+    
+    # Ingest Schmidt dataset: expected columns are peptide, HLA, and immunogenicity/label.
+    if filepath.endswith('.xlsx'):
+        df = pd.read_excel(filepath)
+    else:
+        df = pd.read_csv(filepath)
+    
+    # Rename columns to standard schema if they differ
+    rename_dict = {}
+    for col in df.columns:
+        cl = str(col).lower().strip()
+        if cl in ('peptide', 'epitope', 'sequence'):
+            rename_dict[col] = 'peptide'
+        elif cl in ('hla', 'allele', 'hla_allele', 'mhc'):
+            rename_dict[col] = 'hla'
+        elif cl in ('label', 'immunogenicity', 'class', 'active', 'immunogenic'):
+            rename_dict[col] = 'label'
+            
+    df = df.rename(columns=rename_dict)
+    
+    # Ensure required columns exist
+    for col in ['peptide', 'hla', 'label']:
+        if col not in df.columns:
+            if col == 'label':
+                df['label'] = 0
+            elif col == 'hla':
+                df['hla'] = 'HLA-A*02:01' # default fallback
+            else:
+                raise ValueError(f"Schmidt dataset missing required column: {col}")
+                
+    # Clean and validate peptides
+    df['peptide'] = df['peptide'].astype(str).str.strip().str.upper()
+    df = df[df['peptide'].apply(is_valid_peptide)].copy()
+    
+    # Standardize alleles
+    df['hla'] = df['hla'].apply(standardize_allele)
+    
+    # Mark hard negatives
+    df['hard_negative_flag'] = 1
+    
+    # Isolate (exclude) gold standard epitopes
+    df = df[~df['peptide'].isin(gold_standard_peptides)].reset_index(drop=True)
+    
+    print(f"[Schmidt Loader] Ingested {len(df)} peptides from Schmidt 2021 dataset (hard-negatives benchmark).")
+    return df[['peptide', 'hla', 'label', 'hard_negative_flag']]
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="SESTRAV IEDB Data Loader")

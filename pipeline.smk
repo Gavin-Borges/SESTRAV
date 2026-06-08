@@ -10,6 +10,7 @@ rule Results:
         expand("results/{proteome_id}_ranked.csv", proteome_id=ANTIGENS),
         expand("results/{proteome_id}_top20_immunogenicity.png", proteome_id=ANTIGENS),
         expand("results/{proteome_id}_score_distribution.png", proteome_id=ANTIGENS),
+        expand("results/{proteome_id}_standardized_outputs.csv", proteome_id=ANTIGENS),
         "models/ann/ann_model.pth",
         "models/gnn/gnn_model.pth",
         "results/final_validation_report.md"
@@ -138,3 +139,6 @@ rule full_validation_report:
         "--dataset-mode {params.dataset_mode} "
         "--dataset-version {params.dataset_version} "
         "{params.freeze_flag}"
+
+include: "standardize_outputs.smk"
+

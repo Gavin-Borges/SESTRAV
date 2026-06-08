@@ -43,3 +43,11 @@ jobs:
 
       - name: Validate Snakemake pipeline wiring
         run: snakemake --snakefile pipeline.smk --dry-run --cores 1
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          to-latest: true
+
+      - name: Render Quarto Report
+        run: quarto render results_report.qmd
