@@ -275,9 +275,7 @@ appdirs==1.4.4 \
 attrs==26.1.0 \
     --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309 \
     --hash=sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32
-    # via
-    #   aiohttp
-    #   hypothesis
+    # via aiohttp
 biopython==1.87 \
     --hash=sha256:01ee30203bd4b2145cdfe2878499e549a7087f897a6f4d1ebd9de30790123140 \
     --hash=sha256:126e18ad44e959a1984560562fa4f295c075ce2e610e8ddbc9ec6f52e09f70d8 \
@@ -836,9 +834,9 @@ h5py==3.16.0 \
     --hash=sha256:ff24039e2573297787c3063df64b60aab0591980ac898329a08b0320e0cf2527 \
     --hash=sha256:ffbab2fedd6581f6aa31cf1639ca2cb86e02779de525667892ebf4cc9fd26434
     # via keras
-hypothesis==6.102.2 \
-    --hash=sha256:4fa0fe79743e26716ae7c5c25b267de2b80eda024cb38f6e28360293201706b0 \
-    --hash=sha256:fa0daa103de6d64cfb83c38b7a52c72cc976ee93fcbf242ac2b7530e0c28022c
+hypothesis==6.155.2 \
+    --hash=sha256:ae36880287c9c5defe9f199d3d2b67d9947a4da2a46e6c57373cbdf2345b20e1 \
+    --hash=sha256:c85ce6dcd630a90ce501f1d1dd1bc84b97f5649ca8a27e134c8cbf5aa480b1a5
     # via -r requirements.in
 idna==3.16 \
     --hash=sha256:cc246e3a3f89580c3a951b5ad298ca4638078b2cdd4f115654332b5c26daded5 \
