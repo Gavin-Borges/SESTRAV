@@ -324,3 +324,8 @@ pytest_temp/
 
 # State tracking directory
 .context/
+
+# Transient test and CI artifacts (agent-generated, not for version control)
+ci_install_test.log
+temp_test_out.txt
+bandit_text.txt
