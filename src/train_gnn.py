@@ -198,6 +198,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     # 3. Stratified K-Fold CV
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     fold_metrics = []
+    oof_rows = []
     
     for fold, (train_idx, val_idx) in enumerate(skf.split(X_feats, y), 1):
         print(f"\n--- Fold {fold} ---")
@@ -234,6 +235,19 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
         m = evaluate(val_labels, val_preds)
         fold_metrics.append(m)
         print(f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f}")
+        
+        for i, idx_val in enumerate(val_idx):
+            oof_rows.append({
+                'peptide': train_pool['peptide'].iloc[idx_val],
+                'label': val_labels[i],
+                'gnn_oof_score': val_preds[i]
+            })
+
+    # Save OOF predictions
+    oof_df = pd.DataFrame(oof_rows)
+    oof_path = os.path.join(os.path.dirname(model_dir), 'gnn_oof_predictions.csv')
+    oof_df.to_csv(oof_path, index=False)
+    print(f"Saved GNN OOF predictions to {oof_path}")
 
     # Summary Metrics
     avg = {k: np.mean([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
@@ -262,7 +276,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
         train_epoch(model_final, full_loader, criterion_final, optimizer_final, device)
         
     # Save model and scaler
-    torch.save(model_final.state_dict(), os.path.join(model_dir, 'gnn_model.pth'))  # nosec B614
+    torch.save(model_final.state_dict(), os.path.join(model_dir, 'structural_gnn_v2.pth'))  # nosec B614
     import joblib
     joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
     print(f"Final GNN model and scaler saved to {model_dir}/")

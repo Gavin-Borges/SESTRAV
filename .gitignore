@@ -330,3 +330,8 @@ pytest_temp/
 ci_install_test.log
 temp_test_out.txt
 bandit_text.txt
+
+# Antigravity agent cache (probe outputs, metrics)
+.cache/
+
+# Antigravity rules (tracked intentionally — do NOT add to gitignore)

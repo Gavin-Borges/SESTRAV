@@ -80,3 +80,8 @@ dataset_mode: expansion_alpha
 dataset_version: 2.0.0-alpha
 
 output_dir: results
+
+# GNN verification parameters
+mock_ingestion: false
+mock_evaluation: false
+gnn_checkpoint: models/gnn/structural_gnn_v2.pth

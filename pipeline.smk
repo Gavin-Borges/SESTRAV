@@ -140,5 +140,42 @@ rule full_validation_report:
         "--dataset-version {params.dataset_version} "
         "{params.freeze_flag}"
 
-include: "standardize_outputs.smk"
+rule extract_verify_data:
+    input:
+        config = "src/verify/targets.json"
+    output:
+        csvs = [
+            "results/verify/sars_cov_2_verify.csv",
+            "results/verify/influenza_a_verify.csv",
+            "results/verify/hcv_verify.csv"
+        ]
+    params:
+        mock_flag = "--mock" if config.get("mock_ingestion", False) else ""
+    shell:
+        "python src/verify/iedb_multi_virus_extractor.py {input.config} {params.mock_flag}"
 
+
+rule evaluate_verify_gnn:
+    input:
+        targets = "src/verify/targets.json",
+        data = [
+            "results/verify/sars_cov_2_verify.csv",
+            "results/verify/influenza_a_verify.csv",
+            "results/verify/hcv_verify.csv"
+        ]
+    output:
+        report = "results/verify/validation_report.json"
+    params:
+        checkpoint = config.get("gnn_checkpoint", ""),
+        mock_flag = "--mock" if config.get("mock_evaluation", False) else ""
+    run:
+        # Build command dynamically to handle empty checkpoint arguments cleanly in shell
+        cmd = f"python src/verify/sestrav_evaluator.py {input.targets}"
+        if params.checkpoint:
+            cmd += f" {params.checkpoint}"
+        if params.mock_flag:
+            cmd += f" {params.mock_flag}"
+        shell(cmd)
+
+
+include: "standardize_outputs.smk"

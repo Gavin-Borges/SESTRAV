@@ -17,6 +17,21 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
 from src.evaluate_metrics import evaluate, issr_at_k
+from joblib import Parallel, delayed
+
+def _bootstrap_iter(y, ref_scores, comp_scores, n_clean):
+    rng_local = np.random.default_rng()
+    idx = rng_local.integers(0, n_clean, size=n_clean)
+    y_b = y[idx]
+    if len(np.unique(y_b)) < 2:
+        return None
+    ref_b = ref_scores[idx]
+    comp_b = comp_scores[idx]
+    
+    ap = average_precision_score(y_b, ref_b) - average_precision_score(y_b, comp_b)
+    roc = roc_auc_score(y_b, ref_b) - roc_auc_score(y_b, comp_b)
+    issr = issr_at_k(y_b, ref_b, 10) - issr_at_k(y_b, comp_b, 10)
+    return (ap, roc, issr)
 
 def paired_bootstrap_comparison(
     df: pd.DataFrame,
@@ -56,26 +71,18 @@ def paired_bootstrap_comparison(
     base_comp_issr = issr_at_k(y, comp_scores, 10)
     base_delta_issr = base_ref_issr - base_comp_issr
     
+    results_parallel = Parallel(n_jobs=-1, batch_size="auto")(
+        delayed(_bootstrap_iter)(y, ref_scores, comp_scores, n_clean) for _ in range(n_resamples)
+    )
+    
     deltas_ap = []
     deltas_roc = []
     deltas_issr = []
-    
-    for _ in range(n_resamples):
-        # Resample indices (paired bootstrapping)
-        idx = rng.integers(0, n_clean, size=n_clean)
-        y_b = y[idx]
-        
-        # Require both classes in the bootstrap sample to compute AUC
-        if len(np.unique(y_b)) < 2:
-            continue
-            
-        ref_b = ref_scores[idx]
-        comp_b = comp_scores[idx]
-        
-        # Calculate metric differences
-        deltas_ap.append(average_precision_score(y_b, ref_b) - average_precision_score(y_b, comp_b))
-        deltas_roc.append(roc_auc_score(y_b, ref_b) - roc_auc_score(y_b, comp_b))
-        deltas_issr.append(issr_at_k(y_b, ref_b, 10) - issr_at_k(y_b, comp_b, 10))
+    for res in results_parallel:
+        if res is not None:
+            deltas_ap.append(res[0])
+            deltas_roc.append(res[1])
+            deltas_issr.append(res[2])
         
     deltas_ap = np.array(deltas_ap)
     deltas_roc = np.array(deltas_roc)

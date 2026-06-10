@@ -10,6 +10,7 @@ import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
 import logging
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
@@ -102,6 +103,32 @@ class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):
         self.labels = df["label"].values
         self.proteins = df["protein"].values if "protein" in df.columns else ["Unknown"] * len(df)
         
+        # Vectorization: Pre-embed MHC node features for the 10 canonical alleles
+        self.unique_alleles = sorted(list(set(self.alleles)))
+        self.allele_to_idx = {a: i for i, a in enumerate(self.unique_alleles)}
+        
+        # Load exact 34-residue structural strings
+        pseudo_seq_path = Path("src/verify/mhc_pseudo_sequences.json")
+        if pseudo_seq_path.exists():
+            with open(pseudo_seq_path, "r") as f:
+                self.pseudo_seqs = json.load(f)
+        else:
+            self.pseudo_seqs = {}
+            
+        self.mhc_node_tensors = torch.zeros((len(self.unique_alleles), MHC_POCKET_COUNT, 5), dtype=torch.float32)
+        self.mhc_charges_tensors = torch.zeros((len(self.unique_alleles), MHC_POCKET_COUNT), dtype=torch.float32)
+        
+        for i, allele in enumerate(self.unique_alleles):
+            seq = self.pseudo_seqs.get(allele, "A" * MHC_POCKET_COUNT)
+            seq = seq[:MHC_POCKET_COUNT].ljust(MHC_POCKET_COUNT, "A")
+            for j, aa in enumerate(seq):
+                self.mhc_node_tensors[i, j, 0] = KD_HYDRO.get(aa, 0.0)
+                self.mhc_node_tensors[i, j, 1] = float(AROMATIC.get(aa, 0))
+                self.mhc_node_tensors[i, j, 2] = VDW_VOL.get(aa, 110.0)
+                self.mhc_node_tensors[i, j, 3] = float(CHARGE.get(aa, 0))
+                self.mhc_node_tensors[i, j, 4] = 1.0  # MHC indicator
+                self.mhc_charges_tensors[i, j] = float(CHARGE.get(aa, 0))
+                
     def len(self) -> int:
         return len(self.peptides)
         
@@ -115,33 +142,27 @@ class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):
         pos = np.concatenate([pep_coords, mhc_coords], axis=0)
         pos_t = torch.tensor(pos, dtype=torch.float32)
         
-        # 2. Extract node features
         n_pep = len(peptide)
-        n_tot = n_pep + MHC_POCKET_COUNT
         
-        # Node features: [hydrophobicity, aromaticity, vdw_volume, charge, node_type_indicator]
-        node_feats = torch.zeros(n_tot, 5, dtype=torch.float32)
-        charges = torch.zeros(n_tot, dtype=torch.float32)
+        # 2. Extract node features
+        pep_node_feats = torch.zeros(n_pep, 5, dtype=torch.float32)
+        pep_charges = torch.zeros(n_pep, dtype=torch.float32)
         
-        # Peptide nodes
         for i, aa in enumerate(peptide):
-            node_feats[i, 0] = KD_HYDRO.get(aa, 0.0)
-            node_feats[i, 1] = float(AROMATIC.get(aa, 0))
-            node_feats[i, 2] = VDW_VOL.get(aa, 0.0)
-            node_feats[i, 3] = float(CHARGE.get(aa, 0))
-            node_feats[i, 4] = 0.0  # Peptide type
-            charges[i] = float(CHARGE.get(aa, 0))
+            pep_node_feats[i, 0] = KD_HYDRO.get(aa, 0.0)
+            pep_node_feats[i, 1] = float(AROMATIC.get(aa, 0))
+            pep_node_feats[i, 2] = VDW_VOL.get(aa, 0.0)
+            pep_node_feats[i, 3] = float(CHARGE.get(aa, 0))
+            pep_node_feats[i, 4] = 0.0  # Peptide indicator
+            pep_charges[i] = float(CHARGE.get(aa, 0))
             
-        # MHC pocket nodes (simulated representation)
-        # Sourced from standard pocket amino acid distribution
-        for j in range(MHC_POCKET_COUNT):
-            idx_mhc = n_pep + j
-            node_feats[idx_mhc, 0] = 0.0  # neutral average
-            node_feats[idx_mhc, 1] = 0.0
-            node_feats[idx_mhc, 2] = 110.0 # average bulkiness
-            node_feats[idx_mhc, 3] = 0.0
-            node_feats[idx_mhc, 4] = 1.0  # MHC type
-            charges[idx_mhc] = 0.0
+        # Vectorized assembly
+        allele_idx = self.allele_to_idx[allele]
+        mhc_feats = self.mhc_node_tensors[allele_idx]
+        mhc_charges = self.mhc_charges_tensors[allele_idx]
+        
+        node_feats = torch.cat([pep_node_feats, mhc_feats], dim=0)
+        charges = torch.cat([pep_charges, mhc_charges], dim=0)
             
         # 3. Generate edges and edge attributes
         edge_index, edge_attr = generate_edge_features(pos_t, charges, d_max=8.0)
@@ -234,8 +255,9 @@ def train_structural_gnn(
     train_dataset = StructuralPeptideMHCDataset(df_train)
     val_dataset = StructuralPeptideMHCDataset(df_val)
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    # Fast DataLoader configuration per debate protocol
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=min(os.cpu_count() or 4, 4), persistent_workers=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=min(os.cpu_count() or 4, 4), persistent_workers=True)
     
     model = StructuralGNN().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)

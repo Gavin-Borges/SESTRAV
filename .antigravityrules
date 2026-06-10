@@ -1,0 +1,58 @@
+# SESTRAV ANTIGRAVITY v1.0 — PERFORMANCE CONTRACT
+
+# MANDATE 1: CONTEXT ECONOMY (hard caps)
+- Max input context per turn: 8k tokens. Max output: 2k tokens.
+- Never view_file >300 lines. For large files: grep_search first, then AST extract signatures only.
+- Ban: .csv, .tsv, .parquet, .pt, .pth, images, logs >1MB. Use a probe script instead.
+- Before any read, state: EXPECTED_FIND and WHY_BLOCKING in one sentence.
+
+# MANDATE 2: PROBE, DON'T DUMP
+- Data inspection pattern: write scratch/probe_*.py -> run -> summarize (max 15 lines).
+- For Python: use ast.parse to list defs/classes. For dataframes: df.info(), df.shape, null %. For torch: tensor.shape, dtype, device, torch.cuda.memory_summary().
+- Never print raw tensors or rows.
+- ML Failure Modes: Probe scripts for large CSV/Parquet must strictly use `nrows=50`, `chunksize`, or `pyarrow` metadata to prevent OOM. DMatrix creation must avoid full memory loads (use batched loading or `xgboost.QuantileDMatrix`). PyTorch tensors must be probed on CPU or via `torch.cuda.memory_stats()`.
+- src/ Guard: Before invoking any src/ function that calls pd.read_csv, verify the function has a nrows or chunksize guard. If absent, add the guard before executing. Never call an unguarded full-load function on a file >10MB.
+
+# MANDATE 3: PROVE THE BOTTLENECK
+- No code changes without baseline metrics. Required tools: cProfile (CPU), torch.profiler or nsys (GPU), and torch.cuda.memory_stats() or psutil.Process().memory_info().
+- Threshold to optimize: p95 > target OR peak memory >80% VRAM OR >2x redundant external calls.
+- Output must include: BEFORE numbers, AFTER numbers, delta %.
+- Any logic change without an explicit failing test is classified as an optimization and requires profiling.
+
+# MANDATE 4: MINIMAL, REVERSIBLE EDITS
+- One logical change per diff. Max 150 lines changed per turn.
+- Run pytest on affected module before and after. Use `conda run -n sestrav pytest --lf --maxfail=1 -q -m 'not heavy'` (heavy marker is registered in pytest.ini; marks tests that load model checkpoints or large data). If tests fail, auto-revert and report. Never treat a 0-collected run as a pass.
+- No speculative refactors. No style cleanups unless they reduce tokens or runtime.
+
+# MANDATE 5: AGENT USAGE EFFICIENCY
+- Max 3 tool calls per reasoning step. Cap total tool calls per user turn to 6; force a hard stop and request user direction thereafter. Max 2 retries on same error, then /compress-state.
+- Cache grep results and probe outputs in-session. Write cached probe outputs to local `.cache/` files and only output the file path to the user. Reuse, don't re-run.
+- All responses end with: NEXT_ACTION, METRICS_NEEDED, TOKEN_COST_ESTIMATE.
+
+# MANDATE 6: STATE COMPRESSOR v2
+On /compress-state, output this JSON only (no prose):
+{
+  "schema_version":"2",
+  "timestamp":"...",
+  "project":"SESTRAV",
+  "branch":"...",
+  "commit":"...",
+  "env":{"python":"...","cuda":"...","gpu":"..."},
+  "current_focus":"...",
+  "last_command":"...",
+  "last_metrics":{"p95_ms":0,"peak_mem_mb":0,"gpu_mem_mb":0,"external_calls":0},
+  "pending_tasks":["..."],
+  "blocking_issues":["..."],
+  "context_pointers":["path:Lstart-Lend"],
+  "scratch_pointers":["scratch/probe_script.py"],
+  "uncommitted_files":["src/models/xgb_train.py"],
+  "last_test_run":{"command":"...","passed":0,"failed":0,"summary":"..."},
+  "context_hash":"sha1 of last 3 diffs"
+}
+
+# EXECUTION CHECKLIST
+[ ] Problem proven: <traceback or test name>
+[ ] Bottleneck measured: <tool + numbers>
+[ ] Tests run: <pytest command + pass count>
+[ ] Fix minimal: <lines changed>
+[ ] Metrics delta: <before -> after>

@@ -347,3 +347,8 @@
 | xxhash                                | 3.7.0       | BSD License                                                                   |
 | yarl                                  | 1.24.2      | Apache-2.0                                                                    |
 | yte                                   | 1.9.4       | MIT                                                                           |
+
+## 6. Structural Features
+- **Source:** AlphaFold Protein Structure Database / Protein Data Bank (PDB)
+- **License:** CC-BY 4.0
+- **Usage:** Exact 3D structural embeddings for HLA pocket residues (Phase 4). Used via programmatic querying.

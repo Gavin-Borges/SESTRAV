@@ -15,6 +15,15 @@ import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
+def sanitize_csv_string(val: str) -> str:
+    """Sanitize strings to prevent CSV injection vulnerabilities."""
+    if not val:
+        return ""
+    val = str(val).strip()
+    if val.startswith(('=', '+', '-', '@')):
+        return f"'{val}"
+    return val
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("sestrav-verify")
@@ -37,7 +46,7 @@ def query_iedb_rest(tax_id: int, max_retries: int = 5, backoff: float = 2.0) -> 
     for attempt in range(max_retries):
         try:
             logger.info(f"Querying IEDB API for TaxID {tax_id} (Attempt {attempt+1}/{max_retries})...")
-            response = requests.get(IEDB_URL, params=params, headers=headers, timeout=25)
+            response = requests.get(IEDB_URL, params=params, headers=headers, timeout=25, verify=True)
             if response.status_code == 200:
                 return response.json()
             logger.warning(f"IEDB returned status code: {response.status_code}. Retrying...")
@@ -57,7 +66,7 @@ def query_vdjdb_cached(tax_id: int, cache_dir: Path) -> List[Dict[str, Any]]:
     if not cache_path.exists():
         logger.info(f"Downloading VDJdb database from {VDJDB_URL}...")
         try:
-            response = requests.get(VDJDB_URL, timeout=30)
+            response = requests.get(VDJDB_URL, timeout=30, verify=True)
             response.raise_for_status()
             cache_path.write_text(response.text, encoding="utf-8")
         except Exception as e:
@@ -156,10 +165,10 @@ def clean_and_pool_epitopes(records: List[Dict[str, Any]]) -> pd.DataFrame:
             
         allele = str(rec.get("mhc_allele_name", "Unknown")).strip()
         cleaned.append({
-            "peptide": seq.upper(),
+            "peptide": sanitize_csv_string(seq.upper()),
             "label": label,
-            "allele": allele,
-            "protein": rec.get("source_molecule", "Unknown")
+            "allele": sanitize_csv_string(allele),
+            "protein": sanitize_csv_string(rec.get("source_molecule", "Unknown"))
         })
         
     if not cleaned:
