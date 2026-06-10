@@ -1,0 +1,24 @@
+{
+  "status": "complete",
+  "output_path": "data/allele_aware\\IEDB-20260606-EBV_HPV16_ALLELE_AWARE-v1.csv",
+  "holdout_path": "data/allele_aware\\IEDB-20260606-EBV_HPV16_ALLELE_AWARE-v1_holdouts.csv",
+  "training_pairs": 52,
+  "holdout_pairs": 11,
+  "unique_peptides": 51,
+  "unique_alleles": 5,
+  "class_balance_positive": 0.3076923076923077,
+  "pseudo_seq_dims": 136,
+  "sha256": "5063bdd8decf41e2753466dce8d00dba86cd3960e2c5a1ce920ab48f06c82d1e",
+  "allele_panel": [
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02"
+  ]
+}

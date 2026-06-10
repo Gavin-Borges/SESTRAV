@@ -1,5 +1,11 @@
 # Security Policy
 
+## Overview
+
+SESTRAV is a solo-maintained, academic research project developed at the University
+of Rhode Island. There is one active maintainer. Please keep this in mind when
+setting expectations around response timelines.
+
 ## Supported Versions
 
 Only the latest major release of SESTRAV is actively supported with security updates.
@@ -11,16 +17,42 @@ Only the latest major release of SESTRAV is actively supported with security upd
 
 ## Reporting a Vulnerability
 
-We take the security of SESTRAV seriously. If you find a security vulnerability, please do **not** report it via a public issue. Instead, please report it privately.
+**Please do NOT open a public GitHub Issue for security vulnerabilities.**
+Public disclosure before a fix is available puts all users at risk.
 
-To report a vulnerability, please email the maintainer at:
-`gavin.borges@sestrav.org` (or contact the repository owner privately via GitHub).
+### Preferred: Private Email Report
 
-Please include the following details in your report:
-- A description of the vulnerability and its potential impact.
-- Detailed step-by-step instructions to reproduce the issue (including any sample inputs or scripts).
-- Any proposed remediation or patch, if available.
+Send a confidential report to the maintainer directly:
 
-We will acknowledge receipt of your report within 48 hours and work with you to coordinate a security release to address the issue.
+**Email:** `gavin.borges@sestrav.org`
 
-Thank you for helping keep SESTRAV secure!
+Please include the following in your report:
+
+- **Summary:** A clear description of the vulnerability and its potential impact.
+- **Reproduction steps:** Step-by-step instructions to reproduce the issue,
+  including any sample inputs, scripts, or configuration needed.
+- **Environment:** Python version, OS, relevant package versions.
+- **Proposed fix (optional):** Any remediation ideas or patches you have.
+
+### Alternative: GitHub Private Vulnerability Reporting
+
+GitHub's built-in private reporting is also available:
+
+1. Navigate to the [SESTRAV Security tab](https://github.com/Gavin-Borges/SESTRAV/security).
+2. Click **"Report a vulnerability"**.
+3. Fill in the advisory form — this is end-to-end encrypted between you and the maintainer.
+
+## Response Commitment
+
+As a solo-maintained project, the maintainer commits to:
+
+- **Acknowledge** receipt of your report within **3–5 business days**.
+- **Provide an initial assessment** (severity, scope, reproducibility) within
+  **10 business days** of acknowledgement.
+- **Coordinate a fix and disclosure timeline** with you collaboratively.
+- **Credit reporters** in the release notes (unless you prefer anonymity).
+
+## Thank You
+
+Responsible disclosure helps keep SESTRAV and its users safe.
+Thank you for taking the time to report vulnerabilities privately.

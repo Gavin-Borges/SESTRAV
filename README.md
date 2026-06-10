@@ -1,6 +1,11 @@
 # SESTRAV: Structural Epitope Scoring via TCR Recognition and Vaccinology
 
-**Version 2.0**
+![CI — Contamination Gate](https://img.shields.io/badge/CI-contamination_gate-blue?style=flat-square)
+![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.0-informational?style=flat-square)
+[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/PENDING_ID/badge)](https://bestpractices.coreinfrastructure.org/projects/PENDING_ID)
+
+A structurally informed immunogenicity prediction pipeline for therapeutic epitope discovery in oncogenic viruses (HPV and EBV). Version 2.0 centers a canonical reproducible 30-feature release path and includes ANN/GNN/Colab extensions as optional benchmark workflows.
 
 SESTRAV is a structurally informed computational pipeline for therapeutic epitope discovery in oncogenic viruses, with a primary focus on Human Papillomavirus (HPV) and Epstein-Barr Virus (EBV). It integrates MHC binding predictions with TCR-facing physicochemical features to improve immunogenicity classification beyond traditional MHC-binding tools.
 
@@ -32,6 +37,42 @@ The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) p
 | SHAP feature contribution | ~60% MHC binding, ~40% TCR-contact features |
 
 **Important:** These results constitute computational validation only and do not establish biological efficacy. Wet-lab experimental confirmation is required for any therapeutic claims. See `results/final_validation_report.md` and `docs/limitations_statement_v1.md` for full details.
+
+## External Benchmark Results (v2.0.0, Frozen)
+
+SESTRAV RF was benchmarked head-to-head against two state-of-the-art tools — PRIME 2.1 (Nielsen & Andreatta, 2021) and PredIG-Path (Farriol-Duran et al., 2025) — on a curated T-cell immunogenicity dataset (EBV + HPV16, MHC class I, IEDB-sourced).
+
+### Tier A Results (N=720 intersection set)
+
+| Tool | AUC-PR | AUC-ROC | ISSR@10 | ISSR@25 |
+|------|--------|---------|---------|----------|
+| **RF (SESTRAV 2.0)** | **0.828** | **0.776** | — | — |
+| PRIME 2.1 | 0.777 | 0.724 | — | — |
+| PredIG-Path | 0.727 | — | — | — |
+
+> **Primary metric:** AUC-PR is the primary metric because the dataset is class-imbalanced (positives ≈ 70%).
+> AUC-PR baseline (random model) ≈ positive class prevalence.
+
+### Contamination Finding (Critical Methodological Result)
+
+A systematic overlap analysis revealed that **external tools show 36.9% training set intersection with the evaluation set** (exact + substring matching against IEDB-proxy peptides). When overlap peptides are excluded:
+
+| Tool | AUC-PR (clean holdout, N=451) | Δ vs. intersection set |
+|------|-------------------------------|------------------------|
+| **RF (SESTRAV 2.0)** | **0.822** | −0.006 (robust) |
+| PRIME 2.1 | 0.720 | −0.057 (substantial drop) |
+
+This contamination analysis explains a substantial fraction of PRIME's published benchmark performance. SESTRAV was trained on IEDB data and benchmarked on IEDB data; published tool training sets were not designed for this eval set — making the clean holdout the appropriate rigorous comparator.
+
+### SHAP Feature Attribution
+
+SHAP analysis (Random Forest, 720 samples) attributes the decision to:
+- **60%** MHC binding features (per-allele presentation scores)
+- **40%** TCR-contact physicochemical features (positions p4–p8)
+
+This 60/40 split confirms that TCR features provide meaningful independent signal beyond binding alone, consistent with the 9/10 gold-standard negative discrimination result.
+
+See [`results/external_benchmark_comparison.md`](results/external_benchmark_comparison.md) for full methodology and [`results/shap_values_rf.csv`](results/shap_values_rf.csv) for per-feature SHAP values.
 
 ## Pipeline Overview
 
@@ -262,6 +303,23 @@ Training labels are derived from curated IEDB-linked immunogenicity evidence. Pu
 | `docs/naming_migration_spec.md` | Legacy alias compatibility details |
 | `docs/validation_summary.md` | Detailed validation results and interpretation |
 | `docs/limitations_statement_v1.md` | Standardized external communication language |
+
+## Cite This Work
+
+If you use SESTRAV in your research, please cite this repository:
+
+```bibtex
+@software{borges2026sestrav,
+  author    = {Borges, Gavin and Eljamal, Abdelrahman and Schellenberg, Iris and
+               Jouaneh, Charles and Byers, Emine},
+  title     = {{SESTRAV}: Structural Epitope Scoring via {TCR} Recognition And Vaccinology},
+  year      = {2026},
+  url       = {https://github.com/gavin-borges/SESTRAV},
+  version   = {2.0.0}
+}
+```
+
+See [`CITATION.cff`](CITATION.cff) for the full machine-readable citation.
 
 ## License
 

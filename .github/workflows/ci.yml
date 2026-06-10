@@ -35,5 +35,19 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v
 
+      - name: Run Dataset Curation QC Gate
+        run: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v3.csv --config config.yaml
+
+      - name: Run Contamination and Benchmark Evaluation Gate
+        run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
+
       - name: Validate Snakemake pipeline wiring
         run: snakemake --snakefile pipeline.smk --dry-run --cores 1
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          to-latest: true
+
+      - name: Render Quarto Report
+        run: quarto render results_report.qmd

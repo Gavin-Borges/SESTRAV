@@ -1,0 +1,8 @@
+{
+  "structural_gnn_v2": {
+    "file": "models\\gnn\\structural_gnn_v2.pth",
+    "sha256": "27fb6504598dc2a5268c32fb696532ef451074a027ff8a90adfae199c8e2c847",
+    "promoted_at": "2026-06-10T22:09:25Z",
+    "status": "PROMOTED_CANONICAL"
+  }
+}

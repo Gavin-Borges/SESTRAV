@@ -69,8 +69,12 @@ def recall_at_k(y_true, y_scores, k):
 
 def ndcg_at_k(y_true, y_scores, k):
     """Normalized Discounted Cumulative Gain at top K%."""
-    y_true = np.asarray(y_true).reshape(1, -1)
-    y_scores = np.asarray(y_scores).reshape(1, -1)
+    y_true = np.asarray(y_true)
+    y_scores = np.asarray(y_scores)
+    if len(y_true) < 2:
+        return float('nan')
+    y_true = y_true.reshape(1, -1)
+    y_scores = y_scores.reshape(1, -1)
     n_items = y_true.shape[1]
     top_k_count = max(1, int(n_items * k / 100))
     return float(ndcg_score(y_true, y_scores, k=top_k_count))
