@@ -411,8 +411,8 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
                 torch.cuda.manual_seed_all(42)
             torch.use_deterministic_algorithms(True, warn_only=True)
             from transformers import AutoTokenizer, EsmModel
-            _esm_tokenizer = AutoTokenizer.from_pretrained(_ESM_MODEL_NAME)
-            _esm_model = EsmModel.from_pretrained(_ESM_MODEL_NAME)
+            _esm_tokenizer = AutoTokenizer.from_pretrained(_ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a")
+            _esm_model = EsmModel.from_pretrained(_ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a")
             _esm_model.eval()
             
         import torch
@@ -428,6 +428,31 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
         h = hashlib.sha256(peptide.encode('utf-8')).digest()
         rng = np.random.default_rng(int.from_bytes(h[:4], 'big'))
         return rng.normal(0, 1, 320)
+
+
+def compute_weisfeiler_lehman_features(G, n_iter=2) -> np.ndarray:
+    """
+    Compute Weisfeiler-Lehman (WL) graph kernel features for Weisfeiler-Lehman test.
+    """
+    current_features = {node: str(G.nodes[node].get('x', '0')) for node in G.nodes()}
+    all_colors = []
+    
+    for _ in range(n_iter):
+        new_features = {}
+        for node in G.nodes():
+            neigh_feats = sorted([current_features[neigh] for neigh in G.neighbors(node)])
+            feat_str = f"{current_features[node]}-" + "-".join(neigh_feats)
+            new_features[node] = str(hash(feat_str))
+            all_colors.append(new_features[node])
+        current_features = new_features
+        
+    wl_vector = np.zeros(32)
+    for color in all_colors:
+        import hashlib
+        idx = int(hashlib.md5(color.encode('utf-8'), usedforsecurity=False).hexdigest(), 16) % 32
+        wl_vector[idx] += 1.0
+        
+    return wl_vector
 
 
 def get_cb_cb_edges(length: int) -> list:
@@ -498,7 +523,7 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
     wl_vector = np.zeros(32)
     for color in all_colors:
         import hashlib
-        idx = int(hashlib.md5(color.encode('utf-8')).hexdigest(), 16) % 32
+        idx = int(hashlib.md5(color.encode('utf-8'), usedforsecurity=False).hexdigest(), 16) % 32
         wl_vector[idx] += 1.0
         
     return wl_vector

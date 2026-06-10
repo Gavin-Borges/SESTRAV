@@ -321,3 +321,6 @@ results/external_tool_outputs/run_test_metrics/
 results/external_tool_outputs/run_test_tierb_ahocorasick/
 results/external_tool_outputs/verify_run_A_dryrun/
 pytest_temp/
+
+# State tracking directory
+.context/
