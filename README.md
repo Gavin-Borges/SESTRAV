@@ -21,11 +21,11 @@ This approach combines structural insights with multi-allele binding predictions
 
 ## Validation Status
 
-The committed release evidence (v2 dataset, 720 peptides, 2.36:1 class ratio) provides the following computational validation:
+The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) provides the following computational validation:
 
 | Metric / Check | Result |
 | :--- | :--- |
-| H2 Tier A decision (R10 ≥ 2.0) | **Not supported** (R10 = 1.0930) |
+| H2 Tier A decision (R10 ≥ 2.0) | **Not supported** (R10 = 0.9494) |
 | Gold-standard positive recovery | 15/15 positives found; 7/15 in top 25% |
 | Binding-only baseline comparison | Baseline recovers 15/15 (expected for strong-binder set) |
 | Gold-standard negative discrimination | 9/10 negatives pushed down vs. binding-only |

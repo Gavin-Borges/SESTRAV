@@ -9,7 +9,7 @@ SESTRAV v2.0.0 finalizes the semester core pipeline and integrates advanced comp
 - **Canonical release track**: **30-feature integrated model/config** (20 physicochemical + 10 multi-allele MHC binding features)
 - **Secondary/Optional track**: Neural Network (FlexibleMLP) and Graph Neural Network (GCN/GAT) benchmark modules
 - **Legacy comparator track**: **21-feature sequence-only configuration** (for historical comparison)
-- **Training dataset**: **v2.0.0-alpha** (720 peptides, 2.36:1 class ratio)
+- **Training dataset**: **v2.0.0-alpha** (1004 peptides, 3.35:1 class ratio)
 
 ### What Is Included
 
@@ -30,11 +30,11 @@ SESTRAV v2.0.0 finalizes the semester core pipeline and integrates advanced comp
 
 ### Key Results (v2)
 
-- RF AUC-ROC: `0.7536` | AUC-PR: `0.8497` | Above-trivial AUC-PR: `+0.147` (+41% vs v1)
-- Gold-standard positive recovery: `15/15` found, `7/15` in top 25%
+- RF AUC-ROC: `0.5684` | AUC-PR: `0.8047` | ISSR@10: `0.7895` | ISSR@25: `0.8285`
+- Gold-standard positive recovery: `15/15` found, `7/15` in top 25% (R10 = 0.9494)
 - Gold-standard negative discrimination: `9/10` pushed down (TCR features add value)
 - SHAP feature split: 60% binding / 40% TCR-contact features
-- H2 Tier A decision: **NOT SUPPORTED** ($R_{10} = 0.9494$, $R_{25} = 1.0208$, below standard threshold)
+- H2 Tier A decision: **NOT SUPPORTED** ($R_{10} = 0.9494$, below standard threshold)
 
 ### Reproducibility Commands
 
@@ -67,9 +67,8 @@ The 30-feature integrated track is selected as canonical because it best balance
 - alignment with proposal scope.
 
 The v2 dataset is selected over v1 because:
-- Above-trivial AUC-PR is 41% better (+0.147 vs +0.105)
-- Class balance is more honest (2.36:1 vs 5.58:1)
-- 52% more negative training examples (214 vs 141)
+- Class balance is more honest (3.35:1 vs 5.58:1)
+- 63% more negative training examples (231 vs 141)
 - Gold-standard negative discrimination (9/10 pushed down) is a novel capability
 - TCR features contribute 40% of model explanation power (SHAP)
 
@@ -85,3 +84,15 @@ Use:
 - `results/final_validation_report.md`
 
 for standardized non-overclaim language and current supported statements.
+
+---
+
+## Version 1.0.0 (2026-04-01)
+
+### Release Summary
+
+Historical baseline release of SESTRAV using the v1 dataset (928 peptides, 5.58:1 class ratio) with the legacy 21-feature sequence-only comparator track.
+
+### Key Results (v1)
+
+- RF AUC-ROC: `0.820` | AUC-PR: `0.953` | Above-trivial AUC-PR: `+0.105`
