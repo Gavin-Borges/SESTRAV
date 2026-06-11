@@ -257,22 +257,6 @@ def evaluate_single_virus(
         "escape_mutant_cross_validation": mutant_results
     }
 
-def run_evaluation_pipeline(
-    targets_json_path: Path,
-    model_checkpoint_path: Path = None,
-    results_dir: Path = Path("results/verify"),
-    use_mock: bool = False
-) -> Dict[str, Any]:
-    """
-    Run multi-viral verification loops over all targets.
-    """
-    results_dir.mkdir(parents=True, exist_ok=True)
-    
-    with open(targets_json_path, "r") as f:
-        config_matrix = json.load(f)
-        
-    device = torch.device("cuda" if torch.cuda.is_available() and not use_mock else "cpu")
-    
 def _load_torch_checkpoint(model_path, device):
     """
     Safely load GNN checkpoints with weights_only=True.
