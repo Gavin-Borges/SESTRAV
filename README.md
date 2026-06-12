@@ -24,6 +24,15 @@ This approach combines structural insights with multi-allele binding predictions
 
 **Source of Truth:** SESTRAV v2 designates this repository (main branch) as the single authoritative source. For release-grade reproducibility, enable `freeze_mode: true` in `config.yaml`. Freeze mode enforces strict guardrails: no Stage 4 prototype fallback, no mixed legacy/canonical output stems, and atomic artifact updates.
 
+## Security & Compliance Posture
+
+SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data pipelines.
+*   **SAST & CI:** All commits are gated by Bandit, CodeQL, and Semgrep via GitHub Actions.
+*   **Dependency Pinning:** Environment files use strict `--require-hashes` to mitigate supply-chain attacks.
+*   **Data Integrity:** The pipeline uses `freeze_mode` constraints to guarantee data immutability during reproducibility benchmarking.
+
+For vulnerability reporting, refer to `SECURITY.md`. For a detailed compliance matrix against OpenSSF standards, see `docs/security_compliance.md`.
+
 ## Validation Status
 
 The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) provides the following computational validation:
