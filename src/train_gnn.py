@@ -25,21 +25,28 @@ from src.gnn.graph_builder import GraphBuilder
 from src.gnn.models import GraphPredictor
 
 class GraphPeptideDataset(Dataset):
-    def __init__(self, df, feature_matrix, labels=None):
+    def __init__(self, df, feature_matrix, labels=None, max_len=11, cache_dir=None, use_spatial=False):
         self.sequences = df['peptide'].values
         self.physico_features = torch.tensor(feature_matrix.values, dtype=torch.float32)
         self.labels = torch.tensor(labels, dtype=torch.float32) if labels is not None else None
+        self.max_len = max_len
+        self.cache_dir = cache_dir
+        self.use_spatial = use_spatial
 
     def __len__(self):
         return len(self.sequences)
 
     def __getitem__(self, idx):
         seq = self.sequences[idx]
-        node_feats = GraphBuilder.sequence_to_node_features(seq)
+        node_feats = GraphBuilder.sequence_to_node_features(seq, max_len=self.max_len)
+        if self.use_spatial and self.cache_dir:
+            adj = GraphBuilder.build_spatial_adj(seq, self.cache_dir, max_len=self.max_len)
+        else:
+            adj = GraphBuilder.build_chain_adj(max_len=self.max_len)
         physico = self.physico_features[idx]
         if self.labels is not None:
-            return node_feats, physico, self.labels[idx]
-        return node_feats, physico
+            return node_feats, physico, adj, self.labels[idx]
+        return node_feats, physico, adj
 
 import time
 
@@ -53,9 +60,9 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     prof_forward = 0.0
     prof_backward = 0.0
 
-    for node_x, feat_x, y in dataloader:
+    for node_x, feat_x, adj, y in dataloader:
         t0 = time.perf_counter()
-        node_x, feat_x, y = node_x.to(device), feat_x.to(device), y.to(device)
+        node_x, feat_x, adj, y = node_x.to(device), feat_x.to(device), adj.to(device), y.to(device)
         t1 = time.perf_counter()
         prof_construction += (t1 - t0)
         
@@ -63,7 +70,7 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         
         # We manually call encoder and fusion to profile encoding vs forward pass
         t_enc0 = time.perf_counter()
-        gnn_out = model.encoder(node_x, model.adj)
+        gnn_out = model.encoder(node_x, adj)
         t_enc1 = time.perf_counter()
         prof_encoding += (t_enc1 - t_enc0)
         
@@ -92,9 +99,9 @@ def evaluate_model(model, dataloader, device):
     all_preds = []
     all_labels = []
     with torch.no_grad():
-        for node_x, feat_x, y in dataloader:
-            node_x, feat_x = node_x.to(device), feat_x.to(device)
-            logits = model(node_x, feat_x)
+        for node_x, feat_x, adj, y in dataloader:
+            node_x, feat_x, adj = node_x.to(device), feat_x.to(device), adj.to(device)
+            logits = model(node_x, feat_x, adj)
             probs = torch.sigmoid(logits)
             
             all_preds.extend(probs.cpu().numpy())
@@ -102,7 +109,14 @@ def evaluate_model(model, dataloader, device):
             
     return np.array(all_labels), np.array(all_preds)
 
+
 def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e-3, feature_mode=21, binding_matrix_path=None):
+    from src.core.config import SestravConfig
+    from src.core.feature_store import FeatureStore
+
+    config = SestravConfig.load("config.yaml")
+    store = FeatureStore(config.output_dir)
+
     torch.autograd.set_detect_anomaly(True)
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -114,14 +128,23 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     print(f"Training pool: {len(train_pool)} records")
 
-    # 2. Extract physicochemical features
-    print(f"Extracting SESTRAV physicochemical features (mode {feature_mode})...")
-    if feature_mode == 50:
-        if binding_matrix_path is None:
-            raise ValueError("binding_matrix_path required for feature mode 50")
-        X_feats = prepare_features_50(train_pool, binding_matrix_path)
+    # 2. Extract physicochemical features (with Cache resolution)
+    cache_name = f"physico_features_mode{feature_mode}.csv"
+    X_feats = store.load_cached_features(cache_name)
+    if X_feats is None:
+        print(f"Extracting SESTRAV physicochemical features (mode {feature_mode})...")
+        if feature_mode == 50:
+            if binding_matrix_path is None:
+                raise ValueError("binding_matrix_path required for feature mode 50")
+            X_feats = prepare_features_50(train_pool, binding_matrix_path)
+        else:
+            X_feats = prepare_features(train_pool, include_binding=False)
+        store.save_cached_features(X_feats, cache_name)
     else:
-        X_feats = prepare_features(train_pool, include_binding=False)
+        # If cache contains non-feature columns (e.g. metadata), align with target features
+        non_feat_cols = [c for c in ['peptide', 'label', 'protein', 'allele'] if c in X_feats.columns]
+        if non_feat_cols:
+            X_feats = X_feats.drop(columns=non_feat_cols)
     y = train_pool['label'].values
     
     # 3. Stratified K-Fold CV
@@ -140,9 +163,19 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
         X_train_scaled = scaler.fit_transform(X_train)
         X_val_scaled = scaler.transform(X_val)
         
-        # Convert to Datasets
-        train_dataset = GraphPeptideDataset(df_train, pd.DataFrame(X_train_scaled), y_train)
-        val_dataset = GraphPeptideDataset(df_val, pd.DataFrame(X_val_scaled), y_val)
+        # Convert to Datasets with config parameters
+        train_dataset = GraphPeptideDataset(
+            df_train, pd.DataFrame(X_train_scaled), y_train,
+            max_len=config.max_peptide_length,
+            cache_dir=config.structural_cache_dir,
+            use_spatial=config.use_spatial_adj
+        )
+        val_dataset = GraphPeptideDataset(
+            df_val, pd.DataFrame(X_val_scaled), y_val,
+            max_len=config.max_peptide_length,
+            cache_dir=config.structural_cache_dir,
+            use_spatial=config.use_spatial_adj
+        )
         
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
@@ -171,13 +204,13 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
                 'label': val_labels[i],
                 'gnn_oof_score': val_preds[i]
             })
-
+ 
     # Save OOF predictions
     oof_df = pd.DataFrame(oof_rows)
     oof_path = os.path.join(os.path.dirname(model_dir), 'gnn_oof_predictions.csv')
     oof_df.to_csv(oof_path, index=False)
     print(f"Saved GNN OOF predictions to {oof_path}")
-
+ 
     # Summary Metrics
     avg = {k: np.mean([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
     std = {k: np.std([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
@@ -193,7 +226,12 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     print("\nRetraining final GNN model on all data...")
     scaler_full = StandardScaler()
     X_full_scaled = scaler_full.fit_transform(X_feats)
-    full_dataset = GraphPeptideDataset(train_pool, pd.DataFrame(X_full_scaled), y)
+    full_dataset = GraphPeptideDataset(
+        train_pool, pd.DataFrame(X_full_scaled), y,
+        max_len=config.max_peptide_length,
+        cache_dir=config.structural_cache_dir,
+        use_spatial=config.use_spatial_adj
+    )
     full_loader = DataLoader(full_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
     
     model_final = GraphPredictor(num_continuous_features=X_feats.shape[1]).to(device)
@@ -209,7 +247,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     import joblib
     joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
     print(f"Final GNN model and scaler saved to {model_dir}/")
-
+ 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train GNN model on immunogenicity data')
     parser.add_argument('--data', required=True, help='Path to immunogenicity_dataset.csv')
@@ -220,3 +258,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     train_gnn(args.data, args.model_dir, epochs=args.epochs, feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix)
+

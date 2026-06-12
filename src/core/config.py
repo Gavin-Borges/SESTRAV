@@ -42,8 +42,11 @@ class SestravConfig(BaseModel):
     mock_ingestion: bool = False
     mock_evaluation: bool = False
     gnn_checkpoint: Optional[Path] = None
+    max_peptide_length: int = 11
+    structural_cache_dir: Optional[Path] = Path("data/structural_cache")
+    use_spatial_adj: bool = False
 
-    @field_validator('model_path', 'binding_matrix_path', 'output_dir', mode='before')
+    @field_validator('model_path', 'binding_matrix_path', 'output_dir', 'structural_cache_dir', mode='before')
     def validate_paths(cls, v):
         if v is None:
             return v

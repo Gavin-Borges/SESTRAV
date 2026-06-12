@@ -37,9 +37,6 @@ class GraphPredictor(nn.Module):
     def __init__(self, num_continuous_features: int, dropout_rate: float = 0.3):
         super(GraphPredictor, self).__init__()
         
-        # Precomputed normalized adjacency matrix
-        self.register_buffer('adj', GraphBuilder.build_chain_adj())
-        
         self.encoder = GraphEncoder()
         
         # Dense layers for continuous SESTRAV physicochemical features
@@ -58,11 +55,12 @@ class GraphPredictor(nn.Module):
             nn.Linear(64, 1)
         )
         
-    def forward(self, node_x: torch.Tensor, feat_x: torch.Tensor) -> torch.Tensor:
-        gnn_out = self.encoder(node_x, self.adj)
+    def forward(self, node_x: torch.Tensor, feat_x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
+        gnn_out = self.encoder(node_x, adj)
         physico_out = self.physico_block(feat_x)
         
         # Concatenate and classify
         fused = torch.cat((gnn_out, physico_out), dim=1)
         out = self.fusion_block(fused)
         return out.squeeze(1)
+
