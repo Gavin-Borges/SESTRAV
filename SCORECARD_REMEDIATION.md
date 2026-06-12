@@ -18,6 +18,7 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
 | 9 | CII-Best-Practices (score 0/10) | Low | ⬜ Requires OpenSSF badge sign-up |
+| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | **Critical** | ✅ Mitigated — zero usage (not imported/executed) |
 
 ---
 
@@ -109,6 +110,19 @@ Persists the Hypothesis failure database as a workflow artifact.
 Added `SPDX-License-Identifier: MIT` at the top of the file. The SPDX tag is the
 machine-readable identifier that Scorecard's License check uses to confirm OSI/FSF
 recognition of the MIT license.
+
+---
+
+## Mitigated Upstream Vulnerabilities
+
+### PyTorch Memory Corruption (CVE-2025-3000) — Mitigated (No execution path)
+
+- **Vulnerability:** CVE-2025-3000 involves a critical memory corruption (segmentation fault) in PyTorch's `torch.jit.script` function (underlying TorchScript compiler).
+- **Remediation Status:** There is currently **no upstream patched version** released by the PyTorch maintainers (all versions `<= 2.12.0` are affected).
+- **SESTRAV Mitigation:**
+  1. **Zero Usage:** SESTRAV does not invoke or import `torch.jit.script` anywhere in the codebase. All PyTorch usage is restricted to standard model definitions, dataset loading, and feedforward inference.
+  2. **Offline Execution:** SESTRAV is designed as a standalone offline pipeline that does not accept dynamic untrusted code inputs or compile arbitrary scripts.
+  3. **Runtime Safety:** Since there is no execution path to the vulnerable function with untrusted input, the vulnerability is fully mitigated in the SESTRAV workspace.
 
 ---
 

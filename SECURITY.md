@@ -67,3 +67,13 @@ SESTRAV is designed as a standalone, offline bioinformatics pipeline.
 - **No PII/PHI Requirement**: The pipeline accepts standard FASTA, CSV, and YAML configurations. It does not require, accept, or process personally identifiable information (PII) or protected health information (PHI). Users are cautioned against introducing patient metadata or identifying fields into sequence inputs.
 - **Credential Safety**: The pipeline does not connect to external patient databases and has no credential store or public telemetry APIs.
 
+---
+
+## Upstream Dependency Vulnerability Policy & Mitigations
+
+As a standalone, offline scientific tool, SESTRAV occasionally relies on complex third-party libraries (e.g., PyTorch) that may contain upstream vulnerabilities with no available vendor patches. 
+
+Our policy for handling such vulnerabilities is as follows:
+- **CVE-2025-3000 (PyTorch JIT script memory corruption):** Mitigated. PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside `torch.jit.script`.
+  - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler (`torch.jit.script`) anywhere in its pipeline. Because all execution happens offline on locally validated datasets and does not accept dynamic compilation payloads, the attack surface is completely absent.
+
