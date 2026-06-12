@@ -93,6 +93,13 @@ When submitting a pull request, ensure the following checklist is completed:
 
 ---
 
+## Security and Vulnerability Reporting
+
+If you discover a security vulnerability or critical compliance issue within SESTRAV, please do NOT open a public issue.
+Instead, follow the confidential reporting instructions outlined in `SECURITY.md`. We aim to resolve and publicly disclose patches within a responsible timeframe.
+
+---
+
 ## Release Protocol
 
 To prepare a new release bundle for upload as a GitHub Release Asset:

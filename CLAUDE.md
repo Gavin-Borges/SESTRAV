@@ -1,22 +1,55 @@
-# SESTRAV Agent Execution Protocol
+# SESTRAV Project Context
+SESTRAV (Structural Epitope Scoring via TCR Recognition and Vaccinology) is a machine learning pipeline designed to predict T-cell epitope immunogenicity, specifically targeting therapeutic vaccine discovery for oncoviruses (such as HPV and EBV). It processes immunogenicity datasets (e.g. IEDB/VDJdb) via a Snakemake pipeline and utilizes multiple models including Random Forest, XGBoost, PyTorch ANN, and PyTorch Geometric GNN models to score candidate peptides and identify optimal vaccine targets.
 
-## 1. Project Scope & Source of Truth
-- **Project:** SESTRAV (Structural Epitope Scoring via TCR Recognition and Vaccinology).
-- **Goal:** Processing IEDB datasets via Snakemake for HPV/EBV therapeutic epitope discovery using ANN/GNN models (PyTorch/PyG).
-- Use repository files and committed documentation as the primary source of truth. Prefer `environment.yml` and workflow files over inferred assumptions.
+## Architecture & Entry Points
+- **Config & Workflows**: 
+  - [config.yaml](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/config.yaml): Global settings (feature mode, active alleles, model choices, freeze rules).
+  - [Snakefile](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/Snakefile) / [pipeline.smk](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/pipeline.smk): Full multi-stage pipeline configuration (peptide generation -> binding prediction -> feature extraction -> immunogenicity scoring -> reporting).
+- **Core Pipeline Scripts (`scripts/`)**:
+  - [stage1.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage1.py): Generates candidate peptides from proteome FASTA files.
+  - [stage2.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage2.py): Predicts MHC-peptide binding using `mhcflurry`.
+  - [stage3.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage3.py): Extracts immunogenicity feature vectors.
+  - [stage4.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage4.py): Scores and ranks epitopes, outputting distribution plots.
+- **Source Modules (`src/`)**:
+  - [features.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/features.py): Vectorized immunogenicity feature extraction.
+  - [model.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/model.py): Model registry and classification heads.
+  - [train_ann.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/train_ann.py) / [train_gnn.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/train_gnn.py): Training scripts.
+  - [verify/](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/verify): Multi-virus extractors, target configuration, and validation tests.
+- **Data Directories**:
+  - [data/](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/data): Curated reference datasets, proteomes, and dataset governance check targets.
 
-## 2. Agent Behavioral Directives
-- **Think Before Acting:** Before modifying code, briefly detail the files you will touch and the logical steps you will take.
-- **Minimal Diff Edits:** Make the smallest correct change that satisfies the task.
-- **No Hallucinations:** If a biological mechanism, split logic, or tensor shape is not explicitly defined in the code, document it as `[PENDING REVIEW]`. Do not guess.
-- **Silent Execution:** Minimize conversational filler. Default to silent execution for file-write operations.
+## Execution Commands
+Always run commands using the `sestrav` Conda environment on Windows (`conda run -n sestrav ...`).
 
-## 3. Strict Constraints & Prohibitions
-- NEVER modify, delete, or interact with the `.snakemake/` directory, `data/raw/`, or benchmark outputs.
-- NEVER execute heavy training loops or long preprocessing jobs in the terminal. Use `snakemake -n` (dry-run) for validation.
-- NEVER introduce new dependencies without explicit approval.
-- Do not make speculative biological claims without identifying uncertainty.
+### 1. Running Tests (Fast/Smoke Tests)
+- Run a specific test file:
+  `conda run -n sestrav pytest tests/test_features.py`
+- Run only fast smoke tests:
+  `conda run -n sestrav pytest -m smoke`
+- Run all test suite except heavy/slow ones:
+  `conda run -n sestrav pytest -m "not (heavy or slow)"`
 
-## 4. Code Quality Standards
-- PEP 8 compliance, Black/Ruff formatting.
-- Python type hints and clear Google-style docstrings for new or materially changed functions.
+### 2. Snakemake Pipeline Commands
+- Run a dry-run of the pipeline to validate rules:
+  `conda run -n sestrav snakemake -n`
+- Run specific stages (e.g., scoring) with custom configuration:
+  `conda run -n sestrav snakemake results/HPV16_18_panel8_ranked.csv --cores 1`
+- Run the full pipeline:
+  `conda run -n sestrav snakemake --cores 4`
+
+### 3. Training & Validation Scripts
+- Train ANN model:
+  `conda run -n sestrav python -m src.train_ann --data data/immunogenicity_dataset_v3.csv --model-dir models/ann --feature-mode 30`
+- Generate final validation report:
+  `conda run -n sestrav python -m src.final_validation_report --results-dir results --model-dir models --data data/immunogenicity_dataset_v3.csv`
+
+### 4. Checking Repository Health & State
+- Run the repository checker script to verify imports, git cleanliness, and dataset freeze validation status:
+  `conda run -n sestrav python scripts/check_repo_status.py`
+
+## Code & Repo Conventions
+- **Naming Style**: Strict Python `snake_case` for variables, functions, and files. PascalCase for classes.
+- **Exception Handling**: Avoid bare `except:` blocks; always catch specific exceptions (e.g., `ValueError`, `KeyError`, `FileNotFoundError`) and include descriptive logging or error propagation.
+- **Vectorization**: Prefer vectorized PyTorch operations or pandas/numpy vectorized calculations over raw Python loops for performance.
+- **Git Workflow**: Always prefix branches with `feature/` or `fix/` (e.g. `feature/gnn-integration`). Avoid committing heavy artifacts, datasets, or build caches.
+- **Code Edits**: Deliver highly minimal, target-specific diffs rather than full-file replacements.
