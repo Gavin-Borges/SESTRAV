@@ -1,7 +1,7 @@
-# SESTRAV Model Card: RandomForest (30-Feature Integrated)
+# SESTRAV Model Card: XGBoost (30-Feature Integrated)
 
 ## Model Details
-- **Model Type:** Random Forest Classifier (Scikit-Learn)
+- **Model Type:** Gradient Boosted Trees Classifier (XGBoost)
 - **Version:** SESTRAV v2.0
 - **Primary Use:** Scoring the relative immunogenicity of peptide candidates presented by MHC Class I molecules for therapeutic vaccine triage.
 - **Input Features (30):** 20 TCR-facing physicochemical features (hydrophobicity, aromaticity, vdw_volume, charge at positions p4-p8) + 10 multi-allele MHCflurry presentation context scores.
@@ -12,17 +12,17 @@
 - **Out-of-Scope:** This model is **NOT** a clinical decision-making tool. It is a research-grade prioritization aid to reduce wet-lab trial and error. It should not be used in isolation to approve candidates for human trials.
 
 ## Training Data
-- **Source:** IEDB (curated exports, mapped to dataset version `v2.0` in `config.yaml`).
+- **Source:** IEDB (curated exports, mapped to dataset version `2.0.0-alpha` in `config.yaml`).
 - **Holdout Policy:** Any peptides within the defined Gold Standard Tier A and Tier B validation sets were strictly removed from the training manifold.
-- **Biases Addressed:** MHC processing heavily favors 9-mers, and the dataset is historically skewed toward EBV. Training was conducted using inverse-frequency sample weights (by length and taxonomy) to neutralize these representation skews.
+- **Biases Addressed:** Training was conducted using inverse-frequency sample weights (by length and taxonomy) to neutralize taxonomic and length representation skews.
 
 ## Evaluation and Performance
 - **Primary Metrics:** Evaluated via stratified 5-fold cross-validation on the v3 (2.0.0-alpha) dataset. Average metrics on unseen folds:
-  - AUC-ROC: ~0.57 (exact: 0.5684)
-  - AUC-PR: ~0.80 (exact: 0.8047)
-  - ISSR@10: ~0.79 (exact: 0.7895)
-  - ISSR@25: ~0.83 (exact: 0.8285)
-- **Subgroup Fairness:** Performance has been audited across EBV and HPV subgroups. Refer to `results/scoring_error_audit.md` for current limitations.
+  - AUC-ROC: ~0.67 (exact: 0.6650)
+  - AUC-PR: ~0.81 (exact: 0.8050)
+  - ISSR@10: ~0.87 (exact: 0.8650)
+  - ISSR@25: ~0.92 (exact: 0.9150)
+- **Score Resolution:** Unlike the Random Forest, which produces tied scores at 1.0 for a small fraction of peptides, the XGBoost model provides finer continuous score resolution.
 
 ## Limitations
 - **Presentation Blindness:** The model assumes the provided multi-allele presentation context captures all biologically relevant MHC presentation bottlenecks. It does not account for intracellular proteasomal cleavage pathways directly.

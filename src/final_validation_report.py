@@ -31,7 +31,7 @@ from src.naming import canonical_output_filename, resolve_model_path
 def run_final_validation(
     results_dir: str = "results",
     model_dir: str = "models",
-    data_path: str = "immunogenicity_dataset.csv",
+    data_path: str = "data/immunogenicity_dataset_v3.csv",
     binding_matrix_path: str = "models/peptide_binding_matrix_v3.csv",
     model_path: str = "models/rf_30feature_integrated.joblib",
     dataset_mode: str = "expansion_alpha",
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV final validation bundle")
     parser.add_argument("--results-dir", default="results")
     parser.add_argument("--model-dir", default="models")
-    parser.add_argument("--data", default="immunogenicity_dataset.csv")
+    parser.add_argument("--data", default="data/immunogenicity_dataset_v3.csv")
     parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v3.csv")
     parser.add_argument("--model-path", default="models/rf_30feature_integrated.joblib")
     parser.add_argument("--dataset-mode", default="expansion_alpha")

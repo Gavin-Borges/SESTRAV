@@ -5,6 +5,6 @@
   "overall_f1": 0.8542772861356932,
   "min_subgroup_f1": 0.826923076923077,
   "method": "RandomForest",
-  "feature_mode": 30,
+  "feature_mode": 21,
   "selection_objective": "maximize minimum subgroup F1, then overall F1, then recall"
 }

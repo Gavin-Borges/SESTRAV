@@ -23,7 +23,7 @@ sys.path.insert(0, os.getcwd())
 SHAREOUT_DIR = os.path.join("results", "shareout_20260426")
 RESULTS_DIR = "results"
 MODEL_DIR = "models"
-DATA_PATH = "immunogenicity_dataset.csv"
+DATA_PATH = "data/immunogenicity_dataset_v3.csv"
 BINDING_MATRIX = os.path.join(MODEL_DIR, "peptide_binding_matrix_v3.csv")
 
 os.makedirs(SHAREOUT_DIR, exist_ok=True)

@@ -18,8 +18,8 @@
       "size_bytes": 90927
     },
     "feature_importances.csv": {
-      "sha256": "c1080732fc7896ba15c84598dd47de2e3ce633de5127580e5e40fca48f72b660",
-      "size_bytes": 1175
+      "sha256": "727ff4bc284be577debb4ddf830b1bba1672375a4ab7bdfca1bd9530aa13ce93",
+      "size_bytes": 1025
     },
     "rf_oof_predictions.csv": {
       "sha256": "932318111c70b595b98f658423e7ec6e2c27c9d98e3774739fb0ad30426928c2",

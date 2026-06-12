@@ -1,0 +1,13 @@
+{
+  "description": "A computational immunology framework integrating MHC binding with TCR-facing physicochemistry to predict viral epitope immunogenicity.",
+  "topics": [
+    "computational-immunology",
+    "bioinformatics",
+    "vaccinology",
+    "epitope-prediction",
+    "machine-learning",
+    "snakemake",
+    "hpv",
+    "ebv"
+  ]
+}
