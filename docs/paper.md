@@ -11,6 +11,14 @@ authors:
   - name: Gavin Borges
     orcid: 0000-0000-0000-0000
     affiliation: 1
+  - name: Abdelrahman Eljamal
+    affiliation: 1
+  - name: Iris Schellenberg
+    affiliation: 1
+  - name: Charles Jouaneh
+    affiliation: 1
+  - name: Emine Byers
+    affiliation: 1
 affiliations:
  - name: University of Rhode Island
    index: 1

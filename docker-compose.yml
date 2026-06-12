@@ -1,0 +1,71 @@
+# SESTRAV 2.0 — Docker Compose Orchestration
+#
+# Services
+# --------
+#   api      FastAPI microservice on port 8000 (host-accessible)
+#   demo     Streamlit interface on port 8501 (host-accessible)
+#
+# Both services share a read-only model volume and communicate over an
+# internal bridge network (sestrav_net).  The model bind-mount assumes
+# models/ is populated in the project root on the host.
+#
+# Usage
+# -----
+#   docker compose up --build
+#
+# Security notes
+# --------------
+# - Both containers run as non-root user sestrav_user (UID 1000).
+# - Host port bindings are loopback-only (127.0.0.1) to prevent
+#   accidental public exposure on shared research machines.
+# - The models/ directory is mounted read-only to prevent container
+#   mutations of model artifacts.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: sestrav-api:2.0
+    container_name: sestrav_api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - sestrav_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    image: sestrav-demo:2.0
+    container_name: sestrav_demo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - ./models:/app/models:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Streamlit telemetry opt-out
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    networks:
+      - sestrav_net
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  sestrav_net:
+    driver: bridge
+    name: sestrav_net

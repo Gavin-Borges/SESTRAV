@@ -1,0 +1,46 @@
+name: PII & Path Leak Gatekeeper
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions: read-all
+
+jobs:
+  scan-leaks:
+    name: Check for Paths and Credentials
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Scan Diff for Absolute Paths
+        run: |
+          # Retrieve list of modified files in this commit/PR compared to target branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+          else
+            git diff HEAD~1...HEAD > diff.txt
+          fi
+          
+          echo "=== Scanning commit diff for machine-specific paths ==="
+          
+          # Detect paths matching Windows user styles or WSL mount styles
+          # Excludes common docs/README.md/walkthroughs mentions of directories
+          if grep -E "(/Users/|Users\\\|/mnt/c/Users/)" diff.txt | grep -v -E "(README.md|walkthrough.md|post_remediation_todos.md)"; then
+            echo "::error::Absolute file paths (e.g. containing Users or /mnt/c/) were detected in the diff! Please use relative paths."
+            exit 1
+          fi
+          echo "Path check PASSED."
+
+      - name: Scan for Unapproved Email Placeholders
+        run: |
+          if grep -rn "TODO: USER TO FILL" .; then
+            echo "::error::Unfilled [TODO: USER TO FILL] placeholders found. Please populate SECURITY.md with your authorized email before merging."
+            exit 1
+          fi
+          echo "Placeholder check PASSED."

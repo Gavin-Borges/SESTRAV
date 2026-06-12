@@ -5,9 +5,13 @@ Implements ROC-AUC/PRC math from scratch, escape mutant CV, and multi-virus GNN 
 
 import os
 import sys
+from pathlib import Path
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import json
 import logging
-from pathlib import Path
 from typing import Dict, Any, List, Tuple
 
 import numpy as np
@@ -269,7 +273,7 @@ def _load_torch_checkpoint(model_path, device):
             np._core.multiarray.scalar,
             np.dtype,
         ])
-        return torch.load(model_path, map_location=device, weights_only=True)
+        return torch.load(model_path, map_location=device, weights_only=True)  # nosec B614
     except Exception as e:
         logger.warning(f"Unable to load GNN checkpoint with weights_only=True: {e}. Falling back to standard load.")
         try:

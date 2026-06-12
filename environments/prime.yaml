@@ -4,5 +4,5 @@ channels:
   - defaults
 dependencies:
   - python=3.8
-  - pandas
-  - numpy
+  - pandas=1.5.3
+  - numpy=1.24.4

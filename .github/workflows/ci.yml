@@ -45,7 +45,7 @@ jobs:
         run: snakemake --snakefile pipeline.smk --dry-run --cores 1
 
       - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
+        uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
         with:
           to-latest: true
 

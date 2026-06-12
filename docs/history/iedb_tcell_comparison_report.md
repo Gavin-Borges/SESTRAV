@@ -6,11 +6,11 @@ This report documents the ingestion, filtering, and comparative statistics for t
 
 ## 1. Ingestion Summary
 
-The raw IEDB exports were downloaded and saved to [data/raw/iedb_tcell_assay/](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/data/raw/iedb_tcell_assay/):
+The raw IEDB exports were downloaded and saved to [data/raw/iedb_tcell_assay/](data/raw/iedb_tcell_assay/):
 - **EBV Export:** `ebv_20260606.csv` (3733 valid T-cell assays)
 - **HPV16 Export:** `hpv16_20260606.csv` (587 T-cell assays)
 
-The files were parsed using [src/iedb_data_loader.py](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/iedb_data_loader.py) with the updated flat-header combined column mapping logic.
+The files were parsed using [src/iedb_data_loader.py](src/iedb_data_loader.py) with the updated flat-header combined column mapping logic.
 
 ---
 

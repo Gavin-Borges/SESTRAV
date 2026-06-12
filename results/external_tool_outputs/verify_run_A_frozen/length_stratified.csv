@@ -1,5 +1,0 @@
-tool,length_group,n,auc_pr
-rf,9mer,399,0.8215
-rf,non_9mer,305,0.843
-binding,9mer,399,0.8225
-binding,non_9mer,305,0.7029

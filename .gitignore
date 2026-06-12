@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+ï»¿# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
@@ -237,7 +237,6 @@ results/*
 !results/external_benchmark_rank_scatter.png
 !results/external_tool_metrics_by_virus.csv
 !results/external_validation_cross_virus.csv
-!results/external_tool_outputs/
 # Shareout presentation assets (PNGs + summary files)
 !results/shareout_20260426/
 release_artifacts/
@@ -294,7 +293,7 @@ scan_checkpoint_globals.py
 
 
 # -- Security hygiene (added 2026-06-03 per forensic audit) -----------------
-# Local virtual environments — prevent accidental cert/key commits
+# Local virtual environments ï¿½ prevent accidental cert/key commits
 .ci_test_venv/
 
 # Security-sensitive file extensions (defensive catch-all)
@@ -334,4 +333,4 @@ bandit_text.txt
 # Antigravity agent cache (probe outputs, metrics)
 .cache/
 
-# Antigravity rules (tracked intentionally — do NOT add to gitignore)
+# Antigravity rules (tracked intentionally ï¿½ do NOT add to gitignore)

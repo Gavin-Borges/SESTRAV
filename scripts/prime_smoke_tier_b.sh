@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
 export PATH="$HOME/tools/sestrav_external/PRIME2.1/lib:$HOME/tools/sestrav_external/MixMHCpred:$PATH"
-cd /mnt/c/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 

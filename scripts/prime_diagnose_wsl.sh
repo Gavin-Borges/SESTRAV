@@ -17,7 +17,8 @@ printf '%s\n' CLGGLLTMV GLCTLVAML YMLDLQPET > "$TMP_DIR/p2_in.txt"
 wc -l "$TMP_DIR/p2.txt"
 
 echo "=== test 3: tier B alleles file, 3 peptides ==="
-ALLELES="$(tr -d '\r\n' < /mnt/c/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/results/external_tier_b_prime_alleles.txt)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ALLELES="$(tr -d '\r\n' < "$REPO_ROOT/results/external_tier_b_prime_alleles.txt")"
 ./PRIME -i "$TMP_DIR/p2_in.txt" -o "$TMP_DIR/p3.txt" -a "$ALLELES"
 wc -l "$TMP_DIR/p3.txt"
 

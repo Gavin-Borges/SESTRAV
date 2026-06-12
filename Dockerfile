@@ -23,7 +23,6 @@ ENV PYTHONUNBUFFERED=1
 COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
 COPY --chown=sestrav_user:sestrav_user src/ ./src/
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
-COPY --chown=sestrav_user:sestrav_user model_artifact_checksums.json ./
 
 # Install SESTRAV package
 RUN pip install --user --upgrade pip && \

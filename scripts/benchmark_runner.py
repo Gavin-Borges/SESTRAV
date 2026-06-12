@@ -431,9 +431,9 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
         "n_total": len(df),
         "n_clean": len(df_clean),
         "tools_evaluated": [r["tool"] for r in metrics_rows],
-        "output_dir": str(out_dir),
-        "source_merged_scores": str(MERGED_SCORES_PATH),
-        "source_training_data": str(TRAINING_DATA_PATH),
+        "output_dir": out_dir.relative_to(PROJECT_ROOT).as_posix(),
+        "source_merged_scores": MERGED_SCORES_PATH.relative_to(PROJECT_ROOT).as_posix(),
+        "source_training_data": TRAINING_DATA_PATH.relative_to(PROJECT_ROOT).as_posix(),
     }
     manifest_out = out_dir / "run_manifest.json"
     with open(manifest_out, "w") as f:

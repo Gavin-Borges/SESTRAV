@@ -260,13 +260,13 @@ Stage 4 auto-detects model feature expectations and applies compatible columns.
 
 ## Biological Data Limitations & Bias
 
-The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the [data_bias_audit_v3.md](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/docs/data_bias_audit_v3.md) report.
+The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the [data_bias_audit_v3.md](docs/data_bias_audit_v3.md) report.
 
 Specifically:
 - **Taxonomic Skew**: Epstein-Barr Virus (EBV) represents 68.13% of the dataset, while HPV16 constitutes 30.88%, and HPV11 is a tiny minority class at only 1.00%.
 - **Topological Length Skew**: 9-mer peptides represent 64.74% of the dataset, reflecting MHC Class I presentation preferences.
 
-To prevent machine learning models from over-indexing on EBV-specific anchor motifs and 9-mer length preferences (which would lead to poor generalization on minority taxa like HPV11 or non-canonical peptide lengths), the `compute_sample_weights()` function in [features.py](file:///c:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/features.py) is **CRITICAL**. It dynamically calculates sample weights to up-weight minority taxa and non-9-mer peptides during model training, balancing the learning signal and ensuring robust pan-viral performance.
+To prevent machine learning models from over-indexing on EBV-specific anchor motifs and 9-mer length preferences (which would lead to poor generalization on minority taxa like HPV11 or non-canonical peptide lengths), the `compute_sample_weights()` function in [features.py](src/features.py) is **CRITICAL**. It dynamically calculates sample weights to up-weight minority taxa and non-9-mer peptides during model training, balancing the learning signal and ensuring robust pan-viral performance.
 
 ## Quick Start
 
@@ -624,8 +624,32 @@ docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q
 ```
 
 
+### API & Demo Quick Start (Docker Compose)
 
-## Antigens
+A two-service Docker Compose stack serves the FastAPI microservice and Streamlit demo
+from pre-trained model artifacts. Model binaries must be present in `models/` before
+launching.
+
+```bash
+# Build and launch both services
+docker compose up --build
+
+# FastAPI docs:  http://localhost:8000/docs
+# Streamlit demo: http://localhost:8501
+```
+
+Single-peptide API request:
+
+```bash
+curl -X POST "http://localhost:8000/score" \
+  -H "Content-Type: application/json" \
+  -d '{"sequence":"GILGFVFTL","allele":"HLA-A*02:01"}'
+```
+
+Both services bind to `127.0.0.1` only (loopback) to prevent unintended public
+exposure on shared research machines.  Model artifacts are mounted read-only.
+
+
 
 | Virus | Antigens |
 |---|---|

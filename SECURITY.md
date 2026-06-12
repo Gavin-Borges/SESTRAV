@@ -24,7 +24,7 @@ Public disclosure before a fix is available puts all users at risk.
 
 Send a confidential report to the maintainer directly:
 
-**Email:** `gavin.borges@sestrav.org`
+**Email:** `gavinmborges1104@gmail.com`
 
 Please include the following in your report:
 
@@ -56,3 +56,14 @@ As a solo-maintained project, the maintainer commits to:
 
 Responsible disclosure helps keep SESTRAV and its users safe.
 Thank you for taking the time to report vulnerabilities privately.
+
+---
+
+## Personally Identifiable Information (PII) & Patient Health Data (PHI)
+
+SESTRAV is designed as a standalone, offline bioinformatics pipeline. 
+
+- **Data Privacy by Design**: All scoring and feature extraction processes execute strictly on the local machine or host environment. SESTRAV does not transmit, upload, or collect any sequence data, user parameters, or predictive outputs.
+- **No PII/PHI Requirement**: The pipeline accepts standard FASTA, CSV, and YAML configurations. It does not require, accept, or process personally identifiable information (PII) or protected health information (PHI). Users are cautioned against introducing patient metadata or identifying fields into sequence inputs.
+- **Credential Safety**: The pipeline does not connect to external patient databases and has no credential store or public telemetry APIs.
+
