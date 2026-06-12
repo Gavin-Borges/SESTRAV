@@ -85,3 +85,8 @@ output_dir: results
 mock_ingestion: false
 mock_evaluation: false
 gnn_checkpoint: models/gnn/structural_gnn_v2.pth
+
+# GNN dynamic and spatial integration settings
+max_peptide_length: 11
+structural_cache_dir: data/structural_cache
+use_spatial_adj: false
