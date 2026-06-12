@@ -48,7 +48,7 @@ class GraphBuilder:
             return GraphBuilder.build_chain_adj(max_len)
             
         # Load precomputed pairwise distance matrix (L x L)
-        dist_matrix = torch.load(cache_path)
+        dist_matrix = torch.load(cache_path, weights_only=True)  # nosec B614
         L = dist_matrix.size(0)
         
         adj = torch.zeros((max_len, max_len), dtype=torch.float32)
