@@ -101,6 +101,9 @@ class ProvenanceInfo(BaseModel):
 # Model singleton
 # ---------------------------------------------------------------------------
 
+from src.core.config import SestravConfig
+from src.core.model_registry import ModelRegistry
+
 class ModelManager:
     """Loads and holds the RF model and feature config exactly once."""
 
@@ -122,13 +125,18 @@ class ModelManager:
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
 
-        from src.artifact_integrity import load_verified_joblib
-        logger.info(f"Loading RF model from {_MODEL_PATH} …")
-        self.rf_model = load_verified_joblib(_MODEL_PATH, manifest_path=_CHECKSUM_FILE, required_checksum=True)
+        # Initialize config and registry
+        self.config = SestravConfig.load()
+        self.registry = ModelRegistry(self.config)
+
+        logger.info(f"Loading RF model ...")
+        # Load verified model from registry
+        # Usually it's rf_30feature_integrated.joblib, but registry can resolve config's model_path
+        self.rf_model = self.registry.load(self.config.model_path.name)
         logger.info("RF model loaded successfully.")
 
         # Load feature config for column ordering
-        feat_config_path = _PROJECT_ROOT / "models" / "feature_config.json"
+        feat_config_path = self.registry.resolve_model("feature_config.json")
         if feat_config_path.exists():
             with feat_config_path.open("r", encoding="utf-8") as fh:
                 self.feature_config: dict[str, Any] = json.load(fh)
@@ -143,6 +151,7 @@ class ModelManager:
 
 
 _manager = ModelManager()
+
 
 
 # ---------------------------------------------------------------------------

@@ -30,27 +30,27 @@ The package build command (`python -m build`) generated warnings indicating that
 ## 2. Implemented Remediations
 
 ### A. GNN Training & Prediction Logging
-- Refactored [src/train_gnn.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/train_gnn.py) to:
+- Refactored [src/train_gnn.py](../../src/train_gnn.py) to:
   - Natively aggregate validation predictions and labels across the Stratified 5-Fold Cross Validation.
   - Export the genuine predictions to `models/gnn_oof_predictions.csv` containing fields: `peptide`, `label`, `gnn_oof_score`.
   - Save the final fully-trained model checkpoint directly to the correct path: `models/gnn/structural_gnn_v2.pth`.
-- Refactored [src/verify/structural_gnn.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/verify/structural_gnn.py) to optimize DataLoader configurations (enabling multi-process workers and persistent workers) for faster execution.
+- Refactored [src/verify/structural_gnn.py](../../src/verify/structural_gnn.py) to optimize DataLoader configurations (enabling multi-process workers and persistent workers) for faster execution.
 
 ### B. Enforced Mathematical Promotion
-- Hardened [src/verify/promote_gnn.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/verify/promote_gnn.py) by:
+- Hardened [src/verify/promote_gnn.py](../../src/verify/promote_gnn.py) by:
   - Removing the `mock_oof_predictions()` fallback.
   - Enforcing strict file existence checks on both `models/gnn/structural_gnn_v2.pth` and `models/gnn_oof_predictions.csv`.
   - Calculating Gate 1 (Generalization) AUC-PR directly on the genuine OOF predictions CSV.
   - Ensuring the orchestrator aborts early, logging `[ERROR] Gate 1 Failed!`, and blocks all changes to `config.yaml` or `model_artifact_checksums.json` if validation metrics do not meet the minimum $\ge 0.85$ AUC-PR requirement.
 
 ### C. Modernized PyPI Configuration
-- Updated [pyproject.toml](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/pyproject.toml) to replace the deprecated license table syntax with a simple SPDX expression:
+- Updated [pyproject.toml](../../pyproject.toml) to replace the deprecated license table syntax with a simple SPDX expression:
   ```toml
   license = "MIT"
   ```
 
 ### D. Restored Canonical Defaults
-- Reverted the local workspace's [config.yaml](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/config.yaml) back to the canonical Random Forest model `models/rf_30feature_integrated.joblib` to prevent environment drift and ensure release-grade test coverage.
+- Reverted the local workspace's [config.yaml](../../config.yaml) back to the canonical Random Forest model `models/rf_30feature_integrated.joblib` to prevent environment drift and ensure release-grade test coverage.
 - Appended GNN verification keys (`mock_ingestion`, `mock_evaluation`, `gnn_checkpoint`) cleanly to the bottom of the config to maintain compatibility with the Snakemake verification workflows.
 
 ---

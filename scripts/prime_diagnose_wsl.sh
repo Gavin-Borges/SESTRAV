@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
-PRIME_HOME="$HOME/tools/sestrav_external/PRIME2.1"
-export PATH="$HOME/tools/sestrav_external/MixMHCpred:$PATH"
+SESTRAV_TOOL_ROOT="${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}"
+PRIME_HOME="${PRIME_ROOT:-$SESTRAV_TOOL_ROOT/PRIME2.1}"
+export PATH="$SESTRAV_TOOL_ROOT/MixMHCpred:$PATH"
 cd "$PRIME_HOME"
 
 TMP_DIR=$(mktemp -d)
@@ -17,8 +18,9 @@ printf '%s\n' CLGGLLTMV GLCTLVAML YMLDLQPET > "$TMP_DIR/p2_in.txt"
 wc -l "$TMP_DIR/p2.txt"
 
 echo "=== test 3: tier B alleles file, 3 peptides ==="
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ALLELES="$(tr -d '\r\n' < "$REPO_ROOT/results/external_tier_b_prime_alleles.txt")"
+REPO_ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ALLELES_FILE="${2:-$REPO_ROOT/results/external_tier_b_prime_alleles.txt}"
+ALLELES="$(tr -d '\r\n' < "$ALLELES_FILE")"
 ./PRIME -i "$TMP_DIR/p2_in.txt" -o "$TMP_DIR/p3.txt" -a "$ALLELES"
 wc -l "$TMP_DIR/p3.txt"
 

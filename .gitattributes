@@ -1,0 +1,12 @@
+# Treat data and model weights as binary/generated so they don't bloat diffs
+*.csv linguist-generated=true
+*.json linguist-generated=true
+*.pth binary
+*.joblib binary
+*.pt binary
+
+# Explicitly ensure markdown files and rules are treated as text
+*.md text
+.claudeignore text
+.antigravityrules text
+CLAUDE.md text

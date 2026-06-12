@@ -21,39 +21,8 @@ from src.train_classifier import prepare_features, prepare_features_50
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
-AA_VOCAB = "ACDEFGHIKLMNPQRSTVWY"
-AA_TO_IDX = {aa: i for i, aa in enumerate(AA_VOCAB)}
-
-def build_chain_adj(max_len=11):
-    """Build a normalized adjacency matrix for a chain graph with self-loops."""
-    # A is adjacency matrix, I is identity
-    A = torch.zeros((max_len, max_len))
-    for i in range(max_len):
-        A[i, i] = 1.0 # self loop
-        if i > 0:
-            A[i, i-1] = 1.0
-        if i < max_len - 1:
-            A[i, i+1] = 1.0
-            
-    # D is degree vector
-    d = torch.sum(A, dim=1)
-    d_inv_sqrt = torch.pow(d, -0.5)
-    # Set inf to 0 just in case (though it shouldn't happen here)
-    d_inv_sqrt[torch.isinf(d_inv_sqrt)] = 0.0
-    D_inv_sqrt = torch.diag(d_inv_sqrt)
-    
-    # D^(-1/2) A D^(-1/2)
-    norm_A = torch.matmul(torch.matmul(D_inv_sqrt, A), D_inv_sqrt)
-    return norm_A
-
-def sequence_to_node_features(seq, max_len=11):
-    """Convert peptide to node feature matrix (max_len, num_features)."""
-    # Features per node: one-hot encoded AA (size 20)
-    features = torch.zeros((max_len, 20))
-    for i, aa in enumerate(seq[:max_len]):
-        if aa in AA_TO_IDX:
-            features[i, AA_TO_IDX[aa]] = 1.0
-    return features
+from src.gnn.graph_builder import GraphBuilder
+from src.gnn.models import GraphPredictor
 
 class GraphPeptideDataset(Dataset):
     def __init__(self, df, feature_matrix, labels=None):
@@ -66,96 +35,56 @@ class GraphPeptideDataset(Dataset):
 
     def __getitem__(self, idx):
         seq = self.sequences[idx]
-        node_feats = sequence_to_node_features(seq)
+        node_feats = GraphBuilder.sequence_to_node_features(seq)
         physico = self.physico_features[idx]
         if self.labels is not None:
             return node_feats, physico, self.labels[idx]
         return node_feats, physico
 
-class GCNLayer(nn.Module):
-    def __init__(self, in_features, out_features):
-        super(GCNLayer, self).__init__()
-        self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
-        self.bias = nn.Parameter(torch.FloatTensor(out_features))
-        nn.init.xavier_uniform_(self.weight)
-        nn.init.zeros_(self.bias)
-
-    def forward(self, x, adj):
-        # x: (batch, max_len, in_features)
-        # adj: (max_len, max_len)
-        support = torch.matmul(x, self.weight) # (batch, max_len, out_features)
-        output = torch.matmul(adj, support)    # (batch, max_len, out_features)
-        return output + self.bias
-
-class PeptideGNN(nn.Module):
-    def __init__(self, num_continuous_features, dropout_rate=0.3):
-        super(PeptideGNN, self).__init__()
-        
-        # Precomputed normalized adjacency matrix
-        self.register_buffer('adj', build_chain_adj())
-        
-        # GCN layers for Graph feature extraction
-        self.gcn1 = GCNLayer(20, 32)
-        self.gcn2 = GCNLayer(32, 64)
-        
-        # Dense layers for continuous SESTRAV physicochemical features
-        self.physico_block = nn.Sequential(
-            nn.Linear(num_continuous_features, 32),
-            nn.BatchNorm1d(32),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate)
-        )
-        
-        # Fusion block
-        self.fusion_block = nn.Sequential(
-            nn.Linear(64 + 32, 64),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(64, 1)
-        )
-
-    def forward(self, node_x, feat_x):
-        # node_x shape: (batch, max_len, 20)
-        h = torch.relu(self.gcn1(node_x, self.adj))
-        h = torch.relu(self.gcn2(h, self.adj)) # (batch, max_len, 64)
-        
-        # Global mean pooling over nodes
-        gnn_out = torch.mean(h, dim=1) # (batch, 64)
-        
-        # feat_x shape: (batch, num_continuous_features)
-        physico_out = self.physico_block(feat_x)
-        
-        # Concatenate and classify
-        fused = torch.cat((gnn_out, physico_out), dim=1)
-        out = self.fusion_block(fused)
-        return out.squeeze(1)
+import time
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0
+    
+    # Profiling variables
+    prof_construction = 0.0
+    prof_encoding = 0.0
+    prof_forward = 0.0
+    prof_backward = 0.0
+
     for node_x, feat_x, y in dataloader:
+        t0 = time.perf_counter()
         node_x, feat_x, y = node_x.to(device), feat_x.to(device), y.to(device)
+        t1 = time.perf_counter()
+        prof_construction += (t1 - t0)
         
         optimizer.zero_grad()
-        if torch.isnan(node_x).any():
-            print("NaN in node_x!")
-            import sys; sys.exit(1)
-        if torch.isnan(feat_x).any():
-            print("NaN in feat_x!")
-            import sys; sys.exit(1)
-        logits = model(node_x, feat_x)
-        if torch.isnan(logits).any():
-            print("NaN in logits!")
-            import sys; sys.exit(1)
+        
+        # We manually call encoder and fusion to profile encoding vs forward pass
+        t_enc0 = time.perf_counter()
+        gnn_out = model.encoder(node_x, model.adj)
+        t_enc1 = time.perf_counter()
+        prof_encoding += (t_enc1 - t_enc0)
+        
+        t_fwd0 = time.perf_counter()
+        physico_out = model.physico_block(feat_x)
+        fused = torch.cat((gnn_out, physico_out), dim=1)
+        logits = model.fusion_block(fused).squeeze(1)
         loss = criterion(logits, y)
-        if torch.isnan(loss).any():
-            print("NaN in loss!")
-            import sys; sys.exit(1)
+        t_fwd1 = time.perf_counter()
+        prof_forward += (t_fwd1 - t_fwd0)
+        
+        t_bwd0 = time.perf_counter()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
+        t_bwd1 = time.perf_counter()
+        prof_backward += (t_bwd1 - t_bwd0)
         
         total_loss += loss.item()
+        
+    print(f"    [Profile] Data: {prof_construction:.4f}s | Encode: {prof_encoding:.4f}s | Fwd: {prof_forward:.4f}s | Bwd: {prof_backward:.4f}s")
     return total_loss / len(dataloader)
 
 def evaluate_model(model, dataloader, device):
@@ -219,7 +148,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
         
         # Initialize model
-        model = PeptideGNN(num_continuous_features=X_feats.shape[1]).to(device)
+        model = GraphPredictor(num_continuous_features=X_feats.shape[1]).to(device)
         
         # Positive weight for class imbalance
         pos_weight = torch.tensor([(len(y_train) - y_train.sum()) / max(1, y_train.sum())]).to(device)
@@ -267,7 +196,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     full_dataset = GraphPeptideDataset(train_pool, pd.DataFrame(X_full_scaled), y)
     full_loader = DataLoader(full_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
     
-    model_final = PeptideGNN(num_continuous_features=X_feats.shape[1]).to(device)
+    model_final = GraphPredictor(num_continuous_features=X_feats.shape[1]).to(device)
     pos_weight_full = torch.tensor([(len(y) - y.sum()) / max(1, y.sum())]).to(device)
     criterion_final = nn.BCEWithLogitsLoss(pos_weight=pos_weight_full)
     optimizer_final = optim.Adam(model_final.parameters(), lr=lr, weight_decay=1e-4)

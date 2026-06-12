@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
@@ -313,13 +313,8 @@ id_ed25519
 
 # Scratch folder and dryrun/test logs
 scratch/
-results/external_tool_outputs/20260606_frozen/
-results/external_tool_outputs/20260606_v1/
-results/external_tool_outputs/ci_dryrun/
-results/external_tool_outputs/run_test_ahocorasick/
-results/external_tool_outputs/run_test_metrics/
-results/external_tool_outputs/run_test_tierb_ahocorasick/
-results/external_tool_outputs/verify_run_A_dryrun/
+data/external/
+results/external_tool_outputs/
 pytest_temp/
 
 # State tracking directory

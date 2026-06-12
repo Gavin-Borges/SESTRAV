@@ -83,7 +83,7 @@ def _load_torch_checkpoint(model_path):
             np.dtype,                    # serialised numpy dtype objects
         ])
         return torch.load(model_path, map_location='cpu', weights_only=True)  # nosemgrep
-    except Exception as exc:
+    except (FileNotFoundError, ValueError, KeyError) as exc:
         raise RuntimeError(
             f"[Baseline] Unable to load ANN checkpoint '{model_path}' with weights_only=True. "
             "Resave the checkpoint from a trusted training run before loading it. "
@@ -249,7 +249,7 @@ def compare_methods(results_dir, model_dir='models', strict_ann_loading=False, b
             try:
                 df['ann_score'] = _score_with_ann(df, ann_path)
                 methods.append(('ann_score', 'ANN (MLP)'))
-            except Exception as exc:
+            except (FileNotFoundError, ValueError, KeyError) as exc:
                 if strict_ann_loading:
                     raise RuntimeError(
                         f"[Baseline] Freeze mode requires ANN checkpoint compatibility: {exc}"

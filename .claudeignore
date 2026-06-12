@@ -1,0 +1,10 @@
+.snakemake/
+data/raw/
+data/processed/
+*.fasta
+*.csv
+*.pt
+__pycache__/
+.DS_Store
+environments/
+.hypothesis/

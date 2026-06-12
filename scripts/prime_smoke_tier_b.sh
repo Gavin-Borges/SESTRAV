@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
-export PATH="$HOME/tools/sestrav_external/PRIME2.1/lib:$HOME/tools/sestrav_external/MixMHCpred:$PATH"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SESTRAV_TOOL_ROOT="${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}"
+export PATH="$SESTRAV_TOOL_ROOT/PRIME2.1/lib:$SESTRAV_TOOL_ROOT/MixMHCpred:$PATH"
+REPO_ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$REPO_ROOT"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
