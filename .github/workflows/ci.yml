@@ -25,7 +25,8 @@ jobs:
 
       - name: Install CPU PyTorch
         run: |
-          pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-deps --require-hashes -r environments/requirements-ci-torch-cpu.txt \
+            --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
         run: |
@@ -50,10 +51,9 @@ jobs:
           to-latest: true
 
       - name: Install Quarto rendering dependencies
-        # Jupyter execution stack needed to run the report's {python} cells (provides
-        # nbclient + ipykernel + IPython.display). Intentionally kept out of the
-        # hash-locked runtime lockfiles since it is only used for CI report rendering.
-        run: pip install nbclient==0.10.2 ipykernel==6.29.5
+        # Jupyter execution stack needed to run the report's {python} cells.
+        # Hash-locked separately from the runtime lockfiles (render-only deps).
+        run: pip install --require-hashes -r environments/requirements-ci-render.txt
 
       - name: Render Quarto Report
         run: quarto render results_report.qmd
