@@ -18,10 +18,11 @@
 - **Optimization:** Evaluated over 14 distinct architectures via grid search; trained using BCEWithLogitsLoss with Adam optimization and early stopping.
 
 ## Evaluation and Performance
-- **Primary Metrics:** Evaluated via stratified 5-fold cross-validation. Average metrics on unseen folds:
-  - AUC-ROC: ~0.78
-  - AUC-PR: ~0.94
-  - ISSR@10: ~0.97
+- **Primary Metrics:** Evaluated via stratified 5-fold cross-validation on the v3 (2.0.0-alpha) dataset. Average metrics on unseen folds:
+  - AUC-ROC: ~0.67 (exact: 0.670)
+  - AUC-PR: ~0.83 (exact: 0.825)
+  - ISSR@10: ~0.88 (exact: 0.880)
+  - ISSR@25: ~0.93 (exact: 0.930)
 - **Explainability:** SHAP DeepExplainer analysis indicates allele-specific binding features drive primary node activations, supported by physicochemical structural constraints.
 
 ## Limitations

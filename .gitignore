@@ -237,7 +237,6 @@ results/*
 !results/external_benchmark_rank_scatter.png
 !results/external_tool_metrics_by_virus.csv
 !results/external_validation_cross_virus.csv
-!results/external_tool_outputs/
 # Shareout presentation assets (PNGs + summary files)
 !results/shareout_20260426/
 release_artifacts/
@@ -270,6 +269,7 @@ data/proteomes/*.fasta.gz
 # Pytest custom temp directory (contains local username — do not commit)
 .pytest_tmp/
 .pytest_tmp_new/
+.pytest_tmp2/
 tmp/
 tmp_pytest/
 
@@ -291,11 +291,47 @@ inspect_checkpoint.py
 resave_checkpoint.py
 scan_checkpoint_globals.py
 
-# Root-level duplicate dataset — canonical path is data/immunogenicity_dataset_v3.csv
-immunogenicity_dataset.csv
 
-# Local developer utility scripts (not part of the release, not wired into CI)
-check_secrets.py
+# -- Security hygiene (added 2026-06-03 per forensic audit) -----------------
+# Local virtual environments � prevent accidental cert/key commits
+.ci_test_venv/
+
+# Security-sensitive file extensions (defensive catch-all)
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# SQLite databases (catch-all beyond the explicit db.sqlite3 entry)
+*.db
+*.sqlite
+
+# Scratch folder and dryrun/test logs
+scratch/
+data/external/
+results/external_tool_outputs/
+pytest_temp/
+
+# State tracking directory
+.context/
+
+# Transient test and CI artifacts (agent-generated, not for version control)
+ci_install_test.log
+temp_test_out.txt
+bandit_text.txt
+
+# Antigravity agent cache and rules (local dev AI tooling — not for public repo)
+.cache/
+.antigravityrules
+
+
+# Root-level duplicate dataset - canonical path is data/immunogenicity_dataset_v3.csv
+immunogenicity_dataset.csv
 
 # Pipeline-generated hidden intermediates inside results/ (dot-prefixed files)
 results/.*

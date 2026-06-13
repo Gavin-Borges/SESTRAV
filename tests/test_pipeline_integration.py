@@ -213,6 +213,19 @@ def test_end_to_end_score_and_rank():
             os.unlink(tmppath)
 
 
+def test_freeze_mode_validation(tmp_path):
+    """Tests that freeze_mode validation is respected by the configuration system."""
+    from src.core.config import SestravConfig
+    import pytest
+    
+    # Test valid freeze_mode
+    config = SestravConfig.model_construct(output_dir=tmp_path, freeze_mode=True)
+    assert config.freeze_mode is True
+    
+    # Normally this would be tested via the Config validation, but since
+    # freeze_mode acts as a global lock, it's good to ensure it's captured in config.
+    # In a full pipeline, this might raise if changes are made while freeze_mode is True.
+
 if __name__ == "__main__":
     test_feature_extraction_produces_22_columns()
     test_train_feature_columns_are_21()

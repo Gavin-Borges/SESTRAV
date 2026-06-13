@@ -1,0 +1,59 @@
+import yaml
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field, field_validator
+
+class ProvenanceConfig(BaseModel):
+    timestamp: str
+    source_databases: List[str]
+    negative_sampling_strategy: str
+    checksum: str
+
+class QCThresholdsConfig(BaseModel):
+    min_peptide_yield: int
+    max_conflict_ratio: float
+    max_null_allele_fraction: float
+    class_ratio_bounds: List[float]
+
+class DatasetGovernanceConfig(BaseModel):
+    current_version: str
+    versions: Dict[str, str]
+    provenance: ProvenanceConfig
+    qc_thresholds: QCThresholdsConfig
+    require_checksum_match_in_freeze_mode: bool
+
+class SestravConfig(BaseModel):
+    antigens: List[str]
+    proteome_files: Dict[str, str]
+    alleles: List[str]
+    peptide_lengths: List[int]
+    binding_backend: str
+    feature_mode: int
+    model_path: Path
+    freeze_mode: bool
+    calibration_path: Optional[Path] = None
+    thresholds_path: Optional[Path] = None
+    binding_matrix_path: Optional[Path] = None
+    mc_dropout: bool = False
+    dataset_governance: DatasetGovernanceConfig
+    dataset_mode: str
+    dataset_version: str
+    output_dir: Path
+    mock_ingestion: bool = False
+    mock_evaluation: bool = False
+    gnn_checkpoint: Optional[Path] = None
+    max_peptide_length: int = 11
+    structural_cache_dir: Optional[Path] = Path("data/structural_cache")
+    use_spatial_adj: bool = False
+
+    @field_validator('model_path', 'binding_matrix_path', 'output_dir', 'structural_cache_dir', mode='before')
+    def validate_paths(cls, v):
+        if v is None:
+            return v
+        return Path(v)
+
+    @classmethod
+    def load(cls, path: str | Path = "config.yaml") -> "SestravConfig":
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return cls(**data)

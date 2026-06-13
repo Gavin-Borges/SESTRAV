@@ -41,6 +41,8 @@ from src.features import (
     FEATURE_COLUMNS_ALLELE, HLA_PSEUDO_COLS,
     FEATURE_COLUMNS_50, EXPANDED_PHYSICO_COLUMNS,
     compute_sample_weights,
+    get_esm_cls_token, get_cb_cb_edges, compute_wl_features,
+    FEATURE_COLUMNS_30_ESM, FEATURE_COLUMNS_30_GRAPH,
 )
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
@@ -97,6 +99,27 @@ def prepare_features_30(df, binding_matrix_path):
 
     return pd.concat([physico_df.reset_index(drop=True),
                       bind_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_30]
+
+
+def prepare_features_30_esm(df, binding_matrix_path):
+    """Build the 350-feature matrix by combining 30-feature baseline with ESM CLS tokens."""
+    base_30 = prepare_features_30(df, binding_matrix_path)
+    esm_rows = []
+    for pep in df['peptide'].values:
+        esm_rows.append(get_esm_cls_token(pep))
+    esm_df = pd.DataFrame(esm_rows, columns=[f"esm_{i}" for i in range(320)])
+    return pd.concat([base_30.reset_index(drop=True), esm_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_30_ESM]
+
+
+def prepare_features_30_graph(df, binding_matrix_path):
+    """Build the 62-feature matrix by combining 30-feature baseline with WL graph descriptors."""
+    base_30 = prepare_features_30(df, binding_matrix_path)
+    graph_rows = []
+    for pep in df['peptide'].values:
+        edges = get_cb_cb_edges(len(pep))
+        graph_rows.append(compute_wl_features(pep, edges))
+    graph_df = pd.DataFrame(graph_rows, columns=[f"graph_wl_{i}" for i in range(32)])
+    return pd.concat([base_30.reset_index(drop=True), graph_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_30_GRAPH]
 
 
 def prepare_features_50(df, binding_matrix_path):
@@ -184,6 +207,49 @@ def prepare_features_166(df, binding_matrix_path):
     ], axis=1)[FEATURE_COLUMNS_ALLELE]
 
 
+def load_all_proteins():
+    """Parse panel8 proteome FASTAs and full UniProt FASTAs to get protein name -> sequence mapping."""
+    fasta_files = [
+        "data/proteomes/EBV_B95_8_panel8.fasta",
+        "data/proteomes/HPV16_18_panel8.fasta",
+        "data/proteomes/EBV_B95_8_uniprot_reviewed.fasta",
+        "data/proteomes/HPV16_uniprot_reviewed.fasta"
+    ]
+    proteins = {}
+    for fpath in fasta_files:
+        if os.path.exists(fpath):
+            with open(fpath, "r", encoding="utf-8") as f:
+                header = None
+                seq_parts = []
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith(">"):
+                        if header is not None:
+                            name = _get_protein_name_from_header(header)
+                            proteins[name] = "".join(seq_parts).upper()
+                        header = line[1:]
+                        seq_parts = []
+                    else:
+                        seq_parts.append(line.upper())
+                if header is not None:
+                    name = _get_protein_name_from_header(header)
+                    proteins[name] = "".join(seq_parts).upper()
+    return proteins
+
+
+def _get_protein_name_from_header(header: str) -> str:
+    """Extract clean protein identifier from fasta header."""
+    parts = header.split()
+    if not parts:
+        return ""
+    first_token = parts[0]
+    if first_token.startswith("sp|"):
+        return first_token.split("|")[-1]
+    return first_token
+
+
 def _cross_validate(
     X,
     y,
@@ -195,13 +261,23 @@ def _cross_validate(
     subgroup_columns=None,
     min_group_size=15,
     sample_weights=None,
+    use_lopo=False,
 ):
-    """Run stratified k-fold CV and return aggregate, subgroup rows, and OOF scores."""
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    """Run stratified k-fold or Leave-One-Protein-Out (LOPO) CV and return metrics."""
+    if use_lopo:
+        from sklearn.model_selection import LeaveOneGroupOut
+        logo = LeaveOneGroupOut()
+        groups = metadata["protein"].values
+        splits = list(logo.split(X, y, groups=groups))
+        print(f"  LOPO CV: detected {len(np.unique(groups))} unique groups -> {len(splits)} folds")
+    else:
+        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        splits = list(skf.split(X, y))
+
     fold_metrics = []
     subgroup_rows = []
     oof_rows = []
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y), 1):
+    for fold_idx, (train_idx, val_idx) in enumerate(splits, 1):
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_val = y[train_idx], y[val_idx]
 
@@ -243,8 +319,8 @@ def _cross_validate(
     std = {}
     for key in fold_metrics[0]:
         vals = [fm[key] for fm in fold_metrics]
-        avg[key] = float(np.mean(vals))
-        std[key] = float(np.std(vals))
+        avg[key] = float(np.nanmean(vals))
+        std[key] = float(np.nanstd(vals))
     subgroup_df = pd.DataFrame(subgroup_rows)
     oof_df = pd.concat(oof_rows, ignore_index=True) if oof_rows else pd.DataFrame()
     return avg, std, subgroup_df, oof_df
@@ -252,27 +328,54 @@ def _cross_validate(
 
 def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
                   feature_mode=21, binding_matrix_path=None,
-                  use_sample_weights=False):
+                  use_sample_weights=False, use_lopo=False):
     """
     Full training pipeline:
     1. Load cleaned IEDB data
     2. Remove gold-standard epitopes from training
-    3. Compute feature matrix (21 or 30 features depending on mode)
-    4. Stratified 5-fold cross-validation for reliable metric estimates
+    3. Map peptides to parent proteins using FASTAs
+    4. Compute feature matrix (21 or 30 features depending on mode)
+    5. Stratified 5-fold or LOPO cross-validation for reliable metric estimates
        (optionally with EBV/HPV16 and 9-mer/non-9-mer sample weights)
-    5. Retrain on full pool with class-imbalance handling
-    6. Serialize final models
+    6. Retrain on full pool with class-imbalance handling
+    7. Serialize final models
     """
     os.makedirs(model_dir, exist_ok=True)
 
     df = pd.read_csv(data_path)
     print(f"Loaded {len(df)} records from {data_path}")
 
+    # Map peptides to parent proteins
+    proteins_db = load_all_proteins()
+    mapped_proteins = []
+    mapped_count = 0
+    synth_count = 0
+    for pep in df['peptide'].values:
+        parent = None
+        for name, seq in proteins_db.items():
+            if pep.upper() in seq:
+                parent = name
+                break
+        if parent is not None:
+            mapped_proteins.append(parent)
+            mapped_count += 1
+        else:
+            mapped_proteins.append(f"SYNTH_{pep.upper()}")
+            synth_count += 1
+            
+    df['protein'] = mapped_proteins
+    print(f"Mapped {mapped_count} peptides to parent proteins. Synthetic fallback used for {synth_count} peptides.")
+
     gs_mask = df['peptide'].isin(GOLD_STANDARD_EPITOPES)
     gold_standard_df = df[gs_mask].copy()
     train_pool = df[~gs_mask].copy()
     print(f"Held out {len(gold_standard_df)} gold-standard epitope records")
     print(f"Training pool: {len(train_pool)} records")
+
+    try:
+        feature_mode = int(feature_mode)
+    except (ValueError, TypeError):
+        pass
 
     if feature_mode == 166:
         if binding_matrix_path is None:
@@ -286,6 +389,18 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         X = prepare_features_50(train_pool, binding_matrix_path)
         feature_cols_used = FEATURE_COLUMNS_50
         mode_label = "50-feature expanded multi-allele"
+    elif feature_mode == "30_esm":
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 30_esm")
+        X = prepare_features_30_esm(train_pool, binding_matrix_path)
+        feature_cols_used = FEATURE_COLUMNS_30_ESM
+        mode_label = "350-feature (30 baseline + 320 ESM CLS token)"
+    elif feature_mode == "30_graph":
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 30_graph")
+        X = prepare_features_30_graph(train_pool, binding_matrix_path)
+        feature_cols_used = FEATURE_COLUMNS_30_GRAPH
+        mode_label = "62-feature (30 baseline + 32 WL graph descriptors)"
     elif feature_mode == 30:
         if binding_matrix_path is None:
             raise ValueError("--binding-matrix is required for feature-mode 30")
@@ -346,6 +461,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         n_splits=n_cv_folds, random_state=random_state,
         subgroup_columns=subgroup_columns,
         sample_weights=sample_weights,
+        use_lopo=use_lopo,
     )
     print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in rf_avg.items()))
     print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in rf_std.items()))
@@ -358,6 +474,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         n_splits=n_cv_folds, random_state=random_state,
         subgroup_columns=subgroup_columns,
         sample_weights=sample_weights,
+        use_lopo=use_lopo,
     )
     print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_avg.items()))
     print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_std.items()))
@@ -468,12 +585,14 @@ if __name__ == '__main__':
     parser.add_argument('--data', required=True, help='Path to immunogenicity_dataset.csv')
     parser.add_argument('--model-dir', default='models', help='Output directory for serialized models')
     parser.add_argument('--cv-folds', type=int, default=5, help='Number of CV folds (default: 5)')
-    parser.add_argument('--feature-mode', type=int, default=21, choices=[21, 30, 50, 166],
-                        help='Feature mode: 21 (sequence-only) or 30 (physico + multi-allele) or 50 (expanded)')
+    parser.add_argument('--feature-mode', type=str, default="21", choices=["21", "30", "50", "166", "30_esm", "30_graph"],
+                        help='Feature mode: 21 (sequence-only) or 30 (physico + multi-allele) or 50 (expanded) or 30_esm or 30_graph')
     parser.add_argument('--binding-matrix', default=None,
                         help='Path to peptide_binding_matrix.csv (required for --feature-mode 30)')
     parser.add_argument('--sample-weights', action='store_true',
                         help='Apply EBV/HPV16 and 9-mer/non-9-mer bias-correction weights during training')
+    parser.add_argument('--lopo', action='store_true',
+                        help='Perform Leave-One-Protein-Out (LOPO) cross-validation instead of StratifiedKFold')
     args = parser.parse_args()
 
     # Input validation
@@ -484,4 +603,4 @@ if __name__ == '__main__':
 
     train_models(args.data, args.model_dir, n_cv_folds=args.cv_folds,
                  feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix,
-                 use_sample_weights=args.sample_weights)
+                 use_sample_weights=args.sample_weights, use_lopo=args.lopo)

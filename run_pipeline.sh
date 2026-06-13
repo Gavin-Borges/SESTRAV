@@ -29,34 +29,7 @@ echo "Python: $(which python)"
 echo "Python version: $(python --version)"
 
 # Verify critical dependencies before committing to a long run
-python -c "
-import sys
-try:
-    from joblib import load
-    from mhcflurry import Class1PresentationPredictor
-    from Bio import SeqIO
-    from src.features import TRAIN_FEATURE_COLUMNS
-    import yaml
-
-    predictor = Class1PresentationPredictor.load()
-
-    with open('config.yaml') as f:
-        cfg = yaml.safe_load(f)
-    assert 'model_path' in cfg, 'config.yaml missing model_path'
-    model_path = cfg['model_path']
-    model = load(model_path)
-    assert model.n_features_in_ in (21, 30, 50), f'Model expects unsupported feature count: {model.n_features_in_}'
-
-    print('Pre-flight checks PASSED')
-    print(f'  Model path: {model_path}')
-    print(f'  Model features: {model.n_features_in_}')
-    print(f'  Antigens: {cfg[\"antigens\"]}')
-    print(f'  Alleles: {len(cfg[\"alleles\"])} alleles')
-    print(f'  MHCflurry loaded OK')
-except Exception as e:
-    print(f'FATAL: Dependency verification failed: {e}', file=sys.stderr)
-    sys.exit(1)
-"
+python src/ci/validate_release.py
 
 echo ""
 echo "=== Running pipeline.py (both EBV and HPV) ==="

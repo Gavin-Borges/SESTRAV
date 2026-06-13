@@ -1,0 +1,30 @@
+# Python environment artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.pytest_tmp/
+.pytest_tmp2/
+pytest_temp/
+.ci_test_venv/
+.snakemake/
+
+# Local data and cache stores
+data/raw/
+data/processed/
+*.csv
+*.tsv
+*.fasta
+*.pt
+*.env
+.env
+*vmd*
+*sam2*
+*.log
+logs/
+
+# Build and system junk
+.DS_Store
+build/
+dist/

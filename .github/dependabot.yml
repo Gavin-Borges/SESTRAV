@@ -5,11 +5,15 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "torch"
 
   - package-ecosystem: "pip"
     directory: "/environments"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "torch"
 
   # Keep GitHub Actions pinned SHAs up to date (helps Scorecard Pinned-Dependencies)
   - package-ecosystem: "github-actions"

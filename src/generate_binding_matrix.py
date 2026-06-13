@@ -18,28 +18,35 @@ def get_mhcflurry_predictions(peptides, alleles):
     
     predictor = Class1PresentationPredictor.load()
     
-    # Run predictions per allele to avoid 6-allele genotype limit
-    per_allele_frames = []
+    import itertools
     
     pep_list = list(peptides)
     print(f"Running predictions for {len(pep_list)} peptides × {len(alleles)} alleles...")
     
-    for allele in alleles:
+    all_pairs = list(itertools.product(pep_list, alleles))
+    flat_peps = [p[0] for p in all_pairs]
+    flat_alleles = [p[1] for p in all_pairs]
+    
+    chunk_size = 100000
+    per_chunk_frames = []
+    
+    for i in range(0, len(flat_peps), chunk_size):
+        pep_chunk = flat_peps[i:i+chunk_size]
+        allele_chunk = flat_alleles[i:i+chunk_size]
+        
         pred_df = predictor.predict(
-            peptides=pep_list,
-            alleles=[allele],
+            peptides=pep_chunk,
+            alleles=allele_chunk,
             verbose=0
         )
-        if 'allele' not in pred_df.columns:
-            pred_df['allele'] = allele
-        per_allele_frames.append(pred_df)
-        print(f"  {allele}: {len(pred_df)} predictions done")
+        per_chunk_frames.append(pred_df)
+        print(f"  Chunk {i//chunk_size + 1}: {len(pred_df)} predictions done")
         
-    df_input_presentation = pd.concat(per_allele_frames, ignore_index=True)
+    df_input_presentation = pd.concat(per_chunk_frames, ignore_index=True)
     
     # We want the 'presentation_score' column from predict_presentation
-    # Group by peptide, then pivot alleles into columns
-    pivot_df = df_input_presentation.pivot(index='peptide', columns='allele', values='presentation_score')
+    # Group by peptide, then pivot_table alleles into columns
+    pivot_df = df_input_presentation.pivot_table(index='peptide', columns='allele', values='presentation_score', aggfunc='mean')
     
     # Ensure all target columns exist and are named properly
     out_df = pd.DataFrame(index=pivot_df.index)
