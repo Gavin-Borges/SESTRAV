@@ -23,7 +23,7 @@ else
         echo "Dependency licenses saved to docs/sbom.json and docs/DEPENDENCY_LICENSES.md"
     else
         echo "Neither syft nor pip-licenses found. Attempting to install pip-licenses..."
-        pip install pip-licenses
+        pip install "pip-licenses==5.5.5"
         pip-licenses --format=json --output-file="$DOCS_DIR/sbom.json"
         pip-licenses --format=markdown --output-file="$DOCS_DIR/DEPENDENCY_LICENSES.md"
         echo "Dependency licenses saved to docs/sbom.json and docs/DEPENDENCY_LICENSES.md"
