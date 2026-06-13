@@ -201,6 +201,11 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Claude Code
+#  .claudeignore is a local-only context-exclusion file for the sole Claude user.
+#  It must remain strictly local and never be tracked or shared in version control.
+.claudeignore
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
