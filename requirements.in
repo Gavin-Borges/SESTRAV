@@ -41,7 +41,7 @@ keras==3.14.1
 
 # protobuf < 5.29.6 allows DoS via Any-message recursion depth bypass.
 # GHSA-m2f8-v8q4-3m59 / PYSEC-2025-121
-protobuf==7.35.0
+protobuf==7.35.1
 
 # Linux-only transitive dependency of xgboost==3.2.0 required for --require-hashes in CI
 nvidia-nccl-cu12==2.30.4; platform_system == "Linux"
