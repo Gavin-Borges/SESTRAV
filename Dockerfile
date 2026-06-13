@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -25,7 +25,7 @@ COPY --chown=sestrav_user:sestrav_user src/ ./src/
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
 
 # Install SESTRAV package
-RUN pip install --user --upgrade pip && \
+RUN pip install --user "pip==26.1.2" && \
     pip install --user .
 
 # Default command

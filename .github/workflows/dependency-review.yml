@@ -12,4 +12,8 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # Block only medium-and-above severity; low-severity findings are
+          # tracked via Scorecard/OSV and do not gate PRs.
+          fail-on-severity: high
 
