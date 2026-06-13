@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sestrav"
-version = "2.0.1"
+version = "2.0.0-rc1"
 description = "Structural Epitope Screening and T-cell Receptor AI Validation (SESTRAV)"
 readme = "README.md"
 authors = [
@@ -16,7 +16,7 @@ authors = [
 ]
 license = "MIT"
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -34,6 +34,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = [
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
 api = [
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",

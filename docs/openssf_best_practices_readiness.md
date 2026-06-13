@@ -85,7 +85,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 ### 4.2 Automated Test Suite
 *   **Requirement:** The project MUST possess an automated test suite.
 *   **SESTRAV Status:** ✅ **PASSING**
-*   **Evidence:** Features 120+ unit and integration tests under the [tests/](../tests) folder, covering feature extraction, pipeline stages, consensus ensemble scoring, and API schema validations.
+*   **Evidence:** Features 133 unit and integration tests (verified via `pytest --collect-only`) under the [tests/](../tests) folder, covering feature extraction, pipeline stages, consensus ensemble scoring, and API schema validations.
 
 ### 4.3 Automated Testing in CI
 *   **Requirement:** The test suite MUST run automatically on new commits (CI).
@@ -111,7 +111,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 *   **SESTRAV Status:** ✅ **PASSING**
 *   **Evidence:** 
     *   **Data Privacy by Design:** Documented in [SECURITY.md](../SECURITY.md). SESTRAV operates entirely offline on the host machine; it does not collect, log, or transmit sequences, user queries, or outputs.
-    *   **Secure Network Binds:** The microservice and Streamlit frontend are hard-bound to `127.0.0.1` (loopback only) in Docker Compose to prevent accidental network exposure on shared university machines.
+    *   **Secure Network Binds:** The microservice and Streamlit frontend are hard-bound to `127.0.0.1` (loopback only) in [docker-compose.yml](../docker-compose.yml) to prevent accidental network exposure on shared university machines.
 
 ### 5.2 Cryptographic Best Practices
 *   **Requirement:** Cryptographic operations MUST use secure algorithms (e.g., PBKDF2/bcrypt, SHA-256/SHA-512) and avoid weak algorithms (e.g., MD5/SHA-1) for security-critical checks.
@@ -143,7 +143,9 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 ### 6.2 Dynamic Analysis & Property-Based Fuzzing
 *   **Requirement:** The project MUST use dynamic analysis tools or techniques (e.g. memory sanitizers, input fuzzing) to identify runtime edge cases.
 *   **SESTRAV Status:** ✅ **PASSING**
-*   **Evidence:** Property-based input fuzzing is integrated using the Hypothesis framework inside [tests/test_fuzz.py](../tests/test_fuzz.py) and executed automatically in the CI loop [.github/workflows/fuzzing.yml](../.github/workflows/fuzzing.yml). It validates sequence length boundaries, non-standard amino acid characters, and invalid YAML configurations.
+*   **Evidence:** Property-based input fuzzing is integrated using the Hypothesis framework inside [tests/test_fuzz.py](../tests/test_fuzz.py) and executed automatically in the CI loop [.github/workflows/fuzzing.yml](../.github/workflows/fuzzing.yml). The suite validates:
+    *   **Sequence length boundaries:** `get_tcr_positions` is fuzzed across the full integer range to ensure no crashes on edge-case peptide lengths.
+    *   **Non-standard amino acid characters:** `compute_features` is fuzzed with arbitrary Unicode text and boundary floating-point binding scores to verify structural integrity of the feature output dictionary.
 
 ---
 

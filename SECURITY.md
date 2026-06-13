@@ -24,7 +24,7 @@ Public disclosure before a fix is available puts all users at risk.
 
 Send a confidential report to the maintainer directly:
 
-**Email:** `security@sestrav.org`
+**Email:** `gavinmborges1104@gmail.com`
 
 Please include the following in your report:
 
