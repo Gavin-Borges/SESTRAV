@@ -1,0 +1,8 @@
+# Hash-locked Quarto rendering dependencies for CI.
+# These are intentionally separate from the main runtime lockfiles — they are
+# only used for rendering results_report.qmd in the SESTRAV CI workflow.
+# Regenerate with: pip download nbclient==X ipykernel==Y -d /tmp/pkgs && pip hash /tmp/pkgs/*.whl
+nbclient==0.10.2 \
+    --hash=sha256:4ffee11e788b4a27fabeb7955547e4318a5298f34342a4bfd01f2e1faaeadc3d
+ipykernel==6.29.5 \
+    --hash=sha256:afdb66ba5aa354b09b91379bac28ae4afebbb30e8b39510c9690afb7a10421b5

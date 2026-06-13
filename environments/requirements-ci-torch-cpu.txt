@@ -1,0 +1,7 @@
+# Hash-locked CPU-only PyTorch wheel for CI (Linux x86_64, Python 3.13).
+# Install with: pip install --no-deps --require-hashes -r this-file \
+#               --find-links https://download.pytorch.org/whl/cpu
+# Hash sourced from: https://download.pytorch.org/whl/cpu/torch/
+# Wheel: torch-2.12.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl
+torch==2.12.0+cpu \
+    --hash=sha256:ada78018bdfa30d1c766596cd32d910dbf5b03424cd859231b6d2a00533de922
