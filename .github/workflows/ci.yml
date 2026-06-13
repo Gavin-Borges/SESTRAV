@@ -53,7 +53,7 @@ jobs:
       - name: Install Quarto rendering dependencies
         # Jupyter execution stack needed to run the report's {python} cells.
         # Hash-locked separately from the runtime lockfiles (render-only deps).
-        run: pip install --no-deps --require-hashes -r environments/requirements-ci-render.txt
+        run: pip install --require-hashes -r environments/requirements-ci-render.txt
 
       - name: Render Quarto Report
         run: quarto render results_report.qmd
