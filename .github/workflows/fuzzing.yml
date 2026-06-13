@@ -4,8 +4,8 @@ name: Property-Based Fuzz Testing
 # This satisfies the Scorecard Fuzzing check (PythonAtherisFuzzer or property-based
 # testing integration): https://scorecard.dev/checks/#fuzzing
 #
-# Tests are in tests/test_fuzz.py and exercise compute_features, get_tcr_positions,
-# and score_immunogenicity under adversarial/edge-case inputs using Hypothesis.
+# Tests are in tests/test_fuzz.py and exercise compute_features and get_tcr_positions
+# under adversarial/edge-case inputs using Hypothesis.
 
 on:
   push:

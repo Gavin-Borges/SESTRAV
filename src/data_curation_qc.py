@@ -112,9 +112,9 @@ class IEDBDataCurator:
             # IEDB exports often have multiple header rows. We skip the first row (URL info).
             # This is a known formatting issue we are strictly guarding against.
             df = pd.read_csv(raw_csv_path, header=1, low_memory=False)
-        except Exception as e:
-            logger.error(f"Failed to securely parse CSV: {e}")
-            raise
+        except (pd.errors.ParserError, FileNotFoundError) as exc:
+            logger.error(f"Failed to securely parse CSV: {exc}")
+            raise RuntimeError(f"Data ingestion failure: {exc}") from exc
             
         df_clean = self.sanitize_input(df)
         
@@ -200,7 +200,7 @@ if __name__ == "__main__":
                     "negatives": int((df["label"] == 0).sum())
                 }, f, indent=2)
             
-        except Exception as e:
+        except (ValueError, FileNotFoundError, RuntimeError) as e:
             logger.error(str(e))
             sys.exit(1)
     else:

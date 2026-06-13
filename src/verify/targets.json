@@ -1,0 +1,28 @@
+{
+  "viruses": {
+    "SARS-CoV-2": {
+      "name": "Severe acute respiratory syndrome coronavirus 2",
+      "taxonomy_id": 2697049,
+      "family": "Coronaviridae",
+      "proteome_fasta": "data/verify/proteomes/sars_cov_2.fasta",
+      "validation_out": "results/verify/sars_cov_2_verify.csv",
+      "mhc_alleles": ["HLA-A*02:01", "HLA-A*24:02", "HLA-B*44:02"]
+    },
+    "InfluenzaA": {
+      "name": "Influenza A virus",
+      "taxonomy_id": 11320,
+      "family": "Orthomyxoviridae",
+      "proteome_fasta": "data/verify/proteomes/influenza_a.fasta",
+      "validation_out": "results/verify/influenza_a_verify.csv",
+      "mhc_alleles": ["HLA-A*02:01", "HLA-A*01:01", "HLA-A*03:01", "HLA-B*07:02"]
+    },
+    "HCV": {
+      "name": "Hepatitis C virus",
+      "taxonomy_id": 11103,
+      "family": "Flaviviridae",
+      "proteome_fasta": "data/verify/proteomes/hcv.fasta",
+      "validation_out": "results/verify/hcv_verify.csv",
+      "mhc_alleles": ["HLA-A*02:01", "HLA-A*11:01", "HLA-B*07:02"]
+    }
+  }
+}

@@ -259,12 +259,17 @@ def load_tcell_assay_files(data_dir, verbose=False):
                 print(f"  [skip] {fname}: read error ({e})")
             continue
 
-        is_multiheader = (
-            "qualitative measurement" in row1
-            or "qualitative measure" in row1
-            or any("qualitative" in v for v in row1)
-        )
-        is_flat_qualitative = any("qualitative" in v for v in row0)
+        is_flat_header_csv = any(" - " in c for c in row0)
+        if is_flat_header_csv:
+            is_multiheader = False
+            is_flat_qualitative = True
+        else:
+            is_multiheader = (
+                "qualitative measurement" in row1
+                or "qualitative measure" in row1
+                or any("qualitative" in v for v in row1)
+            )
+            is_flat_qualitative = any("qualitative" in v for v in row0)
 
         if not (is_multiheader or is_flat_qualitative):
             if verbose:
@@ -318,18 +323,18 @@ def load_tcell_assay_files(data_dir, verbose=False):
             col_map = {}
             for col in df.columns:
                 cl = str(col).lower().strip()
-                if "description" in cl or ("epitope" in cl and "linear" in cl):
+                if "description" in cl or ("epitope" in cl and ("linear" in cl or "name" in cl or "sequence" in cl)):
                     col_map.setdefault("peptide", col)
                 elif "qualitative" in cl:
                     col_map.setdefault("label", col)
-                elif "allele" in cl:
+                elif "allele" in cl or "mhc present" in cl:
                     col_map.setdefault("allele", col)
-                elif "organism" in cl:
+                elif "organism" in cl or "species" in cl:
                     col_map.setdefault("organism", col)
 
             if "peptide" not in col_map or "label" not in col_map:
                 if verbose:
-                    print(f"    -> missing peptide or label column in flat header")
+                    print(f"    -> missing peptide or label column in flat header (found: {list(df.columns[:5])})")
                 continue
 
             from src.iedb_data_loader import STANDARD_AA

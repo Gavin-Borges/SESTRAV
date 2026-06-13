@@ -1,6 +1,11 @@
 # SESTRAV: Structural Epitope Scoring via TCR Recognition and Vaccinology
 
-**Version 2.0**
+![CI — Contamination Gate](https://img.shields.io/badge/CI-contamination_gate-blue?style=flat-square)
+![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.0--rc1-informational?style=flat-square)
+[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/PENDING_ID/badge)](https://bestpractices.coreinfrastructure.org/projects/PENDING_ID)
+
+A structurally informed immunogenicity prediction pipeline for therapeutic epitope discovery in oncogenic viruses (HPV and EBV). Version 2.0 centers a canonical reproducible 30-feature release path and includes ANN/GNN/Colab extensions as optional benchmark workflows.
 
 SESTRAV is a structurally informed computational pipeline for therapeutic epitope discovery in oncogenic viruses, with a primary focus on Human Papillomavirus (HPV) and Epstein-Barr Virus (EBV). It integrates MHC binding predictions with TCR-facing physicochemical features to improve immunogenicity classification beyond traditional MHC-binding tools.
 
@@ -19,19 +24,64 @@ This approach combines structural insights with multi-allele binding predictions
 
 **Source of Truth:** SESTRAV v2 designates this repository (main branch) as the single authoritative source. For release-grade reproducibility, enable `freeze_mode: true` in `config.yaml`. Freeze mode enforces strict guardrails: no Stage 4 prototype fallback, no mixed legacy/canonical output stems, and atomic artifact updates.
 
+## Security & Compliance Posture
+
+SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data pipelines.
+*   **SAST & CI:** All commits are gated by Bandit, CodeQL, and Semgrep via GitHub Actions.
+*   **Dependency Pinning:** Environment files use strict `--require-hashes` to mitigate supply-chain attacks.
+*   **Data Integrity:** The pipeline uses `freeze_mode` constraints to guarantee data immutability during reproducibility benchmarking.
+
+For vulnerability reporting, refer to `SECURITY.md`. For a detailed compliance matrix against OpenSSF standards, see `docs/security_compliance.md`.
+
 ## Validation Status
 
-The committed release evidence (v2 dataset, 720 peptides, 2.36:1 class ratio) provides the following computational validation:
+The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) provides the following computational validation:
 
 | Metric / Check | Result |
 | :--- | :--- |
-| H2 Tier A decision (R10 ≥ 2.0) | **Not supported** (R10 = 1.0930) |
+| H2 Tier A decision (R10 ≥ 2.0) | **Not supported** (R10 = 0.9494) |
 | Gold-standard positive recovery | 15/15 positives found; 7/15 in top 25% |
 | Binding-only baseline comparison | Baseline recovers 15/15 (expected for strong-binder set) |
 | Gold-standard negative discrimination | 9/10 negatives pushed down vs. binding-only |
 | SHAP feature contribution | ~60% MHC binding, ~40% TCR-contact features |
 
 **Important:** These results constitute computational validation only and do not establish biological efficacy. Wet-lab experimental confirmation is required for any therapeutic claims. See `results/final_validation_report.md` and `docs/limitations_statement_v1.md` for full details.
+
+## External Benchmark Results (v2.0.0, Frozen)
+
+SESTRAV RF was benchmarked head-to-head against two state-of-the-art tools — PRIME 2.1 (Nielsen & Andreatta, 2021) and PredIG-Path (Farriol-Duran et al., 2025) — on a curated T-cell immunogenicity dataset (EBV + HPV16, MHC class I, IEDB-sourced).
+
+### Tier A Results (N=720 intersection set)
+
+| Tool | AUC-PR | AUC-ROC | ISSR@10 | ISSR@25 |
+|------|--------|---------|---------|----------|
+| **RF (SESTRAV 2.0)** | **0.828** | **0.776** | — | — |
+| PRIME 2.1 | 0.777 | 0.724 | — | — |
+| PredIG-Path | 0.727 | — | — | — |
+
+> **Primary metric:** AUC-PR is the primary metric because the dataset is class-imbalanced (positives ≈ 70%).
+> AUC-PR baseline (random model) ≈ positive class prevalence.
+
+### Contamination Finding (Critical Methodological Result)
+
+A systematic overlap analysis revealed that **external tools show 36.9% training set intersection with the evaluation set** (exact + substring matching against IEDB-proxy peptides). When overlap peptides are excluded:
+
+| Tool | AUC-PR (clean holdout, N=451) | Δ vs. intersection set |
+|------|-------------------------------|------------------------|
+| **RF (SESTRAV 2.0)** | **0.822** | −0.006 (robust) |
+| PRIME 2.1 | 0.720 | −0.057 (substantial drop) |
+
+This contamination analysis explains a substantial fraction of PRIME's published benchmark performance. SESTRAV was trained on IEDB data and benchmarked on IEDB data; published tool training sets were not designed for this eval set — making the clean holdout the appropriate rigorous comparator.
+
+### SHAP Feature Attribution
+
+SHAP analysis (Random Forest, 720 samples) attributes the decision to:
+- **60%** MHC binding features (per-allele presentation scores)
+- **40%** TCR-contact physicochemical features (positions p4–p8)
+
+This 60/40 split confirms that TCR features provide meaningful independent signal beyond binding alone, consistent with the 9/10 gold-standard negative discrimination result.
+
+See [`results/external_benchmark_comparison.md`](results/external_benchmark_comparison.md) for full methodology and [`results/shap_values_rf.csv`](results/shap_values_rf.csv) for per-feature SHAP values.
 
 ## Pipeline Overview
 
@@ -101,12 +151,12 @@ Stage 4 auto-detects the appropriate feature set for each trained model.
 
 ## Biological Data Limitations & Mitigation
 
-Public immunogenicity datasets (e.g., IEDB) contain inherent biases:
+The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the [data_bias_audit_v3.md](docs/data_bias_audit_v3.md) report.
 
 * **Taxonomic skew:** EBV 68.13%, HPV16 30.88%, HPV11 1.00%.
 * **Length skew:** 9-mer peptides 64.74%.
 
-To prevent models from over-indexing on EBV-specific motifs and 9-mer length preferences, the `compute_sample_weights()` function in `features.py` dynamically up-weights minority taxa and non-9-mer peptides during training. This balances the learning signal for robust pan-viral performance.
+To prevent machine learning models from over-indexing on EBV-specific anchor motifs and 9-mer length preferences (which would lead to poor generalization on minority taxa like HPV11 or non-canonical peptide lengths), the `compute_sample_weights()` function in [features.py](src/features.py) is **CRITICAL**. It dynamically calculates sample weights to up-weight minority taxa and non-9-mer peptides during model training, balancing the learning signal and ensuring robust pan-viral performance.
 
 ## Quick Start
 
@@ -220,6 +270,55 @@ docker run --rm \
   sestrav:latest
 ```
 
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force results | Out-Null
+docker run --rm `
+  -v "${PWD}/models:/app/models" `
+  -v "${PWD}/results:/app/results" `
+  sestrav:latest
+```
+
+Container smoke test (recommended before release):
+
+```bash
+docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q --basetemp=tmp_pytest
+```
+
+
+### API & Demo Quick Start (Docker Compose)
+
+A two-service Docker Compose stack serves the FastAPI microservice and Streamlit demo
+from pre-trained model artifacts. Model binaries must be present in `models/` before
+launching.
+
+```bash
+# Build and launch both services
+docker compose up --build
+
+# FastAPI docs:  http://localhost:8000/docs
+# Streamlit demo: http://localhost:8501
+```
+
+Single-peptide API request:
+
+```bash
+curl -X POST "http://localhost:8000/score" \
+  -H "Content-Type: application/json" \
+  -d '{"sequence":"GILGFVFTL","allele":"HLA-A*02:01"}'
+```
+
+Both services bind to `127.0.0.1` only (loopback) to prevent unintended public
+exposure on shared research machines.  Model artifacts are mounted read-only.
+
+
+
+| Virus | Antigens |
+|---|---|
+| EBV (8) | EBNA1, EBNA3A, EBNA3B, LMP1, LMP2A, gp350, BZLF1, BRLF1 |
+| HPV (8) | HPV16 E2, E5, E6, E7; HPV18 E2, E5, E6, E7 |
+
 ## Evaluation Metrics
 
 All metrics are computed by `src/evaluate_metrics.py`.
@@ -262,6 +361,23 @@ Training labels are derived from curated IEDB-linked immunogenicity evidence. Pu
 | `docs/naming_migration_spec.md` | Legacy alias compatibility details |
 | `docs/validation_summary.md` | Detailed validation results and interpretation |
 | `docs/limitations_statement_v1.md` | Standardized external communication language |
+
+## Cite This Work
+
+If you use SESTRAV in your research, please cite this repository:
+
+```bibtex
+@software{borges2026sestrav,
+  author    = {Borges, Gavin and Eljamal, Abdelrahman and Schellenberg, Iris and
+               Jouaneh, Charles and Byers, Emine},
+  title     = {{SESTRAV}: Structural Epitope Scoring via {TCR} Recognition And Vaccinology},
+  year      = {2026},
+  url       = {https://github.com/gavin-borges/SESTRAV},
+  version   = {2.0.0-rc1}
+}
+```
+
+See [`CITATION.cff`](CITATION.cff) for the full machine-readable citation.
 
 ## License
 

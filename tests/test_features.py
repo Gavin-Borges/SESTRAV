@@ -179,6 +179,29 @@ def test_feature_count():
             assert col in f, f"{pep}: missing feature column '{col}'"
 
 
+def test_esm_and_graph_features():
+    """Verify that ESM-2 CLS and Graph WL descriptors yield expected shapes."""
+    from src.features import get_esm_cls_token, get_cb_cb_edges, compute_wl_features
+    
+    # Test 9-mer
+    pep_9 = "CLGGLLTMV"
+    esm_9 = get_esm_cls_token(pep_9)
+    assert esm_9.shape == (320,), f"Expected shape (320,), got {esm_9.shape}"
+    
+    edges_9 = get_cb_cb_edges(9)
+    wl_9 = compute_wl_features(pep_9, edges_9)
+    assert wl_9.shape == (32,), f"Expected shape (32,), got {wl_9.shape}"
+    
+    # Test 11-mer
+    pep_11 = "HPVGEADYFEY"
+    esm_11 = get_esm_cls_token(pep_11)
+    assert esm_11.shape == (320,), f"Expected shape (320,), got {esm_11.shape}"
+    
+    edges_11 = get_cb_cb_edges(11)
+    wl_11 = compute_wl_features(pep_11, edges_11)
+    assert wl_11.shape == (32,), f"Expected shape (32,), got {wl_11.shape}"
+
+
 if __name__ == "__main__":
     test_clgglltmv_9mer()
     test_rakfkqll_8mer()
@@ -186,4 +209,5 @@ if __name__ == "__main__":
     test_hpvgeadyfey_11mer()
     test_get_tcr_positions_length_relative()
     test_feature_count()
+    test_esm_and_graph_features()
     print("All feature extraction tests passed.")

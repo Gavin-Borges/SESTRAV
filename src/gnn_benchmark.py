@@ -234,19 +234,38 @@ def train_gnn_one_fold(model, train_graphs, val_graphs, pos_weight,
     best_state = None
     wait = 0
 
+    import time
     for epoch in range(max_epochs):
         model.train()
         np.random.shuffle(train_graphs)
+        
+        prof_construction = 0.0
+        prof_forward = 0.0
+        prof_backward = 0.0
+
         for i in range(0, len(train_graphs), batch_size):
+            t0 = time.perf_counter()
             batch_graphs = train_graphs[i:i + batch_size]
             batch = Batch.from_data_list(batch_graphs).to(device)
             labels = batch.y.to(device)
+            t1 = time.perf_counter()
+            prof_construction += (t1 - t0)
 
             optimizer.zero_grad()
+            t_fwd0 = time.perf_counter()
             logits = model(batch)
             loss = criterion(logits, labels)
+            t_fwd1 = time.perf_counter()
+            prof_forward += (t_fwd1 - t_fwd0)
+            
+            t_bwd0 = time.perf_counter()
             loss.backward()
             optimizer.step()
+            t_bwd1 = time.perf_counter()
+            prof_backward += (t_bwd1 - t_bwd0)
+            
+        if epoch == 0 or epoch == max_epochs - 1:
+            print(f"      [Profile Epoch {epoch}] Data: {prof_construction:.4f}s | Fwd/Encode: {prof_forward:.4f}s | Bwd: {prof_backward:.4f}s")
 
         model.eval()
         with torch.no_grad():

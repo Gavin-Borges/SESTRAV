@@ -1,7 +1,7 @@
 # H2 Tier A Evaluation Summary
 
 ## Inputs
-- Dataset: `immunogenicity_dataset.csv`
+- Dataset: `data/immunogenicity_dataset_v3.csv`
 - Integrated model template: `models/rf_30feature_integrated.joblib`
 - Binding matrix: `models/peptide_binding_matrix_v3.csv`
 - CV: StratifiedKFold(n_splits=5, shuffle=True, random_state=42)

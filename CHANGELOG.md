@@ -1,4 +1,45 @@
-# SESTRAV Changelog / Release Notes
+# Changelog
+
+All notable changes to the SESTRAV project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [2.0.0-rc1] - 2026-06-10
+
+This release candidate for SESTRAV v2.0 focuses on API & frontend demo containerization, OpenSSF Scorecard compliance, and strict security and reproducibility gating.
+
+### Added
+- **FastAPI prediction microservice**: Deployed a scalable FastAPI backend (`api/main.py`) with strict input schema validation (amino acid IUPAC constraints) and cached singleton model loading.
+- **Streamlit interactive interface**: Built a frontend GUI (`app/demo.py`) supporting single-peptide predictions, real-time SHAP waterfall visualizations (headless-compatible via matplotlib Agg backend), and dynamic PDF report generation.
+- **Docker Compose orchestration**: Standardized deployments via a two-service compose stack (`Dockerfile.api`, `Dockerfile.demo`, `docker-compose.yml`) utilizing local-only loopback binds (`127.0.0.1`) for local research environment safety.
+- **PII & absolute path gatekeeper**: Added a pre-merge action workflow (`.github/workflows/pii_scan.yml`) to block commits containing machine-specific filesystem path leaks (Windows user-profile or WSL mount paths) or unresolved TODO placeholders.
+- **Hypothesis Property-Based Fuzzing**: Integrated standard property-based fuzz tests in CI (`.github/workflows/fuzzing.yml` and `tests/test_fuzz.py`) with customizable test example ranges (200 for standard pushes, 1000 for weekly schedules).
+- **Consensus Rank Aggregation**: Added Borda count-based rank aggregation ensemble inside `src/consensus_ensemble.py` as a robust alternative to geometric mean pooling to bypass zero-cancellation issues.
+- **Aho-Corasick Contamination Gate**: Deployed a dedicated verification step in Stage 3 to screen IEDB evaluation records against the training corpus for exact and substring contamination.
+- **License SPDX Identifier**: Added machine-readable `SPDX-License-Identifier: MIT` tag to `LICENSE` for automated OSSF Scorecard detection.
+
+### Changed
+- **Cross-Platform Path Standardization**: Standardized absolute Windows filesystem paths (`C:\Users\gavin\...`) to relative, POSIX-compliant expressions (`Path` bindings, `.relative_to().as_posix()`, and relative markdown paths) across `README.md`, `src/verify/sestrav_evaluator.py`, and `scripts/benchmark_runner.py` to allow execution on UNIX/Linux/WSL hosts.
+- **GitHub Actions Security Hardening**: Pinned all upstream action runners to secure, verified commit SHAs rather than mutable version tags. Locked down workflow run tokens to a strict `permissions: read-all` default state.
+- **Branch Rulesets & Review Gating**: Applied automated branch protection configurations via Git credential tokens:
+  - Required PR reviews for external contributors while allowing frictionless self-merge bypasses for the repo owner.
+  - Enforced strict merge gates requiring status checks (`Require human review` and `SESTRAV CI / test (3.13)`) to pass on clean branches.
+  - Restricted branch deletions and force pushes on `main`.
+
+### Removed
+- **Unused Stub Codes**: Removed orphaned empty duplicate stubs of `run_evaluation_pipeline` in `src/verify/sestrav_evaluator.py` to prevent naming clashes.
+
+### Fixed
+- **Dependency Security Vulnerabilities**: Upgraded minimum versions for vulnerable libraries in `requirements.in` and compiled the hashes using `pip-compile --generate-hashes --allow-unsafe`:
+  - `keras==3.14.1` (mitigates GHSA-36fq-jgmw-4r9c, GHSA-4f3f-g24h-fr8m, GHSA-cjgq-5qmw-rcj6, GHSA-hjqc-jx6g-rwp9, GHSA-mq84-hjqx-cwf2, GHSA-7gcm-g887-7qv7).
+  - `protobuf==7.35.0` (mitigates Any-message DoS recursion vulnerability GHSA-m2f8-v8q4-3m59).
+  - Pinned `nvidia-nccl-cu12==2.30.4` transitive hash matching on Linux systems.
+- **Git Index Cleanup**: Cleaned up the tracking index by appending transient test/CI output artifacts (e.g. `ci_install_test.log`, `temp_test_out.txt`, and `bandit_text.txt`) to `.gitignore` to prevent tracking of local runtime logs.
+- **Semgrep Custom Rules**: Restructured rules in `semgrep-rules/sestrav-custom.yml` to remove overly-broad match patterns triggering false positives on safe `load_verified_joblib` operations.
+
+---
 
 ## Version 2.0.0 (2026-06-04)
 
@@ -9,7 +50,7 @@ SESTRAV v2.0.0 finalizes the semester core pipeline and integrates advanced comp
 - **Canonical release track**: **30-feature integrated model/config** (20 physicochemical + 10 multi-allele MHC binding features)
 - **Secondary/Optional track**: Neural Network (FlexibleMLP) and Graph Neural Network (GCN/GAT) benchmark modules
 - **Legacy comparator track**: **21-feature sequence-only configuration** (for historical comparison)
-- **Training dataset**: **v2.0.0-alpha** (720 peptides, 2.36:1 class ratio)
+- **Training dataset**: **v2.0.0-alpha** (1004 peptides, 3.35:1 class ratio)
 
 ### What Is Included
 
@@ -30,11 +71,11 @@ SESTRAV v2.0.0 finalizes the semester core pipeline and integrates advanced comp
 
 ### Key Results (v2)
 
-- RF AUC-ROC: `0.7536` | AUC-PR: `0.8497` | Above-trivial AUC-PR: `+0.147` (+41% vs v1)
-- Gold-standard positive recovery: `15/15` found, `7/15` in top 25%
+- RF AUC-ROC: `0.5684` | AUC-PR: `0.8047` | ISSR@10: `0.7895` | ISSR@25: `0.8285`
+- Gold-standard positive recovery: `15/15` found, `7/15` in top 25% (R10 = 0.9494)
 - Gold-standard negative discrimination: `9/10` pushed down (TCR features add value)
 - SHAP feature split: 60% binding / 40% TCR-contact features
-- H2 Tier A decision: **NOT SUPPORTED** ($R_{10} = 0.9494$, $R_{25} = 1.0208$, below standard threshold)
+- H2 Tier A decision: **NOT SUPPORTED** ($R_{10} = 0.9494$, below standard threshold)
 
 ### Reproducibility Commands
 
@@ -67,9 +108,8 @@ The 30-feature integrated track is selected as canonical because it best balance
 - alignment with proposal scope.
 
 The v2 dataset is selected over v1 because:
-- Above-trivial AUC-PR is 41% better (+0.147 vs +0.105)
-- Class balance is more honest (2.36:1 vs 5.58:1)
-- 52% more negative training examples (214 vs 141)
+- Class balance is more honest (3.35:1 vs 5.58:1)
+- 63% more negative training examples (231 vs 141)
 - Gold-standard negative discrimination (9/10 pushed down) is a novel capability
 - TCR features contribute 40% of model explanation power (SHAP)
 
@@ -85,3 +125,15 @@ Use:
 - `results/final_validation_report.md`
 
 for standardized non-overclaim language and current supported statements.
+
+---
+
+## Version 1.0.0 (2026-04-01)
+
+### Release Summary
+
+Historical baseline release of SESTRAV using the v1 dataset (928 peptides, 5.58:1 class ratio) with the legacy 21-feature sequence-only comparator track.
+
+### Key Results (v1)
+
+- RF AUC-ROC: `0.820` | AUC-PR: `0.953` | Above-trivial AUC-PR: `+0.105`

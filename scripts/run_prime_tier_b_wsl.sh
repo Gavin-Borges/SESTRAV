@@ -3,8 +3,9 @@
 # PRIME must run from PRIME2.1 root (./PRIME), not lib/PRIME on PATH alone.
 set -euo pipefail
 
-PRIME_HOME="$HOME/tools/sestrav_external/PRIME2.1"
-export PATH="$PRIME_HOME/lib:$HOME/tools/sestrav_external/MixMHCpred:$PATH"
+SESTRAV_TOOL_ROOT="${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}"
+PRIME_HOME="${PRIME_ROOT:-$SESTRAV_TOOL_ROOT/PRIME2.1}"
+export PATH="$PRIME_HOME/lib:$SESTRAV_TOOL_ROOT/MixMHCpred:$PATH"
 REPO="${1:-.}"
 CHUNK="${2:-500}"
 

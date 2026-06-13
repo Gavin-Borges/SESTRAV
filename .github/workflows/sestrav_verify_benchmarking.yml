@@ -1,0 +1,51 @@
+name: SESTRAV-VERIFY Benchmarking & Regressions
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+
+permissions: read-all
+
+jobs:
+  verify-benchmark:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install CPU PyTorch
+        run: |
+          pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install general requirements
+        run: |
+          pip install --no-deps --require-hashes -r requirements.txt
+          pip install --no-deps --require-hashes -r environments/requirements-ci.txt
+
+      - name: Run Evaluator Unit Tests
+        run: pytest tests/test_sestrav_evaluator.py -v
+
+      - name: Execute Ingestion Pipeline (Mock Mode)
+        run: python src/verify/iedb_multi_virus_extractor.py src/verify/targets.json --mock
+
+      - name: Execute Benchmarking and Escape Mutant Evaluation (Mock Mode)
+        run: python src/verify/sestrav_evaluator.py src/verify/targets.json --mock
+
+      - name: Verify Report Generation
+        run: |
+          if [ ! -f "results/verify/validation_report.json" ]; then
+            echo "Error: validation_report.json was not generated."
+            exit 1
+          fi
+          echo "Validation Report verified successfully:"
+          cat results/verify/validation_report.json

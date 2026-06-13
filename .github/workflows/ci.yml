@@ -35,5 +35,25 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v
 
+      - name: Run Dataset Curation QC Gate
+        run: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v3.csv --config config.yaml
+
+      - name: Run Contamination and Benchmark Evaluation Gate
+        run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
+
       - name: Validate Snakemake pipeline wiring
         run: snakemake --snakefile pipeline.smk --dry-run --cores 1
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
+        with:
+          to-latest: true
+
+      - name: Install Quarto rendering dependencies
+        # Jupyter execution stack needed to run the report's {python} cells (provides
+        # nbclient + ipykernel + IPython.display). Intentionally kept out of the
+        # hash-locked runtime lockfiles since it is only used for CI report rendering.
+        run: pip install nbclient==0.10.2 ipykernel==6.29.5
+
+      - name: Render Quarto Report
+        run: quarto render results_report.qmd

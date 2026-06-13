@@ -151,14 +151,24 @@ def _load_epitope_table(filepath, has_subheader):
 
 
 def load_iedb_file(filepath):
-    """Load a single IEDB file (.xlsx or .csv) into a DataFrame."""
+    """Load a single IEDB file (.xlsx or .csv) into a DataFrame.
+
+    Prevents false-positive multi-header detection when the first data row
+    contains the word 'qualitative' (e.g. 'qualitative binding').
+    """
     if filepath.endswith('.csv'):
         df_test = pd.read_csv(filepath, nrows=2, header=None)
+        row0 = df_test.iloc[0].astype(str).tolist()
+        if any(' - ' in c for c in row0):
+            return pd.read_csv(filepath, low_memory=False)
         if len(df_test) > 1 and any('qualitative' in str(c).lower() for c in df_test.iloc[1]):
             return pd.read_csv(filepath, header=1, low_memory=False)
         return pd.read_csv(filepath, low_memory=False)
     
     df_test = pd.read_excel(filepath, nrows=2, header=None)
+    row0 = df_test.iloc[0].astype(str).tolist()
+    if any(' - ' in c for c in row0):
+        return pd.read_excel(filepath)
     if len(df_test) > 1 and any('qualitative' in str(c).lower() for c in df_test.iloc[1]):
         return pd.read_excel(filepath, header=1)
     return pd.read_excel(filepath)
@@ -356,19 +366,19 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
             organism_col = None
             for col in df.columns:
                 cl = str(col).lower().strip()
-                if peptide_col is None and (cl == 'description' or cl == 'name' or ('epitope' in cl and 'linear' in cl)):
+                if peptide_col is None and (cl == 'description' or cl == 'name' or ('epitope' in cl and ('linear' in cl or 'name' in cl or 'sequence' in cl))):
                     peptide_col = col
                 if label_col is None and 'qualitative' in cl:
                     label_col = col
-                if allele_col is None and 'allele' in cl:
+                if allele_col is None and ('allele' in cl or 'mhc present' in cl or 'mhc restriction - name' in cl):
                     allele_col = col
                 if antigen_col is None and ('antigen name' in cl or 'source molecule' in cl):
                     antigen_col = col
-                if organism_col is None and 'organism' in cl:
+                if organism_col is None and ('organism' in cl or 'species' in cl):
                     organism_col = col
 
             if peptide_col is None or label_col is None:
-                print(f"[IEDB Loader] SKIP {filename}: T-cell Assay format but missing required columns")
+                print(f"[IEDB Loader] SKIP {filename}: T-cell Assay format but missing required columns (found: {list(df.columns[:5])})")
                 continue
 
             n_added = 0
@@ -457,11 +467,31 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
 
     n_protein = resolved['protein'].notna().sum()
     n_strain = resolved['strain'].notna().sum()
-    print(f"[IEDB Loader] Final dataset: {len(resolved)} unique peptides "
-          f"({resolved['label'].sum()} positive, "
-          f"{(resolved['label'] == 0).sum()} negative)")
-    print(f"[IEDB Loader] Metadata coverage: protein={n_protein}/{len(resolved)}, "
-          f"strain={n_strain}/{len(resolved)}")
+    
+    # Calculate comparative statistics
+    total_valid_rows = len(result_df)
+    unique_peptides = len(resolved)
+    allele_coverage_pct = 0.0
+    if 'allele' in resolved.columns:
+        allele_coverage_pct = (resolved['allele'].notna().sum() / unique_peptides) * 100
+    
+    conflicts_by_pep = result_df.groupby('peptide')['label'].nunique()
+    conflict_count = (conflicts_by_pep > 1).sum()
+    conflict_rate_pct = (conflict_count / unique_peptides) * 100
+    
+    print("\n" + "="*60)
+    print("  IEDB DATA LOADING COMPARISON REPORT")
+    print("="*60)
+    print(f"  Total Valid Rows (Assays) Ingested : {total_valid_rows}")
+    print(f"  Unique Peptides Ingested           : {unique_peptides} (vs. 720 baseline)")
+    print(f"  HLA Allele Coverage Percentage     : {allele_coverage_pct:.2f}%")
+    print(f"  Duplicate Label Conflict Rate      : {conflict_rate_pct:.2f}%")
+    print("-"*60)
+    print(f"  Positive Class Prevalence          : {resolved['label'].mean():.2%}")
+    print(f"  Metadata coverage: protein={n_protein}/{unique_peptides}, "
+          f"strain={n_strain}/{unique_peptides}")
+    print("="*60 + "\n")
+    
     return resolved
 
 
@@ -472,3 +502,76 @@ def split_gold_standard(df):
     """
     gs_mask = df['peptide'].isin(GOLD_STANDARD_EPITOPES)
     return df[~gs_mask].reset_index(drop=True), df[gs_mask].reset_index(drop=True)
+
+
+def load_schmidt_2021(filepath, gold_standard_peptides=None):
+    """
+    Load and clean Schmidt et al. (2021) Cell Reports Medicine dataset.
+    Serves as the hard-negative benchmark.
+    Isolates (excludes) the gold-standard epitopes.
+    """
+    if gold_standard_peptides is None:
+        gold_standard_peptides = set(GOLD_STANDARD_EPITOPES)
+        
+    if not os.path.isfile(filepath):
+        print(f"[Schmidt Loader] WARNING: File {filepath} not found. Returning empty DataFrame.")
+        return pd.DataFrame(columns=['peptide', 'hla', 'label', 'hard_negative_flag'])
+    
+    # Ingest Schmidt dataset: expected columns are peptide, HLA, and immunogenicity/label.
+    if filepath.endswith('.xlsx'):
+        df = pd.read_excel(filepath)
+    else:
+        df = pd.read_csv(filepath)
+    
+    # Rename columns to standard schema if they differ
+    rename_dict = {}
+    for col in df.columns:
+        cl = str(col).lower().strip()
+        if cl in ('peptide', 'epitope', 'sequence'):
+            rename_dict[col] = 'peptide'
+        elif cl in ('hla', 'allele', 'hla_allele', 'mhc'):
+            rename_dict[col] = 'hla'
+        elif cl in ('label', 'immunogenicity', 'class', 'active', 'immunogenic'):
+            rename_dict[col] = 'label'
+            
+    df = df.rename(columns=rename_dict)
+    
+    # Ensure required columns exist
+    for col in ['peptide', 'hla', 'label']:
+        if col not in df.columns:
+            if col == 'label':
+                df['label'] = 0
+            elif col == 'hla':
+                df['hla'] = 'HLA-A*02:01' # default fallback
+            else:
+                raise ValueError(f"Schmidt dataset missing required column: {col}")
+                
+    # Clean and validate peptides
+    df['peptide'] = df['peptide'].astype(str).str.strip().str.upper()
+    df = df[df['peptide'].apply(is_valid_peptide)].copy()
+    
+    # Standardize alleles
+    df['hla'] = df['hla'].apply(standardize_allele)
+    
+    # Mark hard negatives
+    df['hard_negative_flag'] = 1
+    
+    # Isolate (exclude) gold standard epitopes
+    df = df[~df['peptide'].isin(gold_standard_peptides)].reset_index(drop=True)
+    
+    print(f"[Schmidt Loader] Ingested {len(df)} peptides from Schmidt 2021 dataset (hard-negatives benchmark).")
+    return df[['peptide', 'hla', 'label', 'hard_negative_flag']]
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="SESTRAV IEDB Data Loader")
+    parser.add_argument("data_dir", help="Directory containing IEDB xlsx/csv files")
+    parser.add_argument("--include-hpv11", action="store_true", help="Include HPV11 data")
+    args = parser.parse_args()
+
+    if not os.path.isdir(args.data_dir):
+        print(f"ERROR: Directory not found: {args.data_dir}")
+        sys.exit(1)
+
+    load_and_clean_iedb(args.data_dir, include_hpv11=args.include_hpv11)

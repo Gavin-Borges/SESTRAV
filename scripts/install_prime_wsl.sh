@@ -2,7 +2,7 @@
 # Install PRIME 2.1 and MixMHCpred in WSL Ubuntu for SESTRAV external validation.
 set -euo pipefail
 
-INSTALL_DIR="${HOME}/tools/sestrav_external"
+INSTALL_DIR="${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}"
 PRIME_SHA_ENV="${SESTRAV_PRIME_ZIP_SHA256:-da5e65fd4b142857f42167b15495600b3a6416641c73854a8a2cbc00d67ee6a8}"
 MIX_SHA_ENV="${SESTRAV_MIXMHCPRED_ZIP_SHA256:-9b3d96813368df42622ce13a96eed09b447133699d8eaf5a4793da8561981c9b}"
 mkdir -p "$INSTALL_DIR"

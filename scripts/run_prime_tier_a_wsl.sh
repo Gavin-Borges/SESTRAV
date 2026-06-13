@@ -3,8 +3,9 @@
 set -euo pipefail
 
 REPO="${1:?repo path required}"
-PRIME_HOME="$HOME/tools/sestrav_external/PRIME2.1"
-export PATH="$HOME/tools/sestrav_external/MixMHCpred:$PATH"
+SESTRAV_TOOL_ROOT="${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}"
+PRIME_HOME="${PRIME_ROOT:-$SESTRAV_TOOL_ROOT/PRIME2.1}"
+export PATH="$SESTRAV_TOOL_ROOT/MixMHCpred:$PATH"
 
 if [[ ! -x "$PRIME_HOME/PRIME" ]]; then
   echo "Missing PRIME wrapper; run scripts/install_prime_wsl.sh" >&2
