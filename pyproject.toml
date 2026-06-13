@@ -59,6 +59,3 @@ demo = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
-
-[project.scripts]
-sestrav = "src.verify.promote_gnn:promote_model"

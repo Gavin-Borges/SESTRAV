@@ -32,8 +32,9 @@ This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](
 - **Static Analysis (SAST):** CodeQL, Bandit, and Semgrep are integrated into GitHub actions.
 
 ## 6. Analysis
-- **Dynamic Analysis / Fuzzing:** The pipeline supports `freeze_mode` constraints to ensure data immutability.
-- **Hygiene:** 0 known vulnerabilities exist in the core python codebase (verified by Bandit).
+- **Dynamic Analysis / Fuzzing:** Hypothesis property-based fuzz testing is integrated in CI via `.github/workflows/fuzzing.yml`. Tests in `tests/test_fuzz.py` exercise `compute_features` and `get_tcr_positions` under adversarial and edge-case amino acid inputs. Standard runs use 200 examples per push; weekly scheduled runs use 1000 examples. The Hypothesis database is persisted as an artifact to retain failure examples across runs.
+- **Pipeline Data Integrity:** `freeze_mode` constraints enforce data immutability during reproducibility benchmarking — this is a correctness guard, not a security control.
+- **Hygiene:** 0 known vulnerabilities exist in the core python codebase (verified by Bandit). Dependency-review Action blocks PRs introducing new vulnerable packages.
 
 ## Future Upgrades
-We plan to introduce automated dependency updates (e.g. Dependabot/Renovate). Hypothesis-based fuzz testing has been successfully integrated into our validation and CI loops.
+We plan to introduce automated dependency updates (e.g. Dependabot/Renovate) and publish the package to PyPI with a signed release attestation.

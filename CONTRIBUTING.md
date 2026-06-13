@@ -8,7 +8,7 @@ We recommend using Conda to manage environment dependencies.
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/YOUR_ORG/SESTRAV.git
+   git clone https://github.com/Gavin-Borges/SESTRAV.git
    cd SESTRAV
    ```
 

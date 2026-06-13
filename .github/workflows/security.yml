@@ -25,8 +25,8 @@ jobs:
         run: pip install --require-hashes -r environments/requirements-security.txt
 
       - name: Run Bandit
-        # Scans recursively, skipping the tests/ directory
-        run: bandit -r . -x ./tests/
+        # Scans recursively, skipping tests and virtual environment directories
+        run: bandit -r . -x ./tests/,./.ci_test_venv/,./.venv/,./build/
 
   codeql:
     name: CodeQL Static Analysis
