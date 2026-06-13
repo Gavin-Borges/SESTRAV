@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import math
-from typing import List, Tuple
+from typing import List
 
 # Keywords associated with credentials
 KEYWORD_PATTERN = re.compile(
@@ -34,8 +34,11 @@ EXCLUDE_FILES = {
     'check_secrets.py'
 }
 
-def scan_file(path: str) -> List[Tuple[int, str]]:
-    secrets_found: List[Tuple[int, str]] = []
+def scan_file(path: str) -> List[int]:
+    # Returns only the line NUMBERS of credential-like assignments. The matched
+    # text is deliberately never stored or returned, so a detected secret value
+    # cannot be logged or leaked downstream.
+    secrets_found: List[int] = []
     try:
         with open(path, 'r', encoding='utf-8') as f:
             for line_no, line in enumerate(f, 1):
@@ -46,7 +49,7 @@ def scan_file(path: str) -> List[Tuple[int, str]]:
                     matches = re.findall(r'=\s*[\'\"]([^\'\"]+)[\'\"]', line)
                     for val in matches:
                         if len(val) > 8 and calculate_entropy(val) > 3.0:
-                            secrets_found.append((line_no, line.strip()))
+                            secrets_found.append(line_no)
                             break
     except (OSError, UnicodeDecodeError):
         # Unreadable or non-UTF-8 files cannot contain a scannable secret line; skip them.
@@ -64,8 +67,8 @@ def main() -> None:
             if f.endswith(('.py', '.sh', '.ps1', '.yaml', '.yml', '.json', '.txt', '.md')):
                 path = os.path.join(root, f)
                 found = scan_file(path)
-                for line_no, _match in found:
-                    # Report only the location; never echo the matched value (avoids clear-text logging of secrets).
+                for line_no in found:
+                    # Report only the location; the matched value is never captured (no clear-text secret logging).
                     print(f'[SECRET DETECTED] {path}:{line_no} (credential-like assignment; value redacted)')
                     has_error = True
                     

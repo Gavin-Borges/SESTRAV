@@ -49,5 +49,11 @@ jobs:
         with:
           to-latest: true
 
+      - name: Install Quarto rendering dependencies
+        # Jupyter execution stack needed to run the report's {python} cells (provides
+        # nbclient + ipykernel + IPython.display). Intentionally kept out of the
+        # hash-locked runtime lockfiles since it is only used for CI report rendering.
+        run: pip install nbclient==0.10.2 ipykernel==6.29.5
+
       - name: Render Quarto Report
         run: quarto render results_report.qmd
