@@ -129,9 +129,15 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
 - **CVE-2025-3000 (PyTorch JIT script memory corruption):** Mitigated / risk-accepted.
   PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside
   `torch.jit.script`.
+  - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
+  - **Scope:** `torch==2.11.0` in `environments/requirements.lock`, and the CI
+    pins `environments/requirements-ci.txt` / `requirements-ci-torch-cpu.txt`.
+  - **Severity:** Low (per GitHub advisory). No upstream patch is available.
   - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler
     (`torch.jit.script`) anywhere in its pipeline. Because all execution happens
     offline on locally validated datasets and does not accept dynamic compilation
     payloads, the attack surface is completely absent.
+  - **Suppression:** Dependabot alerts dismissed as `not_used`; pip-audit ignores
+    `PYSEC-2025-194` / `GHSA-rrmf-rvhw-rf47` in `security.yml`. Both reference this entry.
   - **Re-review trigger:** any PyTorch version bump, or publication of a patched release.
 
