@@ -25,15 +25,7 @@ jobs:
 
       - name: Install CPU PyTorch
         run: |
-          pip install torch==2.2.1 --index-url https://download.pytorch.org/whl/cpu
-
-      - name: Install PyTorch Geometric CPU Binaries
-        run: |
-          pip install torch-scatter==2.1.2 -f https://data.pyg.org/whl/torch-2.2.1+cpu.html
-          pip install torch-sparse==0.6.18 -f https://data.pyg.org/whl/torch-2.2.1+cpu.html
-          pip install torch-cluster==1.6.3 -f https://data.pyg.org/whl/torch-2.2.1+cpu.html
-          pip install torch-spline-conv==1.2.2 -f https://data.pyg.org/whl/torch-2.2.1+cpu.html
-          pip install torch-geometric==2.5.2
+          pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install general requirements
         run: |

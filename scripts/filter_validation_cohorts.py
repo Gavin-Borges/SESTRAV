@@ -83,8 +83,12 @@ def fetch_cohort_data(organism_name):
     url = f"{base_url}?{query_str}"
     
     try:
+        # base_url is a hardcoded HTTPS IEDB endpoint (no user-controlled scheme);
+        # reject anything that is not HTTPS as defense-in-depth before opening.
+        if not url.lower().startswith("https://"):
+            raise ValueError(f"Refusing non-HTTPS URL: {url}")
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310 - fixed trusted HTTPS endpoint, scheme validated above
             data = json.loads(response.read().decode("utf-8"))
         print(f"  Successfully retrieved {len(data)} raw records.")
         return data

@@ -13,8 +13,8 @@ These represent the final pending checkpoints to close the current release cycle
 - **Checklist:**
   1. Navigate to [bestpractices.coreinfrastructure.org](https://bestpractices.coreinfrastructure.org/) and log in via GitHub.
   2. Register `https://github.com/Gavin-Borges/SESTRAV` as a new project.
-  3. Fill out the questionnaire using the completed justifications mapped in [openssf_best_practices_readiness.md](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/docs/openssf_best_practices_readiness.md) (referencing Pydantic type checking, secure dependency hash locking in `requirements.txt`, private vulnerability channels in `SECURITY.md`, and Bandit/CodeQL static scans).
-  4. Replace the pending OpenSSF badge markdown placeholders in the root [README.md](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/README.md) with the generated badge ID.
+  3. Fill out the questionnaire using the completed justifications mapped in [openssf_best_practices_readiness.md](docs/openssf_best_practices_readiness.md) (referencing Pydantic type checking, secure dependency hash locking in `requirements.txt`, private vulnerability channels in `SECURITY.md`, and Bandit/CodeQL static scans).
+  4. Replace the pending OpenSSF badge markdown placeholders in the root [README.md](README.md) with the generated badge ID.
 
 ### Task 1.2: Release v2.0.0-rc1 Tagging & Packaging (Target: Week 18)
 - **Objective:** Freeze the audited codebase, build source/wheel targets, and tag the release state.

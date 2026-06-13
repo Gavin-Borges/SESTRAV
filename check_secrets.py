@@ -48,8 +48,9 @@ def scan_file(path: str) -> List[Tuple[int, str]]:
                         if len(val) > 8 and calculate_entropy(val) > 3.0:
                             secrets_found.append((line_no, line.strip()))
                             break
-    except Exception:
-        pass
+    except (OSError, UnicodeDecodeError):
+        # Unreadable or non-UTF-8 files cannot contain a scannable secret line; skip them.
+        return secrets_found
     return secrets_found
 
 def main() -> None:
@@ -63,8 +64,9 @@ def main() -> None:
             if f.endswith(('.py', '.sh', '.ps1', '.yaml', '.yml', '.json', '.txt', '.md')):
                 path = os.path.join(root, f)
                 found = scan_file(path)
-                for line_no, line in found:
-                    print(f'[SECRET DETECTED] {path}:{line_no}: {line}')
+                for line_no, _match in found:
+                    # Report only the location; never echo the matched value (avoids clear-text logging of secrets).
+                    print(f'[SECRET DETECTED] {path}:{line_no} (credential-like assignment; value redacted)')
                     has_error = True
                     
     if has_error:

@@ -3,20 +3,20 @@ SESTRAV (Structural Epitope Scoring via TCR Recognition and Vaccinology) is a ma
 
 ## Architecture & Entry Points
 - **Config & Workflows**: 
-  - [config.yaml](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/config.yaml): Global settings (feature mode, active alleles, model choices, freeze rules).
-  - [Snakefile](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/Snakefile) / [pipeline.smk](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/pipeline.smk): Full multi-stage pipeline configuration (peptide generation -> binding prediction -> feature extraction -> immunogenicity scoring -> reporting).
+  - [config.yaml](config.yaml): Global settings (feature mode, active alleles, model choices, freeze rules).
+  - [Snakefile](Snakefile) / [pipeline.smk](pipeline.smk): Full multi-stage pipeline configuration (peptide generation -> binding prediction -> feature extraction -> immunogenicity scoring -> reporting).
 - **Core Pipeline Scripts (`scripts/`)**:
-  - [stage1.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage1.py): Generates candidate peptides from proteome FASTA files.
-  - [stage2.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage2.py): Predicts MHC-peptide binding using `mhcflurry`.
-  - [stage3.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage3.py): Extracts immunogenicity feature vectors.
-  - [stage4.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage4.py): Scores and ranks epitopes, outputting distribution plots.
+  - [stage1.py](scripts/stage1.py): Generates candidate peptides from proteome FASTA files.
+  - [stage2.py](scripts/stage2.py): Predicts MHC-peptide binding using `mhcflurry`.
+  - [stage3.py](scripts/stage3.py): Extracts immunogenicity feature vectors.
+  - [stage4.py](scripts/stage4.py): Scores and ranks epitopes, outputting distribution plots.
 - **Source Modules (`src/`)**:
-  - [features.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/features.py): Vectorized immunogenicity feature extraction.
-  - [model.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/model.py): Model registry and classification heads.
-  - [train_ann.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/train_ann.py) / [train_gnn.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/train_gnn.py): Training scripts.
-  - [verify/](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/verify): Multi-virus extractors, target configuration, and validation tests.
+  - [features.py](src/features.py): Vectorized immunogenicity feature extraction.
+  - [model.py](src/model.py): Model registry and classification heads.
+  - [train_ann.py](src/train_ann.py) / [train_gnn.py](src/train_gnn.py): Training scripts.
+  - [verify/](src/verify): Multi-virus extractors, target configuration, and validation tests.
 - **Data Directories**:
-  - [data/](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/data): Curated reference datasets, proteomes, and dataset governance check targets.
+  - [data/](data): Curated reference datasets, proteomes, and dataset governance check targets.
 
 ## Execution Commands
 Always run commands using the `sestrav` Conda environment on Windows (`conda run -n sestrav ...`).

@@ -33,11 +33,11 @@ SESTRAV-Dev/
 ```
 
 ## 2. Core Model Logic & Pipeline Stages
-- **Stage 1 (Peptide Generation)**: Extracts all sliding-window $k$-mers ($k \in [8, 11]$) from target antigen fasta sequences ([stage1.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage1.py)).
-- **Stage 2 (Binding Prediction)**: Scores HLA-peptide binding affinities across active alleles using `mhcflurry` ([stage2.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage2.py)).
-- **Stage 3 (Feature Extraction)**: Computes physico-chemical features, multi-allele binding profiles, and antigen processing scores (ERAP1/2 trimming & TAP transport proxy) ([stage3.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage3.py), [features.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/features.py)).
-- **Stage 4 (Epitope Scoring)**: Scores and ranks peptides utilizing ensemble models (Random Forest, XGBoost, or PyTorch ANN) under strict validation limits ([stage4.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/scripts/stage4.py)).
-- **Stage 5 (GNN / Validation)**: Incorporates 3D structural graph representations of peptides mapped to MHC coordinates, validated via multi-virus cohorts (SARS-CoV-2, Flu A, HCV) ([sestrav_evaluator.py](file:///C:/Users/gavin/.gemini/antigravity/scratch/SESTRAV/SESTRAV-Dev/src/verify/sestrav_evaluator.py)).
+- **Stage 1 (Peptide Generation)**: Extracts all sliding-window $k$-mers ($k \in [8, 11]$) from target antigen fasta sequences ([stage1.py](scripts/stage1.py)).
+- **Stage 2 (Binding Prediction)**: Scores HLA-peptide binding affinities across active alleles using `mhcflurry` ([stage2.py](scripts/stage2.py)).
+- **Stage 3 (Feature Extraction)**: Computes physico-chemical features, multi-allele binding profiles, and antigen processing scores (ERAP1/2 trimming & TAP transport proxy) ([stage3.py](scripts/stage3.py), [features.py](src/features.py)).
+- **Stage 4 (Epitope Scoring)**: Scores and ranks peptides utilizing ensemble models (Random Forest, XGBoost, or PyTorch ANN) under strict validation limits ([stage4.py](scripts/stage4.py)).
+- **Stage 5 (GNN / Validation)**: Incorporates 3D structural graph representations of peptides mapped to MHC coordinates, validated via multi-virus cohorts (SARS-CoV-2, Flu A, HCV) ([sestrav_evaluator.py](src/verify/sestrav_evaluator.py)).
 
 ## 3. Milestones: v1.0 Baseline vs. v2.0 Modernization
 - **v1.0 Baseline**:

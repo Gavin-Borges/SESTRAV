@@ -10,3 +10,6 @@
 .claudeignore text
 .antigravityrules text
 CLAUDE.md text
+
+# Freeze-checked dataset must stay LF so its SHA-256 is identical across platforms/CI
+data/immunogenicity_dataset_v3.csv text eol=lf

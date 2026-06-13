@@ -20,26 +20,32 @@ jobs:
 
       - name: Scan Diff for Absolute Paths
         run: |
-          # Retrieve list of modified files in this commit/PR compared to target branch
+          # Compare against the PR base (or previous commit on push). Exclude this gate
+          # workflow itself, whose grep patterns intentionally contain example fragments.
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+            git diff "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
           else
-            git diff HEAD~1...HEAD > diff.txt
+            git diff HEAD~1...HEAD -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
           fi
-          
-          echo "=== Scanning commit diff for machine-specific paths ==="
-          
-          # Detect paths matching Windows user styles or WSL mount styles
-          # Excludes common docs/README.md/walkthroughs mentions of directories
-          if grep -E "(/Users/|Users\\\|/mnt/c/Users/)" diff.txt | grep -v -E "(README.md|walkthrough.md|post_remediation_todos.md)"; then
-            echo "::error::Absolute file paths (e.g. containing Users or /mnt/c/) were detected in the diff! Please use relative paths."
+
+          echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
+
+          # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
+          # Removing a pre-existing leak must not fail the gate. Doc references are excluded.
+          LEAKS=$(grep -E "^\+[^+]" diff.txt \
+            | grep -E "(/Users/|Users\\\|/mnt/c/Users/)" \
+            | grep -v -E "(README.md|walkthrough.md|post_remediation_todos.md)" || true)
+          if [ -n "$LEAKS" ]; then
+            echo "$LEAKS"
+            echo "::error::Absolute machine-specific paths detected in added lines! Please use relative paths."
             exit 1
           fi
           echo "Path check PASSED."
 
       - name: Scan for Unapproved Email Placeholders
         run: |
-          if grep -rn "TODO: USER TO FILL" .; then
+          # Exclude VCS internals and this workflow file, which names the placeholder token itself.
+          if grep -rn "TODO: USER TO FILL" . --exclude-dir=.git --exclude=pii_scan.yml; then
             echo "::error::Unfilled [TODO: USER TO FILL] placeholders found. Please populate SECURITY.md with your authorized email before merging."
             exit 1
           fi
