@@ -69,11 +69,75 @@ SESTRAV is designed as a standalone, offline bioinformatics pipeline.
 
 ---
 
-## Upstream Dependency Vulnerability Policy & Mitigations
+## Vulnerability Triage & Remediation Policy
 
-As a standalone, offline scientific tool, SESTRAV occasionally relies on complex third-party libraries (e.g., PyTorch) that may contain upstream vulnerabilities with no available vendor patches. 
+How findings from Dependabot, code scanning, and the CI security workflows are
+prioritized and acted on. The policy is deliberately **two-tiered**: a small set
+of findings *block* merges/releases, while everything else is surfaced as a
+*non-blocking advisory* that is tracked and triaged on a cadence rather than
+gating active development.
 
-Our policy for handling such vulnerabilities is as follows:
-- **CVE-2025-3000 (PyTorch JIT script memory corruption):** Mitigated. PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside `torch.jit.script`.
-  - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler (`torch.jit.script`) anywhere in its pipeline. Because all execution happens offline on locally validated datasets and does not accept dynamic compilation payloads, the attack surface is completely absent.
+### Severity → action (target SLA)
+
+| Severity | Action | Target SLA | Gate |
+| -------- | ------ | ---------- | ---- |
+| Critical | Patch or documented mitigation before the next merge to `main` | 48 hours | **Blocking** |
+| High     | Patch or mitigation within the current release cycle | 7 days | **Blocking** |
+| Medium   | Scheduled fix; risk-acceptable with written justification | 30 days | Advisory |
+| Low      | Best-effort; batched with routine dependency updates | Next cycle | Advisory |
+
+Timelines follow the solo-maintainer cadence described under **Response Commitment** above.
+
+### CI gate map
+
+| Tool / workflow | What it checks | Tier |
+| --------------- | -------------- | ---- |
+| Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | **Blocking** |
+| Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: high`) | **Blocking** |
+| CodeQL (`security.yml`) | Deep SAST → Security ▸ Code scanning | Blocking (default severities) |
+| Semgrep (`security.yml`) | SAST ruleset `p/python` → Security ▸ Code scanning | Advisory |
+| pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` → run summary | Advisory |
+| Dependabot alerts | Known CVEs in dependencies → Security ▸ Dependabot | Advisory (triaged) |
+
+Advisory findings never turn CI red. They surface as **(a)** tracked, dismissable
+alerts in *Security ▸ Code scanning* (Semgrep/CodeQL SARIF), **(b)** a markdown
+digest on each `security.yml` run summary (pip-audit), and **(c)** Dependabot
+alerts/PRs. They are reviewed on the weekly cadence and logged in the register
+below whenever consciously deferred.
+
+### Recording a risk acceptance
+
+When a finding is intentionally left unfixed (no upstream patch, not reachable in
+SESTRAV's offline model, etc.):
+
+1. Add an entry to the **Risk-Acceptance Register** below: identifier, component,
+   rationale, and a re-review trigger or date.
+2. If it is noisy in CI, suppress it *at the source* with the verified advisory ID
+   and a comment pointing here (e.g. pip-audit `--ignore-vuln <GHSA>`, or
+   dismiss-with-reason in the Security tab). Never suppress without a register entry.
+3. Note material changes in the `CHANGELOG.md` `Unreleased / Security` section as
+   the audit trail.
+
+---
+
+## Risk-Acceptance Register & Upstream Mitigations
+
+As a standalone, offline scientific tool, SESTRAV occasionally relies on complex
+third-party libraries (e.g., PyTorch) that may contain upstream vulnerabilities
+with no available vendor patch. Each consciously-deferred advisory is logged here.
+
+- **CVE-2025-3000 (PyTorch JIT script memory corruption):** Mitigated / risk-accepted.
+  PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside
+  `torch.jit.script`.
+  - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
+  - **Scope:** `torch==2.11.0` in `environments/requirements.lock`, and the CI
+    pins `environments/requirements-ci.txt` / `requirements-ci-torch-cpu.txt`.
+  - **Severity:** Low (per GitHub advisory). No upstream patch is available.
+  - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler
+    (`torch.jit.script`) anywhere in its pipeline. Because all execution happens
+    offline on locally validated datasets and does not accept dynamic compilation
+    payloads, the attack surface is completely absent.
+  - **Suppression:** Dependabot alerts dismissed as `not_used`; pip-audit ignores
+    `PYSEC-2025-194` / `GHSA-rrmf-rvhw-rf47` in `security.yml`. Both reference this entry.
+  - **Re-review trigger:** any PyTorch version bump, or publication of a patched release.
 
