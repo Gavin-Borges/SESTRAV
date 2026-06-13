@@ -329,3 +329,9 @@ bandit_text.txt
 .cache/
 
 # Antigravity rules (tracked intentionally � do NOT add to gitignore)
+
+# Root-level duplicate dataset - canonical path is data/immunogenicity_dataset_v3.csv
+immunogenicity_dataset.csv
+
+# Pipeline-generated hidden intermediates inside results/ (dot-prefixed files)
+results/.*
