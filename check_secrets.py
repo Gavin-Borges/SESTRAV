@@ -36,9 +36,9 @@ EXCLUDE_FILES = {
 
 def scan_file(path: str) -> List[int]:
     # Returns only the line NUMBERS of credential-like assignments. The matched
-    # text is deliberately never stored or returned, so a detected secret value
-    # cannot be logged or leaked downstream.
-    secrets_found: List[int] = []
+    # text is deliberately never stored or returned, so a flagged value cannot be
+    # logged or leaked downstream.
+    flagged_line_numbers: List[int] = []
     try:
         with open(path, 'r', encoding='utf-8') as f:
             for line_no, line in enumerate(f, 1):
@@ -49,12 +49,12 @@ def scan_file(path: str) -> List[int]:
                     matches = re.findall(r'=\s*[\'\"]([^\'\"]+)[\'\"]', line)
                     for val in matches:
                         if len(val) > 8 and calculate_entropy(val) > 3.0:
-                            secrets_found.append(line_no)
+                            flagged_line_numbers.append(line_no)
                             break
     except (OSError, UnicodeDecodeError):
-        # Unreadable or non-UTF-8 files cannot contain a scannable secret line; skip them.
-        return secrets_found
-    return secrets_found
+        # Unreadable or non-UTF-8 files cannot contain a scannable line; skip them.
+        return flagged_line_numbers
+    return flagged_line_numbers
 
 def main() -> None:
     has_error = False
@@ -66,10 +66,10 @@ def main() -> None:
                 continue
             if f.endswith(('.py', '.sh', '.ps1', '.yaml', '.yml', '.json', '.txt', '.md')):
                 path = os.path.join(root, f)
-                found = scan_file(path)
-                for line_no in found:
-                    # Report only the location; the matched value is never captured (no clear-text secret logging).
-                    print(f'[SECRET DETECTED] {path}:{line_no} (credential-like assignment; value redacted)')
+                flagged = scan_file(path)
+                for line_no in flagged:
+                    # Report only the location; the matched value is never captured (no clear-text logging).
+                    print(f'[FLAGGED] {path}:{line_no} (credential-like assignment; value not shown)')
                     has_error = True
                     
     if has_error:
