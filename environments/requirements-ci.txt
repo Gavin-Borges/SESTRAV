@@ -12,10 +12,6 @@ annotated-types==0.7.0 \
     --hash=sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53 \
     --hash=sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89
     # via pydantic
-appdirs==1.4.4 \
-    --hash=sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41 \
-    --hash=sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128
-    # via snakemake
 argparse-dataclass==2.0.0 \
     --hash=sha256:09ab641c914a2f12882337b9c3e5086196dbf2ee6bf0ef67895c74002cc9297f \
     --hash=sha256:3ffc8852a88d9d98d1364b4441a712491320afb91fb56049afd8a51d74bb52d2
@@ -758,7 +754,9 @@ packaging==25.0 \
 platformdirs==4.9.6 \
     --hash=sha256:3bfa75b0ad0db84096ae777218481852c0ebc6c727b3168c1b9e0118e458cf0a \
     --hash=sha256:e61adb1d5e5cb3441b4b7710bea7e4c12250ca49439228cc1021c00dcfac0917
-    # via jupyter-core
+    # via
+    #   jupyter-core
+    #   snakemake
 pluggy==1.6.0 \
     --hash=sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3 \
     --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
@@ -1156,9 +1154,9 @@ smmap==5.0.3 \
     --hash=sha256:4d9debb8b99007ae47165abc08670bd74cb74b5227dda7f643eccc4e9eb5642c \
     --hash=sha256:c106e05d5a61449cf6ba9a1e650227ecfb141590d2a98412103ff35d89fc7b2f
     # via gitdb
-snakemake==9.19.0 \
-    --hash=sha256:b34bb734d2a7003a0c940b66be853581ee041cf3e01c702fdb86e7ad9e6d6a27 \
-    --hash=sha256:c7d3fbbf00b1bdf992bc61b9dcee21b5c3fb95a038cd58d53c6369a7c4f0609e
+snakemake==9.23.0 \
+    --hash=sha256:0120154be686ea42ee7295a285d0fa1a7562ead90ed11ece10250d31820e9cb2 \
+    --hash=sha256:1e764fa8f6bfed79b30ea9ccb5bb17af82163e51cef97e8f7de81a317600babf
     # via -r requirements-ci.in
 snakemake-interface-common==1.23.0 \
     --hash=sha256:43bb10102d07149f27787dfc65a7342b86ff772973e7f9ca4940c89cb412a11e \
