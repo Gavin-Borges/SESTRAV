@@ -1,5 +1,5 @@
 pytest==9.1.0
-snakemake==9.19.0
+snakemake==9.23.0
 hypothesis==6.102.2
 keras==3.14.1
-protobuf==7.35.0
+protobuf==7.35.1
