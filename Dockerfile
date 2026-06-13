@@ -1,27 +1,33 @@
-FROM python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083137e0e98ccf227236fcc438
+FROM python:3.13-slim
 
-LABEL org.opencontainers.image.authors="SESTRAV Project Contributors"
-LABEL description="SESTRAV — Structural Epitope Scoring via TCR Recognition And Vaccinology"
-
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY environments/requirements.lock ./environments/
-RUN pip install --no-cache-dir --require-hashes -r environments/requirements.lock
+# Create user and working directory
+RUN useradd -m -s /bin/bash sestrav_user
+WORKDIR /app
+RUN chown -R sestrav_user:sestrav_user /app
 
-COPY . .
+# Switch to non-root user
+USER sestrav_user
 
-RUN python -c "from src.features import TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30; assert len(TRAIN_FEATURE_COLUMNS) == 21; assert len(FEATURE_COLUMNS_30) == 30"
+# Set up python environment variables
+ENV PATH="/home/sestrav_user/.local/bin:${PATH}"
+ENV PYTHONUNBUFFERED=1
 
-RUN useradd -m -s /bin/bash sestrav && chown -R sestrav:sestrav /app
-USER sestrav
+# Copy source and config
+COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
+COPY --chown=sestrav_user:sestrav_user src/ ./src/
+COPY --chown=sestrav_user:sestrav_user config.yaml ./
 
-RUN mhcflurry-downloads fetch models_class1_presentation
+# Install SESTRAV package
+RUN pip install --user --upgrade pip && \
+    pip install --user .
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD python -c "import mhcflurry" || exit 1
-
-ENTRYPOINT ["python"]
-CMD ["pipeline.py"]
+# Default command
+ENTRYPOINT ["sestrav"]
+CMD ["--help"]

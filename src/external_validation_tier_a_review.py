@@ -40,17 +40,20 @@ def build_summary(run_dir: str) -> dict:
     mcda_path = os.path.join(processed, "mcda_verdicts.json")
     mcda = []
     if os.path.isfile(mcda_path):
-        mcda = json.loads(open(mcda_path, encoding="utf-8").read())
+        with open(mcda_path, encoding="utf-8") as f:
+            mcda = json.load(f)
 
     coverage = {}
     cov_path = os.path.join(manifests, "coverage_summary.json")
     if os.path.isfile(cov_path):
-        coverage = json.loads(open(cov_path, encoding="utf-8").read())
+        with open(cov_path, encoding="utf-8") as f:
+            coverage = json.load(f)
 
     overlap = {}
     ov_path = os.path.join(manifests, "training_overlap.json")
     if os.path.isfile(ov_path):
-        overlap = json.loads(open(ov_path, encoding="utf-8").read())
+        with open(ov_path, encoding="utf-8") as f:
+            overlap = json.load(f)
 
     cross_virus_path = os.path.join(
         os.path.dirname(os.path.dirname(run_dir)), "external_validation_cross_virus.csv"

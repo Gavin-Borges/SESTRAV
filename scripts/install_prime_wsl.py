@@ -11,7 +11,7 @@ import zipfile
 import hashlib
 from pathlib import Path
 
-INSTALL_DIR = Path.home() / "tools" / "sestrav_external"
+INSTALL_DIR = Path(os.environ.get("SESTRAV_TOOL_ROOT", Path.home() / "tools" / "sestrav_external")).resolve()
 PRIME_URL = "https://github.com/GfellerLab/PRIME/archive/refs/heads/master.zip"
 MIX_URL = "https://github.com/GfellerLab/MixMHCpred/archive/refs/heads/master.zip"
 PRIME_SHA_ENV = "SESTRAV_PRIME_ZIP_SHA256"

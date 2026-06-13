@@ -3,8 +3,9 @@
 set -euo pipefail
 REPO="${1:-.}"
 CHUNK="${2:-500}"
-PRIME_HOME="$HOME/tools/sestrav_external/PRIME2.1"
-export PATH="$PRIME_HOME:$HOME/tools/sestrav_external/MixMHCpred:$PATH"
+SESTRAV_TOOL_ROOT="${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}"
+PRIME_HOME="${PRIME_ROOT:-$SESTRAV_TOOL_ROOT/PRIME2.1}"
+export PATH="$PRIME_HOME:$SESTRAV_TOOL_ROOT/MixMHCpred:$PATH"
 STAGE="$HOME/sestrav_extval/tier_b_hpv_resume_$(date -u +%Y%m%d_%H%M)"
 mkdir -p "$STAGE/in" "$STAGE/out"
 cd "$REPO"

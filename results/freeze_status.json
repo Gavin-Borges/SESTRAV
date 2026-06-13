@@ -1,7 +1,7 @@
 {
   "valid": true,
   "freeze_mode": true,
-  "generated_at_utc": "2026-06-01T16:21:20.081193+00:00",
+  "generated_at_utc": "2026-06-12T22:36:58.155757+00:00",
   "dataset_mode": "expansion_alpha",
   "dataset_version": "2.0.0-alpha",
   "h2": {
@@ -11,7 +11,7 @@
   },
   "inputs": {
     "data_path": {
-      "path": "immunogenicity_dataset.csv",
+      "path": "data/immunogenicity_dataset_v3.csv",
       "sha256": "b95199092c40afb156bcaca9fc97176b4ed2a187901eec1e31b5f62bb8e19e5b"
     },
     "binding_matrix_path": {

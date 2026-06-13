@@ -1,0 +1,9 @@
+name: predig_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - pandas=1.5.3
+  - numpy=1.24.4
+  - docker-py=7.1.0

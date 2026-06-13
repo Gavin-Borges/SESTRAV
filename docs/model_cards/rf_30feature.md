@@ -17,10 +17,11 @@
 - **Biases Addressed:** MHC processing heavily favors 9-mers, and the dataset is historically skewed toward EBV. Training was conducted using inverse-frequency sample weights (by length and taxonomy) to neutralize these representation skews.
 
 ## Evaluation and Performance
-- **Primary Metrics:** Evaluated via stratified 5-fold cross-validation. Average metrics on unseen folds:
-  - AUC-ROC: ~0.80
-  - AUC-PR: ~0.94
-  - ISSR@10: ~0.97
+- **Primary Metrics:** Evaluated via stratified 5-fold cross-validation on the v3 (2.0.0-alpha) dataset. Average metrics on unseen folds:
+  - AUC-ROC: ~0.57 (exact: 0.5684)
+  - AUC-PR: ~0.80 (exact: 0.8047)
+  - ISSR@10: ~0.79 (exact: 0.7895)
+  - ISSR@25: ~0.83 (exact: 0.8285)
 - **Subgroup Fairness:** Performance has been audited across EBV and HPV subgroups. Refer to `results/scoring_error_audit.md` for current limitations.
 
 ## Limitations
