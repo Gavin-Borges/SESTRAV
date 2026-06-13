@@ -8,7 +8,7 @@ version = "2.0.0-rc1"
 description = "Structural Epitope Screening and T-cell Receptor AI Validation (SESTRAV)"
 readme = "README.md"
 authors = [
-    {name = "Gavin Borges", email = "gavin.borges@uri.edu"},
+    {name = "Gavin Borges", email = "gavinmborges1104@gmail.com"},
     {name = "Abdelrahman Eljamal"},
     {name = "Iris Schellenberg"},
     {name = "Charles Jouaneh"},

@@ -325,10 +325,10 @@ ci_install_test.log
 temp_test_out.txt
 bandit_text.txt
 
-# Antigravity agent cache (probe outputs, metrics)
+# Antigravity agent cache and rules (local dev AI tooling — not for public repo)
 .cache/
+.antigravityrules
 
-# Antigravity rules (tracked intentionally � do NOT add to gitignore)
 
 # Root-level duplicate dataset - canonical path is data/immunogenicity_dataset_v3.csv
 immunogenicity_dataset.csv
