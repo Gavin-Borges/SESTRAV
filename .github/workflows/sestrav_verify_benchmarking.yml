@@ -26,7 +26,7 @@ jobs:
       - name: Install CPU PyTorch
         run: |
           pip install --no-deps --require-hashes -r environments/requirements-ci-torch-cpu.txt \
-            --find-links https://download.pytorch.org/whl/cpu
+            --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install general requirements
         run: |
