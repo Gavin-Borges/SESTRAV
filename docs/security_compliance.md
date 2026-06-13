@@ -36,4 +36,4 @@ This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](
 - **Hygiene:** 0 known vulnerabilities exist in the core python codebase (verified by Bandit).
 
 ## Future Upgrades
-We plan to introduce automated dependency updates (e.g. Dependabot/Renovate) and Hypothesis-based fuzz testing for scientific artifacts.
+We plan to introduce automated dependency updates (e.g. Dependabot/Renovate). Hypothesis-based fuzz testing has been successfully integrated into our validation and CI loops.
