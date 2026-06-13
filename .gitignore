@@ -322,6 +322,9 @@ data/external/
 results/external_tool_outputs/
 pytest_temp/
 
+# Raw IEDB exports (local .xlsx working data — never commit)
+data/raw/
+
 # State tracking directory
 .context/
 
