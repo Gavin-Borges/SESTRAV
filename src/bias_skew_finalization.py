@@ -168,7 +168,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV bias/skew finalization bundle")
     parser.add_argument(
         "--source-data-dir",
-        default=os.path.join("..", "..", "09_Data"),
+        default=os.path.join("data", "raw", "iedb_exports"),
         help="Path to raw IEDB source files used for refresh",
     )
     parser.add_argument("--data-csv", default="data/immunogenicity_dataset_v3.csv")

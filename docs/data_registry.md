@@ -71,12 +71,12 @@ Length constraint applied: 8–11 amino acids.
 
 | File | Pathogen | Class |
 |------|----------|-------|
-| `09_Data/UPDATED_EBV_epitope table_IEDB_T-cell positive.xlsx` | EBV | Positive |
-| `09_Data/UPDATED_EBV_epitope table_IEDB_T-cell negative.xlsx` | EBV | Negative |
-| `09_Data/UPDATED_HPV16_epitope table_IEDB_T-cell positive.xlsx` | HPV16 | Positive |
-| `09_Data/UPDATED_HVP16_epitope table_IEDB_T-cell negative.xlsx` | HPV16 | Negative |
-| `09_Data/HPV11_epitope table_IEDB_T-cell positive.xlsx` | HPV11 | Positive |
-| `09_Data/HPV11_epitope table_IEDB_T-cell negative.xlsx` | HPV11 | Negative |
+| `data/raw/iedb_exports/UPDATED_EBV_epitope table_IEDB_T-cell positive.xlsx` | EBV | Positive |
+| `data/raw/iedb_exports/UPDATED_EBV_epitope table_IEDB_T-cell negative.xlsx` | EBV | Negative |
+| `data/raw/iedb_exports/UPDATED_HPV16_epitope table_IEDB_T-cell positive.xlsx` | HPV16 | Positive |
+| `data/raw/iedb_exports/UPDATED_HVP16_epitope table_IEDB_T-cell negative.xlsx` | HPV16 | Negative |
+| `data/raw/iedb_exports/HPV11_epitope table_IEDB_T-cell positive.xlsx` | HPV11 | Positive |
+| `data/raw/iedb_exports/HPV11_epitope table_IEDB_T-cell negative.xlsx` | HPV11 | Negative |
 | Original v2 sources (fallback overlap) | EBV + HPV16 | Both |
 
 ### Key Differences vs. v2
@@ -140,10 +140,10 @@ Clean holdout (contamination-excluded): N=451.
 
 | File | Pathogen | Class |
 |------|----------|-------|
-| `09_Data/EBV_epitope table_IEDB_T-cell positive.xlsx` | EBV | Positive |
-| `09_Data/EBV_epitope table_IEDB_T-cell negative.xlsx` | EBV | Negative |
-| `09_Data/HPV16_epitope table_IEDB_T-cell positive.xlsx` | HPV16 | Positive |
-| `09_Data/HVP16_epitope table_IEDB_T-cell negative.xlsx` | HPV16 | Negative |
+| `data/raw/iedb_exports/EBV_epitope table_IEDB_T-cell positive.xlsx` | EBV | Positive |
+| `data/raw/iedb_exports/EBV_epitope table_IEDB_T-cell negative.xlsx` | EBV | Negative |
+| `data/raw/iedb_exports/HPV16_epitope table_IEDB_T-cell positive.xlsx` | HPV16 | Positive |
+| `data/raw/iedb_exports/HVP16_epitope table_IEDB_T-cell negative.xlsx` | HPV16 | Negative |
 
 ---
 
