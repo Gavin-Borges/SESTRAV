@@ -350,3 +350,17 @@ immunogenicity_dataset.csv
 
 # Pipeline-generated hidden intermediates inside results/ (dot-prefixed files)
 results/.*
+
+# --- Internal / non-public working material (NEVER publish) ---
+# Local staging area for internal docs curated out of the public tree
+internal/
+# Career, outreach, and competitive-strategy material
+docs/outreach/
+# External-tool benchmarking memos with named-competitor verdicts (pre-publication)
+docs/external_testing/
+# Internal post-badge strategic roadmap (unexecuted plans, competitive framing)
+docs/POST_BADGE_STRATEGIC_PLAN_EXPANDED.md
+# Pending sharing/security review before any public exposure
+docs/architecture/SESTRAV_Framework_and_Architecture.md
+scripts/check_gold_standard.py
+scripts/inspect_iedb.py
