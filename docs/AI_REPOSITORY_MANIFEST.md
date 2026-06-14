@@ -6,8 +6,6 @@ SESTRAV-Dev/
 ├── config.yaml                    # Central Pydantic-validated pipeline settings
 ├── Snakefile & pipeline.smk       # Snakemake workflow specification
 ├── pyproject.toml                 # Package metadata and requirements definition
-├── .claudeignore                  # Exclusions for context token defense
-├── CLAUDE.md                      # Operational and environment entry protocol
 ├── api/                           # FastAPI interface and API configurations
 ├── app/                           # Frontend/Streamlit demos
 ├── data/                          # Target proteomes & dataset governance files

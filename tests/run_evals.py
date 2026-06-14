@@ -67,6 +67,6 @@ def test_evaluation_performance_thresholds():
 if __name__ == "__main__":
     # Allow running directly via python tests/run_evals.py
     print("=" * 60)
-    print("RUNNING CLAUDE-STYLE DETERMINISTIC EVALS SUITE")
+    print("RUNNING DETERMINISTIC EVALS SUITE")
     print("=" * 60)
     pytest.main([__file__, "-v"])
