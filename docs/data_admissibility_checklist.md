@@ -26,4 +26,4 @@ Before merging, the following rules apply to duplicate peptides:
 ## 4. Post-Merge Validation
 - [ ] **Yield Check:** The final dataset post-merge must not inexplicably drop in positive sample count.
 - [ ] **Virus Composition:** Record the resulting distribution of pathogen targets (e.g., % EBV, % HPV, % Other).
-- [ ] **Dataset Versioning:** The updated merged dataset must be given a new unique version identifier in `config.yaml` and documented in `docs/data_registry.md`.
+- [ ] **Dataset Versioning:** The updated merged dataset must be given a new unique version identifier in `config.yaml` and recorded alongside the dataset provenance files under `data/`.

@@ -367,19 +367,19 @@ def main() -> None:
     with st.expander("ℹ️ Contamination disclosure & caveats"):
         st.markdown(
             """
-            **Training-data contamination audit**
+            **Benchmark overlap & clean-holdout evaluation**
 
-            An independent audit found that competing tools (PRIME / PredIG) share a
-            **36.9% training-data overlap** with standard benchmark sets.  SESTRAV is
-            evaluated exclusively on a held-out independent validation cohort
-            (SARS-CoV-2 and Influenza A) with no overlap with the training set.
+            Because IEDB-derived benchmarks can overlap a model's training data, SESTRAV
+            reports results on a contamination-excluded clean holdout, and is evaluated on
+            a held-out independent validation cohort (SARS-CoV-2 and Influenza A) with no
+            overlap with the training set.
 
             **Usage limits**
             - Predictions are for research hypothesis generation only.
             - Do not use SESTRAV as a clinical decision engine.
             - Peptides outside the 8–11-mer MHC-I binding length range are not supported.
 
-            See `docs/history/stage3_results_log.md` for full validation metrics.
+            See `docs/validation_summary.md` for validation metrics.
             """
         )
 

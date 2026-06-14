@@ -13,8 +13,7 @@ canonical release gate.
 - ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev docs.
 - Optional track scope: ANN architecture search, GNN benchmarks, ablation, Colab
   experimentation.
-- Promotion to core track is governed by criteria in
-  `docs/external_validation_data_expansion_roadmap.md`.
+- Promotion to core track is governed by the project's ANN/GNN promotion criteria.
 
 ## Provenance
 

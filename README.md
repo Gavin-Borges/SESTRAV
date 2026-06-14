@@ -1,4 +1,4 @@
-# SESTRAV: Structural Epitope Scoring via TCR Recognition and Vaccinology
+# SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology
 
 ![CI — Contamination Gate](https://img.shields.io/badge/CI-contamination_gate-blue?style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
@@ -62,16 +62,16 @@ SESTRAV RF was benchmarked head-to-head against two state-of-the-art tools — P
 > **Primary metric:** AUC-PR is the primary metric because the dataset is class-imbalanced (positives ≈ 70%).
 > AUC-PR baseline (random model) ≈ positive class prevalence.
 
-### Contamination Finding (Critical Methodological Result)
+### Benchmark Overlap and Clean-Holdout Comparison
 
-A systematic overlap analysis revealed that **external tools show 36.9% training set intersection with the evaluation set** (exact + substring matching against IEDB-proxy peptides). When overlap peptides are excluded:
+Because SESTRAV and the comparator tools all draw on IEDB-derived data, a systematic overlap analysis was run to keep the comparison fair. Using exact + substring matching against an IEDB-proxy peptide reference, an estimated **36.9% of the evaluation set overlaps that proxy reference** — i.e. peptides that any IEDB-trained model could plausibly have seen during training. To remove this ambiguity, results are also reported on the overlap-excluded clean holdout:
 
 | Tool | AUC-PR (clean holdout, N=451) | Δ vs. intersection set |
 |------|-------------------------------|------------------------|
-| **RF (SESTRAV 2.0)** | **0.822** | −0.006 (robust) |
-| PRIME 2.1 | 0.720 | −0.057 (substantial drop) |
+| **RF (SESTRAV 2.0)** | **0.822** | −0.006 |
+| PRIME 2.1 | 0.720 | −0.057 |
 
-This contamination analysis explains a substantial fraction of PRIME's published benchmark performance. SESTRAV was trained on IEDB data and benchmarked on IEDB data; published tool training sets were not designed for this eval set — making the clean holdout the appropriate rigorous comparator.
+The clean holdout is the appropriate rigorous comparator: it removes evaluation peptides that any IEDB-trained tool could have encountered during training, so the comparison does not hinge on the unknown composition of external tools' training sets. Overlap is estimated against an IEDB-proxy reference (the authoritative training sets for the external tools are not publicly released), so these figures should be read as approximate and not as a claim about any specific tool's training data.
 
 ### SHAP Feature Attribution
 
@@ -236,7 +236,7 @@ python -m src.prepare_external_validation_inputs
 python -m src.external_benchmark_comparison --predig ... --prime ...
 ```
 
-See `docs/external_validation_data_expansion_roadmap.md` for the complete workflow.
+See `scripts/README.md` for the external-validation utilities and workflow.
 
 ### 6. ANN / GNN Benchmarks (Optional)
 
