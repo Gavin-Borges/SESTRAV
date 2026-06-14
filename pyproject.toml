@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sestrav"
 version = "2.0.0-rc1"
-description = "Structural Epitope Screening and T-cell Receptor AI Validation (SESTRAV)"
+description = "Structural Epitope Scoring via TCR Recognition And Vaccinology (SESTRAV)"
 readme = "README.md"
 authors = [
     {name = "Gavin Borges", email = "gavinmborges1104@gmail.com"},

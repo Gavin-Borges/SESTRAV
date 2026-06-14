@@ -1,5 +1,5 @@
 ---
-title: 'SESTRAV: Structural Epitope Screening and T-cell Receptor AI Validation'
+title: 'SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology'
 tags:
   - Python
   - immunology
@@ -30,7 +30,7 @@ bibliography: paper.bib
 
 The identification of highly immunogenic T-cell epitopes is a critical bottleneck in the design of next-generation viral vaccines and targeted immunotherapies. Traditional experimental screening (e.g., ELISpot assays) is prohibitively expensive and slow, restricting the scope of characterized antigens. While computational predictors like MHCflurry have revolutionized MHC-peptide binding prediction, binding affinity alone is poorly correlated with true *in vivo* immunogenicity (the ability of a peptide-MHC complex to successfully activate a T-cell receptor).
 
-**SESTRAV** (Structural Epitope Screening and T-cell Receptor AI Validation) is an end-to-end, highly automated machine learning pipeline designed to predict actual T-cell immunogenicity from raw viral proteomes. Moving beyond sequence-based tabular baselines, SESTRAV introduces a state-of-the-art **Graph Neural Network (GNN)** architecture that maps 34 critical HLA pocket residues into a 3D biophysical coordinate space using AlphaFold/PDB embeddings.
+**SESTRAV** (Structural Epitope Scoring via TCR Recognition And Vaccinology) is an end-to-end, highly automated machine learning pipeline designed to predict actual T-cell immunogenicity from raw viral proteomes. Moving beyond sequence-based tabular baselines, SESTRAV introduces a state-of-the-art **Graph Neural Network (GNN)** architecture that maps 34 critical HLA pocket residues into a 3D biophysical coordinate space using AlphaFold/PDB embeddings.
 
 # Statement of need
 
