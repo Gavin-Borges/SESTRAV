@@ -236,7 +236,7 @@ python -m src.prepare_external_validation_inputs
 python -m src.external_benchmark_comparison --predig ... --prime ...
 ```
 
-See `docs/external_validation_data_expansion_roadmap.md` for the complete workflow.
+See `scripts/README.md` for the external-validation utilities and workflow.
 
 ### 6. ANN / GNN Benchmarks (Optional)
 

@@ -279,10 +279,11 @@ def model_card() -> ModelCard:
         training_dataset="immunogenicity_dataset.csv (IEDB T-cell Assay, EBV+HPV16, Stage 4 QC)",
         cv_folds=5,
         contamination_disclosure=(
-            "An independent audit found that competing tools (PRIME/PredIG) share a "
-            "36.9% training-data overlap with standard benchmark sets. SESTRAV is "
-            "evaluated exclusively on a held-out independent validation cohort "
-            "(SARS-CoV-2 and Influenza A) — see docs/history/stage3_results_log.md."
+            "SESTRAV is evaluated on a held-out independent validation cohort "
+            "(SARS-CoV-2 and Influenza A) that is excluded from training. Because "
+            "IEDB-derived benchmarks can overlap a model's training data, results are "
+            "reported on a contamination-excluded clean holdout; see the project README "
+            "for the benchmarking methodology."
         ),
     )
 

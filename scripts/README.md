@@ -79,4 +79,4 @@ Post-pipeline analysis helpers:
 - All scripts assume they are run from the **repository root** (not from within `scripts/`).
 - Scripts that require WSL2 (`run_prime_*.sh`, `install_prime_wsl.*`) need Windows Subsystem for Linux 2 installed and a working Ubuntu distribution.
 - PredIG scripts require Docker Desktop running with the `bsceapm/predig` image pulled.
-- For the full external validation workflow, see `docs/external_validation_data_expansion_roadmap.md`.
+- For the external validation workflow, use the `run_external_*`, `run_prime_*`, and `run_predig_*` scripts in this directory.
