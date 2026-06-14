@@ -12,7 +12,25 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
+      # Frozen scientific/numerical core — pinned for reproducibility of the
+      # freeze-validated pipeline. Version changes here can alter frozen model
+      # outputs, so they are bumped deliberately (recompile + re-validate the
+      # freeze), never via routine weekly Dependabot PRs.
       - dependency-name: "torch"
+      - dependency-name: "torch-geometric"
+      - dependency-name: "numpy"
+      - dependency-name: "scipy"
+      - dependency-name: "pandas"
+      - dependency-name: "scikit-learn"
+      - dependency-name: "xgboost"
+      - dependency-name: "mhcflurry"
+      - dependency-name: "shap"
+      # Direct deps of the hand-maintained, single-platform hash closure
+      # environments/requirements-ci-render.txt. Dependabot cannot regenerate
+      # its platform-specific wheel hashes, so it corrupts the file; these are
+      # updated manually when the render toolchain needs it.
+      - dependency-name: "ipykernel"
+      - dependency-name: "nbclient"
 
   - package-ecosystem: "pip"
     directory: "/environments"
@@ -23,7 +41,25 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
+      # Frozen scientific/numerical core — pinned for reproducibility of the
+      # freeze-validated pipeline. Version changes here can alter frozen model
+      # outputs, so they are bumped deliberately (recompile + re-validate the
+      # freeze), never via routine weekly Dependabot PRs.
       - dependency-name: "torch"
+      - dependency-name: "torch-geometric"
+      - dependency-name: "numpy"
+      - dependency-name: "scipy"
+      - dependency-name: "pandas"
+      - dependency-name: "scikit-learn"
+      - dependency-name: "xgboost"
+      - dependency-name: "mhcflurry"
+      - dependency-name: "shap"
+      # Direct deps of the hand-maintained, single-platform hash closure
+      # environments/requirements-ci-render.txt. Dependabot cannot regenerate
+      # its platform-specific wheel hashes, so it corrupts the file; these are
+      # updated manually when the render toolchain needs it.
+      - dependency-name: "ipykernel"
+      - dependency-name: "nbclient"
 
   # Keep GitHub Actions pinned SHAs up to date (helps Scorecard Pinned-Dependencies)
   - package-ecosystem: "github-actions"
