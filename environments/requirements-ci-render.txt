@@ -1,5 +1,5 @@
 # Hash-locked Quarto rendering dependencies for CI.
-# Full transitive closure of nbclient==0.10.2 + ipykernel==6.29.5 for
+# Full transitive closure of nbclient==0.10.2 + ipykernel==7.3.0 for
 # Linux x86_64 / Python 3.13. Intentionally separate from runtime lockfiles.
 # Regenerate with:
 #   pip download nbclient==X ipykernel==Y -d /tmp/pkgs \
@@ -22,7 +22,7 @@ executing==2.2.1 \
     --hash=sha256:760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017
 fastjsonschema==2.21.2 \
     --hash=sha256:1c797122d0a86c5cace2e54bf4e819c36223b552017172f32c5c024a6b77e463
-ipykernel==6.29.5 \
+ipykernel==7.3.0 \
     --hash=sha256:afdb66ba5aa354b09b91379bac28ae4afebbb30e8b39510c9690afb7a10421b5
 ipython==9.14.1 \
     --hash=sha256:5d4a9ecaa3b10e6e5f269dd0948bdb58ca9cb851899cd23e07c320d3eb11613c
