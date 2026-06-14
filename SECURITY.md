@@ -141,3 +141,23 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     `PYSEC-2025-194` / `GHSA-rrmf-rvhw-rf47` in `security.yml`. Both reference this entry.
   - **Re-review trigger:** any PyTorch version bump, or publication of a patched release.
 
+- **Semgrep `dangerous-subprocess-use-tainted-env-args` (external-tool wrappers):**
+  Risk-accepted false positive. The benchmark wrappers shell out to external binaries
+  (PRIME, PredIG/Docker) via `subprocess.run`.
+  - **Identifiers:** Semgrep `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args`
+    · Bandit `B603`.
+  - **Scope:** `scripts/run_prime_wrapper.py`, `scripts/run_predig_wrapper.py`,
+    `scripts/run_predig_batched.py`.
+  - **Severity:** Error (Semgrep default); not exploitable in SESTRAV's model.
+  - **Mitigation:** All calls use the list/argv form (`shell=False`), so no shell
+    interpretation occurs. Command arguments are sourced from the operator's local
+    CLI (`argparse`) and constant literals — never from untrusted or network input.
+  - **Suppression:** Reviewed and dismissed as *false positive* in GitHub code
+    scanning (Semgrep OSS, `dismissed_reason: false positive`) — the authoritative,
+    re-scan-durable disposition for all three call sites. Note: an inline
+    `# nosemgrep` comment does **not** clear Semgrep's taint-mode finding (verified
+    in CI), so suppression is handled via the Security-tab dismissal rather than
+    inline markers.
+  - **Re-review trigger:** if any wrapper begins accepting subprocess arguments from
+    untrusted/remote input, or switches to `shell=True`.
+
