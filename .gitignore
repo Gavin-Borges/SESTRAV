@@ -202,9 +202,16 @@ cython_debug/
 .cursorindexingignore
 
 # Claude Code
-#  .claudeignore is a local-only context-exclusion file for the sole Claude user.
-#  It must remain strictly local and never be tracked or shared in version control.
+#  Local-only AI-assistant tooling config. Public developer documentation lives in
+#  README.md and CONTRIBUTING.md; these files must remain strictly local and never
+#  be tracked or shared in version control.
 .claudeignore
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+#  Local AI-assistant prompt scratch files (never part of the published project).
+claude_form_filler_prompt.md
+scripts/claude_bootstrap_prompt.md
 
 # Marimo
 marimo/_static/
