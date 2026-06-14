@@ -73,7 +73,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install Semgrep
-        run: pip install semgrep==1.75.0
+        # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
+        #   pip-compile --generate-hashes environments/requirements-semgrep.in
+        run: pip install --require-hashes -r environments/requirements-semgrep.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). `semgrep scan` exits non-zero
       # on any finding, so without continue-on-error this step silently blocked
@@ -103,7 +105,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install pip-audit
-        run: pip install pip-audit==2.7.3
+        # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
+        #   pip-compile --generate-hashes environments/requirements-pip-audit.in
+        run: pip install --require-hashes -r environments/requirements-pip-audit.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). Audits the fully-pinned
       # lockfile (--no-deps: trust the resolved set, do not re-resolve). Dependabot
