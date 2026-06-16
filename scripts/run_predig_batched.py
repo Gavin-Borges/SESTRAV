@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess  # nosec B404
-import sys
 
 import pandas as pd
 

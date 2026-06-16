@@ -162,7 +162,7 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'shap_summary_{tag}.png'), dpi=150, bbox_inches='tight')
         plt.close()
-        print(f"  Summary beeswarm plot saved")
+        print("  Summary beeswarm plot saved")
 
         # Bar plot (mean |SHAP|)
         plt.figure(figsize=(10, 8))
@@ -177,7 +177,7 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'shap_bar_{tag}.png'), dpi=150, bbox_inches='tight')
         plt.close()
-        print(f"  Mean |SHAP| bar plot saved")
+        print("  Mean |SHAP| bar plot saved")
 
     _shap_gold_standard_waterfall(rf_model, results_dir, output_dir,
                                    feature_cols=feature_cols)

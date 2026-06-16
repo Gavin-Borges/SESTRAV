@@ -3,8 +3,6 @@ SESTRAV-VERIFY Multi-Viral Ingestion and Decoy Generation Module
 Queries IEDB and VDJdb, filters by TaxID, and compiles high-binding negative sets.
 """
 
-import os
-import re
 import sys
 import time
 import json

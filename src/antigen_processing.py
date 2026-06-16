@@ -47,7 +47,6 @@ Lorente et al. (2024). ERAP2 trims longer peptide precursors. J Biol Chem.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------

@@ -26,11 +26,10 @@ import json
 import hashlib
 from datetime import date
 
-import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.iedb_data_loader import load_and_clean_iedb, GOLD_STANDARD_EPITOPES
+from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.features import KD_HYDRO, VDW_VOL, AROMATIC, CHARGE
 
 # ---------------------------------------------------------------------------
@@ -286,7 +285,7 @@ def load_tcell_assay_files(data_dir, verbose=False):
             parsed = _parse_iedb_multiheader_csv(fpath, verbose=verbose)
             if parsed.empty:
                 if verbose:
-                    print(f"    -> no valid records extracted")
+                    print("    -> no valid records extracted")
                 continue
 
             # Assign virus per-row using filename override or organism column
@@ -425,16 +424,16 @@ def build_allele_aware_dataset(raw_df, target_alleles=None, verbose=False):
     agg["peptide_length"] = agg["peptide"].str.len()
 
     if verbose:
-        print(f"\nAllele-aware dataset summary:")
+        print("\nAllele-aware dataset summary:")
         print(f"  Total (peptide, allele) pairs: {len(agg)}")
         print(f"  Unique peptides: {agg['peptide'].nunique()}")
         print(f"  Unique alleles: {agg['allele'].nunique()}")
         print(f"  Class balance: {agg['label'].mean():.2%} positive")
-        print(f"\n  Per-virus breakdown:")
+        print("\n  Per-virus breakdown:")
         for virus, grp in agg.groupby("virus"):
             print(f"    {virus}: {len(grp)} pairs, "
                   f"{grp['label'].mean():.1%} positive")
-        print(f"\n  Per-allele breakdown:")
+        print("\n  Per-allele breakdown:")
         for allele, grp in agg.groupby("allele"):
             print(f"    {allele}: {len(grp)} pairs, {grp['label'].mean():.1%} positive")
 
@@ -486,7 +485,7 @@ def main():
         print(f"ERROR: data directory not found: {args.data_dir}")
         print("  Place IEDB T-cell Assay export files (.xlsx or .csv) there and retry.")
         print("  Files should contain a 'Qualitative Measure' column.")
-        print(f"\nFalling back to checking existing IEDB data in data/ ...")
+        print("\nFalling back to checking existing IEDB data in data/ ...")
         # Try the standard data directory used by the pipeline
         for candidate in ["data", "data/raw", "data/iedb_raw"]:
             if os.path.isdir(candidate):
@@ -501,14 +500,14 @@ def main():
             print("  Place files in data/iedb/ and re-run this script.")
             sys.exit(0)
 
-    print(f"\nSESTRAV Allele-Aware Data Migration")
+    print("\nSESTRAV Allele-Aware Data Migration")
     print(f"{'=' * 60}")
     print(f"Data directory : {args.data_dir}")
     print(f"Output file    : {args.output}")
     print(f"Allele filter  : {'All MHC-I' if args.all_alleles else '10-allele panel'}")
 
     # Load T-cell Assay format files
-    print(f"\nLoading T-cell Assay exports...")
+    print("\nLoading T-cell Assay exports...")
     raw_df = load_tcell_assay_files(args.data_dir, verbose=args.verbose)
 
     if raw_df.empty:
@@ -521,7 +520,7 @@ def main():
         print("    - Assay: T-cell assay")
         print("    - MHC restriction: MHC class I only")
         print("    - Export format: T-cell Assay (NOT Epitope Table)")
-        print(f"\nScript scaffold is ready. Re-run after downloading T-cell Assay files.")
+        print("\nScript scaffold is ready. Re-run after downloading T-cell Assay files.")
         # Write a provenance stub so the pipeline knows this step was attempted
         stub = {
             "status": "awaiting_input_files",
@@ -574,7 +573,7 @@ def main():
     with open(prov_path, "w") as f:
         json.dump(prov, f, indent=2)
 
-    print(f"\nOutputs:")
+    print("\nOutputs:")
     print(f"  Training dataset : {args.output}")
     print(f"  Holdout dataset  : {holdout_path}")
     print(f"  Provenance       : {prov_path}")

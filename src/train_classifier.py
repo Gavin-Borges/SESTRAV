@@ -431,7 +431,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         pos_rate_ebv = train_pool[train_pool['virus'] == 'EBV']['label'].mean() if 'virus' in train_pool.columns else None
         pos_rate_hpv = train_pool[train_pool['virus'] == 'HPV16']['label'].mean() if 'virus' in train_pool.columns else None
         nine_mer_pct = (train_pool['peptide'].str.len() == 9).mean()
-        print(f"  Sample weights enabled (virus_weight=0.5, length_weight=0.5)")
+        print("  Sample weights enabled (virus_weight=0.5, length_weight=0.5)")
         if pos_rate_ebv is not None:
             print(f"    EBV positive rate: {pos_rate_ebv:.2%}  |  HPV16 positive rate: {pos_rate_hpv:.2%}")
         print(f"    9-mer fraction: {nine_mer_pct:.2%}")
@@ -463,8 +463,8 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         sample_weights=sample_weights,
         use_lopo=use_lopo,
     )
-    print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in rf_avg.items()))
-    print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in rf_std.items()))
+    print("  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in rf_avg.items()))
+    print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in rf_std.items()))
 
     print(f"\n{'=' * 60}")
     print(f"XGBoost {n_cv_folds}-fold cross-validation:")
@@ -476,8 +476,8 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         sample_weights=sample_weights,
         use_lopo=use_lopo,
     )
-    print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_avg.items()))
-    print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_std.items()))
+    print("  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_avg.items()))
+    print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_std.items()))
 
     print(f"\n{'=' * 60}")
     print("Retraining final models on full training pool...")

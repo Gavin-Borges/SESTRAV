@@ -9,12 +9,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import platform
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import List
 
 import pandas as pd
 

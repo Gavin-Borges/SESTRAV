@@ -87,9 +87,9 @@ def main():
     fold_metrics = compute_fold_metrics(oof_df)
     avg, std = summarize(fold_metrics)
 
-    print(f"\n  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in avg.items()
+    print("\n  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in avg.items()
                                       if k in ("auc_roc", "auc_pr", "issr_10", "issr_25")))
-    print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in std.items()
+    print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in std.items()
                                       if k in ("auc_roc", "auc_pr", "issr_10", "issr_25")))
 
     # Write standalone ANN summary
@@ -123,8 +123,8 @@ def main():
     print(f"  AUC-PR  : {avg['auc_pr']:.4f} +/- {std['auc_pr']:.4f}")
     print(f"  ISSR@10 : {avg['issr_10']:.4f} +/- {std['issr_10']:.4f}")
     print(f"  ISSR@25 : {avg['issr_25']:.4f} +/- {std['issr_25']:.4f}")
-    print(f"\nCompare vs legacy RF baseline (from training_results.csv):")
-    print(f"  RF AUC-ROC: 0.7268  RF AUC-PR: 0.8317  RF ISSR@10: 0.8429")
+    print("\nCompare vs legacy RF baseline (from training_results.csv):")
+    print("  RF AUC-ROC: 0.7268  RF AUC-PR: 0.8317  RF ISSR@10: 0.8429")
     return avg, std
 
 

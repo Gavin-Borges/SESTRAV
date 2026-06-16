@@ -24,9 +24,7 @@ Freeze check:
 
 import argparse
 import json
-import os
 import sys
-import hashlib
 import datetime
 from pathlib import Path
 import ahocorasick
@@ -303,7 +301,7 @@ def build_clean_subset(df: pd.DataFrame, training_path: Path) -> pd.DataFrame:
 
 def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
     print(f"\n{'='*60}")
-    print(f"  SESTRAV Benchmark Runner")
+    print("  SESTRAV Benchmark Runner")
     print(f"  Tier: {tier}  |  Run ID: {run_id}")
     print(f"  {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
     print(f"{'='*60}\n")

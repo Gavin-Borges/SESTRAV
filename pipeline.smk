@@ -6,6 +6,7 @@ ANTIGENS = config["antigens"]
 
 DATASET_MODE = config.get("dataset_mode", "expansion_alpha")
 DATASET_VERSION = config.get("dataset_version", "2.0.0-alpha")
+TRAINING_DATASET = config.get("training_dataset", "data/immunogenicity_dataset_v3.csv")
 
 rule Results:
     input:
@@ -82,9 +83,25 @@ rule score_immunogenicity:
         "scripts/stage4.py"
 
 
+rule generate_hard_decoys:
+    input:
+        fasta = config.get("reference_proteome", "data/proteomes/human_reference.fasta")
+    output:
+        "data/hard_decoys.csv"
+    params:
+        allele = config.get("decoy_allele", "HLA-A*02:01"),
+        num_decoys = config.get("num_decoys", 10000)
+    log:
+        "logs/generate_hard_decoys.log"
+    conda:
+        "environment.yml"
+    shell:
+        "python scripts/generate_hard_decoys.py --fasta {input.fasta} --allele {params.allele} --num_decoys {params.num_decoys} --output {output} > {log} 2>&1"
+
+
 rule qc_dataset:
     input:
-        dataset = "data/immunogenicity_dataset_v3.csv"
+        dataset = TRAINING_DATASET
     output:
         "results/qc/dataset_qc.json"
     log:
@@ -97,7 +114,7 @@ rule qc_dataset:
 
 rule train_ann:
     input:
-        data = "data/immunogenicity_dataset_v3.csv",
+        data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
         binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     output:
@@ -114,7 +131,7 @@ rule train_ann:
 
 rule train_gnn:
     input:
-        data = "data/immunogenicity_dataset_v3.csv",
+        data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
         binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
     output:
@@ -133,7 +150,7 @@ rule full_validation_report:
     input:
         features = expand("results/{proteome_id}_features.csv", proteome_id=ANTIGENS),
         ranked = expand("results/{proteome_id}_ranked.csv", proteome_id=ANTIGENS),
-        data = "data/immunogenicity_dataset_v3.csv",
+        data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
         binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
         model = config.get("model_path", "models/rf_30feature_integrated.joblib")

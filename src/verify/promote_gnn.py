@@ -25,7 +25,6 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-import json
 import logging
 import time
 from typing import NamedTuple
@@ -189,7 +188,6 @@ def gate3_latency() -> GateResult:
     from src.train_gnn import (
         PeptideGNN,
         sequence_to_node_features,
-        build_chain_adj,
     )
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.artifact_integrity import load_verified_joblib

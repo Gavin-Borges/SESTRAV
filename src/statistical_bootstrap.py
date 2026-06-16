@@ -16,7 +16,7 @@ import json
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
-from src.evaluate_metrics import evaluate, issr_at_k
+from src.evaluate_metrics import issr_at_k
 from joblib import Parallel, delayed
 
 def _bootstrap_iter(y, ref_scores, comp_scores, n_clean):

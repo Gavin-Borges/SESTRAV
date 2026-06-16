@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
 def main():

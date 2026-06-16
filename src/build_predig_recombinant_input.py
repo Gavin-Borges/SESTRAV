@@ -17,7 +17,6 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from src.prepare_external_validation_inputs import DEFAULT_VIRUS_TO_PROTEOME
 
 PROTEOME_FASTA = {
     "EBV_B95_8_panel8": "EBV_B95_8_panel8.fasta",

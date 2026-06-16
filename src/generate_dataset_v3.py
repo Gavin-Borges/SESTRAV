@@ -3,7 +3,6 @@ Script to generate the version 3 immunogenicity dataset.
 Includes UPDATED_ files and HPV11 from data/raw/iedb_exports/ directory.
 """
 import os
-from pathlib import Path
 from src.iedb_data_loader import load_and_clean_iedb
 from src.core.config import SestravConfig
 from src.core.feature_store import FeatureStore

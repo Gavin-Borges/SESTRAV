@@ -16,7 +16,6 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
 from Bio import SeqIO
 
 # Add project root to sys.path

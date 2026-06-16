@@ -24,9 +24,8 @@ import argparse
 import json
 import os
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from src.evaluate_metrics import evaluate
