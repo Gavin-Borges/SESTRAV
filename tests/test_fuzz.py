@@ -4,7 +4,7 @@ from hypothesis import given, strategies as st
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.features import compute_features, get_tcr_positions, EXPANDED_FEATURE_COLUMNS
+from src.features import compute_features, get_tcr_positions
 
 @given(st.integers(min_value=-1000, max_value=1000))
 def test_fuzz_get_tcr_positions(length):

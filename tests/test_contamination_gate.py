@@ -1,4 +1,3 @@
-import pytest
 from scripts.benchmark_runner import filter_contaminated_peptides
 
 def test_filter_contaminated_peptides_exact_match():

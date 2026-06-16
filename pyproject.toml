@@ -7,6 +7,7 @@ name = "sestrav"
 version = "2.0.0-rc1"
 description = "Structural Epitope Scoring via TCR Recognition And Vaccinology (SESTRAV)"
 readme = "README.md"
+requires-python = ">=3.11"
 authors = [
     {name = "Gavin Borges", email = "gavinmborges1104@gmail.com"},
     {name = "Abdelrahman Eljamal"},
@@ -37,6 +38,9 @@ dependencies = [
 dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "hypothesis>=6.100.0",
 ]
 api = [
     "fastapi>=0.100.0",
@@ -59,3 +63,48 @@ demo = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
+
+# ---------------------------------------------------------------------------
+# Coding standards (OpenSSF Silver: coding_standards / coding_standards_enforced)
+# ---------------------------------------------------------------------------
+# Style is PEP 8, enforced automatically by Ruff (lint) and Ruff's
+# black-compatible formatter. CI runs `ruff check .` as a required gate.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Ruff's default rule set (Pyflakes `F` + pycodestyle `E4/E7/E9`). The ignores
+# below are deliberate and documented, not blanket suppressions.
+ignore = [
+    "E402",  # entry-point / benchmark scripts adjust sys.path or set the matplotlib backend before imports
+    "E741",  # short identifiers (l, I, O) recur in mathematical / statistical expressions
+    "F841",  # locals intentionally retained for readability in benchmark/experimental code
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/stage*.py" = ["F821"]  # `snakemake` is a magic global injected by the Snakemake runtime
+"scripts/*.py" = ["E722"]       # best-effort external-tool detection wrappers; failures are non-fatal and logged
+
+# ---------------------------------------------------------------------------
+# Coverage (OpenSSF Silver test_statement_coverage80 / Gold 90% + branch 80%)
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+# parallel + the tools/coverage_subprocess sitecustomize hook let child
+# processes (tests that run e.g. `python src/data_curation_qc.py`) record their
+# own coverage, which pytest-cov then combines. Without this such modules are
+# undercounted as 0% even though tests exercise them.
+parallel = true
+source = ["src", "functions"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# Honest hard floor: the suite currently measures ~22% (branch-inclusive) /
+# ~24% statement coverage. This gate prevents regressions below the level CI
+# genuinely clears. It is deliberately NOT the OpenSSF Silver target of 80%;
+# raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
+# up as real tests land — never by padding.
+fail_under = 20

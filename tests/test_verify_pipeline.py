@@ -1,4 +1,3 @@
-import pytest
 import pandas as pd
 from pathlib import Path
 from src.verify.iedb_multi_virus_extractor import (

@@ -21,7 +21,7 @@ import pandas as pd
 from src.artifact_integrity import load_verified_joblib
 
 from src.features import (
-    compute_features, compute_features_for_dataset,
+    compute_features_for_dataset,
     BINDING_ALLELE_COLUMNS, FEATURE_COLUMNS, FEATURE_COLUMNS_30, TRAIN_FEATURE_COLUMNS,
 )
 from src.evaluate_metrics import evaluate
@@ -216,7 +216,6 @@ def test_end_to_end_score_and_rank():
 def test_freeze_mode_validation(tmp_path):
     """Tests that freeze_mode validation is respected by the configuration system."""
     from src.core.config import SestravConfig
-    import pytest
     
     # Test valid freeze_mode
     config = SestravConfig.model_construct(output_dir=tmp_path, freeze_mode=True)

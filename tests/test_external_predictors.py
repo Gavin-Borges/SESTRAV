@@ -1,6 +1,5 @@
 import pytest
 import pandas as pd
-import requests
 from src.external_predictors import (
     generate_fasta,
     parse_netchop_html,

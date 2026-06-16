@@ -2,7 +2,6 @@ import os
 import subprocess
 import pandas as pd
 import pytest
-import yaml
 
 @pytest.fixture
 def temp_config(tmp_path):

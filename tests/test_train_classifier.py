@@ -3,10 +3,8 @@ Unit tests for parent protein mapping and LOPO (Leave-One-Protein-Out) cross val
 """
 import sys
 import os
-import tempfile
 import numpy as np
 import pandas as pd
-import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 

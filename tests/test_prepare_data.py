@@ -1,4 +1,3 @@
-import pytest
 import pandas as pd
 from src.prepare_data import map_allele_to_supertype_pooling, prepare_allele_features
 
