@@ -20,7 +20,6 @@ Usage:
 import argparse
 import os
 
-import numpy as np
 import pandas as pd
 
 from src.gold_standard import GOLD_STANDARD_NEGATIVES

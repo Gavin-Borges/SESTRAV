@@ -6,16 +6,13 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 def main():
     try:
-        from joblib import load
         from mhcflurry import Class1PresentationPredictor
-        from Bio import SeqIO
         
         # Make sure our source tree is in path
         project_root = Path(__file__).resolve().parent.parent.parent
         if str(project_root) not in sys.path:
             sys.path.insert(0, str(project_root))
             
-        from src.features import TRAIN_FEATURE_COLUMNS
         from src.core.config import SestravConfig
         from src.core.model_registry import ModelRegistry
 
@@ -35,7 +32,7 @@ def main():
         print(f"  Model features: {model.n_features_in_}")
         print(f"  Antigens: {config.antigens}")
         print(f"  Alleles: {len(config.alleles)} alleles")
-        print(f"  MHCflurry loaded OK")
+        print("  MHCflurry loaded OK")
         
     except Exception as e:
         logging.error(f"FATAL: Dependency verification failed: {e}")

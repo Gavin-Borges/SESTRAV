@@ -36,12 +36,12 @@ from src.artifact_integrity import MODEL_CHECKSUM_MANIFEST, update_checksum_mani
 from src.features import (
     compute_features, TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30,
 )
-from src.evaluate_metrics import evaluate, summarize_fold_metrics
+from src.evaluate_metrics import summarize_fold_metrics
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.model import (
-    FlexibleMLP, set_seeds, get_device, compute_pos_weight,
-    train_one_fold, run_cv, train_final_model,
-    ARCH_CONFIGS, SEED, N_FOLDS,
+    set_seeds, get_device, compute_pos_weight,
+    run_cv, train_final_model,
+    ARCH_CONFIGS, N_FOLDS,
 )
 
 
@@ -219,9 +219,9 @@ def train_ann(data_path, model_dir='models', n_cv_folds=5, random_state=42,
               f"ISSR@25={m['issr_25']:.4f}")
 
     avg, std = summarize_fold_metrics(fold_metrics)
-    print(f"  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in avg.items()
+    print("  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in avg.items()
                                     if k in ('auc_roc', 'auc_pr', 'issr_10', 'issr_25')))
-    print(f"  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in std.items()
+    print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in std.items()
                                     if k in ('auc_roc', 'auc_pr', 'issr_10', 'issr_25')))
 
     # --- Final model training ---

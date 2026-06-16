@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import os
 import subprocess  # nosec B404
-import sys
 import urllib.request
 import zipfile
 import hashlib

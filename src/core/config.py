@@ -1,7 +1,7 @@
 import yaml
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import List, Dict, Optional
+from pydantic import BaseModel, field_validator
 
 class ProvenanceConfig(BaseModel):
     timestamp: str

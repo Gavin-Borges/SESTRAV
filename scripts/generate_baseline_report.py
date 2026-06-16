@@ -131,7 +131,7 @@ def main():
 
     os.makedirs(os.path.dirname(args.output) if os.path.dirname(args.output) else ".", exist_ok=True)
 
-    print(f"\nSESTRAV 5-Model Baseline Comparison Report")
+    print("\nSESTRAV 5-Model Baseline Comparison Report")
     print(f"{'=' * 70}")
 
     all_models = {}
@@ -151,7 +151,7 @@ def main():
         print(f"Loaded {len(gnn_models)} GNN model(s) from: {args.models_dir}/gnn_*.csv")
     else:
         print(f"Note: No GNN benchmark results found in {args.models_dir}/")
-        print(f"      Run 'python -m src.gnn_benchmark --data immunogenicity_dataset.csv' to generate them.")
+        print("      Run 'python -m src.gnn_benchmark --data immunogenicity_dataset.csv' to generate them.")
 
     if not all_models:
         print("ERROR: No model results found. Run training and benchmarks first.")
@@ -175,11 +175,11 @@ def main():
     # Best model summary
     best_row = table.sort_values("AUC-PR_mean", ascending=False).iloc[0]
     print(f"\n{'=' * 70}")
-    print(f"LEGACY BASELINE FROZEN:")
+    print("LEGACY BASELINE FROZEN:")
     print(f"  Best model: {best_row['Model']}")
     print(f"  Best AUC-PR: {best_row['AUC-PR_mean']:.4f}")
     print(f"  RF (primary) AUC-PR: {all_models.get('RandomForest (RF-30)', {}).get('mean', {}).get('auc_pr', float('nan')):.4f}")
-    print(f"\nThis baseline is now frozen for comparison with allele-aware models.")
+    print("\nThis baseline is now frozen for comparison with allele-aware models.")
     print(f"{'=' * 70}")
 
 

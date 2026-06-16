@@ -7,9 +7,8 @@ out-of-distribution generalization issues (such as shifts to animal MHC or non-p
 """
 
 import pandas as pd
-import numpy as np
 import logging
-from src.hla_supertypes import get_hla_supertype, HLA_SUPERTYPE_MAP
+from src.hla_supertypes import get_hla_supertype
 
 logger = logging.getLogger(__name__)
 

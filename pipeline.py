@@ -6,7 +6,6 @@ Runs all 4 stages sequentially without Snakemake for quick local testing.
 import os
 import re
 import logging
-from pathlib import Path
 from functions.stage1_peptide_generation import generate_peptides
 from functions.stage2_mhc_binding_prediction import predict_binding
 from functions.stage3_tcr_feature_extraction import extract_tcr_features

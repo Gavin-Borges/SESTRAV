@@ -1,5 +1,4 @@
 import torch
-from typing import Dict
 
 AA_VOCAB = "ACDEFGHIKLMNPQRSTVWY"
 AA_TO_IDX = {aa: i for i, aa in enumerate(AA_VOCAB)}

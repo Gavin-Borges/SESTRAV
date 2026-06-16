@@ -1,6 +1,6 @@
 import hashlib
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 from src.core.config import SestravConfig
 
 class ModelRegistry:

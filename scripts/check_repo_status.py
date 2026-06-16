@@ -7,7 +7,6 @@ import os
 import sys
 import json
 import subprocess
-from typing import List, Dict, Any
 
 def check_imports() -> bool:
     print("=== Checking Environment Imports ===")
@@ -59,10 +58,10 @@ def check_freeze_status() -> bool:
         
         if valid and freeze_mode:
             print(f"  [✓] Validation status is VALID (Dataset version: {version})")
-            print(f"  [✓] Freeze mode is active (immutability guards locked)")
+            print("  [✓] Freeze mode is active (immutability guards locked)")
             return True
         else:
-            print(f"  [✗] Validation is INVALID or freeze mode is disabled:")
+            print("  [✗] Validation is INVALID or freeze mode is disabled:")
             print(f"      valid: {valid}, freeze_mode: {freeze_mode}")
             return False
     except Exception as e:
@@ -73,10 +72,10 @@ def check_test_suite_status() -> bool:
     print("\n=== Checking Pytest Configuration ===")
     pytest_ini = "pytest.ini"
     if os.path.exists(pytest_ini):
-        print(f"  [✓] pytest.ini config found")
+        print("  [✓] pytest.ini config found")
         return True
     else:
-        print(f"  [✗] pytest.ini config not found at project root")
+        print("  [✗] pytest.ini config not found at project root")
         return False
 
 def main():

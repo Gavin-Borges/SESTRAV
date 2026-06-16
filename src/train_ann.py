@@ -17,7 +17,6 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-from src.features import TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_50
 from src.train_classifier import prepare_features, prepare_features_50
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
@@ -193,7 +192,7 @@ def train_ann(data_path, model_dir='models/ann', epochs=15, batch_size=64, lr=1e
     std = {k: np.std([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
     
     print(f"\n{'=' * 40}")
-    print(f"1D-CNN (ANN) 5-Fold CV Results:")
+    print("1D-CNN (ANN) 5-Fold CV Results:")
     print(f"{'=' * 40}")
     print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (±{std['auc_roc']:.4f})")
     print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (±{std['auc_pr']:.4f})")

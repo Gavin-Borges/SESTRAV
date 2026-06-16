@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from src.gnn.graph_builder import GraphBuilder
 
 class GCNLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int):

@@ -129,7 +129,7 @@ class ModelManager:
         self.config = SestravConfig.load()
         self.registry = ModelRegistry(self.config)
 
-        logger.info(f"Loading RF model ...")
+        logger.info("Loading RF model ...")
         # Load verified model from registry
         # Usually it's rf_30feature_integrated.joblib, but registry can resolve config's model_path
         self.rf_model = self.registry.load(self.config.model_path.name)

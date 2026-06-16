@@ -66,7 +66,7 @@ BINDING_MATRIX_PATH = "models/peptide_binding_matrix_v3.csv"
 df = pd.read_csv(DATA_PATH)
 print(f"Loaded {len(df)} records from {DATA_PATH}")
 print(f"Columns: {list(df.columns)}")
-print(f"\nClass distribution:")
+print("\nClass distribution:")
 print(df['label'].value_counts())
 print(f"\nPositive rate: {df['label'].mean():.1%}")
 
@@ -81,7 +81,6 @@ print(f"Training pool: {len(train_pool)} records")
 # =============================================================================
 
 from src.features import (
-    compute_features, TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30,
     PHYSICO_COLUMNS, BINDING_ALLELE_COLUMNS,
 )
 from src.train_classifier import prepare_features, prepare_features_30

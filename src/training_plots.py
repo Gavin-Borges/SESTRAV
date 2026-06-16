@@ -24,7 +24,6 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_curve, precision_recall_curve
 from xgboost import XGBClassifier
 
-from src.features import compute_features, TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30
 from src.train_classifier import prepare_features, prepare_features_30
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 

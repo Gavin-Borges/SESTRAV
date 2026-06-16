@@ -22,7 +22,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 
 from src.evaluate_metrics import evaluate
-from src.features import FEATURE_COLUMNS_30, PHYSICO_COLUMNS, BINDING_ALLELE_COLUMNS, TRAIN_FEATURE_COLUMNS
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.train_classifier import prepare_features, prepare_features_30
 

@@ -3,7 +3,6 @@ SESTRAV-VERIFY Automated Benchmarking and Cross-Validation Suite
 Implements ROC-AUC/PRC math from scratch, escape mutant CV, and multi-virus GNN benchmarking.
 """
 
-import os
 import sys
 from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -12,7 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import json
 import logging
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -370,7 +369,7 @@ def run_evaluation_pipeline(
         print(f"  PRC-AUC:      {res['prc_auc']:.4f}")
         esc = res.get("escape_mutant_cross_validation", {})
         if esc:
-            print(f"  Escape Mutant sensitivity success rates:")
+            print("  Escape Mutant sensitivity success rates:")
             print(f"    MHC Anchor Disruption: {esc.get('anchor_sensitivity_success_rate', 0.0)*100:.1f}%")
             print(f"    TCR Contact Disruption: {esc.get('tcr_sensitivity_success_rate', 0.0)*100:.1f}%")
         print("-"*60)

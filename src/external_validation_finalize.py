@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
 
-from src.evaluate_metrics import evaluate, issr_at_k
+from src.evaluate_metrics import issr_at_k
 from src.external_benchmark_comparison import (
     per_virus_metrics,
     run_bootstrap_comparisons,
@@ -449,7 +449,7 @@ def append_finalize_report(
         "",
         "### Prevalence Baselines (intersection set)",
         "",
-        f"- Random AUC-ROC = 0.50",
+        "- Random AUC-ROC = 0.50",
         f"- Random AUC-PR = {PREVALENCE_POS_RATE:.4f} ({506}/720 positives)",
         f"- Random ISSR@10 ≈ {PREVALENCE_POS_RATE:.4f}",
         "",

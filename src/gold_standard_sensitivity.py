@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, List, Set
 
 import pandas as pd
 
