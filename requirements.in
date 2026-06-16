@@ -4,7 +4,7 @@ joblib==1.5.3
 numpy==2.4.6
 openpyxl==3.1.5
 pandas==3.0.3
-pyyaml==6.0.2
+pyyaml==6.0.3
 scikit-learn==1.8.0
 scipy==1.17.1
 threadpoolctl==3.6.0
@@ -15,12 +15,12 @@ mhcflurry==2.2.1
 setuptools==80.9.0
 
 # Plotting and explainability
-matplotlib==3.10.9
+matplotlib==3.11.0
 shap==0.51.0
 
 # Test tooling
-pytest==9.0.3
-hypothesis==6.102.2
+pytest==9.1.0
+hypothesis==6.155.3
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
@@ -28,8 +28,8 @@ torch==2.12.0
 torch-geometric==2.7.0
 
 # API scaffolding
-fastapi==0.136.3
-uvicorn==0.48.0
+fastapi==0.137.1
+uvicorn==0.49.0
 pydantic==2.13.4
 
 # Security: minimum version pins to close known CVEs
