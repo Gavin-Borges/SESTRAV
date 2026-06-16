@@ -17,7 +17,7 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 6 | Pinned-Dependencies (score 9/10) | Medium | ✅ Scorecard upgraded to v2.4.3 |
 | 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
-| 9 | CII-Best-Practices (score 0/10) | Low | ⬜ Requires OpenSSF badge sign-up |
+| 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) — embedded in `README.md` |
 | 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | **Critical** | ✅ Mitigated — zero usage (not imported/executed) |
 
 ---
@@ -65,20 +65,20 @@ The PR review workflow (`pr-review-check.yml`) is active and has been added as a
 
 ---
 
-### Step 4: OpenSSF Best Practices Badge (LOW SEVERITY — Score 0→5)
+### Step 4: OpenSSF Best Practices Badge (LOW SEVERITY — Score 0→5) — ✅ Complete
 
-1. Visit [bestpractices.coreinfrastructure.org](https://bestpractices.coreinfrastructure.org/).
-2. Log in with your GitHub account.
-3. Click **Add New Project** → paste the SESTRAV GitHub URL.
-4. Answer the questionnaire (Passing level is achievable with current setup):
-   - ✅ Security policy: `SECURITY.md` exists
-   - ✅ Automated tests: `pytest` in CI
-   - ✅ Static analysis: Bandit, CodeQL, Semgrep in CI
-   - ✅ Pinned dependencies: `requirements.txt` with hashes
-5. Once the badge ID is assigned, add this badge to the top of `README.md`:
+The project is registered at the OpenSSF Best Practices Badge Program as
+**project 13191** and has attained the **Passing** level. The questionnaire was
+answered with the evidence already present in the repository:
+- ✅ Security policy: `SECURITY.md` exists
+- ✅ Automated tests: `pytest` in CI
+- ✅ Static analysis: Bandit, CodeQL, Semgrep in CI
+- ✅ Pinned dependencies: `requirements.txt` with hashes
+
+The live badge is embedded at the top of `README.md`:
 
 ```markdown
-[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/YOUR_ID/badge)](https://bestpractices.coreinfrastructure.org/projects/YOUR_ID)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 ```
 
 ---
