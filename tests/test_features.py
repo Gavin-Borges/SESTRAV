@@ -22,7 +22,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.features import compute_features, get_tcr_positions, FEATURE_COLUMNS
+from src.features import compute_features, get_tcr_positions
 
 
 def test_clgglltmv_9mer():

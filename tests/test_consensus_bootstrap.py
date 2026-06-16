@@ -5,11 +5,10 @@ import sys
 import os
 import numpy as np
 import pandas as pd
-import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.consensus_ensemble import min_max_scale, compute_borda_scores, run_consensus
+from src.consensus_ensemble import min_max_scale, compute_borda_scores
 from src.statistical_bootstrap import paired_bootstrap_comparison
 
 def test_min_max_scale():

@@ -1,5 +1,4 @@
 import pytest
-import yaml
 from pathlib import Path
 from pydantic import ValidationError
 from src.core.config import SestravConfig

@@ -1,7 +1,6 @@
 # File: SESTRAV-Dev/tests/run_evals.py
 import os
 import pandas as pd
-import numpy as np
 import pytest
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -23,7 +22,7 @@ def test_data_leakage_contamination_gate():
             test_peps = set(df[df["split"] == "test"]["peptide"].dropna().str.upper())
             overlap = train_peps.intersection(test_peps)
             assert len(overlap) == 0, f"DATA LEAKAGE DETECTED! Overlapping peptides: {overlap}"
-            print(f"[EVAL SUCCESS] Contamination gate verified: 0 overlapping peptides.")
+            print("[EVAL SUCCESS] Contamination gate verified: 0 overlapping peptides.")
         else:
             print("[EVAL SKIP] Dataset does not contain split column. Skipping partition audit.")
     else:

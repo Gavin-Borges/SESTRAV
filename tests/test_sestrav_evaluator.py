@@ -2,12 +2,10 @@
 Unit tests for the SESTRAV-VERIFY automated benchmarking and cross-validation suite.
 """
 
-import os
 import json
 import pytest
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from src.verify.sestrav_evaluator import (
     calculate_roc_auc,

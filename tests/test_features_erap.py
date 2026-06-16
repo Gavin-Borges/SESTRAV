@@ -1,5 +1,4 @@
 # tests/test_features_erap.py
-import pytest
 from src.features import compute_erap_trimming_score
 
 def test_erap_empty_or_invalid():

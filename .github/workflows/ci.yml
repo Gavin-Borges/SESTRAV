@@ -9,6 +9,24 @@ on:
 permissions: read-all
 
 jobs:
+  lint:
+    # Coding-standards gate (OpenSSF Silver: coding_standards_enforced).
+    # PEP 8 enforced automatically via Ruff; config lives in pyproject.toml.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.13"
+
+      - name: Install Ruff
+        run: pip install ruff==0.15.17
+
+      - name: Ruff lint (coding standards)
+        run: ruff check .
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -33,8 +51,32 @@ jobs:
           pip install --no-deps --require-hashes -r requirements.txt
           pip install --no-deps --require-hashes -r environments/requirements-ci.txt
 
-      - name: Run tests
-        run: python -m pytest tests/ -v
+      - name: Install coverage tooling
+        # pytest-cov is a test-only tool, layered on top of the hash-pinned
+        # runtime deps installed above (OpenSSF Silver test_statement_coverage80).
+        run: pip install pytest-cov
+
+      - name: Verify library-coverage scope is in sync
+        # The OpenSSF Silver coverage scope omits executable scripts objectively
+        # (presence of a __main__ guard). Fail fast if .coveragerc.library has
+        # drifted from the source tree.
+        run: python tools/check_library_coverage.py --check
+
+      - name: Run tests with coverage (OpenSSF Silver test_statement_coverage80)
+        # Statement + branch coverage on the importable LIBRARY surface, gated at
+        # fail_under=80 via .coveragerc.library (executable research/pipeline
+        # scripts are validated by the integration/data gates below, not unit
+        # coverage). The whole-repo regression floor lives in pyproject.toml for
+        # local `pytest --cov` runs. PYTHONPATH + COVERAGE_PROCESS_START activate
+        # the tools/coverage_subprocess hook so child-process modules are counted.
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tools/coverage_subprocess
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc.library
+        run: >-
+          python -m pytest tests/ -v
+          --cov=src --cov=functions
+          --cov-config=.coveragerc.library
+          --cov-report=term-missing --cov-report=xml
 
       - name: Run Dataset Curation QC Gate
         run: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v3.csv --config config.yaml
