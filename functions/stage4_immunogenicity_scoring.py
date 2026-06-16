@@ -207,6 +207,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
             print(f"[Stage 4] Loaded PyTorch ANN from {model_path} ({len(model_cols)} features)")
 
             if mc_dropout:
+                import torch  # optional dependency; only needed for the MC-dropout path
                 checkpoint = _load_torch_checkpoint(model_path, required=True)
                 X = features_df[model_cols].values.astype(np.float64)
                 X_scaled = (X - checkpoint['scaler_mean'].numpy()) / (checkpoint['scaler_scale'].numpy() + 1e-10)
