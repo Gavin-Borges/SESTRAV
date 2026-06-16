@@ -18,9 +18,21 @@ This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](
 
 ## 4. Quality
 - **Automated Testing:** 
-  - Over 100 pytest test cases (`tests/`) validate core logic, schema conformity, and feature store deterministic behavior.
+  - 200+ pytest test cases (`tests/`) validate core logic, schema conformity, and feature store deterministic behavior.
   - Test suite executes cleanly with no critical failures.
 - **CI/CD Integration:** Tests are executed via `.github/workflows/ci.yml` on every pull request.
+- **Statement coverage (OpenSSF Silver `test_statement_coverage80`):** Coverage is
+  measured on two scopes, both gated in CI:
+  - *Library scope* — the importable library surface (`src`/`functions` modules
+    with no `__main__` CLI entry point), measured via `.coveragerc.library` and
+    gated at `fail_under=80`. Currently ≈83% statement / ≈81% branch-inclusive.
+    The omit list is generated mechanically from the presence of a `__main__`
+    guard (`tools/check_library_coverage.py --check` enforces it stays in sync),
+    so the scope is objective rather than hand-picked.
+  - *Whole-repo floor* — a regression floor across the entire tree
+    (`pyproject.toml`), currently ≈30% statement. Executable research/pipeline
+    scripts (those with `__main__`) are validated by integration tests and the CI
+    data/benchmark gates rather than by unit statement coverage.
 - **Strict Data Typing:** Pydantic is utilized via `SestravConfig` to enforce configuration schema, preventing runtime type coercion errors and hardcoded path injection.
 
 ## 5. Security
@@ -37,4 +49,9 @@ This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](
 - **Hygiene:** 0 known vulnerabilities exist in the core python codebase (verified by Bandit). Dependency-review Action blocks PRs introducing new vulnerable packages.
 
 ## Future Upgrades
-We plan to introduce automated dependency updates (e.g. Dependabot/Renovate) and publish the package to PyPI with a signed release attestation.
+Automated dependency updates are in place via Dependabot (`.github/dependabot.yml`)
+alongside the Dependency-review Action and OSSF Scorecard. Remaining planned work:
+publish the package to PyPI with a signed release attestation and cryptographically
+sign release tags/artifacts (the outstanding OpenSSF Silver `signed_releases`
+criterion). See `ROADMAP.md` for the test-coverage ratchet toward the Silver
+`test_statement_coverage80` target.
