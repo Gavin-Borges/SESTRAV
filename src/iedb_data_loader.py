@@ -15,8 +15,8 @@ per-peptide duplicate resolution by majority vote, gold-standard hold-out.
 """
 
 import os
+import sys
 import pandas as pd
-import numpy as np
 import openpyxl
 
 STANDARD_AA = set('ACDEFGHIKLMNPQRSTVWY')

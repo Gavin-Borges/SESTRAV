@@ -84,7 +84,7 @@ def main():
                 abs_p = os.path.abspath(p).replace('\\', '/')
                 drive = abs_p[0].lower()
                 return f"/mnt/{drive}{abs_p[2:]}"
-            wsl_pep = to_wsl(temp_pep_file)
+            wsl_pep = to_wsl(temp_peptides_file)
             wsl_out = to_wsl(args.output)
             cmd = ["wsl", "PRIME", "-i", wsl_pep, "-o", wsl_out, "-a", alleles_arg]
         else:
