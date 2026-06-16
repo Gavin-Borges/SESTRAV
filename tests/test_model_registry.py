@@ -89,3 +89,24 @@ def test_validate_signature_model_without_feature_attr(tmp_path):
     model_path = tmp_path / "model.joblib"
     joblib.dump(object(), model_path)
     assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is True
+
+
+def test_load_torch_roundtrip(tmp_path, monkeypatch):
+    torch = pytest.importorskip("torch")
+    registry = _registry(tmp_path)
+    artifact = tmp_path / "model.pt"
+    torch.save({"w": torch.zeros(3)}, artifact)
+    monkeypatch.setattr(registry, "resolve_model", lambda name: artifact)
+    loaded = registry.load("model.pt")
+    assert "w" in loaded
+    assert torch.equal(loaded["w"], torch.zeros(3))
+
+
+def test_load_torch_corrupt_raises_runtime_error(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    registry = _registry(tmp_path)
+    artifact = tmp_path / "model.pth"
+    artifact.write_bytes(b"not a real torch checkpoint")
+    monkeypatch.setattr(registry, "resolve_model", lambda name: artifact)
+    with pytest.raises(RuntimeError, match="Failed to load torch model"):
+        registry.load("model.pth")

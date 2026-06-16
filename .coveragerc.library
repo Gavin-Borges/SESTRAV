@@ -59,4 +59,8 @@ omit =
 [report]
 show_missing = true
 skip_covered = false
-fail_under = 80
+# Ratcheted 80 -> 85 once real tests landed (library now ~91% statement / ~81%
+# branch; combined ~89%). Raise only as genuine tests land — never by padding.
+# This is the combined statement+branch figure (branch = true above); the Gold
+# split metrics (>=90% statement, >=80% branch) are reported by the CI run.
+fail_under = 85
