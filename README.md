@@ -2,7 +2,7 @@
 
 ![CI — Contamination Gate](https://img.shields.io/badge/CI-contamination_gate-blue?style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-![Version](https://img.shields.io/badge/version-2.0.0--rc1-informational?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.2-informational?style=flat-square)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 
 A structurally informed immunogenicity prediction pipeline for therapeutic epitope discovery in oncogenic viruses (HPV and EBV). Version 2.0 centers a canonical reproducible 30-feature release path and includes ANN/GNN/Colab extensions as optional benchmark workflows.

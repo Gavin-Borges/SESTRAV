@@ -65,8 +65,16 @@ sha256sum -c SHA256SUMS.txt
 git tag -v v2.0.2
 ```
 
-## After the first signed release
+## Badge status (as shipped)
 
-On the badge form (<https://www.bestpractices.dev/en/projects/13191>) mark
-`signed_releases` and `version_tags_signed` as **Met**, citing this workflow and
-the verification commands above.
+The first release (**v2.0.2**) was published via this workflow with a Sigstore
+build-provenance attestation, so on the badge form
+(<https://www.bestpractices.dev/projects/13191>) `signed_releases` is recorded as
+**Met** (cryptographic provenance over the release artifacts, verifiable with
+`gh attestation verify`).
+
+`version_tags_signed` remains **Unmet**: v2.0.2 used an annotated but unsigned git
+tag because no personal signing key was configured at release time. It is a
+SUGGESTED (not MUST) criterion, so it does not affect the tier. To meet it on a
+future release, set up an SSH/GPG signing key, tag with `git tag -s`, and verify
+with `git tag -v`.

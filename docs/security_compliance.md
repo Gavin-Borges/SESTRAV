@@ -1,6 +1,6 @@
 # SESTRAV Security & Compliance Posture
 
-This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](https://bestpractices.coreinfrastructure.org/en) (formerly CII Best Practices). SESTRAV targets the **Passing** level criteria as of version 2.0.
+This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/13191) (formerly CII Best Practices). SESTRAV has attained the **Passing** level ([project 13191](https://www.bestpractices.dev/projects/13191)) as of version 2.0 and is working toward the Silver/Gold criteria.
 
 ## 1. Basics
 - **Project Description:** SESTRAV is a T-cell epitope immunogenicity prediction pipeline.
@@ -9,7 +9,7 @@ This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](
 
 ## 2. Change Control
 - **Version Control:** Git/GitHub is strictly utilized.
-- **Release Tracking:** Releases are tagged (e.g., `release/2.0-rc1`).
+- **Release Tracking:** Releases are tagged with semantic versions (e.g., `v2.0.2`) and published as GitHub Releases with build-provenance attestations.
 - **Review:** All pull requests to `main` require a successful GitHub Actions CI check before merging.
 
 ## 3. Reporting
@@ -50,8 +50,11 @@ This document tracks SESTRAV's readiness for the [OpenSSF Best Practices Badge](
 
 ## Future Upgrades
 Automated dependency updates are in place via Dependabot (`.github/dependabot.yml`)
-alongside the Dependency-review Action and OSSF Scorecard. Remaining planned work:
-publish the package to PyPI with a signed release attestation and cryptographically
-sign release tags/artifacts (the outstanding OpenSSF Silver `signed_releases`
-criterion). See `ROADMAP.md` for the test-coverage ratchet toward the Silver
-`test_statement_coverage80` target.
+alongside the Dependency-review Action and OSSF Scorecard. Signed releases now
+ship via the `release.yml` workflow, which attaches a Sigstore build-provenance
+attestation to every tagged release (v2.0.2 onward) — satisfying the OpenSSF
+`signed_releases` criterion (verify with `gh attestation verify`). Remaining
+planned work: publish the package to PyPI, and optionally cryptographically sign
+the git tags themselves (`version_tags_signed`, a SUGGESTED criterion) once a
+personal signing key is configured. See `ROADMAP.md` for the open multi-person
+Silver/Gold criteria and the coverage ratchet.
