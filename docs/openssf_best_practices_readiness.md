@@ -149,14 +149,20 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 
 ---
 
-## 7. Registration Protocol
+## 7. Registration Protocol — ✅ Complete
 
-Once you have verified the criteria above, perform the following steps to claim the badge:
-1.  Navigate to [bestpractices.coreinfrastructure.org](https://bestpractices.coreinfrastructure.org/).
-2.  Log in with your GitHub credentials.
-3.  Click **"Add New Project"** and paste the SESTRAV GitHub repository URL: `https://github.com/Gavin-Borges/SESTRAV`.
-4.  Step through the questionnaire using the justifications and file links mapped in this document.
-5.  After the badge ID is generated, replace the `PENDING_ID` placeholders in `README.md` (lines 6–7) with the real project ID to display the live badge on the repository landing page:
-    ```markdown
-    [![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/YOUR_ID/badge)](https://bestpractices.coreinfrastructure.org/projects/YOUR_ID)
-    ```
+SESTRAV is registered at the OpenSSF Best Practices Badge Program as
+**[project 13191](https://www.bestpractices.dev/projects/13191)** and has attained
+the **Passing** level. The questionnaire was answered using the justifications and
+file links mapped in this document.
+
+The live badge is embedded at the top of `README.md`:
+```markdown
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
+```
+
+Higher tiers are tracked in `ROADMAP.md`: Silver is essentially met (signed
+releases ship via the `release.yml` Sigstore attestation workflow), with the
+remaining Silver/Gold gaps being the multi-person criteria (`bus_factor`,
+`two_person_review`, `contributors_unassociated`) that require a second
+maintainer/contributor.

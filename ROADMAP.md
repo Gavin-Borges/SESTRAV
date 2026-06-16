@@ -9,9 +9,13 @@ _Last updated: 2026-06._
 
 ## Near term (0–3 months)
 
-- **OpenSSF Best Practices badge.** Attain the Passing badge, then complete the
-  Silver criteria (governance, coverage measurement, signed releases, threat
-  model/assurance case). See `docs/threat_model.md` and `GOVERNANCE.md`.
+- **OpenSSF Best Practices badge.** The **Passing** badge is attained
+  ([project 13191](https://www.bestpractices.dev/projects/13191)). Next, complete
+  the remaining Silver/Gold criteria — most are already satisfied (governance,
+  two-scope coverage measurement, Sigstore-signed releases, threat
+  model/assurance case); the open gaps are the multi-person criteria
+  (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require
+  a second maintainer/contributor. See `docs/threat_model.md` and `GOVERNANCE.md`.
 - **Test coverage.** Coverage is measured on two scopes, both gated in CI:
   - **Library scope** (OpenSSF Silver `test_statement_coverage80`): the importable
     library surface — `src`/`functions` modules without a `__main__` CLI entry
