@@ -74,18 +74,24 @@ consumers verify **integrity**:
 sha256sum -c <manifest-file>   # confirm the downloaded ZIP matches the manifest
 ```
 
-Release **authenticity** (signing) is being added so consumers can verify that an
-artifact genuinely came from the maintainer. From the release at which signing is
-introduced onward:
+Release **authenticity** (signing) is automated by
+[`.github/workflows/release.yml`](.github/workflows/release.yml): pushing a version
+tag builds the distribution and produces a **keyless SLSA build-provenance
+attestation** (Sigstore, via GitHub OIDC — no maintainer-managed keys). From the
+release at which signing is introduced onward:
 
 - **Tags** are signed (`git tag -s`) and verifiable with `git tag -v vX.Y.Z`.
-- **Artifacts** carry a detached signature / attestation; verify it using the
-  public key or Sigstore identity referenced on the corresponding GitHub Release
-  page.
+- **Artifacts** carry a Sigstore provenance attestation, verifiable with:
 
-> Maintainer note: when signing is enabled, record the signing key (or Sigstore
-> identity) and its recovery path per `BUS_FACTOR.md`, and update this section to
-> state the first signed version.
+  ```bash
+  gh attestation verify sestrav-<version>-py3-none-any.whl --repo Gavin-Borges/SESTRAV
+  ```
+
+The full release procedure is documented in [`docs/releasing.md`](docs/releasing.md).
+
+> Maintainer note: when the first signed release is cut, record the Sigstore
+> identity (and any key fingerprint) and its recovery path per `BUS_FACTOR.md`,
+> and update this section to state the first signed version.
 
 ---
 
