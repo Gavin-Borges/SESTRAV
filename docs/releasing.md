@@ -27,7 +27,9 @@ GitHub will then show your tags/commits as **Verified**.
 
 1. **Bump the version** in `pyproject.toml` (`[project] version`) to match the tag
    you are about to create (e.g. `2.0.2`). The build names artifacts from this
-   field, so it must match the tag. Commit it:
+   field, so it must match the tag. The release workflow **enforces** this with a
+   fail-fast "Verify tag matches package version" step, so a mismatch aborts the
+   release before any artifact is built. Commit it:
 
    ```bash
    git commit -am "release: v2.0.2"
