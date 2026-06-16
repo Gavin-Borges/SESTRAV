@@ -6,12 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [Unreleased] — post-rc1 dependency security patches
+## [Unreleased]
+
+## [2.0.2] - 2026-06-16
+
+This release completes the OpenSSF Best Practices hardening pass: governance and
+assurance documentation, automated signed releases with build provenance, and a
+two-scope test-coverage regime meeting the Gold coverage targets.
+
+### Added
+- **OpenSSF governance & assurance documentation**: `GOVERNANCE.md`, `ROADMAP.md`, `BUS_FACTOR.md`, `CONTRIBUTORS.md`, `docs/threat_model.md`, and `docs/security_review.md`.
+- **Signed releases with provenance**: `.github/workflows/release.yml` builds the distribution on a version tag and publishes a keyless SLSA build-provenance attestation (Sigstore via GitHub OIDC), guarded by a fail-fast tag/version consistency check. Verification and the release procedure are documented in `docs/releasing.md` and `SECURITY.md`.
+- **Two-scope test-coverage measurement**: library-scope coverage via `.coveragerc.library` (OpenSSF Silver `test_statement_coverage80`), kept in sync mechanically by `tools/check_library_coverage.py`, with a subprocess-coverage hook (`tools/coverage_subprocess`). Library coverage raised to ≈91% statement / ≈81% branch (OpenSSF Gold targets) with new unit tests.
 
 ### Fixed
+- **Stage 4 MC-dropout path**: corrected a missing `import torch` on the uncertainty-scoring branch.
+- **IEDB data loader**: added a missing `import sys`.
+- **PRIME wrapper**: corrected a `temp_peptides_file` reference.
 - **Dependency Security Vulnerabilities**: Additional dependency hardening applied after the v2.0.0-rc1 tag and re-compiled with `pip-compile --generate-hashes --allow-unsafe`:
   - `tornado==6.5.6` (mitigates four advisories surfaced by the OSSF Scorecard OSV scan): GHSA-fqwm-6jpj-5wxc (cookie attribute injection, high), GHSA-qjxf-f2mg-c6mc (DoS via multipart parts, high), GHSA-78cv-mqj4-43f7 (incomplete cookie validation, medium), and GHSA-cx3h-4qpv-8hc9 (out-of-bounds memory access, low). The 6.5.6 release also restores `manylinux_2_28` wheel availability (absent from 6.5.5).
   - `protobuf==7.35.1` (patch bump over the 7.35.0 baseline shipped in rc1).
+
+### Changed
+- **License detection**: `LICENSE` now opens with the canonical `MIT License` text so GitHub and automated tooling identify it as MIT (the SPDX identifier is retained in `pyproject.toml`).
+- **Dependency updates** (Dependabot): `starlette` 1.1.0→1.3.1 (#75), `aiohttp` 3.14.0→3.14.1 (#74), and a Python minor/patch group of six updates (#73).
 
 ### Security
 - **Hash-pinned security-scanner installs**: The `semgrep` and `pip-audit` jobs in `security.yml` now install from hash-pinned lockfiles (`environments/requirements-semgrep.txt`, `environments/requirements-pip-audit.txt`) via `pip install --require-hashes`, resolving the OpenSSF Scorecard *Pinned-Dependencies* findings. Lockfiles are generated from `.in` sources with `pip-compile --generate-hashes`.
