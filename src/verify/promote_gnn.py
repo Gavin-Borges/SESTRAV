@@ -235,9 +235,11 @@ def gate3_latency() -> GateResult:
     synthetic_seqs = ["GILGFVFTL"] * LATENCY_BATCH_SIZE  # canonical 9-mer
     node_batch = torch.stack([GraphBuilder.sequence_to_node_features(s) for s in synthetic_seqs])
     feat_batch = torch.tensor(X_rf[:, :num_features], dtype=torch.float32)
+    # Chain-graph adjacency shared across all batch elements (max_len × max_len)
+    adj = GraphBuilder.build_chain_adj().to(device)
 
     gnn_latency_ms = _time_model_ms(
-        lambda nx, fx: gnn_model(nx, fx),
+        lambda nx, fx: gnn_model(nx, fx, adj),
         node_batch,
         feat_batch,
         LATENCY_WARMUP_REPS,

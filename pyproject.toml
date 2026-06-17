@@ -19,23 +19,34 @@ license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 keywords = ["immunology", "machine-learning", "epitope", "pytorch", "gnn"]
 dependencies = [
     "torch>=2.2.0",
-    "torch-geometric>=2.5.0",
     "pandas>=2.0.0",
     "numpy>=1.24.0",
     "scikit-learn>=1.3.0",
-    "snakemake>=8.0.0",
     "joblib>=1.3.0",
     "requests>=2.31.0",
-    "jsonschema>=4.0.0"
+    "jsonschema>=4.0.0",
 ]
 
 [project.optional-dependencies]
+# GNN structural-comparison path (src/verify/structural_gnn.py).
+# Requires a system-level PyG build; omit unless you need structural GNN benchmarks.
+# Install with: pip install "sestrav[gnn]"
+gnn = [
+    "torch-geometric>=2.5.0",
+]
+# Snakemake pipeline runner — only needed to execute pipeline.smk end-to-end.
+# Install with: pip install "sestrav[pipeline]"
+pipeline = [
+    "snakemake>=8.0.0",
+]
 dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
@@ -88,9 +99,6 @@ ignore = [
 "scripts/*.py" = ["E722"]       # best-effort external-tool detection wrappers; failures are non-fatal and logged
 
 # ---------------------------------------------------------------------------
-# Coverage (OpenSSF Silver test_statement_coverage80 / Gold 90% + branch 80%)
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
 # Static type checking
 # ---------------------------------------------------------------------------
 # Baseline: ignore missing stubs for third-party libraries (torch, pandas, etc.)
@@ -126,8 +134,8 @@ omit = ["*/tests/*", "*/__init__.py"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# Honest hard floor: the suite currently measures ~22% (branch-inclusive) /
-# ~24% statement coverage. This gate prevents regressions below the level CI
+# Honest hard floor: the suite currently measures ~33.74% (branch-inclusive) /
+# ~35% statement coverage. This gate prevents regressions below the level CI
 # genuinely clears. It is deliberately NOT the OpenSSF Silver target of 80%;
 # raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
 # up as real tests land — never by padding.
