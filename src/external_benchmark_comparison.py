@@ -257,7 +257,7 @@ def negative_discrimination(
     n_core: int = 10,
 ) -> pd.DataFrame:
     """Check how many gold-standard negatives each tool pushes down vs binding."""
-    neg_peptides = [gs["peptide"] for gs in GOLD_STANDARD_NEGATIVES[:n_core]]
+    neg_peptides = [gs["peptide"] for gs in GOLD_STANDARD_NEGATIVES[:n_core]]  # type: ignore[index]
     neg_mask = merged["peptide"].isin(neg_peptides)
     neg_df = merged.loc[neg_mask].copy()
     if neg_df.empty:
@@ -322,7 +322,7 @@ def bootstrap_metric_diff(
     """Bootstrap 95% CI for metric(scores_a) - metric(scores_b)."""
     rng = np.random.default_rng(seed)
     n = len(y_true)
-    diffs = []
+    _diffs: list[float] = []
     for _ in range(n_bootstrap):
         idx = rng.integers(0, n, size=n)
         y_b = y_true[idx]
@@ -330,10 +330,10 @@ def bootstrap_metric_diff(
             continue
         ma = metric_fn(y_b, scores_a[idx])
         mb = metric_fn(y_b, scores_b[idx])
-        diffs.append(ma - mb)
-    if not diffs:
+        _diffs.append(ma - mb)
+    if not _diffs:
         return np.nan, np.nan, np.nan
-    diffs = np.array(diffs)
+    diffs = np.array(_diffs)
     return float(np.mean(diffs)), float(np.percentile(diffs, 2.5)), float(
         np.percentile(diffs, 97.5)
     )
@@ -454,7 +454,7 @@ def generate_figures(
                 1, len(ext_tools), figsize=(6 * len(ext_tools), 5), squeeze=False
             )
             gs_pos = {gs["peptide"] for gs in GOLD_STANDARD}
-            gs_neg = {gs["peptide"] for gs in GOLD_STANDARD_NEGATIVES[:10]}
+            gs_neg = {gs["peptide"] for gs in GOLD_STANDARD_NEGATIVES[:10]}  # type: ignore[index]
             for i, (tool_name, score_col) in enumerate(ext_tools.items()):
                 ax = axes[0, i]
                 rf_ranks = complete["rf_oof_score"].rank(ascending=False)

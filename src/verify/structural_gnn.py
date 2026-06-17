@@ -91,7 +91,7 @@ def generate_edge_features(pos: torch.Tensor, charges: torch.Tensor, d_max: floa
     edge_attr = torch.cat([flat_dist, coulomb, lj], dim=-1)
     return edge_index, edge_attr
 
-class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):
+class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):  # type: ignore[misc]
     """
     Custom PyTorch Geometric Dataset dynamically scaling to load structural graphs.
     """

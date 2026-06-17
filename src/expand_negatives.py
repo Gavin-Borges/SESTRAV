@@ -25,7 +25,7 @@ import pandas as pd
 from src.gold_standard import GOLD_STANDARD_NEGATIVES
 
 
-EXISTING_GS_NEG_PEPTIDES = {gs['peptide'] for gs in GOLD_STANDARD_NEGATIVES}
+EXISTING_GS_NEG_PEPTIDES = {gs['peptide'] for gs in GOLD_STANDARD_NEGATIVES}  # type: ignore[index]
 
 
 def find_candidate_negatives(data_path, binding_matrix_path, n_per_virus=10,
