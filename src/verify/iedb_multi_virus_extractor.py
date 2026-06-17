@@ -188,7 +188,7 @@ def load_proteome_peptides(fasta_path: Path, min_len: int = 8, max_len: int = 11
         return []
         
     peptides = set()
-    current_seq = []
+    current_seq: list[str] = []
     with open(fasta_path, "r") as f:
         for line in f:
             if line.startswith(">"):

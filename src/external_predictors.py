@@ -118,7 +118,7 @@ def parse_netchop_html(html_content: str, peptide_list: List[str]) -> Dict[str, 
     Returns:
         Dict[str, Dict[str, Any]]: Map of peptide sequence to parsed scores.
     """
-    results = {}
+    results: dict[str, dict[str, list]] = {}
     for pep in peptide_list:
         results[pep] = {"scores": [], "cleavages": []}
         

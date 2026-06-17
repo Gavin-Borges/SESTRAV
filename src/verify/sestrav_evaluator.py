@@ -11,7 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -122,7 +122,7 @@ def mutate_tcr(peptide: str) -> str:
         seq[4] = "P"
     return "".join(seq)
 
-def run_mock_predictions(df: pd.DataFrame, is_mutated: bool = False, mutation_type: str = None) -> np.ndarray:
+def run_mock_predictions(df: pd.DataFrame, is_mutated: bool = False, mutation_type: Optional[str] = None) -> np.ndarray:
     """
     Generate deterministic mock predictions for validation testing and fallback runs.
     """
@@ -163,7 +163,7 @@ def predict_dataset(model: torch.nn.Module, dataset: Any, device: torch.device) 
 def evaluate_single_virus(
     virus_name: str,
     df: pd.DataFrame,
-    model: torch.nn.Module,
+    model: Optional[torch.nn.Module],
     device: torch.device,
     use_mock: bool = False
 ) -> Dict[str, Any]:
@@ -283,7 +283,7 @@ def _load_torch_checkpoint(model_path, device):
 
 def run_evaluation_pipeline(
     targets_json_path: Path,
-    model_checkpoint_path: Path = None,
+    model_checkpoint_path: Optional[Path] = None,
     results_dir: Path = Path("results/verify"),
     use_mock: bool = False
 ) -> Dict[str, Any]:
@@ -293,7 +293,7 @@ def run_evaluation_pipeline(
     results_dir.mkdir(parents=True, exist_ok=True)
     
     with open(targets_json_path, "r") as f:
-        config_matrix = json.load(f)
+        config_matrix: Dict[str, Any] = json.load(f)
         
     device = torch.device("cuda" if torch.cuda.is_available() and not use_mock else "cpu")
     
@@ -315,7 +315,7 @@ def run_evaluation_pipeline(
             logger.warning(f"Could not load/initialize GNN model: {e}. Falling back to mock calculations.")
             model = None
             
-    report = {
+    report: Dict[str, Any] = {
         "metadata": {
             "runner": "SESTRAV-VERIFY Gatekeeper",
             "device": str(device),

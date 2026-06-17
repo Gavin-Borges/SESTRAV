@@ -131,4 +131,4 @@ skip_covered = false
 # genuinely clears. It is deliberately NOT the OpenSSF Silver target of 80%;
 # raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
 # up as real tests land — never by padding.
-fail_under = 28
+fail_under = 29

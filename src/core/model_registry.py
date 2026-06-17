@@ -50,7 +50,7 @@ class ModelRegistry:
                 import numpy as np
                 import torch.serialization
                 torch.serialization.add_safe_globals([
-                    np._core.multiarray.scalar,
+                    np._core.multiarray.scalar,  # type: ignore[attr-defined]
                     np.dtype,
                 ])
                 return torch.load(path, map_location='cpu', weights_only=True)
