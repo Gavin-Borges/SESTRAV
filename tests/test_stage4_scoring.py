@@ -60,6 +60,19 @@ def test_prototype_path_with_presentation_score(monkeypatch, tmp_path):
     assert "immunogenicity_score" in ranked.columns
 
 
+def test_prototype_path_no_score_columns_constant_zero(monkeypatch, tmp_path):
+    """Regression: no binding_score or presentation_score → single-class guard →
+    all immunogenicity scores 0.0 with no IndexError (issue #76)."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    # Exclude both score-derived columns so pseudo_labels is all-zero (one class).
+    physico_only = [c for c in FEATURE_COLUMNS if c not in ("binding_score", "presentation_score")]
+    df = _feature_frame(physico_only)
+    ranked, model = s4.score_immunogenicity(df, "TEST", model_path=None)
+    assert "immunogenicity_score" in ranked.columns
+    assert (ranked["immunogenicity_score"] == 0.0).all()
+    assert model is None  # no classifier fit in the degenerate case
+
+
 def test_freeze_mode_without_model_raises(monkeypatch, tmp_path):
     _run_in_results_dir(monkeypatch, tmp_path)
     df = _feature_frame(FEATURE_COLUMNS)
