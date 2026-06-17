@@ -8,6 +8,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-06-17
+
+This release delivers the next test-coverage and CI hardening pass: 154 new
+unit tests, a library-coverage ratchet advance to 90%, and a complete PyPI
+publish pipeline.
+
+### Added
+- **154 new unit tests** across 9 test modules, bringing the total suite to
+  **476 passing tests**:
+  - `test_features_advanced` (23): `compute_sample_weights` virus/length
+    correction, `compute_features_for_dataset` vectorised batch extraction,
+    and `compute_weisfeiler_lehman_features` WL kernel.
+  - `test_iedb_extractor` (43): full branch coverage of
+    `src/verify/iedb_multi_virus_extractor.py` — REST mocking, VDJdb TSV
+    parsing, decoy generation, `process_target`, and `main()` entry point.
+  - `test_promote_gnn_runner` (15): `check_promotion_gates` short-circuit and
+    aggregation logic; `promote_model` config-mutation and checksum behaviour.
+  - `test_sestrav_evaluator_extended` (15): pipeline-runner paths in
+    `src/verify/sestrav_evaluator.py`.
+  - `test_statistical_bootstrap` (9): 98% coverage of
+    `src/statistical_bootstrap.py` including the joblib worker path via
+    `_inline_parallel` mock.
+  - `test_train_gnn_dataset` (16): `GraphPeptideDataset` and `set_seed`
+    reproducibility in `src/train_gnn.py`.
+  - `test_external_predictors_extended` (13): proline/PDE/RKYFW mock-score
+    paths, OOB index in `parse_netchop_html`, successful poll return, TAPreg
+    threshold kwarg, and parse success/empty-parse branches.
+  - `test_model_extended` (7): CUDA mock paths for `get_device` and
+    `set_seeds`; `device=None` auto-detect in `train_one_fold`, `run_cv`, and
+    `train_final_model`; epoch-exhaustion and `best_state=None` branches.
+  - `test_features_graph` (13): `get_cb_cb_edges` for 9/10/11-mers, ERAP
+    short-flanking-sequence padding, and `compute_sample_weights` without a
+    peptide column.
+- **PyPI publish job** in `.github/workflows/release.yml`: runs after the
+  existing build/attest/GitHub-Release job; installs twine from a hash-pinned
+  lockfile (`environments/requirements-ci-twine.{in,txt}`); uploads sdist and
+  wheel; smoke-tests the published package from the live PyPI index. Skipped
+  automatically when `PYPI_API_TOKEN` is not configured.
+  - Includes a `checkout` step (without which `requirements-ci-twine.txt`
+    would not be present on the runner — a bug caught pre-commit).
+
+### Fixed
+- **7 mypy type errors** resolved across four source files:
+  - `src/data_curation_qc.py`: renamed lambda capture variable to eliminate a
+    late-binding closure error.
+  - `src/expand_negatives.py`, `src/external_benchmark_comparison.py`:
+    `type: ignore[index]` annotations for typed-dict list subscripts on
+    `GOLD_STANDARD_NEGATIVES`.
+  - `src/external_benchmark_comparison.py`: renamed a list variable that was
+    shadowed by a later `np.array` assignment of the same name.
+  - `src/verify/structural_gnn.py`: `type: ignore[misc]` for the dynamic
+    `Dataset if HAS_PYG else object` base class.
+
+### Changed
+- **Library coverage ratchet** advanced: `fail_under` in `.coveragerc.library`
+  raised from 85 → **90**. Actual library coverage is **96.03%** combined
+  statement+branch (≈96% statement, ≈94% branch) — both above the OpenSSF
+  Gold targets (≥90% statement, ≥80% branch).
+- **Whole-repo coverage floor** unchanged at 33 (`pyproject.toml`); actual is
+  33.74%. Executable research scripts (those with a `__main__` guard) are
+  validated by integration tests and CI gates, not unit statement coverage.
+
+---
+
 ## [2.0.2] - 2026-06-16
 
 This release completes the OpenSSF Best Practices hardening pass: governance and
