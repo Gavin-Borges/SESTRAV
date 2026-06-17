@@ -174,8 +174,8 @@ if __name__ == "__main__":
                 config = yaml.safe_load(f)
                 
             sha256 = hashlib.sha256()
-            with open(args.check_dataset, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
+            with open(args.check_dataset, "rb") as fb:
+                for chunk in iter(lambda: fb.read(4096), b""):
                     sha256.update(chunk)
             checksum = sha256.hexdigest()
             logger.info(f"Dataset SHA256: {checksum}")
