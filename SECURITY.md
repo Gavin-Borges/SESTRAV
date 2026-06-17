@@ -64,6 +64,9 @@ credited in `CONTRIBUTORS.md` are no longer active. The governance model,
 roles, and the continuity/backup plan are documented in `GOVERNANCE.md` and
 `BUS_FACTOR.md` so the project can survive the loss of any single person.
 
+### Account Security
+To meet OpenSSF Gold standards, all maintainers with write access to this repository **MUST enable Two-Factor Authentication (2FA)** on their GitHub accounts.
+
 ## Release Integrity & Verification
 
 Release artifacts are distributed via GitHub Releases over HTTPS and ship with a
@@ -196,4 +199,10 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     inline markers.
   - **Re-review trigger:** if any wrapper begins accepting subprocess arguments from
     untrusted/remote input, or switches to `shell=True`.
+
+- **Strict Warning Enforcement (`-W error` bypass) for PyTorch Ecosystem:**
+  Risk-accepted. OpenSSF Silver requires strict compiler/linter warnings to be enabled and addressed.
+  - **Scope:** `pytest` test collection and runtime.
+  - **Rationale:** Deep dependencies within `torch_geometric` raise unpatchable `DeprecationWarning`s during import (e.g., `torch_geometric.distributed` deprecation since 2.7.0). Enforcing `-W error` globally breaks the CI pipeline.
+  - **Mitigation:** We enforce strict warnings exclusively through our linting pipeline (Ruff) which is set to fail on any warning or error, satisfying the Silver criteria for static analysis, while allowing runtime PyTorch deprecation warnings to pass in test execution.
 
