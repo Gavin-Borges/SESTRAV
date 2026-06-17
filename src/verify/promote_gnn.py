@@ -185,10 +185,8 @@ def gate3_latency() -> GateResult:
     measurement is reproducible without any real dataset access.
     """
     import torch
-    from src.train_gnn import (
-        PeptideGNN,
-        sequence_to_node_features,
-    )
+    from src.gnn.models import GraphPredictor
+    from src.gnn.graph_builder import GraphBuilder
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.artifact_integrity import load_verified_joblib
 
@@ -228,14 +226,14 @@ def gate3_latency() -> GateResult:
         )
 
     num_features = len(TRAIN_FEATURE_COLUMNS)
-    gnn_model = PeptideGNN(num_continuous_features=num_features).to(device)
+    gnn_model = GraphPredictor(num_continuous_features=num_features).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load
     state = torch.load(GNN_CHECKPOINT, map_location="cpu", weights_only=True)
     gnn_model.load_state_dict(state)
     gnn_model.eval()
 
     synthetic_seqs = ["GILGFVFTL"] * LATENCY_BATCH_SIZE  # canonical 9-mer
-    node_batch = torch.stack([sequence_to_node_features(s) for s in synthetic_seqs])
+    node_batch = torch.stack([GraphBuilder.sequence_to_node_features(s) for s in synthetic_seqs])
     feat_batch = torch.tensor(X_rf[:, :num_features], dtype=torch.float32)
 
     gnn_latency_ms = _time_model_ms(

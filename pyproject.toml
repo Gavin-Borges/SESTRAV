@@ -90,6 +90,29 @@ ignore = [
 # ---------------------------------------------------------------------------
 # Coverage (OpenSSF Silver test_statement_coverage80 / Gold 90% + branch 80%)
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Static type checking
+# ---------------------------------------------------------------------------
+# Baseline: ignore missing stubs for third-party libraries (torch, pandas, etc.)
+# so `mypy src/` runs cleanly on CI without requiring stub packages.
+# Enforcement is gradual: errors in new code are blocked by the pre-commit hook;
+# legacy errors are tracked in mypy.ini suppressions as they are fixed.
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+# Strict overrides: off while legacy code is annotated incrementally.
+strict = false
+# Exclude generated/vendored paths and Snakemake entry points that use magic globals.
+exclude = [
+    "scripts/stage.*\\.py$",
+    "src/external_validation.*\\.py$",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage (OpenSSF Silver test_statement_coverage80 / Gold 90% + branch 80%)
+# ---------------------------------------------------------------------------
 [tool.coverage.run]
 branch = true
 # parallel + the tools/coverage_subprocess sitecustomize hook let child
@@ -108,4 +131,4 @@ skip_covered = false
 # genuinely clears. It is deliberately NOT the OpenSSF Silver target of 80%;
 # raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
 # up as real tests land — never by padding.
-fail_under = 20
+fail_under = 28
