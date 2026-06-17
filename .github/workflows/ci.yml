@@ -32,7 +32,9 @@ jobs:
 
   compat:
     # Lightweight Python-version compatibility check (OpenSSF Silver: works_as_advertised).
-    # Runs import + a minimal smoke test without the heavy CI data gates.
+    # Verifies non-torch imports on 3.11/3.12; torch+GNN coverage is the 3.13 test job.
+    # PyTorch wheels are not installed here: torch imports in src/ are inside functions,
+    # so the compat smoke-test exercises the module boundary without a 200 MB wheel download.
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -45,18 +47,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install CPU PyTorch
-        run: |
-          pip install --no-deps --require-hashes -r environments/requirements-ci-torch-cpu.txt \
-            --index-url https://download.pytorch.org/whl/cpu
-
       - name: Install dependencies
         run: |
           pip install --no-deps --require-hashes -r requirements.txt
           pip install --no-deps --require-hashes -r environments/requirements-ci.txt
 
       - name: Smoke-test import
-        run: python -c "import src.features; import src.model; import src.gnn.models"
+        run: python -c "import src.features; import src.model; print('import OK')"
 
   test:
     runs-on: ubuntu-latest
