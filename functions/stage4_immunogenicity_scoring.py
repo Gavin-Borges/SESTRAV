@@ -261,16 +261,23 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
         else:
             pseudo_labels = np.zeros(len(features_df), dtype=int)
 
-        model = RandomForestClassifier(
-            n_estimators=200,
-            class_weight='balanced',
-            random_state=42,
-            n_jobs=1,
-        )
-        model.fit(X, pseudo_labels)
-        features_df['immunogenicity_score'] = model.predict_proba(X)[:, 1]
-        print("[Stage 4] No trained model found — used prototype inline classifier "
-              "(NOT scientifically valid)")
+        if np.unique(pseudo_labels).size < 2:
+            # Single-class pseudo-labels → RandomForest would return shape (n,1)
+            # and [:, 1] would raise IndexError. Assign a constant score instead.
+            features_df['immunogenicity_score'] = 0.0
+            print("[Stage 4] No score columns found — prototype degenerate case; "
+                  "all immunogenicity scores set to 0.0 (NOT scientifically valid)")
+        else:
+            model = RandomForestClassifier(
+                n_estimators=200,
+                class_weight='balanced',
+                random_state=42,
+                n_jobs=1,
+            )
+            model.fit(X, pseudo_labels)
+            features_df['immunogenicity_score'] = model.predict_proba(X)[:, 1]
+            print("[Stage 4] No trained model found — used prototype inline classifier "
+                  "(NOT scientifically valid)")
 
     if calibrate:
         cal_scores, was_calibrated = _apply_calibration(
