@@ -310,7 +310,7 @@ FEATURE_COLUMNS_32: list[str]
 """30-feature canonical set extended with antigen processing features."""
 # Deferred import to avoid circular dependency with features.py
 try:
-    from src.features import FEATURE_COLUMNS_30  # type: ignore[import]
+    from src.features import FEATURE_COLUMNS_30
     FEATURE_COLUMNS_32 = list(FEATURE_COLUMNS_30) + ANTIGEN_PROCESSING_COLS
 except ImportError:
     FEATURE_COLUMNS_32 = ANTIGEN_PROCESSING_COLS  # standalone fallback

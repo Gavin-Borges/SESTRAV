@@ -36,6 +36,8 @@ Multi-allele 30-feature mode (CMB 523 Project 2):
   features.  An optional 31st feature (peptide_length) is also defined.
 """
 
+from typing import Optional
+
 import pandas as pd
 import numpy as np
 
@@ -456,7 +458,7 @@ def compute_features_for_dataset(
     return pd.concat([df, features_df], axis=1)
 
 
-def compute_erap_trimming_score(peptide: str, flanking_seq: str = None) -> float:
+def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None) -> float:
     """
     Compute an ERAP1/2 N-terminal trimming likelihood score.
     

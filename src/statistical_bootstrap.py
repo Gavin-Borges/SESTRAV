@@ -75,18 +75,18 @@ def paired_bootstrap_comparison(
         delayed(_bootstrap_iter)(y, ref_scores, comp_scores, n_clean) for _ in range(n_resamples)
     )
     
-    deltas_ap = []
-    deltas_roc = []
-    deltas_issr = []
+    _ap: list[float] = []
+    _roc: list[float] = []
+    _issr: list[float] = []
     for res in results_parallel:
         if res is not None:
-            deltas_ap.append(res[0])
-            deltas_roc.append(res[1])
-            deltas_issr.append(res[2])
-        
-    deltas_ap = np.array(deltas_ap)
-    deltas_roc = np.array(deltas_roc)
-    deltas_issr = np.array(deltas_issr)
+            _ap.append(res[0])
+            _roc.append(res[1])
+            _issr.append(res[2])
+
+    deltas_ap = np.array(_ap)
+    deltas_roc = np.array(_roc)
+    deltas_issr = np.array(_issr)
     
     # Helper to compute CIs and empirical p-values
     def analyze_delta(deltas, base_delta):
