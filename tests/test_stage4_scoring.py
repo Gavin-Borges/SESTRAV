@@ -248,6 +248,79 @@ def test_plot_immunogenicity_scores(monkeypatch, tmp_path):
     assert os.path.isfile("results/HPV16_score_distribution.png")
 
 
+def test_pytorch_branch_50feat(monkeypatch, tmp_path):
+    """Covers lines 186-187: PyTorch checkpoint with 50-feature count."""
+    pytest.importorskip("torch")
+    _run_in_results_dir(monkeypatch, tmp_path)
+    pt_path = tmp_path / "ann50.pt"
+    _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_50))
+    df = _feature_frame(FEATURE_COLUMNS_50)
+    ranked, model = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path))
+    assert ranked["immunogenicity_score"].between(0, 1).all()
+    assert model is not None
+
+
+def test_pytorch_branch_train_feat(monkeypatch, tmp_path):
+    """Covers lines 191-196: PyTorch checkpoint with TRAIN_FEATURE_COLUMNS count."""
+    pytest.importorskip("torch")
+    _run_in_results_dir(monkeypatch, tmp_path)
+    pt_path = tmp_path / "ann_train.pt"
+    _save_ann_checkpoint(str(pt_path), len(TRAIN_FEATURE_COLUMNS))
+    df = _feature_frame(TRAIN_FEATURE_COLUMNS)
+    ranked, model = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path))
+    assert ranked["immunogenicity_score"].between(0, 1).all()
+
+
+def test_pytorch_missing_features_warns_non_freeze(monkeypatch, tmp_path, capsys):
+    """Covers line 204: missing-features WARNING path when freeze_mode=False."""
+    pytest.importorskip("torch")
+    _run_in_results_dir(monkeypatch, tmp_path)
+    pt_path = tmp_path / "ann30.pt"
+    _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30))
+    # Drop one required feature so len(model_cols) < expected_n, but freeze_mode=False.
+    df = _feature_frame(FEATURE_COLUMNS_30[:-1])
+    # Mock _load_pytorch_model so the shape mismatch after the warning doesn't propagate.
+    import torch.nn as nn
+    class _TrivialModel(nn.Module):
+        def forward(self, x):
+            return x[:, 0]
+    monkeypatch.setattr(s4, "_load_pytorch_model",
+                        lambda *_: (np.zeros(len(df)), _TrivialModel()))
+    ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path), freeze_mode=False)
+    assert "immunogenicity_score" in ranked.columns
+    assert "WARNING" in capsys.readouterr().out
+
+
+def test_score_immunogenicity_no_calibrate(monkeypatch, tmp_path):
+    """Covers branch 282->289: calibrate=False skips _apply_calibration."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "model.joblib"
+    model_path.write_bytes(b"stub")
+    monkeypatch.setattr(
+        s4, "load_verified_joblib",
+        lambda p, required_checksum=True: _FakeSklearnModel(len(FEATURE_COLUMNS_30)),
+    )
+    df = _feature_frame(FEATURE_COLUMNS_30)
+    ranked, _ = s4.score_immunogenicity(
+        df, "HPV16", model_path=str(model_path), calibrate=False
+    )
+    assert "immunogenicity_score" in ranked.columns
+    assert "calibrated_score" not in ranked.columns
+
+
+def test_pytorch_branch_else_legacy(monkeypatch, tmp_path):
+    """Covers lines 195-196: PyTorch checkpoint with n_features not matching
+    any named set (50/30/21) falls into the FEATURE_COLUMNS else branch."""
+    pytest.importorskip("torch")
+    _run_in_results_dir(monkeypatch, tmp_path)
+    pt_path = tmp_path / "ann_legacy.pt"
+    # 15 matches none of FEATURE_COLUMNS_50/30/TRAIN_FEATURE_COLUMNS → else branch.
+    _save_ann_checkpoint(str(pt_path), 15)
+    df = _feature_frame(FEATURE_COLUMNS[:15])
+    ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path))
+    assert "immunogenicity_score" in ranked.columns
+
+
 def test_joblib_branch_legacy_else_fallback(monkeypatch, tmp_path):
     """Covers lines 235-236: joblib model with a non-standard feature count falls
     through to the FEATURE_COLUMNS (legacy 22-col) else branch."""

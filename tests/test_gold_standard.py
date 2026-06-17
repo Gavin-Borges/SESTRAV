@@ -201,3 +201,96 @@ def test_validate_expanded_negative_discrimination(tmp_path):
 def test_validate_expanded_negative_discrimination_missing_files_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         gs.validate_expanded_negative_discrimination(str(tmp_path))
+
+
+# --------------------------------------------------------------------------- #
+# Edge cases: empty s4_df, n_v==0, ranked_path None, pushed_down None
+# --------------------------------------------------------------------------- #
+
+def test_full_report_s4df_empty_skips_append(tmp_path):
+    """Covers the s4_df.empty branch: ranked file exists but has no
+    immunogenicity_score column → validate_stage4 returns an empty df → the
+    `if not s4_df.empty:` check is False and all_s4 stays empty."""
+    prefix = EBV_PREFIX
+    # Write a ranked CSV without immunogenicity_score (just peptide + rank).
+    peps = [g["peptide"] for g in gs._filter_gs("EBV")]
+    _csv(
+        tmp_path / f"{prefix}_ranked.csv",
+        pd.DataFrame({"peptide": peps, "rank": list(range(1, len(peps) + 1))}),
+    )
+    report = gs.full_validation_report(str(tmp_path))
+    assert len(report) == len(gs.GOLD_STANDARD)
+    # No stage4 data should appear in the report since s4_df was empty.
+    assert "stage4_found" not in report.columns
+
+
+def test_full_report_n_v_zero_skips_virus(monkeypatch, tmp_path):
+    """Covers line 288: when a virus has zero gold-standard entries, the inner
+    `if n_v == 0: continue` guard fires and we skip printing that virus block."""
+    # Patch GOLD_STANDARD to hold only HPV entries so EBV iteration hits n_v==0.
+    hpv_only = [g for g in gs.GOLD_STANDARD if g["virus"] == "HPV"]
+    monkeypatch.setattr(gs, "GOLD_STANDARD", hpv_only)
+    report = gs.full_validation_report(str(tmp_path))
+    # Report is still built from the (now HPV-only) GOLD_STANDARD.
+    assert len(report) == len(hpv_only)
+    assert (report["virus"] == "HPV").all()
+
+
+def test_negative_discrimination_ranked_path_none_returns_empty(monkeypatch, tmp_path):
+    """Covers lines 335-336 + 380-381: _resolve_stage_paths returns ranked=None
+    for all viruses → all iterations hit `continue` → results is empty → the
+    `if report.empty:` guard fires."""
+    orig = gs._resolve_stage_paths
+
+    def _patch(results_dir, prefix, strict_stems=False):
+        paths = orig(results_dir, prefix, strict_stems=strict_stems)
+        return {**paths, "ranked": None, "binding": None}
+
+    monkeypatch.setattr(gs, "_resolve_stage_paths", _patch)
+    report = gs.validate_negative_discrimination(str(tmp_path))
+    assert report.empty
+
+
+def test_negative_discrimination_pushed_down_none(tmp_path):
+    """Covers line 362->365: a negative peptide not present in ranked_df
+    gives integ_rank=None → pushed_down stays None."""
+    for virus, prefix in gs.VIRUS_FILE_MAP.items():
+        # Ranked and binding files exist but contain only FILLER, not the
+        # actual negative peptides, so integ_rank / bind_rank are both None.
+        _csv(tmp_path / f"{prefix}_ranked.csv",
+             pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
+        _csv(tmp_path / f"{prefix}_binding.csv",
+             pd.DataFrame({"peptide": ["FILLER"], "presentation_score": [0.1]}))
+
+    report = gs.validate_negative_discrimination(str(tmp_path))
+    assert not report.empty
+    # pushed_down is None/NaN for all rows since the peptides weren't found.
+    assert report["model_pushes_down"].isna().all() or (report["model_pushes_down"] == False).all()  # noqa: E712
+
+
+def test_expanded_negative_binding_path_none_returns_empty(monkeypatch, tmp_path):
+    """Covers lines 413-414 + 459-460 (expanded variant): binding=None makes
+    the loop continue for all viruses → empty report → empty-guard fires."""
+    orig = gs._resolve_stage_paths
+
+    def _patch(results_dir, prefix, strict_stems=False):
+        paths = orig(results_dir, prefix, strict_stems=strict_stems)
+        return {**paths, "ranked": None, "binding": None}
+
+    monkeypatch.setattr(gs, "_resolve_stage_paths", _patch)
+    report = gs.validate_expanded_negative_discrimination(str(tmp_path))
+    assert report.empty
+
+
+def test_expanded_negative_discrimination_pushed_down_none(tmp_path):
+    """Covers lines 440->443 (expanded): negative peptide absent from ranked
+    gives pushed_down=None."""
+    for virus, prefix in gs.VIRUS_FILE_MAP.items():
+        _csv(tmp_path / f"{prefix}_ranked.csv",
+             pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
+        _csv(tmp_path / f"{prefix}_binding.csv",
+             pd.DataFrame({"peptide": ["FILLER"], "presentation_score": [0.1]}))
+
+    report = gs.validate_expanded_negative_discrimination(str(tmp_path))
+    assert not report.empty
+    assert report["model_pushes_down"].isna().all() or (report["model_pushes_down"] == False).all()  # noqa: E712

@@ -59,8 +59,8 @@ omit =
 [report]
 show_missing = true
 skip_covered = false
-# Ratcheted 80 -> 85 -> 90 as real tests landed. Raise only as genuine tests
-# land — never by padding. This is the combined statement+branch figure
+# Ratcheted 80 -> 85 -> 90 -> 95 as real tests landed. Raise only as genuine
+# tests land — never by padding. This is the combined statement+branch figure
 # (branch = true above); current actual is ~97% (statement ~97%, branch ~95%).
 # The Gold split targets (>=90% statement, >=80% branch) are both cleared.
-fail_under = 90
+fail_under = 95

@@ -4,16 +4,20 @@ Targets:
   - compute_sample_weights  (virus + length bias correction)
   - compute_features_for_dataset  (vectorised batch extraction)
   - compute_weisfeiler_lehman_features  (NetworkX WL kernel)
+  - get_esm_cls_token         (ESM-2 success path via mocked transformers)
 """
+import sys
 import numpy as np
 import pandas as pd
 import pytest
+from unittest.mock import MagicMock
 
 from src.features import (
     compute_features,
     compute_features_for_dataset,
     compute_sample_weights,
     compute_weisfeiler_lehman_features,
+    get_esm_cls_token,
     FEATURE_COLUMNS,
 )
 
@@ -201,3 +205,88 @@ class TestComputeWeisfeilerLehmanFeatures:
         wl1 = compute_weisfeiler_lehman_features(G1)
         wl2 = compute_weisfeiler_lehman_features(G2)
         assert not np.array_equal(wl1, wl2)
+
+
+# ---------------------------------------------------------------------------
+# get_esm_cls_token — ESM-2 success path via mocked transformers
+# ---------------------------------------------------------------------------
+
+class TestGetEsmClsToken:
+    def _mock_transformers(self):
+        """Build a sys.modules['transformers'] mock that makes the ESM-2
+        success path (lines 524-535) run without a network call."""
+        cls_vector = np.zeros(320, dtype=np.float32)
+
+        mock_cls_repr = MagicMock()
+        mock_cls_repr.numpy.return_value = cls_vector
+
+        mock_last_hidden_state = MagicMock()
+        mock_last_hidden_state.__getitem__.return_value = mock_cls_repr
+
+        mock_outputs = MagicMock()
+        mock_outputs.last_hidden_state = mock_last_hidden_state
+
+        mock_model_instance = MagicMock()
+        mock_model_instance.return_value = mock_outputs
+
+        mock_tokenizer_instance = MagicMock()
+        mock_tokenizer_instance.return_value = {}
+
+        MockAutoTokenizer = MagicMock()
+        MockAutoTokenizer.from_pretrained.return_value = mock_tokenizer_instance
+
+        MockEsmModel = MagicMock()
+        MockEsmModel.from_pretrained.return_value = mock_model_instance
+
+        mock_transformers = MagicMock()
+        mock_transformers.AutoTokenizer = MockAutoTokenizer
+        mock_transformers.EsmModel = MockEsmModel
+        return mock_transformers
+
+    def test_esm_cls_token_success_path(self, monkeypatch):
+        """Covers lines 524-535: ESM-2 transformers path runs when model not cached."""
+        import src.features as f
+        # Reset the module-level cache so the load path runs.
+        monkeypatch.setattr(f, "_esm_model", None)
+        monkeypatch.setattr(f, "_esm_tokenizer", None)
+        monkeypatch.setitem(sys.modules, "transformers", self._mock_transformers())
+
+        result = get_esm_cls_token("CLGGLLTMV")
+        assert result.shape == (320,)
+
+    def test_esm_cls_token_reuses_cached_model(self, monkeypatch):
+        """When the model is already cached, the load block (524-527) is skipped."""
+        import src.features as f
+        mock_transformers = self._mock_transformers()
+
+        cls_vector = np.ones(320, dtype=np.float32)
+        mock_cls = MagicMock()
+        mock_cls.numpy.return_value = cls_vector
+        mock_lhs = MagicMock()
+        mock_lhs.__getitem__.return_value = mock_cls
+        mock_outputs = MagicMock()
+        mock_outputs.last_hidden_state = mock_lhs
+        mock_model_cached = MagicMock()
+        mock_model_cached.return_value = mock_outputs
+        mock_tok_cached = MagicMock()
+        mock_tok_cached.return_value = {}
+
+        monkeypatch.setattr(f, "_esm_model", mock_model_cached)
+        monkeypatch.setattr(f, "_esm_tokenizer", mock_tok_cached)
+        monkeypatch.setitem(sys.modules, "transformers", mock_transformers)
+
+        result = get_esm_cls_token("CLGGLLTMV")
+        assert result.shape == (320,)
+
+    def test_esm_cls_token_fallback_on_error(self, monkeypatch):
+        """When the model raises, the except path returns a deterministic mock vector."""
+        import src.features as f
+        monkeypatch.setattr(f, "_esm_model", None)
+        monkeypatch.setattr(f, "_esm_tokenizer", None)
+        # Inject a broken transformers module that raises on import.
+        bad_transformers = MagicMock()
+        bad_transformers.AutoTokenizer.from_pretrained.side_effect = RuntimeError("net")
+        monkeypatch.setitem(sys.modules, "transformers", bad_transformers)
+
+        result = get_esm_cls_token("CLGGLLTMV")
+        assert result.shape == (320,)

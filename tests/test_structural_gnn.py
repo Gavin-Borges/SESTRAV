@@ -66,6 +66,68 @@ def test_dataset_generation():
     assert data.pos.shape == (43, 3)
     assert data.y.item() == 1.0
 
+def _minimal_df():
+    return pd.DataFrame({
+        "peptide": ["GLFYTRTGL", "AAYSDQWAL"],
+        "allele": ["HLA-A*02:01", "HLA-A*24:02"],
+        "label": [1, 0],
+    })
+
+
+@pytest.mark.skipif(HAS_PYG, reason=(
+    "StructuralPeptideMHCDataset inherits from Dataset when PyG is installed; "
+    "PyG's Dataset.__setattr__ requires super().__init__(), so the HAS_PYG=False "
+    "branch (lines 99->101) can only be exercised in a PyG-absent environment."
+))
+def test_dataset_haspyg_false_init(monkeypatch):
+    """Covers branch 99->101: when HAS_PYG is False the super().__init__ call
+    inside StructuralPeptideMHCDataset.__init__ is skipped (PyG-absent env only)."""
+    import src.verify.structural_gnn as sgnn
+    monkeypatch.setattr(sgnn, "HAS_PYG", False)
+    ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
+    assert len(ds.peptides) == 2
+
+
+@pytest.mark.skipif(HAS_PYG, reason=(
+    "Same Dataset.__setattr__ constraint as test_dataset_haspyg_false_init."
+))
+def test_dataset_haspyg_false_get(monkeypatch):
+    """Covers lines 175-178: when HAS_PYG is False, get() returns a SimpleData
+    object instead of a torch_geometric Data object (PyG-absent env only)."""
+    import src.verify.structural_gnn as sgnn
+    monkeypatch.setattr(sgnn, "HAS_PYG", False)
+    ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
+    item = ds.get(0)
+    assert hasattr(item, "x") and hasattr(item, "edge_index")
+    assert type(item).__name__ == "SimpleData"
+
+
+def test_structural_gnn_init_no_pyg_raises(monkeypatch):
+    """Covers line 187: StructuralGNN.__init__ raises ImportError if HAS_PYG=False."""
+    import src.verify.structural_gnn as sgnn
+    monkeypatch.setattr(sgnn, "HAS_PYG", False)
+    with pytest.raises(ImportError, match="torch_geometric"):
+        sgnn.StructuralGNN()
+
+
+def test_train_structural_gnn_no_pyg_raises(monkeypatch):
+    """Covers line 249: train_structural_gnn raises ImportError if HAS_PYG=False."""
+    import src.verify.structural_gnn as sgnn
+    monkeypatch.setattr(sgnn, "HAS_PYG", False)
+    with pytest.raises(ImportError, match="PyTorch Geometric"):
+        sgnn.train_structural_gnn(_minimal_df(), _minimal_df())
+
+
+def test_dataset_no_pseudo_seqs_file(monkeypatch, tmp_path):
+    """Covers line 116: pseudo_seqs defaults to {} when the JSON file is absent."""
+    import src.verify.structural_gnn as sgnn
+    # Change CWD to tmp_path so the relative path 'src/verify/mhc_pseudo_sequences.json'
+    # does not resolve to the actual file.
+    monkeypatch.chdir(tmp_path)
+    ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
+    assert ds.pseudo_seqs == {}
+
+
 @pytest.mark.skipif(not HAS_PYG, reason="torch_geometric not installed")
 def test_gnn_model_and_training():
     from src.verify.structural_gnn import StructuralGNN, train_structural_gnn
