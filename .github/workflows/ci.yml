@@ -22,7 +22,10 @@ jobs:
           python-version: "3.13"
 
       - name: Install Ruff
-        run: pip install ruff==0.15.17
+        # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
+        #   pip-compile --generate-hashes environments/requirements-ci-ruff.in \
+        #     --output-file environments/requirements-ci-ruff.txt --no-emit-index-url
+        run: pip install --require-hashes -r environments/requirements-ci-ruff.txt
 
       - name: Ruff lint (coding standards)
         run: ruff check .
@@ -54,7 +57,10 @@ jobs:
       - name: Install coverage tooling
         # pytest-cov is a test-only tool, layered on top of the hash-pinned
         # runtime deps installed above (OpenSSF Silver test_statement_coverage80).
-        run: pip install pytest-cov
+        # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
+        #   pip-compile --generate-hashes environments/requirements-ci-pytest-cov.in \
+        #     --output-file environments/requirements-ci-pytest-cov.txt --no-emit-index-url
+        run: pip install --require-hashes -r environments/requirements-ci-pytest-cov.txt
 
       - name: Verify library-coverage scope is in sync
         # The OpenSSF Silver coverage scope omits executable scripts objectively
