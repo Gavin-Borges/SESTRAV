@@ -1,0 +1,28 @@
+name: DCO
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check_dco:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Developer Certificate of Origin (DCO)
+        run: |
+          # Fetch the target branch
+          git fetch origin ${{ github.base_ref }}
+          # Check all commits in the PR for the Signed-off-by trailer
+          for commit in $(git rev-list origin/${{ github.base_ref }}..HEAD); do
+            if ! git show -s --format=%B $commit | grep -qi "Signed-off-by:"; then
+              echo "::error::Commit $commit is missing the Developer Certificate of Origin (DCO) Signed-off-by trailer."
+              echo "Please use 'git commit -s' to sign off your commits."
+              exit 1
+            fi
+          done
+          echo "All commits have DCO sign-offs."

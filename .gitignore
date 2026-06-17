@@ -209,6 +209,11 @@ cython_debug/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+#  Personal settings overrides — already covered by `.claude/` above; listed
+#  explicitly so the intent survives any future narrowing of that rule.
+.claude/settings.local.json
+#  Cross-session agent state file (local-only working scaffold, like CLAUDE.md).
+STATE.md
 #  Local AI-assistant prompt scratch files (never part of the published project).
 claude_form_filler_prompt.md
 scripts/claude_bootstrap_prompt.md
