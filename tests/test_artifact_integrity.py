@@ -170,3 +170,39 @@ def test_load_verified_joblib_mismatch_raises(tmp_path):
     joblib.dump({"a": 2}, artifact)  # tamper after manifest written
     with pytest.raises(ArtifactIntegrityError):
         load_verified_joblib(artifact, manifest_path, required_checksum=True)
+
+
+def test_verify_artifact_checksum_cross_drive_fallback(tmp_path):
+    """Covers lines 112-113: when _manifest_key raises ValueError (artifact not
+    relative to manifest directory), the fallback artifact.name key is used."""
+    import json as _json
+
+    # Write a real artifact under tmp_path/a/
+    subdir_a = tmp_path / "a"
+    subdir_a.mkdir()
+    artifact = subdir_a / "model.bin"
+    artifact.write_bytes(b"content")
+
+    # Write the manifest under tmp_path/b/ — different subtree, so _manifest_key
+    # would raise ValueError when computing the relative path.  Write the manifest
+    # directly (bypass update_checksum_manifest which has the same issue) with
+    # only the artifact's basename as the key — the fallback path the code uses.
+    subdir_b = tmp_path / "b"
+    subdir_b.mkdir()
+    manifest_path = subdir_b / MODEL_CHECKSUM_MANIFEST
+    manifest_path.write_text(
+        _json.dumps({
+            "generated_utc": "2026-01-01T00:00:00Z",
+            "artifacts": {
+                artifact.name: {  # basename key — what the fallback uses
+                    "sha256": sha256_file(artifact),
+                    "size_bytes": artifact.stat().st_size,
+                }
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    # verify_artifact_checksum must succeed via the .name fallback key,
+    # having swallowed the ValueError from _manifest_key at lines 111-113.
+    assert verify_artifact_checksum(artifact, manifest_path) is True

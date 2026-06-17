@@ -34,3 +34,15 @@ def test_prepare_allele_features():
     assert "allele_pooled_A02" in df_encoded.columns
     assert "allele_pooled_Other" in df_encoded.columns
     assert "allele_pooled_HLA-B*44:02" in df_encoded.columns
+
+
+def test_prepare_allele_features_no_encoding():
+    """Covers line 85->89: encode_mode != 'one_hot' skips one-hot expansion."""
+    df = pd.DataFrame({
+        "peptide": ["AAAA", "BBBB"],
+        "allele": ["HLA-A*02:01", "HLA-A*02:05"],
+    })
+    df_out = prepare_allele_features(df, allele_col="allele", encode_mode="label")
+    # Allele column is still pooled, but no allele_pooled_* columns added.
+    assert "allele" in df_out.columns
+    assert not any(c.startswith("allele_pooled_") for c in df_out.columns)
