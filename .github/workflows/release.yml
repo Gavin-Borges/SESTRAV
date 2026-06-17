@@ -51,8 +51,11 @@ jobs:
       - name: Build sdist and wheel
         # setuptools build backend (see pyproject.toml [build-system]); building the
         # source/wheel distribution does not import the heavy ML runtime deps.
+        # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
+        #   pip-compile --generate-hashes environments/requirements-ci-build.in \
+        #     --output-file environments/requirements-ci-build.txt --no-emit-index-url
         run: |
-          python -m pip install --upgrade build
+          pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/
 
       - name: Generate SHA-256 checksum manifest
