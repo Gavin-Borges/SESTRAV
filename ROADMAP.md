@@ -21,10 +21,10 @@ _Last updated: 2026-06._
     library surface — `src`/`functions` modules without a `__main__` CLI entry
     point. Measured via `.coveragerc.library` (omit list generated mechanically by
     `tools/check_library_coverage.py`, kept in sync by `--check`). Currently
-    **≈91% statement / ≈81% branch** (combined ≈89%), gated at `fail_under=85`.
+    **≈96% statement / ≈94% branch** (combined ≈96%), gated at `fail_under=90`.
     This clears the OpenSSF **Gold** targets (≥90% statement, ≥80% branch).
   - **Whole-repo floor**: `pyproject.toml`'s `fail_under` blocks regressions across
-    the entire tree (research/CLI scripts included), currently ≈30% statement.
+    the entire tree (research/CLI scripts included), currently ≈36% statement.
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
 
