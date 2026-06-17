@@ -303,33 +303,6 @@ def compute_features(peptide, binding_score=0.0):
     return features
 
 
-def _map_property(
-    peptides: pd.Series,
-    positions: list[tuple[str, int | None]],
-    table: dict,
-    default,
-) -> dict[str, pd.Series]:
-    """Vectorized property lookup for a set of (label, 0-based-idx) positions.
-
-    For each (label, idx) pair, extracts the amino acid at that index from
-    every peptide via ``str.get(idx)`` (returns None if out-of-bounds) then
-    maps through *table*.  Missing / out-of-range residues are filled with
-    *default*.
-
-    Returns a dict of {column_name: Series} ready to be assigned into the
-    output DataFrame.
-    """
-    out: dict[str, pd.Series] = {}
-    for label, idx in positions:
-        col = f"{label}_{table.__class__.__name__}"  # placeholder; overridden by caller
-        if idx is None:
-            out[col] = pd.Series(default, index=peptides.index)
-        else:
-            aa = peptides.str[idx]
-            out[col] = aa.map(table).fillna(default)
-    return out
-
-
 def compute_features_for_dataset(
     df: pd.DataFrame,
     peptide_col: str = 'peptide',

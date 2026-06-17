@@ -1,6 +1,11 @@
 import torch
 
-from src.gnn.graph_builder import GraphBuilder
+from src.gnn.graph_builder import GraphBuilder, MAX_PEPTIDE_LEN
+
+
+def test_max_peptide_len_constant():
+    assert MAX_PEPTIDE_LEN == 11
+
 
 def test_sequence_to_node_features():
     # Test valid sequence
@@ -48,3 +53,17 @@ def test_build_spatial_adj_uses_cached_distances(tmp_path):
     # Self-loops present; far pair (0,2) has no direct edge -> 0 after norm.
     assert adj[0, 0] > 0
     assert adj[0, 2] == 0.0
+
+
+def test_sequence_to_node_features_unknown_aa_leaves_row_zero():
+    # 'X' is not in AA_VOCAB — the row should stay all-zero (branch 80->79).
+    seq = "GILXFVFTL"
+    features = GraphBuilder.sequence_to_node_features(seq, max_len=9)
+    assert features.shape == (9, 20)
+    assert features[3].sum() == 0.0  # 'X' position stays zero
+    assert features[0].sum() == 1.0  # 'G' is valid, encoded normally
+
+
+def test_default_max_len_uses_constant():
+    features = GraphBuilder.sequence_to_node_features("GILGFVFTL")
+    assert features.shape == (MAX_PEPTIDE_LEN, 20)
