@@ -70,7 +70,7 @@ jobs:
 
       - name: Run tests with coverage (OpenSSF Silver test_statement_coverage80)
         # Statement + branch coverage on the importable LIBRARY surface, gated at
-        # fail_under=80 via .coveragerc.library (executable research/pipeline
+        # fail_under=90 via .coveragerc.library (executable research/pipeline
         # scripts are validated by the integration/data gates below, not unit
         # coverage). The whole-repo regression floor lives in pyproject.toml for
         # local `pytest --cov` runs. PYTHONPATH + COVERAGE_PROCESS_START activate

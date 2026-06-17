@@ -2,12 +2,14 @@ import torch
 
 AA_VOCAB = "ACDEFGHIKLMNPQRSTVWY"
 AA_TO_IDX = {aa: i for i, aa in enumerate(AA_VOCAB)}
+MAX_PEPTIDE_LEN: int = 11  # longest supported peptide (9–11-mer; pad shorter seqs)
+
 
 class GraphBuilder:
     """Builds chain graph representations from peptide sequences."""
     
     @staticmethod
-    def build_chain_adj(max_len: int = 11) -> torch.Tensor:
+    def build_chain_adj(max_len: int = MAX_PEPTIDE_LEN) -> torch.Tensor:
         """
         Builds a normalized adjacency matrix for a 1D sequence chain graph.
         """
@@ -27,7 +29,7 @@ class GraphBuilder:
         return norm_adj
 
     @staticmethod
-    def build_spatial_adj(peptide: str, cache_dir: str, max_len: int = 11, distance_threshold: float = 8.0) -> torch.Tensor:
+    def build_spatial_adj(peptide: str, cache_dir: str, max_len: int = MAX_PEPTIDE_LEN, distance_threshold: float = 8.0) -> torch.Tensor:
         """
         Builds a normalized adjacency matrix using pre-computed 3D spatial distances
         (e.g. from AlphaFold PDBs). 
@@ -70,7 +72,7 @@ class GraphBuilder:
         return norm_adj
 
     @staticmethod
-    def sequence_to_node_features(seq: str, max_len: int = 11) -> torch.Tensor:
+    def sequence_to_node_features(seq: str, max_len: int = MAX_PEPTIDE_LEN) -> torch.Tensor:
         """Convert peptide to node feature matrix (max_len, num_features)."""
         # Features per node: one-hot encoded AA (size 20)
         features = torch.zeros((max_len, 20))
