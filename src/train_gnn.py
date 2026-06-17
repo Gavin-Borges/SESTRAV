@@ -6,6 +6,7 @@ immunogenicity using Graph Convolutional Networks (GCN) in base PyTorch.
 """
 
 import os
+import random
 import argparse
 import numpy as np
 import pandas as pd
@@ -109,13 +110,24 @@ def evaluate_model(model, dataloader, device):
     return np.array(all_labels), np.array(all_preds)
 
 
-def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e-3, feature_mode=21, binding_matrix_path=None):
+def set_seed(seed: int = 42) -> None:
+    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e-3, feature_mode=21, binding_matrix_path=None, seed=42):
     from src.core.config import SestravConfig
     from src.core.feature_store import FeatureStore
 
     config = SestravConfig.load("config.yaml")
     store = FeatureStore(config.output_dir)
 
+    set_seed(seed)
     torch.autograd.set_detect_anomaly(True)
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -147,7 +159,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     y = train_pool['label'].values
     
     # 3. Stratified K-Fold CV
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
     fold_metrics = []
     oof_rows = []
     
@@ -254,7 +266,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=15, help='Training epochs per fold')
     parser.add_argument('--feature-mode', type=int, default=21, help='Feature mode (21 or 50)')
     parser.add_argument('--binding-matrix', default=None, help='Path to peptide_binding_matrix.csv')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducible runs')
     args = parser.parse_args()
-    
-    train_gnn(args.data, args.model_dir, epochs=args.epochs, feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix)
+
+    train_gnn(args.data, args.model_dir, epochs=args.epochs, feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix, seed=args.seed)
 
