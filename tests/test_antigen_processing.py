@@ -233,3 +233,31 @@ class TestScoringConsistency:
             f"Good immunodominant peptides should have higher mean ERAP score "
             f"({good_mean:.3f}) than poor peptides ({poor_mean:.3f})"
         )
+
+
+# ---------------------------------------------------------------------------
+# _lookup internal helper — branch coverage for empty/multi-char aa
+# ---------------------------------------------------------------------------
+
+class TestLookupHelper:
+    """Covers the early-return branch in _lookup (line 155-156)."""
+
+    def setup_method(self):
+        from src.antigen_processing import _lookup
+        self._lookup = _lookup
+        self._table = {"A": 1.0, "L": 0.5}
+
+    def test_empty_string_returns_default(self):
+        assert self._lookup(self._table, "", default=0.0) == 0.0
+
+    def test_multi_char_string_returns_default(self):
+        assert self._lookup(self._table, "AL", default=-1.0) == -1.0
+
+    def test_valid_single_char_returns_table_value(self):
+        assert self._lookup(self._table, "A") == pytest.approx(1.0)
+
+    def test_unknown_aa_returns_default(self):
+        assert self._lookup(self._table, "B", default=0.25) == pytest.approx(0.25)
+
+    def test_lowercase_aa_is_normalized(self):
+        assert self._lookup(self._table, "a") == pytest.approx(1.0)

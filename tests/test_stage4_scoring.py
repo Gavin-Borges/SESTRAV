@@ -18,6 +18,7 @@ from src.features import (
     FEATURE_COLUMNS,
     TRAIN_FEATURE_COLUMNS,
     FEATURE_COLUMNS_30,
+    FEATURE_COLUMNS_50,
 )
 
 
@@ -94,8 +95,8 @@ class _FakeSklearnModel:
 
 @pytest.mark.parametrize(
     "cols",
-    [TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30],
-    ids=["train21", "f30"],
+    [TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30, FEATURE_COLUMNS_50],
+    ids=["train21", "f30", "f50"],
 )
 def test_joblib_branch_scores(monkeypatch, tmp_path, cols):
     _run_in_results_dir(monkeypatch, tmp_path)
@@ -245,3 +246,21 @@ def test_plot_immunogenicity_scores(monkeypatch, tmp_path):
     s4.plot_immunogenicity_scores(ranked, "HPV16", top_n=20)
     assert os.path.isfile("results/HPV16_top20_immunogenicity.png")
     assert os.path.isfile("results/HPV16_score_distribution.png")
+
+
+def test_joblib_branch_legacy_else_fallback(monkeypatch, tmp_path):
+    """Covers lines 235-236: joblib model with a non-standard feature count falls
+    through to the FEATURE_COLUMNS (legacy 22-col) else branch."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "model.joblib"
+    model_path.write_bytes(b"stub")
+
+    # Use a feature count that matches none of the 50/30/21 sets (e.g. 15)
+    _LEGACY_COLS = FEATURE_COLUMNS[:15]
+    monkeypatch.setattr(
+        s4, "load_verified_joblib",
+        lambda p, required_checksum=True: _FakeSklearnModel(15),
+    )
+    df = _feature_frame(_LEGACY_COLS)
+    ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(model_path))
+    assert "immunogenicity_score" in ranked.columns
