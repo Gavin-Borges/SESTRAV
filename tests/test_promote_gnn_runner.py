@@ -331,3 +331,87 @@ def test_promote_model_reraises_on_checksum_failure(tmp_path):
         pytest.raises(RuntimeError, match="disk full"),
     ):
         promote_model()
+
+
+# ---------------------------------------------------------------------------
+# gate3_latency — regression: adj must be passed to GraphPredictor.forward()
+# ---------------------------------------------------------------------------
+
+def test_gate3_latency_passes_adj_to_forward():
+    """Regression: gate3_latency must supply the adj tensor to GraphPredictor.forward().
+
+    Before the fix the lambda was ``lambda nx, fx: gnn_model(nx, fx)``, which
+    omitted the required ``adj`` positional argument and raised:
+      TypeError: GraphPredictor.forward() missing 1 required positional argument: 'adj'
+    After the fix the lambda is ``lambda nx, fx: gnn_model(nx, fx, adj)`` where
+    ``adj = GraphBuilder.build_chain_adj()`` is built once and closed over.
+    """
+    from src.gnn.models import GraphPredictor
+    from src.features import TRAIN_FEATURE_COLUMNS
+    from src.verify.promote_gnn import gate3_latency
+
+    n_features = len(TRAIN_FEATURE_COLUMNS)
+    real_state = GraphPredictor(num_continuous_features=n_features).state_dict()
+
+    class _FakeRF:
+        n_features_in_ = n_features
+
+        def predict_proba(self, X):
+            return np.column_stack([np.zeros(len(X)), np.ones(len(X))])
+
+    with (
+        patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
+        patch.object(pgnn, "RF_MODEL_PATH", _mock_path(exists=True)),
+        patch("src.artifact_integrity.load_verified_joblib", return_value=_FakeRF()),
+        patch("torch.load", return_value=real_state),
+    ):
+        result = gate3_latency()
+
+    assert isinstance(result, GateResult)
+    # A successful run produces "GNN=...ms, RF=...ms, ratio=...×" as the value
+    assert "ratio=" in str(result.value)
+
+
+# ---------------------------------------------------------------------------
+# gate3_latency — RF model not found path
+# ---------------------------------------------------------------------------
+
+def test_gate3_latency_fails_when_rf_missing():
+    from src.verify.promote_gnn import gate3_latency
+
+    with (
+        patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
+        patch.object(pgnn, "RF_MODEL_PATH", _mock_path(exists=False)),
+    ):
+        result = gate3_latency()
+
+    assert result.passed is False
+    assert "RF model not found" in str(result.value)
+
+
+# ---------------------------------------------------------------------------
+# gate3_latency — GNN checkpoint not found path
+# ---------------------------------------------------------------------------
+
+def test_gate3_latency_fails_when_gnn_missing():
+    import numpy as np
+    from src.features import TRAIN_FEATURE_COLUMNS
+    from src.verify.promote_gnn import gate3_latency
+
+    n_features = len(TRAIN_FEATURE_COLUMNS)
+
+    class _FakeRF:
+        n_features_in_ = n_features
+
+        def predict_proba(self, X):
+            return np.column_stack([np.zeros(len(X)), np.ones(len(X))])
+
+    with (
+        patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=False)),
+        patch.object(pgnn, "RF_MODEL_PATH", _mock_path(exists=True)),
+        patch("src.artifact_integrity.load_verified_joblib", return_value=_FakeRF()),
+    ):
+        result = gate3_latency()
+
+    assert result.passed is False
+    assert "GNN checkpoint not found" in str(result.value)
