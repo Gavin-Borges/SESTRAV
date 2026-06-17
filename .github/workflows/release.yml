@@ -90,10 +90,11 @@ jobs:
     name: Publish to PyPI
     needs: release
     runs-on: ubuntu-latest
-    # Only publish when PYPI_API_TOKEN secret is configured.
-    # New maintainers: register the package on PyPI, generate an API token
-    # scoped to 'sestrav', and add it as a repository secret named PYPI_API_TOKEN.
-    if: ${{ secrets.PYPI_API_TOKEN != '' }}
+    # Gate: set repository variable PYPI_PUBLISH=true (Settings → Variables → Actions)
+    # once PYPI_API_TOKEN is configured as a secret.  Keeping the toggle in a
+    # non-secret variable makes the condition evaluable at job-scheduling time
+    # (secrets context is unavailable in job-level `if` expressions).
+    if: ${{ vars.PYPI_PUBLISH == 'true' }}
     environment:
       name: pypi
       url: https://pypi.org/p/sestrav
