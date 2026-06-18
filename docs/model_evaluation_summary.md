@@ -1,5 +1,21 @@
 # SESTRAV Model Evaluation Summary
 
+## v2 Canonical Track: 31-Feature Integrated (Pending — run `src/train_classifier.py --feature-mode 31`)
+
+> **Status:** Training infrastructure complete as of 2026-06-18. Results pending Gavin's training run.
+> Command: `python src/train_classifier.py --data data/immunogenicity_dataset_v3.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v3.csv --sample-weights`
+
+| Metric | RF | XGBoost | Notes |
+|--------|----|---------|-------|
+| **AUC-PR** | [TBD] | [TBD] | Ablation baseline full_31: 0.864 |
+| **AUC-ROC** | [TBD] | [TBD] | |
+| **ISSR@10** | [TBD] | [TBD] | |
+| **ISSR@25** | [TBD] | [TBD] | |
+
+Replace [TBD] entries after running training and update claims_register.md Section 4 trigger "AUC-PR 0.828 (OOF RF, v3)".
+
+---
+
 ## v2 Canonical Track: 30-Feature Integrated (720 peptides, 2.36:1 class ratio)
 
 The canonical evaluation track uses 20 physicochemical features (p4–p8 × 4 properties) plus 10 per-allele MHC binding features. All results are 5-fold stratified cross-validation with gold-standard epitopes held out.

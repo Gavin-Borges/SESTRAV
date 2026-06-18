@@ -43,9 +43,9 @@ Positions p4-p8 are the peptide residues that face the T-cell receptor in the pM
 - `FEATURE_COLUMNS` (22): All features including binding_score
 - `TRAIN_FEATURE_COLUMNS` (21): Excludes binding_score (used for legacy 21-feature model training)
 
-## 30-Feature Canonical Schema (Default)
+## 30-Feature Schema (Legacy)
 
-The canonical release track replaces the single `binding_score` with 10 per-allele MHCflurry presentation scores, for a total of 20 physicochemical + 10 binding = 30 features.
+Replaces the single `binding_score` with 10 per-allele MHCflurry presentation scores: 20 physicochemical + 10 binding = 30 features. Superseded by feature_mode=31 as of 2026-06-18.
 
 ### Per-Allele Binding Features
 
@@ -62,10 +62,27 @@ The canonical release track replaces the single `binding_score` with 10 per-alle
 | `bind_B3501` | HLA-B*35:01 | MHCflurry presentation_score |
 | `bind_B4402` | HLA-B*44:02 | MHCflurry presentation_score |
 
-### Canonical Feature Column Lists
+- `FEATURE_COLUMNS_30` (30): 20 physicochemical + 10 per-allele binding
 
-- `FEATURE_COLUMNS_30` (30): 20 physicochemical (p4-p8 x 4 properties) + 10 per-allele binding
-- `FEATURE_COLUMNS_31` (31): FEATURE_COLUMNS_30 + peptide_length (optional)
+## 31-Feature Canonical Schema (Production Default)
+
+The canonical production schema adds `peptide_length` to the 30-feature baseline. This closed the ablation gap between `full_31` (AUC-PR 0.864) and `combined_30` (AUC-PR 0.825) on the v3 dataset. `feature_mode: 31` is the config default as of 2026-06-18.
+
+- `FEATURE_COLUMNS_31` (31): FEATURE_COLUMNS_30 + `peptide_length`
+- Config: `feature_mode: 31`, trains `rf_31feature_integrated.joblib`
+
+## 33-Feature Extended Schema (Antigen Processing Tier)
+
+Adds two orthogonal antigen processing signals to the 31-feature canonical baseline. These features capture the proteasomal and TAP transport steps independently of the MHCflurry presentation_score (which also integrates processing internally).
+
+| Feature | Tool | Reference | Range |
+|---------|------|-----------|-------|
+| `netchop_score` | NetChop 3.1 C-terminal cleavage probability | Nielsen et al., *Protein Sci* 2005;14(11):2759–2763 | [0, 1] |
+| `tap_score` | TAPreg TAP transport efficiency | Doytchinova et al., *BMC Bioinformatics* 2004;5:48 | [0, ~1] |
+
+- `FEATURE_COLUMNS_33` (33): FEATURE_COLUMNS_31 + `netchop_score` + `tap_score`
+- Config: `feature_mode: 33`, requires `antigen_processing_cache_path` (built by `scripts/precompute_antigen_processing.py`)
+- Missing scores are median-imputed at training time via `load_antigen_processing_cache()` in `src/features.py`
 
 ## 50-Feature Expanded Schema
 
@@ -103,3 +120,14 @@ All metrics are computed by `src/evaluate_metrics.py`. The `evaluate()` function
 - `precision_10`, `precision_25` — Precision at top 10%/25%
 - `recall_10`, `recall_25` — Recall captured at top 10%/25%
 - `ndcg_10`, `ndcg_25` — Normalized DCG at top 10%/25%
+
+## Feature Migration Table
+
+| Mode | Feature count | CLI flag | Config value | Status | Notes |
+|------|--------------|---------|--------------|--------|-------|
+| 21 | 21 | `--feature-mode 21` | `feature_mode: 21` | Legacy | Sequence-only (physico_20 + peptide_length); v1 dataset |
+| 30 | 30 | `--feature-mode 30` | `feature_mode: 30` | Legacy | physico_20 + binding_10; superseded by 31 |
+| **31** | **31** | `--feature-mode 31` | `feature_mode: 31` | **Canonical** | 30 + peptide_length; AUC-PR 0.864 on v3 ablation |
+| 33 | 33 | `--feature-mode 33` | `feature_mode: 33` | Extended (cache required) | 31 + netchop_score + tap_score; cache built by precompute script |
+| 50 | 50 | `--feature-mode 50` | `feature_mode: 50` | Experimental | Expanded physico (40) + binding_10 |
+| 166 | 166 | `--feature-mode 166` | `feature_mode: 166` | Experimental | 30 + 136 HLA pocket pseudo-seq; allele-aware |
