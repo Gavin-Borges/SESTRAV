@@ -79,6 +79,18 @@ jobs:
           pip install --no-deps --require-hashes -r requirements.txt
           pip install --no-deps --require-hashes -r environments/requirements-ci.txt
 
+      - name: Verify MHCflurry model version pin
+        # Binding features change across MHCflurry releases; silent drift invalidates training checksums.
+        # config.yaml mhcflurry_model_version must match the installed version.
+        run: |
+          PINNED=$(python -c "import yaml; c=yaml.safe_load(open('config.yaml')); print(c['mhcflurry_model_version'])")
+          INSTALLED=$(python -c "import mhcflurry; print(mhcflurry.__version__)")
+          echo "Pinned: $PINNED | Installed: $INSTALLED"
+          if [ "$PINNED" != "$INSTALLED" ]; then
+            echo "ERROR: MHCflurry version mismatch — update mhcflurry_model_version in config.yaml"
+            exit 1
+          fi
+
       - name: Install coverage tooling
         # pytest-cov is a test-only tool, layered on top of the hash-pinned
         # runtime deps installed above (OpenSSF Silver test_statement_coverage80).

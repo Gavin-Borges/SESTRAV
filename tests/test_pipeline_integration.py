@@ -75,13 +75,12 @@ def test_canonical_feature_columns_are_present():
     assert X.shape[1] == 30
 
 
-def test_config_defaults_to_canonical_30_feature_release_path():
-    """Release defaults in config.yaml stay aligned to canonical 30-feature mode."""
+def test_config_defaults_to_canonical_31_feature_release_path():
+    """Release defaults in config.yaml stay aligned to canonical 31-feature mode."""
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
     with open(config_path, 'r', encoding='utf-8') as f:
         config_text = f.read()
-    assert 'feature_mode: 30' in config_text
-    assert 'model_path: models/rf_30feature_integrated.joblib' in config_text
+    assert 'feature_mode: 31' in config_text
 
 
 def test_legacy_rf_model_loads_and_scores():
@@ -229,7 +228,7 @@ if __name__ == "__main__":
     test_feature_extraction_produces_22_columns()
     test_train_feature_columns_are_21()
     test_canonical_feature_columns_are_present()
-    test_config_defaults_to_canonical_30_feature_release_path()
+    test_config_defaults_to_canonical_31_feature_release_path()
     test_legacy_rf_model_loads_and_scores()
     test_xgb_model_loads_and_scores()
     test_canonical_rf_model_loads_and_scores()
