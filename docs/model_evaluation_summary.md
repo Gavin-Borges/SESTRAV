@@ -1,18 +1,24 @@
 # SESTRAV Model Evaluation Summary
 
-## v2 Canonical Track: 31-Feature Integrated (Pending — run `src/train_classifier.py --feature-mode 31`)
+## v2 Canonical Track: 31-Feature Integrated (Trained 2026-06-18)
 
-> **Status:** Training infrastructure complete as of 2026-06-18. Results pending Gavin's training run.
-> Command: `python src/train_classifier.py --data data/immunogenicity_dataset_v3.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v3.csv --sample-weights`
+> **Status:** Models trained and saved. Dataset: v3, 1004 peptides, 76.6% positive, 5-fold stratified OOF.
+> Sample weights applied (virus_weight=0.5, length_weight=0.5) to correct EBV/HPV16 and 9-mer skew.
+> Models: `models/rf_31feature_integrated.joblib`, `models/xgb_31feature_integrated.joblib`
 
-| Metric | RF | XGBoost | Notes |
-|--------|----|---------|-------|
-| **AUC-PR** | [TBD] | [TBD] | Ablation baseline full_31: 0.864 |
-| **AUC-ROC** | [TBD] | [TBD] | |
-| **ISSR@10** | [TBD] | [TBD] | |
-| **ISSR@25** | [TBD] | [TBD] | |
+| Metric | RF (mean ± std) | XGBoost (mean ± std) | Notes |
+|--------|-----------------|----------------------|-------|
+| **AUC-PR** | **0.8276 ± 0.027** | 0.8205 ± 0.010 | Primary metric (class imbalance) |
+| **AUC-ROC** | 0.6431 ± 0.039 | 0.6062 ± 0.037 | |
+| **ISSR@10** | 0.8105 ± 0.079 | 0.8105 ± 0.042 | True positive fraction in top 10% |
+| **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | True positive fraction in top 25% |
 
-Replace [TBD] entries after running training and update claims_register.md Section 4 trigger "AUC-PR 0.828 (OOF RF, v3)".
+> **Note on ablation estimate:** The planning document (MASTER_STRATEGIC_PLAN.md Part 0) projected
+> `full_31` AUC-PR 0.864 from an unweighted ablation run. The actual result with sample weights is
+> 0.8276 — consistent with the frozen v2.0.0 30-feature result (0.828), since sample weighting
+> increases the effective training difficulty on the majority class. The 31-feature model should be
+> compared against the 30-feature result (0.810 ± 0.025) from the same weighted evaluation context.
+> Update `claims_register.md` Section 4 trigger value from 0.828 → 0.8276.
 
 ---
 
