@@ -72,17 +72,27 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 
 ### Semgrep (`semgrep scan --config p/python`)
 
-Semgrep is not installed in the `sestrav` conda environment as of Day 4. It is active in CI via `.github/workflows/security_scan.yml` (runs on every PR and weekly schedule). Manual local semgrep scan is a pending environment setup task.
+Run 2026-06-18 (Day 5) with semgrep 1.167.0. **2 findings, both false positives in research-only scripts.**
 
-**Action (manual — Gavin):** Run `pip install semgrep` in the sestrav environment and execute `semgrep scan --config p/python` once. Results to be added here.
+| Location | Rule | Finding | Disposition |
+|----------|------|---------|-------------|
+| `scripts/run_predig_wrapper.py:101` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` is a Docker invocation list | **False positive.** `cmd` is a Python list (no `shell=True`); list-form subprocess is not shell-injectable. This is a Docker wrapper script for PredIG, not reachable from user-facing endpoints. |
+| `scripts/run_prime_wrapper.py:95` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale — list-form subprocess, paths are internally constructed, not from untrusted user input. |
+
+**Action:** No code changes required. Both scripts are researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either script ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
 
 ### pip-audit (`pip-audit -r environments/requirements.lock`)
 
-`pip-audit` is not installed in the `sestrav` conda environment as of Day 4. The lock file is present at `environments/requirements.lock`.
+Run 2026-06-18 (Day 5) with pip-audit 2.10.1. **4 packages flagged; 3 are transitive dependencies of mhcflurry/research tools, 1 is the pre-documented torch CVE.**
 
-**Known outstanding CVE:** CVE-2025-3000 (torch, CVSS 5.3) — dismissed tolerable_risk in prior session. `torch.jit.script` not exposed to untrusted input. Will reopen when PyTorch patches.
+| Package | Version | Vulnerability | Fix | Disposition |
+|---------|---------|--------------|-----|-------------|
+| `aiohttp` | 3.13.5 | CVE-2026-54273 through CVE-2026-54280, CVE-2026-50269 (9 CVEs) | ≥3.14.1 | **Tolerable risk — transitive dependency.** `aiohttp` is pulled in by `mhcflurry` as an HTTP client for model download; SESTRAV's inference pipeline does not make network calls at prediction time. Will upgrade when mhcflurry releases a compatible version. |
+| `cryptography` | 46.0.7 | GHSA-537c-gmf6-5ccf | ≥48.0.1 | **Tolerable risk — transitive dependency** of `mhcflurry`/`paramiko`. SESTRAV does not perform cryptographic operations directly. Will upgrade when upstream dependency releases a compatible version. |
+| `pyjwt` | 2.12.0 | PYSEC-2026-175–179 | ≥2.13.0 | **Tolerable risk — transitive dependency** (pulled in by semgrep/mcp tooling). Not a SESTRAV runtime dependency; SESTRAV does not issue or verify JWTs. |
+| `torch` | 2.11.0 | CVE-2025-3000 (CVSS 5.3) | No upstream patch | **Pre-documented tolerable risk** (dismissed in prior session). `torch.jit.script` not exposed to untrusted input. Local-only AV, EPSS 0.08%. Will reopen when PyTorch patches. |
 
-**Action (manual — Gavin):** Run `pip install pip-audit` then `pip-audit -r environments/requirements.lock`. Update this section with full output.
+**Summary:** 0 actionable CVEs in SESTRAV's own code or direct runtime dependencies. All findings are transitive dependencies of third-party ML tooling with no exposure surface in the deployed package.
 
 ## Future Upgrades
 Automated dependency updates are in place via Dependabot (`.github/dependabot.yml`)
