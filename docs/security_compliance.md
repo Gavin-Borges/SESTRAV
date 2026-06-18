@@ -46,7 +46,43 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 ## 6. Analysis
 - **Dynamic Analysis / Fuzzing:** Hypothesis property-based fuzz testing is integrated in CI via `.github/workflows/fuzzing.yml`. Tests in `tests/test_fuzz.py` exercise `compute_features` and `get_tcr_positions` under adversarial and edge-case amino acid inputs. Standard runs use 200 examples per push; weekly scheduled runs use 1000 examples. The Hypothesis database is persisted as an artifact to retain failure examples across runs.
 - **Pipeline Data Integrity:** `freeze_mode` constraints enforce data immutability during reproducibility benchmarking — this is a correctness guard, not a security control.
-- **Hygiene:** 0 known vulnerabilities exist in the core python codebase (verified by Bandit). Dependency-review Action blocks PRs introducing new vulnerable packages.
+- **Hygiene:** 0 High-severity issues in the core Python codebase (verified by Bandit 2026-06-18, session 5 Day 4 audit — see §7).
+
+## 7. Day 4 Security Audit (2026-06-18)
+
+### Bandit (`bandit -r . -ll`)
+
+| Severity | Count | Disposition |
+|----------|-------|-------------|
+| High     | 0     | — |
+| Medium   | 5     | All B614 (PyTorch load/save); all false positives in context — see table |
+| Low      | 1184  | Not actionable at `-ll` threshold; dominated by assert-use and subprocess patterns in test harness |
+
+**Medium findings detail (all B614 — CWE-502):**
+
+| Location | Context | Disposition |
+|----------|---------|-------------|
+| `resave_checkpoint.py:61` | `torch.save(ckpt, path)` — internal maintenance script saving trusted model state | Acceptable: script not exposed to user input; data is internally generated |
+| `resave_checkpoint.py:355` | `torch.save(new_ckpt, output_path)` — same script | Acceptable: same rationale |
+| `tests/test_graph_builder.py:48` | `torch.save(dist, tmp_path / "PEP_dist.pt")` — test fixture writing a known tensor | `# nosec B614` added 2026-06-18 |
+| `tests/test_sestrav_evaluator_extended.py:165` | `torch.save(state, chk)` — test fixture writing known state dict | `# nosec B614` added 2026-06-18 |
+| `tests/test_sestrav_evaluator_extended.py:175` | `torch.save(state, chk)` — second test fixture in same file | `# nosec B614` added 2026-06-18 |
+
+**Action:** The two `resave_checkpoint.py` findings are accepted as tolerable operational risk (`torch.save` is necessary for checkpoint maintenance; the file is not reachable from user-facing CLI paths). No `# nosec` added there to preserve visibility; document will be updated if the threat model changes.
+
+### Semgrep (`semgrep scan --config p/python`)
+
+Semgrep is not installed in the `sestrav` conda environment as of Day 4. It is active in CI via `.github/workflows/security_scan.yml` (runs on every PR and weekly schedule). Manual local semgrep scan is a pending environment setup task.
+
+**Action (manual — Gavin):** Run `pip install semgrep` in the sestrav environment and execute `semgrep scan --config p/python` once. Results to be added here.
+
+### pip-audit (`pip-audit -r environments/requirements.lock`)
+
+`pip-audit` is not installed in the `sestrav` conda environment as of Day 4. The lock file is present at `environments/requirements.lock`.
+
+**Known outstanding CVE:** CVE-2025-3000 (torch, CVSS 5.3) — dismissed tolerable_risk in prior session. `torch.jit.script` not exposed to untrusted input. Will reopen when PyTorch patches.
+
+**Action (manual — Gavin):** Run `pip install pip-audit` then `pip-audit -r environments/requirements.lock`. Update this section with full output.
 
 ## Future Upgrades
 Automated dependency updates are in place via Dependabot (`.github/dependabot.yml`)

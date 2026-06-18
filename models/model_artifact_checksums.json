@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-06-18T17:53:12.693060+00:00",
+  "generated_utc": "2026-06-18T19:39:03.833248+00:00",
   "artifacts": {
     "rf_30feature_integrated.joblib": {
       "sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3",
@@ -10,24 +10,24 @@
       "size_bytes": 388663
     },
     "training_results.csv": {
-      "sha256": "4ebe0a89da05724f362c34b2011a5c437ae0cbe571b281d1d49f10e450ab6485",
-      "size_bytes": 947
+      "sha256": "e5c2f634ab3feb708aa705daa97f649f518134e502f01166ea8366d0d6179a41",
+      "size_bytes": 921
     },
     "training_subgroup_metrics.csv": {
-      "sha256": "dc61415fe522c5e53d02697e280a1c735b32301332dd5b6808363b7be8bcb323",
-      "size_bytes": 44181
+      "sha256": "b42f3eed02c4e5d040a27d0b9fa0093134b064b72d4edf52e14986648a02e741",
+      "size_bytes": 44179
     },
     "feature_importances.csv": {
-      "sha256": "e5ce9290e717a78addc44b6da4ce74e01d8517029a97d8c47435ef2ea60ee25a",
-      "size_bytes": 1223
+      "sha256": "14d1769e70acb13da39914fb07bb65533588caffdb7cb13c95d9a631e43623b6",
+      "size_bytes": 1321
     },
     "rf_oof_predictions.csv": {
-      "sha256": "c1f021bf86f225e14dc088e4dabc876f5006ac53cf379812959b82e3bdb9ce8c",
-      "size_bytes": 56336
+      "sha256": "7871cc5d26a27e9aed37723d470752d2512e4977439845eb43b7511b8514cc42",
+      "size_bytes": 53166
     },
     "optimal_thresholds.json": {
-      "sha256": "9321bd8ad1d0a75e44345d4ea0e8abbce29f7c44c2595c8c5a0cf8bfc2ccfcf8",
-      "size_bytes": 343
+      "sha256": "24ccca6f3c0cad45852d0c9e0da0b6ffc0be9566938a98d6b83694081ddcde27",
+      "size_bytes": 330
     },
     "rf_50feature_integrated.joblib": {
       "sha256": "8c3e2918f84cf13af8f44a62ac1826590bf6e1334d17a782123a0f03377b01b0",
@@ -60,6 +60,14 @@
     "xgb_31feature_integrated.joblib": {
       "sha256": "fefa16161e5a9ae45e5096a74b58f827b030c60b36391f624ac4403a967feab7",
       "size_bytes": 381696
+    },
+    "rf_33feature_integrated.joblib": {
+      "sha256": "28b6d5ac58e9aa9e79c2fbd62867d5147e34aa6b4a90e7fb89bfaeb394c081dd",
+      "size_bytes": 7061545
+    },
+    "xgb_33feature_integrated.joblib": {
+      "sha256": "50783bb56c4f5c54cc6ed57e9198658b28387c3ea160cb179e15309ccd1cefa8",
+      "size_bytes": 349400
     }
   }
 }

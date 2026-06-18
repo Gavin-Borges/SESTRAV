@@ -162,7 +162,7 @@ def test_run_evaluation_pipeline_empty_viruses(tmp_path):
 def test_load_torch_checkpoint_success(tmp_path):
     chk = tmp_path / "model.pth"
     state = {"weight": torch.tensor([1.0, 2.0])}
-    torch.save(state, chk)
+    torch.save(state, chk)  # nosec B614 — test fixture, trusted tensor
 
     loaded = _load_torch_checkpoint(chk, torch.device("cpu"))
     assert "weight" in loaded
@@ -172,7 +172,7 @@ def test_load_torch_checkpoint_success(tmp_path):
 def test_load_torch_checkpoint_fallback_on_weights_only_failure(tmp_path):
     chk = tmp_path / "model.pth"
     state = {"w": torch.tensor([3.0])}
-    torch.save(state, chk)
+    torch.save(state, chk)  # nosec B614 — test fixture, trusted tensor
 
     with patch("torch.load", side_effect=[RuntimeError("weights_only failed"), state]):
         loaded = _load_torch_checkpoint(chk, torch.device("cpu"))
