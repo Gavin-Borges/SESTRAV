@@ -2,12 +2,18 @@
 antigens:
   - HPV16_18_panel8
   - EBV_B95_8_panel8
+  - HBV_ayw_panel4
+  - HCV_1a_panel4
 
 proteome_files:
   HPV16_18_panel8: data/proteomes/HPV16_18_panel8.fasta
   EBV_B95_8_panel8: data/proteomes/EBV_B95_8_panel8.fasta
-  # Legacy one-release alias
+  HBV_ayw_panel4: data/proteomes/HBV_ayw_panel4.fasta
+  HCV_1a_panel4: data/proteomes/HCV_1a_panel4.fasta
+  # Legacy one-release aliases
   EBV_panel8_B958: data/proteomes/EBV_B95_8_panel8.fasta
+  HBV_panel4: data/proteomes/HBV_ayw_panel4.fasta
+  HCV_panel4: data/proteomes/HCV_1a_panel4.fasta
 
 alleles:
   - HLA-A*02:01

@@ -41,9 +41,41 @@ This panel comprises key regulatory and oncogenic proteins from the high-risk st
 
 ---
 
-## 3. FASTA Configurations and Stage 1 Integration
+## 3. Hepatitis B Virus (HBV) Antigens
+All sequences are derived from the **HBV genotype D subtype ayw** reference strains (France/Tiollais/1979 isolate where available).
+
+| Protein Name | UniProt Accession ID | Gene | Strain | Biological Role |
+| :--- | :--- | :--- | :--- | :--- |
+| **HBcAg** | `P03147` | `C` | genotype D subtype adw (UK/adyw/1979) | Capsid/core antigen (nucleocapsid assembly) |
+| **HBx** | `P03165` | `X` | genotype D subtype ayw (France/Tiollais/1979) | Transcriptional transactivator (oncogenic driver) |
+| **HBsAg-S** | `P03138` | `S` | genotype D subtype ayw (France/Tiollais/1979) | Large envelope protein (surface antigen, host entry) |
+| **HBpol** | `P03157` | `P` | genotype C subtype ad (Japan/S-179/1988) | DNA polymerase / reverse transcriptase |
+
+> [!NOTE]
+> Sequences are downloaded via `scripts/fetch_viral_proteomes.py` with provenance recorded in `data/proteomes/HBV_ayw_panel4_provenance.json`.
+
+---
+
+## 4. Hepatitis C Virus (HCV) Antigens
+This panel uses the best-available reviewed Swiss-Prot entries for each NS protein. Only one reviewed genotype 1a entry exists (P26664, H77 genome polyprotein); NS3/NS5A/NS5B are represented by the best-characterized available accessions.
+
+| Protein Name | UniProt Accession ID | Strain | Biological Role |
+| :--- | :--- | :--- | :--- |
+| **Core** | `P26664` | genotype 1a (H77) — full polyprotein | Nucleocapsid protein; polyprotein contains all NS regions |
+| **NS3** | `O92972` | genotype 1b (HC-J4) — best-reviewed NS3 | Serine protease / RNA helicase |
+| **NS5A** | `O92975` | Hepacivirus hominis fragment | Membrane-associated phosphoprotein (replication complex) |
+| **NS5B** | `O92976` | Hepacivirus hominis fragment | RNA-directed RNA polymerase |
+
+> [!NOTE]
+> No reviewed genotype 1a-specific NS3/NS5A/NS5B accessions exist in Swiss-Prot. O92972 (1b HC-J4) is the most-reviewed NS3 source; O92975/O92976 are TrEMBL fragments. Sequences downloaded via `scripts/fetch_viral_proteomes.py`; provenance in `data/proteomes/HCV_1a_panel4_provenance.json`.
+
+---
+
+## 5. FASTA Configurations and Stage 1 Integration
 These accessions are consolidated into default FASTA inputs used in the Snakemake sliding-window generation:
 *   **EBV Proteome Panel (8 proteins):** [EBV_B95_8_panel8.fasta](../data/proteomes/EBV_B95_8_panel8.fasta)
 *   **HPV Proteome Panel (8 proteins):** [HPV16_18_panel8.fasta](../data/proteomes/HPV16_18_panel8.fasta) (comprising 4 HPV16 and 4 HPV18 proteins)
+*   **HBV Proteome Panel (4 proteins):** [HBV_ayw_panel4.fasta](../data/proteomes/HBV_ayw_panel4.fasta)
+*   **HCV Proteome Panel (4 proteins):** [HCV_1a_panel4.fasta](../data/proteomes/HCV_1a_panel4.fasta)
 
 Any sliding-window queries initiated via `Snakefile` or `pipeline.smk` default to these configurations. Custom proteins added for Stage 1 must follow this mapping format and be documented accordingly.

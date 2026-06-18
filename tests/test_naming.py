@@ -13,6 +13,11 @@ def test_canonicalize_proteome_id_maps_alias_and_passthrough():
     # An already-canonical (or unknown) id is returned unchanged.
     assert canonicalize_proteome_id("HPV16_18_panel8") == "HPV16_18_panel8"
     assert canonicalize_proteome_id("something_else") == "something_else"
+    # HBV/HCV short aliases map to canonical panel IDs.
+    assert canonicalize_proteome_id("HBV_panel4") == "HBV_ayw_panel4"
+    assert canonicalize_proteome_id("HCV_panel4") == "HCV_1a_panel4"
+    assert canonicalize_proteome_id("HBV_ayw_panel4") == "HBV_ayw_panel4"
+    assert canonicalize_proteome_id("HCV_1a_panel4") == "HCV_1a_panel4"
 
 
 def test_proteome_id_candidates_canonical_first_with_legacies():
@@ -25,6 +30,18 @@ def test_proteome_id_candidates_canonical_first_with_legacies():
 
 def test_proteome_id_candidates_unknown_returns_singleton():
     assert proteome_id_candidates("novel_id") == ["novel_id"]
+
+
+def test_proteome_id_candidates_hbv_hcv_panels():
+    hbv = proteome_id_candidates("HBV_ayw_panel4")
+    assert hbv[0] == "HBV_ayw_panel4"
+    assert "HBV_panel4" in hbv
+    assert len(hbv) == len(set(hbv))
+
+    hcv = proteome_id_candidates("HCV_panel4")
+    assert hcv[0] == "HCV_1a_panel4"
+    assert "HCV_panel4" in hcv
+    assert len(hcv) == len(set(hcv))
 
 
 def test_resolve_model_path_empty_is_passthrough():
