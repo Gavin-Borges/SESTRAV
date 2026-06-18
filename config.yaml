@@ -40,7 +40,7 @@ binding_backend: mhcflurry
 # Verify installed version: python -c "import mhcflurry; print(mhcflurry.__version__)"
 # Update this value after running: mhcflurry-downloads fetch models_class1_presentation
 # DO NOT change without rebuilding the training dataset and updating all model provenance files.
-mhcflurry_model_version: "2.0.1"
+mhcflurry_model_version: "2.2.1"
 
 # Feature mode: 21 (legacy sequence-only) | 30 (physico + binding, legacy) | 31 (canonical) | 33 (+ antigen processing)
 # Canonical production model: feature_mode=31 (full_31: physico_20 + binding_10 + peptide_length)
