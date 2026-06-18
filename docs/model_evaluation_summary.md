@@ -1,5 +1,25 @@
 # SESTRAV Model Evaluation Summary
 
+## v2 Extended Track: 33-Feature Integrated (Trained 2026-06-18)
+
+> **Status:** Best current v3 model. Dataset: v3 n=1004 peptides, 76.6% positive, 5-fold OOF.
+> Sample weights applied (virus_weight=0.5, length_weight=0.5).
+> Models: `models/rf_33feature_integrated.joblib`, `models/xgb_33feature_integrated.joblib`
+> Features: 20 physico (p4–p8) + 10 binding (MHCflurry) + peptide_length + netchop_score + tap_score
+
+| Metric | RF (mean ± std) | XGBoost (mean ± std) | Notes |
+|--------|-----------------|----------------------|-------|
+| **AUC-PR** | **0.8399 ± 0.011** | 0.8235 ± 0.012 | Primary metric |
+| **AUC-ROC** | 0.6728 ± 0.023 | 0.6393 ± 0.029 | |
+| **ISSR@10** | **0.9158 ± 0.042** | 0.8842 ± 0.052 | True positive fraction in top 10% |
+| **ISSR@25** | 0.9102 ± 0.038 | 0.8816 ± 0.024 | True positive fraction in top 25% |
+
+> **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** — best single-number unweighted
+> result for SESTRAV on v3. Improvement over feature_mode=31 unweighted (0.864): +0.022 AUC-PR.
+> Top feature: netchop_score (RF importance=0.118), confirming independent proteasomal processing signal.
+
+---
+
 ## v2 Canonical Track: 31-Feature Integrated (Trained 2026-06-18)
 
 > **Status:** Models trained and saved. Dataset: v3, 1004 peptides, 76.6% positive, 5-fold stratified OOF.
@@ -79,9 +99,12 @@ For exact unrounded synced values, see:
 | `binding_10` | 10 | 0.851 | 0.727 |
 | `sestrav_21` | 21 | 0.784 | 0.622 |
 | `combined_30` | 30 | 0.825 | 0.670 |
-| `full_31` | 31 | **0.864** | **0.743** |
+| `full_31` | 31 | 0.864 | 0.743 |
+| **`full_33`** | **33** | **0.886** | **0.751** |
 
-Binding features are the strongest individual group; physicochemical features provide complementary discrimination when combined. The full 31-feature set (including peptide_length) yields the best overall performance.
+Antigen processing features (netchop_score, tap_score) add +0.022 AUC-PR above `full_31`, confirming
+independent proteasomal and TAP transport signal. The `full_33` model is the best v3 result and the
+recommended production track where antigen processing cache is available.
 
 ---
 

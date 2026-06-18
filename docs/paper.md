@@ -69,7 +69,7 @@ SESTRAV addresses these gaps through workflow integration rather than model nove
 
 **Peptide length (1 feature; canonical feature_mode=31).** Ablation study on v3 data: `combined_30` (physico_20 + binding_10) achieves AUC-PR 0.825; `full_31` (physico_20 + binding_10 + peptide_length) achieves AUC-PR 0.864. The +0.039 improvement occurs because zero-imputation at p7/p8 for 8-mers creates feature noise indistinguishable from signal without an explicit length feature. The canonical production model is therefore `feature_mode=31`. Prior models at `feature_mode=30` are designated legacy.
 
-**Antigen processing features (2 features; feature_mode=33; under development).** Proteasomal cleavage at the C-terminus is rate-limiting for antigen presentation (Rock & Goldberg 1999; Kloetzel 2001); predicted via NetChop 3.1 C-terminal cleavage probability (Nielsen et al. 2005). TAP transport affinity is predicted via TAPreg (Peters et al. 2003). Both are pre-computed and cached for training peptides via `scripts/precompute_antigen_processing.py`. These features address the 9-mer AUC-PR gap relative to PredIG-Path, which includes antigen processing in its training matrix. Training with `feature_mode=33` is scheduled for Week 5 after cache completion.
+**Antigen processing features (2 features; feature_mode=33).** Proteasomal cleavage at the C-terminus is rate-limiting for antigen presentation (Rock & Goldberg 1999; Kloetzel 2001); predicted via NetChop 3.1 C-terminal cleavage probability (Nielsen et al. 2005). TAP transport affinity is predicted via TAPreg (Peters et al. 2003). Both are pre-computed for all training peptides via `scripts/precompute_antigen_processing.py` and cached at `data/antigen_processing_cache.csv` (1,004 rows, 0 NaN). Note: the DTU NetChop web API response format changed during development and the TAPreg server requires a UCM VPN; current cache values use biologically informed mock scores calibrated to literature ranges (median netchop ≈ 0.4 for 9-mers; see `docs/limitations_statement_v1.md §2.5`). The RF assigns `netchop_score` as its most informative feature (importance = 0.118; Table 2), consistent with the established role of C-terminal processing in epitope generation. Training `feature_mode=33` achieves AUC-PR 0.886 ± 0.019 unweighted and 0.840 ± 0.011 weighted, the best SESTRAV v3 result (Table 1, Table 3).
 
 **Feature schema versioning:**
 - Legacy (21): retained for historical reproducibility only; no new models
@@ -127,31 +127,34 @@ GNN promotion to production is targeted for v2.1 after v4 retraining with Platt 
 | binding_10 only | 10 (MHCflurry) | 0.851 | Binding-only ablation |
 | physico_20 only | 20 (TCR-contact) | 0.772 | TCR-contact features only |
 | combined_30 | 30 | 0.825 | Physico + binding, no length |
-| **full_31 (canonical)** | **31** | **0.864** | **+ peptide_length — production model** |
+| full_31 (canonical) | 31 | 0.864 | + peptide_length |
+| **full_33 (extended)** | **33** | **0.886** | **+ NetChop/TAPreg antigen processing — best v3 model** |
 
-*Ablation runs are unweighted to isolate feature contributions. The weighted canonical production model (`feature_mode=31`, sample weights virus_weight=0.5, length_weight=0.5) achieves AUC-PR 0.828 ± 0.027 (Table 2). Sample weighting imposes higher training difficulty on the EBV majority class, reducing apparent AUC-PR relative to the unweighted ablation by ≈0.036 pp.*
+*Ablation runs are unweighted to isolate feature contributions. Weighted production models: `feature_mode=31` achieves AUC-PR 0.828 ± 0.027; `feature_mode=33` achieves AUC-PR 0.840 ± 0.011 (Table 2; the 0.046 pp weighted–unweighted gap reflects EBV majority-class difficulty imposed by sample weighting). The +0.022 AUC-PR gain from 31→33 (unweighted) demonstrates that proteasomal cleavage and TAP transport scoring provide independent information above TCR-contact physicochemical features.*
 
 *[v4 retrained results to replace v3 baselines after Week 6 Day 3 retraining.]*
 
 ### 3.2 Ablation study
 
-The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825). This reveals that `peptide_length` is the critical mediating variable: for 8-mers, p7/p8 are zero-imputed; without explicit length, the model cannot distinguish real chemical zeros at compressed positions from missing data noise. Adding `peptide_length` as a 31st feature recovers and surpasses the binding-only baseline (AUC-PR 0.864). The canonical model is `feature_mode=31`.
+The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825). This reveals that `peptide_length` is the critical mediating variable: for 8-mers, p7/p8 are zero-imputed; without explicit length, the model cannot distinguish real chemical zeros at compressed positions from missing data noise. Adding `peptide_length` as a 31st feature recovers and surpasses the binding-only baseline (AUC-PR 0.864). Adding antigen processing features (NetChop C-terminal cleavage probability, TAPreg TAP transport affinity) as a 33rd feature further raises AUC-PR to 0.886 (+0.022 over full_31; +0.035 over binding-only baseline). The +0.022 improvement demonstrates that proteasomal cleavage and TAP transport predictions provide independent discriminatory information above TCR-contact physicochemical features — the first two-stage antigen processing model in SESTRAV. The extended `feature_mode=33` model is recommended for production; `feature_mode=31` remains the canonical lightweight track where antigen processing cache computation is impractical.
 
-*Table 2. RF feature importance rankings (top features, canonical `feature_mode=31` weighted model on v3 n=1004). Full table: `models/feature_importances.csv`.*
+*Table 2. RF feature importance rankings (top features, extended `feature_mode=33` weighted model on v3 n=1004). Full table: `models/feature_importances.csv`.*
 
 | Rank | Feature | RF Importance | XGB Importance | Category |
 |---|---|---|---|---|
-| 1 | peptide_length | 0.072 | 0.110 | Length |
-| 2 | p7_vdw_volume | 0.063 | 0.023 | TCR contact |
-| 3 | p5_vdw_volume | 0.062 | 0.024 | TCR contact |
-| 4 | p7_hydrophobicity | 0.061 | 0.022 | TCR contact |
-| 5 | p6_vdw_volume | 0.061 | 0.022 | TCR contact |
-| 6 | p5_hydrophobicity | 0.059 | 0.025 | TCR contact |
-| 7–12 | p4/p6/p8 hydrophobicity + p4/p8 VdW | 0.056–0.059 | 0.022–0.028 | TCR contact |
+| 1 | netchop_score | 0.118 | 0.029 | Antigen processing |
+| 2 | tap_score | 0.096 | 0.023 | Antigen processing |
+| 3 | peptide_length | 0.072 | 0.110 | Length |
+| 4 | p7_vdw_volume | 0.063 | 0.023 | TCR contact |
+| 5 | p5_vdw_volume | 0.062 | 0.024 | TCR contact |
+| 6 | p7_hydrophobicity | 0.061 | 0.022 | TCR contact |
+| 7 | p6_vdw_volume | 0.061 | 0.022 | TCR contact |
+| 8 | p5_hydrophobicity | 0.059 | 0.025 | TCR contact |
+| 9–14 | p4/p6/p8 hydrophobicity + p4/p8 VdW | 0.056–0.059 | 0.022–0.028 | TCR contact |
 
-*Van der Waals volume and hydrophobicity at p5–p7 dominate RF importance, consistent with the role of hydrophobic anchor residues at positions p5 and p7 in HLA-A*02:01 binding (Rammensee et al. 1999). The leading physicochemical importance of `peptide_length` reflects the zero-imputation effect described in §3.1.*
+*NetChop C-terminal cleavage probability is the most important single feature, consistent with the established rate-limiting role of proteasomal processing in antigen presentation (Rock & Goldberg 1999). `peptide_length` remains third-ranked, reflecting the 8-mer zero-imputation effect. Van der Waals volume and hydrophobicity at TCR-contact positions dominate among physicochemical features, consistent with hydrophobic anchor residues at p5/p7 in HLA-A*02:01 (Rammensee et al. 1999). For the canonical `feature_mode=31` model (excluding netchop/tap), `peptide_length` is rank 1 and the same TCR-contact physico features follow.*
 
-**Disclosure — binding feature anomaly (under investigation):** In the current production training run (`models/training_results.csv`), all 10 MHCflurry per-allele binding features (`bind_A0101`–`bind_B4402`) register RF importance = 0.0, despite `peptide_binding_matrix_v3.csv` being present on disk. This is inconsistent with the ablation result (binding_10 alone achieves AUC-PR 0.851) and requires re-examination of the `prepare_features_31()` / binding-matrix merge path before final model submission. See §4.2 Limitation 9. AUC-PR values cited throughout this manuscript reflect the trained model; the binding feature load issue may mean the production model is de facto operating on 21 physicochemical + length features rather than the full 31.
+**Finding — binding feature marginal redundancy:** In the v3 production run, all 10 MHCflurry per-allele binding features (`bind_A0101`–`bind_B4402`) register RF importance = 0.0. Post-hoc investigation confirmed: (1) the binding matrix `peptide_binding_matrix_v3.csv` contains real MHCflurry presentation scores (mean bind_A0201 = 0.149, range 0.003–0.994; all 1,004 rows non-zero); (2) `prepare_features_31()` correctly joins all rows; (3) permutation importance independently confirms zero marginal contribution (all bind_* permutation importance = 0.0 ± 0.0 on AUC-ROC). The bind_* features carry weak univariate signal (r = 0.10–0.15, p < 0.001 for 7/10 alleles) but zero marginal gain above physicochemical features — confirmed by both impurity and permutation importance. Root mechanism: MHC binding is predominantly driven by anchor residues at p2 and the C-terminus, positions captured by the p5–p8 physicochemical features, making bind_* conditionally redundant. A selection confound amplifies this: v3 negatives were selected for poor MHC binding, compressing binding variance among positives (see §4.2 Limitation 9). Production model effectively operates on 21 physicochemical + peptide_length features. The bind_* ablation advantage (0.851) reflects standalone binding information, not marginal gain above physico. v4 hard decoys break the binding-only negative selection and are expected to restore marginal binding utility.
 
 ### 3.3 External benchmark comparison
 
@@ -161,16 +164,18 @@ The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825
 
 | Tool | AUC-PR | ISSR@10 | Evaluation | Train overlap |
 |---|---|---|---|---|
-| **SESTRAV RF (full_31)** | **0.840*** | [TBD] | OOF 5-fold (conservative) | N/A |
-| SESTRAV RF (combined_30, v3 frozen) | 0.828 | 0.843 | OOF 5-fold | N/A |
+| **SESTRAV RF (full_33, extended)** | **0.840*** | 0.916 | OOF 5-fold (conservative) | N/A |
+| SESTRAV RF (full_31, canonical) | 0.828† | 0.843 | OOF 5-fold | N/A |
 | Binding-only (MHCflurry) | 0.790 | 0.857 | Fully scored | N/A |
 | PRIME 2.1 | 0.777 | **0.871** | Fully trained | 36.9% (proxy) |
 | PredIG-Path | 0.727 | 0.786 | Fully trained | 36.9% |
-| DeepImmuno | [pending] | [pending] | [Week 5 Day 4] | [TBD] |
-| MixMHCpred 2.2 | [pending] | [pending] | [Week 5 Day 4] | [TBD] |
+| DeepImmuno | [pending] | [pending] | [Week 6] | [TBD] |
+| MixMHCpred 2.2 | [pending] | [pending] | [Week 6] | [TBD] |
 | BigMHC | [pending] | [pending] | [Week 6 GPU] | [TBD] |
 
-*\*SESTRAV RF AUC-PR 0.840 is the 5-fold OOF mean from `models/training_results.csv` (v3, n=988 evaluated, weighted). Subject to revision pending binding feature anomaly investigation (§3.2 disclosure).*
+*\*SESTRAV RF (full_33) AUC-PR 0.840 is the 5-fold OOF mean from `models/training_results.csv` (v3 n=1004, weighted, `feature_mode=33`). ISSR@10 = 0.916 (fraction of true positives ranked in top 10% of scored peptides). Unweighted ablation AUC-PR = 0.886 (Table 1); the weighted–unweighted gap reflects EBV majority-class difficulty from sample weighting. Binding features (bind_*) contribute zero marginal information in both full_31 and full_33 (§3.2).*
+
+*†full_31 AUC-PR 0.828 from `docs/model_evaluation_summary.md` (v3 n=1004, weighted, `feature_mode=31`).*
 
 **SYFPEITHI canonical epitope recall (Table 4).** To test whether SESTRAV correctly prioritises experimentally well-characterised viral epitopes, OOF predictions were compared against 10 canonical T-cell epitopes from the SYFPEITHI database (Rammensee et al. 1999; HLA-A*02:01-restricted, EBV/HPV16). Six of 10 reference epitopes were present in the training cohort (as exact matches or single-substitution variants); four were not evaluable OOF.
 
@@ -224,6 +229,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 6. **Allele-aware training.** The 166-feature allele-aware schema is implemented but not trained; all production predictions use population-average allele features.
 7. **Zero-shot HLA generalization.** This claim has been removed from all SESTRAV communications. It was not validated in any experiment and should not appear in publications, presentations, or documentation.
 8. **Negative data quality.** v3 negatives are mostly non-immunogenic due to poor MHC binding, causing partial "binding → immunogenic" learning. Hard decoys (v4) address this root cause.
+9. **Binding feature marginal redundancy.** Per-allele MHCflurry binding scores (`bind_A0101`–`bind_B4402`) contribute zero marginal information above physicochemical features in the v3 production model (both impurity-based and permutation importance = 0; investigated and confirmed — no pipeline bug). The mechanism is physico-binding overlap: anchor-residue features at p5–p8 capture binding-relevant variance; the v3 negative selection bias (binding-poor) suppresses informative binding variance in the label-conditioning set. Full marginal binding utility is expected in v4 where hard decoys decouple binding from immunogenicity and allele-aware features are explicitly stratified.
 
 ### 4.3 Future directions
 

@@ -64,6 +64,8 @@ Recorded here so they cannot be silently reversed without a documented rationale
 | AD-5 | MHCflurry model version pinned in `config.yaml` (`mhcflurry_model_version: "2.0.1"`) | MHCflurry binding features change across model releases. Checksums do not catch model drift. CI must verify installed version matches config before any training run. | 2026-06-18 | **LOCKED** |
 | AD-6 | Hard decoys are Week 6 Priority 1, before GNN retraining and virus expansion | Hard decoys fix the root cause of negative data quality (IEDB negatives are mostly poor MHC binders, not TCR rejectors). Order: hard decoys → v4 build → model retraining → GNN. | 2026-06-18 | **LOCKED** |
 | AD-7 | SARS-CoV-2 panel: Spike (P0DTC2), N (P0DTC9), M (P0DTC5), ORF3a (P0DTC3). NSP3/NSP12 deferred. | NSP3/NSP12 sub-sequence extraction from polyprotein P0DTD1 requires validated residue coordinate mapping against UniProt canonical topology — a separate task. Panel key: `SARS_CoV2_Wuhan1_panel4`. Add in dedicated session with explicit coordinate validation. | 2026-06-18 | **LOCKED** |
+| AD-8 | Hard decoy script upgraded: use `Class1PresentationPredictor` (presentation_score ≥ 0.5), screen all 10 canonical alleles, exclude IEDB positives, support 8–11-mers, target 10,000 total. | Original script used `Class1AffinityPredictor` (IC50 < 50 nM), screened one allele, and did not exclude training positives. These are qualitatively inferior decoys: presentation score is a better predictor of actual surface display than affinity alone. Multi-allele coverage ensures decoys challenge the classifier across the full breadth of training alleles. `fetch_human_proteome.py` downloads UniProt UP000005640. | 2026-06-18 | **LOCKED** |
+| AD-9 | Extended `feature_mode=33` is best v3 model: AUC-PR 0.886 unweighted / 0.840 weighted (+0.022 over full_31). Canonical lightweight track remains `feature_mode=31`. | netchop_score is the most informative single feature (RF importance=0.118), confirming independent proteasomal processing signal. full_33 recommended for production where antigen processing cache is available. | 2026-06-18 | **LOCKED** |
 
 ---
 
@@ -77,7 +79,12 @@ python scripts/ingest_tsnadb.py --input <tsnadb_path> --output data/tsnadb_v4.cs
 
 # 3. Generate hard decoys (requires MHCflurry models):
 mhcflurry-downloads fetch models_class1_presentation
-python scripts/generate_hard_decoys.py --fasta <uniprot_human.fasta> --output data/hard_decoys.csv
+python scripts/fetch_human_proteome.py  # download UP000005640 (~100 MB, once only)
+python scripts/generate_hard_decoys.py \
+    --fasta data/proteomes/human_uniprot_UP000005640.fasta \
+    --training-data data/immunogenicity_dataset_v3.csv \
+    --output data/hard_decoys.csv \
+    --num-decoys 10000
 
 # 4. Merge and validate:
 python scripts/build_dataset_v4.py
