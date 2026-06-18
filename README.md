@@ -153,7 +153,7 @@ Stage 4 auto-detects the appropriate feature set for each trained model.
 
 ## Biological Data Limitations & Mitigation
 
-The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the [data_bias_audit_v3.md](docs/data_bias_audit_v3.md) report.
+The input training data for SESTRAV contains severe biological biases inherent to public datasets (like IEDB). A quantitative breakdown of these taxonomic and topological skews is detailed in the data bias audit (internal document; key findings summarized below).
 
 * **Taxonomic skew:** EBV 68.13%, HPV16 30.88%, HPV11 1.00%.
 * **Length skew:** 9-mer peptides 64.74%.
@@ -360,7 +360,7 @@ Training labels are derived from curated IEDB-linked immunogenicity evidence. Pu
 | `docs/feature_glossary.md` | Feature definitions and track schemas |
 | `docs/antigen_accessions.md` | Full UniProt accessions and gene names |
 | `docs/output_naming_standard_v1.md` | Output file naming policy |
-| `docs/naming_migration_spec.md` | Legacy alias compatibility details |
+| `src/naming.py` | Legacy proteome/model ID alias compatibility |
 | `docs/validation_summary.md` | Detailed validation results and interpretation |
 | `docs/limitations_statement_v1.md` | Standardized external communication language |
 

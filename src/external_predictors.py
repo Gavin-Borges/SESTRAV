@@ -283,14 +283,15 @@ def parse_tapreg_html(html_content: str, peptide_list: List[str]) -> Dict[str, f
     for pep in peptide_list:
         # Look for peptide sequence and the next decimal number representing the score
         # e.g., "pep_0  GLFYTRTGL  0.723" or similar
-        pattern = re.compile(rf"{pep}\s+.*?(-?\d+\.\d+)", re.IGNORECASE)
+        escaped_pep = re.escape(pep)
+        pattern = re.compile(rf"{escaped_pep}\s+.*?(-?\d+\.\d+)", re.IGNORECASE)
         match = pattern.search(text_content)
         if match:
             scores[pep] = float(match.group(1))
         else:
             # Fallback regex for HTML table structure:
             # Matches pep sequence followed by another table column containing the float score
-            html_pattern = re.compile(rf"<td>\s*{pep}\s*</td>\s*<td>\s*(-?\d+\.\d+)\s*</td>", re.IGNORECASE)
+            html_pattern = re.compile(rf"<td>\s*{escaped_pep}\s*</td>\s*<td>\s*(-?\d+\.\d+)\s*</td>", re.IGNORECASE)
             html_match = html_pattern.search(html_content)
             if html_match:
                 scores[pep] = float(html_match.group(1))
