@@ -40,6 +40,16 @@
             "database_source": {
                 "type": "string",
                 "description": "The database from which the sequence was retrieved (e.g., IEDB, VDJdb, UniProt, dbPepNeo)."
+            },
+            "tcr_alpha_cdr3": {
+                "type": ["string", "null"],
+                "description": "CDR3 alpha chain (TRA) sequence from VDJdb. Null for non-VDJdb sources or when not recorded. Required for Phase 5 TCR repertoire matching.",
+                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$"
+            },
+            "tcr_beta_cdr3": {
+                "type": ["string", "null"],
+                "description": "CDR3 beta chain (TRB) sequence from VDJdb. Null for non-VDJdb sources or when not recorded. Required for Phase 5 TCR repertoire matching.",
+                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$"
             }
         },
         "required": ["peptide", "label", "source_type"]

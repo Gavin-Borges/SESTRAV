@@ -13,9 +13,9 @@
 
 ## 1. Pipeline Architecture & Feature Space
 
-SESTRAV is a machine learning pipeline utilizing ensemble classifiers (**Random Forest** and **XGBoost**) to perform **Structural Epitope Scoring**. The model evaluates the immunogenicity of candidate peptides based on a **30-feature matrix** structured as follows:
+SESTRAV is a machine learning pipeline utilizing ensemble classifiers (**Random Forest** and **XGBoost**) to perform **Structural Epitope Scoring** — "structural" here refers to physicochemical features at defined TCR-contacting positions, serving as a computationally tractable proxy for structural discrimination; features are sequence-derived, not 3D structural data. The canonical model evaluates immunogenicity based on a **31-feature matrix** (`feature_mode=31`) structured as follows:
 
-*   **20 Physicochemical Features:** Kyte-Doolittle hydrophobicity, aromaticity, Van der Waals volume, formal charge, Vihinen flexibility, Zimmerman bulkiness, Hopp-Woods hydrophilicity, and structural upward-facing probability proxies computed at the T-cell receptor (TCR) contact residues (specifically positions **p4–p8** of the peptide-MHC complex).
+*   **20 Physicochemical Features:** Kyte-Doolittle hydrophobicity, aromaticity, Van der Waals volume, formal charge, Vihinen flexibility, Zimmerman bulkiness, Hopp-Woods hydrophilicity, and structural upward-facing probability proxies computed at the T-cell receptor (TCR) contact residues (positions **p4–p8** following Chowell et al. 2015, applied as a length-agnostic approximation; see Section 2.1 for caveat on 8-mer/10-mer non-canonical registers).
 *   **10 MHCflurry Presentation Scores:** Allele-specific presentation probabilities predicted via MHCflurry for a fixed panel of 10 common Human Leukocyte Antigen (HLA) Class I alleles:
     *   `HLA-A*01:01`
     *   `HLA-A*02:01`
@@ -32,12 +32,14 @@ SESTRAV is a machine learning pipeline utilizing ensemble classifiers (**Random 
 
 ## 2. Key Scientific & Data Limitations
 
-### 2.1 MHC Allele Label Deficiency & Absence of Pan-Allele Predictions
-The training datasets compiled from experimental sources (such as the Immune Epitope Database [IEDB] and VDJdb) suffer from a critical annotation gap:
-*   **Near-Zero Allele Coverage:** The training labels for immunogenicity assays represent a collapsed pool that **lacks specific MHC allele annotations (~0% coverage)**. Assays are typically labeled based on general population/donor responses without registering the presenting HLA allele for each positive/negative instance.
-*   **Impact on Modeling:** Consequently, SESTRAV is trained against a population-wide "general immunogenicity" target rather than an allele-stratified, presentation-specific target. 
-*   **Clinical Implications:** Because of this lack of allele-stratified labeling, **SESTRAV cannot generate pan-allele clinical predictions** in its current iteration.
-*   **Restriction to Fixed Alleles:** Predictions for alleles outside of the 10 HLA Class I alleles mentioned in Section 1, or predictions for HLA Class II (MHC Class II) alleles, are completely unsupported and highly unreliable.
+### 2.1 MHC Allele Label Deficiency & Absence of Allele-Specific Predictions
+
+Immunogenicity labels derived from the Immune Epitope Database (IEDB) and VDJdb represent population-average majority-vote aggregation across heterogeneous assay types, donor HLA backgrounds, stimulation conditions, and peptide concentrations. Labels do not represent allele-specific or donor-specific immunogenicity. Calibrated probability outputs reflect population-level likelihood, not individual patient prediction.
+
+*   **Near-Zero Allele Coverage (v3):** The v3 training labels lack specific MHC allele annotations (~0% coverage). Assays are labeled based on population/donor responses without recording the presenting HLA allele.
+*   **Impact on Modeling:** SESTRAV v3 is trained against a population-average immunogenicity target, not an allele-stratified target. Per-allele MHCflurry features provide allele context at scoring time, but the training labels themselves are not allele-stratified.
+*   **v4 allele-aware schema:** The `hla_allele` column in the v4 schema enables allele-stratified training once the v4 dataset is built (blocked on VDJdb + MHCflurry model download). The allele-aware 166-feature model is planned but not yet trained.
+*   **Restriction to Fixed Alleles:** Predictions for HLA alleles outside the 10 canonical alleles in `config.yaml`, or for HLA Class II alleles, are unsupported. Do not interpret per-allele scores for alleles not in the fixed panel.
 
 ### 2.2 Taxonomic & Length Biases in Training Data
 The training cohort (`data/immunogenicity_dataset_v3.csv`) features a heavy geographic and historic research bias:
@@ -49,6 +51,23 @@ The training cohort (`data/immunogenicity_dataset_v3.csv`) features a heavy geog
 SESTRAV evaluates the *potential* immunogenicity of a peptide-MHC complex from the structural and physical properties of the residues facing the TCR. 
 *   **No TCR Binding Dynamics:** The model does **not** simulate or model the specific sequence, structure, or binding affinity of individual TCR α/β chains.
 *   **Repertoire Assumption:** SESTRAV assumes a diverse, competent, and healthy host TCR repertoire. It cannot predict patient-specific immune outcomes in individuals with altered, restricted, or suppressed TCR repertoires (e.g., due to aging, immunosuppression, or oncology therapies).
+
+---
+
+### 2.4 Cross-Family Generalization Limits (HBV, HCV)
+
+HBV (genotype D, ayw) and HCV (genotype 1a) proteomes have been added to the SESTRAV pipeline as of v2.0.3. However, the v3 production model was trained exclusively on EBV and HPV 16/18 data. Cross-family generalization from DNA viruses (EBV, HPV) to hepadnavirus (HBV) and flavivirus/hepacivirus (HCV) involves a structural and immunological leap not validated by any experiment in this release.
+
+*   **EBV→HPV cross-virus transfer:** AUC-PR 0.742 (validated). **HBV/HCV cross-family transfer: not validated.**
+*   **Required disclosure:** "Predictions for HBV and HCV are generated by a model trained on EBV and HPV16/18 data (v3). Cross-virus generalization has been partially validated within the EBV/HPV family (AUC-PR 0.711–0.742). Predictions for HBV/HCV should be treated as exploratory until v4 cross-virus validation with HBV/HCV training data is complete."
+*   **HBV genotype coverage:** Panel uses genotype D (ayw) reference sequences — the best-curated Swiss-Prot entries. Genotype B and C dominate East and Southeast Asia (where HBV-related hepatocellular carcinoma burden is highest) and show 8–12% nucleotide divergence from genotype D. Epitope position predictions may be affected. Genotype-specific expansion targeting B/C is planned for v2.2.
+*   **HCV genotype/strain coverage:** Panel uses genotype 1a (H77) for Core and genotype 1b (HC-J4) for NS3 (best-reviewed Swiss-Prot entries). NS5A/NS5B are TrEMBL fragments. Genotype-specific accuracy for genotypes 2–6 is unknown.
+
+### 2.5 MHCflurry Label Quality and Antigen Processing Feature Overlap
+
+*   **MHCflurry version sensitivity:** MHCflurry's `presentation_score` changes across model releases as the underlying antigen presentation model is updated. Predictions for identical peptides may differ between MHCflurry 2.0.0 and 2.0.1+. For this reason, `mhcflurry_model_version` is pinned in `config.yaml` and verified at training time. Comparing results across SESTRAV versions requires verifying MHCflurry model version consistency.
+*   **MHCflurry/antigen processing overlap:** MHCflurry's `presentation_score` already incorporates antigen processing corrections via an internal antigen presentation model (O'Donnell et al. 2020 *Cell Systems*). Adding NetChop 3.1 and TAPreg features (`feature_mode=33`) introduces partially overlapping information. The overlap is disclosed in `docs/feature_glossary.md`. NetChop/TAPreg provide tool-independent processing signals and are retained for their orthogonal information content, but users should be aware that antigen processing is not uncorrelated with the binding features.
+*   **Negative data quality:** v3 negative examples are predominantly non-immunogenic because they bind MHC poorly — not because they fail TCR recognition. The model therefore partially learns "MHC binding → immunogenic" rather than "among binders, which engage the TCR?" This is a known limitation of IEDB-derived negatives. Hard decoys (high-affinity MHC binders from the human self-proteome) in v4 address this root cause.
 
 ---
 

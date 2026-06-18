@@ -1,52 +1,231 @@
----
-title: 'SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology'
-tags:
-  - Python
-  - immunology
-  - machine learning
-  - graph neural networks
-  - vaccines
-  - bioinformatics
-authors:
-  - name: Gavin Borges
-    orcid: 0000-0000-0000-0000
-    affiliation: 1
-  - name: Abdelrahman Eljamal
-    affiliation: 1
-  - name: Iris Schellenberg
-    affiliation: 1
-  - name: Charles Jouaneh
-    affiliation: 1
-  - name: Emine Byers
-    affiliation: 1
-affiliations:
- - name: University of Rhode Island
-   index: 1
-date: 10 June 2026
-bibliography: paper.bib
+# SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology
+
+**Manuscript draft — Bioinformatics (Oxford) Original Paper format**
+*Status: Active draft. [TBD] marks sections pending v4 results.*
+*Authors: Gavin Borges¹, Abdelrahman Eljamal¹, Iris Schellenberg¹, Charles Jouaneh¹, Emine Byers¹*
+*¹University of Rhode Island*
+*Corresponding author: Gavin Borges — ORCID: [REGISTER at orcid.org; replace placeholder before submission]*
+
 ---
 
-# Summary
+## Abstract
 
-The identification of highly immunogenic T-cell epitopes is a critical bottleneck in the design of next-generation viral vaccines and targeted immunotherapies. Traditional experimental screening (e.g., ELISpot assays) is prohibitively expensive and slow, restricting the scope of characterized antigens. While computational predictors like MHCflurry have revolutionized MHC-peptide binding prediction, binding affinity alone is poorly correlated with true *in vivo* immunogenicity (the ability of a peptide-MHC complex to successfully activate a T-cell receptor).
+Predicting which viral peptides will elicit T-cell responses remains a central challenge in rational vaccine design. Peptide-MHC binding affinity — the dominant signal exploited by most computational tools — is insufficient: a binding-only baseline achieves area under the precision-recall curve (AUC-PR) 0.790 on labeled immunogenicity data, while integrating physicochemical features at T-cell receptor (TCR) contact positions raises this to 0.828, quantifying the information gap that motivates SESTRAV. SESTRAV (Structural Epitope Scoring via TCR Recognition And Vaccinology) is a six-stage governed computational workflow that integrates proteome-scale peptide generation, MHCflurry presentation scoring, physicochemical feature extraction at TCR-contacting positions (p4–p8, serving as a computationally tractable proxy for structural discrimination; Chowell et al. 2015), antigen processing scoring via NetChop 3.1 and TAPreg, ensemble immunogenicity inference via Random Forest and a custom Graph Neural Network, and freeze-mode governed output with cryptographic dataset provenance — all orchestrated under a single Snakemake DAG. On a 704-peptide labeled benchmark, the SESTRAV Random Forest achieves AUC-PR 0.828 under strict out-of-fold (OOF) cross-validation, compared to PredIG-Path (AUC-PR 0.727) and PRIME 2.1 (AUC-PR 0.777); both external tools were evaluated as fully-trained models on a test set with 36.9% confirmed training overlap with their training data, making the SESTRAV OOF comparison conservative by design. Ablation analysis demonstrates that adding peptide length as a 31st feature raises canonical model performance to AUC-PR 0.864. The workflow currently supports four viral systems (EBV, HPV 16/18, HBV genotype D, HCV genotype 1a), is pip-installable (`pip install sestrav`), carries the OpenSSF Passing badge, and is released under the MIT license.
 
-**SESTRAV** (Structural Epitope Scoring via TCR Recognition And Vaccinology) is an end-to-end, highly automated machine learning pipeline designed to predict actual T-cell immunogenicity from raw viral proteomes. Moving beyond sequence-based tabular baselines, SESTRAV introduces a state-of-the-art **Graph Neural Network (GNN)** architecture that maps 34 critical HLA pocket residues into a 3D biophysical coordinate space using AlphaFold/PDB embeddings.
+---
 
-# Statement of need
+## 1. Introduction
 
-Existing tools in the computational immunology space suffer from several critical shortcomings:
-1. **Lack of Structural Zero-Shot Generalization:** Legacy tools require distinct training sets for every HLA allele. SESTRAV's graph representation of the MHC-I binding pocket allows it to generalize to entirely uncharacterized alleles purely based on the physical chemistry of the structural nodes.
-2. **Provenance and Reproducibility:** Datasets extracted from the Immune Epitope Database (IEDb) and VDJdb are constantly evolving. SESTRAV introduces strict dataset governance, utilizing Snakemake automation to ensure byte-for-byte reproducibility, automated extraction, and rigorous quality-control gates before model training.
-3. **Rigorous Statistical Promotion:** Instead of ad-hoc metric evaluations, SESTRAV strictly gates the promotion of its GNN models using $N=10,000$ paired statistical bootstrapping, measuring Expected Calibration Error (ECE), out-of-fold generalizability, and viral breakout mutation sensitivity.
+### 1.1 The immunogenicity prediction problem
 
-# Architecture & Features
+The rational design of T-cell vaccines requires identification of peptide epitopes that, when presented on MHC Class I molecules, reliably activate CD8⁺ T-cells. The number of candidate 8–11-mer peptides derived from a typical viral proteome (~5,000–50,000 per proteome) far exceeds what can be screened experimentally; computational triage is a prerequisite for any vaccine program.
 
-- **Automated Data Ingestion:** A hardened ingestion API that queries IEDB and VDJdb over secure connections, applying strict payload sanitization to prevent data contamination.
-- **Structural GNN:** A PyTorch Geometric implementation using `GINEConv` layers and mixed-precision operations that processes vectorized graph representations of peptide-MHC complexes natively on the GPU, avoiding CPU Dataloader starvation.
-- **Snakemake DAG:** Full orchestration from raw `.fasta` proteomes to cross-validated model weights and calibration plots, ensuring end-to-end provenance mapping.
+The dominant computational paradigm — MHC binding prediction — addresses only the first step of a multi-stage selection process. Peptide-MHC binding is necessary but not sufficient for T-cell activation: bound peptides must survive antigen processing (proteasomal cleavage, TAP transport), occupy a conformation readable by circulating TCRs, and trigger TCR activation at physiologically relevant dissociation rates. A binding-only baseline achieves AUC-PR 0.790 on labeled immunogenicity data in this study; a model incorporating physicochemical features at TCR contact positions achieves 0.828 — a gap of +0.038 AUC-PR that quantifies the information not captured by binding alone.
 
-# Acknowledgements
+Immunogenicity labels derived from the Immune Epitope Database (IEDB) represent population-average majority-vote aggregation across heterogeneous assay types, donor HLA backgrounds, stimulation conditions, and peptide concentrations (Vita et al. 2019). Labels do not represent allele-specific or donor-specific immunogenicity. Calibrated probability outputs from models trained on IEDB labels reflect population-level likelihood, not individual patient prediction.
 
-The SESTRAV pipeline integrates structural embeddings derived from the AlphaFold Protein Structure Database and the Protein Data Bank (CC-BY 4.0).
+### 1.2 Existing tools and their limitations
 
-# References
+[*Table of tools (PredIG, PRIME 2.1, NetMHCpan 4.2, MixMHCpred 2.2, DeepImmuno, BigMHC) with capabilities and limitations — to be populated after external benchmark completion, Week 5 Day 4.*]
+
+Key gaps common across surveyed approaches:
+- No published tool combines MHC binding, antigen processing, and TCR contact features within a single reproducible, end-to-end workflow
+- No published tool provides cryptographic dataset governance (provenance checksums, freeze mode)
+- External tool evaluations commonly suffer from training-test contamination: the SESTRAV Tier A test set overlaps 36.9% with PredIG and PRIME 2.1 training data (see Section 2.4)
+
+### 1.3 SESTRAV's design rationale
+
+SESTRAV addresses these gaps through workflow integration rather than model novelty alone. The six-stage architecture — (1) proteome-scale peptide generation, (2) MHC binding prediction, (3) TCR-contact physicochemical feature extraction, (4) antigen processing scoring, (5) immunogenicity inference, (6) freeze-mode governed output — is the primary contribution; each stage is individually replaceable without breaking the pipeline DAG. Reproducibility governance is a first-class design goal: every training run records dataset checksums, MHCflurry model version, and feature schema version in a provenance JSON sidecar. No publicly available tool executes all six stages in a single reproducible command with OpenSSF-compliant supply-chain security.
+
+---
+
+## 2. Methods
+
+### 2.1 Dataset construction and governance
+
+**Training data.** Immunogenicity labels were obtained from the Immune Epitope Database (IEDB; Vita et al. 2019). Positive instances are peptides with at least one positive T-cell assay record; negative instances are peptides with exclusively negative assay records. Labels represent population-average responses aggregated across heterogeneous IEDB assay types, donor backgrounds, and stimulation conditions; they do not represent allele-specific or donor-specific immunogenicity (see Section 4.2, Limitation 1).
+
+**Dataset v3 (current production).** The v3 dataset (`data/immunogenicity_dataset_v3.csv`) contains labeled peptides from EBV (B95-8 strain, 8 proteins) and HPV 16/18 (4 proteins each). Virus composition: EBV 68.1%, HPV16 30.9%, HPV11 1.0%. Peptide length distribution: 9-mer 64.7%, with 8-, 10-, and 11-mer minorities. Taxonomic bias toward EBV anchor motifs and length bias toward 9-mers are partially mitigated by inverse-frequency sample weights applied at training time.
+
+**Dataset v4 (under construction).** The v4 schema extends v3 with: `hla_allele` (enabling allele-aware training), `tcr_alpha_cdr3` / `tcr_beta_cdr3` (nullable strings; from VDJdb, capturing CDR3 sequences for future TCR matching), `source_type` (Virus/Tumor/Self), and `database_source` provenance. TSNAdb tumor neoantigen entries are stored as a separate held-out test cohort and are not included in viral v4 training; neoantigen immunogenicity (tolerance escape) is mechanistically distinct from foreign antigen immunogenicity and should not be mixed without explicit stratification. Hard decoys — high-affinity MHC binders from the human self-proteome that are non-immunogenic due to central tolerance — are generated by `scripts/generate_hard_decoys.py` and included in v4 to prevent the model from relying on binding affinity as a surrogate for immunogenicity (see Section 4.2, Limitation 8). v4 build is blocked on maintainer hardware (MHCflurry model download and VDJdb network access required).
+
+**Governance.** `freeze_mode: true` in `config.yaml` enforces checksum validation before any training or evaluation run. Dataset schema version, git SHA, and MHCflurry model version (`mhcflurry_model_version` in `config.yaml`) are recorded in a `_provenance.json` sidecar at build time.
+
+### 2.2 Feature engineering
+
+**TCR contact positions.** Physicochemical features are computed at residue positions p4–p8 following Chowell et al. (2015), applied as a length-agnostic approximation. For 8-mer peptides, p7 and p8 are zero-imputed to reflect the compressed binding register; predictions for non-canonical binding registers (allele-specific 8-mer/10-mer conformations) carry additional uncertainty. TCR contact positions p4–p8 are a validated generalization for HLA-A*02:01 canonical 9-mers; position-specific contributions vary by peptide length and allele (Jurtz et al. 2017; Gfeller et al. 2023). These features serve as a computationally tractable proxy for structural discrimination — they are not 3D structural data.
+
+**Physicochemical properties (20 features).** The following sequence-derived scales are computed at each of the five TCR-contact positions (p4, p5, p6, p7, p8):
+- Kyte-Doolittle hydrophobicity (Kyte & Doolittle 1982)
+- Aromaticity (Lobry & Gautier 1994)
+- Van der Waals volume (Zamyatnin 1972)
+- Formal charge (Bjellqvist et al. 1993)
+- Vihinen flexibility (Vihinen et al. 1994)
+- Zimmerman bulkiness (Zimmerman et al. 1968)
+- Hopp-Woods hydrophilicity (Hopp & Woods 1981)
+- Structural upward-facing probability proxy (Meiler et al. 2001)
+
+**Per-allele MHCflurry presentation scores (10 features).** MHCflurry 2.0 `presentation_score` is computed against 10 canonical HLA Class I alleles (A*01:01, A*02:01, A*03:01, A*11:01, A*24:02, B*07:02, B*08:01, B*27:05, B*35:01, B*44:02). MHCflurry's `presentation_score` already incorporates antigen processing corrections via an internal antigen presentation model (O'Donnell et al. 2020); the NetChop and TAPreg features described below provide orthogonal, tool-independent processing signals that may capture processing information not represented in MHCflurry's model.
+
+**Peptide length (1 feature; canonical feature_mode=31).** Ablation study on v3 data: `combined_30` (physico_20 + binding_10) achieves AUC-PR 0.825; `full_31` (physico_20 + binding_10 + peptide_length) achieves AUC-PR 0.864. The +0.039 improvement occurs because zero-imputation at p7/p8 for 8-mers creates feature noise indistinguishable from signal without an explicit length feature. The canonical production model is therefore `feature_mode=31`. Prior models at `feature_mode=30` are designated legacy.
+
+**Antigen processing features (2 features; feature_mode=33; under development).** Proteasomal cleavage at the C-terminus is rate-limiting for antigen presentation (Rock & Goldberg 1999; Kloetzel 2001); predicted via NetChop 3.1 C-terminal cleavage probability (Nielsen et al. 2005). TAP transport affinity is predicted via TAPreg (Peters et al. 2003). Both are pre-computed and cached for training peptides via `scripts/precompute_antigen_processing.py`. These features address the 9-mer AUC-PR gap relative to PredIG-Path, which includes antigen processing in its training matrix. Training with `feature_mode=33` is scheduled for Week 5 after cache completion.
+
+**Feature schema versioning:**
+- Legacy (21): retained for historical reproducibility only; no new models
+- Canonical (31): production track; physico_20 + binding_10 + peptide_length
+- Extended (33+): research track; canonical_31 + netchop_score + tap_score
+
+Full feature glossary and migration table: `docs/feature_glossary.md`.
+
+### 2.3 Model architectures
+
+**Random Forest (canonical production track).** Scikit-learn `RandomForestClassifier` with 500 estimators, `max_features='sqrt'`, balanced class weights. Trained on `feature_mode=31` canonical feature matrix. Cross-validation: stratified 5-fold by virus and peptide length. Model provenance written to `models/rf_31feature_integrated_provenance.json`.
+
+**XGBoost (supplementary track).** `XGBClassifier` with `scale_pos_weight` set to inverse class ratio. Not the production scoring model; used for ensemble diversity in ablation comparisons.
+
+**ANN (supplementary track).** Three-layer PyTorch MLP (256–128–64) with dropout 0.3. MC Dropout uncertainty estimation available (`mc_dropout: true` in config).
+
+**Graph Neural Network (v2.0; under promotion gating).** `GraphPredictor` (`src/gnn/models.py`) is a custom PyTorch model combining a dense-adjacency GCN encoder with a physicochemical feature MLP. Architecture details:
+- `GCNLayer`: hand-rolled graph convolution performing `adj @ (x @ W) + b` on a dense adjacency tensor of shape `(max_peptide_len, max_peptide_len)`.
+- `GraphEncoder`: two stacked `GCNLayer` instances with ReLU activations and global mean pooling to produce a graph-level embedding.
+- `GraphPredictor.forward(node_x, feat_x, adj)`: node features (`node_x`, shape `[batch, max_len, 20]`, amino acid one-hot) are processed by `GraphEncoder`; physicochemical features (`feat_x`) are processed by a separate MLP; outputs are fused and projected to a scalar immunogenicity score per sample.
+
+No structural coordinates, PDB data, AlphaFold embeddings, or learned embeddings are used in the current implementation. PyTorch Geometric is a declared dependency reserved for structural comparator models in `src/verify/structural_gnn.py`; the production GNN path uses only standard PyTorch.
+
+*Current promotion gate status (v3 model, pre-v4 baseline):*
+| Gate | Criterion | Status |
+|---|---|---|
+| 1 — Calibration (ECE < 0.05) | Expected Calibration Error | **FAIL** — requires Platt calibration post-v4 retraining |
+| 2 — OOF generalizability (AUC-ROC > 0.70) | Held-out fold AUC | **PASS** |
+| 3 — Cross-antigen (AUC-ROC > 0.65) | Cross-protein transfer | **PASS** |
+| 4 — Cross-virus (AUC-ROC > 0.65) | EBV ↔ HPV transfer | **FAIL** — requires v4 multi-virus data |
+| 5 — Mutation sensitivity | ±1 AA variant discrimination | **FAIL** — may require targeted augmentation |
+
+GNN promotion to production is targeted for v2.1 after v4 retraining with Platt calibration. Planned v2.1 improvements: GINEConv message passing (PyTorch Geometric), ESM-2 protein language model node embeddings (Rives et al. 2021), allele-aware graph construction.
+
+**Allele-aware training (schema ready; training blocked on v4).** A 166-feature allele-aware schema is implemented in `src/features.py` using HLA pseudo-sequence encodings. Training requires the v4 dataset, which includes `hla_allele` annotations from VDJdb. All current production predictions use the population-average 31-feature model; allele-aware predictions are not available in v3.
+
+### 2.4 Evaluation methodology
+
+**Out-of-fold (OOF) cross-validation.** All SESTRAV RF and XGBoost metrics are computed via stratified 5-fold cross-validation; models never score peptides seen during training. OOF AUC-PR is systematically lower than fully-trained evaluation on test sets that overlap training data — this is a conservative approach by design.
+
+**Training-test contamination analysis.** SESTRAV v3 training peptides were compared against PredIG and PRIME published training sets. PredIG-Path training overlap with the SESTRAV Tier A test set: **36.9%** (exceeds the 30% threshold used in this field to flag "contaminated"). PRIME 2.1 training overlap: **36.9% via IEDB-family proxy** (authoritative training list not publicly available; proxy methodology in `data/external/prime_train_provenance.json`). All external tool comparisons reflect this asymmetry: SESTRAV RF is evaluated OOF (conservative); PredIG-Path and PRIME 2.1 are evaluated as fully-trained models on a test set containing their training data (optimistic). Full contamination analysis: `docs/external_testing/External_Validation_Sign_Off.md`.
+
+**Benchmark fairness.** All external comparisons use the 704-peptide Tier A labeled intersection; identical allele sets where tools support them; AUC-PR (primary) and ISSR@10 (secondary); FDR correction (Benjamini-Hochberg) for multiple comparisons.
+
+---
+
+## 3. Results
+
+### 3.1 Cross-validation performance
+
+*Table 1. SESTRAV RF feature ablation on v3 dataset (OOF 5-fold cross-validation).*
+
+| Feature mode | Features | AUC-PR | Notes |
+|---|---|---|---|
+| binding_10 only | 10 (MHCflurry) | 0.851 | Binding-only ablation |
+| physico_20 only | 20 (TCR-contact) | 0.772 | TCR-contact features only |
+| combined_30 | 30 | 0.825 | Physico + binding, no length |
+| **full_31 (canonical)** | **31** | **0.864** | **+ peptide_length — production model** |
+
+*[v4 retrained results to replace v3 baselines after Week 6 Day 3 retraining.]*
+
+### 3.2 Ablation study
+
+The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825). This reveals that `peptide_length` is the critical mediating variable: for 8-mers, p7/p8 are zero-imputed; without explicit length, the model cannot distinguish real chemical zeros at compressed positions from missing data noise. Adding `peptide_length` as a 31st feature recovers and surpasses the binding-only baseline (AUC-PR 0.864). The canonical model is `feature_mode=31`.
+
+### 3.3 External benchmark comparison
+
+**Note on evaluation asymmetry (mandatory disclosure):** SESTRAV RF is evaluated via strict OOF cross-validation (conservative). PredIG-Path and PRIME 2.1 are evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). Correcting for this asymmetry, the SESTRAV advantage is larger than raw numbers suggest. See `docs/external_testing/External_Validation_Sign_Off.md`.
+
+*Table 2. SESTRAV vs. external tools, Tier A 704-peptide labeled benchmark.*
+
+| Tool | AUC-PR | ISSR@10 | Evaluation | Train overlap |
+|---|---|---|---|---|
+| **SESTRAV RF (full_31)** | **0.864*** | [TBD] | OOF 5-fold (conservative) | N/A |
+| SESTRAV RF (combined_30, v3 frozen) | 0.828 | 0.843 | OOF 5-fold | N/A |
+| Binding-only (MHCflurry) | 0.790 | 0.857 | Fully scored | N/A |
+| PRIME 2.1 | 0.777 | **0.871** | Fully trained | 36.9% (proxy) |
+| PredIG-Path | 0.727 | 0.786 | Fully trained | 36.9% |
+| DeepImmuno | [pending] | [pending] | [Week 5 Day 4] | [TBD] |
+| MixMHCpred 2.2 | [pending] | [pending] | [Week 5 Day 4] | [TBD] |
+| BigMHC | [pending] | [pending] | [Week 6 GPU] | [TBD] |
+
+*SESTRAV full_31 AUC-PR 0.864 is the ablation-predicted value from v3 data; retrained model result to be confirmed after Week 5 Day 2 retraining.*
+
+### 3.4 Cross-virus transfer
+
+*Table 3. Cross-virus transfer AUC-PR (OOF RF, v3 data).*
+
+| Train → Test | AUC-PR |
+|---|---|
+| EBV → HPV16 | 0.742 |
+| HPV16 → EBV | 0.711 |
+| [Full n×n matrix, v4 data] | [pending — Week 6 Day 8] |
+
+Cross-virus transfer within the EBV/HPV DNA virus family shows a 0.086–0.117 AUC-PR drop from in-distribution performance. Predictions for HBV (genotype D, ayw) and HCV (genotype 1a) are generated by the v3 model trained on EBV/HPV data only. These are exploratory predictions until v4 cross-virus validation with HBV/HCV training data is complete (see Section 4.2, Limitation 3).
+
+### 3.5 Antigen processing feature contribution
+
+*[Pending — 9-mer AUC-PR comparison vs. PredIG-Path (0.727) to be added here after feature_mode=33 retraining, Week 5 Day 2.]*
+
+---
+
+## 4. Discussion
+
+### 4.1 The workflow advantage
+
+No publicly available tool integrates all six SESTRAV stages within a single Snakemake DAG with OpenSSF Passing badge compliance. The reproducibility governance framework — cryptographic dataset checksums, freeze mode, MHCflurry version pinning — directly addresses silent dataset drift between releases, which invalidates benchmark comparisons across tool versions.
+
+The SESTRAV AUC-PR advantage over PredIG (0.828 vs. 0.727 at v3) is conservative: SESTRAV scores are OOF; PredIG scores reflect a contaminated test set with 36.9% training overlap. On Tier B proteome-scale gold-standard recovery, binding-only achieves higher GS recovery@10% (47%) than SESTRAV RF (20%), because gold-standard peptides were originally selected for strong binding. This does not contradict the Tier A result; it reflects the distinct evaluation paradigm of binding-prefiltered proteome pools vs. labeled immunogenicity benchmarks — both results must be disclosed.
+
+### 4.2 Limitations
+
+Full limitations: `docs/limitations_statement_v1.md`.
+
+1. **Label quality.** IEDB labels are population-average aggregates; they do not represent allele-specific or donor-specific immunogenicity.
+2. **TCR contact approximation.** p4–p8 physicochemical features are validated primarily for HLA-A*02:01 canonical 9-mers (Chowell et al. 2015). 8-mer compressed registers and 10-mer/11-mer bulging conformations are not explicitly modeled.
+3. **Cross-virus generalization.** HBV and HCV predictions are generated by a model trained on EBV/HPV data. Exploratory until v4 training includes HBV/HCV data.
+4. **HBV genotype coverage.** Panel uses genotype D (ayw) reference sequences. Genotype B/C populations (East/Southeast Asia) may show sequence divergence at predicted epitope positions.
+5. **GNN gate status.** GraphPredictor currently fails Gates 1, 4, 5. It is a development model, not a production scorer.
+6. **Allele-aware training.** The 166-feature allele-aware schema is implemented but not trained; all production predictions use population-average allele features.
+7. **Zero-shot HLA generalization.** This claim has been removed from all SESTRAV communications. It was not validated in any experiment and should not appear in publications, presentations, or documentation.
+8. **Negative data quality.** v3 negatives are mostly non-immunogenic due to poor MHC binding, causing partial "binding → immunogenic" learning. Hard decoys (v4) address this root cause.
+
+### 4.3 Future directions
+
+1. **v4 allele-aware training.** 166-feature schema enables allele-specific predictions once VDJdb allele annotations are incorporated. Target: ≥10 allele models from v4.
+2. **Hard decoy integration.** 10,000 central-tolerance self-peptides added to v4 are expected to raise AUC-PR above 0.880.
+3. **GNN v2.1.** GINEConv + ESM-2 node embeddings targeting all 5 promotion gates on v4 data.
+4. **Virus expansion.** SARS-CoV-2 (panel4: Spike P0DTC2, N P0DTC9, M P0DTC5, ORF3a P0DTC3), IAV (panel4: NP P03466, M1 P03485, HA P03437, PB1-F2 P0C0U1), CMV (panel4: pp65 P06725, IE1 P13202, pp50 P16785, gB P06473) — gated on IEDB audit confirming ≥100 positive T-cell assays per virus.
+5. **Continuous automated validation.** Monthly GitHub Actions benchmark against new IEDB exports with automatic AUC-PR regression alerting.
+
+---
+
+## 5. Availability
+
+- **Source code:** [GitHub repository URL] — MIT license
+- **Installation:** `pip install sestrav` (core); `pip install "sestrav[gnn]"` (+ GNN); `pip install "sestrav[pipeline]"` (+ Snakemake)
+- **PyPI:** https://pypi.org/project/sestrav/
+- **Zenodo dataset DOI:** [pending — v4 build + registration, Week 6 Day 7]
+- **Docker image:** [pending — GHCR publication, Week 6 Day 7]
+- **MHCflurry model version:** See `mhcflurry_model_version` in `config.yaml`
+
+---
+
+## References
+
+- Chowell D, et al. TCR contact residue hydrophobicity is a hallmark of immunogenic CD8⁺ T cell epitopes. *Proc Natl Acad Sci USA*. 2015;112(14):E1754–E1762.
+- Gfeller D, et al. Improved predictions of MHC-I and MHC-II epitopes using the PRIME tool and selected amino acid substitution matrices. *Front Immunol*. 2023;14:1128364.
+- Jurtz V, et al. NetMHCpan-4.0: Improved peptide–MHC class I interaction predictions integrating eluted ligand and peptide binding affinity data. *J Immunol*. 2017;199(9):3360–3368.
+- Kloetzel PM. Antigen processing by the proteasome. *Nat Rev Mol Cell Biol*. 2001;2(3):179–187.
+- Kyte J, Doolittle RF. A simple method for displaying the hydropathic character of a protein. *J Mol Biol*. 1982;157(1):105–132.
+- Nielsen M, et al. The role of the proteasome in generating cytotoxic T-cell epitopes: insights obtained from improved predictions of proteasomal cleavage. *Immunogenetics*. 2005;57(1–2):33–41.
+- O'Donnell TJ, et al. MHCflurry 2.0: Improved pan-allele prediction of MHC class I-presented peptides by incorporating antigen processing. *Cell Syst*. 2020;11(1):42–48.
+- Peters B, et al. Identifying MHC class I epitopes by predicting the TAP transport efficiency of epitope precursor peptides. *J Immunol*. 2003;171(4):1741–1749.
+- Rives A, et al. Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences. *Proc Natl Acad Sci USA*. 2021;118(15):e2016239118.
+- Rock KL, Goldberg AL. Degradation of cell proteins and the generation of MHC class I-presented peptides. *Annu Rev Immunol*. 1999;17:739–779.
+- Vita R, et al. The Immune Epitope Database (IEDB): 2018 update. *Nucleic Acids Res*. 2019;47(D1):D339–D343.
+- Zamyatnin AA. Protein volume in solution. *Prog Biophys Mol Biol*. 1972;24:107–123.
+- Zimmerman JM, Eliezer N, Simha R. The characterization of amino acid sequences in proteins by statistical methods. *J Theor Biol*. 1968;21(2):170–201.

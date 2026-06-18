@@ -54,6 +54,9 @@ All sequences are derived from the **HBV genotype D subtype ayw** reference stra
 > [!NOTE]
 > Sequences are downloaded via `scripts/fetch_viral_proteomes.py` with provenance recorded in `data/proteomes/HBV_ayw_panel4_provenance.json`.
 
+> [!WARNING]
+> **HBV Genotype Coverage Caveat.** This panel uses genotype D (ayw) reference sequences — the best-curated Swiss-Prot entries available. Genotype B and C strains dominate East and Southeast Asia, where HBV-related hepatocellular carcinoma burden is highest. Genotypes B and C show 8–12% nucleotide divergence from genotype D, producing peptide-level differences that may affect epitope prediction accuracy. Predicted epitopes derived from this panel should be treated with reduced confidence when applied to genotype B/C-predominant patient populations. Genotype-specific expansion targeting genotypes B and C is planned for v2.2.
+
 ---
 
 ## 4. Hepatitis C Virus (HCV) Antigens

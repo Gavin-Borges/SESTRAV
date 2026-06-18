@@ -42,6 +42,20 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     if 'Epitope' not in df.columns or 'MHC A' not in df.columns:
         raise ValueError("VDJdb input missing expected columns 'Epitope' and 'MHC A'")
 
+    # Extract CDR3 sequences before deduplication so they are not lost.
+    # VDJdb format varies by release; try known column name variants for alpha/beta CDR3.
+    # Paired VDJdb exports may have separate columns; single-chain exports have one CDR3 per row.
+    _alpha_cols = ['CDR3.alpha', 'cdr3.alpha', 'CDR3_alpha', 'cdr3_alpha']
+    _beta_cols  = ['CDR3.beta',  'cdr3.beta',  'CDR3_beta',  'cdr3_beta',  'CDR3', 'cdr3']
+    _alpha_col = next((c for c in _alpha_cols if c in df.columns), None)
+    _beta_col  = next((c for c in _beta_cols  if c in df.columns), None)
+
+    # Sort deterministically before deduplication so the retained CDR3 is stable across runs.
+    sort_cols = ['Epitope', 'MHC A']
+    if _beta_col:
+        sort_cols.append(_beta_col)
+    df = df.sort_values(sort_cols, na_position='last')
+
     # Keep unique epitope/allele pairs (many TCRs bind the same epitope).
     unique_epitopes = df.drop_duplicates(subset=['Epitope', 'MHC A']).copy()
     unique_epitopes = unique_epitopes[unique_epitopes['MHC A'].str.contains('HLA', na=False)].copy()
@@ -54,8 +68,26 @@ def ingest_vdjdb(input_path, output_path, schema_path):
         'strain': 'Unknown',
         'hla_allele': unique_epitopes['MHC A'],
         'source_type': 'Virus',
-        'database_source': 'VDJdb'
+        'database_source': 'VDJdb',
+        'tcr_alpha_cdr3': unique_epitopes[_alpha_col].where(
+            unique_epitopes[_alpha_col].notna(), other=None
+        ) if _alpha_col else None,
+        'tcr_beta_cdr3': unique_epitopes[_beta_col].where(
+            unique_epitopes[_beta_col].notna(), other=None
+        ) if _beta_col else None,
     })
+    if _alpha_col is None:
+        df_v4['tcr_alpha_cdr3'] = None
+    if _beta_col is None:
+        df_v4['tcr_beta_cdr3'] = None
+
+    cdr3_alpha_count = int(df_v4['tcr_alpha_cdr3'].notna().sum())
+    cdr3_beta_count  = int(df_v4['tcr_beta_cdr3'].notna().sum())
+    if _alpha_col or _beta_col:
+        print(f"CDR3 sequences captured — alpha: {cdr3_alpha_count}, beta: {cdr3_beta_count} rows")
+    else:
+        print("CDR3 columns not found in this VDJdb release; tcr_alpha_cdr3/tcr_beta_cdr3 set to null.")
+
     df_v4 = df_v4.dropna(subset=['peptide', 'hla_allele'])
 
     # Keep only high-resolution Class I alleles (e.g. HLA-A*02:01).
@@ -73,7 +105,9 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     write_provenance(
         output_path, sources=[input_path], row_count=len(df_v4),
         extra={"database": "VDJdb", "fetched_latest_release": fetched,
-               "url": VDJDB_URL if fetched else None}
+               "url": VDJDB_URL if fetched else None,
+               "tcr_alpha_cdr3_populated": cdr3_alpha_count,
+               "tcr_beta_cdr3_populated": cdr3_beta_count}
     )
     print(f"Saved to {output_path}")
 

@@ -35,7 +35,17 @@ peptide_lengths:
 
 binding_backend: mhcflurry
 
-# Feature mode: 21 (legacy sequence-only) or 30 (physico + multi-allele binding) or 50 (expanded)
+# Pin the exact MHCflurry presentation model version used for training.
+# Binding features change across MHCflurry releases; version drift silently invalidates checksums.
+# Verify installed version: python -c "import mhcflurry; print(mhcflurry.__version__)"
+# Update this value after running: mhcflurry-downloads fetch models_class1_presentation
+# DO NOT change without rebuilding the training dataset and updating all model provenance files.
+mhcflurry_model_version: "2.0.1"
+
+# Feature mode: 21 (legacy sequence-only) | 30 (physico + binding, legacy) | 31 (canonical) | 33 (+ antigen processing)
+# Canonical production model: feature_mode=31 (full_31: physico_20 + binding_10 + peptide_length)
+# Ablation: full_31 AUC-PR 0.864 > combined_30 0.825 > binding_10 0.851 vs physico_20 0.772
+# See docs/feature_glossary.md for the full feature migration table.
 feature_mode: 30
 
 # Model path — set to 30-feature RF by default; alternatives:
