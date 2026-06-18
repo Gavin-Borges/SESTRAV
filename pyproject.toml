@@ -68,6 +68,9 @@ demo = [
     "pydantic>=2.0.0",
 ]
 
+[project.scripts]
+sestrav = "src.cli:main"
+
 [project.urls]
 "Homepage" = "https://github.com/gavin-borges/sestrav"
 "Bug Tracker" = "https://github.com/gavin-borges/sestrav/issues"
