@@ -139,6 +139,8 @@ BINDING_ALLELE_COLUMNS = [
 
 FEATURE_COLUMNS_30 = PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ['peptide_length']
+# 33-feature: canonical 31 + orthogonal antigen processing signals (NetChop 3.1, TAPreg)
+FEATURE_COLUMNS_33 = FEATURE_COLUMNS_31 + ['netchop_score', 'tap_score']
 
 FEATURE_COLUMNS_50 = EXPANDED_PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 
@@ -601,12 +603,12 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
     """
     import networkx as nx
     import numpy as np
-    
+
     G = nx.Graph()
     length = len(peptide)
     G.add_nodes_from(range(length))
     G.add_edges_from(edges)
-    
+
     node_features = {}
     for i in range(length):
         aa = peptide[i]
@@ -614,14 +616,14 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
         chg = CHARGE.get(aa, 0)
         h_cat = "pos" if hydro > 1.0 else ("neg" if hydro < -1.0 else "neu")
         node_features[i] = f"{h_cat}_{chg}"
-        
+
     nx.set_node_attributes(G, node_features, name='init_feat')
-    
+
     current_features = node_features.copy()
     all_colors = []
     for i in range(length):
         all_colors.append(current_features[i])
-        
+
     for _ in range(num_iterations):
         new_features = {}
         for node in G.nodes():
@@ -630,13 +632,44 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
             new_features[node] = str(hash(feat_str))
             all_colors.append(new_features[node])
         current_features = new_features
-        
+
     wl_vector = np.zeros(32)
     for color in all_colors:
         import hashlib
         idx = int(hashlib.md5(color.encode('utf-8'), usedforsecurity=False).hexdigest(), 16) % 32
         wl_vector[idx] += 1.0
-        
+
     return wl_vector
 
 
+# ---------------------------------------------------------------------------
+# Antigen processing cache loader (feature_mode=33)
+# ---------------------------------------------------------------------------
+
+def load_antigen_processing_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
+    """Join precomputed NetChop/TAPreg scores onto a peptide DataFrame.
+
+    Missing peptides receive median imputation from the cache distribution.
+    The cache CSV must have columns: peptide, netchop_score, tap_score.
+
+    Args:
+        cache_path: Path to the antigen processing cache CSV.
+        df:         DataFrame containing a 'peptide' column.
+
+    Returns:
+        df with 'netchop_score' and 'tap_score' columns appended.
+    """
+    cache = pd.read_csv(cache_path, usecols=['peptide', 'netchop_score', 'tap_score'])
+    cache = cache.drop_duplicates(subset='peptide').set_index('peptide')
+    result = df.copy()
+    result['netchop_score'] = result['peptide'].map(cache['netchop_score'])
+    result['tap_score'] = result['peptide'].map(cache['tap_score'])
+    missing = int(result['netchop_score'].isna().sum())
+    if missing:
+        netchop_median = float(cache['netchop_score'].median())
+        tap_median = float(cache['tap_score'].median())
+        result['netchop_score'] = result['netchop_score'].fillna(netchop_median)
+        result['tap_score'] = result['tap_score'].fillna(tap_median)
+        print(f"[features] Imputed {missing} missing antigen processing scores with cache medians "
+              f"(netchop={netchop_median:.4f}, tap={tap_median:.4f})")
+    return result
