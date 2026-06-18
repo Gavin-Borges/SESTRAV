@@ -26,7 +26,7 @@ We recommend using Conda to manage environment dependencies.
 4. **Train Canonical Local Models:**
    Models must be trained before the production pipeline can execute.
    ```bash
-   python -m src.train_classifier --data data/immunogenicity_dataset_v3.csv --feature-mode 30 --binding-matrix models/peptide_binding_matrix_v3.csv
+   python -m src.train_classifier --data data/immunogenicity_dataset_v3.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v3.csv
    ```
 
 ## Development Guidelines
