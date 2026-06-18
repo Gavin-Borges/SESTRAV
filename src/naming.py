@@ -28,6 +28,10 @@ PROTEOME_ID_LEGACY_BY_CANONICAL: Dict[str, List[str]] = {
 
 
 MODEL_NAME_ALIASES: Dict[str, List[str]] = {
+    # Canonical production models (feature_mode=31)
+    "rf_31feature_integrated.joblib": ["rf_31f_immunogenicity.joblib"],
+    "xgb_31feature_integrated.joblib": ["xgb_31f_immunogenicity.joblib"],
+    # Legacy models (feature_mode=30, superseded by 31)
     "rf_30feature_integrated.joblib": ["rf_30f_immunogenicity.joblib"],
     "xgb_30feature_integrated.joblib": ["xgb_30f_immunogenicity.joblib"],
     "ann_30feature_integrated.pt": ["ann_30f_immunogenicity.pt"],
