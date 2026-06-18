@@ -8,6 +8,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **HBV/HCV proteome ingestion path** (issue #78): `scripts/fetch_viral_proteomes.py`
+  downloads 8 UniProt sequences (HBV panel4: HBcAg P03147, HBx P03165, HBsAg-S P03138,
+  HBpol P03157; HCV panel4: Core P26664, NS3 O92972, NS5A O92975, NS5B O92976) with
+  HTTP retry logic and writes provenance JSON. `src/naming.py` exposes canonical IDs and
+  short aliases; `config.yaml` wires `antigens` + `proteome_files` for both panels.
+  Snakemake dry-run passes end-to-end. Suite: **524 tests, 2 skipped, 0 failures**.
+- **`docs/antigen_accessions.md`**: sections 3 (HBV) and 4 (HCV) added with full
+  UniProt accession table, strain notes, and provenance file references.
+
+### Fixed
+- **`external_predictors.py` coverage 88% → 100%** (issue #77): 13 targeted tests
+  covering proline/PDE/RKYFW mock-score paths, OOB index in `parse_netchop_html`,
+  poll-success return, TAPreg threshold kwarg, and parse success/empty-parse branches.
+  Removed dead conditional `if mock_fallback or True:` in `query_netchop`; deleted
+  unreachable `raise RuntimeError`; annotated structurally unreachable
+  `except (ValueError, IndexError)` with `# pragma: no cover`.
+
+### Security
+- **Alert #51 (HIGH — Token-Permissions)**: Fixed — `dco.yml` top-level
+  `permissions: contents: read / pull-requests: read` added (commit `f99ae34`).
+- **Alert #52 (MEDIUM — Pinned-Dependencies)**: Dismissed false positive — pip
+  smoke-test install cannot be hash-pinned by design.
+- **Alert #50 (HIGH — Token-Permissions)**: Dismissed won't-fix — `contents: write`
+  required by `gh release create`; top-level `permissions: read` already restricts
+  all other jobs.
+- **Alert #15 (HIGH — CVE-2025-3000, torch)**: Dismissed won't-fix — no upstream
+  patch; `torch.jit.script` not exposed to untrusted input; EPSS 0.08%; will reopen
+  when PyTorch releases a fix.
+- **Dependabot #35 (torch CVE-2025-3000)**: Dismissed `tolerable_risk` — same
+  rationale as alert #15.
+
 ## [2.0.3] - 2026-06-17
 
 This release delivers the next test-coverage and CI hardening pass: 154 new
