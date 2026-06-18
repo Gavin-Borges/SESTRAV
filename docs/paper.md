@@ -4,7 +4,7 @@
 *Status: Active draft. [TBD] marks sections pending v4 results.*
 *Authors: Gavin Borges¹, Abdelrahman Eljamal¹, Iris Schellenberg¹, Charles Jouaneh¹, Emine Byers¹*
 *¹University of Rhode Island*
-*Corresponding author: Gavin Borges — ORCID: [REGISTER at orcid.org; replace placeholder before submission]*
+*Corresponding author: Gavin Borges — ORCID: 0009-0001-2404-5217*
 
 ---
 

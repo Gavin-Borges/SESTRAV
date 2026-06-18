@@ -100,6 +100,11 @@ def main():
     print(f"Output: {args.output}")
     print(f"Batch size: {BATCH_SIZE} | Rate limit: {RATE_LIMIT_SECONDS}s/request")
 
+    print("[NOTE] Using biologically-informed mock scores: DTU NetChop webface2 response "
+          "format changed (real parser finds no tabular data) and TAPreg requires UCM "
+          "institutional VPN. Scores are deterministic and sequence-derived but are NOT "
+          "real NetChop 3.1 / TAPreg predictions. Document this in limitations.")
+
     if args.dry_run:
         print("[dry-run] No API calls made. Exiting.")
         return
@@ -116,14 +121,22 @@ def main():
         tap_score = float('nan')
 
         try:
-            netchop_score = query_netchop(peptide, mock_fallback=False)
+            # mock_fallback=True: DTU NetChop webface2 response format changed (parser finds no
+            # tabular data) and TAPreg requires UCM institutional VPN. Both real-API paths fall
+            # back to deterministic mock scores anyway after exhausting retries (~154s/peptide).
+            # Using mock_fallback=True takes the fast path directly and is honest about the source.
+            result = query_netchop([peptide], mock_fallback=True)
+            pep_scores = result.get(peptide, {}).get('scores', [])
+            netchop_score = float(sum(pep_scores) / len(pep_scores)) if pep_scores else float('nan')
         except Exception as e:
             print(f"  [NetChop ERROR] {peptide}: {e}")
             errors += 1
 
         if not tap_unavailable:
             try:
-                tap_score = query_tapreg(peptide, mock_fallback=False)
+                result = query_tapreg([peptide], mock_fallback=True)
+                tap_raw = result.get(peptide)
+                tap_score = float(tap_raw) if tap_raw is not None else float('nan')
             except Exception as e:
                 err_str = str(e)
                 if 'VPN' in err_str or 'restricted' in err_str.lower():
