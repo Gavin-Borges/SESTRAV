@@ -15,15 +15,18 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: '3.11'
 
-      - name: Install SESTRAV
-        run: pip install -e ".[pipeline]"
+      - name: Install pinned dependencies
+        run: pip install --require-hashes -r environments/requirements.lock
+
+      - name: Install SESTRAV (no additional deps)
+        run: pip install --no-deps -e .
 
       - name: Fetch latest IEDB T-cell data (EBV + HPV16)
         run: |
@@ -97,7 +100,7 @@ jobs:
           PYEOF
 
       - name: Upload benchmark artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: iedb-benchmark-${{ github.run_id }}
           path: results/benchmark_latest.json
@@ -105,7 +108,7 @@ jobs:
 
       - name: Open GitHub Issue on regression
         if: hashFiles('REGRESSION_DETECTED') != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const fs = require('fs');
