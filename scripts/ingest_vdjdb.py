@@ -91,6 +91,33 @@ def ingest_vdjdb(input_path, output_path, schema_path):
         raise ValueError("VDJdb input missing expected columns 'Epitope'/'antigen.epitope' "
                          "and 'MHC A'/'mhc.a'")
 
+    # --- Species filter: exclude non-viral entries ---
+    # SESTRAV is a viral antigen immunogenicity predictor. VDJdb also contains
+    # human autoantigens/tumor antigens, synthetic controls, and bacterial/fungal
+    # epitopes which are biologically incompatible with viral training and must
+    # be excluded. Confirmed non-viral species from VDJdb 2026-06-03 release.
+    _EXCLUDE_SPECIES = frozenset([
+        # Human autoantigens and tumor/neoantigen epitopes
+        'HomoSapiens', 'Homo sapiens',
+        # Synthetic / non-natural peptides
+        'Synthetic',
+        # Bacteria
+        'KlebsiellaOxytoca', 'M.tuberculosis', 'E.Coli',
+        'StreptomycesKanamyceticus',
+        # Fungi
+        'AspergillusOryzae', 'FusariumOxysporum', 'CryptococcusNeoformans',
+        # Plants
+        'Wheat',
+    ])
+    _species_col = 'Epitope species'
+    if _species_col in df.columns:
+        n_before = len(df)
+        df = df[~df[_species_col].isin(_EXCLUDE_SPECIES)]
+        n_excluded = n_before - len(df)
+        if n_excluded > 0:
+            print(f"Excluded {n_excluded} non-viral rows "
+                  f"(human autoantigens, bacteria, fungi, synthetic controls).")
+
     # --- CDR3 extraction ---
     # New VDJdb (2026+) has one CDR3 per row with 'gene' column (TRA or TRB).
     # Pivot into alpha/beta columns keyed on (Epitope, MHC A).

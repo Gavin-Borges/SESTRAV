@@ -21,6 +21,7 @@ omit =
     src/bias_skew_finalization.py
     src/build_predig_recombinant_input.py
     src/calibration_analysis.py
+    src/cli.py
     src/ci/validate_release.py
     src/consensus_ensemble.py
     src/data_bias_audit.py
