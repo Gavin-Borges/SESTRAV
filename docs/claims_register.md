@@ -74,7 +74,7 @@ Claims that are currently accurate but could become stale as the project evolves
 | Claim | Trigger for re-verification | Responsible update |
 |---|---|---|
 | "OpenSSF Passing badge" | Any CI change; next badge audit | Re-run OpenSSF badge checker; update README badge |
-| "524 tests passing" | Any new test file added or removed | Update STATE.md and README after every test suite change |
+| "600 tests passing" | Any new test file added or removed | Update STATE.md and README after every test suite change |
 | "AUC-PR 0.8276 (OOF RF, v3, 31-feature canonical)" | v4 model training | Replace with v4 result in all documents; keep v3 as legacy baseline |
 | "4 viruses supported" | Any new virus added | Update README, model cards, claims_register Section 2 |
 | "Whole-repo coverage 37%" | Every pytest run with coverage | Update STATE.md; update claims_register if coverage changes significantly |

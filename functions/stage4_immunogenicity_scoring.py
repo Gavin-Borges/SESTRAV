@@ -38,7 +38,7 @@ from src.naming import resolve_model_path
 try:
     from src.artifact_integrity import load_verified_joblib
 except ImportError:
-    load_verified_joblib = None
+    load_verified_joblib = None  # type: ignore[assignment]
 
 def _load_torch_checkpoint(model_path, required=True):
     """Load ANN checkpoints using the safe weights-only path only.

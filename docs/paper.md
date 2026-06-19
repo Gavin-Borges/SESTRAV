@@ -193,7 +193,7 @@ The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825
 
 ### 3.4 Cross-virus transfer
 
-*Table 3. Cross-virus transfer AUC-PR (OOF RF, v3 data).*
+*Table 5. Cross-virus transfer AUC-PR (OOF RF, v3 data).*
 
 | Train → Test | AUC-PR |
 |---|---|
@@ -205,7 +205,11 @@ Cross-virus transfer within the EBV/HPV DNA virus family shows a 0.086–0.117 A
 
 ### 3.5 Antigen processing feature contribution
 
-*[Pending — 9-mer AUC-PR comparison vs. PredIG-Path (0.727) to be added here after feature_mode=33 retraining, Week 5 Day 2.]*
+The addition of two antigen processing features (NetChop 3.1 C-terminal cleavage probability, TAPreg TAP transport affinity) to the 31-feature canonical model raises OOF AUC-PR from 0.864 (`full_31`) to 0.886 (`full_33`) in unweighted ablation on v3 data — a +0.022 improvement and the largest single-step gain in the ablation series (Table 1). In the weighted production run, the mode-33 RF achieves AUC-PR 0.840 ± 0.011 vs. 0.828 ± 0.027 for mode-31, confirming the improvement holds under realistic training conditions.
+
+Among all 33 features, `netchop_score` is the single most informative feature (RF importance = 0.118), followed by `tap_score` (0.096; Table 2). Both antigen processing scores rank above any physicochemical or binding feature. This is consistent with the established rate-limiting role of proteasomal C-terminal cleavage in epitope generation: the proteasome must first liberate the peptide from its precursor before TAP transport or MHC loading can occur (Rock & Goldberg 1999; Kloetzel 2001).
+
+Compared to PredIG-Path (AUC-PR 0.727, fully trained), the mode-33 SESTRAV RF (AUC-PR 0.840, OOF) achieves a +0.113 AUC-PR advantage under evaluation conditions that favour PredIG due to 36.9% training-set contamination of the test set (§2.4). The mode-33 model is recommended for production use where the antigen processing cache (`data/antigen_processing_cache.csv`, pre-computed via `scripts/precompute_antigen_processing.py`) is available. The mode-31 canonical track remains the default where real-time NetChop/TAPreg access is impractical (DTU API reliability; see §4.2 Limitation 9 for the mock-score caveat).
 
 ---
 

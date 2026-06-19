@@ -25,7 +25,7 @@ def _require_file(path: str, parser: argparse.ArgumentParser, label: str) -> Non
 
 def _read_config() -> dict:
     try:
-        import yaml  # type: ignore[import-untyped]
+        import yaml
         cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
         if os.path.isfile(cfg_path):
             with open(cfg_path, encoding="utf-8") as f:
@@ -56,14 +56,14 @@ def cmd_info(args: argparse.Namespace) -> int:
 
     # MHCflurry version
     try:
-        import mhcflurry  # type: ignore[import-untyped]
+        import mhcflurry
         print(f"  mhcflurry       : {mhcflurry.__version__}")
     except ImportError:
         print("  mhcflurry       : not installed")
 
     # PyTorch version
     try:
-        import torch  # type: ignore[import-untyped]
+        import torch
         print(f"  torch           : {torch.__version__}")
         cuda = "available" if torch.cuda.is_available() else "not available"
         print(f"  CUDA            : {cuda}")
@@ -88,7 +88,7 @@ def cmd_info(args: argparse.Namespace) -> int:
     if cfg:
         pinned = cfg.get("mhcflurry_model_version")
         try:
-            import mhcflurry  # type: ignore[import-untyped]
+            import mhcflurry
             installed = mhcflurry.__version__
             if pinned and installed != pinned:
                 print("\n  [WARNING] MHCflurry version mismatch:")
