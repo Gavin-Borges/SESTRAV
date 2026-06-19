@@ -46,7 +46,7 @@ def _download(url: str, dest: Path, chunk_size: int = 1 << 20) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(".fasta.tmp")
     downloaded = 0
-    with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:  # noqa: S310
+    with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:  # nosec B310  # noqa: S310
         while chunk := resp.read(chunk_size):
             out.write(chunk)
             downloaded += len(chunk)
