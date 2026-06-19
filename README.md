@@ -18,9 +18,9 @@
 | Pan-allele training | v4 schema ready | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support (> 2 viruses) | 4 (HPV · EBV · HBV · HCV) | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
-| AUC-PR on labeled benchmark | **0.828 (OOF)** | 0.727 | 0.777 | N/A | N/A |
+| AUC-PR on labeled benchmark | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | 0.727 | 0.777 | N/A | N/A |
 
-*AUC-PR from 704-peptide labeled intersection. SESTRAV RF evaluated out-of-fold (conservative); external tools evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). The SESTRAV advantage is larger than raw numbers suggest when corrected for this asymmetry. See `docs/external_testing/External_Validation_Sign_Off.md` for methodology.*
+*AUC-PR from 704-peptide labeled intersection. SESTRAV RF evaluated out-of-fold (conservative); external tools evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). The SESTRAV advantage is larger than raw numbers suggest when corrected for this asymmetry. `full_33` (extended antigen processing track) is the best v3 result; `full_31` is the canonical lightweight track. See `docs/external_testing/External_Validation_Sign_Off.md` for methodology.*
 
 ---
 
@@ -39,7 +39,7 @@ This approach combines structural insights with multi-allele binding predictions
 ## Release Tracks and Policy
 
 * **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length), AUC-PR 0.864. This is the maintained release path.
-* **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). Requires the antigen processing cache; see `scripts/precompute_antigen_processing.py`.
+* **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). AUC-PR 0.886 (unweighted) / 0.840 (weighted) — best v3 result; +0.022 over canonical. Requires antigen processing cache; see `scripts/precompute_antigen_processing.py`.
 * **Legacy comparator track:** 30-feature (without peptide length) and 21-feature (sequence-only) configurations retained for historical reproducibility.
 
 **Source of Truth:** SESTRAV v2 designates this repository (main branch) as the single authoritative source. For release-grade reproducibility, enable `freeze_mode: true` in `config.yaml`. Freeze mode enforces strict guardrails: no Stage 4 prototype fallback, no mixed legacy/canonical output stems, and atomic artifact updates.
@@ -182,7 +182,7 @@ At each TCR contact position, SESTRAV computes the following physicochemical pro
 | Track | Features | AUC-PR (v3 OOF) | Use Case |
 | :--- | :--- | :--- | :--- |
 | Canonical (31-feature) | 20 physicochemical + 10 binding + length | 0.864 | Default release track |
-| Extended (33-feature) | 31 + NetChop + TAPreg | TBD | Antigen processing tier |
+| Extended (33-feature) | 31 + NetChop + TAPreg | 0.886 (unweighted) / 0.840 (weighted) | Antigen processing tier — best v3 result |
 | Legacy (30-feature) | 20 physicochemical + 10 binding | 0.825 | Historical comparator |
 | Legacy (21-feature) | Sequence-only (binding excluded) | 0.772 | Historical comparator |
 | Expanded (50-feature) | 40 physicochemical + 10 binding | — | Extended evaluation |

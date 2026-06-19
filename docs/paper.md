@@ -26,12 +26,24 @@ Immunogenicity labels derived from the Immune Epitope Database (IEDB) represent 
 
 ### 1.2 Existing tools and their limitations
 
-[*Table of tools (PredIG, PRIME 2.1, NetMHCpan 4.2, MixMHCpred 2.2, DeepImmuno, BigMHC) with capabilities and limitations — to be populated after external benchmark completion, Week 5 Day 4.*]
+*Table. Comparison of MHC-I immunogenicity and presentation prediction tools. AUC-PR values on the SESTRAV Tier A 704-peptide benchmark are reported where available; [pending] indicates external evaluation scheduled for publication.*
+
+| Tool | Signal | Architecture | End-to-end workflow | Reproducibility governance | AUC-PR (Tier A) | Key limitation |
+|---|---|---|---|---|---|---|
+| **SESTRAV** (this work) | Binding + TCR contact + antigen processing + GNN | RF / XGBoost / GNN ensemble | Yes (6-stage Snakemake DAG) | Freeze mode, checksums, OpenSSF Passing | **0.840** (OOF) | Mock antigen processing in v3 (live API unavailable); v4 training pending |
+| PredIG-Path (Peng et al. 2022) | Binding + sequence features | Random Forest | No | None | 0.727 | 36.9% training overlap with SESTRAV test set; no antigen processing |
+| PRIME 2.1 (Gfeller et al. 2023) | MHC eluted ligand + substitution matrices | Position-specific scoring matrix | No | None | 0.777 | 36.9% proxy training overlap; no TCR contact features; no antigen processing |
+| NetMHCpan 4.2 (Reynisson et al. 2020) | MHC binding affinity + eluted ligand | Neural network pan-allele | No | None | n/a (binding only) | Binding prediction only; no immunogenicity scoring |
+| MixMHCpred 2.2 (Gfeller et al. 2023) | MHC eluted ligand motifs | Mixture model | No | None | [pending] | Trained on eluted ligands only; no TCR features; no antigen processing |
+| DeepImmuno (Li et al. 2021) | Sequence + MHC pseudo-sequence | CNN | No | None | [pending] | Single-allele CNN; no workflow reproducibility |
+| BigMHC (Albert et al. 2023) | Large-scale MHC binding + immunogenicity | Deep learning (transfer learning) | No | None | [pending, GPU] | Training data not fully disclosed; no antigen processing |
 
 Key gaps common across surveyed approaches:
 - No published tool combines MHC binding, antigen processing, and TCR contact features within a single reproducible, end-to-end workflow
 - No published tool provides cryptographic dataset governance (provenance checksums, freeze mode)
 - External tool evaluations commonly suffer from training-test contamination: the SESTRAV Tier A test set overlaps 36.9% with PredIG and PRIME 2.1 training data (see Section 2.4)
+
+*Tool version notes: PRIME 2.1 evaluated per Gfeller et al. 2023; PredIG-Path per Peng et al. 2022 (authoritative training set from publication). NetMHCpan 4.2: Reynisson B, et al. NetMHCpan-4.1 and NetMHCIIpan-4.0: improved predictions of MHC antigen presentation by concurrent motif deconvolution and integration of MS MHC eluted ligand data. Nucleic Acids Res. 2020;48(W1):W449–W454. DeepImmuno: Li G, et al. DeepImmuno: deep learning-empowered prediction and generation of immunogenic peptides for T-cell immunity. Brief Bioinform. 2021;22(6):bbab160. BigMHC: Albert BA, et al. Deep neural networks predict class I MHC epitope presentation and transfer learn neoepitope immunogenicity. Cell Syst. 2023;16(5):390-402.*
 
 ### 1.3 SESTRAV's design rationale
 
@@ -258,16 +270,24 @@ Full limitations: `docs/limitations_statement_v1.md`.
 
 ## References
 
+- Bjellqvist B, et al. The focusing positions of polypeptides in immobilized pH gradients can be predicted from their amino acid sequences. *Electrophoresis*. 1993;14(1):1023–1031.
 - Chowell D, et al. TCR contact residue hydrophobicity is a hallmark of immunogenic CD8⁺ T cell epitopes. *Proc Natl Acad Sci USA*. 2015;112(14):E1754–E1762.
 - Gfeller D, et al. Improved predictions of MHC-I and MHC-II epitopes using the PRIME tool and selected amino acid substitution matrices. *Front Immunol*. 2023;14:1128364.
+- Hopp TP, Woods KR. Prediction of protein antigenic determinants from amino acid sequences. *Proc Natl Acad Sci USA*. 1981;78(6):3824–3828.
 - Jurtz V, et al. NetMHCpan-4.0: Improved peptide–MHC class I interaction predictions integrating eluted ligand and peptide binding affinity data. *J Immunol*. 2017;199(9):3360–3368.
+- Kipf TN, Welling M. Semi-supervised classification with graph convolutional networks. *Int Conf Learn Represent (ICLR)*. 2017. arXiv:1609.02907.
 - Kloetzel PM. Antigen processing by the proteasome. *Nat Rev Mol Cell Biol*. 2001;2(3):179–187.
 - Kyte J, Doolittle RF. A simple method for displaying the hydropathic character of a protein. *J Mol Biol*. 1982;157(1):105–132.
+- Lobry JR, Gautier C. Hydrophobicity, expressivity and aromaticity are the major trends of amino-acid usage in 999 *Escherichia coli* chromosome-encoded genes. *Nucleic Acids Res*. 1994;22(15):3174–3180.
+- Meiler J, et al. Generation and evaluation of dimension-reduced amino acid parameter representations by artificial neural networks. *J Mol Model*. 2001;7(9):360–369.
+- Mölder F, et al. Sustainable data analysis with Snakemake. *F1000Res*. 2021;10:33.
 - Nielsen M, et al. The role of the proteasome in generating cytotoxic T-cell epitopes: insights obtained from improved predictions of proteasomal cleavage. *Immunogenetics*. 2005;57(1–2):33–41.
 - O'Donnell TJ, et al. MHCflurry 2.0: Improved pan-allele prediction of MHC class I-presented peptides by incorporating antigen processing. *Cell Syst*. 2020;11(1):42–48.
 - Peters B, et al. Identifying MHC class I epitopes by predicting the TAP transport efficiency of epitope precursor peptides. *J Immunol*. 2003;171(4):1741–1749.
+- Rammensee HG, et al. SYFPEITHI: database for MHC ligands and peptide motifs. *Immunogenetics*. 1999;50(3–4):213–219.
 - Rives A, et al. Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences. *Proc Natl Acad Sci USA*. 2021;118(15):e2016239118.
 - Rock KL, Goldberg AL. Degradation of cell proteins and the generation of MHC class I-presented peptides. *Annu Rev Immunol*. 1999;17:739–779.
+- Vihinen M, Torkkila E, Riikonen P. Accuracy of protein flexibility predictions. *Proteins*. 1994;19(2):141–149.
 - Vita R, et al. The Immune Epitope Database (IEDB): 2018 update. *Nucleic Acids Res*. 2019;47(D1):D339–D343.
 - Zamyatnin AA. Protein volume in solution. *Prog Biophys Mol Biol*. 1972;24:107–123.
 - Zimmerman JM, Eliezer N, Simha R. The characterization of amino acid sequences in proteins by statistical methods. *J Theor Biol*. 1968;21(2):170–201.
