@@ -37,14 +37,14 @@ from joblib import dump
 from src.artifact_integrity import MODEL_CHECKSUM_MANIFEST, update_checksum_manifest
 from src.features import (
     compute_features, FEATURE_COLUMNS, TRAIN_FEATURE_COLUMNS,
-    FEATURE_COLUMNS_30, FEATURE_COLUMNS_31, FEATURE_COLUMNS_33,
+    FEATURE_COLUMNS_30, FEATURE_COLUMNS_31, FEATURE_COLUMNS_33, FEATURE_COLUMNS_35,
     BINDING_ALLELE_COLUMNS, PHYSICO_COLUMNS,
     FEATURE_COLUMNS_ALLELE, HLA_PSEUDO_COLS,
     FEATURE_COLUMNS_50, EXPANDED_PHYSICO_COLUMNS,
     compute_sample_weights,
     get_esm_cls_token, get_cb_cb_edges, compute_wl_features,
     FEATURE_COLUMNS_30_ESM, FEATURE_COLUMNS_30_GRAPH,
-    load_antigen_processing_cache,
+    load_antigen_processing_cache, load_self_similarity_cache,
 )
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
@@ -117,6 +117,22 @@ def prepare_features_33(df, binding_matrix_path, cache_path):
     df_with_scores = load_antigen_processing_cache(cache_path, df.reset_index(drop=True))
     proc_df = df_with_scores[['netchop_score', 'tap_score']].reset_index(drop=True)
     return pd.concat([base_31.reset_index(drop=True), proc_df], axis=1)[FEATURE_COLUMNS_33]
+
+
+def prepare_features_35(df, binding_matrix_path, ap_cache_path, sim_cache_path):
+    """Build the 35-feature tolerance-aware matrix: 33-feature extended + self-similarity.
+
+    Adds two columns from the human-proteome k-mer lookup cache:
+      self_similarity_max_identity  — float [0, 1]; 1.0 = exact match
+      self_similarity_exact_match   — float 0/1 (cast from bool for homogeneous dtype)
+
+    Self-peptide matches indicate central-tolerance targets (thymic deletion),
+    the mechanistic basis for non-immunogenicity in hard decoys.
+    """
+    base_33 = prepare_features_33(df, binding_matrix_path, ap_cache_path)
+    df_with_sim = load_self_similarity_cache(sim_cache_path, df.reset_index(drop=True))
+    sim_df = df_with_sim[['self_similarity_max_identity', 'self_similarity_exact_match']].reset_index(drop=True)
+    return pd.concat([base_33.reset_index(drop=True), sim_df], axis=1)[FEATURE_COLUMNS_35]
 
 
 def prepare_features_30_esm(df, binding_matrix_path):
@@ -347,6 +363,7 @@ def _cross_validate(
 def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
                   feature_mode=21, binding_matrix_path=None,
                   antigen_processing_cache_path=None,
+                  self_similarity_cache_path=None,
                   use_sample_weights=False, use_lopo=False):
     """
     Full training pipeline:
@@ -420,6 +437,19 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         X = prepare_features_30_graph(train_pool, binding_matrix_path)
         feature_cols_used = FEATURE_COLUMNS_30_GRAPH
         mode_label = "62-feature (30 baseline + 32 WL graph descriptors)"
+    elif feature_mode == 35:
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 35")
+        if antigen_processing_cache_path is None:
+            raise ValueError("--antigen-processing-cache is required for feature-mode 35")
+        if self_similarity_cache_path is None:
+            raise ValueError("--self-similarity-cache is required for feature-mode 35")
+        X = prepare_features_35(
+            train_pool, binding_matrix_path,
+            antigen_processing_cache_path, self_similarity_cache_path,
+        )
+        feature_cols_used = FEATURE_COLUMNS_35
+        mode_label = "35-feature tolerance-aware (33 extended + self_similarity_max_identity + self_similarity_exact_match)"
     elif feature_mode == 33:
         if binding_matrix_path is None:
             raise ValueError("--binding-matrix is required for feature-mode 33")
@@ -619,14 +649,20 @@ if __name__ == '__main__':
     parser.add_argument('--model-dir', default='models', help='Output directory for serialized models')
     parser.add_argument('--cv-folds', type=int, default=5, help='Number of CV folds (default: 5)')
     parser.add_argument('--feature-mode', type=str, default="21",
-                        choices=["21", "30", "31", "33", "50", "166", "30_esm", "30_graph"],
+                        choices=["21", "30", "31", "33", "35", "50", "166", "30_esm", "30_graph"],
                         help='Feature mode: 21 (sequence-only) | 30 (physico+binding) | 31 canonical | '
-                             '33 (31+NetChop+TAPreg) | 50 (expanded) | 30_esm | 30_graph')
+                             '33 (31+NetChop+TAPreg) | 35 (33+self-similarity) | 50 (expanded) | '
+                             '30_esm | 30_graph')
     parser.add_argument('--binding-matrix', default=None,
                         help='Path to peptide_binding_matrix.csv (required for --feature-mode 30+)')
     parser.add_argument('--antigen-processing-cache', default=None,
                         help='Path to antigen processing cache CSV with netchop_score + tap_score '
-                             '(required for --feature-mode 33)')
+                             '(required for --feature-mode 33+)')
+    parser.add_argument('--self-similarity-cache', default=None,
+                        help='Path to self_similarity_cache.csv with self_similarity_max_identity '
+                             'and self_similarity_exact_match columns '
+                             '(required for --feature-mode 35; generate with '
+                             'scripts/precompute_self_similarity.py)')
     parser.add_argument('--sample-weights', action='store_true',
                         help='Apply EBV/HPV16 and 9-mer/non-9-mer bias-correction weights during training')
     parser.add_argument('--lopo', action='store_true',
@@ -640,8 +676,11 @@ if __name__ == '__main__':
         parser.error(f"Binding matrix file does not exist: '{args.binding_matrix}'")
     if args.antigen_processing_cache and not os.path.isfile(args.antigen_processing_cache):
         parser.error(f"Antigen processing cache does not exist: '{args.antigen_processing_cache}'")
+    if args.self_similarity_cache and not os.path.isfile(args.self_similarity_cache):
+        parser.error(f"Self-similarity cache does not exist: '{args.self_similarity_cache}'")
 
     train_models(args.data, args.model_dir, n_cv_folds=args.cv_folds,
                  feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix,
                  antigen_processing_cache_path=args.antigen_processing_cache,
+                 self_similarity_cache_path=args.self_similarity_cache,
                  use_sample_weights=args.sample_weights, use_lopo=args.lopo)

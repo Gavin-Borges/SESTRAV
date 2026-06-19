@@ -141,6 +141,8 @@ FEATURE_COLUMNS_30 = PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ['peptide_length']
 # 33-feature: canonical 31 + orthogonal antigen processing signals (NetChop 3.1, TAPreg)
 FEATURE_COLUMNS_33 = FEATURE_COLUMNS_31 + ['netchop_score', 'tap_score']
+# 35-feature: extended 33 + human-proteome self-similarity (tolerance signal)
+FEATURE_COLUMNS_35 = FEATURE_COLUMNS_33 + ['self_similarity_max_identity', 'self_similarity_exact_match']
 
 FEATURE_COLUMNS_50 = EXPANDED_PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 
@@ -645,6 +647,42 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
 # ---------------------------------------------------------------------------
 # Antigen processing cache loader (feature_mode=33)
 # ---------------------------------------------------------------------------
+
+def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
+    """Join precomputed human-proteome self-similarity scores onto a peptide DataFrame.
+
+    Missing peptides receive 0.0 / False (conservative: no known self-match).
+    The cache CSV must have columns: peptide, self_similarity_max_identity,
+    self_similarity_exact_match.
+
+    Args:
+        cache_path: Path to self_similarity_cache.csv.
+        df:         DataFrame containing a 'peptide' column.
+
+    Returns:
+        df with 'self_similarity_max_identity' (float) and
+        'self_similarity_exact_match' (float 0/1) columns appended.
+    """
+    cache = pd.read_csv(
+        cache_path,
+        usecols=['peptide', 'self_similarity_max_identity', 'self_similarity_exact_match'],
+    )
+    cache = cache.drop_duplicates(subset='peptide').set_index('peptide')
+    result = df.copy()
+    result['self_similarity_max_identity'] = result['peptide'].map(
+        cache['self_similarity_max_identity']
+    ).fillna(0.0).astype(float)
+    # Store as float (0.0 / 1.0) so the feature matrix stays homogeneous
+    result['self_similarity_exact_match'] = result['peptide'].map(
+        cache['self_similarity_exact_match']
+    ).fillna(0.0).astype(float)
+    missing = int((result['self_similarity_max_identity'] == 0.0).sum()
+                  - (cache['self_similarity_max_identity'] == 0.0).reindex(
+                        result['peptide']).fillna(True).sum())
+    if missing > 0:
+        print(f"[features] {missing} peptides not found in self-similarity cache — defaulting to 0.0")
+    return result
+
 
 def load_antigen_processing_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
     """Join precomputed NetChop/TAPreg scores onto a peptide DataFrame.

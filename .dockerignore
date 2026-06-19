@@ -1,18 +1,68 @@
+# Version control and tooling
 .git
 .gitignore
+.github
+.claude
+.antigravityrules
+.cache
+.context
 .snakemake
+
+# Test infrastructure (not needed in image)
 .pytest_cache
 .pytest_tmp
 .pytest_tmp_new
 tmp_pytest
+tests/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# Python artifacts
 __pycache__
 *.pyc
-release_artifacts
-results
+*.egg-info
+*.egg
+
+# Large data directories (volume-mount at runtime)
+data/raw/
+data/iedb/
+data/iedb_api_pulls/
+data/external/
+data/archive/
+data/allele_aware/
+data/verify/
+data/self_similarity_cache.csv
+data/self_similarity_cache_provenance.json
+data/hard_decoys.csv
+data/vdjdb_v4.csv
+data/tsnadb_v4.csv
+data/immunogenicity_dataset_v4.csv
+data/proteomes/human_uniprot_UP000005640.fasta
+
+# Model binaries (volume-mount at runtime)
 models/*.joblib
 models/*.pkl
 models/*.pt
-*.egg-info
+models/ann/
+models/gnn/
+models/allele_aware/
+
+# Results and outputs
+results/
+release_artifacts/
+
+# Documentation (reduces image size)
+docs/
+*.md
+!README.md
+
+# Environments and secrets
 .env
 .venv
+environments/
+ci_install_test.log
+
+# OS artifacts
 .DS_Store
+Thumbs.db

@@ -1,0 +1,119 @@
+name: Monthly IEDB Benchmark
+
+on:
+  schedule:
+    - cron: '0 8 1 * *'   # first of every month at 08:00 UTC
+  workflow_dispatch:        # allow manual trigger for testing
+
+permissions:
+  contents: read
+  issues: write            # open regression alerts as GitHub Issues
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SESTRAV
+        run: pip install -e ".[pipeline]"
+
+      - name: Fetch latest IEDB T-cell data (EBV + HPV16)
+        run: |
+          mkdir -p data_tmp/iedb
+          python scripts/fetch_iedb_tcell.py --virus EBV   --output data_tmp/iedb/ebv_tcell.csv
+          python scripts/fetch_iedb_tcell.py --virus HPV16 --output data_tmp/iedb/hpv16_tcell.csv
+
+      - name: Score with production model and compute AUC-PR
+        run: |
+          python - <<'PYEOF'
+          import json, os, pathlib, sys
+          import pandas as pd
+          import numpy as np
+          from sklearn.metrics import average_precision_score
+          from joblib import load
+          from src.features import prepare_features_31
+          from src.naming import CANONICAL_MODEL_PATH
+
+          # Load both IEDB exports
+          frames = []
+          for f in ["data_tmp/iedb/ebv_tcell.csv", "data_tmp/iedb/hpv16_tcell.csv"]:
+              if os.path.exists(f):
+                  df = pd.read_csv(f)
+                  if len(df) > 0:
+                      frames.append(df)
+
+          if not frames:
+              print("No IEDB records fetched — nothing to score. Exiting.")
+              sys.exit(0)
+
+          df = pd.concat(frames, ignore_index=True).drop_duplicates(subset="peptide")
+          df = df.dropna(subset=["peptide", "label"])
+          df["label"] = df["label"].astype(int)
+          print(f"Scoring {len(df)} unique peptides ({int(df['label'].sum())} positive)")
+
+          model_path = CANONICAL_MODEL_PATH
+          if not os.path.exists(model_path):
+              print(f"Model not found at {model_path}. Skipping AUC-PR computation.")
+              sys.exit(0)
+
+          clf = load(model_path)
+          bm_path = "models/peptide_binding_matrix_v3.csv"
+          X = prepare_features_31(df, bm_path)
+          proba = clf.predict_proba(X)[:, 1]
+          auc_pr = float(average_precision_score(df["label"].values, proba))
+          print(f"AUC-PR on fresh IEDB export: {auc_pr:.4f}")
+
+          # Load baseline (written by this workflow on prior runs)
+          baseline_path = "results/benchmark_baseline.json"
+          baseline = {}
+          if os.path.exists(baseline_path):
+              baseline = json.loads(pathlib.Path(baseline_path).read_text())
+
+          result = {
+              "auc_pr": auc_pr,
+              "n_peptides": len(df),
+              "n_positive": int(df["label"].sum()),
+          }
+          pathlib.Path("results").mkdir(exist_ok=True)
+          pathlib.Path("results/benchmark_latest.json").write_text(json.dumps(result, indent=2))
+
+          # Regression check: alert if AUC-PR drops more than 1 pp below baseline
+          if "auc_pr" in baseline:
+              delta = auc_pr - baseline["auc_pr"]
+              print(f"Delta vs baseline: {delta:+.4f}")
+              if delta < -0.01:
+                  print(f"::warning::AUC-PR regression detected: {auc_pr:.4f} vs baseline {baseline['auc_pr']:.4f} (delta {delta:+.4f})")
+                  pathlib.Path("REGRESSION_DETECTED").write_text(
+                      f"delta={delta:.4f} current={auc_pr:.4f} baseline={baseline['auc_pr']:.4f}"
+                  )
+          PYEOF
+
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iedb-benchmark-${{ github.run_id }}
+          path: results/benchmark_latest.json
+          if-no-files-found: warn
+
+      - name: Open GitHub Issue on regression
+        if: hashFiles('REGRESSION_DETECTED') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const msg = fs.readFileSync('REGRESSION_DETECTED', 'utf8');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Automated] Monthly IEDB benchmark AUC-PR regression`,
+              body: `The monthly IEDB benchmark detected a performance regression.\n\n${msg}\n\nSee workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['regression', 'automated'],
+            });
