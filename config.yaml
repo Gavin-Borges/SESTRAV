@@ -1,19 +1,32 @@
 
 antigens:
+  # Original four panels (training backbone)
   - HPV16_18_panel8
   - EBV_B95_8_panel8
   - HBV_ayw_panel4
   - HCV_1a_panel4
+  # Week 6 expansion panels — require fetch_viral_proteomes.py before first use
+  - HIV1_HXB2_panel4
+  - SARSCOV2_wuhan1_panel4
+  - IAV_PR8_panel4
+  - CMV_AD169_panel4
 
 proteome_files:
   HPV16_18_panel8: data/proteomes/HPV16_18_panel8.fasta
   EBV_B95_8_panel8: data/proteomes/EBV_B95_8_panel8.fasta
   HBV_ayw_panel4: data/proteomes/HBV_ayw_panel4.fasta
   HCV_1a_panel4: data/proteomes/HCV_1a_panel4.fasta
+  HIV1_HXB2_panel4: data/proteomes/HIV1_HXB2_panel4.fasta
+  SARSCOV2_wuhan1_panel4: data/proteomes/SARSCOV2_wuhan1_panel4.fasta
+  IAV_PR8_panel4: data/proteomes/IAV_PR8_panel4.fasta
+  CMV_AD169_panel4: data/proteomes/CMV_AD169_panel4.fasta
   # Legacy one-release aliases
   EBV_panel8_B958: data/proteomes/EBV_B95_8_panel8.fasta
   HBV_panel4: data/proteomes/HBV_ayw_panel4.fasta
   HCV_panel4: data/proteomes/HCV_1a_panel4.fasta
+  SARSCOV2_panel4: data/proteomes/SARSCOV2_wuhan1_panel4.fasta
+  IAV_panel4: data/proteomes/IAV_PR8_panel4.fasta
+  CMV_panel4: data/proteomes/CMV_AD169_panel4.fasta
 
 alleles:
   - HLA-A*02:01

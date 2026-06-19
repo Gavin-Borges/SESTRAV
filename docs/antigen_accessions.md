@@ -74,11 +74,89 @@ This panel uses the best-available reviewed Swiss-Prot entries for each NS prote
 
 ---
 
-## 5. FASTA Configurations and Stage 1 Integration
+## 5. HIV-1 Antigens
+All sequences are derived from the **HIV-1 clade B reference strain HXB2** (GenBank K03455).
+
+| Protein Name | UniProt Accession | Gene | Biological Role |
+| :--- | :--- | :--- | :--- |
+| **Gag** | `P04591` | `gag` | Gag polyprotein (MA, CA/p24, SP1, NC, SP2, p6) — dominant CD8+ target |
+| **Pol** | `P04585` | `pol` | Pol polyprotein (PR, RT, RNase H, IN) — reverse transcriptase target |
+| **Nef** | `P04601` | `nef` | Negative factor — accessory protein; major early CD8+ immunodominant antigen |
+| **Env** | `P04578` | `env` | Envelope glycoprotein gp160 (gp120 + gp41) |
+
+> [!NOTE]
+> Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/HIV1_HXB2_panel4_provenance.json`.
+
+> [!WARNING]
+> **HIV-1 Clade Coverage Caveat.** HXB2 is clade B, which predominates in North America and Western Europe. Clade C (Sub-Saharan Africa, South Asia) is the most globally prevalent and shows approximately 10% amino-acid divergence from clade B in Gag and Env. Predictions derived from this panel carry additional uncertainty when applied to clade C, D, or A patient populations. SESTRAV does not currently model HIV hypervariable loop regions (V1-V5 of gp120). Clade-specific expansion planned for v2.2.
+
+---
+
+## 6. SARS-CoV-2 Antigens
+All sequences are derived from the **SARS-CoV-2 Wuhan-1 reference strain** (Hu-1; GenBank MN908947).
+
+| Protein Name | UniProt Accession | Gene | Length | Biological Role |
+| :--- | :--- | :--- | :--- | :--- |
+| **Spike** | `P0DTC2` | `S` / ORF2 | 1273 AA | Surface glycoprotein — viral entry; primary humoral + CD8 target |
+| **N** | `P0DTC9` | `N` / ORF9 | 419 AA | Nucleocapsid phosphoprotein — highly conserved; dominant CD8 target |
+| **M** | `P0DTC5` | `M` / ORF5 | 222 AA | Membrane glycoprotein — conserved CD8 target across betacoronavirus family |
+| **ORF3a** | `P0DTC3` | `ORF3a` | 275 AA | Accessory pore-forming protein — documented CD8 responses in IEDB |
+
+> [!NOTE]
+> Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/SARSCOV2_wuhan1_panel4_provenance.json`.
+
+> [!WARNING]
+> **Omicron Variant Divergence.** BA.2 and later Omicron subvariants carry >30 Spike mutations relative to Wuhan-1, including substitutions at documented CD8+ T-cell epitopes (e.g., positions 417, 452, 501). Predictions for Spike-derived peptides are most reliable for ancestral and Delta-lineage strains; cross-variant accuracy requires per-peptide conservation analysis not yet implemented. N and M proteins are substantially more conserved across variants (< 5 mutations) and predictions are expected to generalize better.
+
+---
+
+## 7. Influenza A Virus (IAV) Antigens
+All sequences are derived from the **A/Puerto Rico/8/1934 (PR8) strain**, subtype H1N1, the canonical laboratory reference and vaccine manufacturing strain.
+
+| Protein Name | UniProt Accession | Gene | Length | Biological Role |
+| :--- | :--- | :--- | :--- | :--- |
+| **NP** | `P03466` | `NP` | 498 AA | Nucleoprotein — dominant, cross-subtype conserved CD8+ target; universal vaccine candidate |
+| **M1** | `P03485` | `M` | 252 AA | Matrix protein 1 — highly conserved across H1N1 and H3N2; well-characterized CD8 target |
+| **HA** | `P03437` | `HA` | 566 AA | Hemagglutinin — H1 subtype-specific; principal neutralizing antibody target |
+| **PB1-F2** | `P0C0U1` | `PB1-F2` | 90 AA | Pathogenicity factor encoded in PB1 +1 reading frame; documented CD8 target in severe disease |
+
+> [!NOTE]
+> NP and M1 are the primary cross-strain conserved targets underlying universal influenza vaccine proposals (Sridhar et al. 2013, *Nat Med*). PB1-F2 is only 90 AA in PR8 and generates a limited peptide pool (≤83 9-mer windows); treat any predictions for this protein with reduced confidence due to low training coverage. Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/IAV_PR8_panel4_provenance.json`.
+
+> [!WARNING]
+> **Subtype Generalization Caveat.** HA predictions are H1-subtype specific and will not generalize to H3N2, H5N1, or avian influenza subtypes without retraining on subtype-appropriate sequences. NP and M1 predictions are expected to generalize across H1N1 and H3N2 but have not been formally validated on non-PR8 sequences in SESTRAV.
+
+---
+
+## 8. Human Cytomegalovirus (CMV) Antigens
+All sequences are derived from the **CMV strain AD169** (Human betaherpesvirus 5), the most widely studied laboratory-adapted CMV strain.
+
+| Protein Name | UniProt Accession | Gene | Length | Biological Role |
+| :--- | :--- | :--- | :--- | :--- |
+| **pp65** | `P06725` | `UL83` | 561 AA | Lower matrix phosphoprotein — immunodominant CD8+ target; dominates CMV-specific T-cell pool (up to 10–20% of CD8+ T-cells in seropositive adults) |
+| **IE1** | `P13202` | `UL123` | 491 AA | Immediate-early antigen 1 — dominant CD8+ target during primary/reactivation lytic phase |
+| **pp50** | `P16785` | `UL44` | 433 AA | DNA polymerase processivity factor — documented CD8+ T-cell target in transplant recipients |
+| **gB** | `P06473` | `UL55` | 906 AA | Envelope glycoprotein B — CD8+ T-cell responses documented in primary infection and post-transplant |
+
+> [!NOTE]
+> CMV drives the largest pathogen-specific CD8+ T-cell pool of any common human infection (Sylwester et al. 2005, *J Exp Med*). pp65 and IE1 are the primary targets used in CMV-specific T-cell monitoring (tetramer assays, ELISPOT). Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/CMV_AD169_panel4_provenance.json`.
+
+> [!WARNING]
+> **AD169 Laboratory Adaptation Caveat.** The AD169 strain is highly passage-adapted and has lost the UL/b' genomic region (RL1–RL13, UL1–UL20) present in low-passage clinical isolates. Clinical CMV isolates express additional immunogenic proteins absent from AD169. Predictions from this panel may underrepresent clinical strain epitope diversity. Future versions will supplement with Merlin strain (ATCC VR-1745), which retains the UL/b' region.
+
+---
+
+## 9. FASTA Configurations and Stage 1 Integration
 These accessions are consolidated into default FASTA inputs used in the Snakemake sliding-window generation:
 *   **EBV Proteome Panel (8 proteins):** [EBV_B95_8_panel8.fasta](../data/proteomes/EBV_B95_8_panel8.fasta)
 *   **HPV Proteome Panel (8 proteins):** [HPV16_18_panel8.fasta](../data/proteomes/HPV16_18_panel8.fasta) (comprising 4 HPV16 and 4 HPV18 proteins)
 *   **HBV Proteome Panel (4 proteins):** [HBV_ayw_panel4.fasta](../data/proteomes/HBV_ayw_panel4.fasta)
 *   **HCV Proteome Panel (4 proteins):** [HCV_1a_panel4.fasta](../data/proteomes/HCV_1a_panel4.fasta)
+
+*Week 6 expansion panels (FASTAs generated after running `scripts/fetch_viral_proteomes.py --panels HIV1_HXB2_panel4 SARSCOV2_wuhan1_panel4 IAV_PR8_panel4 CMV_AD169_panel4`):*
+*   **HIV-1 HXB2 Panel (4 proteins):** [HIV1_HXB2_panel4.fasta](../data/proteomes/HIV1_HXB2_panel4.fasta)
+*   **SARS-CoV-2 Wuhan-1 Panel (4 proteins):** [SARSCOV2_wuhan1_panel4.fasta](../data/proteomes/SARSCOV2_wuhan1_panel4.fasta)
+*   **IAV PR8 Panel (4 proteins):** [IAV_PR8_panel4.fasta](../data/proteomes/IAV_PR8_panel4.fasta)
+*   **CMV AD169 Panel (4 proteins):** [CMV_AD169_panel4.fasta](../data/proteomes/CMV_AD169_panel4.fasta)
 
 Any sliding-window queries initiated via `Snakefile` or `pipeline.smk` default to these configurations. Custom proteins added for Stage 1 must follow this mapping format and be documented accordingly.

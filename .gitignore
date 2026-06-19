@@ -337,6 +337,14 @@ pytest_temp/
 # Raw IEDB exports (local .xlsx working data — never commit)
 data/raw/
 
+# IEDB REST API output and legacy staging area (large, regenerable)
+data/iedb/
+data/iedb_api_pulls/
+
+# Computed caches (large, regenerable via scripts/precompute_self_similarity.py)
+data/self_similarity_cache.csv
+data/self_similarity_cache_provenance.json
+
 # State tracking directory
 .context/
 

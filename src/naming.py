@@ -11,19 +11,28 @@ from typing import Dict, List
 
 
 PROTEOME_ID_ALIASES: Dict[str, str] = {
-    "HPV_8_FASTAs": "HPV16_18_panel8",
-    "EBV_8_FASTAs": "EBV_B95_8_panel8",
+    "HPV_8_FASTAs":    "HPV16_18_panel8",
+    "EBV_8_FASTAs":    "EBV_B95_8_panel8",
     "EBV_panel8_B958": "EBV_B95_8_panel8",
-    "HBV_panel4": "HBV_ayw_panel4",
-    "HCV_panel4": "HCV_1a_panel4",
+    "HBV_panel4":      "HBV_ayw_panel4",
+    "HCV_panel4":      "HCV_1a_panel4",
+    # Week 6 expansion short aliases
+    "SARSCOV2_panel4": "SARSCOV2_wuhan1_panel4",
+    "IAV_panel4":      "IAV_PR8_panel4",
+    "CMV_panel4":      "CMV_AD169_panel4",
 }
 
 
 PROTEOME_ID_LEGACY_BY_CANONICAL: Dict[str, List[str]] = {
-    "HPV16_18_panel8": ["HPV_8_FASTAs"],
-    "EBV_B95_8_panel8": ["EBV_panel8_B958", "EBV_8_FASTAs"],
-    "HBV_ayw_panel4": ["HBV_panel4"],
-    "HCV_1a_panel4": ["HCV_panel4"],
+    "HPV16_18_panel8":        ["HPV_8_FASTAs"],
+    "EBV_B95_8_panel8":       ["EBV_panel8_B958", "EBV_8_FASTAs"],
+    "HBV_ayw_panel4":         ["HBV_panel4"],
+    "HCV_1a_panel4":          ["HCV_panel4"],
+    # Week 6 expansion panels — no legacy aliases yet
+    "HIV1_HXB2_panel4":       [],
+    "SARSCOV2_wuhan1_panel4": ["SARSCOV2_panel4"],
+    "IAV_PR8_panel4":         ["IAV_panel4"],
+    "CMV_AD169_panel4":       ["CMV_panel4"],
 }
 
 
