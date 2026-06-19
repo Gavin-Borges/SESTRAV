@@ -104,7 +104,7 @@ def _score_batched(
     frames: list[pd.DataFrame] = []
     for i in range(0, len(kmers), batch_size):
         batch = kmers[i: i + batch_size]
-        result = predictor.predict_to_dataframe(peptides=batch, allele=allele)
+        result = predictor.predict(peptides=batch, alleles=[allele], verbose=0)
         # Column name differs between MHCflurry versions
         score_col = next(
             (c for c in ["presentation_score", "affinity", "score"] if c in result.columns),

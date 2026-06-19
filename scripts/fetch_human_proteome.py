@@ -19,9 +19,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import sys
 import urllib.request
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
 
 # UniProt REST API endpoint for reference proteome download
 # UP000005640 = Homo sapiens (canonical + isoforms reviewed, Swiss-Prot)

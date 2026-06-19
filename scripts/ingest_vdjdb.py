@@ -7,18 +7,37 @@ import zipfile
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
 from _dataset_utils import normalize_peptides, validate_against_schema, write_provenance
 
-VDJDB_URL = "https://github.com/antigenomics/vdjdb-db/releases/latest/download/vdjdb.zip"
+VDJDB_RELEASES_API = "https://api.github.com/repos/antigenomics/vdjdb-db/releases/latest"
 
 
-def fetch_vdjdb(output_dir="data"):
+def _resolve_vdjdb_asset_url() -> str:
+    """Resolve the latest VDJdb release asset URL via GitHub API."""
+    import json
+    req = urllib.request.Request(VDJDB_RELEASES_API)
+    req.add_header("Accept", "application/vnd.github+json")
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
+        data = json.loads(resp.read())
+    assets = data.get("assets", [])
+    # Find the first .zip asset (e.g. vdjdb-2026-06-03.zip)
+    for asset in assets:
+        if asset["name"].endswith(".zip"):
+            return asset["browser_download_url"]
+    raise RuntimeError(
+        f"No .zip asset found in VDJdb latest release (tag: {data.get('tag_name')})"
+    )
+
+
+def fetch_vdjdb(output_dir: str = "data") -> str | None:
     os.makedirs(output_dir, exist_ok=True)
     zip_path = os.path.join(output_dir, "vdjdb.zip")
     if not os.path.exists(zip_path):
-        print(f"Downloading VDJdb from {VDJDB_URL}...")
         try:
-            urllib.request.urlretrieve(VDJDB_URL, zip_path)  # nosec B310
+            url = _resolve_vdjdb_asset_url()
+            print(f"Downloading VDJdb from {url}...")
+            urllib.request.urlretrieve(url, zip_path)  # nosec B310
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(output_dir)
             print("Downloaded and extracted VDJdb.")
@@ -26,7 +45,21 @@ def fetch_vdjdb(output_dir="data"):
             print(f"Failed to fetch VDJdb: {e}")
             print("Please manually download VDJdb and provide the TSV path.")
             return None
-    return os.path.join(output_dir, "vdjdb.txt")
+    # Find vdjdb.txt (may be at top level or in a subdirectory)
+    for candidate in [
+        os.path.join(output_dir, "vdjdb.txt"),
+        os.path.join(output_dir, "vdjdb_full.txt"),
+    ]:
+        if os.path.exists(candidate):
+            return candidate
+    # Search extracted files
+    for root, _dirs, files in os.walk(output_dir):
+        for f in files:
+            if f == "vdjdb.txt" or f == "vdjdb_full.txt":
+                return os.path.join(root, f)
+    print("Warning: could not find vdjdb.txt in extracted archive.")
+    return None
+
 
 
 def ingest_vdjdb(input_path, output_path, schema_path):
@@ -105,7 +138,7 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     write_provenance(
         output_path, sources=[input_path], row_count=len(df_v4),
         extra={"database": "VDJdb", "fetched_latest_release": fetched,
-               "url": VDJDB_URL if fetched else None,
+               "url": VDJDB_RELEASES_API if fetched else None,
                "tcr_alpha_cdr3_populated": cdr3_alpha_count,
                "tcr_beta_cdr3_populated": cdr3_beta_count}
     )

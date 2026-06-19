@@ -1,0 +1,23 @@
+{
+  "panel": "IAV_PR8_panel4",
+  "sources": [
+    {
+      "accession": "P03466",
+      "name": "NP"
+    },
+    {
+      "accession": "P03485",
+      "name": "M1"
+    },
+    {
+      "accession": "P03437",
+      "name": "HA"
+    },
+    {
+      "accession": "P0C0U1",
+      "name": "PB1F2"
+    }
+  ],
+  "fetched_utc": "2026-06-19T18:13:42.861971+00:00",
+  "uniprot_base_url": "https://rest.uniprot.org/uniprotkb/{accession}.fasta"
+}

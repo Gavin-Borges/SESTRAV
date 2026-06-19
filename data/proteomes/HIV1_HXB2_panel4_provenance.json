@@ -1,0 +1,23 @@
+{
+  "panel": "HIV1_HXB2_panel4",
+  "sources": [
+    {
+      "accession": "P04591",
+      "name": "Gag"
+    },
+    {
+      "accession": "P04585",
+      "name": "Pol"
+    },
+    {
+      "accession": "P04601",
+      "name": "Nef"
+    },
+    {
+      "accession": "P04578",
+      "name": "Env"
+    }
+  ],
+  "fetched_utc": "2026-06-19T18:13:39.449636+00:00",
+  "uniprot_base_url": "https://rest.uniprot.org/uniprotkb/{accession}.fasta"
+}

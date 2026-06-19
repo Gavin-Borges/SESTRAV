@@ -46,6 +46,7 @@ import urllib.request  # noqa: F401 — urlopen is called via urllib.request.url
 from urllib.parse import quote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
 from _dataset_utils import normalize_peptides, write_provenance
 
 import pandas as pd
@@ -146,6 +147,7 @@ def _build_url(organism_pattern: str, offset: int) -> str:
         "epitope__object_type=eq.Linear%20peptide",
         f"epitope__source_organism=ilike.*{enc_organism}*",
         f"host__name={enc_host}",
+        "order=assay_id",
         f"limit={PAGE_SIZE}",
         f"offset={offset}",
         f"select={_SELECT_FIELDS}",

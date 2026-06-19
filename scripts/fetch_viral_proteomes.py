@@ -28,6 +28,9 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
+
 UNIPROT_FASTA_URL = "https://rest.uniprot.org/uniprotkb/{accession}.fasta"
 
 # ---------------------------------------------------------------------------

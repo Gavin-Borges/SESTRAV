@@ -349,6 +349,10 @@ data/raw/
 data/iedb/
 data/iedb_api_pulls/
 
+# VDJdb downloaded archive and extracted directory (regenerable via scripts/ingest_vdjdb.py)
+data/vdjdb.zip
+data/vdjdb-*/
+
 # Computed caches (large, regenerable via scripts/precompute_self_similarity.py)
 data/self_similarity_cache.csv
 data/self_similarity_cache_provenance.json
