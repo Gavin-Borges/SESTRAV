@@ -1,8 +1,9 @@
 """Shared helpers for SESTRAV v4 dataset-building scripts.
 
-Centralizes the three guarantees required by `.claude/rules/data-ingest.md`:
-deterministic peptide normalization, JSON-schema validation, and provenance
-sidecars. Underscore-prefixed so it is not itself treated as an ingest script.
+Enforces three guarantees across all ingest scripts: deterministic peptide
+normalization (uppercase, stripped whitespace), JSON-schema validation against
+the v4 schema, and provenance sidecars written alongside every output file.
+Underscore-prefixed so it is not itself treated as an ingest script.
 """
 import json
 import os

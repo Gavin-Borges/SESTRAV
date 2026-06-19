@@ -33,10 +33,10 @@
 | **ISSR@10** | 0.8105 ± 0.079 | 0.8105 ± 0.042 | True positive fraction in top 10% |
 | **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | True positive fraction in top 25% |
 
-> **Note on ablation estimate:** The planning document (MASTER_STRATEGIC_PLAN.md Part 0) projected
-> `full_31` AUC-PR 0.864 from an unweighted ablation run. The actual result with sample weights is
-> 0.8276 — consistent with the frozen v2.0.0 30-feature result (0.828), since sample weighting
-> increases the effective training difficulty on the majority class. The 31-feature model should be
+> **Note on ablation estimate:** An early unweighted ablation projected `full_31` AUC-PR 0.864.
+> The actual result with sample weights is 0.8276 — consistent with the frozen v2.0.0 30-feature
+> result (0.828), since sample weighting increases the effective training difficulty on the majority
+> class. The 31-feature model should be
 > compared against the 30-feature result (0.810 ± 0.025) from the same weighted evaluation context.
 > Update `claims_register.md` Section 4 trigger value from 0.828 → 0.8276.
 

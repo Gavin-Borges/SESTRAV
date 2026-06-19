@@ -214,9 +214,16 @@ CLAUDE.local.md
 .claude/settings.local.json
 #  Cross-session agent state file (local-only working scaffold, like CLAUDE.md).
 STATE.md
+#  Internal strategic-planning and session-handoff documents — process artefacts
+#  not intended for general users; results and decisions land in docs/ and commits.
+docs/MASTER_STRATEGIC_PLAN.md
+docs/STRATEGIC_PLAN_WEEK_5_6.md
+docs/TOMORROW_STRATEGIC_PLAN.md
 #  Local AI-assistant prompt scratch files (never part of the published project).
 claude_form_filler_prompt.md
 scripts/claude_bootstrap_prompt.md
+#  Local debug/probe scripts — development scaffolding, not part of the public package.
+scripts/_test_*.py
 
 # Marimo
 marimo/_static/
@@ -282,6 +289,7 @@ models/*.pth
 data/proteomes/uniprot_sprot.fasta
 data/proteomes/uniprot_sprot.fasta.gz
 data/proteomes/*.fasta.gz
+data/proteomes/human_uniprot_UP000005640.fasta
 
 # Pytest custom temp directory (contains local username — do not commit)
 .pytest_tmp/
