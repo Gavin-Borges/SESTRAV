@@ -352,6 +352,9 @@ data/iedb_api_pulls/
 # VDJdb downloaded archive and extracted directory (regenerable via scripts/ingest_vdjdb.py)
 data/vdjdb.zip
 data/vdjdb-*/
+# VDJdb ingestion output — intermediate v4 build artefact; committed as part of v4 dataset release
+data/vdjdb_v4.csv
+data/vdjdb_v4_provenance.json
 
 # Computed caches (large, regenerable via scripts/precompute_self_similarity.py)
 data/self_similarity_cache.csv

@@ -41,9 +41,19 @@ def normalize_peptides(df, peptide_col="peptide"):
 
 def validate_against_schema(df, schema_path):
     """Validate a dataframe's records against the v4 JSON schema before write."""
+    import math
+
     with open(schema_path, "r") as f:
         schema = json.load(f)
-    jsonschema.validate(instance=df.to_dict(orient="records"), schema=schema)
+
+    # pandas to_dict converts NaN → float('nan'); JSON schema needs null (None).
+    records = df.to_dict(orient="records")
+    for rec in records:
+        for k, v in rec.items():
+            if isinstance(v, float) and math.isnan(v):
+                rec[k] = None
+
+    jsonschema.validate(instance=records, schema=schema)
     print(f"Schema validation passed ({len(df)} records).")
 
 
