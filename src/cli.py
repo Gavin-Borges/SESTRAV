@@ -118,7 +118,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
     # Derive a proteome_id from the FASTA filename
     proteome_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", os.path.splitext(os.path.basename(args.fasta))[0])
     lengths = args.lengths if args.lengths else [8, 9, 10, 11]
-    alleles = args.alleles if args.alleles else None  # None → stage2 default panel
+    alleles = args.alleles if args.alleles else None  # None -> stage2 default panel
 
     print(f"[sestrav predict] Proteome: {proteome_id}")
     print(f"[sestrav predict] Lengths: {lengths}")
@@ -155,7 +155,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
     # Write final output
     out_path = os.path.join(args.output, f"{proteome_id}_ranked.csv")
     ranked_df.to_csv(out_path, index=False)
-    print(f"[sestrav predict] Ranked output → {out_path}")
+    print(f"[sestrav predict] Ranked output -> {out_path}")
 
     # Top 10 preview
     score_col = "immunogenicity_score" if "immunogenicity_score" in ranked_df.columns else ranked_df.columns[-1]
@@ -216,7 +216,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
             f.write("|-------|--------|---------|--------|\n")
             f.write(f"| RF    | {report['rf']['auc_pr']:.4f} | {report['rf']['auc_roc']:.4f} | {report['rf']['issr_10']:.4f} |\n")
             f.write(f"| XGB   | {report['xgb']['auc_pr']:.4f} | {report['xgb']['auc_roc']:.4f} | {report['xgb']['issr_10']:.4f} |\n")
-        print(f"[sestrav validate] Report → {args.report}")
+        print(f"[sestrav validate] Report -> {args.report}")
 
     return 0
 
@@ -277,7 +277,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
             f.write("| Metric | Value |\n|--------|-------|\n")
             for k, v in metrics.items():
                 f.write(f"| {k} | {v:.4f} |\n")
-        print(f"[sestrav benchmark] Report → {args.output}")
+        print(f"[sestrav benchmark] Report -> {args.output}")
 
     return 0
 

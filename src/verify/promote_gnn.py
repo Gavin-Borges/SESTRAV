@@ -397,7 +397,7 @@ def promote_model() -> None:
         config["model_path"] = str(GNN_CHECKPOINT)
         with CONFIG_PATH.open("w", encoding="utf-8") as fh:
             yaml.dump(config, fh, default_flow_style=False, sort_keys=False)
-        logger.info(f"Updated {CONFIG_PATH}: model_path → {GNN_CHECKPOINT}")
+        logger.info(f"Updated {CONFIG_PATH}: model_path -> {GNN_CHECKPOINT}")
     else:
         logger.warning(f"{CONFIG_PATH} not found — skipping config update.")
 

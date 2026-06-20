@@ -12,9 +12,9 @@ endpoint requiring no authentication. Filters used per request:
   - epitope__source_organism = ilike.*<pattern>* (virus-specific)
 
 Labels are assigned from assay__qualitative_measurement:
-  Positive / Positive-High / Positive-Intermediate / Positive-Low → 1
-  Negative                                                         → 0
-  All other values (inconclusive, etc.)                            → excluded
+  Positive / Positive-High / Positive-Intermediate / Positive-Low -> 1
+  Negative                                                         -> 0
+  All other values (inconclusive, etc.)                            -> excluded
 
 Assay quality weights reflect the reliability of each assay type as an
 immunogenicity signal; they are stored as a column in the output CSV so that
@@ -194,11 +194,11 @@ def _normalize_allele(raw: str | None) -> str:
     """Normalize IEDB allele strings to HLA-X*GG:PP format where possible.
 
     Handles:
-      HLA-A*02:01  → HLA-A*02:01  (already canonical)
-      HLA-A*0201   → HLA-A*02:01  (8-digit, insert colon)
-      HLA-B*57:01  → HLA-B*57:01
-      HLA-A2       → HLA-A2       (supertypic — returned unchanged)
-      class I      → class I      (too ambiguous — returned unchanged)
+      HLA-A*02:01  -> HLA-A*02:01  (already canonical)
+      HLA-A*0201   -> HLA-A*02:01  (8-digit, insert colon)
+      HLA-B*57:01  -> HLA-B*57:01
+      HLA-A2       -> HLA-A2       (supertypic — returned unchanged)
+      class I      -> class I      (too ambiguous — returned unchanged)
     """
     if not raw or not isinstance(raw, str):
         return ""
@@ -206,7 +206,7 @@ def _normalize_allele(raw: str | None) -> str:
     # Already canonical 4+2 digit format
     if re.match(r"HLA-[A-C]\*\d{2}:\d{2}", allele):
         return allele
-    # 8-digit no colon: HLA-A*0201 → HLA-A*02:01
+    # 8-digit no colon: HLA-A*0201 -> HLA-A*02:01
     m = re.match(r"HLA-([A-C])\*(\d{2})(\d{2})$", allele)
     if m:
         return f"HLA-{m.group(1)}*{m.group(2)}:{m.group(3)}"

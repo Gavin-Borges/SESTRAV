@@ -17,7 +17,7 @@ Algorithm
 2. Build a k-mer hash set of all unique 9-mer windows from the proteome.
 3. For each training peptide of length L (8-11):
    - Generate all 9-mer sub-windows of the peptide (1 window for 9-mers,
-     0 for 8-mers → use the full 8-mer as the query, padding logic below).
+     0 for 8-mers -> use the full 8-mer as the query, padding logic below).
    - For each window, compute the fraction of positions identical to the
      best-matching human 9-mer (exact match = 1.0; no match = 0.0).
    - Record: self_similarity_max_identity (float), self_similarity_exact_match (bool).
@@ -116,7 +116,7 @@ def build_kmer_sets(fasta_path: str, kmer_lengths: tuple[int, ...] = (8, 9)) -> 
         kmer_lengths: Which k-mer sizes to index (8 for 8-mer peptides, 9 for 9–11mers).
 
     Returns:
-        Dict mapping k → frozenset of all k-mers of that length.
+        Dict mapping k -> frozenset of all k-mers of that length.
     """
     t0 = time.time()
     kmer_sets: dict[int, set[str]] = {k: set() for k in kmer_lengths}
@@ -170,7 +170,7 @@ def compute_self_similarity(peptide: str, kmer_sets: dict[int, set[str]]) -> dic
     Strategy:
     - 8-mers: check exact match in 8-mer human proteome set.
     - 9-mers: check exact match in 9-mer set.
-    - 10-mers/11-mers: check all 9-mer sub-windows; any exact match → similarity = 1.0.
+    - 10-mers/11-mers: check all 9-mer sub-windows; any exact match -> similarity = 1.0.
 
     Returns:
         dict with keys:
@@ -303,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
         est_seconds = len(peptides) * 0.00001
         print(f"Estimated wall time (after index build): {est_seconds:.1f}s")
         print("Human proteome index build takes ~10-20s on first run.")
-        print("Dry-run complete — no files written.")
+        print("Dry-run complete -- no files written.")
         return 0
 
     # Load existing cache for --resume
