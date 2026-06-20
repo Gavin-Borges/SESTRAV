@@ -1,0 +1,21 @@
+{
+  "source_dataset": "immunogenicity_dataset_v4.csv",
+  "mhcflurry_version": "2.2.1",
+  "alleles": [
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02"
+  ],
+  "peptide_count": 11795,
+  "non_zero_values": 117950,
+  "generated_at": "2026-06-20T22:46:02.203885Z",
+  "git_sha": "a9cc823",
+  "note": "Regenerated from all-zeros placeholder (commit f360b90). Uses presentation_score from Class1PresentationPredictor."
+}
