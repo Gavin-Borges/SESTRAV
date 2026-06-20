@@ -360,6 +360,14 @@ data/vdjdb_v4_provenance.json
 data/self_similarity_cache.csv
 data/self_similarity_cache_provenance.json
 
+# v4 build intermediates (partial builds, final dataset released separately)
+data/immunogenicity_dataset_v4_partial.csv
+data/immunogenicity_dataset_v4_partial_provenance.json
+data/hard_decoys.csv
+data/hard_decoys_provenance.json
+data/immunogenicity_dataset_v4.csv
+data/immunogenicity_dataset_v4_provenance.json
+
 # State tracking directory
 .context/
 
