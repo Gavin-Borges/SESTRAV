@@ -384,6 +384,9 @@ bandit_text.txt
 # Root-level duplicate dataset - canonical path is data/immunogenicity_dataset_v3.csv
 immunogenicity_dataset.csv
 
+# Generated pipeline output (default output path of scripts/generate_targets.py)
+top_20_candidates.csv
+
 # Pipeline-generated hidden intermediates inside results/ (dot-prefixed files)
 results/.*
 
