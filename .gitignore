@@ -400,3 +400,31 @@ docs/POST_BADGE_STRATEGIC_PLAN_EXPANDED.md
 docs/architecture/SESTRAV_Framework_and_Architecture.md
 scripts/check_gold_standard.py
 scripts/inspect_iedb.py
+
+# ─── Pattern-Based Protection (category-level, future-proof) ──────────────────
+# The rules above name specific files reactively. These rules catch entire
+# *categories* so future artifacts with different names are blocked automatically.
+
+# Local development workspace — permanent safe harbor (belt-and-suspenders:
+# _local/.gitignore also contains `*` so the directory can never leak even
+# if this entry is accidentally removed)
+_local/
+
+# AI and IDE tooling directories — covers current tools and any future ones
+.cursor/
+.gemini/
+.windsurf/
+.continue/
+.cline/
+.aider*
+
+# Prompt artifact files and directories
+prompts/
+*.prompt.md
+SESSION_*.md
+
+# Personal notes and draft documents
+NOTES.md
+SCRATCH.md
+*.draft.md
+*.wip.md

@@ -274,11 +274,11 @@ def _load_torch_checkpoint(model_path, device):
         ])
         return torch.load(model_path, map_location=device, weights_only=True)  # nosec B614
     except Exception as e:
-        logger.warning(f"Unable to load GNN checkpoint with weights_only=True: {e}. Falling back to standard load.")
-        try:
-            return torch.load(model_path, map_location=device)  # nosec B614
-        except Exception as exc:
-            raise RuntimeError(f"Failed to load GNN checkpoint: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to load GNN checkpoint with weights_only=True: {e}. "
+            "Re-save the checkpoint with torch.save(model.state_dict(), path) "
+            "to produce a weights-only-compatible file."
+        ) from e
 
 
 def run_evaluation_pipeline(

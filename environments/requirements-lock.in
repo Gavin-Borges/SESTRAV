@@ -1,0 +1,20 @@
+# Source inputs for environments/requirements.lock
+# Regenerate with:
+#   pip-compile --allow-unsafe --generate-hashes \
+#     --output-file=environments/requirements.lock \
+#     environments/requirements-lock.in
+-r ../requirements.in
+-r requirements-ci.in
+
+# Security overrides — minimum versions to close CVEs that snakemake's dependency
+# resolver would otherwise peg to vulnerable releases.
+# aiohttp: CVE-2026-54273/54274/54275/54276/54277/54278/54280, CVE-2026-50269
+aiohttp>=3.14.1
+# cryptography: GHSA-537c-gmf6-5ccf
+cryptography>=48.0.1
+# msgpack: GHSA-6v7p-g79w-8964 (DoS via malformed input)
+msgpack>=1.2.1
+# pydantic-settings: GHSA-4xgf-cpjx-pc3j
+pydantic-settings>=2.14.2
+# pyjwt: PYSEC-2026-175/176/177/178/179 (algorithm confusion attacks)
+pyjwt>=2.13.0

@@ -169,14 +169,15 @@ def test_load_torch_checkpoint_success(tmp_path):
     torch.testing.assert_close(loaded["weight"], state["weight"])
 
 
-def test_load_torch_checkpoint_fallback_on_weights_only_failure(tmp_path):
+def test_load_torch_checkpoint_raises_on_weights_only_failure(tmp_path):
+    """Unsafe fallback was removed (CVE-2025-3000); weights_only failure must raise."""
     chk = tmp_path / "model.pth"
     state = {"w": torch.tensor([3.0])}
     torch.save(state, chk)  # nosec B614 — test fixture, trusted tensor
 
-    with patch("torch.load", side_effect=[RuntimeError("weights_only failed"), state]):
-        loaded = _load_torch_checkpoint(chk, torch.device("cpu"))
-    assert loaded is state
+    with patch("torch.load", side_effect=RuntimeError("weights_only failed")):
+        with pytest.raises(RuntimeError, match="Failed to load GNN checkpoint"):
+            _load_torch_checkpoint(chk, torch.device("cpu"))
 
 
 def test_load_torch_checkpoint_raises_on_complete_failure(tmp_path):
