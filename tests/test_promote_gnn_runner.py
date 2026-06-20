@@ -334,24 +334,21 @@ def test_promote_model_reraises_on_checksum_failure(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# gate3_latency — regression: adj must be passed to GraphPredictor.forward()
+# gate3_latency — GNN v2.1: PyG batch must be passed to GraphPredictorV2.forward()
 # ---------------------------------------------------------------------------
 
-def test_gate3_latency_passes_adj_to_forward():
-    """Regression: gate3_latency must supply the adj tensor to GraphPredictor.forward().
+def test_gate3_latency_passes_pyg_batch_to_forward():
+    """gate3_latency must supply a PyG Data batch to GraphPredictorV2.forward().
 
-    Before the fix the lambda was ``lambda nx, fx: gnn_model(nx, fx)``, which
-    omitted the required ``adj`` positional argument and raised:
-      TypeError: GraphPredictor.forward() missing 1 required positional argument: 'adj'
-    After the fix the lambda is ``lambda nx, fx: gnn_model(nx, fx, adj)`` where
-    ``adj = GraphBuilder.build_chain_adj()`` is built once and closed over.
+    Uses GraphPredictorV2 (GINEConv + ESM-2) which accepts a batched Data object
+    rather than the (node_x, feat_x, adj) signature of the v1 GraphPredictor.
     """
-    from src.gnn.models import GraphPredictor
+    from src.gnn.models import GraphPredictorV2
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.verify.promote_gnn import gate3_latency
 
     n_features = len(TRAIN_FEATURE_COLUMNS)
-    real_state = GraphPredictor(num_continuous_features=n_features).state_dict()
+    real_state = GraphPredictorV2(num_continuous_features=n_features).state_dict()
 
     class _FakeRF:
         n_features_in_ = n_features

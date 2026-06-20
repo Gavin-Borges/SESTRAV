@@ -178,14 +178,31 @@ def _time_model_ms(predict_fn, node_x, feat_x, warmup: int, reps: int) -> float:
     return float(np.median(times))
 
 
+def _time_model_ms_v2(predict_fn, batch, warmup: int, reps: int) -> float:
+    """Latency timer for v2 models that accept a PyG batch object."""
+    import torch
+    for _ in range(warmup):
+        with torch.no_grad():
+            predict_fn(batch)
+    times: list[float] = []
+    for _ in range(reps):
+        t0 = time.perf_counter()
+        with torch.no_grad():
+            predict_fn(batch)
+        times.append((time.perf_counter() - t0) * 1000.0)
+    return float(np.median(times))
+
+
 def gate3_latency() -> GateResult:
     """GNN CPU inference latency <= GATE3_LATENCY_FACTOR × RF latency.
 
     Uses a fixed synthetic batch of LATENCY_BATCH_SIZE 9-mer sequences so the
     measurement is reproducible without any real dataset access.
+    Uses GraphPredictorV2 (GINEConv + ESM-2, 320-dim node features).
     """
     import torch
-    from src.gnn.models import GraphPredictor
+    from torch_geometric.data import Data, Batch
+    from src.gnn.models import GraphPredictorV2
     from src.gnn.graph_builder import GraphBuilder
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.artifact_integrity import load_verified_joblib
@@ -202,7 +219,6 @@ def gate3_latency() -> GateResult:
         )
     rf_model = load_verified_joblib(RF_MODEL_PATH)
 
-    # Synthetic feature matrix for RF (30 features)
     rng = np.random.default_rng(0)
     rf_features = getattr(rf_model, "n_features_in_", 30)
     X_rf = rng.standard_normal((LATENCY_BATCH_SIZE, rf_features))
@@ -216,7 +232,7 @@ def gate3_latency() -> GateResult:
         rf_times.append((time.perf_counter() - t0) * 1000.0)
     rf_latency_ms = float(np.median(rf_times))
 
-    # --- GNN benchmark ---
+    # --- GNN v2.1 benchmark ---
     if not GNN_CHECKPOINT.exists():
         return GateResult(
             name="Gate 3 — Latency",
@@ -226,22 +242,31 @@ def gate3_latency() -> GateResult:
         )
 
     num_features = len(TRAIN_FEATURE_COLUMNS)
-    gnn_model = GraphPredictor(num_continuous_features=num_features).to(device)
+    gnn_model = GraphPredictorV2(num_continuous_features=num_features).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load
     state = torch.load(GNN_CHECKPOINT, map_location="cpu", weights_only=True)
     gnn_model.load_state_dict(state)
     gnn_model.eval()
 
-    synthetic_seqs = ["GILGFVFTL"] * LATENCY_BATCH_SIZE  # canonical 9-mer
-    node_batch = torch.stack([GraphBuilder.sequence_to_node_features(s) for s in synthetic_seqs])
-    feat_batch = torch.tensor(X_rf[:, :num_features], dtype=torch.float32)
-    # Chain-graph adjacency shared across all batch elements (max_len × max_len)
-    adj = GraphBuilder.build_chain_adj().to(device)
+    # Build synthetic PyG batch (ESM-2 node dim=320, chain graph)
+    ESM_DIM = 320
+    MAX_LEN = 11
+    edge_index, edge_attr = GraphBuilder.build_pyg_chain_graph(MAX_LEN)
+    data_list = [
+        Data(
+            x=torch.zeros(MAX_LEN, ESM_DIM),
+            edge_index=edge_index,
+            edge_attr=edge_attr,
+            physico=torch.zeros(1, num_features),
+            y=torch.zeros(1),
+        )
+        for _ in range(LATENCY_BATCH_SIZE)
+    ]
+    synthetic_batch = Batch.from_data_list(data_list).to(device)
 
-    gnn_latency_ms = _time_model_ms(
-        lambda nx, fx: gnn_model(nx, fx, adj),
-        node_batch,
-        feat_batch,
+    gnn_latency_ms = _time_model_ms_v2(
+        lambda b: gnn_model(b),
+        synthetic_batch,
         LATENCY_WARMUP_REPS,
         LATENCY_TIMED_REPS,
     )

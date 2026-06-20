@@ -72,6 +72,35 @@ class GraphBuilder:
         return norm_adj
 
     @staticmethod
+    def build_pyg_chain_graph(max_len: int = MAX_PEPTIDE_LEN):
+        """Build PyG-format edge_index and edge_attr for a 1D chain graph with self-loops.
+
+        Edge features (3-dim one-hot):
+            [1, 0, 0] = self-loop  (i → i)
+            [0, 1, 0] = forward    (i → i+1)
+            [0, 0, 1] = backward   (i → i-1)
+
+        Returns:
+            edge_index: LongTensor  (2, num_edges) — num_edges = max_len + 2*(max_len-1)
+            edge_attr:  FloatTensor (num_edges, 3)
+        """
+        src, dst, attrs = [], [], []
+        for i in range(max_len):
+            src.append(i)
+            dst.append(i)
+            attrs.append([1.0, 0.0, 0.0])
+            if i < max_len - 1:
+                src.append(i)
+                dst.append(i + 1)
+                attrs.append([0.0, 1.0, 0.0])
+                src.append(i + 1)
+                dst.append(i)
+                attrs.append([0.0, 0.0, 1.0])
+        edge_index = torch.tensor([src, dst], dtype=torch.long)
+        edge_attr  = torch.tensor(attrs, dtype=torch.float32)
+        return edge_index, edge_attr
+
+    @staticmethod
     def sequence_to_node_features(seq: str, max_len: int = MAX_PEPTIDE_LEN) -> torch.Tensor:
         """Convert peptide to node feature matrix (max_len, num_features)."""
         # Features per node: one-hot encoded AA (size 20)
