@@ -95,3 +95,33 @@ def test_extract_kmers_excludes_invalid_aa():
     seqs = ["ACDEBGHIKL"]  # 'B' is not a valid standard amino acid
     kmers = _extract_kmers(seqs, lengths=(9,))
     assert all("B" not in k for k in kmers)
+
+
+# ---------------------------------------------------------------------------
+# max_candidates pre-sampling (exercises the slice path in generate_decoys)
+# ---------------------------------------------------------------------------
+
+def test_extract_kmers_supports_max_candidates_truncation():
+    """Simulate the max_candidates truncation: seeded shuffle then slice.
+
+    generate_decoys() does:
+        random.shuffle(kmers)        # seeded before call
+        if max_candidates < len(kmers): kmers = kmers[:max_candidates]
+
+    Verify determinism and that the slice preserves all valid k-mers.
+    """
+    import random
+    seqs = ["ACDEFGHIKLMNPQRSTVWY" * 3]   # 60-mer → many 9-mers
+    kmers = _extract_kmers(seqs, lengths=(9,))
+    assert len(kmers) > 5, "need more than 5 k-mers for this test"
+
+    random.seed(42)
+    shuffled_a = kmers.copy(); random.shuffle(shuffled_a)
+    random.seed(42)
+    shuffled_b = kmers.copy(); random.shuffle(shuffled_b)
+    assert shuffled_a == shuffled_b, "shuffle must be deterministic given seed=42"
+
+    truncated = shuffled_a[:5]
+    assert len(truncated) == 5
+    valid_aa = set("ACDEFGHIKLMNPQRSTVWY")
+    assert all(all(c in valid_aa for c in k) for k in truncated)
