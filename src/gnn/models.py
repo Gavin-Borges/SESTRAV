@@ -99,14 +99,11 @@ class GraphEncoderV2(nn.Module):
             ),
             edge_dim=edge_dim,
         )
-        nn.init.xavier_uniform_(self.conv1.nn[0].weight)
-        nn.init.zeros_(self.conv1.nn[0].bias)
-        nn.init.xavier_uniform_(self.conv1.nn[3].weight)
-        nn.init.zeros_(self.conv1.nn[3].bias)
-        nn.init.xavier_uniform_(self.conv2.nn[0].weight)
-        nn.init.zeros_(self.conv2.nn[0].bias)
-        nn.init.xavier_uniform_(self.conv2.nn[3].weight)
-        nn.init.zeros_(self.conv2.nn[3].bias)
+        for conv in (self.conv1, self.conv2):
+            for m in conv.nn.modules():
+                if isinstance(m, nn.Linear):
+                    nn.init.xavier_uniform_(m.weight)
+                    nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor, edge_index: torch.Tensor,
                 edge_attr: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
@@ -135,8 +132,10 @@ class GraphPredictorV2(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout_rate),
         )
-        nn.init.xavier_uniform_(self.physico_block[0].weight)
-        nn.init.zeros_(self.physico_block[0].bias)
+        for m in self.physico_block.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.zeros_(m.bias)
 
         self.fusion_block = nn.Sequential(
             nn.Linear(128 + 64, 128),
@@ -144,10 +143,10 @@ class GraphPredictorV2(nn.Module):
             nn.Dropout(dropout_rate),
             nn.Linear(128, 1),
         )
-        nn.init.xavier_uniform_(self.fusion_block[0].weight)
-        nn.init.zeros_(self.fusion_block[0].bias)
-        nn.init.xavier_uniform_(self.fusion_block[3].weight)
-        nn.init.zeros_(self.fusion_block[3].bias)
+        for m in self.fusion_block.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def forward(self, data) -> torch.Tensor:
         gnn_out = self.encoder(data.x, data.edge_index, data.edge_attr, data.batch)
