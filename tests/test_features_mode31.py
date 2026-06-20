@@ -121,7 +121,7 @@ def test_train_classifier_argparse_accepts_mode_31():
     import subprocess
     import sys
     result = subprocess.run(
-        [sys.executable, 'src/train_classifier.py', '--help'],
+        [sys.executable, '-m', 'src.train_classifier', '--help'],
         capture_output=True, text=True,
         cwd='.'
     )
