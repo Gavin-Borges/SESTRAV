@@ -82,11 +82,13 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         logger.error(f"Dataset file not found: {dataset_path}")
         return False
 
-    # Compute dataset checksum for MLOps tracking
+    # Compute dataset checksum for MLOps tracking.
+    # Normalize CRLF -> LF before hashing so Windows checkouts produce the
+    # same digest as Linux CI (git autocrlf expands LF to CRLF on Windows).
     sha256 = hashlib.sha256()
     with open(dataset_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
-            sha256.update(chunk)
+            sha256.update(chunk.replace(b"\r\n", b"\n"))
     checksum = sha256.hexdigest()
     logger.info(f"Computed dataset SHA-256 Checksum: {checksum}")
 
