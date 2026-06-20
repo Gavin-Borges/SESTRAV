@@ -144,7 +144,15 @@ GNN promotion to production is targeted for v2.1 after v4 retraining with Platt 
 
 *Ablation runs are unweighted to isolate feature contributions. Weighted production models: `feature_mode=31` achieves AUC-PR 0.828 ± 0.027; `feature_mode=33` achieves AUC-PR 0.840 ± 0.011 (Table 2; the 0.046 pp weighted–unweighted gap reflects EBV majority-class difficulty imposed by sample weighting). The +0.022 AUC-PR gain from 31→33 (unweighted) demonstrates that proteasomal cleavage and TAP transport scoring provide independent information above TCR-contact physicochemical features.*
 
-*[v4 retrained results to replace v3 baselines after Week 6 Day 3 retraining.]*
+**v4 retrained results (2026-06-20):**
+
+| Feature mode | Features | v4 OOF AUC-PR (RF) | v4 AUC-ROC (RF) | Notes |
+|---|---|---|---|---|
+| mode 31 | 31 (canonical) | 0.7635 ± 0.009 | 0.7808 | Binding features now top-10 (restored by hard decoys) |
+| mode 33 | 33 (+antigen processing) | 0.7628 ± 0.009 | 0.7810 | Mock scores add negligible signal vs mode 31 |
+| mode 35 | 35 (+self-similarity) | **0.8205 ± 0.009** | **0.8802** | See caveat below |
+
+**Mode 35 caveat — self-similarity near-leakage:** `self_similarity_exact_match` and `self_similarity_max_identity` together account for 44.9% of RF feature importance in mode 35 (importance 0.230 + 0.219 respectively). These features cleanly separate hard decoys (self-peptides; self_similarity=1.0) from viral peptides (self_similarity≈0.0), which is biologically correct (central tolerance) but operationally inflates AUC-PR when training on a mixed viral+self dataset. In viral-only screening (the primary SESTRAV production use case), all input peptides have low self-similarity and these features contribute no discrimination. **Mode 35 AUC-PR 0.8205 should not be compared directly to v3 mode 33 AUC-PR 0.840** — the v4 mode 35 number benefits from within-dataset self/viral separation, not improved viral immunogenicity prediction. Mode 31 v4 (AUC-PR 0.7635) is the appropriate v4 baseline for viral-only comparisons. The self-similarity features remain biologically valid as a filter in mixed-input settings (e.g., cross-reactive peptide analysis, tumor neoantigen screening against self-proteome).
 
 ### 3.2 Ablation study
 
