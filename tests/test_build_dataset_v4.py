@@ -121,6 +121,52 @@ def test_build_missing_required_columns_raises(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# iedb_dir source loading
+# ---------------------------------------------------------------------------
+
+def test_build_iedb_dir_replaces_v3_fallback(tmp_path):
+    """When iedb_dir has *_tcell.csv files they are used; v3 is skipped."""
+    # Write a *_tcell.csv in a sub-dir
+    iedb_dir = tmp_path / "iedb"
+    iedb_dir.mkdir()
+    rows_iedb = [
+        {
+            "peptide": "GILGFVFTL", "label": 1, "virus": "IAV", "protein": "M1",
+            "strain": "PR8", "hla_allele": "HLA-A*02:01",
+            "source_type": "Virus", "database_source": "IEDB",
+            "assay_type": "ifng release", "assay_quality_weight": 1.0,
+            "reference_pmid": "12345",
+        }
+    ]
+    pd.DataFrame(rows_iedb).to_csv(str(iedb_dir / "iav_tcell.csv"), index=False)
+
+    # v3 has a different peptide — it should NOT be loaded when iedb_dir works
+    v3 = tmp_path / "v3.csv"
+    pd.DataFrame([{"peptide": "NLVPMVATV", "label": 0}]).to_csv(str(v3), index=False)
+
+    out = tmp_path / "v4.csv"
+    build_dataset_v4(str(v3), None, None, None, SCHEMA_PATH, str(out),
+                     iedb_dir=str(iedb_dir))
+    df = pd.read_csv(out)
+    assert len(df) == 1
+    assert df["peptide"].iloc[0] == "GILGFVFTL"
+
+
+def test_build_iedb_dir_falls_back_to_v3_when_empty(tmp_path):
+    """When iedb_dir exists but has no *_tcell.csv, v3 is used as fallback."""
+    empty_dir = tmp_path / "iedb_empty"
+    empty_dir.mkdir()
+    v3 = tmp_path / "v3.csv"
+    pd.DataFrame([{"peptide": "SIINFEKL", "label": 1}]).to_csv(str(v3), index=False)
+    out = tmp_path / "v4.csv"
+    build_dataset_v4(str(v3), None, None, None, SCHEMA_PATH, str(out),
+                     iedb_dir=str(empty_dir))
+    df = pd.read_csv(out)
+    assert len(df) == 1
+    assert df["peptide"].iloc[0] == "SIINFEKL"
+
+
+# ---------------------------------------------------------------------------
 # Normalisation + schema validation
 # ---------------------------------------------------------------------------
 
