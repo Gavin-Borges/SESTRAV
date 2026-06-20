@@ -116,9 +116,11 @@ def test_extract_kmers_supports_max_candidates_truncation():
     assert len(kmers) > 5, "need more than 5 k-mers for this test"
 
     random.seed(42)
-    shuffled_a = kmers.copy(); random.shuffle(shuffled_a)
+    shuffled_a = kmers.copy()
+    random.shuffle(shuffled_a)
     random.seed(42)
-    shuffled_b = kmers.copy(); random.shuffle(shuffled_b)
+    shuffled_b = kmers.copy()
+    random.shuffle(shuffled_b)
     assert shuffled_a == shuffled_b, "shuffle must be deterministic given seed=42"
 
     truncated = shuffled_a[:5]
