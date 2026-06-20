@@ -1,3 +1,5 @@
+import hashlib
+import io
 import os
 import subprocess
 import pandas as pd
@@ -158,13 +160,68 @@ def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
 def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
     # min_peptide_yield is 5. Let's make it have only 4 rows
     invalid_df = valid_df.iloc[:4].copy()
-    
+
     dataset_path = tmp_path / "low_yield.csv"
     invalid_df.to_csv(dataset_path, index=False)
-    
+
     result = subprocess.run(
         ["python", "scripts/data_qc_gate.py", "--dataset", str(dataset_path), "--config", str(temp_config)],
         capture_output=True,
         text=True
     )
     assert result.returncode == 1, "QC gate did not fail on low yield"
+
+
+@pytest.mark.parametrize("use_crlf", [False, True], ids=["lf", "crlf"])
+def test_qc_gate_freeze_mode_crlf_checksum_passes(tmp_path, valid_df, use_crlf):
+    """Freeze-mode checksum passes whether the CSV uses LF or CRLF line endings.
+
+    Regression test for the Windows autocrlf bug: git expands LF -> CRLF on
+    Windows checkout, causing the SHA-256 to differ from the Linux-CI-computed
+    expected digest unless we normalize before hashing (the fix in data_qc_gate.py).
+
+    The expected checksum stored in config is always the LF digest. We use
+    lineterminator='\\n' to produce canonical LF bytes on all platforms so the
+    CRLF simulation (lf_bytes.replace(b'\\n', b'\\r\\n')) is unambiguous.
+    """
+    # Force LF line endings regardless of OS (pandas defaults to CRLF on Windows)
+    buf = io.StringIO()
+    valid_df.to_csv(buf, index=False, lineterminator="\n")
+    lf_bytes = buf.getvalue().encode("utf-8")
+    assert b"\r\n" not in lf_bytes, "lineterminator='\\n' must produce pure LF bytes"
+
+    # Expected checksum: the LF digest (what the fixed gate computes from either file)
+    expected = hashlib.sha256(lf_bytes).hexdigest()
+
+    # Optionally simulate Windows checkout (git autocrlf: LF -> CRLF)
+    csv_bytes = lf_bytes.replace(b"\n", b"\r\n") if use_crlf else lf_bytes
+
+    dataset_path = tmp_path / "freeze_dataset.csv"
+    dataset_path.write_bytes(csv_bytes)
+
+    config_content = f"""
+dataset_governance:
+  qc_thresholds:
+    min_peptide_yield: 5
+    max_conflict_ratio: 0.15
+    max_null_allele_fraction: 0.50
+    class_ratio_bounds: [1.5, 4.0]
+  require_checksum_match_in_freeze_mode: true
+  provenance:
+    checksum: "{expected}"
+freeze_mode: true
+"""
+    config_path = tmp_path / "freeze_config.yaml"
+    config_path.write_text(config_content, encoding="utf-8")
+
+    result = subprocess.run(
+        ["python", "scripts/data_qc_gate.py",
+         "--dataset", str(dataset_path),
+         "--config", str(config_path)],
+        capture_output=True, text=True,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, (
+        f"QC gate failed in freeze mode with {'CRLF' if use_crlf else 'LF'} file:\n{output}"
+    )
+    assert "All dataset QC gates passed successfully." in output
