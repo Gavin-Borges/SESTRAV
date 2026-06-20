@@ -339,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     df_out.to_csv(args.output, index=False)
-    print(f"Saved → {args.output}")
+    print(f"Saved -> {args.output}")
 
     write_provenance(
         args.output,

@@ -62,7 +62,7 @@ REQUEST_DELAY = 1.0  # seconds between paginated requests
 # Maps user-facing virus keys to case-insensitive IEDB source_organism substrings.
 # Verified against live API 2026-06-19: EBV="human gammaherpesvirus 4",
 # HPV16="Human papillomavirus 16", HBV="Hepatitis B virus",
-# HIV="Human immunodeficiency virus 1".
+# HIV="Human immunodeficiency virus 1", CMV="Human herpesvirus 5" (not "cytomegalovirus").
 ORGANISM_MAP: dict[str, str] = {
     "EBV":      "gammaherpesvirus 4",
     "HPV16":    "papillomavirus 16",
@@ -73,7 +73,7 @@ ORGANISM_MAP: dict[str, str] = {
     "HIV":      "immunodeficiency virus 1",
     "SARSCOV2": "respiratory syndrome coronavirus 2",
     "IAV":      "influenza A",
-    "CMV":      "cytomegalovirus",
+    "CMV":      "herpesvirus 5",       # IEDB taxon name: "Human herpesvirus 5"
     "DENV":     "dengue virus",
     "RSV":      "respiratory syncytial virus",
 }
@@ -368,7 +368,7 @@ def fetch_and_save(virus_key: str, output_path: str,
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     df.to_csv(output_path, index=False)
-    print(f"  Saved {len(df)} rows → {output_path}")
+    print(f"  Saved {len(df)} rows -> {output_path}")
 
     write_provenance(
         output_path,

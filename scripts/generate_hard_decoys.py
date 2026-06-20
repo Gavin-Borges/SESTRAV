@@ -252,7 +252,7 @@ def generate_decoys(
             "mhcflurry_version": _get_mhcflurry_version(),
         },
     )
-    print(f"\nWrote {len(df_out)} hard decoys → {output_path}")
+    print(f"\nWrote {len(df_out)} hard decoys -> {output_path}")
     return df_out
 
 
