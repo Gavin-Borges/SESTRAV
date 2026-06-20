@@ -22,7 +22,9 @@ Usage (recommended flow):
 External dependencies:
     NetChop 3.1: https://services.healthtech.dtu.dk/cgi-bin/webface2.cgi
     TAPreg:      https://imed.med.ucm.es/cgi-bin/tapreg.pl
-    Both are queried at 1 req/s; TAPreg may require institutional network access.
+    Both APIs currently unavailable; all scoring uses deterministic mock fallbacks.
+    Rate limiting disabled (RATE_LIMIT_SECONDS=0). When real APIs become available,
+    restore RATE_LIMIT_SECONDS=1.0 to respect server rate limits.
 """
 
 import argparse
@@ -36,7 +38,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.external_predictors import query_netchop, query_tapreg
 
 BATCH_SIZE = 100
-RATE_LIMIT_SECONDS = 1.0
+# Both external APIs are unavailable (NetChop webface2 format changed; TAPreg requires VPN).
+# All paths use deterministic mock scores — no network calls, no rate limiting needed.
+RATE_LIMIT_SECONDS = 0.0
 
 
 def load_existing_cache(output_path: str) -> set:
