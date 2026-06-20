@@ -8,8 +8,10 @@
         "properties": {
             "peptide": {
                 "type": "string",
-                "description": "The amino acid sequence of the peptide.",
-                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$"
+                "description": "The amino acid sequence of the peptide. MHC Class I canonical length: 8-11 residues.",
+                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$",
+                "minLength": 8,
+                "maxLength": 11
             },
             "label": {
                 "type": "integer",

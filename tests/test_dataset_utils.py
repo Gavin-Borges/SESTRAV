@@ -16,13 +16,25 @@ SCHEMA_PATH = os.path.join(
 
 
 def test_normalize_peptides_uppercases_strips_and_filters():
+    # Use 9-mer peptides (valid MHC Class I length 8-11)
     df = pd.DataFrame({
-        "peptide": ["ACDEF", "acdef", " ACDEF ", "AC2DE", "ACXDE"],
+        "peptide": ["GILGFVFTL", "gilgfvftl", " GILGFVFTL ", "GILG2VFTL", "GILGXVFTL"],
         "hla_allele": ["HLA-A*02:01"] * 5,
     })
     out = normalize_peptides(df)
-    # lowercase + whitespace normalized to ACDEF; digit/X rows dropped
-    assert list(out["peptide"]) == ["ACDEF", "ACDEF", "ACDEF"]
+    # lowercase + whitespace normalized; digit/X rows dropped; all 3 remaining are valid 9-mers
+    assert list(out["peptide"]) == ["GILGFVFTL", "GILGFVFTL", "GILGFVFTL"]
+
+
+def test_normalize_peptides_rejects_out_of_range_length():
+    """Peptides outside the 8-11mer MHC Class I range must be dropped."""
+    df = pd.DataFrame({
+        "peptide": ["ACDEFGHI", "GILGFVFTL", "NLVPMVATVA", "LPEPLPQGQLTAY"],  # 8, 9, 10, 13-mer
+        "label": [1, 1, 1, 1],
+    })
+    out = normalize_peptides(df)
+    assert len(out) == 3  # 13-mer dropped
+    assert "LPEPLPQGQLTAY" not in out["peptide"].values
 
 
 def test_normalize_peptides_all_invalid_returns_empty():
@@ -31,14 +43,17 @@ def test_normalize_peptides_all_invalid_returns_empty():
 
 
 def test_validate_against_schema_accepts_valid_records():
-    df = pd.DataFrame({"peptide": ["ACDEF"], "label": [1], "source_type": ["Virus"]})
+    # Use a valid 9-mer peptide (GILGFVFTL = IAV M1 58-66, canonical HLA-A*02:01 epitope)
+    df = pd.DataFrame({"peptide": ["GILGFVFTL"], "label": [1], "source_type": ["Virus"]})
     validate_against_schema(df, SCHEMA_PATH)  # must not raise
 
 
 @pytest.mark.parametrize("bad", [
-    {"peptide": ["acdef"], "label": [1], "source_type": ["Virus"]},   # non-standard residue
-    {"peptide": ["ACDEF"], "label": [2], "source_type": ["Virus"]},   # label out of enum
-    {"peptide": ["ACDEF"], "label": [1]},                              # missing required source_type
+    {"peptide": ["gilgfvftl"], "label": [1], "source_type": ["Virus"]},  # lowercase -> schema rejects
+    {"peptide": ["GILGFVFTL"], "label": [2], "source_type": ["Virus"]},  # label out of enum
+    {"peptide": ["GILGFVFTL"], "label": [1]},                            # missing required source_type
+    {"peptide": ["ACDEF"], "label": [1], "source_type": ["Virus"]},      # 5-mer < minLength:8
+    {"peptide": ["GILGFVFTLNLVP"], "label": [1], "source_type": ["Virus"]},  # 13-mer > maxLength:11
 ])
 def test_validate_against_schema_rejects_invalid_records(bad):
     with pytest.raises(jsonschema.exceptions.ValidationError):

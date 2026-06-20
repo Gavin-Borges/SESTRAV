@@ -101,16 +101,59 @@ def build_dataset_v4(
             df_merged[col] = "Unknown"
         df_merged[col] = df_merged[col].fillna("Unknown")
 
-    # Coerce labels and normalize peptides (drops non-standard residues).
+    # Coerce labels; normalize peptides (drops non-standard residues and >11mers).
     df_merged = df_merged.dropna(subset=["label"])
     df_merged["label"] = df_merged["label"].astype(int)
     df_merged = normalize_peptides(df_merged)
 
-    # De-duplicate and impose a deterministic order for byte-stable re-runs.
+    # Quality-weighted majority-vote deduplication on (peptide, hla_allele).
+    #
+    # IEDB records for the same (peptide, allele) pair are frequently split
+    # across studies with conflicting labels: some assays report positive, others
+    # negative. Naive keep='first' resolves by alphabetical sort order, which can
+    # elevate low-quality binding assays over high-quality cytotoxicity data.
+    #
+    # Strategy:
+    #   1. Compute quality-weighted vote for each pair: sum(quality*label) vs
+    #      sum(quality*(1-label)). Ties (equal weight) resolve to positive (conservative).
+    #   2. Keep the highest-quality representative row and overwrite its label.
+    #   3. Retain all metadata columns from the winning row.
     initial_len = len(df_merged)
-    df_merged = df_merged.drop_duplicates(subset=["peptide", "hla_allele"])
+    n_conflicts = 0
+
+    if "assay_quality_weight" in df_merged.columns:
+        # Quality-weighted majority vote per (peptide, hla_allele).
+        # NaN quality (e.g., VDJdb rows) defaults to 0.5 (neutral weight).
+        # For each pair: w_pos = sum(q * label), w_neg = sum(q * (1-label)).
+        # Ties resolve to positive (conservative: reduce false negatives).
+        _DEFAULT_Q = 0.5
+        q = df_merged["assay_quality_weight"].fillna(_DEFAULT_Q)
+
+        df_tmp = df_merged.assign(_q=q)
+        grp_cols = ["peptide", "hla_allele"]
+
+        agg = (
+            df_tmp.groupby(grp_cols, sort=False)
+            .apply(lambda g: pd.Series({
+                "voted_label": int((g["_q"] * g["label"]).sum() >= (g["_q"] * (1 - g["label"])).sum()),
+                "best_idx":    g["_q"].idxmax(),
+                "n_labels":    g["label"].nunique(),
+            }), include_groups=False)
+            .reset_index()
+        )
+
+        n_conflicts = int((agg["n_labels"] > 1).sum())
+        df_dedup = df_merged.loc[agg["best_idx"].values].copy().reset_index(drop=True)
+        df_dedup["label"] = agg["voted_label"].values
+        df_merged = df_dedup.drop(columns=["_q"], errors="ignore")
+        print(f"Quality-weighted majority vote: {n_conflicts} conflicted pairs resolved.")
+    else:
+        df_merged = df_merged.drop_duplicates(subset=["peptide", "hla_allele"])
+
     n_dropped = initial_len - len(df_merged)
-    print(f"Dropped {n_dropped} duplicates ({n_dropped / initial_len * 100:.1f}%).")
+    print(f"Dedup: {initial_len:,} -> {len(df_merged):,} rows (dropped {n_dropped:,}, "
+          f"{n_dropped / initial_len * 100:.1f}%).")
+    df_merged["label"] = df_merged["label"].astype(int)
     df_merged = df_merged.sort_values(["peptide", "hla_allele"]).reset_index(drop=True)
 
     pos = int((df_merged["label"] == 1).sum())
@@ -130,6 +173,8 @@ def build_dataset_v4(
             "negative_count": neg,
             "positive_fraction": round(pos / len(df_merged), 4),
             "n_sources": len(used_sources),
+            "label_conflicts_resolved": n_conflicts,
+            "dedup_strategy": "quality_weighted_majority_vote" if n_conflicts else "drop_duplicates_first",
         },
     )
 

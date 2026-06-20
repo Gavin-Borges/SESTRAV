@@ -24,18 +24,39 @@ def git_sha() -> str:
         return "unknown"
 
 
-def normalize_peptides(df, peptide_col="peptide"):
-    """Strip/upper-case peptides and drop rows containing non-standard residues.
+MHC_CLASS_I_MIN_LEN = 8   # MHC Class I canonical peptide length lower bound
+MHC_CLASS_I_MAX_LEN = 11  # MHC Class I canonical peptide length upper bound
 
-    This guarantees the merged set cannot fail schema validation on a single
-    stray peptide (lowercase, X, modified residue, whitespace).
+
+def normalize_peptides(df, peptide_col="peptide",
+                       min_len=MHC_CLASS_I_MIN_LEN, max_len=MHC_CLASS_I_MAX_LEN):
+    """Strip/upper-case peptides and drop biologically invalid rows.
+
+    Enforces:
+    1. Standard amino acids only (no X, B, modified residues, whitespace).
+    2. MHC Class I canonical length: 8–11 amino acids.
+
+    MHC Class I-restricted epitopes are canonically 8–11 residues. VDJdb and
+    other sources occasionally include longer peptides that may reflect Class II
+    epitopes, nested peptide pools, or annotation errors. These must be excluded
+    because binding prediction and TCR-contact features are calibrated for 8–11mers.
     """
     df = df.copy()
     df[peptide_col] = df[peptide_col].astype(str).str.strip().str.upper()
-    mask = df[peptide_col].str.match(VALID_AA_PATTERN, na=False)
-    dropped = int((~mask).sum())
-    if dropped:
-        print(f"Dropped {dropped} rows with non-standard peptide residues.")
+
+    aa_mask = df[peptide_col].str.match(VALID_AA_PATTERN, na=False)
+    n_bad_aa = int((~aa_mask).sum())
+
+    lengths = df[peptide_col].str.len()
+    len_mask = (lengths >= min_len) & (lengths <= max_len)
+    n_bad_len = int((aa_mask & ~len_mask).sum())
+
+    mask = aa_mask & len_mask
+    if n_bad_aa:
+        print(f"Dropped {n_bad_aa} rows with non-standard amino acid residues.")
+    if n_bad_len:
+        print(f"Dropped {n_bad_len} rows outside MHC Class I length range "
+              f"({min_len}-{max_len}mer): {df.loc[aa_mask & ~len_mask, peptide_col].tolist()[:5]}")
     return df[mask].reset_index(drop=True)
 
 
