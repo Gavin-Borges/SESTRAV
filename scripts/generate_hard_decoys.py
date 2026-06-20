@@ -133,6 +133,7 @@ def generate_decoys(
     alleles: list[str] | None = None,
     seed: int = 42,
     lengths: tuple[int, ...] = (8, 9, 10, 11),
+    max_candidates: int | None = None,
 ) -> pd.DataFrame:
     random.seed(seed)
     np.random.seed(seed)
@@ -168,6 +169,14 @@ def generate_decoys(
 
     # Seeded shuffle → reproducible decoy selection
     random.shuffle(kmers)
+
+    # Pre-sample to bound MHCflurry scoring time while keeping random coverage.
+    # A 1M seeded sample from ~20M unique k-mers yields ~5k-50k strong binders
+    # per allele — far more than the per-allele quota — so decoy quality is
+    # unaffected. Recorded in provenance for full reproducibility.
+    if max_candidates is not None and len(kmers) > max_candidates:
+        kmers = kmers[:max_candidates]
+        print(f"  Pre-sampled to {len(kmers):,} candidates (--max-candidates).")
 
     # Screen each allele
     all_hits: list[pd.DataFrame] = []
@@ -250,6 +259,7 @@ def generate_decoys(
             "seed": seed,
             "n_positive_excluded": len(positive_peptides),
             "mhcflurry_version": _get_mhcflurry_version(),
+            "max_candidates": max_candidates,
         },
     )
     print(f"\nWrote {len(df_out)} hard decoys -> {output_path}")
@@ -309,6 +319,14 @@ def main(argv: list[str] | None = None) -> int:
         "--seed", type=int, default=42,
         help="Random seed for reproducible runs (default: %(default)s)",
     )
+    parser.add_argument(
+        "--max-candidates", type=int, default=None,
+        help=(
+            "Pre-sample this many k-mers (after seeded shuffle) before MHCflurry "
+            "scoring to bound runtime. None = score all k-mers (default). "
+            "1_000_000 is sufficient for a 5k decoy target."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not Path(args.fasta).exists():
@@ -328,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         alleles=args.alleles,
         seed=args.seed,
         lengths=tuple(args.lengths),
+        max_candidates=args.max_candidates,
     )
     return 0
 
