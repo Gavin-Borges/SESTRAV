@@ -140,7 +140,10 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     print(f"Training pool: {len(train_pool)} records")
 
     # 2. Extract physicochemical features (with Cache resolution)
-    cache_name = f"physico_features_mode{feature_mode}.csv"
+    # Include dataset fingerprint so switching datasets invalidates the cache.
+    import hashlib as _hl
+    _data_tag = _hl.md5(open(data_path, "rb").read(65536)).hexdigest()[:8]  # nosec B324
+    cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
         print(f"Extracting SESTRAV physicochemical features (mode {feature_mode})...")
