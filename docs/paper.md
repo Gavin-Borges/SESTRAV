@@ -232,7 +232,40 @@ The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825
 
 *Mode 35 caveat for per-virus analysis*: the `self_similarity_max_identity` and `self_similarity_exact_match` features rank top-1 and top-2 in RF importance. For viral peptides these features are uniformly near-0, so the per-virus numbers above effectively reflect what mode 31 would produce for those peptides; the self-similarity inflation only operates at the training set level (distinguishing viral from self-class). Per-virus OOF numbers are therefore reliable for viral-specific assessment.
 
-Cross-virus OOF from a model trained on all 12 viruses jointly should not be interpreted as true leave-one-virus-out transfer generalization (the model has seen examples from all viruses in training). True cross-virus transfer (train EBV → test HCV) requires separate per-virus retraining. From v3 data, EBV→HPV16 transfer was AUC-PR 0.742 and HPV16→EBV 0.711 — a 0.086–0.117 drop from in-distribution performance. Full leave-one-virus-out v4 transfer matrix is a target for v2.1 (see §4.3).
+Cross-virus OOF from a model trained on all 12 viruses jointly should not be interpreted as true leave-one-virus-out transfer generalization (the model has seen examples from all viruses in training). True cross-virus transfer requires separate per-virus retraining; see §3.4.2 below for the v4 LOO results.
+
+#### 3.4.2 Leave-one-virus-out (LOO) cross-virus transfer — v4
+
+To measure true cross-virus generalization, a LOO benchmark was run: for each held-out virus, a mode-31 RF was retrained from scratch on all other viral rows plus the 5,000 self-proteome hard decoys, then evaluated on the held-out virus alone. Gold-standard IEDB epitopes were excluded from training but retained in test sets. Script: `scripts/run_loo_cross_virus_v4.py`; full results: `results/loo_cross_virus_v4.json`.
+
+*Table 5b. Leave-one-virus-out (LOO) AUC-PR and AUC-ROC (mode-31 RF, v4; each row is a separate model retrained without that virus).*
+
+| Test virus | LOO AUC-PR | LOO AUC-ROC | ISSR@10 | N test | Pos rate |
+|---|---|---|---|---|---|
+| DENV | 0.9557 | 0.4603 | 0.9425 | 874 | 96.2% |
+| HIV-1 | 0.8338 | 0.4896 | 0.8478 | 464 | 81.7% |
+| EBV | 0.7782 | 0.4697 | 0.7755 | 494 | 78.9% |
+| IAV | 0.7197 | 0.5111 | 0.7308 | 520 | 70.4% |
+| SARS-CoV-2 | 0.7082 | 0.5141 | 0.7111 | 4,057 | 69.9% |
+| HPV16 | 0.6606 | 0.3345 | 0.7000 | 208 | 73.1% |
+| HBV | 0.6428 | 0.5145 | 0.7231 | 650 | 60.5% |
+| CMV | 0.6088 | 0.4834 | 0.7080 | 1,377 | 58.5% |
+| HCV | 0.5610 | 0.4964 | 0.5211 | 719 | 57.6% |
+| HPV18 | 0.5038 | 0.3932 | 0.3333 | 36 | 52.8% |
+| HPV (generic) | 0.4085 | 0.5858 | 0.5714 | 144 | 28.5% |
+| RSV | 0.1415 | 0.1397 | 0.0833 | 123 | 14.6% |
+
+**Interpretation.** Three patterns structure these results:
+
+1. *AUC-PR follows positive-class prevalence, not true discrimination.* For DENV (96.2% positive), any model achieving ≈50% recall trivially achieves high AUC-PR. AUC-ROC at 0.46 — *below* random — confirms the RF is not discriminating; it is scoring by a feature signal shared across all viral peptides (binding affinity, physicochemical properties), which happens to rank most peptides correctly when 96% of them are positive. AUC-ROC is the appropriate primary metric for LOO evaluation.
+
+2. *Within-viral AUC-ROC is near-random (0.33–0.58) for most viruses.* The exception is HPV generic (AUC-ROC 0.59, lower positive rate 28.5%), where the model transfers some negative-class signal. This near-random AUC-ROC pattern reveals the mechanism: mode-31 features — physicochemical TCR-contact properties and allele-stratified binding scores — provide strong discrimination between immunogenic viral peptides and self-proteome decoys (AUC-ROC 0.989 in §3.4.1), but provide marginal signal distinguishing immunogenic from non-immunogenic viral peptides when the test set does not include self-peptides. This is the binding confound in reverse: within-virus, both positive and negative examples share the selection bias of having been tested experimentally (IEDB assay bias toward predicted binders), so binding features do not separate them.
+
+3. *RSV is an active failure (AUC-ROC 0.14).* With only 14.6% positives, the model (trained to distinguish self-peptides from viral positives) inverts scores for RSV: it ranks non-immunogenic RSV peptides *higher* than immunogenic ones. RSV biology is distinct — it encodes immunoevasive mechanisms including epitope interference that may suppress canonical T-cell responses (Collins & Graham 2008), making its immunogenicity profile unlike the other training viruses.
+
+**Comparison to in-distribution OOF.** The LOO vs. OOF AUC-PR gap quantifies contamination benefit — the benefit the model gains from having seen that virus at training time. For representative viruses: EBV (LOO 0.778 vs. OOF 0.879, −0.101), CMV (0.609 vs. 0.820, −0.211), HCV (0.561 vs. 0.635, −0.074). The gap is larger for CMV (+SARS-CoV-2 + DENV dominating the v4 training pool) because removing EBV or HPV from training more severely impoverishes the learned representation for positionally-overlapping assay types.
+
+**Recommendation.** SESTRAV v4 should be used for viral-vs-self discrimination (the task it was trained on); within-virus immunogenicity prioritization without self-peptide context requires calibrated probability interpretation. Users scoring a novel viral proteome will compare predicted scores against a self-proteome background — the task where AUC-PR 0.9909 holds — not against viral non-immunogenic peptides in isolation.
 
 #### 3.4.1 Tumor neoantigen cross-domain generalization
 

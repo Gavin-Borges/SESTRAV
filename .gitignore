@@ -240,8 +240,10 @@ results/*
 !results/baseline_comparison.csv
 # v2 diagnostic artifacts (evidence for release)
 !results/multi_run_stability_report.md
-# Cross-domain benchmark results
+# Cross-domain and LOO benchmark results
 !results/tsnadb_crossdomain_benchmark.json
+!results/loo_cross_virus_v4.json
+!results/loo_cross_virus_v4.csv
 !results/shap_values_rf.csv
 !results/calibration_metrics.csv
 !results/gold_standard_negative_validation.csv
