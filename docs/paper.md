@@ -244,35 +244,38 @@ Cross-virus OOF from a model trained on all 12 viruses jointly should not be int
 
 ### 3.6 GNN v2.1 — GINEConv + ESM-2 evaluation
 
-*Results section added 2026-06-20 following v2.1 architecture implementation. Gate numbers to be inserted after training completion.*
+**Architecture.** GraphPredictorV2 replaces the v1 one-hot GCN with two GINEConv layers (PyTorch Geometric; 320→256→128 hidden dimensions) consuming pre-computed ESM-2 per-residue embeddings (320-dim, `facebook/esm2_t6_8M_UR50D`; Rives et al. 2021) as node features. The graph is a bidirectional 1D chain with self-loops and 3-dim one-hot edge features (self-loop, forward, backward). SESTRAV physicochemical features (mode-21, 21-dim) are fused with the 128-dim mean-pooled graph embedding via a 64-unit MLP. All 11,795 unique v4 peptides were embedded in a single ESM-2 forward pass and cached offline (`data/esm2_embeddings.pt`, 170 MB), so training time is dominated by GINEConv layers rather than protein language-model inference.
 
-**Architecture.** GraphPredictorV2 replaces the v1 one-hot GCN with two GINEConv layers consuming pre-computed ESM-2 per-residue embeddings (320-dim, `facebook/esm2_t6_8M_UR50D`) as node features. The graph is a bidirectional 1D chain with self-loops and 3-dim edge type features. Physicochemical features from the canonical mode-21 SESTRAV feature set are fused with the 128-dim graph pooling output via a 64-unit MLP. All 11,795 unique v4 peptides were embedded in a single ESM-2 forward pass and cached offline, so training time is dominated by the GINEConv layers rather than language-model inference.
+**Training.** Stratified 5-fold CV on the v4 14,699-row dataset (62 gold-standard IEDB epitopes held out from all folds); 20 epochs per fold with cosine annealing from lr=3×10⁻⁴; batch size 64; `BCEWithLogitsLoss` with positive-class weight balancing. Post-hoc Platt scaling (logistic regression on OOF scores) applied after training to correct probability calibration without altering prediction ranking.
 
-**Training.** Stratified 5-fold CV on the v4 14,699-row dataset (gold-standard epitopes held out from all folds); 20 epochs per fold with cosine annealing from lr=3×10⁻⁴; batch size 64; pos_weight BCE loss matching v1.
-
-**Results.**
-
-*[GNN v2.1 5-fold OOF results to be filled in after training completion]*
+**Per-fold 5-fold OOF results:**
 
 | Fold | AUC-ROC | AUC-PR | ISSR@10 |
 |------|---------|--------|---------|
-| 1 | — | — | — |
-| 2 | — | — | — |
-| 3 | — | — | — |
-| 4 | — | — | — |
-| 5 | — | — | — |
-| **Mean ± SD** | — | — | — |
+| 1 | 0.7612 | 0.7250 | 0.8356 |
+| 2 | 0.7561 | 0.7205 | 0.8527 |
+| 3 | 0.7505 | 0.7155 | 0.8630 |
+| 4 | 0.7588 | 0.7191 | 0.8390 |
+| 5 | 0.7627 | 0.7404 | 0.8973 |
+| **Mean ± SD** | **0.7579 ± 0.0043** | **0.7241 ± 0.0087** | **0.8575 ± 0.0222** |
 
-*Promotion gate outcomes for v2.1:*
-| Gate | Criterion | v2.1/v4 Result | Pass? |
-|---|---|---|---|
-| 1 — AUC-PR ≥ 0.85 | 5-fold OOF AUC-PR | — | — |
-| 2 — std ≤ 0.02 | Cross-fold std | — | — |
-| 3 — latency ≤ 2× RF | GNN/RF ratio | — | — |
-| 4 — ECE < 0.05 | Expected Calibration Error | — | — |
-| 5 — sensitivity ≥ 0.80 | Escape sensitivity | — | — |
+*Compared to v1 (dense-adj GCN): AUC-PR 0.7241 vs 0.6143 (+0.110 absolute; +17.9% relative). ISSR@10 0.8575 vs 0.7075 (+0.150 absolute).*
 
-**Interpretation.** *[To be written after gate results.]*
+**Promotion gate outcomes (v2.1 with Platt calibration):**
+
+| Gate | Criterion | v1/v4 | v2.1/v4 | Pass? |
+|---|---|---|---|---|
+| 1 — Generalization (AUC-PR ≥ 0.85) | 5-fold OOF AUC-PR | 0.613 | **0.723** | **FAIL** |
+| 2 — Stability (std ≤ 0.02) | Jackknife-LOO std | 0.0001 | **0.000** | PASS |
+| 3 — Latency (ratio ≤ 2×) | GNN/RF inference ratio | 0.02× | **0.14×** | PASS |
+| 4 — Calibration (ECE < 0.05) | Expected Calibration Error | 0.040 | **0.037** | PASS |
+| 5 — Escape Sensitivity (≥ 0.80) | Sensitivity above decoy median | 0.724 | **0.825** | PASS |
+
+v2.1 clears 4/5 promotion gates. Compared to v1 (3/5 passing): Gate 5 (escape sensitivity) was newly cleared, and Gate 4 (calibration) was maintained with Platt scaling after initial overconfidence with uncalibrated BCE training (raw ECE = 0.179; post-Platt ECE = 0.037).
+
+**Interpretation.** The ESM-2 node embedding upgrade produces a substantial discriminative improvement (+0.11 AUC-PR, +0.15 ISSR@10) and clears Gate 5 escape sensitivity, confirming that richer per-residue representations meaningfully improve identification of immunogenic viral epitopes. Gate 3 (latency) remains comfortably within threshold at 0.14× the RF inference time, demonstrating that pre-caching ESM-2 embeddings eliminates the per-inference language-model overhead.
+
+The remaining Gate 1 gap (0.723 vs 0.85 target) indicates that the current 8M-parameter ESM-2 variant and chain-graph topology are insufficient for full production discrimination. Candidate improvements: (i) larger ESM-2 variants (esm2_t12_35M, 480-dim, or esm2_t30_150M, 640-dim), (ii) additional training epochs with early stopping on validation AUC-PR, (iii) spatial contact edges derived from ESMFold structure predictions to replace the chain-only graph topology. These constitute the GNN v2.2 roadmap.
 
 ---
 
