@@ -25,17 +25,24 @@ def ingest_tsnadb(input_path, output_path, schema_path):
             f"TSNAdb input missing expected peptide ({peptide_col}) or HLA ({hla_col}) columns"
         )
 
+    protein_col = next((c for c in ('Gene', 'Mutation') if c in df.columns), None)
+    tissue_col = next((c for c in ('Cancer_type', 'Tissue') if c in df.columns), None)
+
     df_v4 = pd.DataFrame({
         'peptide': df[peptide_col],
         'label': 1,  # Neoantigens are positive
         'virus': 'None',
-        'protein': df.get('Gene', 'Unknown'),
-        'strain': df.get('Cancer_type', 'Unknown'),
+        'protein': df[protein_col] if protein_col else 'Unknown',
+        'strain': df[tissue_col] if tissue_col else 'Unknown',
         'hla_allele': df[hla_col],
         'source_type': 'Tumor',
         'database_source': 'TSNAdb'
     })
     df_v4 = df_v4.dropna(subset=['peptide', 'hla_allele'])
+    # TSNAdb v2 omits the asterisk: HLA-A02:01 → HLA-A*02:01
+    df_v4['hla_allele'] = df_v4['hla_allele'].str.replace(
+        r'(HLA-[A-Z])(\d)', r'\1*\2', regex=True
+    )
     df_v4 = normalize_peptides(df_v4)
     df_v4 = df_v4.drop_duplicates(subset=['peptide', 'hla_allele'])
     df_v4 = df_v4.sort_values(['peptide', 'hla_allele']).reset_index(drop=True)

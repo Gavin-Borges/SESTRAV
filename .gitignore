@@ -365,6 +365,9 @@ data/immunogenicity_dataset_v4_partial.csv
 data/immunogenicity_dataset_v4_partial_provenance.json
 data/hard_decoys.csv
 data/hard_decoys_provenance.json
+data/SNV-derived.txt
+data/tsnadb_v4.csv
+data/tsnadb_v4_provenance.json
 data/immunogenicity_dataset_v4.csv
 data/immunogenicity_dataset_v4_provenance.json
 
