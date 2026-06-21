@@ -359,6 +359,7 @@ def test_gate3_latency_passes_pyg_batch_to_forward():
     with (
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
         patch.object(pgnn, "RF_MODEL_PATH", _mock_path(exists=True)),
+        patch.object(pgnn, "GNN_CONFIG", _mock_path(exists=False)),
         patch("src.artifact_integrity.load_verified_joblib", return_value=_FakeRF()),
         patch("torch.load", return_value=real_state),
     ):

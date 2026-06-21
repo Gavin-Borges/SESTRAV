@@ -1,6 +1,6 @@
-"""Tests for GNN v2.2 interfaces: node_dim propagation, gnn_config.json,
+"""Tests for GNN v2.2/v2.3 interfaces: node_dim propagation, gnn_config.json,
 early-stopping params, binding_matrix_path wiring, num_continuous_features
-propagation, and promote_gnn gate3 config-reading path.
+propagation, variable-length graph correctness, and promote_gnn gate3 config-reading path.
 """
 import json
 import sys
@@ -170,3 +170,72 @@ def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatc
             num_features = _cfg.get("num_continuous_features", num_features)
 
     assert num_features == 21
+
+
+# ---------------------------------------------------------------------------
+# v2.3: variable-length graph correctness — no zero-padding nodes in graphs
+# ---------------------------------------------------------------------------
+
+def test_dataset_v2_node_count_equals_peptide_length():
+    """Each Data item must have exactly L nodes, not max_len (11)."""
+    import numpy as np
+    import pandas as pd
+    from src.train_gnn import GraphPeptideDatasetV2
+
+    seqs = ["GILGFVFT", "GILGFVFTL", "GILGFVFTLV", "GILGFVFTLVA"]
+    lengths = [8, 9, 10, 11]
+    df = pd.DataFrame({"peptide": seqs, "label": [1, 0, 1, 0]})
+
+    esm2_cache = {}
+    for seq in seqs:
+        padded = torch.zeros(11, 320)
+        padded[: len(seq)] = torch.randn(len(seq), 320)
+        esm2_cache[seq] = padded
+
+    X = pd.DataFrame(np.zeros((4, 21)))
+    ds = GraphPeptideDatasetV2(df, X, np.array([1.0, 0.0, 1.0, 0.0]), esm2_cache, max_len=11)
+
+    for i, (seq, L) in enumerate(zip(seqs, lengths)):
+        item = ds[i]
+        assert item.x.shape[0] == L, f"Expected {L} nodes for {seq}, got {item.x.shape[0]}"
+        assert item.x.shape[0] != 11 or L == 11, "Padding nodes must not appear for sub-11-mers"
+
+
+def test_dataset_v2_edge_index_within_node_range():
+    """All edge indices must reference nodes within [0, L-1]."""
+    import numpy as np
+    import pandas as pd
+    from src.train_gnn import GraphPeptideDatasetV2
+
+    seqs = ["GILGFVFT", "GILGFVFTL"]
+    df = pd.DataFrame({"peptide": seqs, "label": [1, 0]})
+    esm2_cache = {seq: torch.zeros(11, 320) for seq in seqs}
+    X = pd.DataFrame(np.zeros((2, 21)))
+    ds = GraphPeptideDatasetV2(df, X, np.array([1.0, 0.0]), esm2_cache, max_len=11)
+
+    for i, seq in enumerate(seqs):
+        item = ds[i]
+        L = len(seq)
+        assert item.edge_index.max().item() == L - 1, (
+            f"Edge index references node > {L-1} for {seq}"
+        )
+
+
+def test_dataset_v2_pyg_batch_node_count():
+    """PyG batching must produce total_nodes == sum of individual peptide lengths."""
+    import numpy as np
+    import pandas as pd
+    from src.train_gnn import GraphPeptideDatasetV2
+    from torch_geometric.loader import DataLoader as PyGDataLoader
+
+    seqs = ["GILGFVFT", "GILGFVFTL", "GILGFVFTLV", "GILGFVFTLVA"]
+    df = pd.DataFrame({"peptide": seqs, "label": [1, 0, 1, 0]})
+    esm2_cache = {seq: torch.zeros(11, 320) for seq in seqs}
+    X = pd.DataFrame(np.zeros((4, 21)))
+    ds = GraphPeptideDatasetV2(df, X, np.array([1.0, 0.0, 1.0, 0.0]), esm2_cache, max_len=11)
+    loader = PyGDataLoader(ds, batch_size=4, shuffle=False)
+    batch = next(iter(loader))
+    expected_nodes = sum(len(s) for s in seqs)  # 8+9+10+11 = 38
+    assert batch.x.shape[0] == expected_nodes, (
+        f"Expected {expected_nodes} nodes in batch, got {batch.x.shape[0]}"
+    )

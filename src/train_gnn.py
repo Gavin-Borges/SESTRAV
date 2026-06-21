@@ -269,12 +269,17 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
 class GraphPeptideDatasetV2(torch.utils.data.Dataset):
     """PyG-compatible dataset returning Data objects with ESM-2 node features.
 
+    Each item carries a variable-length graph — only real residues are included
+    as nodes.  Zero-padded positions in the ESM-2 cache are intentionally
+    excluded so that GINEConv message passing and global mean pooling operate
+    solely on true amino acid embeddings.
+
     Each item:
-        x:        (max_len, 320)  — ESM-2 per-residue embeddings
-        edge_index: (2, num_edges) — chain graph, local node indices
-        edge_attr: (num_edges, 3)  — one-hot edge type features
-        physico:  (1, num_features) — batches to (B, num_features) via PyG collation
-        y:        (1,)             — batches to (B,) via PyG collation
+        x:          (L, node_dim)  — ESM-2 per-residue embeddings, L = peptide length
+        edge_index: (2, num_edges) — chain graph for L nodes (no padding edges)
+        edge_attr:  (num_edges, 3) — one-hot [self_loop, forward, backward]
+        physico:    (1, num_features) — batches to (B, num_features) via PyG collation
+        y:          (1,)              — batches to (B,) via PyG collation
     """
     def __init__(self, df, feature_matrix, labels, esm2_cache, max_len=11):
         self.sequences = df['peptide'].values
@@ -282,7 +287,14 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         self.labels = torch.tensor(labels, dtype=torch.float32) if labels is not None else None
         self.esm2_cache = esm2_cache
         self.max_len = max_len
-        self.edge_index, self.edge_attr = GraphBuilder.build_pyg_chain_graph(max_len)
+        # Pre-build edge tensors for each supported peptide length (8–11) to
+        # avoid repeated construction in the hot __getitem__ path.
+        self._edge_cache: dict = {}
+
+    def _get_edges(self, length: int):
+        if length not in self._edge_cache:
+            self._edge_cache[length] = GraphBuilder.build_pyg_chain_graph(length)
+        return self._edge_cache[length]
 
     def __len__(self):
         return len(self.sequences)
@@ -290,12 +302,15 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         from torch_geometric.data import Data
         seq = self.sequences[idx]
-        node_feats = self.esm2_cache[seq]  # (max_len, 320)
+        L = len(seq)
+        # Slice only the L real residue embeddings — exclude zero-padded positions.
+        node_feats = self.esm2_cache[seq][:L]  # (L, node_dim)
+        edge_index, edge_attr = self._get_edges(L)
         label = self.labels[idx].view(1) if self.labels is not None else torch.zeros(1)
         return Data(
             x=node_feats,
-            edge_index=self.edge_index,
-            edge_attr=self.edge_attr,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
             physico=self.physico_features[idx].unsqueeze(0),
             y=label,
         )
