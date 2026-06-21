@@ -240,6 +240,8 @@ results/*
 !results/baseline_comparison.csv
 # v2 diagnostic artifacts (evidence for release)
 !results/multi_run_stability_report.md
+# Cross-domain benchmark results
+!results/tsnadb_crossdomain_benchmark.json
 !results/shap_values_rf.csv
 !results/calibration_metrics.csv
 !results/gold_standard_negative_validation.csv
@@ -368,6 +370,9 @@ data/hard_decoys_provenance.json
 data/SNV-derived.txt
 data/tsnadb_v4.csv
 data/tsnadb_v4_provenance.json
+data/tsnadb_crossdomain_cohort.csv
+data/tsnadb_crossdomain_cohort_provenance.json
+data/tsnadb_crossdomain_binding.csv
 data/immunogenicity_dataset_v4.csv
 data/immunogenicity_dataset_v4_provenance.json
 
