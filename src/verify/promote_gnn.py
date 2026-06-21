@@ -41,6 +41,7 @@ logger = logging.getLogger("gnn-promote")
 # ---------------------------------------------------------------------------
 GNN_CHECKPOINT = Path("models/gnn/structural_gnn_v2.pth")
 GNN_SCALER    = Path("models/gnn/gnn_scaler.joblib")
+GNN_CONFIG    = Path("models/gnn/gnn_config.json")
 RF_MODEL_PATH  = Path("models/rf_30feature_integrated.joblib")
 OOF_PATH       = Path("models/gnn_oof_predictions.csv")
 CONFIG_PATH    = Path("config.yaml")
@@ -242,14 +243,22 @@ def gate3_latency() -> GateResult:
         )
 
     num_features = len(TRAIN_FEATURE_COLUMNS)
-    gnn_model = GraphPredictorV2(num_continuous_features=num_features).to(device)
+
+    # Read node_dim from gnn_config.json so gate3 matches whatever ESM-2 variant was trained
+    import json as _json
+    node_dim = 320  # default (t6)
+    if GNN_CONFIG.exists():
+        with GNN_CONFIG.open() as _fh:
+            node_dim = _json.load(_fh).get("node_dim", 320)
+
+    gnn_model = GraphPredictorV2(num_continuous_features=num_features, node_dim=node_dim).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load
     state = torch.load(GNN_CHECKPOINT, map_location="cpu", weights_only=True)
     gnn_model.load_state_dict(state)
     gnn_model.eval()
 
-    # Build synthetic PyG batch (ESM-2 node dim=320, chain graph)
-    ESM_DIM = 320
+    # Build synthetic PyG batch using the same node dim as the trained model
+    ESM_DIM = node_dim
     MAX_LEN = 11
     edge_index, edge_attr = GraphBuilder.build_pyg_chain_graph(MAX_LEN)
     data_list = [

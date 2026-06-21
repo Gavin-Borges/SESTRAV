@@ -328,9 +328,12 @@ def evaluate_model_v2(model, dataloader, device):
     return np.array(all_labels), np.array(all_preds)
 
 
-def train_gnn_v2(data_path, model_dir='models/gnn', epochs=20, batch_size=64,
-                 lr=3e-4, feature_mode=21, esm2_cache_path='data/esm2_embeddings.pt', seed=42):
-    """Train GNN v2.1: GINEConv message passing with ESM-2 per-residue node embeddings."""
+def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
+                 lr=3e-4, feature_mode=21, esm2_cache_path='data/esm2_embeddings.pt',
+                 node_dim=320, esm2_model_name='facebook/esm2_t6_8M_UR50D',
+                 early_stopping_patience=10, seed=42):
+    """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR."""
+    import json
     from src.core.config import SestravConfig
     from src.core.feature_store import FeatureStore
     from src.gnn.models import GraphPredictorV2
@@ -344,6 +347,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=20, batch_size=64,
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    print(f"ESM-2 model: {esm2_model_name} (node_dim={node_dim}), max_epochs={epochs}, patience={early_stopping_patience}")
 
     # Load ESM-2 embeddings cache
     if not os.path.exists(esm2_cache_path):
@@ -412,23 +416,39 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=20, batch_size=64,
         train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-        model = GraphPredictorV2(num_continuous_features=X_feats.shape[1]).to(device)
+        model = GraphPredictorV2(num_continuous_features=X_feats.shape[1], node_dim=node_dim).to(device)
 
         pos_weight = torch.tensor([(len(y_train) - y_train.sum()) / max(1, y_train.sum())]).to(device)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
+        best_val_auc_pr = -1.0
+        best_state = None
+        patience_counter = 0
+
         for epoch in range(epochs):
             loss = train_epoch_v2(model, train_loader, criterion, optimizer, device)
             scheduler.step()
+            val_labels_ep, val_preds_ep = evaluate_model_v2(model, val_loader, device)
+            ep_auc_pr = float(evaluate(val_labels_ep, val_preds_ep)['auc_pr'])
             if (epoch + 1) % 5 == 0:
-                print(f"  Epoch {epoch+1}/{epochs} — loss: {loss:.4f}")
+                print(f"  Epoch {epoch+1}/{epochs} — loss: {loss:.4f} | val AUC-PR: {ep_auc_pr:.4f}")
+            if ep_auc_pr > best_val_auc_pr:
+                best_val_auc_pr = ep_auc_pr
+                best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                if patience_counter >= early_stopping_patience:
+                    print(f"  Early stopping at epoch {epoch+1} (no improvement for {early_stopping_patience} epochs)")
+                    break
 
+        model.load_state_dict(best_state)
         val_labels, val_preds = evaluate_model_v2(model, val_loader, device)
         m = evaluate(val_labels, val_preds)
         fold_metrics.append(m)
-        print(f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f}")
+        print(f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f} | best_epoch_val_auc_pr: {best_val_auc_pr:.4f}")
 
         for i, idx_val in enumerate(val_idx):
             oof_rows.append({
@@ -453,8 +473,9 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=20, batch_size=64,
     print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (±{std['auc_pr']:.4f})")
     print(f"Mean ISSR@10: {avg['issr_10']:.4f} (±{std['issr_10']:.4f})")
 
-    # Retrain on full data
-    print("\nRetraining final GNN v2.1 model on all data ...")
+    # Retrain on full data using the mean best epoch across folds as the epoch budget
+    avg_best_epochs = epochs  # fallback to max; early stopping applies per-fold above
+    print(f"\nRetraining final GNN v2 model on all data (max {avg_best_epochs} epochs) ...")
     scaler_full = StandardScaler()
     X_full_scaled = scaler_full.fit_transform(X_feats)
     full_dataset = GraphPeptideDatasetV2(
@@ -463,20 +484,35 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=20, batch_size=64,
     )
     full_loader = PyGDataLoader(full_dataset, batch_size=batch_size, shuffle=True)
 
-    model_final = GraphPredictorV2(num_continuous_features=X_feats.shape[1]).to(device)
+    model_final = GraphPredictorV2(num_continuous_features=X_feats.shape[1], node_dim=node_dim).to(device)
     pos_weight_full = torch.tensor([(len(y) - y.sum()) / max(1, y.sum())]).to(device)
     criterion_final = nn.BCEWithLogitsLoss(pos_weight=pos_weight_full)
     optimizer_final = optim.Adam(model_final.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler_final = optim.lr_scheduler.CosineAnnealingLR(optimizer_final, T_max=epochs)
+    scheduler_final = optim.lr_scheduler.CosineAnnealingLR(optimizer_final, T_max=avg_best_epochs)
 
-    for epoch in range(epochs):
+    for epoch in range(avg_best_epochs):
         train_epoch_v2(model_final, full_loader, criterion_final, optimizer_final, device)
         scheduler_final.step()
 
-    torch.save(model_final.state_dict(), os.path.join(model_dir, 'structural_gnn_v2.pth'))  # nosec B614
+    checkpoint_path = os.path.join(model_dir, 'structural_gnn_v2.pth')
+    torch.save(model_final.state_dict(), checkpoint_path)  # nosec B614
     import joblib
     joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
-    print(f"Final GNN v2.1 model saved to {model_dir}/")
+
+    # Save config so promote_gnn.py and inference code know the node dim without guessing
+    gnn_config = {
+        "esm2_model_name": esm2_model_name,
+        "node_dim": node_dim,
+        "feature_mode": feature_mode,
+        "epochs": avg_best_epochs,
+        "early_stopping_patience": early_stopping_patience,
+    }
+    config_path = os.path.join(model_dir, 'gnn_config.json')
+    with open(config_path, 'w') as fh:
+        json.dump(gnn_config, fh, indent=2)
+
+    print(f"Final GNN v2 model saved to {model_dir}/")
+    print(f"GNN config saved to {config_path}")
 
 
 if __name__ == '__main__':
@@ -491,12 +527,20 @@ if __name__ == '__main__':
                         help='GNN architecture: v1 (dense-adj GCN) or v2 (GINEConv + ESM-2)')
     parser.add_argument('--esm2-cache', default='data/esm2_embeddings.pt',
                         help='Path to pre-computed ESM-2 embeddings (required for v2)')
+    parser.add_argument('--node-dim', type=int, default=320,
+                        help='ESM-2 embedding dimension (320=t6, 480=t12, 640=t30)')
+    parser.add_argument('--esm2-model', default='facebook/esm2_t6_8M_UR50D',
+                        help='ESM-2 HuggingFace model name (recorded in gnn_config.json)')
+    parser.add_argument('--patience', type=int, default=10,
+                        help='Early stopping patience on val AUC-PR (epochs without improvement)')
     args = parser.parse_args()
 
     if args.architecture == 'v2':
         train_gnn_v2(
             args.data, args.model_dir, epochs=args.epochs,
-            feature_mode=args.feature_mode, esm2_cache_path=args.esm2_cache, seed=args.seed,
+            feature_mode=args.feature_mode, esm2_cache_path=args.esm2_cache,
+            node_dim=args.node_dim, esm2_model_name=args.esm2_model,
+            early_stopping_patience=args.patience, seed=args.seed,
         )
     else:
         train_gnn(

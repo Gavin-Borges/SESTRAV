@@ -65,6 +65,30 @@ sha256sum -c SHA256SUMS.txt
 git tag -v v2.0.2
 ```
 
+## Publishing to PyPI (Trusted Publishers — no API token)
+
+The publish job in `release.yml` authenticates to PyPI using **OpenID Connect
+Trusted Publishers** — no API token or GitHub secret is required.
+
+### One-time setup (already complete)
+
+1. PyPI account created with 2FA enabled.
+2. A **pending trusted publisher** is registered at `pypi.org` → Account settings
+   → Publishing with:
+   - Owner: `Gavin-Borges`, Repository: `SESTRAV`
+   - Workflow: `release.yml`, Environment: `pypi`
+3. GitHub environment `pypi` configured with **Required reviewers** — every publish
+   attempt pauses for manual approval before proceeding.
+4. Repository variable `PYPI_PUBLISH=true` gates the publish job; set it to `false`
+   to disable publishing without touching the workflow.
+
+### How a release publishes to PyPI
+
+After the `release` job completes (build → attest → GitHub Release), the `publish`
+job is triggered, pauses for reviewer approval, then runs
+`pypa/gh-action-pypi-publish` which exchanges a short-lived GitHub OIDC token for
+a PyPI upload credential automatically. No static credentials are involved.
+
 ## Badge status (as shipped)
 
 The first release (**v2.0.2**) was published via this workflow with a Sigstore

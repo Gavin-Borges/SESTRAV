@@ -9,7 +9,7 @@ description = "Structural Epitope Scoring via TCR Recognition And Vaccinology (S
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-    {name = "Gavin Borges", email = "gavinmborges1104@gmail.com"},
+    {name = "Gavin Borges"},
     {name = "Abdelrahman Eljamal"},
     {name = "Iris Schellenberg"},
     {name = "Charles Jouaneh"},

@@ -1,7 +1,7 @@
 # SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology
 
 **Manuscript draft — Bioinformatics (Oxford) Original Paper format**
-*Status: Active draft. [TBD] marks sections pending v4 results.*
+*Status: Active draft. v4 results complete. Pending: GNN v2.2 (Gate 1), external benchmark Table 3 (§3.3), Zenodo DOI (§5).*
 *Authors: Gavin Borges¹, Abdelrahman Eljamal¹, Iris Schellenberg¹, Charles Jouaneh¹, Emine Byers¹*
 *¹University of Rhode Island*
 *Corresponding author: Gavin Borges — ORCID: 0009-0001-2404-5217*
@@ -356,7 +356,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 
 1. **v4 allele-aware training.** 166-feature schema enables allele-specific predictions once VDJdb allele annotations are incorporated. Target: ≥10 allele models from v4.
 2. **Hard decoy integration.** 5,000 central-tolerance self-peptides (500 per allele, 10 alleles) added to v4 are expected to raise AUC-PR above 0.880 by decoupling binding affinity from immunogenicity in the negative class.
-3. **GNN v2.1.** GINEConv + ESM-2 node embeddings (implemented 2026-06-20); promotion gate results reported in §3.6. If Gates 1 and 5 clear, GNN v2.1 becomes the production deep-learning scorer.
+3. **GNN v2.2.** v2.1 (GINEConv + ESM-2, 8M params) clears Gates 2/3/4/5 but fails Gate 1 (AUC-PR 0.723 vs 0.85 target; §3.6). v2.2 roadmap: larger ESM-2 variant (esm2_t12_35M, 480-dim) with early stopping on validation AUC-PR; if Gate 1 clears, GNN becomes the production deep-learning scorer.
 4. **Virus expansion.** SARS-CoV-2 (panel4: Spike P0DTC2, N P0DTC9, M P0DTC5, ORF3a P0DTC3), IAV (panel4: NP P03466, M1 P03485, HA P03437, PB1-F2 P0C0U1), CMV (panel4: pp65 P06725, IE1 P13202, pp50 P16785, gB P06473) — gated on IEDB audit confirming ≥100 positive T-cell assays per virus.
 5. **Continuous automated validation.** Monthly GitHub Actions benchmark against new IEDB exports with automatic AUC-PR regression alerting.
 
@@ -364,7 +364,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 
 ## 5. Availability
 
-- **Source code:** [GitHub repository URL] — MIT license
+- **Source code:** https://github.com/Gavin-Borges/SESTRAV — MIT license
 - **Installation:** `pip install sestrav` (core); `pip install "sestrav[gnn]"` (+ GNN); `pip install "sestrav[pipeline]"` (+ Snakemake)
 - **PyPI:** https://pypi.org/project/sestrav/
 - **Zenodo dataset DOI:** [pending — v4 build + registration, Week 6 Day 7]

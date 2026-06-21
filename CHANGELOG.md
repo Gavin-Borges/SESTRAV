@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **PyPI publish migrated to OIDC Trusted Publishers**: removed `twine` and the
+  `PYPI_API_TOKEN` secret from `release.yml`; replaced with
+  `pypa/gh-action-pypi-publish@release/v1` using short-lived GitHub OIDC tokens.
+  No static credential is stored anywhere. The `pypi` GitHub environment is
+  protected by required-reviewer approval before any upload proceeds.
+  Deleted orphaned `environments/requirements-ci-twine.{in,txt}`.
+- **`pyproject.toml`**: removed personal email from author metadata; name retained.
+
 ### Added
 - **HBV/HCV proteome ingestion path** (issue #78): `scripts/fetch_viral_proteomes.py`
   downloads 8 UniProt sequences (HBV panel4: HBcAg P03147, HBx P03165, HBsAg-S P03138,
