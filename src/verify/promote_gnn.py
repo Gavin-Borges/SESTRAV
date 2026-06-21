@@ -242,14 +242,16 @@ def gate3_latency() -> GateResult:
             threshold=f"<= {GATE3_LATENCY_FACTOR}× RF latency",
         )
 
-    num_features = len(TRAIN_FEATURE_COLUMNS)
-
-    # Read node_dim from gnn_config.json so gate3 matches whatever ESM-2 variant was trained
+    # Read node_dim and num_continuous_features from gnn_config.json so gate3 matches
+    # whatever ESM-2 variant and feature mode the checkpoint was trained with.
     import json as _json
-    node_dim = 320  # default (t6)
+    node_dim = 320  # default (t6 ESM-2)
+    num_features = len(TRAIN_FEATURE_COLUMNS)  # default: 21 physico-only
     if GNN_CONFIG.exists():
         with GNN_CONFIG.open() as _fh:
-            node_dim = _json.load(_fh).get("node_dim", 320)
+            _cfg = _json.load(_fh)
+            node_dim = _cfg.get("node_dim", 320)
+            num_features = _cfg.get("num_continuous_features", num_features)
 
     gnn_model = GraphPredictorV2(num_continuous_features=num_features, node_dim=node_dim).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load

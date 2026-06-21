@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-from src.train_classifier import prepare_features, prepare_features_50
+from src.train_classifier import prepare_features, prepare_features_31, prepare_features_50
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
@@ -331,8 +331,14 @@ def evaluate_model_v2(model, dataloader, device):
 def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
                  lr=3e-4, feature_mode=21, esm2_cache_path='data/esm2_embeddings.pt',
                  node_dim=320, esm2_model_name='facebook/esm2_t6_8M_UR50D',
-                 early_stopping_patience=10, seed=42):
-    """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR."""
+                 early_stopping_patience=10, binding_matrix_path=None, seed=42):
+    """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR.
+
+    feature_mode 21: 21 physicochemical features (default, no binding required).
+    feature_mode 31: 31-feature canonical set (21 physico + 10 per-allele binding scores +
+                     peptide_length); requires --binding-matrix. Matches RF mode 31 feature
+                     parity and is the recommended mode when a binding matrix is available.
+    """
     import json
     from src.core.config import SestravConfig
     from src.core.feature_store import FeatureStore
@@ -343,11 +349,11 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     store = FeatureStore(config.output_dir)
 
     set_seed(seed)
-    torch.autograd.set_detect_anomaly(True)
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
-    print(f"ESM-2 model: {esm2_model_name} (node_dim={node_dim}), max_epochs={epochs}, patience={early_stopping_patience}")
+    print(f"ESM-2 model: {esm2_model_name} (node_dim={node_dim}), feature_mode={feature_mode}, "
+          f"max_epochs={epochs}, patience={early_stopping_patience}")
 
     # Load ESM-2 embeddings cache
     if not os.path.exists(esm2_cache_path):
@@ -373,14 +379,21 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
             "Re-run: python scripts/precompute_esm2_embeddings.py"
         )
 
-    # Extract physicochemical features (same cache as v1, fused at output)
+    # Extract feature matrix.  Mode 31 adds 10 per-allele MHCflurry binding scores,
+    # matching RF mode 31 feature parity.  Mode 21 uses physico-only features.
     import hashlib as _hl
     _data_tag = _hl.md5(open(data_path, "rb").read(65536)).hexdigest()[:8]  # nosec B324
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
-        print(f"Extracting physicochemical features (mode {feature_mode}) ...")
-        X_feats = prepare_features(train_pool, include_binding=False)
+        if feature_mode == 31 and binding_matrix_path is not None:
+            print(f"Extracting 31-feature set (physico + per-allele binding; matrix: {binding_matrix_path}) ...")
+            X_feats = prepare_features_31(train_pool, binding_matrix_path)
+        else:
+            if feature_mode == 31 and binding_matrix_path is None:
+                print("WARNING: feature_mode=31 requested but --binding-matrix not supplied; falling back to mode 21.")
+            print(f"Extracting 21-feature physicochemical set ...")
+            X_feats = prepare_features(train_pool, include_binding=False)
         store.save_cached_features(X_feats, cache_name)
     else:
         non_feat_cols = [c for c in ['peptide', 'label', 'protein', 'allele'] if c in X_feats.columns]
@@ -392,6 +405,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
     fold_metrics = []
     oof_rows = []
+    best_epoch_per_fold: list = []
 
     for fold, (train_idx, val_idx) in enumerate(skf.split(X_feats, y), 1):
         print(f"\n--- Fold {fold} ---")
@@ -426,6 +440,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         best_val_auc_pr = -1.0
         best_state = None
         patience_counter = 0
+        best_epoch_this_fold = 1
 
         for epoch in range(epochs):
             loss = train_epoch_v2(model, train_loader, criterion, optimizer, device)
@@ -438,17 +453,19 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
                 best_val_auc_pr = ep_auc_pr
                 best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
                 patience_counter = 0
+                best_epoch_this_fold = epoch + 1
             else:
                 patience_counter += 1
                 if patience_counter >= early_stopping_patience:
                     print(f"  Early stopping at epoch {epoch+1} (no improvement for {early_stopping_patience} epochs)")
                     break
 
+        best_epoch_per_fold.append(best_epoch_this_fold)
         model.load_state_dict(best_state)
         val_labels, val_preds = evaluate_model_v2(model, val_loader, device)
         m = evaluate(val_labels, val_preds)
         fold_metrics.append(m)
-        print(f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f} | best_epoch_val_auc_pr: {best_val_auc_pr:.4f}")
+        print(f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f} | best_epoch: {best_epoch_this_fold} | val_auc_pr: {best_val_auc_pr:.4f}")
 
         for i, idx_val in enumerate(val_idx):
             oof_rows.append({
@@ -467,15 +484,14 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     avg = {k: np.mean([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
     std = {k: np.std([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
     print(f"\n{'=' * 40}")
-    print("Graph Neural Network v2.1 (GINEConv + ESM-2) 5-Fold CV Results:")
+    print(f"Graph Neural Network v2 (GINEConv + {esm2_model_name}, node_dim={node_dim}, mode={feature_mode}) 5-Fold CV Results:")
     print(f"{'=' * 40}")
     print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (±{std['auc_roc']:.4f})")
     print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (±{std['auc_pr']:.4f})")
     print(f"Mean ISSR@10: {avg['issr_10']:.4f} (±{std['issr_10']:.4f})")
 
-    # Retrain on full data using the mean best epoch across folds as the epoch budget
-    avg_best_epochs = epochs  # fallback to max; early stopping applies per-fold above
-    print(f"\nRetraining final GNN v2 model on all data (max {avg_best_epochs} epochs) ...")
+    avg_best_epochs = max(1, round(float(np.mean(best_epoch_per_fold))))
+    print(f"\nRetraining final GNN v2 model on all data ({avg_best_epochs} epochs — mean of per-fold best: {best_epoch_per_fold}) ...")
     scaler_full = StandardScaler()
     X_full_scaled = scaler_full.fit_transform(X_feats)
     full_dataset = GraphPeptideDatasetV2(
@@ -504,6 +520,8 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         "esm2_model_name": esm2_model_name,
         "node_dim": node_dim,
         "feature_mode": feature_mode,
+        "num_continuous_features": int(X_feats.shape[1]),
+        "binding_matrix_path": binding_matrix_path,
         "epochs": avg_best_epochs,
         "early_stopping_patience": early_stopping_patience,
     }
@@ -520,8 +538,10 @@ if __name__ == '__main__':
     parser.add_argument('--data', required=True, help='Path to immunogenicity_dataset.csv')
     parser.add_argument('--model-dir', default='models/gnn', help='Output directory')
     parser.add_argument('--epochs', type=int, default=15, help='Training epochs per fold')
-    parser.add_argument('--feature-mode', type=int, default=21, help='Feature mode (21 or 50)')
-    parser.add_argument('--binding-matrix', default=None, help='Path to peptide_binding_matrix.csv')
+    parser.add_argument('--feature-mode', type=int, default=21,
+                        help='Feature mode: 21 (physico-only) or 31 (physico + per-allele binding; requires --binding-matrix)')
+    parser.add_argument('--binding-matrix', default=None,
+                        help='Path to peptide_binding_matrix_v4.csv (required for --feature-mode 31)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducible runs')
     parser.add_argument('--architecture', choices=['v1', 'v2'], default='v2',
                         help='GNN architecture: v1 (dense-adj GCN) or v2 (GINEConv + ESM-2)')
@@ -540,7 +560,9 @@ if __name__ == '__main__':
             args.data, args.model_dir, epochs=args.epochs,
             feature_mode=args.feature_mode, esm2_cache_path=args.esm2_cache,
             node_dim=args.node_dim, esm2_model_name=args.esm2_model,
-            early_stopping_patience=args.patience, seed=args.seed,
+            early_stopping_patience=args.patience,
+            binding_matrix_path=args.binding_matrix,
+            seed=args.seed,
         )
     else:
         train_gnn(

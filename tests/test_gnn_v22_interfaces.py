@@ -1,5 +1,6 @@
 """Tests for GNN v2.2 interfaces: node_dim propagation, gnn_config.json,
-early-stopping params, and promote_gnn gate3 config-reading path.
+early-stopping params, binding_matrix_path wiring, num_continuous_features
+propagation, and promote_gnn gate3 config-reading path.
 """
 import json
 import sys
@@ -75,8 +76,22 @@ def test_train_gnn_v2_default_patience_is_10():
     assert sig.parameters["early_stopping_patience"].default == 10
 
 
+def test_train_gnn_v2_accepts_binding_matrix_path_param():
+    import inspect
+    from src.train_gnn import train_gnn_v2
+    sig = inspect.signature(train_gnn_v2)
+    assert "binding_matrix_path" in sig.parameters
+
+
+def test_train_gnn_v2_binding_matrix_path_defaults_none():
+    import inspect
+    from src.train_gnn import train_gnn_v2
+    sig = inspect.signature(train_gnn_v2)
+    assert sig.parameters["binding_matrix_path"].default is None
+
+
 # ---------------------------------------------------------------------------
-# promote_gnn gate3 reads node_dim from gnn_config.json
+# promote_gnn gate3 reads node_dim and num_continuous_features from gnn_config.json
 # ---------------------------------------------------------------------------
 
 def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
@@ -112,3 +127,46 @@ def test_gate3_defaults_node_dim_320_when_config_missing(tmp_path, monkeypatch):
             node_dim = _json.load(fh).get("node_dim", 320)
 
     assert node_dim == 320
+
+
+def test_gate3_reads_num_continuous_features_from_config(tmp_path, monkeypatch):
+    """gate3_latency should use num_continuous_features from gnn_config.json when present."""
+    import src.verify.promote_gnn as pg
+
+    config_data = {
+        "node_dim": 480,
+        "num_continuous_features": 31,
+        "feature_mode": 31,
+        "esm2_model_name": "facebook/esm2_t12_35M_UR50D",
+    }
+    config_file = tmp_path / "gnn_config.json"
+    config_file.write_text(json.dumps(config_data))
+
+    monkeypatch.setattr(pg, "GNN_CONFIG", config_file)
+
+    import json as _json
+    from src.features import TRAIN_FEATURE_COLUMNS
+    num_features = len(TRAIN_FEATURE_COLUMNS)
+    if pg.GNN_CONFIG.exists():
+        with pg.GNN_CONFIG.open() as fh:
+            _cfg = _json.load(fh)
+            num_features = _cfg.get("num_continuous_features", num_features)
+
+    assert num_features == 31
+
+
+def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatch):
+    """gate3_latency falls back to 21 (TRAIN_FEATURE_COLUMNS) when gnn_config.json absent."""
+    import src.verify.promote_gnn as pg
+    from src.features import TRAIN_FEATURE_COLUMNS
+
+    monkeypatch.setattr(pg, "GNN_CONFIG", tmp_path / "nonexistent.json")
+
+    import json as _json
+    num_features = len(TRAIN_FEATURE_COLUMNS)
+    if pg.GNN_CONFIG.exists():
+        with pg.GNN_CONFIG.open() as fh:
+            _cfg = _json.load(fh)
+            num_features = _cfg.get("num_continuous_features", num_features)
+
+    assert num_features == 21
