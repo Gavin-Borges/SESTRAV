@@ -98,23 +98,22 @@ Full feature glossary and migration table: `docs/feature_glossary.md`.
 
 **ANN (supplementary track).** Three-layer PyTorch MLP (256–128–64) with dropout 0.3. MC Dropout uncertainty estimation available (`mc_dropout: true` in config).
 
-**Graph Neural Network (v2.0; under promotion gating).** `GraphPredictor` (`src/gnn/models.py`) is a custom PyTorch model combining a dense-adjacency GCN encoder with a physicochemical feature MLP. Architecture details:
-- `GCNLayer`: hand-rolled graph convolution performing `adj @ (x @ W) + b` on a dense adjacency tensor of shape `(max_peptide_len, max_peptide_len)`.
-- `GraphEncoder`: two stacked `GCNLayer` instances with ReLU activations and global mean pooling to produce a graph-level embedding.
-- `GraphPredictor.forward(node_x, feat_x, adj)`: node features (`node_x`, shape `[batch, max_len, 20]`, amino acid one-hot) are processed by `GraphEncoder`; physicochemical features (`feat_x`) are processed by a separate MLP; outputs are fused and projected to a scalar immunogenicity score per sample.
+**Graph Neural Network — v1 and v2.1 architectures.** Two GNN architectures are implemented in `src/gnn/models.py`.
 
-No structural coordinates, PDB data, AlphaFold embeddings, or learned embeddings are used in the current implementation. PyTorch Geometric is a declared dependency reserved for structural comparator models in `src/verify/structural_gnn.py`; the production GNN path uses only standard PyTorch.
+*v1 (GraphPredictor — dense-adjacency GCN):* `GCNLayer` performs `adj @ (x @ W) + b` on a dense `(max_len, max_len)` adjacency; `GraphEncoder` stacks two such layers with ReLU and global mean pooling; node features are 20-dim amino acid one-hot encodings. The v1 model was evaluated on v4 data but failed Gates 1 and 5 due to the expressivity ceiling of one-hot node features and the simple chain-graph convolution.
 
-*Promotion gate status — updated after v4 retrain (2026-06-20):*
-| Gate | Criterion | v3 Status | v4 Status |
-|---|---|---|---|
-| 1 — Generalization (AUC-PR ≥ 0.85) | 5-fold OOF AUC-PR | FAIL (0.774) | **FAIL (0.613)** — architecture upgrade needed |
-| 2 — Stability (AUC-PR std ≤ 0.02) | Jackknife-LOO std | PASS | **PASS (0.0001)** |
-| 3 — Latency (ratio ≤ 2× RF) | GNN/RF inference ratio | PASS | **PASS (0.02×)** |
-| 4 — Calibration (ECE < 0.05) | Expected Calibration Error | FAIL (0.258) | **PASS (0.040)** — improved with diverse v4 data |
-| 5 — Escape Sensitivity (≥ 0.80) | Sensitivity on escape variants | FAIL (0.506) | **FAIL (0.724)** — improved but not cleared |
+*v2.1 (GraphPredictorV2 — GINEConv + ESM-2):* Replaces one-hot node features with pre-computed ESM-2 per-residue embeddings (`facebook/esm2_t6_8M_UR50D`, 320-dim; Rives et al. 2021). Two GINEConv layers (PyTorch Geometric; 320→256→128) with 3-dim one-hot edge features (self-loop, forward, backward) and cosine LR annealing over 20 epochs. Physicochemical features are fused via a 64-unit MLP and concatenated with the 128-dim graph embedding before the final classifier head. ESM-2 embeddings are pre-computed once for all 11,795 unique v4 peptides (`data/esm2_embeddings.pt`, 170 MB) to avoid per-batch inference overhead during training.
 
-Gate 4 (ECE calibration) was cleared with v4 retraining — a 6× improvement from ECE=0.258 to 0.040, confirming that training data diversity substantially reduces GNN overconfidence. Gates 1 and 5 require the GINEConv + ESM-2 architecture upgrade (§4.3). GNN promotion to production is targeted for v2.1. Planned improvements: GINEConv message passing (PyTorch Geometric), ESM-2 protein language model node embeddings (Rives et al. 2021), allele-aware graph construction.
+*Promotion gate status (2026-06-20):*
+| Gate | Criterion | v1/v3 | v1/v4 | v2.1/v4 |
+|---|---|---|---|---|
+| 1 — Generalization (AUC-PR ≥ 0.85) | 5-fold OOF AUC-PR | FAIL (0.774) | **FAIL (0.613)** | *pending* |
+| 2 — Stability (AUC-PR std ≤ 0.02) | Jackknife-LOO std | PASS | **PASS (0.0001)** | *pending* |
+| 3 — Latency (ratio ≤ 2× RF) | GNN/RF inference ratio | PASS | **PASS (0.02×)** | *pending* |
+| 4 — Calibration (ECE < 0.05) | Expected Calibration Error | FAIL (0.258) | **PASS (0.040)** | *pending* |
+| 5 — Escape Sensitivity (≥ 0.80) | Sensitivity on escape variants | FAIL (0.506) | **FAIL (0.724)** | *pending* |
+
+Gate 4 (ECE calibration) was cleared by v1 with v4 retraining — a 6× improvement from ECE=0.258 to 0.040, confirming that training data diversity substantially reduces GNN overconfidence. The v2.1 architecture was implemented in session 12 (2026-06-20); full gate results for v2.1 are reported in §3.6.
 
 **Allele-aware training (schema ready; v4 data available; training in future work).** A 166-feature allele-aware schema is implemented in `src/features.py` using HLA pseudo-sequence encodings. The v4 dataset provides `hla_allele` annotations for 71.9% of rows (10,568/14,699) at 4-digit resolution (format: HLA-A*XX:XX) — sufficient for allele-aware training on ≥10 alleles. 28.1% of rows have low-resolution allele annotations (e.g., HLA-A2, class-only) and are excluded from allele-aware training. Allele-aware model training is deferred to v2.1; all current production predictions use the population-average 31-feature model.
 
@@ -243,6 +242,38 @@ Cross-virus OOF from a model trained on all 12 viruses jointly should not be int
 
 **Production recommendation.** Mode-31 v4 (AUC-PR 0.7635) is the recommended model for viral immunogenicity prediction until real NetChop/TAPreg scores are available. Mode-33 v4 is available but offers no measurable improvement. Compared to PredIG-Path (AUC-PR 0.727, fully trained, v3 Tier A benchmark), SESTRAV v3 mode-33 OOF (AUC-PR 0.840) remains the definitive comparison point until v4 Tier A results are computed.
 
+### 3.6 GNN v2.1 — GINEConv + ESM-2 evaluation
+
+*Results section added 2026-06-20 following v2.1 architecture implementation. Gate numbers to be inserted after training completion.*
+
+**Architecture.** GraphPredictorV2 replaces the v1 one-hot GCN with two GINEConv layers consuming pre-computed ESM-2 per-residue embeddings (320-dim, `facebook/esm2_t6_8M_UR50D`) as node features. The graph is a bidirectional 1D chain with self-loops and 3-dim edge type features. Physicochemical features from the canonical mode-21 SESTRAV feature set are fused with the 128-dim graph pooling output via a 64-unit MLP. All 11,795 unique v4 peptides were embedded in a single ESM-2 forward pass and cached offline, so training time is dominated by the GINEConv layers rather than language-model inference.
+
+**Training.** Stratified 5-fold CV on the v4 14,699-row dataset (gold-standard epitopes held out from all folds); 20 epochs per fold with cosine annealing from lr=3×10⁻⁴; batch size 64; pos_weight BCE loss matching v1.
+
+**Results.**
+
+*[GNN v2.1 5-fold OOF results to be filled in after training completion]*
+
+| Fold | AUC-ROC | AUC-PR | ISSR@10 |
+|------|---------|--------|---------|
+| 1 | — | — | — |
+| 2 | — | — | — |
+| 3 | — | — | — |
+| 4 | — | — | — |
+| 5 | — | — | — |
+| **Mean ± SD** | — | — | — |
+
+*Promotion gate outcomes for v2.1:*
+| Gate | Criterion | v2.1/v4 Result | Pass? |
+|---|---|---|---|
+| 1 — AUC-PR ≥ 0.85 | 5-fold OOF AUC-PR | — | — |
+| 2 — std ≤ 0.02 | Cross-fold std | — | — |
+| 3 — latency ≤ 2× RF | GNN/RF ratio | — | — |
+| 4 — ECE < 0.05 | Expected Calibration Error | — | — |
+| 5 — sensitivity ≥ 0.80 | Escape sensitivity | — | — |
+
+**Interpretation.** *[To be written after gate results.]*
+
 ---
 
 ## 4. Discussion
@@ -261,7 +292,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 2. **TCR contact approximation.** p4–p8 physicochemical features are validated primarily for HLA-A*02:01 canonical 9-mers (Chowell et al. 2015). 8-mer compressed registers and 10-mer/11-mer bulging conformations are not explicitly modeled.
 3. **Cross-virus generalization.** HBV and HCV predictions are generated by a model trained on EBV/HPV data. Exploratory until v4 training includes HBV/HCV data.
 4. **HBV genotype coverage.** Panel uses genotype D (ayw) reference sequences. Genotype B/C populations (East/Southeast Asia) may show sequence divergence at predicted epitope positions.
-5. **GNN gate status.** GraphPredictor currently fails Gates 1, 4, 5. It is a development model, not a production scorer.
+5. **GNN gate status.** GraphPredictor v1 fails Gates 1 and 5 (v4 AUC-PR 0.613, sensitivity 0.724). GraphPredictorV2 (GINEConv + ESM-2) is implemented and under evaluation; full gate results in §3.6. Neither architecture is the production scorer until all 5 gates pass.
 6. **Allele-aware training.** The 166-feature allele-aware schema is implemented but not trained; all production predictions use population-average allele features.
 7. **Zero-shot HLA generalization.** This claim has been removed from all SESTRAV communications. It was not validated in any experiment and should not appear in publications, presentations, or documentation.
 8. **Negative data quality.** v3 negatives are mostly non-immunogenic due to poor MHC binding, causing partial "binding → immunogenic" learning. Hard decoys (v4) address this root cause.
@@ -271,7 +302,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 
 1. **v4 allele-aware training.** 166-feature schema enables allele-specific predictions once VDJdb allele annotations are incorporated. Target: ≥10 allele models from v4.
 2. **Hard decoy integration.** 5,000 central-tolerance self-peptides (500 per allele, 10 alleles) added to v4 are expected to raise AUC-PR above 0.880 by decoupling binding affinity from immunogenicity in the negative class.
-3. **GNN v2.1.** GINEConv + ESM-2 node embeddings targeting all 5 promotion gates on v4 data.
+3. **GNN v2.1.** GINEConv + ESM-2 node embeddings (implemented 2026-06-20); promotion gate results reported in §3.6. If Gates 1 and 5 clear, GNN v2.1 becomes the production deep-learning scorer.
 4. **Virus expansion.** SARS-CoV-2 (panel4: Spike P0DTC2, N P0DTC9, M P0DTC5, ORF3a P0DTC3), IAV (panel4: NP P03466, M1 P03485, HA P03437, PB1-F2 P0C0U1), CMV (panel4: pp65 P06725, IE1 P13202, pp50 P16785, gB P06473) — gated on IEDB audit confirming ≥100 positive T-cell assays per virus.
 5. **Continuous automated validation.** Monthly GitHub Actions benchmark against new IEDB exports with automatic AUC-PR regression alerting.
 
