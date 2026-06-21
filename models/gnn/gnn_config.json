@@ -1,0 +1,9 @@
+{
+  "esm2_model_name": "facebook/esm2_t12_35M_UR50D",
+  "node_dim": 480,
+  "feature_mode": 31,
+  "num_continuous_features": 31,
+  "binding_matrix_path": "models/peptide_binding_matrix_v4.csv",
+  "epochs": 19,
+  "early_stopping_patience": 10
+}
