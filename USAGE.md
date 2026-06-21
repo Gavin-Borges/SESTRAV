@@ -79,14 +79,14 @@ sestrav predict \
 
 ```bash
 sestrav validate \
-  --dataset data/immunogenicity_dataset_v3.csv \
+  --dataset data/immunogenicity_dataset_v4.csv \
   --feature-mode 31 \
-  --binding-matrix models/peptide_binding_matrix_v3.csv \
+  --binding-matrix models/peptide_binding_matrix_v4.csv \
   --sample-weights \
-  --report results/validation_report_v3.md
+  --report results/validation_report_v4.md
 ```
 
-Expected AUC-PR ≥ 0.864 (full_31 ablation baseline on v3 data).
+Expected AUC-PR ≈ 0.7635 (mode-31 OOF baseline on v4 data, 14,699 rows with hard decoys).
 
 ### 4. Benchmark against gold standard
 

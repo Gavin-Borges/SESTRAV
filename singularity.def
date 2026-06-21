@@ -26,4 +26,4 @@ From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083
 
 %test
     cd /app
-    python -c "from src.features import TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30; assert len(TRAIN_FEATURE_COLUMNS) == 21; assert len(FEATURE_COLUMNS_30) == 30; print('Singularity test passed')"
+    python -c "from src.features import TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_31; assert len(TRAIN_FEATURE_COLUMNS) == 21; assert len(FEATURE_COLUMNS_31) == 31; print('Singularity test passed')"

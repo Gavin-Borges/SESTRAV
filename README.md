@@ -14,7 +14,7 @@
 | Cryptographic dataset governance (freeze mode) | ✓ | ✗ | ✗ | ✗ | ✗ |
 | OpenSSF Passing badge | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Antigen processing as training features | `feature_mode=33` | ✓ | Partial | ✗ | Partial |
-| Graph Neural Network scorer | ✓ (v2.0, Gates 2+3) | ✗ | ✗ | ✗ | ✗ |
+| Graph Neural Network scorer | ✓ (v2.1 GINEConv+ESM-2, 4/5 gates PASS) | ✗ | ✗ | ✗ | ✗ |
 | Pan-allele training | v4 schema ready | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support (> 2 viruses) | 4 (HPV · EBV · HBV · HCV) | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
@@ -246,18 +246,18 @@ Models must be trained before production pipeline execution:
 ```bash
 # Canonical 31-feature track (recommended)
 python -m src.train_classifier \
-  --data data/immunogenicity_dataset_v3.csv \
+  --data data/immunogenicity_dataset_v4.csv \
   --feature-mode 31 \
-  --binding-matrix models/peptide_binding_matrix_v3.csv \
+  --binding-matrix models/peptide_binding_matrix_v4.csv \
   --sample-weights
 
 # CLI equivalent
 sestrav validate \
-  --dataset data/immunogenicity_dataset_v3.csv \
+  --dataset data/immunogenicity_dataset_v4.csv \
   --feature-mode 31 \
-  --binding-matrix models/peptide_binding_matrix_v3.csv \
+  --binding-matrix models/peptide_binding_matrix_v4.csv \
   --sample-weights \
-  --report results/validation_report_v3.md
+  --report results/validation_report_v4.md
 ```
 
 *Note:* Without trained models, the pipeline falls back to a prototype mode using binding-derived pseudo-labels (for testing only; not scientifically valid).
@@ -307,8 +307,8 @@ See `scripts/README.md` for the external-validation utilities and workflow.
 
 * **ANN:** `pip install -r requirements-ann.txt`, then `python -m src.ann_benchmark --help`.
 Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
-* **GNN:** `pip install -r requirements-gnn.txt`, then `python -m src.gnn_benchmark --help`.
-Implements GCN, GAT, and Bipartite GNN on peptide backbone graphs.
+* **GNN v2.1:** `pip install "sestrav[gnn]"`, then `python -m src.train_gnn --help`.
+Architecture: GINEConv × 2 (GINEConv + ESM-2 320-dim node embeddings, `facebook/esm2_t6_8M_UR50D`). 4/5 promotion gates PASS on v4 data (AUC-PR 0.7241; Gate 1 ≥ 0.85 target in progress). Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
 
 ### 7. Google Colab
 
@@ -321,8 +321,8 @@ The Docker image does **not** include trained models. Build and then train:
 ```bash
 docker build -t sestrav:latest .
 docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
-  -m src.train_classifier --data data/immunogenicity_dataset_v3.csv \
-  --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v3.csv
+  -m src.train_classifier --data data/immunogenicity_dataset_v4.csv \
+  --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v4.csv
 ```
 
 Run the pipeline with bind-mounted directories:
@@ -401,9 +401,9 @@ All metrics are computed by `src/evaluate_metrics.py`.
 
 **Included in this repository:**
 
-* Training dataset (`data/immunogenicity_dataset_v3.csv`)
+* Training dataset (`data/immunogenicity_dataset_v4.csv`, 14,699 rows — v3 also retained for historical comparison)
 * Viral proteomes (`data/proteomes/`)
-* Binding matrix (`models/peptide_binding_matrix_v3.csv`) and model metadata
+* Binding matrix (`models/peptide_binding_matrix_v4.csv`) and model metadata
 * All pipeline code, tests, and documentation
 
 **Generated locally (excluded from git):**

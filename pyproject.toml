@@ -41,6 +41,7 @@ dependencies = [
 # Install with: pip install "sestrav[gnn]"
 gnn = [
     "torch-geometric>=2.5.0",
+    "transformers>=4.30.0",
 ]
 # Snakemake pipeline runner — only needed to execute pipeline.smk end-to-end.
 # Install with: pip install "sestrav[pipeline]"
