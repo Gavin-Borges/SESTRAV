@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+import joblib
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
@@ -407,7 +409,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         else:
             if feature_mode == 31 and binding_matrix_path is None:
                 print("WARNING: feature_mode=31 requested but --binding-matrix not supplied; falling back to mode 21.")
-            print(f"Extracting 21-feature physicochemical set ...")
+            print("Extracting 21-feature physicochemical set ...")
             X_feats = prepare_features(train_pool, include_binding=False)
         store.save_cached_features(X_feats, cache_name)
     else:
@@ -495,6 +497,17 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     oof_df.to_csv(oof_path, index=False)
     print(f"Saved GNN OOF predictions to {oof_path}")
 
+    # Post-hoc Platt calibration — fit logistic regression on raw OOF sigmoid scores
+    # to correct overconfidence without altering rank order (Platt 1999).
+    platt = LogisticRegression(C=1.0, max_iter=1000)
+    raw_scores = oof_df["gnn_oof_score"].values.reshape(-1, 1)
+    platt.fit(raw_scores, oof_df["label"].values)
+    oof_df["gnn_oof_score"] = platt.predict_proba(raw_scores)[:, 1]
+    oof_df.to_csv(oof_path, index=False)
+    platt_path = os.path.join(model_dir, "gnn_platt_scaler.joblib")
+    joblib.dump(platt, platt_path)
+    print(f"Platt calibration applied; scaler saved to {platt_path}")
+
     # Summary
     avg = {k: np.mean([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
     std = {k: np.std([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
@@ -527,7 +540,6 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
 
     checkpoint_path = os.path.join(model_dir, 'structural_gnn_v2.pth')
     torch.save(model_final.state_dict(), checkpoint_path)  # nosec B614
-    import joblib
     joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
 
     # Save config so promote_gnn.py and inference code know the node dim without guessing
