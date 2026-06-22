@@ -580,9 +580,9 @@ et-xmlfile==2.0.0 \
     --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa \
     --hash=sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54
     # via openpyxl
-fastapi==0.137.1 \
-    --hash=sha256:64f6983c59e45c4b9fdc44e57cb8035c2451ee91ea8e8ec042aca37de7cf6b69 \
-    --hash=sha256:822360704230d9533d8d9475399613525968aa2f0b5bd2a3ccc9f18c88fd541c
+fastapi==0.138.0 \
+    --hash=sha256:b6f54fd1bd72c80b0f899f172c61a600f6f7af9b43d4d772a018f35624048cb0 \
+    --hash=sha256:d445a4877636ad191e7053e08c9bf98cb921a6756776848400bb773d1740c061
     # via -r requirements.in
 filelock==3.29.0 \
     --hash=sha256:69974355e960702e789734cb4871f884ea6fe50bd8404051a3530bc07809cf90 \
@@ -834,9 +834,9 @@ h5py==3.16.0 \
     --hash=sha256:ff24039e2573297787c3063df64b60aab0591980ac898329a08b0320e0cf2527 \
     --hash=sha256:ffbab2fedd6581f6aa31cf1639ca2cb86e02779de525667892ebf4cc9fd26434
     # via keras
-hypothesis==6.155.3 \
-    --hash=sha256:1e34b17ae9873515384312cb7640abd773eb096c7eef8c0d9c614fa2c306e9bb \
-    --hash=sha256:ede5a3d142d9c5c9f70cb3075541905b228d6c3a682bcec3d4fe0722e9eda127
+hypothesis==6.155.7 \
+    --hash=sha256:9f634bdb1f9e9b8ab6ba09431cf2deedb750c96978125a6fb3c5a0f6c6db4131 \
+    --hash=sha256:d8d6091753d0669db3c90c5e5b346cb37c72f3dd9378c8413acb1fd5da63f7ea
     # via -r requirements.in
 idna==3.16 \
     --hash=sha256:cc246e3a3f89580c3a951b5ad298ca4638078b2cdd4f115654332b5c26daded5 \
@@ -2266,9 +2266,9 @@ pyparsing==3.3.2 \
     # via
     #   matplotlib
     #   torch-geometric
-pytest==9.1.0 \
-    --hash=sha256:41dd9148c08072446394cefd3d79701701335a9f4cae69ba92e39f6c7f5c061c \
-    --hash=sha256:8ebb0e7888bdf2bdfc602ec51f8f62d50200af37356c74e503c79a94f5c81f32
+pytest==9.1.1 \
+    --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
+    --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
     # via -r requirements.in
 python-dateutil==2.9.0.post0 \
     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3 \

@@ -601,9 +601,9 @@ pydantic-core==2.46.4 \
     --hash=sha256:fc3e9034a63de20e15e8ade85358bc6efc614008cab72898b4b4952bea0509ff \
     --hash=sha256:fd8b3d9fd264be37976686c7f65cd52a83f5e84f4bfd2adf9c1d469676bbb6ae
     # via pydantic
-pydantic-settings==2.14.1 \
-    --hash=sha256:6e3c7edfd8277687cdc598f56e5cff0e9bfff0910a3749deaa8d4401c3a2b9de \
-    --hash=sha256:e874d3bec7e787b0c9958277956ed9b4dd5de6a80e162188fdaff7c5e26fd5fa
+pydantic-settings==2.14.2 \
+    --hash=sha256:a20c97b37910b6550d5ea50fbcc2d4187defe58cd57070b73863d069419c9440 \
+    --hash=sha256:c19dd64b19097f1de80184f0cc7b0272a13ae6e170cbf240a3e27e381ed14a5f
     # via mcp
 pygments==2.20.0 \
     --hash=sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f \
@@ -844,15 +844,15 @@ semantic-version==2.10.0 \
     --hash=sha256:bdabb6d336998cbb378d4b9db3a4b56a1e3235701dc05ea2690d9a997ed5041c \
     --hash=sha256:de78a3b8e0feda74cabc54aab2da702113e33ac9d9eb9d2389bcf1f58b7d9177
     # via semgrep
-semgrep==1.166.0 \
-    --hash=sha256:1ce4ef6bef796326302c53f938e96afab8252d19ea164d5b26a1c0149ec08020 \
-    --hash=sha256:485f5bffd6e6515a7a0a96ca6c3bb5caff28cda02a42eaba2bc42f0da763ca5e \
-    --hash=sha256:a5c6f8d51be12b5d01f19a50847c9945a1ea65ea5ef20a80c3219c29a072cf26 \
-    --hash=sha256:e7082dae22d1b02a18b7c8448b522561c81aeaa35fec166fe9f65873bb6428af \
-    --hash=sha256:e722db4ea9571cdfec6b984cc68723a172f7f306e484b344dbdec65690d47f05 \
-    --hash=sha256:ef3ff00cb1fdbacf92a29d5b723ef7e6021dd8624b88b310faa63ef772bc1f47 \
-    --hash=sha256:f9e4154dbb141ddfe91495ef174f02c5033fffbde6f764a2224de107de55bf4e \
-    --hash=sha256:fb7b29afdf24b9d5c5e26b2b173517f62d9800f4c7675654246f0d7e8388d4ba
+semgrep==1.167.0 \
+    --hash=sha256:687f08c3c3951bcc6f67d63cc0019c40401c900ecc26a6e56382b6cc02f4f50f \
+    --hash=sha256:7d8b222f13a947c164e6b89e64258474c0fd59c08bfd1071ed7b3216afcd8cf6 \
+    --hash=sha256:7ee779321c3a8580ba1192d4933422ae29f8802ca38edcbfa942ce0a97592ac1 \
+    --hash=sha256:912be28e47409bb1c53d1a4512f2a39ac9e693c7895cb94d8c181702c8bed837 \
+    --hash=sha256:a4912d2af1371ad96524163ec10842227fcc79dd14fd8b6a706d598bf380fcbc \
+    --hash=sha256:b01823d9b540cccb92e09a404ee796f5fe2a28c132170967386909e3b77f5b8e \
+    --hash=sha256:ca5ba16bd2bf7a3e305a32ad292f66246947d31c41603b580453acd7ab859827 \
+    --hash=sha256:e7d82cc6b5eb8bd699b2a329e6c11de7ba039643c69c1b61150cda1298585aee
     # via -r environments/requirements-semgrep.in
 sse-starlette==3.4.4 \
     --hash=sha256:07e0fa0460138baf25cdd5fb28683472c3995dc1642225191b3832d62526bcb0 \

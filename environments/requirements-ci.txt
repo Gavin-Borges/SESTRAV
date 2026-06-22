@@ -332,9 +332,9 @@ humanfriendly==10.0 \
     # via
     #   snakemake
     #   snakemake-interface-storage-plugins
-hypothesis==6.155.3 \
-    --hash=sha256:1e34b17ae9873515384312cb7640abd773eb096c7eef8c0d9c614fa2c306e9bb \
-    --hash=sha256:ede5a3d142d9c5c9f70cb3075541905b228d6c3a682bcec3d4fe0722e9eda127
+hypothesis==6.155.7 \
+    --hash=sha256:9f634bdb1f9e9b8ab6ba09431cf2deedb750c96978125a6fb3c5a0f6c6db4131 \
+    --hash=sha256:d8d6091753d0669db3c90c5e5b346cb37c72f3dd9378c8413acb1fd5da63f7ea
     # via -r environments/requirements-ci.in
 idna==3.16 \
     --hash=sha256:cc246e3a3f89580c3a951b5ad298ca4638078b2cdd4f115654332b5c26daded5 \
@@ -929,9 +929,9 @@ pygments==2.20.0 \
     # via
     #   pytest
     #   rich
-pytest==9.1.0 \
-    --hash=sha256:41dd9148c08072446394cefd3d79701701335a9f4cae69ba92e39f6c7f5c061c \
-    --hash=sha256:8ebb0e7888bdf2bdfc602ec51f8f62d50200af37356c74e503c79a94f5c81f32
+pytest==9.1.1 \
+    --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
+    --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
     # via -r environments/requirements-ci.in
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
@@ -1153,9 +1153,9 @@ smmap==5.0.3 \
     --hash=sha256:4d9debb8b99007ae47165abc08670bd74cb74b5227dda7f643eccc4e9eb5642c \
     --hash=sha256:c106e05d5a61449cf6ba9a1e650227ecfb141590d2a98412103ff35d89fc7b2f
     # via gitdb
-snakemake==9.23.0 \
-    --hash=sha256:0120154be686ea42ee7295a285d0fa1a7562ead90ed11ece10250d31820e9cb2 \
-    --hash=sha256:1e764fa8f6bfed79b30ea9ccb5bb17af82163e51cef97e8f7de81a317600babf
+snakemake==9.23.1 \
+    --hash=sha256:9fdbfff25f1b442cdf7906ca06b465fc24b9bf72e2d51514fb93d83e3f8aeb35 \
+    --hash=sha256:ef8d698bfce66a6669cc29df7e344b0b367fd90956c725e5ae0a79a556e8e93f
     # via -r environments/requirements-ci.in
 snakemake-interface-common==1.23.0 \
     --hash=sha256:43bb10102d07149f27787dfc65a7342b86ff772973e7f9ca4940c89cb412a11e \
