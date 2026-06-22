@@ -87,7 +87,7 @@ jobs:
           INSTALLED=$(python -c "import mhcflurry; print(mhcflurry.__version__)")
           echo "Pinned: $PINNED | Installed: $INSTALLED"
           if [ "$PINNED" != "$INSTALLED" ]; then
-            echo "ERROR: MHCflurry version mismatch — update mhcflurry_model_version in config.yaml"
+            echo "ERROR: MHCflurry version mismatch - update mhcflurry_model_version in config.yaml"
             exit 1
           fi
 
@@ -132,8 +132,6 @@ jobs:
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
-        with:
-          to-latest: true
 
       - name: Install Quarto rendering dependencies
         # Jupyter execution stack needed to run the report's {python} cells.
@@ -141,4 +139,4 @@ jobs:
         run: pip install --require-hashes -r environments/requirements-ci-render.txt
 
       - name: Render Quarto Report
-        run: quarto render results_report.qmd
+        run: quarto render docs/results_report.qmd

@@ -20,7 +20,7 @@ jobs:
       - name: Check Developer Certificate of Origin (DCO)
         run: |
           # Bots (Dependabot, Renovate, etc.) cannot cryptographically sign commits;
-          # exempt them from the DCO requirement — their PRs are reviewed by CI instead.
+          # exempt them from the DCO requirement - their PRs are reviewed by CI instead.
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
           if [[ "$PR_AUTHOR" == *"[bot]" ]]; then
             echo "Skipping DCO check for bot PR (author: ${PR_AUTHOR})."
@@ -29,8 +29,10 @@ jobs:
 
           # Fetch the target branch
           git fetch origin ${{ github.base_ref }}
-          # Check all commits in the PR for the Signed-off-by trailer
-          for commit in $(git rev-list origin/${{ github.base_ref }}..HEAD); do
+          # Check all commits in the PR for the Signed-off-by trailer.
+          # --no-merges skips GitHub's auto-created test-merge commit
+          # (refs/pull/<N>/merge), which never carries a sign-off trailer.
+          for commit in $(git rev-list --no-merges origin/${{ github.base_ref }}..HEAD); do
             if ! git show -s --format=%B $commit | grep -qi "Signed-off-by:"; then
               echo "::error::Commit $commit is missing the Developer Certificate of Origin (DCO) Signed-off-by trailer."
               echo "Please use 'git commit -s' to sign off your commits."
