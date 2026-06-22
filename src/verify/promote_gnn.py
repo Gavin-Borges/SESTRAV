@@ -247,13 +247,15 @@ def gate3_latency() -> GateResult:
     import json as _json
     node_dim = 320  # default (t6 ESM-2)
     num_features = len(TRAIN_FEATURE_COLUMNS)  # default: 21 physico-only
+    pooling = "mean"  # default readout (v2.1–v2.3); v2.4 may use attention
     if GNN_CONFIG.exists():
         with GNN_CONFIG.open() as _fh:
             _cfg = _json.load(_fh)
             node_dim = _cfg.get("node_dim", 320)
             num_features = _cfg.get("num_continuous_features", num_features)
+            pooling = _cfg.get("pooling", "mean")
 
-    gnn_model = GraphPredictorV2(num_continuous_features=num_features, node_dim=node_dim).to(device)
+    gnn_model = GraphPredictorV2(num_continuous_features=num_features, node_dim=node_dim, pooling=pooling).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load
     state = torch.load(GNN_CHECKPOINT, map_location="cpu", weights_only=True)
     gnn_model.load_state_dict(state)

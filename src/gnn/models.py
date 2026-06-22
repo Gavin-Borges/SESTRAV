@@ -76,10 +76,25 @@ class GraphEncoderV2(nn.Module):
     edge_index with batch-offset node indices, and a batch vector.
     """
     def __init__(self, node_dim: int = 320, hidden_dim: int = 256,
-                 out_dim: int = 128, edge_dim: int = 3):
+                 out_dim: int = 128, edge_dim: int = 3, pooling: str = "mean"):
         super().__init__()
         from torch_geometric.nn import GINEConv, global_mean_pool
         self._global_mean_pool = global_mean_pool
+
+        if pooling not in ("mean", "attention"):
+            raise ValueError(f"pooling must be 'mean' or 'attention', got {pooling!r}")
+        self.pooling = pooling
+        if pooling == "attention":
+            # Attentional aggregation: a gate network scores each residue node, and
+            # the graph embedding is the softmax-weighted sum over nodes (Li et al. 2016).
+            # This replaces the mean pool so anchor residues are not diluted by the
+            # rest of the peptide. Padding nodes are already excluded (v2.3), so the
+            # attention operates only over real residues.
+            from torch_geometric.nn import AttentionalAggregation
+            gate_nn = nn.Linear(out_dim, 1)
+            nn.init.xavier_uniform_(gate_nn.weight)
+            nn.init.zeros_(gate_nn.bias)
+            self.att_pool = AttentionalAggregation(gate_nn=gate_nn)
 
         self.conv1 = GINEConv(
             nn=nn.Sequential(
@@ -109,6 +124,8 @@ class GraphEncoderV2(nn.Module):
                 edge_attr: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
         h = F.relu(self.conv1(x, edge_index, edge_attr))
         h = F.relu(self.conv2(h, edge_index, edge_attr))
+        if self.pooling == "attention":
+            return self.att_pool(h, batch)  # (num_graphs, out_dim)
         return self._global_mean_pool(h, batch)  # (num_graphs, out_dim)
 
 
@@ -122,9 +139,9 @@ class GraphPredictorV2(nn.Module):
     data.y: (batch_size,) — binary immunogenicity labels
     """
     def __init__(self, num_continuous_features: int, node_dim: int = 320,
-                 dropout_rate: float = 0.3):
+                 dropout_rate: float = 0.3, pooling: str = "mean"):
         super().__init__()
-        self.encoder = GraphEncoderV2(node_dim=node_dim)
+        self.encoder = GraphEncoderV2(node_dim=node_dim, pooling=pooling)
 
         self.physico_block = nn.Sequential(
             nn.Linear(num_continuous_features, 64),

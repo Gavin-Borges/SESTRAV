@@ -239,3 +239,77 @@ def test_dataset_v2_pyg_batch_node_count():
     assert batch.x.shape[0] == expected_nodes, (
         f"Expected {expected_nodes} nodes in batch, got {batch.x.shape[0]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# v2.4 attention pooling (backward-compatible; default remains mean pool)
+# ---------------------------------------------------------------------------
+
+def test_predictor_v2_default_pooling_is_mean():
+    """Default readout must stay mean pool so existing v2.1–v2.3 checkpoints load."""
+    from src.gnn.models import GraphPredictorV2
+    model = GraphPredictorV2(num_continuous_features=10)
+    assert model.encoder.pooling == "mean"
+    assert not hasattr(model.encoder, "att_pool")
+
+
+def test_predictor_v2_attention_pooling_adds_gate():
+    from src.gnn.models import GraphPredictorV2
+    model = GraphPredictorV2(num_continuous_features=10, pooling="attention")
+    assert model.encoder.pooling == "attention"
+    assert hasattr(model.encoder, "att_pool")
+
+
+def test_predictor_v2_invalid_pooling_raises():
+    from src.gnn.models import GraphPredictorV2
+    with pytest.raises(ValueError):
+        GraphPredictorV2(num_continuous_features=10, pooling="maxpool")
+
+
+def _build_v2_batch(node_dim=320, n_feats=21):
+    import numpy as np
+    import pandas as pd
+    from src.train_gnn import GraphPeptideDatasetV2
+    from torch_geometric.loader import DataLoader as PyGDataLoader
+
+    seqs = ["GILGFVFT", "GILGFVFTL", "GILGFVFTLV", "GILGFVFTLVA"]
+    df = pd.DataFrame({"peptide": seqs, "label": [1, 0, 1, 0]})
+    esm2_cache = {}
+    for seq in seqs:
+        padded = torch.zeros(11, node_dim)
+        padded[: len(seq)] = torch.randn(len(seq), node_dim)
+        esm2_cache[seq] = padded
+    X = pd.DataFrame(np.zeros((4, n_feats)))
+    ds = GraphPeptideDatasetV2(df, X, np.array([1.0, 0.0, 1.0, 0.0]), esm2_cache, max_len=11)
+    loader = PyGDataLoader(ds, batch_size=4, shuffle=False)
+    return next(iter(loader))
+
+
+def test_predictor_v2_attention_forward_shape():
+    """Attention-pooled forward must return one logit per graph on a real PyG batch."""
+    from src.gnn.models import GraphPredictorV2
+    batch = _build_v2_batch()
+    model = GraphPredictorV2(num_continuous_features=21, node_dim=320, pooling="attention")
+    model.eval()
+    with torch.no_grad():
+        out = model(batch)
+    assert out.shape == (4,), f"Expected (4,) logits, got {tuple(out.shape)}"
+
+
+def test_predictor_v2_mean_forward_still_works():
+    """Backward-compat: default mean pooling forward unchanged."""
+    from src.gnn.models import GraphPredictorV2
+    batch = _build_v2_batch()
+    model = GraphPredictorV2(num_continuous_features=21, node_dim=320)
+    model.eval()
+    with torch.no_grad():
+        out = model(batch)
+    assert out.shape == (4,)
+
+
+def test_train_gnn_v2_accepts_pooling_param():
+    import inspect
+    from src.train_gnn import train_gnn_v2
+    sig = inspect.signature(train_gnn_v2)
+    assert "pooling" in sig.parameters
+    assert sig.parameters["pooling"].default == "mean"

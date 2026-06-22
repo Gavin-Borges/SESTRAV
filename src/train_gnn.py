@@ -348,7 +348,8 @@ def evaluate_model_v2(model, dataloader, device):
 def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
                  lr=3e-4, feature_mode=21, esm2_cache_path='data/esm2_embeddings.pt',
                  node_dim=320, esm2_model_name='facebook/esm2_t6_8M_UR50D',
-                 early_stopping_patience=10, binding_matrix_path=None, seed=42):
+                 early_stopping_patience=10, binding_matrix_path=None, seed=42,
+                 pooling='mean'):
     """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR.
 
     feature_mode 21: 21 physicochemical features (default, no binding required).
@@ -447,7 +448,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-        model = GraphPredictorV2(num_continuous_features=X_feats.shape[1], node_dim=node_dim).to(device)
+        model = GraphPredictorV2(num_continuous_features=X_feats.shape[1], node_dim=node_dim, pooling=pooling).to(device)
 
         pos_weight = torch.tensor([(len(y_train) - y_train.sum()) / max(1, y_train.sum())]).to(device)
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -528,7 +529,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     )
     full_loader = PyGDataLoader(full_dataset, batch_size=batch_size, shuffle=True)
 
-    model_final = GraphPredictorV2(num_continuous_features=X_feats.shape[1], node_dim=node_dim).to(device)
+    model_final = GraphPredictorV2(num_continuous_features=X_feats.shape[1], node_dim=node_dim, pooling=pooling).to(device)
     pos_weight_full = torch.tensor([(len(y) - y.sum()) / max(1, y.sum())]).to(device)
     criterion_final = nn.BCEWithLogitsLoss(pos_weight=pos_weight_full)
     optimizer_final = optim.Adam(model_final.parameters(), lr=lr, weight_decay=1e-4)
@@ -551,6 +552,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         "binding_matrix_path": binding_matrix_path,
         "epochs": avg_best_epochs,
         "early_stopping_patience": early_stopping_patience,
+        "pooling": pooling,
     }
     config_path = os.path.join(model_dir, 'gnn_config.json')
     with open(config_path, 'w') as fh:
@@ -580,6 +582,8 @@ if __name__ == '__main__':
                         help='ESM-2 HuggingFace model name (recorded in gnn_config.json)')
     parser.add_argument('--patience', type=int, default=10,
                         help='Early stopping patience on val AUC-PR (epochs without improvement)')
+    parser.add_argument('--pooling', choices=['mean', 'attention'], default='mean',
+                        help='Graph readout: mean pool (default) or attentional aggregation (v2.4)')
     args = parser.parse_args()
 
     if args.architecture == 'v2':
@@ -589,7 +593,7 @@ if __name__ == '__main__':
             node_dim=args.node_dim, esm2_model_name=args.esm2_model,
             early_stopping_patience=args.patience,
             binding_matrix_path=args.binding_matrix,
-            seed=args.seed,
+            seed=args.seed, pooling=args.pooling,
         )
     else:
         train_gnn(
