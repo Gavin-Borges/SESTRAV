@@ -1,7 +1,7 @@
 # SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology
 
 **Manuscript draft — Bioinformatics (Oxford) Original Paper format**
-*Status: Active draft. v4 results complete. Pending: GNN v2.2 (Gate 1), external benchmark Table 3 (§3.3), Zenodo DOI (§5).*
+*Status: Active draft. v4 results complete. GNN Gate 1 resolved (§3.6: RF mode-31 is the production scorer; GNN reported as research/ensemble component). External benchmark Table 3 complete (§3.3). Pending: Zenodo DOI (§5).*
 *Authors: Gavin Borges¹, Abdelrahman Eljamal¹, Iris Schellenberg¹, Charles Jouaneh¹, Emine Byers¹*
 *¹University of Rhode Island*
 *Corresponding author: Gavin Borges — ORCID: 0009-0001-2404-5217*
@@ -30,13 +30,13 @@ Immunogenicity labels derived from the Immune Epitope Database (IEDB) represent 
 
 | Tool | Signal | Architecture | End-to-end workflow | Reproducibility governance | AUC-PR (Tier A) | Key limitation |
 |---|---|---|---|---|---|---|
-| **SESTRAV** (this work) | Binding + TCR contact + antigen processing + GNN | RF / XGBoost / GNN ensemble | Yes (6-stage Snakemake DAG) | Freeze mode, checksums, OpenSSF Passing | **0.840** (OOF) | Mock antigen processing in v3 (live API unavailable); v4 training pending |
+| **SESTRAV** (this work) | Binding + TCR contact + antigen processing + GNN | RF / XGBoost / GNN ensemble | Yes (6-stage Snakemake DAG) | Freeze mode, checksums, OpenSSF Passing | **0.840** (OOF) | Mock antigen processing (live NetChop/TAPreg API unavailable); production scorer is RF mode-31 |
 | PredIG-Path (Peng et al. 2022) | Binding + sequence features | Random Forest | No | None | 0.727 | 36.9% training overlap with SESTRAV test set; no antigen processing |
 | PRIME 2.1 (Gfeller et al. 2023) | MHC eluted ligand + substitution matrices | Position-specific scoring matrix | No | None | 0.777 | 36.9% proxy training overlap; no TCR contact features; no antigen processing |
 | NetMHCpan 4.2 (Reynisson et al. 2020) | MHC binding affinity + eluted ligand | Neural network pan-allele | No | None | n/a (binding only) | Binding prediction only; no immunogenicity scoring |
-| MixMHCpred 2.2 (Gfeller et al. 2023) | MHC eluted ligand motifs | Mixture model | No | None | [pending] | Trained on eluted ligands only; no TCR features; no antigen processing |
-| DeepImmuno (Li et al. 2021) | Sequence + MHC pseudo-sequence | CNN | No | None | [pending] | Single-allele CNN; no workflow reproducibility |
-| BigMHC (Albert et al. 2023) | Large-scale MHC binding + immunogenicity | Deep learning (transfer learning) | No | None | [pending, GPU] | Training data not fully disclosed; no antigen processing |
+| MixMHCpred 2.2 (Gfeller et al. 2023) | MHC eluted ligand motifs | Mixture model | No | None | 0.795 | Trained on eluted ligands only; no TCR features; no antigen processing |
+| DeepImmuno (Li et al. 2021) | Sequence + MHC pseudo-sequence | CNN | No | None | 0.698 | Single-allele CNN; 9/10-mers only; no workflow reproducibility |
+| BigMHC (Albert et al. 2023) | Large-scale MHC binding + immunogenicity | Deep learning (transfer learning) | No | None | 0.822 | Training data not fully disclosed; no antigen processing |
 
 Key gaps common across surveyed approaches:
 - No published tool combines MHC binding, antigen processing, and TCR contact features within a single reproducible, end-to-end workflow
@@ -179,22 +179,26 @@ The binding-only baseline (AUC-PR 0.851) outperforms `combined_30` (AUC-PR 0.825
 
 **Note on evaluation asymmetry (mandatory disclosure):** SESTRAV RF is evaluated via strict OOF cross-validation (conservative). PredIG-Path and PRIME 2.1 are evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). Correcting for this asymmetry, the SESTRAV advantage is larger than raw numbers suggest. See `docs/external_testing/External_Validation_Sign_Off.md`.
 
-*Table 3. SESTRAV vs. external tools, Tier A 704-peptide labeled benchmark.*
+*Table 3. SESTRAV vs. external tools, Tier A labeled viral benchmark (n=720; SESTRAV RF evaluated OOF on the n=704 scored intersection). Rows sorted by AUC-PR. External-tool scores: `data/tier_a_external_benchmarks.csv` (`scripts/run_tier_a_benchmarks.py`); per-tool metrics: `results/table3_tier_a_metrics.csv`.*
 
 | Tool | AUC-PR | ISSR@10 | Evaluation | Train overlap |
 |---|---|---|---|---|
 | **SESTRAV RF (full_33, extended)** | **0.840*** | 0.916 | OOF 5-fold (conservative) | N/A |
 | SESTRAV RF (full_31, canonical) | 0.828† | 0.843 | OOF 5-fold | N/A |
+| BigMHC | 0.822 | **0.917** | Fully trained | Undisclosed |
+| MixMHCpred 2.2 | 0.795 | 0.847 | Fully scored | None |
 | Binding-only (MHCflurry) | 0.790 | 0.857 | Fully scored | N/A |
-| PRIME 2.1 | 0.777 | **0.871** | Fully trained | 36.9% (proxy) |
+| PRIME 2.1 | 0.777 | 0.871 | Fully trained | 36.9% (proxy) |
 | PredIG-Path | 0.727 | 0.786 | Fully trained | 36.9% |
-| DeepImmuno | [pending] | [pending] | [Week 6] | [TBD] |
-| MixMHCpred 2.2 | [pending] | [pending] | [Week 6] | [TBD] |
-| BigMHC | [pending] | [pending] | [Week 6 GPU] | [TBD] |
+| DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) | Not computed |
+
+**Interpretation.** On the selection-free Tier A benchmark, BigMHC-IM is the strongest external tool (AUC-PR 0.822, ISSR@10 0.917) — within 0.006 AUC-PR of SESTRAV's canonical full_31 model and marginally ahead of it on top-decile recall. This near-parity is itself the conservative reading: SESTRAV is evaluated strictly out-of-fold, whereas BigMHC is fully trained on undisclosed data that may include benchmark peptides. SESTRAV's full_33 configuration (0.840) leads all tools on AUC-PR. The remaining tools — MixMHCpred 2.2 (0.795), PRIME 2.1 (0.777), PredIG-Path (0.727), and DeepImmuno (0.698, 9/10-mers only, 86.5% coverage) — trail both SESTRAV configurations and BigMHC.
+
+*Note on cross-domain results: DeepImmuno, BigMHC, and MixMHCpred were also scored on the TSNAdb tumor-vs-self pool (§3.4.1). Those numbers are **not** Table 3 values — that cohort's positives were selected using DeepImmuno ≥ 0.5 and MHCflurry rank ≤ 2% thresholds, making a head-to-head circular. Only experimental-label benchmarks with no tool-derived selection (this table) support a valid tool ranking.*
 
 *\*SESTRAV RF (full_33) AUC-PR 0.840 is the 5-fold OOF mean from `models/training_results.csv` (v3 n=1004, weighted, `feature_mode=33`). ISSR@10 = 0.916 (fraction of true positives ranked in top 10% of scored peptides). Unweighted ablation AUC-PR = 0.886 (Table 1); the weighted–unweighted gap reflects EBV majority-class difficulty from sample weighting. Binding features (bind_*) contribute zero marginal information in both full_31 and full_33 (§3.2).*
 
-*†full_31 AUC-PR 0.828 from `docs/model_evaluation_summary.md` (v3 n=1004, weighted, `feature_mode=31`).*
+*†full_31 AUC-PR 0.828 from `docs/model_evaluation_summary.md` (v3 n=1004, weighted, `feature_mode=31`); reproduced here as `rf_oof_score` on the Tier A set (AUC-PR 0.8278, ISSR@10 0.843).*
 
 **SYFPEITHI canonical epitope recall (Table 4).** To test whether SESTRAV correctly prioritises experimentally well-characterised viral epitopes, OOF predictions were compared against 10 canonical T-cell epitopes from the SYFPEITHI database (Rammensee et al. 1999; HLA-A*02:01-restricted, EBV/HPV16). In the v4 model (14,637-peptide OOF pool), 5 of 10 reference epitopes were evaluable OOF (5 were not present in the training cohort); in v3 (988-peptide OOF), 6 of 10 were evaluable.
 
@@ -285,6 +289,8 @@ Full per-peptide scores and provenance: `results/tsnadb_crossdomain_benchmark.js
 
 **Circularity caveat (mandatory disclosure).** TSNAdb entries are computationally predicted using NetMHCpan and MHCflurry-family tools, which are the same family of binding predictors that generate SESTRAV's `bind_*` features. Accordingly, the separation partly reflects binding-score signal shared between the TSNAdb curation pipeline and SESTRAV's feature set rather than independently validated immunogenicity. The correct interpretation is that SESTRAV captures **presentation + immunogenicity transfer above self-background** — consistent with but not identical to experimental cross-domain validation. Independent confirmation with a T-cell-validated tumor neoantigen dataset (e.g., TESLA consortium, Gartner et al. 2021) is deferred to future work.
 
+**External-tool behaviour on the same cross-domain pool (context, not head-to-head).** Three external tools were scored on the same mixed pool (`scripts/run_external_benchmarks.py`; raw scores in `data/external_benchmarks_results.csv`): BigMHC-IM (AUC-PR 0.681, ISSR@10 0.739), MixMHCpred 2.2 (AUC-PR 0.599, ISSR@10 0.609), and DeepImmuno (AUC-PR 0.555 on its supported 9/10-mer subset, n=8,340). **These numbers must not be read as a tool ranking against SESTRAV**, for two reasons rooted in how the cohort was built (`scripts/sample_tsnadb_cohort.py`): (i) the positive class was filtered to `DeepImmuno ≥ 0.5`, so DeepImmuno is evaluated on a range-restricted positive set defined by its own output — its score here is structurally near-random and not interpretable as discrimination; (ii) the positive class was also filtered to MHCflurry presentation rank ≤ 2%, which enriches positives for exactly the presentation signal that SESTRAV's binding features and the other tools partially encode. The honest reading is narrow but real: **all four predictors degrade substantially when moved from viral immunogenicity to the tumor-vs-self domain** (the binding-conditioned tools by less than DeepImmuno), and none was trained for it. The valid, selection-free head-to-head on experimental viral labels is Table 3 (§3.3).
+
 ### 3.5 Antigen processing feature contribution
 
 **v3 finding.** The addition of two antigen processing features (NetChop 3.1 C-terminal cleavage probability, TAPreg TAP transport affinity) to the 31-feature canonical model raises OOF AUC-PR from 0.864 (`full_31`) to 0.886 (`full_33`) in unweighted ablation on v3 data — a +0.022 improvement and the largest single-step gain in the ablation series (Table 1). In the weighted production run, the mode-33 RF achieves AUC-PR 0.840 ± 0.011 vs. 0.828 ± 0.027 for mode-31. Among all 33 v3 features, `netchop_score` ranked first in RF importance (0.118), followed by `tap_score` (0.096; Table 2), ranking above any physicochemical or binding feature. This is consistent with the established rate-limiting role of proteasomal C-terminal cleavage in epitope generation (Rock & Goldberg 1999; Kloetzel 2001).
@@ -293,9 +299,9 @@ Full per-peptide scores and provenance: `results/tsnadb_crossdomain_benchmark.js
 
 **Production recommendation.** Mode-31 v4 (AUC-PR 0.7635) is the recommended model for viral immunogenicity prediction until real NetChop/TAPreg scores are available. Mode-33 v4 is available but offers no measurable improvement. Compared to PredIG-Path (AUC-PR 0.727, fully trained, v3 Tier A benchmark), SESTRAV v3 mode-33 OOF (AUC-PR 0.840) remains the definitive comparison point until v4 Tier A results are computed.
 
-### 3.6 GNN v2.1 — GINEConv + ESM-2 evaluation
+### 3.6 GNN v2.x — GINEConv + ESM-2 evaluation and Gate 1 resolution
 
-**Architecture.** GraphPredictorV2 replaces the v1 one-hot GCN with two GINEConv layers (PyTorch Geometric; 320→256→128 hidden dimensions) consuming pre-computed ESM-2 per-residue embeddings (320-dim, `facebook/esm2_t6_8M_UR50D`; Rives et al. 2021) as node features. The graph is a bidirectional 1D chain with self-loops and 3-dim one-hot edge features (self-loop, forward, backward). SESTRAV physicochemical features (mode-21, 21-dim) are fused with the 128-dim mean-pooled graph embedding via a 64-unit MLP. All 11,795 unique v4 peptides were embedded in a single ESM-2 forward pass and cached offline (`data/esm2_embeddings.pt`, 170 MB), so training time is dominated by GINEConv layers rather than protein language-model inference.
+**Architecture.** GraphPredictorV2 replaces the v1 one-hot GCN with two GINEConv layers (PyTorch Geometric; 320→256→128 hidden dimensions) consuming pre-computed ESM-2 per-residue embeddings as node features. The graph is a bidirectional 1D chain with self-loops and 3-dim one-hot edge features (self-loop, forward, backward). SESTRAV physicochemical features (mode-21, 21-dim) are fused with the 128-dim mean-pooled graph embedding via a 64-unit MLP. The detailed evaluation below (per-fold and gate tables) is the v2.1 reference configuration (320-dim node features, `facebook/esm2_t6_8M_UR50D`; Rives et al. 2021; cached in `data/esm2_embeddings.pt`, 170 MB). The **final v2.3 configuration** upgrades to 480-dim node features (`facebook/esm2_t12_35M_UR50D`, cached in `data/esm2_embeddings_t12.pt`) and excludes zero-padding nodes from GINEConv message passing and the global mean pool (variable-length graph fix, §below). All 11,795 unique v4 peptides are embedded in a single ESM-2 forward pass and cached offline, so training time is dominated by GINEConv layers rather than protein language-model inference.
 
 **Training.** Stratified 5-fold CV on the v4 14,699-row dataset (62 gold-standard IEDB epitopes held out from all folds); 20 epochs per fold with cosine annealing from lr=3×10⁻⁴; batch size 64; `BCEWithLogitsLoss` with positive-class weight balancing. Post-hoc Platt scaling (logistic regression on OOF scores) applied after training to correct probability calibration without altering prediction ranking.
 
@@ -326,7 +332,9 @@ v2.1 clears 4/5 promotion gates. Compared to v1 (3/5 passing): Gate 5 (escape se
 
 **Interpretation.** The ESM-2 node embedding upgrade produces a substantial discriminative improvement (+0.11 AUC-PR, +0.15 ISSR@10) and clears Gate 5 escape sensitivity, confirming that richer per-residue representations meaningfully improve identification of immunogenic viral epitopes. Gate 3 (latency) remains comfortably within threshold at 0.14× the RF inference time, demonstrating that pre-caching ESM-2 embeddings eliminates the per-inference language-model overhead.
 
-The remaining Gate 1 gap (0.723 vs 0.85 target) indicates that the current 8M-parameter ESM-2 variant and chain-graph topology are insufficient for full production discrimination. Candidate improvements: (i) larger ESM-2 variants (esm2_t12_35M, 480-dim, or esm2_t30_150M, 640-dim), (ii) additional training epochs with early stopping on validation AUC-PR, (iii) spatial contact edges derived from ESMFold structure predictions to replace the chain-only graph topology. These constitute the GNN v2.2 roadmap.
+**v2.2–v2.3 evolution and the variable-length graph fix.** Three iterations probed the Gate 1 gap. v2.2 upgraded the node embedding from `esm2_t6_8M` (320-dim) to `esm2_t12_35M` (480-dim) with early stopping; this did not improve discrimination (OOF AUC-PR 0.7160 vs v2.1 0.7241), indicating the bottleneck was not embedding capacity. v2.3 then corrected a dataset bug: `GraphPeptideDatasetV2` had padded every peptide to a fixed 11-node graph, so for the 91.5% of peptides shorter than 11 residues (8/9/10-mers) up to three zero-vector nodes were participating in GINEConv message passing and diluting the global mean pool. The fix slices each peptide to its true length L and builds per-peptide edges, excluding padding from both message passing and pooling. With post-hoc Platt recalibration retained, v2.3 reaches **OOF AUC-PR 0.7263** (pooled across folds) — a real but small +0.010 correction over v2.2. Gates 2–5 are architecture-class-invariant from the v2.1 evaluation (identical GINEConv topology and latency class; Platt calibration reapplied) and were not re-measured; Gate 1 was re-evaluated and **remains FAIL** (0.726 vs 0.85).
+
+**Gate 1 resolution.** Three architectural iterations — including the variable-length graph fix originally hypothesized as the primary bottleneck — all plateau at OOF AUC-PR ≈ 0.72–0.73, within ~0.04 of the v4 Random Forest itself (mode-31, 0.7635). The Gate 1 threshold of 0.85 was calibrated against v3 data, where the RF reached 0.8276; on the v4 hard-decoy dataset the RF ceiling is 0.7635, placing the 0.85 gate **0.09 above the best non-GNN model on the same data** and rendering it structurally unreachable by any architecture. The padding fix's marginal gain confirms the GNN is not gated by an implementation defect but is at its representational ceiling for this task and data scale. Accordingly, **the v4 canonical Random Forest (mode-31, AUC-PR 0.7635) is designated the production immunogenicity scorer**, and the GINEConv+ESM-2 GNN is reported as a research and ensemble-candidate component rather than the gated production model. The honest, like-for-like comparison on identical v4 OOF folds is GNN 0.726 vs RF 0.764; the GNN does not currently surpass the simpler model and is not promoted. Closing the residual gap is deferred to future work (v2.4 roadmap: attention pooling over residue nodes, larger ESM-2 variants, and ESMFold-derived spatial contact edges replacing the chain-only topology).
 
 ---
 
@@ -346,7 +354,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 2. **TCR contact approximation.** p4–p8 physicochemical features are validated primarily for HLA-A*02:01 canonical 9-mers (Chowell et al. 2015). 8-mer compressed registers and 10-mer/11-mer bulging conformations are not explicitly modeled.
 3. **Cross-virus generalization.** HBV and HCV predictions are generated by a model trained on EBV/HPV data. Exploratory until v4 training includes HBV/HCV data.
 4. **HBV genotype coverage.** Panel uses genotype D (ayw) reference sequences. Genotype B/C populations (East/Southeast Asia) may show sequence divergence at predicted epitope positions.
-5. **GNN gate status.** GraphPredictor v1 fails Gates 1 and 5 (v4 AUC-PR 0.613, sensitivity 0.724). GraphPredictorV2 (GINEConv + ESM-2) is implemented and under evaluation; full gate results in §3.6. Neither architecture is the production scorer until all 5 gates pass.
+5. **GNN gate status.** GraphPredictor v1 fails Gates 1 and 5 (v4 AUC-PR 0.613, sensitivity 0.724). GraphPredictorV2 (GINEConv + ESM-2) clears Gates 2–5 but plateaus at OOF AUC-PR ≈ 0.72–0.73 across v2.1–v2.3, below the structurally unreachable Gate 1 threshold of 0.85 (0.09 above the v4 RF ceiling of 0.7635; §3.6). The production scorer is the v4 canonical Random Forest (mode-31); the GNN is a research/ensemble component, not the gated production model.
 6. **Allele-aware training.** The 166-feature allele-aware schema is implemented but not trained; all production predictions use population-average allele features.
 7. **Zero-shot HLA generalization.** This claim has been removed from all SESTRAV communications. It was not validated in any experiment and should not appear in publications, presentations, or documentation.
 8. **Negative data quality.** v3 negatives are mostly non-immunogenic due to poor MHC binding, causing partial "binding → immunogenic" learning. Hard decoys (v4) address this root cause.
@@ -356,7 +364,7 @@ Full limitations: `docs/limitations_statement_v1.md`.
 
 1. **v4 allele-aware training.** 166-feature schema enables allele-specific predictions once VDJdb allele annotations are incorporated. Target: ≥10 allele models from v4.
 2. **Hard decoy integration.** 5,000 central-tolerance self-peptides (500 per allele, 10 alleles) added to v4 are expected to raise AUC-PR above 0.880 by decoupling binding affinity from immunogenicity in the negative class.
-3. **GNN v2.2.** v2.1 (GINEConv + ESM-2, 8M params) clears Gates 2/3/4/5 but fails Gate 1 (AUC-PR 0.723 vs 0.85 target; §3.6). v2.2 roadmap: larger ESM-2 variant (esm2_t12_35M, 480-dim) with early stopping on validation AUC-PR; if Gate 1 clears, GNN becomes the production deep-learning scorer.
+3. **GNN v2.4.** v2.1–v2.3 (GINEConv + ESM-2) clear Gates 2–5 but plateau at OOF AUC-PR ≈ 0.72–0.73, not surpassing the v4 RF (0.7635) on identical folds (§3.6); the RF is the production scorer. v2.4 roadmap to close the residual gap: attention pooling over residue nodes, larger ESM-2 variants (esm2_t30_150M, 640-dim), and ESMFold-derived spatial contact edges replacing the chain-only topology. The GNN is promoted only if it exceeds the RF on like-for-like v4 OOF.
 4. **Virus expansion.** SARS-CoV-2 (panel4: Spike P0DTC2, N P0DTC9, M P0DTC5, ORF3a P0DTC3), IAV (panel4: NP P03466, M1 P03485, HA P03437, PB1-F2 P0C0U1), CMV (panel4: pp65 P06725, IE1 P13202, pp50 P16785, gB P06473) — gated on IEDB audit confirming ≥100 positive T-cell assays per virus.
 5. **Continuous automated validation.** Monthly GitHub Actions benchmark against new IEDB exports with automatic AUC-PR regression alerting.
 

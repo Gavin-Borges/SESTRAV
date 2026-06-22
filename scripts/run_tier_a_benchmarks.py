@@ -1,23 +1,27 @@
 import os
+import sys
 import subprocess
 import pandas as pd
 import numpy as np
-from sklearn.metrics import roc_auc_score, average_precision_score
 import argparse
+import shutil
 
 def get_data():
-    tsnadb = pd.read_csv("data/tsnadb_crossdomain_cohort.csv")
-    hard_decoys = pd.read_csv("data/hard_decoys.csv")
+    # 1. Load peptides and labels
+    peptides_df = pd.read_csv("results/external_validation_input.csv")
+    # This has 720 rows. We only care about peptide and label
     
-    # standardize columns
-    # tsnadb: peptide,hla_allele,label,...
-    # hard_decoys: peptide,label,...,hla_allele,...
+    # 2. Load peptide-allele pairs
+    pairs_df = pd.read_csv("results/external_predig_peptide_allele_pairs.csv")
+    # Columns: peptide, allele
     
-    positives = tsnadb[['peptide', 'hla_allele', 'label']].copy()
-    negatives = hard_decoys[['peptide', 'hla_allele', 'label']].copy()
+    # Merge label into pairs
+    df = pd.merge(pairs_df, peptides_df[['peptide', 'label']], on='peptide', how='left')
     
-    df = pd.concat([positives, negatives], ignore_index=True)
-    return df
+    # standardize columns for existing wrappers
+    df = df.rename(columns={'allele': 'hla_allele'})
+    
+    return df, peptides_df
 
 def run_deepimmuno(df, tmp_dir):
     print("Running DeepImmuno...")
@@ -33,7 +37,6 @@ def run_deepimmuno(df, tmp_dir):
         
     di_df.to_csv(input_file, index=False, header=False)
     
-    import shutil
     conda_exe = shutil.which("conda") or "conda"
     cmd = [
         conda_exe, "run", "-n", "di", "python",
@@ -57,7 +60,6 @@ def run_deepimmuno(df, tmp_dir):
 def run_bigmhc(df, tmp_dir):
     print("Running BigMHC...")
     input_file = os.path.abspath(os.path.join(tmp_dir, "bigmhc_in.csv"))
-    # BigMHC expects columns, we can provide peptide and hla
     df[['peptide', 'hla_allele']].to_csv(input_file, index=False)
     
     cmd = [
@@ -78,9 +80,6 @@ def run_bigmhc(df, tmp_dir):
 
 def run_mixmhcpred(df, tmp_dir):
     print("Running MixMHCpred 2.2...")
-    # MixMHCpred requires running per allele to evaluate the exact allele
-    # Actually, MixMHCpred outputs score for all provided alleles, but to be 
-    # rigorous for peptide-HLA pairs, we just group by allele.
     results = pd.Series(index=df.index, dtype=float)
     
     perl_exe = r"C:\Program Files\Git\usr\bin\perl.exe"
@@ -93,8 +92,6 @@ def run_mixmhcpred(df, tmp_dir):
         
         group['peptide'].to_csv(peptides_file, index=False, header=False)
         
-        # MixMHCpred format e.g. A0201 or HLA-A*02:01. The perl script normalizes it.
-        # Use forward slashes for Perl script to avoid backslash escaping issues on Windows
         in_path = peptides_file.replace('\\', '/')
         out_path = out_file.replace('\\', '/')
         
@@ -110,69 +107,97 @@ def run_mixmhcpred(df, tmp_dir):
         try:
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
             out_df = pd.read_csv(out_file, sep='\t', comment='#')
-            # The column is 'Score_best' or something similar
-            # MixMHCpred 2.2 header: Peptide, Score_bestAllele, BestAllele, %Rank_bestAllele
             score_col = 'Score_bestAllele'
-            
-            # Map back to original indices
-            # out_df should have same order as group
             results.loc[group.index] = out_df[score_col].values
         except Exception as e:
             print(f"Failed for allele {allele}: {e}")
-            results.loc[group.index] = 0.0 # fallback
+            results.loc[group.index] = np.nan
             
     return results.values
 
+sys.path.insert(0, os.path.abspath('.'))
+from src.evaluate_metrics import evaluate
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--smoke', action='store_true', help='Run on a small subset (20 peptides)')
+    parser.add_argument('--smoke', action='store_true', help='Run on a small subset')
     args = parser.parse_args()
     
-    df = get_data()
-    if args.smoke:
-        # Take 10 pos and 10 neg
-        df = pd.concat([df[df.label==1].head(10), df[df.label==0].head(10)], ignore_index=True)
+    pairs_df, peptides_df = get_data()
     
+    if args.smoke:
+        pairs_df = pairs_df.head(20).copy()
+        
     tmp_dir = "_local/bench_tmp"
     os.makedirs(tmp_dir, exist_ok=True)
     
-    print(f"Running benchmarks on {len(df)} samples...")
+    print(f"Running benchmarks on {len(pairs_df)} peptide-allele pairs...")
     
-    # 1. DeepImmuno
-    df['deepimmuno_score'] = run_deepimmuno(df, tmp_dir)
+    pairs_df['deepimmuno_score'] = run_deepimmuno(pairs_df, tmp_dir)
+    pairs_df['bigmhc_score'] = run_bigmhc(pairs_df, tmp_dir)
+    pairs_df['mixmhcpred_score'] = run_mixmhcpred(pairs_df, tmp_dir)
     
-    # 2. BigMHC
-    df['bigmhc_score'] = run_bigmhc(df, tmp_dir)
+    # Aggregate by MAX across alleles for each peptide
+    print("Aggregating scores by MAX per peptide...")
+    agg_df = pairs_df.groupby('peptide').agg({
+        'deepimmuno_score': 'max',
+        'bigmhc_score': 'max',
+        'mixmhcpred_score': 'max',
+        'label': 'first' # label is the same for all alleles of a peptide
+    }).reset_index()
     
-    # 3. MixMHCpred
-    df['mixmhcpred_score'] = run_mixmhcpred(df, tmp_dir)
+    # We must ensure all 720 peptides are in agg_df, even if some failed.
+    agg_df = pd.merge(peptides_df[['peptide', 'label', 'rf_oof_score', 'binding_max']], agg_df.drop('label', axis=1), on='peptide', how='left')
     
-    # Calculate metrics
-    print("\n--- Benchmark Results ---")
+    # Save the per-peptide scores
+    os.makedirs("data", exist_ok=True)
+    out_csv = "data/tier_a_external_benchmarks.csv"
+    agg_df[['peptide', 'label', 'deepimmuno_score', 'bigmhc_score', 'mixmhcpred_score']].to_csv(out_csv, index=False)
+    print(f"Saved aggregated per-peptide scores to {out_csv}")
     
-    y_true = df['label'].values
+    print("\n--- Benchmark Results (Tier A) ---")
     
     metrics_list = []
-    for model, col in [('DeepImmuno', 'deepimmuno_score'), ('BigMHC', 'bigmhc_score'), ('MixMHCpred 2.2', 'mixmhcpred_score')]:
-        y_score = df[col].values
+    
+    # Evaluate sanity anchors first
+    for model, col in [('SESTRAV RF', 'rf_oof_score'), ('Binding-only', 'binding_max'), ('DeepImmuno', 'deepimmuno_score'), ('BigMHC', 'bigmhc_score'), ('MixMHCpred 2.2', 'mixmhcpred_score')]:
+        y_score = agg_df[col].values
+        y_true = agg_df['label'].values
         valid = ~np.isnan(y_score)
         
-        auc = roc_auc_score(y_true[valid], y_score[valid])
-        pr = average_precision_score(y_true[valid], y_score[valid])
+        n_scored = valid.sum()
+        coverage_pct = n_scored / len(agg_df) * 100
         
-        metrics_list.append({"Model": model, "AUC-ROC": auc, "AUC-PR": pr})
+        if n_scored > 0:
+            metrics = evaluate(y_true[valid], y_score[valid])
+            auc = metrics['auc_roc']
+            pr = metrics['auc_pr']
+            issr = metrics['issr_10']
+        else:
+            auc = np.nan
+            pr = np.nan
+            issr = np.nan
+            
+        metrics_list.append({
+            "tool": model, 
+            "auc_pr": pr, 
+            "auc_roc": auc, 
+            "issr_10": issr, 
+            "n_scored": n_scored, 
+            "coverage_pct": coverage_pct
+        })
         
         print(f"{model}:")
-        print(f"  AUC-ROC: {auc:.4f}")
         print(f"  AUC-PR:  {pr:.4f}")
+        print(f"  AUC-ROC: {auc:.4f}")
+        print(f"  ISSR@10: {issr:.4f}")
+        print(f"  Coverage: {n_scored}/{len(agg_df)} ({coverage_pct:.1f}%)")
         
     metrics_df = pd.DataFrame(metrics_list)
     os.makedirs("results", exist_ok=True)
-    metrics_df.to_csv("results/table3_benchmarks.csv", index=False)
-    
-    df.to_csv("data/external_benchmarks_results.csv", index=False)
-    print("Saved aggregated metrics to results/table3_benchmarks.csv")
-    print("Saved raw scores to data/external_benchmarks_results.csv")
+    metrics_out = "results/table3_tier_a_metrics.csv"
+    metrics_df.to_csv(metrics_out, index=False)
+    print(f"Saved metrics to {metrics_out}")
 
 if __name__ == "__main__":
     main()
