@@ -375,8 +375,8 @@ Full limitations: `docs/limitations_statement_v1.md`.
 - **Source code:** https://github.com/Gavin-Borges/SESTRAV — MIT license
 - **Installation:** `pip install sestrav` (core); `pip install "sestrav[gnn]"` (+ GNN); `pip install "sestrav[pipeline]"` (+ Snakemake)
 - **PyPI:** https://pypi.org/project/sestrav/
-- **Zenodo dataset DOI:** [pending — v4 build + registration, Week 6 Day 7]
-- **Docker image:** [pending — GHCR publication, Week 6 Day 7]
+- **Training dataset:** SESTRAV Immunogenicity Dataset v4 (14,699 records; 12 viruses + central-tolerance hard decoys) is archived on Zenodo under CC-BY-4.0 as a standalone deposition (`immunogenicity_dataset_v4.csv` + schema + build-provenance JSON with SHA-256 integrity manifest). DOI: `10.5281/zenodo.XXXXXXX` *(minted on publication; deposition record and checksums in `docs/zenodo_deposition.md`)*.
+- **Docker image:** [pending — GHCR publication]
 - **MHCflurry model version:** See `mhcflurry_model_version` in `config.yaml`
 
 ---
