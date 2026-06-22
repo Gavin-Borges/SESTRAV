@@ -107,13 +107,13 @@ Full feature glossary and migration table: `docs/feature_glossary.md`.
 *Promotion gate status (2026-06-20):*
 | Gate | Criterion | v1/v3 | v1/v4 | v2.1/v4 |
 |---|---|---|---|---|
-| 1 — Generalization (AUC-PR ≥ 0.85) | 5-fold OOF AUC-PR | FAIL (0.774) | **FAIL (0.613)** | *pending* |
-| 2 — Stability (AUC-PR std ≤ 0.02) | Jackknife-LOO std | PASS | **PASS (0.0001)** | *pending* |
-| 3 — Latency (ratio ≤ 2× RF) | GNN/RF inference ratio | PASS | **PASS (0.02×)** | *pending* |
-| 4 — Calibration (ECE < 0.05) | Expected Calibration Error | FAIL (0.258) | **PASS (0.040)** | *pending* |
-| 5 — Escape Sensitivity (≥ 0.80) | Sensitivity on escape variants | FAIL (0.506) | **FAIL (0.724)** | *pending* |
+| 1 — Generalization (AUC-PR ≥ 0.85) | 5-fold OOF AUC-PR | FAIL (0.774) | **FAIL (0.613)** | **FAIL (0.723)** |
+| 2 — Stability (AUC-PR std ≤ 0.02) | Jackknife-LOO std | PASS | **PASS (0.0001)** | **PASS (0.000)** |
+| 3 — Latency (ratio ≤ 2× RF) | GNN/RF inference ratio | PASS | **PASS (0.02×)** | **PASS (0.14×)** |
+| 4 — Calibration (ECE < 0.05) | Expected Calibration Error | FAIL (0.258) | **PASS (0.040)** | **PASS (0.037)** |
+| 5 — Escape Sensitivity (≥ 0.80) | Sensitivity on escape variants | FAIL (0.506) | **FAIL (0.724)** | **PASS (0.825)** |
 
-Gate 4 (ECE calibration) was cleared by v1 with v4 retraining — a 6× improvement from ECE=0.258 to 0.040, confirming that training data diversity substantially reduces GNN overconfidence. The v2.1 architecture was implemented in session 12 (2026-06-20); full gate results for v2.1 are reported in §3.6.
+Gate 4 (ECE calibration) was cleared by v1 with v4 retraining — a 6× improvement from ECE=0.258 to 0.040, confirming that training data diversity substantially reduces GNN overconfidence. The v2.1 architecture was implemented in session 12 (2026-06-20); the v2.1/v4 column above summarizes its promotion-gate outcomes, with the detailed per-fold evaluation and v2.2–v2.4 evolution reported in §3.6.
 
 **Allele-aware training (schema ready; v4 data available; training in future work).** A 166-feature allele-aware schema is implemented in `src/features.py` using HLA pseudo-sequence encodings. The v4 dataset provides `hla_allele` annotations for 71.9% of rows (10,568/14,699) at 4-digit resolution (format: HLA-A*XX:XX) — sufficient for allele-aware training on ≥10 alleles. 28.1% of rows have low-resolution allele annotations (e.g., HLA-A2, class-only) and are excluded from allele-aware training. Allele-aware model training is deferred to v2.1; all current production predictions use the population-average 31-feature model.
 
