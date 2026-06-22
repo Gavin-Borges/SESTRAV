@@ -1,0 +1,9 @@
+{
+  "_schema": "Continuous validation baselines (MASTER_STRATEGIC_PLAN.md Part 11). Each entry stores the reference AUC-PR for a monthly IEDB benchmark; the workflow alerts on a >3% relative drop. A null auc_pr means the baseline has not yet been established and will be seeded on the first successful run.",
+  "iedb_ebv_hpv16_tcell": {
+    "auc_pr": null,
+    "established": null,
+    "model": "models/rf_31feature_integrated.joblib",
+    "note": "EBV + HPV16 IEDB T-cell export scored with the pinned feature_mode=31 production model. Seeded automatically on the first monthly run; subsequent runs compare against the stored value."
+  }
+}

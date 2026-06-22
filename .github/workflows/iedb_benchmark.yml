@@ -34,76 +34,22 @@ jobs:
           python scripts/fetch_iedb_tcell.py --virus EBV   --output data_tmp/iedb/ebv_tcell.csv
           python scripts/fetch_iedb_tcell.py --virus HPV16 --output data_tmp/iedb/hpv16_tcell.csv
 
-      - name: Score with production model and compute AUC-PR
+      - name: Score with production model, compare to baseline, flag regression
         run: |
-          python - <<'PYEOF'
-          import json, os, pathlib, sys
-          import pandas as pd
-          import numpy as np
-          from sklearn.metrics import average_precision_score
-          from joblib import load
-          from src.features import prepare_features_31
-          from src.naming import CANONICAL_MODEL_PATH
-
-          # Load both IEDB exports
-          frames = []
-          for f in ["data_tmp/iedb/ebv_tcell.csv", "data_tmp/iedb/hpv16_tcell.csv"]:
-              if os.path.exists(f):
-                  df = pd.read_csv(f)
-                  if len(df) > 0:
-                      frames.append(df)
-
-          if not frames:
-              print("No IEDB records fetched — nothing to score. Exiting.")
-              sys.exit(0)
-
-          df = pd.concat(frames, ignore_index=True).drop_duplicates(subset="peptide")
-          df = df.dropna(subset=["peptide", "label"])
-          df["label"] = df["label"].astype(int)
-          print(f"Scoring {len(df)} unique peptides ({int(df['label'].sum())} positive)")
-
-          model_path = CANONICAL_MODEL_PATH
-          if not os.path.exists(model_path):
-              print(f"Model not found at {model_path}. Skipping AUC-PR computation.")
-              sys.exit(0)
-
-          clf = load(model_path)
-          bm_path = "models/peptide_binding_matrix_v3.csv"
-          X = prepare_features_31(df, bm_path)
-          proba = clf.predict_proba(X)[:, 1]
-          auc_pr = float(average_precision_score(df["label"].values, proba))
-          print(f"AUC-PR on fresh IEDB export: {auc_pr:.4f}")
-
-          # Load baseline (written by this workflow on prior runs)
-          baseline_path = "results/benchmark_baseline.json"
-          baseline = {}
-          if os.path.exists(baseline_path):
-              baseline = json.loads(pathlib.Path(baseline_path).read_text())
-
-          result = {
-              "auc_pr": auc_pr,
-              "n_peptides": len(df),
-              "n_positive": int(df["label"].sum()),
-          }
-          pathlib.Path("results").mkdir(exist_ok=True)
-          pathlib.Path("results/benchmark_latest.json").write_text(json.dumps(result, indent=2))
-
-          # Regression check: alert if AUC-PR drops more than 1 pp below baseline
-          if "auc_pr" in baseline:
-              delta = auc_pr - baseline["auc_pr"]
-              print(f"Delta vs baseline: {delta:+.4f}")
-              if delta < -0.01:
-                  print(f"::warning::AUC-PR regression detected: {auc_pr:.4f} vs baseline {baseline['auc_pr']:.4f} (delta {delta:+.4f})")
-                  pathlib.Path("REGRESSION_DETECTED").write_text(
-                      f"delta={delta:.4f} current={auc_pr:.4f} baseline={baseline['auc_pr']:.4f}"
-                  )
-          PYEOF
+          # Scoring + baseline comparison + >3% regression detection live in
+          # src/continuous_validation.py so the logic is unit-tested
+          # (tests/test_continuous_validation.py). Model + binding-matrix paths
+          # resolve from config.yaml; baseline from data/validation_baselines.json.
+          python -m src.continuous_validation \
+            --inputs data_tmp/iedb/ebv_tcell.csv data_tmp/iedb/hpv16_tcell.csv \
+            --baseline data/validation_baselines.json \
+            --results-dir results/continuous_validation
 
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: iedb-benchmark-${{ github.run_id }}
-          path: results/benchmark_latest.json
+          path: results/continuous_validation/benchmark_latest.json
           if-no-files-found: warn
 
       - name: Open GitHub Issue on regression
