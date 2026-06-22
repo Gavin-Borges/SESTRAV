@@ -139,4 +139,6 @@ jobs:
         run: pip install --require-hashes -r environments/requirements-ci-render.txt
 
       - name: Render Quarto Report
-        run: quarto render docs/results_report.qmd
+        # --execute-dir . keeps the Python kernel's working directory at the
+        # repo root so that `from src.xxx import ...` resolves correctly.
+        run: quarto render docs/results_report.qmd --execute-dir .
