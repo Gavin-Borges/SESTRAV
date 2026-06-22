@@ -232,7 +232,7 @@ def run(
     (out_dir / "benchmark_latest.json").write_text(payload, encoding="utf-8")
 
     if result["baseline_auc_pr"] is None:
-        print("No stored baseline — recording current value as the seed baseline.")
+        print("No stored baseline - recording current value as the seed baseline.")
     else:
         print(
             f"Delta vs baseline: {result['delta']:+.4f} "
@@ -240,7 +240,7 @@ def run(
         )
         if result["is_regression"]:
             msg = regression_message(result)
-            print(f"::warning::AUC-PR regression detected — {msg}")
+            print(f"::warning::AUC-PR regression detected - {msg}")
             pathlib.Path(marker_path).write_text(msg, encoding="utf-8")
 
     return 0
