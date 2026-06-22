@@ -39,12 +39,12 @@ def precompute_esm2(
     model_name: str = "facebook/esm2_t6_8M_UR50D",
     batch_size: int = 64,
 ) -> None:
-    from transformers import EsmModel, EsmTokenizer
-
     if model_name not in ESM_MODEL_DIMS:
         raise ValueError(
             f"Unknown model '{model_name}'. Known models: {list(ESM_MODEL_DIMS)}"
         )
+
+    from transformers import EsmModel, EsmTokenizer
     esm_dim = ESM_MODEL_DIMS[model_name]
 
     print(f"Loading {model_name} (dim={esm_dim}) ...")
