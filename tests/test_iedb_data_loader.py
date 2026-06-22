@@ -275,6 +275,20 @@ def test_load_iedb_file_dash_in_first_row(tmp_path):
     assert "Description" in df.columns
 
 
+def test_load_iedb_file_subheader_row_promoted(tmp_path):
+    # A junk first row followed by a real header row containing 'qualitative'
+    # promotes row 1 to the header (header=1 branch).
+    p = tmp_path / "subheader.csv"
+    p.write_text(
+        "IEDB Export,meta,stuff\n"
+        "Description,Qualitative Measure,Allele\n"
+        "SLLMWITQV,Positive,A*02:01\n"
+    )
+    df = load_iedb_file(str(p))
+    assert "Qualitative Measure" in df.columns
+    assert len(df) == 1
+
+
 # ---------------------------------------------------------------------------
 # load_schmidt_2021
 # ---------------------------------------------------------------------------
