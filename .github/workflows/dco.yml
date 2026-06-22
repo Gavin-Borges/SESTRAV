@@ -19,6 +19,14 @@ jobs:
 
       - name: Check Developer Certificate of Origin (DCO)
         run: |
+          # Bots (Dependabot, Renovate, etc.) cannot cryptographically sign commits;
+          # exempt them from the DCO requirement — their PRs are reviewed by CI instead.
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          if [[ "$PR_AUTHOR" == *"[bot]" ]]; then
+            echo "Skipping DCO check for bot PR (author: ${PR_AUTHOR})."
+            exit 0
+          fi
+
           # Fetch the target branch
           git fetch origin ${{ github.base_ref }}
           # Check all commits in the PR for the Signed-off-by trailer

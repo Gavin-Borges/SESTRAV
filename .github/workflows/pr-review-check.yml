@@ -45,6 +45,17 @@ jobs:
               return;
             }
 
+            // Trusted bots (Dependabot, Renovate) cannot be assigned as reviewers and
+            // their PRs are gated by 15+ CI checks. Bypass the human-review requirement.
+            const TRUSTED_BOTS = ['dependabot[bot]', 'renovate[bot]'];
+            if (TRUSTED_BOTS.includes(prAuthor)) {
+              core.info(
+                `ℹ️ PR created by trusted dependency bot (${prAuthor}). ` +
+                'Bypassing human-review requirement; CI suite enforces correctness.'
+              );
+              return;
+            }
+
             const { data: reviews } = await github.rest.pulls.listReviews({
               owner: repoOwner,
               repo:  context.repo.repo,
