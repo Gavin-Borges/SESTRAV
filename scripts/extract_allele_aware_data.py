@@ -172,7 +172,7 @@ def _parse_iedb_multiheader_csv(fpath, verbose=False):
         else:
             continue
 
-        # MHC class filter — skip class II
+        # MHC class filter - skip class II
         if mhc_class_col is not None:
             mhc_class = str(row.get(mhc_class_col, "")).strip()
             if mhc_class == "II":
@@ -221,9 +221,9 @@ def load_tcell_assay_files(data_dir, verbose=False):
     """Load IEDB T-cell Assay format files from data_dir.
 
     Handles two formats:
-    1. 2-level multi-header CSV (standard IEDB T-cell Assay export) — parsed
+    1. 2-level multi-header CSV (standard IEDB T-cell Assay export) - parsed
        with header=[0,1] using _parse_iedb_multiheader_csv().
-    2. Single-level header CSV/XLSX (older format) — detected by presence of
+    2. Single-level header CSV/XLSX (older format) - detected by presence of
        a 'Qualitative Measure' column in the first header row.
 
     Virus assignment priority:
@@ -491,7 +491,7 @@ def main():
             if os.path.isdir(candidate):
                 files = [f for f in os.listdir(candidate) if f.endswith((".xlsx", ".csv"))]
                 if files:
-                    print(f"  Found {len(files)} file(s) in {candidate}/ — trying that path.")
+                    print(f"  Found {len(files)} file(s) in {candidate}/ - trying that path.")
                     args.data_dir = candidate
                     break
         else:

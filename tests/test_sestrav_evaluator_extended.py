@@ -28,7 +28,7 @@ from src.verify.sestrav_evaluator import (
 
 
 # ---------------------------------------------------------------------------
-# calculate_average_precision — n_pos=0 early return (line 76)
+# calculate_average_precision - n_pos=0 early return (line 76)
 # ---------------------------------------------------------------------------
 
 def test_calculate_average_precision_all_negative():
@@ -46,7 +46,7 @@ def test_calculate_roc_auc_all_same_class():
 
 
 # ---------------------------------------------------------------------------
-# run_mock_predictions — mutation type variants (lines 138-143)
+# run_mock_predictions - mutation type variants (lines 138-143)
 # ---------------------------------------------------------------------------
 
 class TestRunMockPredictions:
@@ -82,7 +82,7 @@ class TestRunMockPredictions:
 
 
 # ---------------------------------------------------------------------------
-# evaluate_single_virus — empty DataFrame (lines 174-175)
+# evaluate_single_virus - empty DataFrame (lines 174-175)
 # ---------------------------------------------------------------------------
 
 def test_evaluate_single_virus_empty_df():
@@ -93,7 +93,7 @@ def test_evaluate_single_virus_empty_df():
 
 
 # ---------------------------------------------------------------------------
-# evaluate_single_virus — all-negative cohort (no positives for mutant CV)
+# evaluate_single_virus - all-negative cohort (no positives for mutant CV)
 # ---------------------------------------------------------------------------
 
 def test_evaluate_single_virus_no_positives():
@@ -112,7 +112,7 @@ def test_evaluate_single_virus_no_positives():
 
 
 # ---------------------------------------------------------------------------
-# run_evaluation_pipeline — val_csv absent → auto-mock extraction
+# run_evaluation_pipeline - val_csv absent → auto-mock extraction
 # (lines 333-335)
 # ---------------------------------------------------------------------------
 
@@ -130,7 +130,7 @@ def test_run_evaluation_pipeline_auto_mock_when_csv_missing(tmp_path):
     targets_json = tmp_path / "targets.json"
     targets_json.write_text(json.dumps(targets))
 
-    # NOTE: val_csv is NOT pre-created — pipeline must auto-generate it
+    # NOTE: val_csv is NOT pre-created - pipeline must auto-generate it
     report = run_evaluation_pipeline(
         targets_json,
         model_checkpoint_path=None,
@@ -142,7 +142,7 @@ def test_run_evaluation_pipeline_auto_mock_when_csv_missing(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run_evaluation_pipeline — empty viruses block (graceful)
+# run_evaluation_pipeline - empty viruses block (graceful)
 # ---------------------------------------------------------------------------
 
 def test_run_evaluation_pipeline_empty_viruses(tmp_path):
@@ -156,13 +156,13 @@ def test_run_evaluation_pipeline_empty_viruses(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _load_torch_checkpoint — success path (lines 268-281)
+# _load_torch_checkpoint - success path (lines 268-281)
 # ---------------------------------------------------------------------------
 
 def test_load_torch_checkpoint_success(tmp_path):
     chk = tmp_path / "model.pth"
     state = {"weight": torch.tensor([1.0, 2.0])}
-    torch.save(state, chk)  # nosec B614 — test fixture, trusted tensor
+    torch.save(state, chk)  # nosec B614 - test fixture, trusted tensor
 
     loaded = _load_torch_checkpoint(chk, torch.device("cpu"))
     assert "weight" in loaded
@@ -173,7 +173,7 @@ def test_load_torch_checkpoint_raises_on_weights_only_failure(tmp_path):
     """Unsafe fallback was removed (CVE-2025-3000); weights_only failure must raise."""
     chk = tmp_path / "model.pth"
     state = {"w": torch.tensor([3.0])}
-    torch.save(state, chk)  # nosec B614 — test fixture, trusted tensor
+    torch.save(state, chk)  # nosec B614 - test fixture, trusted tensor
 
     with patch("torch.load", side_effect=RuntimeError("weights_only failed")):
         with pytest.raises(RuntimeError, match="Failed to load GNN checkpoint"):

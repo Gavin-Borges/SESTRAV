@@ -23,10 +23,10 @@
 - [ ] New functionality has accompanying tests
 
 ### Biological Accuracy (required for any model, feature, or claims change)
-- [ ] **Q1 Mechanism** — Any new biological claim has a primary literature citation (not just a tool reference)
-- [ ] **Q2 Scope** — New claims specify which viruses, alleles, peptide lengths, and assay types they apply to
-- [ ] **Q3 Limitation** — New claims include corresponding limitation language
-- [ ] **Q4 Fairness** — Any benchmark comparison uses equivalent evaluation conditions, or asymmetry is disclosed
+- [ ] **Q1 Mechanism** - Any new biological claim has a primary literature citation (not just a tool reference)
+- [ ] **Q2 Scope** - New claims specify which viruses, alleles, peptide lengths, and assay types they apply to
+- [ ] **Q3 Limitation** - New claims include corresponding limitation language
+- [ ] **Q4 Fairness** - Any benchmark comparison uses equivalent evaluation conditions, or asymmetry is disclosed
 - [ ] `docs/claims_register.md` updated with any new public-facing claims
 
 ### Model / Feature Changes (if applicable)

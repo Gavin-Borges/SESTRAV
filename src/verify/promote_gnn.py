@@ -37,7 +37,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("gnn-promote")
 
 # ---------------------------------------------------------------------------
-# Canonical paths — relative to project root (cwd must be project root)
+# Canonical paths - relative to project root (cwd must be project root)
 # ---------------------------------------------------------------------------
 GNN_CHECKPOINT = Path("models/gnn/structural_gnn_v2.pth")
 GNN_SCALER    = Path("models/gnn/gnn_scaler.joblib")
@@ -47,7 +47,7 @@ OOF_PATH       = Path("models/gnn_oof_predictions.csv")
 CONFIG_PATH    = Path("config.yaml")
 CHECKSUM_FILE  = Path("models/model_artifact_checksums.json")
 
-# Gate thresholds (immutable constants — edit requires PR review)
+# Gate thresholds (immutable constants - edit requires PR review)
 GATE1_AUC_PR_MIN:  float = 0.85
 GATE2_STD_MAX:     float = 0.02
 GATE3_LATENCY_FACTOR: float = 2.0   # GNN must be <= 2× RF latency
@@ -72,7 +72,7 @@ class GateResult(NamedTuple):
 # ---------------------------------------------------------------------------
 
 def _sha256_file(filepath: Path) -> str:
-    """SHA-256 via native Python hashlib — no shell invocation."""
+    """SHA-256 via native Python hashlib - no shell invocation."""
     import hashlib
     digest = hashlib.sha256()
     with filepath.open("rb") as fh:
@@ -105,7 +105,7 @@ def gate1_generalization(df: pd.DataFrame) -> GateResult:
     auc_pr = float(average_precision_score(df["label"], df["gnn_oof_score"]))
     passed = auc_pr >= GATE1_AUC_PR_MIN
     return GateResult(
-        name="Gate 1 — Generalization (AUC-PR)",
+        name="Gate 1 - Generalization (AUC-PR)",
         passed=passed,
         value=round(auc_pr, 4),
         threshold=f">= {GATE1_AUC_PR_MIN}",
@@ -157,7 +157,7 @@ def gate2_stability(df: pd.DataFrame) -> GateResult:
 
     passed = std <= GATE2_STD_MAX
     return GateResult(
-        name=f"Gate 2 — Stability (AUC-PR std, {method})",
+        name=f"Gate 2 - Stability (AUC-PR std, {method})",
         passed=passed,
         value=round(std, 4),
         threshold=f"<= {GATE2_STD_MAX}",
@@ -213,7 +213,7 @@ def gate3_latency() -> GateResult:
     # --- RF baseline ---
     if not RF_MODEL_PATH.exists():
         return GateResult(
-            name="Gate 3 — Latency",
+            name="Gate 3 - Latency",
             passed=False,
             value="RF model not found",
             threshold=f"<= {GATE3_LATENCY_FACTOR}× RF latency",
@@ -236,7 +236,7 @@ def gate3_latency() -> GateResult:
     # --- GNN v2.1 benchmark ---
     if not GNN_CHECKPOINT.exists():
         return GateResult(
-            name="Gate 3 — Latency",
+            name="Gate 3 - Latency",
             passed=False,
             value="GNN checkpoint not found",
             threshold=f"<= {GATE3_LATENCY_FACTOR}× RF latency",
@@ -287,7 +287,7 @@ def gate3_latency() -> GateResult:
     ratio = gnn_latency_ms / max(rf_latency_ms, 0.001)
     passed = ratio <= GATE3_LATENCY_FACTOR
     return GateResult(
-        name="Gate 3 — Latency",
+        name="Gate 3 - Latency",
         passed=passed,
         value=f"GNN={gnn_latency_ms:.2f}ms, RF={rf_latency_ms:.2f}ms, ratio={ratio:.2f}×",
         threshold=f"ratio <= {GATE3_LATENCY_FACTOR}×",
@@ -314,7 +314,7 @@ def gate4_calibration(df: pd.DataFrame) -> GateResult:
         ece += (mask.sum() / n) * abs(acc - conf)
     passed = ece < GATE4_ECE_MAX
     return GateResult(
-        name="Gate 4 — Calibration (ECE, 15-bin)",
+        name="Gate 4 - Calibration (ECE, 15-bin)",
         passed=passed,
         value=round(ece, 4),
         threshold=f"< {GATE4_ECE_MAX}",
@@ -333,7 +333,7 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
 
     if len(positives) == 0 or len(negatives) == 0:
         return GateResult(
-            name="Gate 5 — Escape Sensitivity",
+            name="Gate 5 - Escape Sensitivity",
             passed=False,
             value="Insufficient class diversity in OOF file",
             threshold=f">= {GATE5_SENSITIVITY_MIN:.0%}",
@@ -343,7 +343,7 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
     sensitivity  = float((positives > decoy_median).mean())
     passed = sensitivity >= GATE5_SENSITIVITY_MIN
     return GateResult(
-        name="Gate 5 — Escape Sensitivity",
+        name="Gate 5 - Escape Sensitivity",
         passed=passed,
         value=round(sensitivity, 4),
         threshold=f">= {GATE5_SENSITIVITY_MIN}",
@@ -356,7 +356,7 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
 
 def check_promotion_gates() -> bool:
     logger.info("=" * 60)
-    logger.info("SESTRAV GNN Promotion Scorecard — 5 Gates")
+    logger.info("SESTRAV GNN Promotion Scorecard - 5 Gates")
     logger.info("=" * 60)
 
     if not GNN_CHECKPOINT.exists():
@@ -380,7 +380,7 @@ def check_promotion_gates() -> bool:
             r = gate_fn(df)
         except Exception as exc:  # noqa: BLE001
             logger.error(f"{gate_fn.__name__} raised unexpectedly: {exc}")
-            results.append(GateResult(name=gate_fn.__name__, passed=False, value=str(exc), threshold="—"))
+            results.append(GateResult(name=gate_fn.__name__, passed=False, value=str(exc), threshold="-"))
             continue
         results.append(r)
 
@@ -389,7 +389,7 @@ def check_promotion_gates() -> bool:
         r3 = gate3_latency()
     except Exception as exc:  # noqa: BLE001
         logger.error(f"gate3_latency raised unexpectedly: {exc}")
-        r3 = GateResult(name="Gate 3 — Latency", passed=False, value=str(exc), threshold="—")
+        r3 = GateResult(name="Gate 3 - Latency", passed=False, value=str(exc), threshold="-")
     results.append(r3)
 
     # Log full scorecard
@@ -404,9 +404,9 @@ def check_promotion_gates() -> bool:
             all_passed = False
     logger.info("─" * 60)
     if all_passed:
-        logger.info("SCORECARD RESULT: ALL GATES PASSED — ready for promotion.")
+        logger.info("SCORECARD RESULT: ALL GATES PASSED - ready for promotion.")
     else:
-        logger.error("SCORECARD RESULT: ONE OR MORE GATES FAILED — promotion blocked.")
+        logger.error("SCORECARD RESULT: ONE OR MORE GATES FAILED - promotion blocked.")
     logger.info("=" * 60)
 
     return all_passed
@@ -437,7 +437,7 @@ def promote_model() -> None:
             yaml.dump(config, fh, default_flow_style=False, sort_keys=False)
         logger.info(f"Updated {CONFIG_PATH}: model_path -> {GNN_CHECKPOINT}")
     else:
-        logger.warning(f"{CONFIG_PATH} not found — skipping config update.")
+        logger.warning(f"{CONFIG_PATH} not found - skipping config update.")
 
     # --- Update model_artifact_checksums.json ---
     try:

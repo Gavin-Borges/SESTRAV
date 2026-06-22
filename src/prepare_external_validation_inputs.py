@@ -8,13 +8,13 @@ Reads:
   - config.yaml (alleles for expansion + optional proteome mapping)
 
 Writes under results/ (default):
-  - external_validation_input.csv — one row per labeled peptide (left join):
+  - external_validation_input.csv - one row per labeled peptide (left join):
         rf_oof_score (NaN for 16 gold-standard holdout rows), binding_max
         (NaN if peptide missing from binding matrix), tier_a_baseline_complete,
         is_gold_standard_holdout.
-  - external_predig_peptide_allele_pairs.csv — peptide × allele for PredIG
-  - external_prime_peptides.txt — one peptide per line
-  - external_prime_alleles_compact.txt — comma-separated PRIME allele list
+  - external_predig_peptide_allele_pairs.csv - peptide × allele for PredIG
+  - external_prime_peptides.txt - one peptide per line
+  - external_prime_alleles_compact.txt - comma-separated PRIME allele list
 """
 
 from __future__ import annotations

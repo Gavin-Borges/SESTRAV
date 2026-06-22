@@ -6,14 +6,14 @@
 #
 # SOLO-PROJECT DESIGN (no review lock-out):
 #   - required_approving_review_count = 0
-#     (PR workflow required; approval count NOT required — avoids
+#     (PR workflow required; approval count NOT required - avoids
 #      locking out the solo maintainer on a free personal repo where
 #      "Allow self-approval" is an org/enterprise-only feature)
 #   - require_last_push_approval = false  (same reason)
 #   - Owner added as a bypass actor with bypass_mode = "always"
 #   - require_linear_history = true       (clean commit graph)
 #   - required_status_checks: "SESTRAV CI / test (3.13)"
-#     (matches the ci.yml job matrix label — CI must pass before merge)
+#     (matches the ci.yml job matrix label - CI must pass before merge)
 #
 # Scorecard tier coverage achieved:
 #   Tier 1 (3 pts):  deletion, non_fast_forward rules              ✅

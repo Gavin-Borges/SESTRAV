@@ -1,4 +1,4 @@
-"""Tests for scripts/sample_tsnadb_cohort.py — TSNAdb cross-domain cohort sampling."""
+"""Tests for scripts/sample_tsnadb_cohort.py - TSNAdb cross-domain cohort sampling."""
 
 import os
 import sys
@@ -134,7 +134,7 @@ def test_different_seeds_differ(tmp_path):
     df42 = build_cohort(raw, sample_n=10, seed=42)
     df99 = build_cohort(raw, sample_n=10, seed=99)
     # Two seeds over 20 rows sampling 10 should rarely agree on exact order
-    # (not a statistical test — just confirms seeds are wired through)
+    # (not a statistical test - just confirms seeds are wired through)
     assert not df42["peptide"].tolist() == df99["peptide"].tolist()
 
 

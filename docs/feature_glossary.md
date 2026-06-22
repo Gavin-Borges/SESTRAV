@@ -111,15 +111,15 @@ The following feature groups are defined in `src/ablation_study.py` for systemat
 All metrics are computed by `src/evaluate_metrics.py`. The `evaluate()` function returns a 10-key dictionary:
 
 **Core metrics (used in all reports):**
-- `auc_roc` — Area Under the ROC Curve
-- `auc_pr` — Area Under the Precision-Recall Curve (primary metric)
-- `issr_10` — Immune-Stimulating Success Rate at top 10%
-- `issr_25` — ISSR at top 25%
+- `auc_roc` - Area Under the ROC Curve
+- `auc_pr` - Area Under the Precision-Recall Curve (primary metric)
+- `issr_10` - Immune-Stimulating Success Rate at top 10%
+- `issr_25` - ISSR at top 25%
 
 **Extended metrics (added in v2.0):**
-- `precision_10`, `precision_25` — Precision at top 10%/25%
-- `recall_10`, `recall_25` — Recall captured at top 10%/25%
-- `ndcg_10`, `ndcg_25` — Normalized DCG at top 10%/25%
+- `precision_10`, `precision_25` - Precision at top 10%/25%
+- `recall_10`, `recall_25` - Recall captured at top 10%/25%
+- `ndcg_10`, `ndcg_25` - Normalized DCG at top 10%/25%
 
 ## Feature Migration Table
 

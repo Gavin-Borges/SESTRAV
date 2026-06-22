@@ -3,7 +3,7 @@ Regenerate peptide_binding_matrix_v3.csv with real MHCflurry presentation scores
 
 The v3 matrix was committed as an all-zeros placeholder (commit f360b90).
 This script populates it with actual MHCflurry 2.x Class1PresentationPredictor
-scores — the same scorer used to generate peptide_binding_matrix.csv (v2).
+scores - the same scorer used to generate peptide_binding_matrix.csv (v2).
 
 Usage:
     python scripts/regenerate_binding_matrix_v3.py

@@ -16,7 +16,7 @@ All sequences are derived from the **EBV B95-8 strain** (Human herpesvirus 4).
 | **EBNA3A** | `P03204` | `BLRF3`/`BERF1` | Latent nuclear antigen (transcriptional regulator) |
 | **EBNA3B (EBNA4)** | `P03205` | `BERF2a`/`BERF2b` | Latent nuclear antigen (transcriptional regulator) |
 | **LMP1** | `P03230` | `BNLF1` | Latent membrane protein (oncogenic driver) |
-| **LMP2A** | `P13285` | — | Latent membrane protein (blocks lytic reactivation) |
+| **LMP2A** | `P13285` | - | Latent membrane protein (blocks lytic reactivation) |
 | **BZLF1** | `P03206` | `BZLF1` | Immediate-early lytic transactivator (lytic cycle trigger) |
 | **BRLF1** | `P03209` | `BRLF1` | Immediate-early lytic transactivator (activates lytic cycle) |
 
@@ -55,7 +55,7 @@ All sequences are derived from the **HBV genotype D subtype ayw** reference stra
 > Sequences are downloaded via `scripts/fetch_viral_proteomes.py` with provenance recorded in `data/proteomes/HBV_ayw_panel4_provenance.json`.
 
 > [!WARNING]
-> **HBV Genotype Coverage Caveat.** This panel uses genotype D (ayw) reference sequences — the best-curated Swiss-Prot entries available. Genotype B and C strains dominate East and Southeast Asia, where HBV-related hepatocellular carcinoma burden is highest. Genotypes B and C show 8–12% nucleotide divergence from genotype D, producing peptide-level differences that may affect epitope prediction accuracy. Predicted epitopes derived from this panel should be treated with reduced confidence when applied to genotype B/C-predominant patient populations. Genotype-specific expansion targeting genotypes B and C is planned for v2.2.
+> **HBV Genotype Coverage Caveat.** This panel uses genotype D (ayw) reference sequences - the best-curated Swiss-Prot entries available. Genotype B and C strains dominate East and Southeast Asia, where HBV-related hepatocellular carcinoma burden is highest. Genotypes B and C show 8–12% nucleotide divergence from genotype D, producing peptide-level differences that may affect epitope prediction accuracy. Predicted epitopes derived from this panel should be treated with reduced confidence when applied to genotype B/C-predominant patient populations. Genotype-specific expansion targeting genotypes B and C is planned for v2.2.
 
 ---
 
@@ -64,8 +64,8 @@ This panel uses the best-available reviewed Swiss-Prot entries for each NS prote
 
 | Protein Name | UniProt Accession ID | Strain | Biological Role |
 | :--- | :--- | :--- | :--- |
-| **Core** | `P26664` | genotype 1a (H77) — full polyprotein | Nucleocapsid protein; polyprotein contains all NS regions |
-| **NS3** | `O92972` | genotype 1b (HC-J4) — best-reviewed NS3 | Serine protease / RNA helicase |
+| **Core** | `P26664` | genotype 1a (H77) - full polyprotein | Nucleocapsid protein; polyprotein contains all NS regions |
+| **NS3** | `O92972` | genotype 1b (HC-J4) - best-reviewed NS3 | Serine protease / RNA helicase |
 | **NS5A** | `O92975` | Hepacivirus hominis fragment | Membrane-associated phosphoprotein (replication complex) |
 | **NS5B** | `O92976` | Hepacivirus hominis fragment | RNA-directed RNA polymerase |
 
@@ -79,9 +79,9 @@ All sequences are derived from the **HIV-1 clade B reference strain HXB2** (GenB
 
 | Protein Name | UniProt Accession | Gene | Biological Role |
 | :--- | :--- | :--- | :--- |
-| **Gag** | `P04591` | `gag` | Gag polyprotein (MA, CA/p24, SP1, NC, SP2, p6) — dominant CD8+ target |
-| **Pol** | `P04585` | `pol` | Pol polyprotein (PR, RT, RNase H, IN) — reverse transcriptase target |
-| **Nef** | `P04601` | `nef` | Negative factor — accessory protein; major early CD8+ immunodominant antigen |
+| **Gag** | `P04591` | `gag` | Gag polyprotein (MA, CA/p24, SP1, NC, SP2, p6) - dominant CD8+ target |
+| **Pol** | `P04585` | `pol` | Pol polyprotein (PR, RT, RNase H, IN) - reverse transcriptase target |
+| **Nef** | `P04601` | `nef` | Negative factor - accessory protein; major early CD8+ immunodominant antigen |
 | **Env** | `P04578` | `env` | Envelope glycoprotein gp160 (gp120 + gp41) |
 
 > [!NOTE]
@@ -97,10 +97,10 @@ All sequences are derived from the **SARS-CoV-2 Wuhan-1 reference strain** (Hu-1
 
 | Protein Name | UniProt Accession | Gene | Length | Biological Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **Spike** | `P0DTC2` | `S` / ORF2 | 1273 AA | Surface glycoprotein — viral entry; primary humoral + CD8 target |
-| **N** | `P0DTC9` | `N` / ORF9 | 419 AA | Nucleocapsid phosphoprotein — highly conserved; dominant CD8 target |
-| **M** | `P0DTC5` | `M` / ORF5 | 222 AA | Membrane glycoprotein — conserved CD8 target across betacoronavirus family |
-| **ORF3a** | `P0DTC3` | `ORF3a` | 275 AA | Accessory pore-forming protein — documented CD8 responses in IEDB |
+| **Spike** | `P0DTC2` | `S` / ORF2 | 1273 AA | Surface glycoprotein - viral entry; primary humoral + CD8 target |
+| **N** | `P0DTC9` | `N` / ORF9 | 419 AA | Nucleocapsid phosphoprotein - highly conserved; dominant CD8 target |
+| **M** | `P0DTC5` | `M` / ORF5 | 222 AA | Membrane glycoprotein - conserved CD8 target across betacoronavirus family |
+| **ORF3a** | `P0DTC3` | `ORF3a` | 275 AA | Accessory pore-forming protein - documented CD8 responses in IEDB |
 
 > [!NOTE]
 > Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/SARSCOV2_wuhan1_panel4_provenance.json`.
@@ -115,9 +115,9 @@ All sequences are derived from the **A/Puerto Rico/8/1934 (PR8) strain**, subtyp
 
 | Protein Name | UniProt Accession | Gene | Length | Biological Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **NP** | `P03466` | `NP` | 498 AA | Nucleoprotein — dominant, cross-subtype conserved CD8+ target; universal vaccine candidate |
-| **M1** | `P03485` | `M` | 252 AA | Matrix protein 1 — highly conserved across H1N1 and H3N2; well-characterized CD8 target |
-| **HA** | `P03437` | `HA` | 566 AA | Hemagglutinin — H1 subtype-specific; principal neutralizing antibody target |
+| **NP** | `P03466` | `NP` | 498 AA | Nucleoprotein - dominant, cross-subtype conserved CD8+ target; universal vaccine candidate |
+| **M1** | `P03485` | `M` | 252 AA | Matrix protein 1 - highly conserved across H1N1 and H3N2; well-characterized CD8 target |
+| **HA** | `P03437` | `HA` | 566 AA | Hemagglutinin - H1 subtype-specific; principal neutralizing antibody target |
 | **PB1-F2** | `P0C0U1` | `PB1-F2` | 90 AA | Pathogenicity factor encoded in PB1 +1 reading frame; documented CD8 target in severe disease |
 
 > [!NOTE]
@@ -133,10 +133,10 @@ All sequences are derived from the **CMV strain AD169** (Human betaherpesvirus 5
 
 | Protein Name | UniProt Accession | Gene | Length | Biological Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **pp65** | `P06725` | `UL83` | 561 AA | Lower matrix phosphoprotein — immunodominant CD8+ target; dominates CMV-specific T-cell pool (up to 10–20% of CD8+ T-cells in seropositive adults) |
-| **IE1** | `P13202` | `UL123` | 491 AA | Immediate-early antigen 1 — dominant CD8+ target during primary/reactivation lytic phase |
-| **pp50** | `P16785` | `UL44` | 433 AA | DNA polymerase processivity factor — documented CD8+ T-cell target in transplant recipients |
-| **gB** | `P06473` | `UL55` | 906 AA | Envelope glycoprotein B — CD8+ T-cell responses documented in primary infection and post-transplant |
+| **pp65** | `P06725` | `UL83` | 561 AA | Lower matrix phosphoprotein - immunodominant CD8+ target; dominates CMV-specific T-cell pool (up to 10–20% of CD8+ T-cells in seropositive adults) |
+| **IE1** | `P13202` | `UL123` | 491 AA | Immediate-early antigen 1 - dominant CD8+ target during primary/reactivation lytic phase |
+| **pp50** | `P16785` | `UL44` | 433 AA | DNA polymerase processivity factor - documented CD8+ T-cell target in transplant recipients |
+| **gB** | `P06473` | `UL55` | 906 AA | Envelope glycoprotein B - CD8+ T-cell responses documented in primary infection and post-transplant |
 
 > [!NOTE]
 > CMV drives the largest pathogen-specific CD8+ T-cell pool of any common human infection (Sylwester et al. 2005, *J Exp Med*). pp65 and IE1 are the primary targets used in CMV-specific T-cell monitoring (tetramer assays, ELISPOT). Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/CMV_AD169_panel4_provenance.json`.

@@ -1,4 +1,4 @@
-# Zenodo Dataset Deposition — SESTRAV Immunogenicity Dataset v4
+# Zenodo Dataset Deposition - SESTRAV Immunogenicity Dataset v4
 
 This is a ready-to-use record for minting the dataset DOI referenced in the manuscript
 (§5 Availability). The dataset CSV is intentionally **not** tracked in Git, so the DOI is a
@@ -32,14 +32,14 @@ EOF
 ## 2. Zenodo metadata (paste into the deposition form)
 
 - **Upload type:** Dataset
-- **Title:** SESTRAV Immunogenicity Dataset v4 — viral T-cell epitope labels with central-tolerance hard decoys
+- **Title:** SESTRAV Immunogenicity Dataset v4 - viral T-cell epitope labels with central-tolerance hard decoys
 - **Authors / creators:**
-  - Borges, Gavin — University of Rhode Island — ORCID 0009-0001-2404-5217
-  - Eljamal, Abdelrahman — University of Rhode Island
-  - Schellenberg, Iris — University of Rhode Island
-  - Jouaneh, Charles — University of Rhode Island
-  - Byers, Emine — University of Rhode Island
-- **License:** CC-BY-4.0 *(recommended — compatible with VDJdb's CC-BY; IEDB records are freely
+  - Borges, Gavin - University of Rhode Island - ORCID 0009-0001-2404-5217
+  - Eljamal, Abdelrahman - University of Rhode Island
+  - Schellenberg, Iris - University of Rhode Island
+  - Jouaneh, Charles - University of Rhode Island
+  - Byers, Emine - University of Rhode Island
+- **License:** CC-BY-4.0 *(recommended - compatible with VDJdb's CC-BY; IEDB records are freely
   redistributable. Confirm before publishing; use CC0-1.0 only if all upstream terms permit.)*
 - **Version:** v4
 - **Keywords:** immunoinformatics, epitope prediction, MHC class I, T-cell immunogenicity,

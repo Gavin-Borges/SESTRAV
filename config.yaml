@@ -5,7 +5,7 @@ antigens:
   - EBV_B95_8_panel8
   - HBV_ayw_panel4
   - HCV_1a_panel4
-  # Week 6 expansion panels — require fetch_viral_proteomes.py before first use
+  # Week 6 expansion panels - require fetch_viral_proteomes.py before first use
   - HIV1_HXB2_panel4
   - SARSCOV2_wuhan1_panel4
   - IAV_PR8_panel4
@@ -62,7 +62,7 @@ mhcflurry_model_version: "2.2.1"
 # See docs/model_evaluation_summary.md and docs/feature_glossary.md for full details.
 feature_mode: 31
 
-# Model path — canonical 31-feature RF trained 2026-06-18 on v3 dataset with sample weights.
+# Model path - canonical 31-feature RF trained 2026-06-18 on v3 dataset with sample weights.
 # Alternatives:
 #   models/rf_30feature_integrated.joblib    (30-feature RF, legacy)
 #   models/rf_21feature_legacy.joblib        (21-feature legacy RF)

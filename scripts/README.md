@@ -1,6 +1,6 @@
 # SESTRAV Scripts Directory
 
-This directory contains utility scripts for external benchmark orchestration, environment setup, data extraction, and Snakemake stage wrappers. It is **not** a general-purpose scripts bin — each file has a specific role described below.
+This directory contains utility scripts for external benchmark orchestration, environment setup, data extraction, and Snakemake stage wrappers. It is **not** a general-purpose scripts bin - each file has a specific role described below.
 
 ---
 

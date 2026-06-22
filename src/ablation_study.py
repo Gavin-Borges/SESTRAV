@@ -1,5 +1,5 @@
 """
-SESTRAV Ablation Study — Feature Group Contribution Analysis
+SESTRAV Ablation Study - Feature Group Contribution Analysis
 
 Evaluates the contribution of different feature groups to immunogenicity
 prediction by training the best ANN architecture on each subset.
@@ -141,7 +141,7 @@ def run_ablation(data_path, binding_matrix_path, config=None,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='SESTRAV Ablation Study — Feature group contribution analysis'
+        description='SESTRAV Ablation Study - Feature group contribution analysis'
     )
     parser.add_argument('--data', required=True,
                         help='Path to immunogenicity_dataset.csv')

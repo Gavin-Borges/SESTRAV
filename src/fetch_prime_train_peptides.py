@@ -5,7 +5,7 @@ PRIME 2.1 does not ship a public training peptide CSV in the GitHub repo.
 This script:
   1) Searches a local PRIME2.1 install for peptide-list files
   2) Falls back to IEDB-derived proxy from data/external/predig_train_modf.csv
-     (documented conservative proxy — both tools train on IEDB-family data)
+     (documented conservative proxy - both tools train on IEDB-family data)
 
 Usage:
     python -m src.fetch_prime_train_peptides \\

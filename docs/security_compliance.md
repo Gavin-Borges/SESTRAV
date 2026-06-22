@@ -23,13 +23,13 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 - **CI/CD Integration:** Tests are executed via `.github/workflows/ci.yml` on every pull request.
 - **Statement coverage (OpenSSF Silver `test_statement_coverage80`):** Coverage is
   measured on two scopes, both gated in CI:
-  - *Library scope* — the importable library surface (`src`/`functions` modules
+  - *Library scope* - the importable library surface (`src`/`functions` modules
     with no `__main__` CLI entry point), measured via `.coveragerc.library` and
     gated at `fail_under=80`. Currently ≈83% statement / ≈81% branch-inclusive.
     The omit list is generated mechanically from the presence of a `__main__`
     guard (`tools/check_library_coverage.py --check` enforces it stays in sync),
     so the scope is objective rather than hand-picked.
-  - *Whole-repo floor* — a regression floor across the entire tree
+  - *Whole-repo floor* - a regression floor across the entire tree
     (`pyproject.toml`), currently ≈30% statement. Executable research/pipeline
     scripts (those with `__main__`) are validated by integration tests and the CI
     data/benchmark gates rather than by unit statement coverage.
@@ -45,8 +45,8 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 
 ## 6. Analysis
 - **Dynamic Analysis / Fuzzing:** Hypothesis property-based fuzz testing is integrated in CI via `.github/workflows/fuzzing.yml`. Tests in `tests/test_fuzz.py` exercise `compute_features` and `get_tcr_positions` under adversarial and edge-case amino acid inputs. Standard runs use 200 examples per push; weekly scheduled runs use 1000 examples. The Hypothesis database is persisted as an artifact to retain failure examples across runs.
-- **Pipeline Data Integrity:** `freeze_mode` constraints enforce data immutability during reproducibility benchmarking — this is a correctness guard, not a security control.
-- **Hygiene:** 0 High-severity issues in the core Python codebase (verified by Bandit 2026-06-18, session 5 Day 4 audit — see §7).
+- **Pipeline Data Integrity:** `freeze_mode` constraints enforce data immutability during reproducibility benchmarking - this is a correctness guard, not a security control.
+- **Hygiene:** 0 High-severity issues in the core Python codebase (verified by Bandit 2026-06-18, session 5 Day 4 audit - see §7).
 
 ## 7. Day 4 Security Audit (2026-06-18)
 
@@ -54,19 +54,19 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 
 | Severity | Count | Disposition |
 |----------|-------|-------------|
-| High     | 0     | — |
-| Medium   | 5     | All B614 (PyTorch load/save); all false positives in context — see table |
+| High     | 0     | - |
+| Medium   | 5     | All B614 (PyTorch load/save); all false positives in context - see table |
 | Low      | 1184  | Not actionable at `-ll` threshold; dominated by assert-use and subprocess patterns in test harness |
 
-**Medium findings detail (all B614 — CWE-502):**
+**Medium findings detail (all B614 - CWE-502):**
 
 | Location | Context | Disposition |
 |----------|---------|-------------|
-| `resave_checkpoint.py:61` | `torch.save(ckpt, path)` — internal maintenance script saving trusted model state | Acceptable: script not exposed to user input; data is internally generated |
-| `resave_checkpoint.py:355` | `torch.save(new_ckpt, output_path)` — same script | Acceptable: same rationale |
-| `tests/test_graph_builder.py:48` | `torch.save(dist, tmp_path / "PEP_dist.pt")` — test fixture writing a known tensor | `# nosec B614` added 2026-06-18 |
-| `tests/test_sestrav_evaluator_extended.py:165` | `torch.save(state, chk)` — test fixture writing known state dict | `# nosec B614` added 2026-06-18 |
-| `tests/test_sestrav_evaluator_extended.py:175` | `torch.save(state, chk)` — second test fixture in same file | `# nosec B614` added 2026-06-18 |
+| `resave_checkpoint.py:61` | `torch.save(ckpt, path)` - internal maintenance script saving trusted model state | Acceptable: script not exposed to user input; data is internally generated |
+| `resave_checkpoint.py:355` | `torch.save(new_ckpt, output_path)` - same script | Acceptable: same rationale |
+| `tests/test_graph_builder.py:48` | `torch.save(dist, tmp_path / "PEP_dist.pt")` - test fixture writing a known tensor | `# nosec B614` added 2026-06-18 |
+| `tests/test_sestrav_evaluator_extended.py:165` | `torch.save(state, chk)` - test fixture writing known state dict | `# nosec B614` added 2026-06-18 |
+| `tests/test_sestrav_evaluator_extended.py:175` | `torch.save(state, chk)` - second test fixture in same file | `# nosec B614` added 2026-06-18 |
 
 **Action:** The two `resave_checkpoint.py` findings are accepted as tolerable operational risk (`torch.save` is necessary for checkpoint maintenance; the file is not reachable from user-facing CLI paths). No `# nosec` added there to preserve visibility; document will be updated if the threat model changes.
 
@@ -77,7 +77,7 @@ Run 2026-06-18 (Day 5) with semgrep 1.167.0. **2 findings, both false positives 
 | Location | Rule | Finding | Disposition |
 |----------|------|---------|-------------|
 | `scripts/run_predig_wrapper.py:101` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` is a Docker invocation list | **False positive.** `cmd` is a Python list (no `shell=True`); list-form subprocess is not shell-injectable. This is a Docker wrapper script for PredIG, not reachable from user-facing endpoints. |
-| `scripts/run_prime_wrapper.py:95` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale — list-form subprocess, paths are internally constructed, not from untrusted user input. |
+| `scripts/run_prime_wrapper.py:95` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale - list-form subprocess, paths are internally constructed, not from untrusted user input. |
 
 **Action:** No code changes required. Both scripts are researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either script ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
 
@@ -87,9 +87,9 @@ Run 2026-06-18 (Day 5) with pip-audit 2.10.1. **4 packages flagged; 3 are transi
 
 | Package | Version | Vulnerability | Fix | Disposition |
 |---------|---------|--------------|-----|-------------|
-| `aiohttp` | 3.13.5 | CVE-2026-54273 through CVE-2026-54280, CVE-2026-50269 (9 CVEs) | ≥3.14.1 | **Tolerable risk — transitive dependency.** `aiohttp` is pulled in by `mhcflurry` as an HTTP client for model download; SESTRAV's inference pipeline does not make network calls at prediction time. Will upgrade when mhcflurry releases a compatible version. |
-| `cryptography` | 46.0.7 | GHSA-537c-gmf6-5ccf | ≥48.0.1 | **Tolerable risk — transitive dependency** of `mhcflurry`/`paramiko`. SESTRAV does not perform cryptographic operations directly. Will upgrade when upstream dependency releases a compatible version. |
-| `pyjwt` | 2.12.0 | PYSEC-2026-175–179 | ≥2.13.0 | **Tolerable risk — transitive dependency** (pulled in by semgrep/mcp tooling). Not a SESTRAV runtime dependency; SESTRAV does not issue or verify JWTs. |
+| `aiohttp` | 3.13.5 | CVE-2026-54273 through CVE-2026-54280, CVE-2026-50269 (9 CVEs) | ≥3.14.1 | **Tolerable risk - transitive dependency.** `aiohttp` is pulled in by `mhcflurry` as an HTTP client for model download; SESTRAV's inference pipeline does not make network calls at prediction time. Will upgrade when mhcflurry releases a compatible version. |
+| `cryptography` | 46.0.7 | GHSA-537c-gmf6-5ccf | ≥48.0.1 | **Tolerable risk - transitive dependency** of `mhcflurry`/`paramiko`. SESTRAV does not perform cryptographic operations directly. Will upgrade when upstream dependency releases a compatible version. |
+| `pyjwt` | 2.12.0 | PYSEC-2026-175–179 | ≥2.13.0 | **Tolerable risk - transitive dependency** (pulled in by semgrep/mcp tooling). Not a SESTRAV runtime dependency; SESTRAV does not issue or verify JWTs. |
 | `torch` | 2.11.0 | CVE-2025-3000 (CVSS 5.3) | No upstream patch | **Pre-documented tolerable risk** (dismissed in prior session). `torch.jit.script` not exposed to untrusted input. Local-only AV, EPSS 0.08%. Will reopen when PyTorch patches. |
 
 **Summary:** 0 actionable CVEs in SESTRAV's own code or direct runtime dependencies. All findings are transitive dependencies of third-party ML tooling with no exposure surface in the deployed package.
@@ -98,7 +98,7 @@ Run 2026-06-18 (Day 5) with pip-audit 2.10.1. **4 packages flagged; 3 are transi
 Automated dependency updates are in place via Dependabot (`.github/dependabot.yml`)
 alongside the Dependency-review Action and OSSF Scorecard. Signed releases now
 ship via the `release.yml` workflow, which attaches a Sigstore build-provenance
-attestation to every tagged release (v2.0.2 onward) — satisfying the OpenSSF
+attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 `signed_releases` criterion (verify with `gh attestation verify`). Remaining
 planned work: publish the package to PyPI, and optionally cryptographically sign
 the git tags themselves (`version_tags_signed`, a SUGGESTED criterion) once a

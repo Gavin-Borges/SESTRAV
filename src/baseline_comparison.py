@@ -5,10 +5,10 @@ Demonstrates that SESTRAV's TCR-contact features add predictive value
 beyond MHC binding alone by comparing four ranking strategies on
 gold-standard epitope recovery:
 
-  1. RF (SESTRAV default)  — rank by immunogenicity_score from trained RF
-  2. XGB                   — rank by immunogenicity_score from trained XGBoost
-  3. ANN (MLP)             — rank by immunogenicity_score from trained ANN
-  4. Binding-only baseline — rank by MHCflurry presentation_score (no ML)
+  1. RF (SESTRAV default)  - rank by immunogenicity_score from trained RF
+  2. XGB                   - rank by immunogenicity_score from trained XGBoost
+  3. ANN (MLP)             - rank by immunogenicity_score from trained ANN
+  4. Binding-only baseline - rank by MHCflurry presentation_score (no ML)
 
 For each strategy, we compute:
   - Gold-standard recovery at top 10% and top 25%
@@ -66,7 +66,7 @@ def _load_torch_checkpoint(model_path):
 
     PyTorch 2.6+ enforces strict allowlisting for weights_only=True. SESTRAV
     checkpoints embed numpy scalars and dtypes in scaler parameters
-    (scaler_mean / scaler_scale). Both are allowlisted explicitly here —
+    (scaler_mean / scaler_scale). Both are allowlisted explicitly here -
     the PyTorch-recommended approach for trusted, internally-generated
     checkpoints.
     See: https://pytorch.org/docs/stable/generated/torch.load.html

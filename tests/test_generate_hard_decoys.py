@@ -46,7 +46,7 @@ def test_load_fasta_no_trailing_newline(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# k-mer extractor — new API: lengths=(k,) tuple instead of k= scalar
+# k-mer extractor - new API: lengths=(k,) tuple instead of k= scalar
 # ---------------------------------------------------------------------------
 
 def test_extract_kmers_returns_valid_9mers():

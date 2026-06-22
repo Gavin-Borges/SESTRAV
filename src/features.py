@@ -1,5 +1,5 @@
 """
-SESTRAV Feature Extraction Module — The Shared Hub
+SESTRAV Feature Extraction Module - The Shared Hub
 
 Computes 22 per-position physicochemical features at TCR contact positions p4-p8.
 This module feeds BOTH the RF/XGBoost classifiers and the CMB 523 ANN benchmark.
@@ -337,7 +337,7 @@ def compute_features_for_dataset(
     lengths: pd.Series = peptides.str.len()
 
     # ------------------------------------------------------------------
-    # binding_score — fill NaN with 0.0
+    # binding_score - fill NaN with 0.0
     # ------------------------------------------------------------------
     if binding_col in df.columns:
         binding = df[binding_col].fillna(0.0).astype(float)
@@ -358,7 +358,7 @@ def compute_features_for_dataset(
     }
 
     # ------------------------------------------------------------------
-    # TCR position indices vary by length — compute once per-row as arrays
+    # TCR position indices vary by length - compute once per-row as arrays
     # ------------------------------------------------------------------
     # Each of the 5 position labels maps to a nullable integer index.
     pos_labels = ('p4', 'p5', 'p6', 'p7', 'p8')
@@ -416,7 +416,7 @@ def compute_features_for_dataset(
             feat_cols[col_name] = mapped.values
 
     # ------------------------------------------------------------------
-    # Upward probability (structural proxy) — lookup by (length, label)
+    # Upward probability (structural proxy) - lookup by (length, label)
     # ------------------------------------------------------------------
     for label in pos_labels:
         up_vals = np.array([
@@ -680,7 +680,7 @@ def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFram
                   - (cache['self_similarity_max_identity'] == 0.0).reindex(
                         result['peptide']).fillna(True).sum())
     if missing > 0:
-        print(f"[features] {missing} peptides not found in self-similarity cache — defaulting to 0.0")
+        print(f"[features] {missing} peptides not found in self-similarity cache - defaulting to 0.0")
     return result
 
 

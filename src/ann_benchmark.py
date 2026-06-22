@@ -1,5 +1,5 @@
 """
-SESTRAV ANN Benchmark — CMB 523 Neural Network Comparison
+SESTRAV ANN Benchmark - CMB 523 Neural Network Comparison
 
 Trains feedforward neural networks (MLPs) on the SESTRAV immunogenicity dataset,
 enabling direct comparison with RF and XGBoost classifiers.

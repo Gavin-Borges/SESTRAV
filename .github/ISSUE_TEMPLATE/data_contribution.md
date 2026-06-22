@@ -22,16 +22,16 @@ assignees: ''
 
 Before any data enters the pipeline, the contribution must pass the biological accuracy protocol.
 
-**Q1 — Mechanism:** Is the immunogenicity assay type appropriate for T-cell epitope labeling?
-<!-- Yes / No / Partial — explain -->
+**Q1 - Mechanism:** Is the immunogenicity assay type appropriate for T-cell epitope labeling?
+<!-- Yes / No / Partial - explain -->
 
-**Q2 — Scope:** Which alleles, peptide lengths, and virus strains does this data cover?
+**Q2 - Scope:** Which alleles, peptide lengths, and virus strains does this data cover?
 <!-- Specify constraints and any notable gaps -->
 
-**Q3 — Limitation:** Are there known biases in this dataset (e.g., 9-mer enrichment, allele skew, donor HLA restriction)?
+**Q3 - Limitation:** Are there known biases in this dataset (e.g., 9-mer enrichment, allele skew, donor HLA restriction)?
 <!-- List known limitations -->
 
-**Q4 — Fairness:** Does this data overlap with existing training or benchmark sets?
+**Q4 - Fairness:** Does this data overlap with existing training or benchmark sets?
 <!-- Run: python scripts/check_overlap.py --new-data <path> --existing data/immunogenicity_dataset_v3.csv -->
 
 ### Data Format
@@ -56,8 +56,8 @@ Does the data conform to the v4 schema? (`data/immunogenicity_dataset_v4_schema.
 Which ingest script handles this source, or does a new one need to be written?
 
 - [ ] Existing script (specify): `scripts/ingest_____py`
-- [ ] New ingest script needed — I will write it following the pattern in `scripts/ingest_vdjdb.py`
-- [ ] Manual download required — instructions:
+- [ ] New ingest script needed - I will write it following the pattern in `scripts/ingest_vdjdb.py`
+- [ ] Manual download required - instructions:
 
 ### Additional Notes
 

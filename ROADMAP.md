@@ -11,14 +11,14 @@ _Last updated: 2026-06._
 
 - **OpenSSF Best Practices badge.** The **Passing** badge is attained
   ([project 13191](https://www.bestpractices.dev/projects/13191)). Next, complete
-  the remaining Silver/Gold criteria — most are already satisfied (governance,
+  the remaining Silver/Gold criteria - most are already satisfied (governance,
   two-scope coverage measurement, Sigstore-signed releases, threat
   model/assurance case); the open gaps are the multi-person criteria
   (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require
   a second maintainer/contributor. See `docs/threat_model.md` and `GOVERNANCE.md`.
 - **Test coverage.** Coverage is measured on two scopes, both gated in CI:
   - **Library scope** (OpenSSF Silver `test_statement_coverage80`): the importable
-    library surface — `src`/`functions` modules without a `__main__` CLI entry
+    library surface - `src`/`functions` modules without a `__main__` CLI entry
     point. Measured via `.coveragerc.library` (omit list generated mechanically by
     `tools/check_library_coverage.py`, kept in sync by `--check`). Currently
     **≈96% statement / ≈94% branch** (combined ≈96%), gated at `fail_under=90`.
@@ -28,7 +28,7 @@ _Last updated: 2026-06._
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
 
-  Raise both floors only as real tests land — never by padding — stepping toward
+  Raise both floors only as real tests land - never by padding - stepping toward
   ≥90% statement / ≥80% branch on the library for Gold. Subprocess-launched
   modules are measured via the `tools/coverage_subprocess` hook so they are not
   undercounted as 0%.
@@ -81,6 +81,6 @@ _Last updated: 2026-06._
 
 ## How to help
 
-Contributions are welcome — see `CONTRIBUTING.md` for the workflow and for the
+Contributions are welcome - see `CONTRIBUTING.md` for the workflow and for the
 kinds of significant contributions the project is actively seeking. Issues
 labelled `good first issue` and `help wanted` are good entry points.

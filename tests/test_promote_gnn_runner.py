@@ -53,7 +53,7 @@ def _good_oof() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — checkpoint-not-found path
+# check_promotion_gates - checkpoint-not-found path
 # ---------------------------------------------------------------------------
 
 def test_check_gates_returns_false_when_checkpoint_missing():
@@ -63,7 +63,7 @@ def test_check_gates_returns_false_when_checkpoint_missing():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — OOF file not found
+# check_promotion_gates - OOF file not found
 # ---------------------------------------------------------------------------
 
 def test_check_gates_returns_false_when_oof_missing():
@@ -77,7 +77,7 @@ def test_check_gates_returns_false_when_oof_missing():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — OOF file has wrong schema
+# check_promotion_gates - OOF file has wrong schema
 # ---------------------------------------------------------------------------
 
 def test_check_gates_returns_false_when_oof_schema_bad():
@@ -91,7 +91,7 @@ def test_check_gates_returns_false_when_oof_schema_bad():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — a single gate fails
+# check_promotion_gates - a single gate fails
 # ---------------------------------------------------------------------------
 
 def test_check_gates_returns_false_when_one_gate_fails():
@@ -114,7 +114,7 @@ def test_check_gates_returns_false_when_one_gate_fails():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — all five gates pass
+# check_promotion_gates - all five gates pass
 # ---------------------------------------------------------------------------
 
 def test_check_gates_returns_true_when_all_pass():
@@ -137,7 +137,7 @@ def test_check_gates_returns_true_when_all_pass():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — gate raises unexpectedly → treated as failure
+# check_promotion_gates - gate raises unexpectedly → treated as failure
 # ---------------------------------------------------------------------------
 
 def test_check_gates_treats_gate_exception_as_failure():
@@ -162,7 +162,7 @@ def test_check_gates_treats_gate_exception_as_failure():
 
 
 # ---------------------------------------------------------------------------
-# promote_model — gates fail → config.yaml not written
+# promote_model - gates fail → config.yaml not written
 # ---------------------------------------------------------------------------
 
 def test_promote_model_does_not_modify_config_when_gates_fail(tmp_path):
@@ -179,7 +179,7 @@ def test_promote_model_does_not_modify_config_when_gates_fail(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# promote_model — gates pass → config.yaml updated
+# promote_model - gates pass → config.yaml updated
 # ---------------------------------------------------------------------------
 
 def test_promote_model_updates_config_when_gates_pass(tmp_path):
@@ -208,7 +208,7 @@ def test_promote_model_updates_config_when_gates_pass(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# promote_model — missing config.yaml is handled gracefully (warning only)
+# promote_model - missing config.yaml is handled gracefully (warning only)
 # ---------------------------------------------------------------------------
 
 def test_promote_model_no_config_does_not_crash(tmp_path):
@@ -230,7 +230,7 @@ def test_promote_model_no_config_does_not_crash(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _load_oof — direct unit tests
+# _load_oof - direct unit tests
 # ---------------------------------------------------------------------------
 
 def test_load_oof_raises_when_file_missing(tmp_path):
@@ -270,7 +270,7 @@ def test_load_oof_returns_dataframe_on_valid_file(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _time_model_ms — direct unit test
+# _time_model_ms - direct unit test
 # ---------------------------------------------------------------------------
 
 def test_time_model_ms_returns_positive_float():
@@ -284,7 +284,7 @@ def test_time_model_ms_returns_positive_float():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates — gate3_latency exception handler (lines 350-352)
+# check_promotion_gates - gate3_latency exception handler (lines 350-352)
 # ---------------------------------------------------------------------------
 
 def test_check_gates_treats_gate3_exception_as_failure():
@@ -309,7 +309,7 @@ def test_check_gates_treats_gate3_exception_as_failure():
 
 
 # ---------------------------------------------------------------------------
-# promote_model — update_checksum_manifest raises → re-raised (lines 407-409)
+# promote_model - update_checksum_manifest raises → re-raised (lines 407-409)
 # ---------------------------------------------------------------------------
 
 def test_promote_model_reraises_on_checksum_failure(tmp_path):
@@ -334,7 +334,7 @@ def test_promote_model_reraises_on_checksum_failure(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# gate3_latency — GNN v2.1: PyG batch must be passed to GraphPredictorV2.forward()
+# gate3_latency - GNN v2.1: PyG batch must be passed to GraphPredictorV2.forward()
 # ---------------------------------------------------------------------------
 
 def test_gate3_latency_passes_pyg_batch_to_forward():
@@ -371,7 +371,7 @@ def test_gate3_latency_passes_pyg_batch_to_forward():
 
 
 # ---------------------------------------------------------------------------
-# gate3_latency — RF model not found path
+# gate3_latency - RF model not found path
 # ---------------------------------------------------------------------------
 
 def test_gate3_latency_fails_when_rf_missing():
@@ -388,7 +388,7 @@ def test_gate3_latency_fails_when_rf_missing():
 
 
 # ---------------------------------------------------------------------------
-# gate3_latency — GNN checkpoint not found path
+# gate3_latency - GNN checkpoint not found path
 # ---------------------------------------------------------------------------
 
 def test_gate3_latency_fails_when_gnn_missing():

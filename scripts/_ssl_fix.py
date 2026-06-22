@@ -6,7 +6,7 @@ in the Windows Trusted Root CA store.
 
 Import this module *before* any network calls to use certifi's CA bundle instead:
 
-    import _ssl_fix  # noqa: F401  — patches ssl.create_default_context
+    import _ssl_fix  # noqa: F401  - patches ssl.create_default_context
     import urllib.request
     ...
 
@@ -49,7 +49,7 @@ def _apply() -> None:
     try:
         ssl.create_default_context()
     except ssl.SSLError:
-        # Broken — apply patch
+        # Broken - apply patch
         ssl.create_default_context = _patched_create_default_context  # type: ignore[assignment]
         ssl._create_default_https_context = _patched_create_default_context  # type: ignore[attr-defined]
 

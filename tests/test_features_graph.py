@@ -19,7 +19,7 @@ from src.features import (
 
 
 # ---------------------------------------------------------------------------
-# get_cb_cb_edges — 10-mer and 11-mer bulge contacts
+# get_cb_cb_edges - 10-mer and 11-mer bulge contacts
 # ---------------------------------------------------------------------------
 
 class TestGetCbCbEdges:
@@ -60,7 +60,7 @@ class TestGetCbCbEdges:
 
 
 # ---------------------------------------------------------------------------
-# compute_erap_trimming_score — short flanking_seq triggers padding (line 497)
+# compute_erap_trimming_score - short flanking_seq triggers padding (line 497)
 # ---------------------------------------------------------------------------
 
 class TestComputeErapTrimmingScore:
@@ -88,7 +88,7 @@ class TestComputeErapTrimmingScore:
 
 
 # ---------------------------------------------------------------------------
-# compute_sample_weights — DataFrame without 'peptide' col (line 206->219 False)
+# compute_sample_weights - DataFrame without 'peptide' col (line 206->219 False)
 # ---------------------------------------------------------------------------
 
 class TestComputeSampleWeightsNoPeptideCol:

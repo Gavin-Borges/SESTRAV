@@ -1,5 +1,5 @@
 """
-SESTRAV Stage 1 — Peptide Generation
+SESTRAV Stage 1 - Peptide Generation
 Parses viral proteome FASTA files and generates all overlapping k-mer peptides
 (8-11 amino acids) via a sliding window. Non-standard amino acids are rejected.
 """

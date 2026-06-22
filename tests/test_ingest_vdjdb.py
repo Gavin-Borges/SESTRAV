@@ -1,4 +1,4 @@
-"""Tests for scripts/ingest_vdjdb.py — VDJdb ingestion logic."""
+"""Tests for scripts/ingest_vdjdb.py - VDJdb ingestion logic."""
 import csv
 import os
 import sys

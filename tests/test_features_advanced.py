@@ -208,7 +208,7 @@ class TestComputeWeisfeilerLehmanFeatures:
 
 
 # ---------------------------------------------------------------------------
-# get_esm_cls_token — ESM-2 success path via mocked transformers
+# get_esm_cls_token - ESM-2 success path via mocked transformers
 # ---------------------------------------------------------------------------
 
 class TestGetEsmClsToken:

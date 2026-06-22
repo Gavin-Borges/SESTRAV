@@ -36,17 +36,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `except (ValueError, IndexError)` with `# pragma: no cover`.
 
 ### Security
-- **Alert #51 (HIGH — Token-Permissions)**: Fixed — `dco.yml` top-level
+- **Alert #51 (HIGH - Token-Permissions)**: Fixed - `dco.yml` top-level
   `permissions: contents: read / pull-requests: read` added (commit `f99ae34`).
-- **Alert #52 (MEDIUM — Pinned-Dependencies)**: Dismissed false positive — pip
+- **Alert #52 (MEDIUM - Pinned-Dependencies)**: Dismissed false positive - pip
   smoke-test install cannot be hash-pinned by design.
-- **Alert #50 (HIGH — Token-Permissions)**: Dismissed won't-fix — `contents: write`
+- **Alert #50 (HIGH - Token-Permissions)**: Dismissed won't-fix - `contents: write`
   required by `gh release create`; top-level `permissions: read` already restricts
   all other jobs.
-- **Alert #15 (HIGH — CVE-2025-3000, torch)**: Dismissed won't-fix — no upstream
+- **Alert #15 (HIGH - CVE-2025-3000, torch)**: Dismissed won't-fix - no upstream
   patch; `torch.jit.script` not exposed to untrusted input; EPSS 0.08%; will reopen
   when PyTorch releases a fix.
-- **Dependabot #35 (torch CVE-2025-3000)**: Dismissed `tolerable_risk` — same
+- **Dependabot #35 (torch CVE-2025-3000)**: Dismissed `tolerable_risk` - same
   rationale as alert #15.
 
 ## [2.0.3] - 2026-06-17
@@ -62,7 +62,7 @@ publish pipeline.
     correction, `compute_features_for_dataset` vectorised batch extraction,
     and `compute_weisfeiler_lehman_features` WL kernel.
   - `test_iedb_extractor` (43): full branch coverage of
-    `src/verify/iedb_multi_virus_extractor.py` — REST mocking, VDJdb TSV
+    `src/verify/iedb_multi_virus_extractor.py` - REST mocking, VDJdb TSV
     parsing, decoy generation, `process_target`, and `main()` entry point.
   - `test_promote_gnn_runner` (15): `check_promotion_gates` short-circuit and
     aggregation logic; `promote_model` config-mutation and checksum behaviour.
@@ -88,7 +88,7 @@ publish pipeline.
   wheel; smoke-tests the published package from the live PyPI index. Skipped
   automatically when `PYPI_API_TOKEN` is not configured.
   - Includes a `checkout` step (without which `requirements-ci-twine.txt`
-    would not be present on the runner — a bug caught pre-commit).
+    would not be present on the runner - a bug caught pre-commit).
 
 ### Fixed
 - **7 mypy type errors** resolved across four source files:
@@ -105,7 +105,7 @@ publish pipeline.
 ### Changed
 - **Library coverage ratchet** advanced: `fail_under` in `.coveragerc.library`
   raised from 85 → **90**. Actual library coverage is **96.03%** combined
-  statement+branch (≈96% statement, ≈94% branch) — both above the OpenSSF
+  statement+branch (≈96% statement, ≈94% branch) - both above the OpenSSF
   Gold targets (≥90% statement, ≥80% branch).
 - **Whole-repo coverage floor** unchanged at 33 (`pyproject.toml`); actual is
   33.74%. Executable research scripts (those with a `__main__` guard) are

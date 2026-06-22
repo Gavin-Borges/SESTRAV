@@ -2,7 +2,7 @@
 
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights)
-- **Version:** SESTRAV v2.1-dev — **Best current v3 model (extended track).**
+- **Version:** SESTRAV v2.1-dev - **Best current v3 model (extended track).**
 - **Model file:** `models/rf_33feature_integrated.joblib`
 - **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides where antigen processing predictions are pre-computed. Recommended over the 31-feature canonical model when the antigen processing cache is available.
 - **Input Features (33):**
@@ -16,8 +16,8 @@
 - **Prerequisite:** Antigen processing cache at `data/antigen_processing_cache.csv` (1,004 rows, pre-computed via `scripts/precompute_antigen_processing.py`)
 
 ## Intended Use
-- **Primary Domain (trained):** EBV (B95-8 strain) and HPV 16/18 — identical to feature_mode=31.
-- **Exploratory (not validated):** HBV (genotype D), HCV (genotype 1a) — exploratory until v4 training.
+- **Primary Domain (trained):** EBV (B95-8 strain) and HPV 16/18 - identical to feature_mode=31.
+- **Exploratory (not validated):** HBV (genotype D), HCV (genotype 1a) - exploratory until v4 training.
 - **Out-of-Scope:** Deployment without a valid antigen processing cache; clinical diagnostics; allele-specific predictions.
 
 ## Training Data
@@ -36,7 +36,7 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 | ISSR@10 | **0.9158 ± 0.042** | 0.8842 ± 0.052 | True positives in top 10% |
 | ISSR@25 | 0.9102 ± 0.038 | 0.8816 ± 0.024 | |
 
-- **Unweighted ablation AUC-PR:** 0.886 ± 0.019 — best single-number unweighted result in SESTRAV v3.
+- **Unweighted ablation AUC-PR:** 0.886 ± 0.019 - best single-number unweighted result in SESTRAV v3.
 - **Improvement over feature_mode=31:** +0.022 AUC-PR (unweighted); +0.012 AUC-PR (weighted). The most informative single feature is `netchop_score` (RF importance = 0.118), confirming independent proteasomal processing signal.
 
 ## Top Features (RF Importance, feature_mode=33)
@@ -60,7 +60,7 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 
 ## Provenance
 - MHCflurry version: 2.2.1
-- Antigen processing cache: `data/antigen_processing_cache.csv` (1,004 rows, 0 NaN; mock scores — see limitations)
+- Antigen processing cache: `data/antigen_processing_cache.csv` (1,004 rows, 0 NaN; mock scores - see limitations)
 - Feature schema: `feature_mode=33`, `FEATURE_COLUMNS_33` in `src/features.py`
 - Training script: `src/train_classifier.py --feature-mode 33 --sample-weights`
 - Training artifacts: `models/training_results.csv`, `models/feature_importances.csv`

@@ -94,7 +94,7 @@ def run_calibration_analysis(v2_oof_path, v1_oof_path=None,
                 'o-', label=f"v1 (Brier={v1_metrics['brier_score']:.4f})", linewidth=2)
     ax.set_xlabel('Mean predicted probability')
     ax.set_ylabel('Fraction of positives')
-    ax.set_title(f'{method} — Reliability Diagram (OOF)')
+    ax.set_title(f'{method} - Reliability Diagram (OOF)')
     ax.legend(loc='lower right')
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
@@ -112,7 +112,7 @@ def run_calibration_analysis(v2_oof_path, v1_oof_path=None,
         ax.hist(v1_df_full['score'].values, bins=bins, alpha=0.4, label='v1', edgecolor='black')
     ax.set_xlabel('Predicted probability')
     ax.set_ylabel('Count')
-    ax.set_title(f'{method} — OOF Score Distribution')
+    ax.set_title(f'{method} - OOF Score Distribution')
     ax.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'calibration_score_distribution.png'),

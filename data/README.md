@@ -130,7 +130,7 @@ suite self-contained.
 
 ---
 
-## IEDB API Output — gitignored
+## IEDB API Output - gitignored
 
 `iedb/` receives CSV files written by `scripts/fetch_iedb_tcell.py`. Each file is named
 `{virus}_tcell.csv` with a `{virus}_tcell_provenance.json` sidecar. This directory is
@@ -144,7 +144,7 @@ python scripts/fetch_iedb_tcell.py --all --output-dir data/iedb/
 
 ---
 
-## Self-Similarity Cache — gitignored
+## Self-Similarity Cache - gitignored
 
 `self_similarity_cache.csv` is written by `scripts/precompute_self_similarity.py`. It
 contains human proteome exact-match scores for training peptides. Gitignored because it

@@ -10,9 +10,9 @@
 | Positive (immunogenic) | 787 (84.8%) | 506 (70.3%) | v2 more balanced |
 | Negative (non-immuno) | 141 (15.2%) | 214 (29.7%) | v2 has 52% more negatives |
 | Class imbalance ratio | 5.58:1 | 2.36:1 | v2 significantly better |
-| Peptide overlap | — | 512 shared | 274 v1-only, 208 v2-only |
-| Label flips | — | 69 | 9.6% of shared peptides |
-| Conflict peptides (cross-label) | — | 201 (all resolved positive) | Majority-vote deduplication |
+| Peptide overlap | - | 512 shared | 274 v1-only, 208 v2-only |
+| Label flips | - | 69 | 9.6% of shared peptides |
+| Conflict peptides (cross-label) | - | 201 (all resolved positive) | Majority-vote deduplication |
 
 ## Cross-Validation Performance (RF, 30-feature)
 
@@ -20,9 +20,9 @@
 |--------|--------|-------------------|--------|-------------------|--------|
 | AUC-PR | 0.953 | +0.105 | 0.849 | +0.146 | **v2** (above-trivial) |
 | AUC-ROC | 0.820 | +0.320 | 0.754 | +0.254 | v1 (both measures) |
-| Recall@threshold | 99% | — | 99% | — | Tie |
-| Accuracy | 81.9% | — | 64.6% | — | v1 (raw) |
-| F1 | 0.896 | — | 0.742 | — | v1 (raw) |
+| Recall@threshold | 99% | - | 99% | - | Tie |
+| Accuracy | 81.9% | - | 64.6% | - | v1 (raw) |
+| F1 | 0.896 | - | 0.742 | - | v1 (raw) |
 
 **Interpretation:** v1's raw numbers are higher because its trivial-all-positive baseline is already 84.8%. v2's above-trivial AUC-PR is 39% better than v1's, meaning the model works harder relative to class frequency.
 
@@ -48,7 +48,7 @@
 
 **All 15 gold-standard positives recovered in both versions.**
 
-### Negative Set (10 curated strong-binder negatives) — NEW in v2
+### Negative Set (10 curated strong-binder negatives) - NEW in v2
 
 | Metric | v2 Result |
 |--------|-----------|
@@ -84,13 +84,13 @@
 
 **Rationale:**
 
-1. **Gold standard negatives (9/10 pushed down)** — First quantitative proof that SESTRAV's TCR-contact features add value beyond binding-only prediction. This is the project's strongest novel claim.
+1. **Gold standard negatives (9/10 pushed down)** - First quantitative proof that SESTRAV's TCR-contact features add value beyond binding-only prediction. This is the project's strongest novel claim.
 
-2. **40/60 SHAP split** — TCR features contribute 40% of total model explanation power, with p8 and p7 VdW volume ranking in the top 5 globally. This is not noise.
+2. **40/60 SHAP split** - TCR features contribute 40% of total model explanation power, with p8 and p7 VdW volume ranking in the top 5 globally. This is not noise.
 
-3. **Honest metrics** — v2's class balance (2.36:1 vs 5.58:1) means performance numbers are less inflated. Above-trivial AUC-PR is 39% better for v2.
+3. **Honest metrics** - v2's class balance (2.36:1 vs 5.58:1) means performance numbers are less inflated. Above-trivial AUC-PR is 39% better for v2.
 
-4. **More negative data** — 214 vs 141 negatives provides a more rigorous test of discrimination ability.
+4. **More negative data** - 214 vs 141 negatives provides a more rigorous test of discrimination ability.
 
 **Caveats to acknowledge:**
 

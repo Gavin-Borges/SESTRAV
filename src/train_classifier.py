@@ -123,8 +123,8 @@ def prepare_features_35(df, binding_matrix_path, ap_cache_path, sim_cache_path):
     """Build the 35-feature tolerance-aware matrix: 33-feature extended + self-similarity.
 
     Adds two columns from the human-proteome k-mer lookup cache:
-      self_similarity_max_identity  — float [0, 1]; 1.0 = exact match
-      self_similarity_exact_match   — float 0/1 (cast from bool for homogeneous dtype)
+      self_similarity_max_identity  - float [0, 1]; 1.0 = exact match
+      self_similarity_exact_match   - float 0/1 (cast from bool for homogeneous dtype)
 
     Self-peptide matches indicate central-tolerance targets (thymic deletion),
     the mechanistic basis for non-immunogenicity in hard decoys.

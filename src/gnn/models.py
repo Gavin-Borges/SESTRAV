@@ -132,11 +132,11 @@ class GraphEncoderV2(nn.Module):
 class GraphPredictorV2(nn.Module):
     """GINEConv + ESM-2 immunogenicity predictor. Accepts a PyG batched Data object.
 
-    data.x: (total_nodes, node_dim) — pre-computed ESM-2 residue embeddings
-    data.edge_index: (2, total_edges) — chain graph with batch-offset indices
-    data.edge_attr: (total_edges, 3) — one-hot edge type features
-    data.physico: (batch_size, num_continuous_features) — SESTRAV physicochemical features
-    data.y: (batch_size,) — binary immunogenicity labels
+    data.x: (total_nodes, node_dim) - pre-computed ESM-2 residue embeddings
+    data.edge_index: (2, total_edges) - chain graph with batch-offset indices
+    data.edge_attr: (total_edges, 3) - one-hot edge type features
+    data.physico: (batch_size, num_continuous_features) - SESTRAV physicochemical features
+    data.y: (batch_size,) - binary immunogenicity labels
     """
     def __init__(self, num_continuous_features: int, node_dim: int = 320,
                  dropout_rate: float = 0.3, pooling: str = "mean"):

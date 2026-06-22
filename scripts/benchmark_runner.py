@@ -334,7 +334,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
         if contamination["gate_pass"]:
             print(f"    Gate: PASS (≤ {CONTAMINATION_CAP*100:.0f}% cap)")
         else:
-            print(f"    Gate: FAIL (> {CONTAMINATION_CAP*100:.0f}% cap — "
+            print(f"    Gate: FAIL (> {CONTAMINATION_CAP*100:.0f}% cap - "
                   "results are valid but flagged)")
     else:
         print(f"    {contamination.get('note', '')}")
@@ -407,7 +407,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
         metrics_df.to_csv(metrics_out, index=False)
         print(f"    [WRITE] {metrics_out.name}")
     else:
-        print("    [SKIP] No metrics computed — metrics_summary.csv not written.")
+        print("    [SKIP] No metrics computed - metrics_summary.csv not written.")
 
     # length_stratified.csv
     if length_rows:
@@ -446,7 +446,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SESTRAV Benchmark Runner — reproducible external validation protocol",
+        description="SESTRAV Benchmark Runner - reproducible external validation protocol",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

@@ -8,9 +8,9 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
 
 ## Current status
 
-- **Lead maintainer:** Gavin Borges (@Gavin-Borges) — primary author, holds repo
+- **Lead maintainer:** Gavin Borges (@Gavin-Borges) - primary author, holds repo
   admin, performs releases and security response.
-- **Backup maintainer:** _<DESIGNATE: name and @handle>_ — **action required.**
+- **Backup maintainer:** _<DESIGNATE: name and @handle>_ - **action required.**
   This should be a trusted person with the ability and willingness to take over
   if the lead becomes unavailable. They do **not** need to be a daily committer,
   but they MUST have (a) repository **Admin/Maintain** access, (b) a verified
@@ -29,7 +29,7 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
 Even at bus factor 1, the project is recoverable by others:
 
 - **Public, forkable source:** the full Git history is public on GitHub and the
-  project is MIT-licensed — anyone may fork and continue it.
+  project is MIT-licensed - anyone may fork and continue it.
 - **Documented, automated build/test/release:** `README.md`, `CONTRIBUTING.md`,
   and the CI workflows fully describe how to build, test, and release without
   tacit knowledge.

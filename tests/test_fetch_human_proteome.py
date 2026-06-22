@@ -70,7 +70,7 @@ def test_sha256_reproducible(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# fetch — skip-if-present (no network)
+# fetch - skip-if-present (no network)
 # ---------------------------------------------------------------------------
 
 def test_fetch_skips_when_file_exists(tmp_path, capsys):
@@ -91,7 +91,7 @@ def test_fetch_reports_sequence_count_on_skip(tmp_path, capsys):
 
 
 # ---------------------------------------------------------------------------
-# main() — CLI argument parsing (no-network paths only)
+# main() - CLI argument parsing (no-network paths only)
 # ---------------------------------------------------------------------------
 
 def test_main_skips_existing_file(tmp_path, capsys):

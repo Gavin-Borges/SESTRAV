@@ -31,7 +31,7 @@ The Area Under the Precision-Recall Curve is calculated by integrating step chan
 $$\text{AP} = \sum_{i=1}^{k} (R_i - R_{i-1}) \cdot P_i \quad \text{where } R_0 = 0$$
 
 ### 1.3 Rationale for Custom Implementations
-Standard scientific libraries (such as `scikit-learn` or `scipy`) are subject to **package update drift**. Minor adjustments in external libraries—such as changes in tie-handling conventions for rankings, numerical precision thresholds, or how edge cases (like zero positive samples) are flagged—can lead to subtle variance in validation outputs. By implementing these metrics from scratch, SESTRAV:
+Standard scientific libraries (such as `scikit-learn` or `scipy`) are subject to **package update drift**. Minor adjustments in external libraries-such as changes in tie-handling conventions for rankings, numerical precision thresholds, or how edge cases (like zero positive samples) are flagged-can lead to subtle variance in validation outputs. By implementing these metrics from scratch, SESTRAV:
 1.  Ensures **perfect reproducibility** of historical benchmarks across different compute environments.
 2.  Eliminates dependencies on heavy statistical libraries during core verification steps.
 3.  Guarantees deterministic results under different floating-point environments.

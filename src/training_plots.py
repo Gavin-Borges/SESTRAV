@@ -101,7 +101,7 @@ def generate_training_plots(data_path, output_dir='results', random_state=42,
     ax.plot([0, 1], [0, 1], 'k--', lw=1, alpha=0.5, label='Random (AUC = 0.500)')
     ax.set_xlabel('False Positive Rate', fontsize=13)
     ax.set_ylabel('True Positive Rate', fontsize=13)
-    ax.set_title(f'ROC Curves — 5-Fold CV ({mode_label})', fontsize=14)
+    ax.set_title(f'ROC Curves - 5-Fold CV ({mode_label})', fontsize=14)
     ax.legend(loc='lower right', fontsize=12)
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1.02])
@@ -126,7 +126,7 @@ def generate_training_plots(data_path, output_dir='results', random_state=42,
                label=f'Baseline prevalence ({prevalence:.2f})')
     ax.set_xlabel('Recall', fontsize=13)
     ax.set_ylabel('Precision', fontsize=13)
-    ax.set_title(f'Precision-Recall Curves — 5-Fold CV ({mode_label})', fontsize=14)
+    ax.set_title(f'Precision-Recall Curves - 5-Fold CV ({mode_label})', fontsize=14)
     ax.legend(loc='lower left', fontsize=12)
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1.02])
@@ -151,7 +151,7 @@ def generate_training_plots(data_path, output_dir='results', random_state=42,
         ax.set_title(f'{name} Score Distribution', fontsize=13)
         ax.legend(fontsize=11)
 
-    plt.suptitle(f'Predicted Score by True Class — 5-Fold CV ({mode_label})', fontsize=14, y=1.02)
+    plt.suptitle(f'Predicted Score by True Class - 5-Fold CV ({mode_label})', fontsize=14, y=1.02)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'cv_score_distributions.png'), dpi=150,
                 bbox_inches='tight')

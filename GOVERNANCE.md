@@ -12,7 +12,7 @@ processes**. The lead maintainer is responsible for the project's direction,
 quality, and security, and is the final decision-maker. To keep decisions
 transparent and reproducible rather than ad hoc:
 
-- All substantive decisions are recorded in public artifacts — GitHub Issues,
+- All substantive decisions are recorded in public artifacts - GitHub Issues,
   Pull Request discussions, `CHANGELOG.md`, and the design docs under `docs/`.
 - All code changes flow through Pull Requests against `main` and must pass the
   required CI checks before merge (see `CONTRIBUTING.md`).

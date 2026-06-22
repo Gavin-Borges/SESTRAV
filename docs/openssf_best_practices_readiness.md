@@ -149,7 +149,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 
 ---
 
-## 7. Registration Protocol — ✅ Complete
+## 7. Registration Protocol - ✅ Complete
 
 SESTRAV is registered at the OpenSSF Best Practices Badge Program as
 **[project 13191](https://www.bestpractices.dev/projects/13191)** and has attained

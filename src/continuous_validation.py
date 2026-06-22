@@ -1,4 +1,4 @@
-"""Continuous IEDB benchmark — scoring, baseline comparison, and regression alerting.
+"""Continuous IEDB benchmark - scoring, baseline comparison, and regression alerting.
 
 This logic was previously embedded in the monthly GitHub Actions job
 (`.github/workflows/iedb_benchmark.yml`) as an inline heredoc, which made the
@@ -79,7 +79,7 @@ def compute_regression(
 
     A regression is a *relative* drop greater than ``rel_threshold`` (Part 11
     specifies >3%). When no baseline exists yet (first run), this is not a
-    regression — the current value seeds the baseline instead.
+    regression - the current value seeds the baseline instead.
 
     Returns a dict with ``is_regression`` (bool), ``delta`` (absolute), and
     ``rel_delta`` (signed fraction of baseline), plus the inputs for logging.
@@ -213,7 +213,7 @@ def run(
 
     df = load_inputs(inputs)
     if df is None or len(df) == 0:
-        print("No IEDB records fetched — nothing to score. Exiting.")
+        print("No IEDB records fetched - nothing to score. Exiting.")
         return 0
 
     print(f"Scoring {len(df)} unique peptides ({int(df['label'].sum())} positive)")

@@ -43,7 +43,7 @@ gnn = [
     "torch-geometric>=2.5.0",
     "transformers>=4.30.0",
 ]
-# Snakemake pipeline runner — only needed to execute pipeline.smk end-to-end.
+# Snakemake pipeline runner - only needed to execute pipeline.smk end-to-end.
 # Install with: pip install "sestrav[pipeline]"
 pipeline = [
     "snakemake>=8.0.0",
@@ -142,5 +142,5 @@ skip_covered = false
 # ~35% statement coverage. This gate prevents regressions below the level CI
 # genuinely clears. It is deliberately NOT the OpenSSF Silver target of 80%;
 # raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
-# up as real tests land — never by padding.
+# up as real tests land - never by padding.
 fail_under = 35

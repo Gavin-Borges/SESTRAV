@@ -81,7 +81,7 @@ class GraphBuilder:
             [0, 0, 1] = backward   (i → i-1)
 
         Returns:
-            edge_index: LongTensor  (2, num_edges) — num_edges = max_len + 2*(max_len-1)
+            edge_index: LongTensor  (2, num_edges) - num_edges = max_len + 2*(max_len-1)
             edge_attr:  FloatTensor (num_edges, 3)
         """
         src, dst, attrs = [], [], []

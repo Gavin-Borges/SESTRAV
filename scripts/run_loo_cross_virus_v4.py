@@ -1,5 +1,5 @@
 """
-Leave-one-virus-out (LOO) cross-virus transfer benchmark — v4 dataset, mode-31 RF.
+Leave-one-virus-out (LOO) cross-virus transfer benchmark - v4 dataset, mode-31 RF.
 
 For each held-out virus:
   - Train RF (mode-31, n_estimators=200, class_weight='balanced') on all other
@@ -10,8 +10,8 @@ Viruses with <10 positives or <10 negatives are skipped (undefined AUC-PR).
 Gold-standard epitopes are excluded from training but retained in test sets.
 
 Output:
-  results/loo_cross_virus_v4.json   — machine-readable per-virus metrics + provenance
-  results/loo_cross_virus_v4.csv    — flat CSV for quick inspection
+  results/loo_cross_virus_v4.json   - machine-readable per-virus metrics + provenance
+  results/loo_cross_virus_v4.csv    - flat CSV for quick inspection
 
 Usage:
   python scripts/run_loo_cross_virus_v4.py
@@ -68,7 +68,7 @@ def run_loo(
     decoys = df[df["source_type"] == "Self"].copy()
     print(f"[loo] Viral rows: {len(viral)} | Self-decoy rows: {len(decoys)}")
 
-    # Precompute full feature matrix — build once, slice per fold
+    # Precompute full feature matrix - build once, slice per fold
     full = pd.concat([viral, decoys], ignore_index=True)
     print(f"[loo] Computing mode-31 features for {len(full)} rows …")
     t0 = time.time()
@@ -112,7 +112,7 @@ def run_loo(
         n_test_neg = int((y_test == 0).sum())
 
         if len(np.unique(y_test)) < 2:
-            print(f"  [{test_virus}] SKIP — test set has only one class")
+            print(f"  [{test_virus}] SKIP - test set has only one class")
             continue
 
         print(

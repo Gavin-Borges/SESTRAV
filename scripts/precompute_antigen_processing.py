@@ -39,7 +39,7 @@ from src.external_predictors import query_netchop, query_tapreg
 
 BATCH_SIZE = 100
 # Both external APIs are unavailable (NetChop webface2 format changed; TAPreg requires VPN).
-# All paths use deterministic mock scores — no network calls, no rate limiting needed.
+# All paths use deterministic mock scores - no network calls, no rate limiting needed.
 RATE_LIMIT_SECONDS = 0.0
 
 
@@ -144,7 +144,7 @@ def main():
             except Exception as e:
                 err_str = str(e)
                 if 'VPN' in err_str or 'restricted' in err_str.lower():
-                    print("  [TAPreg] Network restriction detected — setting tap_score=NaN for remaining peptides.")
+                    print("  [TAPreg] Network restriction detected - setting tap_score=NaN for remaining peptides.")
                     tap_unavailable = True
                 else:
                     print(f"  [TAPreg ERROR] {peptide}: {e}")

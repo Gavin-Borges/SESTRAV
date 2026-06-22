@@ -1,5 +1,5 @@
 """
-SESTRAV Stage 2 — MHC Binding Prediction
+SESTRAV Stage 2 - MHC Binding Prediction
 Runs MHCflurry Class1PresentationPredictor against a configurable panel of
 HLA alleles. Produces a standardized binding CSV consumable by downstream stages
 regardless of binding backend.

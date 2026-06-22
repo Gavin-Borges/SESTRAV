@@ -2,12 +2,12 @@
 SESTRAV IEDB Data Loading and Cleaning Module
 
 Handles TWO IEDB export formats:
-  1. Epitope Table exports — peptides in column 3 ("Name" sub-header),
+  1. Epitope Table exports - peptides in column 3 ("Name" sub-header),
      immunogenicity labels derived from FILENAME ("T-cell positive" vs
      "T-cell negative"), NO allele column, NO "Qualitative Measure" column.
      The HPV16 negative file ("HVP16" typo) has 16 columns and no sub-header
      row; all other Epitope Table files have 32 columns with a multi-row header.
-  2. T-cell Assay exports (legacy support) — "Description" column for peptides,
+  2. T-cell Assay exports (legacy support) - "Description" column for peptides,
      "Qualitative Measure" column for labels, optional "Allele" column.
 
 Downstream processing: 8-11mer filtering, standard amino acid validation,

@@ -5,13 +5,13 @@ research design, data curation, validation, and review.
 
 ## Maintainers
 
-- **Gavin Borges** ([@Gavin-Borges](https://github.com/Gavin-Borges)) — Lead
+- **Gavin Borges** ([@Gavin-Borges](https://github.com/Gavin-Borges)) - Lead
   maintainer and primary author. Architecture, the canonical 30-feature pipeline,
   security posture, releases, and the majority of the codebase.
 
 ## Code contributors
 
-- **Abdelrahman Eljamal** ([@abdel-elj](https://github.com/abdel-elj)) — v1
+- **Abdelrahman Eljamal** ([@abdel-elj](https://github.com/abdel-elj)) - v1
   contributor; code contributions to the pipeline and benchmarking.
 
 ## v1 research & design contributors

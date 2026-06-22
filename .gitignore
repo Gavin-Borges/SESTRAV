@@ -209,12 +209,12 @@ cython_debug/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
-#  Personal settings overrides — already covered by `.claude/` above; listed
+#  Personal settings overrides - already covered by `.claude/` above; listed
 #  explicitly so the intent survives any future narrowing of that rule.
 .claude/settings.local.json
 #  Cross-session agent state file (local-only working scaffold, like CLAUDE.md).
 STATE.md
-#  Internal strategic-planning and session-handoff documents — process artefacts
+#  Internal strategic-planning and session-handoff documents - process artefacts
 #  not intended for general users; results and decisions land in docs/ and commits.
 docs/MASTER_STRATEGIC_PLAN.md
 docs/STRATEGIC_PLAN_WEEK_5_6.md
@@ -222,7 +222,7 @@ docs/TOMORROW_STRATEGIC_PLAN.md
 #  Local AI-assistant prompt scratch files (never part of the published project).
 claude_form_filler_prompt.md
 scripts/claude_bootstrap_prompt.md
-#  Local debug/probe scripts — development scaffolding, not part of the public package.
+#  Local debug/probe scripts - development scaffolding, not part of the public package.
 scripts/_test_*.py
 
 # Marimo
@@ -289,13 +289,13 @@ models/*.pkl
 models/*.pt
 models/*.pth
 
-# Large reference FASTA databases — download independently, do not commit
+# Large reference FASTA databases - download independently, do not commit
 data/proteomes/uniprot_sprot.fasta
 data/proteomes/uniprot_sprot.fasta.gz
 data/proteomes/*.fasta.gz
 data/proteomes/human_uniprot_UP000005640.fasta
 
-# Pytest custom temp directory (contains local username — do not commit)
+# Pytest custom temp directory (contains local username - do not commit)
 .pytest_tmp/
 .pytest_tmp_new/
 .pytest_tmp2/
@@ -347,7 +347,7 @@ results/external_tool_outputs/
 pytest_temp/
 temp/
 
-# Raw IEDB exports (local .xlsx working data — never commit)
+# Raw IEDB exports (local .xlsx working data - never commit)
 data/raw/
 
 # IEDB REST API output and legacy staging area (large, regenerable)
@@ -357,7 +357,7 @@ data/iedb_api_pulls/
 # VDJdb downloaded archive and extracted directory (regenerable via scripts/ingest_vdjdb.py)
 data/vdjdb.zip
 data/vdjdb-*/
-# VDJdb ingestion output — intermediate v4 build artefact; committed as part of v4 dataset release
+# VDJdb ingestion output - intermediate v4 build artefact; committed as part of v4 dataset release
 data/vdjdb_v4.csv
 data/vdjdb_v4_provenance.json
 
@@ -390,7 +390,7 @@ ci_install_test.log
 temp_test_out.txt
 bandit_text.txt
 
-# Antigravity agent cache and rules (local dev AI tooling — not for public repo)
+# Antigravity agent cache and rules (local dev AI tooling - not for public repo)
 .cache/
 .antigravityrules
 
@@ -422,12 +422,12 @@ scripts/inspect_iedb.py
 # The rules above name specific files reactively. These rules catch entire
 # *categories* so future artifacts with different names are blocked automatically.
 
-# Local development workspace — permanent safe harbor (belt-and-suspenders:
+# Local development workspace - permanent safe harbor (belt-and-suspenders:
 # _local/.gitignore also contains `*` so the directory can never leak even
 # if this entry is accidentally removed)
 _local/
 
-# AI and IDE tooling directories — covers current tools and any future ones
+# AI and IDE tooling directories - covers current tools and any future ones
 .cursor/
 .gemini/
 .windsurf/

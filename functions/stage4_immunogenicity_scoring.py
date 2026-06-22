@@ -1,5 +1,5 @@
 """
-SESTRAV Stage 4 — Immunogenicity Scoring
+SESTRAV Stage 4 - Immunogenicity Scoring
 
 Production mode: loads a pre-trained classifier and scores peptides.
 Auto-detects the model's expected feature count (21, 22, or 30) and
@@ -7,7 +7,7 @@ selects the matching columns from the Stage 3 output.
 
 Supported model formats:
   - sklearn .joblib  (RF / XGBoost, 21 or 30 features)
-  - PyTorch .pt      (ANN, 30 features — includes embedded scaler)
+  - PyTorch .pt      (ANN, 30 features - includes embedded scaler)
 
 Optional post-scoring enhancements (when artifact files are present):
   - Platt calibration via platt_calibrator.joblib
@@ -16,7 +16,7 @@ Optional post-scoring enhancements (when artifact files are present):
 
 Prototype mode (no model file): trains inline on the feature data using a
 RandomForestClassifier with binding-derived pseudo-labels.  NOT scientifically
-valid — exists only for end-to-end pipeline testing.
+valid - exists only for end-to-end pipeline testing.
 
 Immunogenicity scores are probabilities in [0, 1] from predict_proba.
 Higher score = higher predicted immunogenicity.  Rank 1 = top candidate.
@@ -45,7 +45,7 @@ def _load_torch_checkpoint(model_path, required=True):
 
     PyTorch 2.6+ enforces strict allowlisting for weights_only=True. SESTRAV
     checkpoints embed numpy scalars and dtypes in scaler parameters
-    (scaler_mean / scaler_scale). Both are allowlisted explicitly here —
+    (scaler_mean / scaler_scale). Both are allowlisted explicitly here -
     the PyTorch-recommended approach for trusted, internally-generated
     checkpoints.
     """
@@ -265,7 +265,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
             # Single-class pseudo-labels → RandomForest would return shape (n,1)
             # and [:, 1] would raise IndexError. Assign a constant score instead.
             features_df['immunogenicity_score'] = 0.0
-            print("[Stage 4] No score columns found — prototype degenerate case; "
+            print("[Stage 4] No score columns found - prototype degenerate case; "
                   "all immunogenicity scores set to 0.0 (NOT scientifically valid)")
         else:
             model = RandomForestClassifier(
@@ -276,7 +276,7 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
             )
             model.fit(X, pseudo_labels)
             features_df['immunogenicity_score'] = model.predict_proba(X)[:, 1]
-            print("[Stage 4] No trained model found — used prototype inline classifier "
+            print("[Stage 4] No trained model found - used prototype inline classifier "
                   "(NOT scientifically valid)")
 
     if calibrate:
@@ -314,7 +314,7 @@ def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
     plt.barh(top_df["peptide"], top_df["immunogenicity_score"], color='#4C72B0')
     plt.xlabel("Immunogenicity Score")
     plt.ylabel("Peptide")
-    plt.title(f"Top {top_n} Immunogenic Peptides — {proteome_id}")
+    plt.title(f"Top {top_n} Immunogenic Peptides - {proteome_id}")
     plt.gca().invert_yaxis()
     plt.tight_layout()
     plt.savefig(f"results/{proteome_id}_top{top_n}_immunogenicity.png", dpi=150)
@@ -324,7 +324,7 @@ def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
     plt.hist(ranked_df["immunogenicity_score"], bins=50, color='#DD8452', alpha=0.85)
     plt.xlabel("Immunogenicity Score")
     plt.ylabel("Number of Peptides")
-    plt.title(f"Immunogenicity Score Distribution — {proteome_id}")
+    plt.title(f"Immunogenicity Score Distribution - {proteome_id}")
     plt.tight_layout()
     plt.savefig(f"results/{proteome_id}_score_distribution.png", dpi=150)
     plt.close()

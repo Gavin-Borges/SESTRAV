@@ -12,23 +12,23 @@ Colab notebooks are convenience workflows for this optional track.
 
 A complete Colab-ready script that runs the SESTRAV model training and evaluation pipeline directly in Google Colab. Covers:
 
-1. **Setup & Installation** — Installs all required dependencies
-2. **Clone & Path Setup** — Clones the SESTRAV repository and configures imports
-3. **Data Loading** — Loads the IEDB immunogenicity dataset
-4. **Feature Extraction** — Computes both 21-feature (legacy) and 30-feature (canonical) matrices
-5. **RF/XGBoost Training** — Trains production tree classifiers with 5-fold CV
-6. **ANN Training** — Trains the FlexibleMLP (256-128-64 ReLU d0.2)
-7. **Architecture Search** — (Optional) evaluates all 14 Project 2 configurations
-8. **GNN Benchmarks** — (Optional) runs GCN, GAT, and Bipartite GNN (requires `torch-geometric`)
-9. **Ablation Study** — Evaluates feature group contributions
-10. **Model Comparison** — Side-by-side summary of all classifiers
-11. **Google Drive Export** — (Optional) saves results to Google Drive
+1. **Setup & Installation** - Installs all required dependencies
+2. **Clone & Path Setup** - Clones the SESTRAV repository and configures imports
+3. **Data Loading** - Loads the IEDB immunogenicity dataset
+4. **Feature Extraction** - Computes both 21-feature (legacy) and 30-feature (canonical) matrices
+5. **RF/XGBoost Training** - Trains production tree classifiers with 5-fold CV
+6. **ANN Training** - Trains the FlexibleMLP (256-128-64 ReLU d0.2)
+7. **Architecture Search** - (Optional) evaluates all 14 Project 2 configurations
+8. **GNN Benchmarks** - (Optional) runs GCN, GAT, and Bipartite GNN (requires `torch-geometric`)
+9. **Ablation Study** - Evaluates feature group contributions
+10. **Model Comparison** - Side-by-side summary of all classifiers
+11. **Google Drive Export** - (Optional) saves results to Google Drive
 
 ### Usage in Google Colab
 
 1. Open [Google Colab](https://colab.research.google.com)
 2. Upload `SESTRAV_Colab_Pipeline.py` or paste its cells into a new notebook
-3. Run cells sequentially — the script handles all installation and setup
+3. Run cells sequentially - the script handles all installation and setup
 4. Results will be saved to the Colab runtime; optionally mount Google Drive for persistence
 
 ### Prerequisites

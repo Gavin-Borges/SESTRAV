@@ -70,7 +70,7 @@ def test_load_cache_deduplicates_cache(tmp_path):
     cache_path = tmp_path / "cache.csv"
     _write_cache(cache_path, [
         ('AAAAAAAAAA', 0.9, 0.7),
-        ('AAAAAAAAAA', 0.1, 0.1),  # duplicate — should be ignored
+        ('AAAAAAAAAA', 0.1, 0.1),  # duplicate - should be ignored
     ])
     df = pd.DataFrame({'peptide': ['AAAAAAAAAA']})
     result = load_antigen_processing_cache(str(cache_path), df)

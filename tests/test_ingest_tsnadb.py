@@ -1,4 +1,4 @@
-"""Tests for scripts/ingest_tsnadb.py — TSNAdb ingestion logic."""
+"""Tests for scripts/ingest_tsnadb.py - TSNAdb ingestion logic."""
 import os
 import sys
 

@@ -4,7 +4,7 @@ From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083
 %labels
     Author SESTRAV Project Contributors
     Version 2.0
-    Description SESTRAV — Structural Epitope Scoring via TCR Recognition And Vaccinology
+    Description SESTRAV - Structural Epitope Scoring via TCR Recognition And Vaccinology
 
 %files
     . /app

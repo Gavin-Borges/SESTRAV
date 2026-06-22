@@ -6,7 +6,7 @@
 -r ../requirements.in
 -r requirements-ci.in
 
-# Security overrides — minimum versions to close CVEs that snakemake's dependency
+# Security overrides - minimum versions to close CVEs that snakemake's dependency
 # resolver would otherwise peg to vulnerable releases.
 # aiohttp: CVE-2026-54273/54274/54275/54276/54277/54278/54280, CVE-2026-50269
 aiohttp>=3.14.1

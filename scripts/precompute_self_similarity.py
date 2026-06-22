@@ -8,7 +8,7 @@ to mount a T-cell response.
 
 This feature provides information orthogonal to MHC binding scores. It is a primary
 reason why hard decoys (high-binding, non-immunogenic self-peptides) are expected to
-improve model discrimination — they occupy the same binding-affinity space as viral
+improve model discrimination - they occupy the same binding-affinity space as viral
 positives but differ on self-similarity.
 
 Algorithm

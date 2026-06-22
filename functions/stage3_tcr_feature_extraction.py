@@ -1,5 +1,5 @@
 """
-SESTRAV Stage 3 — TCR Feature Extraction
+SESTRAV Stage 3 - TCR Feature Extraction
 Computes physicochemical properties at TCR contact positions p4-p8 for
 each peptide, using the shared feature hub in src/features.py.
 Canonical 30-feature mode adds 10 per-allele binding columns from Stage 2.

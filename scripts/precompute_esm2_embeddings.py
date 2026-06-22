@@ -3,10 +3,10 @@
 Saves a dict[str, Tensor] mapping peptide sequence to a per-residue embedding
 tensor of shape (max_len, esm_dim) padded with zeros.
 
-Usage — default (t6, 320-dim, v2.1):
+Usage - default (t6, 320-dim, v2.1):
     python scripts/precompute_esm2_embeddings.py
 
-Usage — larger model (t12, 480-dim, v2.2):
+Usage - larger model (t12, 480-dim, v2.2):
     python scripts/precompute_esm2_embeddings.py \
         --model facebook/esm2_t12_35M_UR50D \
         --output data/esm2_embeddings_t12.pt

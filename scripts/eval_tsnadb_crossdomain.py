@@ -40,7 +40,7 @@ BINDING_MATRIX_OUT = os.path.join(PROJECT_ROOT, "data",    "tsnadb_crossdomain_b
 MODEL_PATH         = os.path.join(PROJECT_ROOT, "models",  "rf_31feature_integrated.joblib")
 OUTPUT_PATH        = os.path.join(PROJECT_ROOT, "results", "tsnadb_crossdomain_benchmark.json")
 
-# Canonical-10 alleles — must match the binding matrix column order
+# Canonical-10 alleles - must match the binding matrix column order
 ALLELES = [
     "HLA-A*01:01", "HLA-A*02:01", "HLA-A*03:01", "HLA-A*11:01", "HLA-A*24:02",
     "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05", "HLA-B*35:01", "HLA-B*44:02",
@@ -99,7 +99,7 @@ def build_pool(tsna_path: str, decoys_path: str) -> pd.DataFrame:
 
     overlap = set(tsna_peps["peptide"]) & set(decoy_peps["peptide"])
     if overlap:
-        print(f"  Warning: {len(overlap)} peptides appear in both arms — excluded from positives.")
+        print(f"  Warning: {len(overlap)} peptides appear in both arms - excluded from positives.")
         tsna_peps = tsna_peps[~tsna_peps["peptide"].isin(overlap)]
 
     pool = pd.concat([tsna_peps, decoy_peps], ignore_index=True).reset_index(drop=True)
@@ -107,7 +107,7 @@ def build_pool(tsna_path: str, decoys_path: str) -> pd.DataFrame:
 
 
 def main() -> None:
-    print("SESTRAV — Tumor Neoantigen Cross-Domain Benchmark")
+    print("SESTRAV - Tumor Neoantigen Cross-Domain Benchmark")
     print("=" * 60)
 
     # 1. Build balanced pool
@@ -131,7 +131,7 @@ def main() -> None:
     else:
         bm_merged = bm_v4.copy()
 
-    # Sanity gate: every pool peptide must be covered — guards the silent zero-vector trap
+    # Sanity gate: every pool peptide must be covered - guards the silent zero-vector trap
     covered = set(bm_merged["peptide"])
     uncovered = [p for p in pool["peptide"] if p not in covered]
     if uncovered:

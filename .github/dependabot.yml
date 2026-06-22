@@ -12,7 +12,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # Frozen scientific/numerical core — pinned for reproducibility of the
+      # Frozen scientific/numerical core - pinned for reproducibility of the
       # freeze-validated pipeline. Version changes here can alter frozen model
       # outputs, so they are bumped deliberately (recompile + re-validate the
       # freeze), never via routine weekly Dependabot PRs.
@@ -41,7 +41,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # Frozen scientific/numerical core — pinned for reproducibility of the
+      # Frozen scientific/numerical core - pinned for reproducibility of the
       # freeze-validated pipeline. Version changes here can alter frozen model
       # outputs, so they are bumped deliberately (recompile + re-validate the
       # freeze), never via routine weekly Dependabot PRs.

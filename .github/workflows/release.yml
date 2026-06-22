@@ -1,7 +1,7 @@
 name: Release (signed + provenance)
 
 # Builds the Python distribution on a version tag, generates a SHA-256 manifest,
-# produces a keyless SLSA build-provenance attestation (Sigstore via GitHub OIDC —
+# produces a keyless SLSA build-provenance attestation (Sigstore via GitHub OIDC -
 # no maintainer-managed signing keys), and publishes everything to a GitHub
 # Release. This satisfies OpenSSF `signed_releases`: consumers can cryptographically
 # verify an artifact came from this repo's CI with:
@@ -93,7 +93,7 @@ jobs:
     # Gate: set repository variable PYPI_PUBLISH=true (Settings → Variables → Actions).
     # Keeping the toggle in a non-secret variable makes the condition evaluable at
     # job-scheduling time (secrets context is unavailable in job-level `if` expressions).
-    # Authentication uses OIDC Trusted Publishers — no API token or secret required.
+    # Authentication uses OIDC Trusted Publishers - no API token or secret required.
     if: ${{ vars.PYPI_PUBLISH == 'true' }}
     environment:
       name: pypi

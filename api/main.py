@@ -1,5 +1,5 @@
 """
-SESTRAV 2.0 — FastAPI Microservice
+SESTRAV 2.0 - FastAPI Microservice
 
 Endpoints
 ---------
@@ -56,7 +56,7 @@ class PeptideInput(BaseModel):
     sequence: str = Field(
         ...,
         pattern=_IUPAC_PATTERN,
-        description="Peptide sequence — 8 to 11 uppercase IUPAC amino acids.",
+        description="Peptide sequence - 8 to 11 uppercase IUPAC amino acids.",
         examples=["GILGFVFTL"],
     )
     allele: str = Field(
@@ -222,7 +222,7 @@ app = FastAPI(
     version="2.0.0",
     description=(
         "T-cell epitope immunogenicity prediction pipeline. "
-        "**Research use only — not for clinical decision-making.** "
+        "**Research use only - not for clinical decision-making.** "
         "See /model-card for contamination disclosure."
     ),
     lifespan=lifespan,

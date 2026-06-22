@@ -41,7 +41,7 @@ def _cohort(n=8):
 
 
 # ---------------------------------------------------------------------------
-# mutate_* — short-peptide (no-op) branches (110->113, 120->123)
+# mutate_* - short-peptide (no-op) branches (110->113, 120->123)
 # ---------------------------------------------------------------------------
 
 
@@ -54,7 +54,7 @@ def test_mutate_tcr_too_short_unchanged():
 
 
 # ---------------------------------------------------------------------------
-# evaluate_single_virus — live GNN path (predict_dataset + breakout)
+# evaluate_single_virus - live GNN path (predict_dataset + breakout)
 # ---------------------------------------------------------------------------
 
 
@@ -75,7 +75,7 @@ def test_evaluate_single_virus_real_gnn():
 
 
 # ---------------------------------------------------------------------------
-# run_evaluation_pipeline — instantiate + load a real checkpoint (303-311)
+# run_evaluation_pipeline - instantiate + load a real checkpoint (303-311)
 # ---------------------------------------------------------------------------
 
 

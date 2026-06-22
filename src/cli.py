@@ -52,7 +52,7 @@ def cmd_info(args: argparse.Namespace) -> int:
         version = importlib.metadata.version("sestrav")
         print(f"  sestrav version : {version}")
     except importlib.metadata.PackageNotFoundError:
-        print("  sestrav version : (editable install — see pyproject.toml)")
+        print("  sestrav version : (editable install - see pyproject.toml)")
 
     # MHCflurry version
     try:
@@ -124,25 +124,25 @@ def cmd_predict(args: argparse.Namespace) -> int:
     print(f"[sestrav predict] Lengths: {lengths}")
     print(f"[sestrav predict] Output: {args.output}")
 
-    # Stage 1 — peptide generation
+    # Stage 1 - peptide generation
     print("[Stage 1] Generating peptides...")
     from functions.stage1_peptide_generation import generate_peptides
     peptides_df = generate_peptides(args.fasta, proteome_id, peptide_lengths=lengths)
     print(f"          {len(peptides_df)} peptides generated")
 
-    # Stage 2 — MHC binding prediction
+    # Stage 2 - MHC binding prediction
     print("[Stage 2] Predicting MHC binding...")
     from functions.stage2_mhc_binding_prediction import predict_binding
     binding_df = predict_binding(peptides_df, proteome_id, alleles=alleles)
     print(f"          {len(binding_df)} binding predictions")
 
-    # Stage 3 — TCR feature extraction
+    # Stage 3 - TCR feature extraction
     print("[Stage 3] Extracting TCR features...")
     from functions.stage3_tcr_feature_extraction import extract_tcr_features
     features_df = extract_tcr_features(binding_df, proteome_id)
     print(f"          {features_df.shape[1]} features per peptide")
 
-    # Stage 4 — immunogenicity scoring
+    # Stage 4 - immunogenicity scoring
     print("[Stage 4] Scoring immunogenicity...")
     from functions.stage4_immunogenicity_scoring import score_immunogenicity
     ranked_df, _ = score_immunogenicity(

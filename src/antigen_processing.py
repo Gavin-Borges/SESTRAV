@@ -1,5 +1,5 @@
 """
-SESTRAV Antigen Processing Features — Stage 4.5
+SESTRAV Antigen Processing Features - Stage 4.5
 ================================================
 
 Implements two antigen-processing proxy features that extend the canonical
@@ -179,7 +179,7 @@ def score_erap(peptide: str, flanking_n: str = "") -> float:
         flanking_n: Optional N-terminal flanking sequence of the precursor.
                     The last residues of this sequence represent the residues
                     that ERAP must trim to generate *peptide*.  An empty
-                    string is acceptable — the peptide's own N-terminus is
+                    string is acceptable - the peptide's own N-terminus is
                     used as the proxy then.
 
     Returns:

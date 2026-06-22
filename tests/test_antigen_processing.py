@@ -1,5 +1,5 @@
 """
-Tests for src/antigen_processing.py — Stage 4.5 features.
+Tests for src/antigen_processing.py - Stage 4.5 features.
 
 Covers:
   - Boundary values (valid / invalid amino acids, edge-length peptides)
@@ -52,7 +52,7 @@ class TestScoreErap:
         )
 
     def test_proline_at_p2_suppresses_score(self):
-        """Proline at P2 strongly inhibits ERAP — score must be lower."""
+        """Proline at P2 strongly inhibits ERAP - score must be lower."""
         normal  = score_erap("GLLTFVGTL")
         proline = score_erap(PROLINE_N2)
         assert proline < normal, (
@@ -236,7 +236,7 @@ class TestScoringConsistency:
 
 
 # ---------------------------------------------------------------------------
-# _lookup internal helper — branch coverage for empty/multi-char aa
+# _lookup internal helper - branch coverage for empty/multi-char aa
 # ---------------------------------------------------------------------------
 
 class TestLookupHelper:

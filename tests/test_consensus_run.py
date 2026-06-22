@@ -1,4 +1,4 @@
-"""Tests for src/consensus_ensemble.run_consensus() — the CSV-level orchestrator."""
+"""Tests for src/consensus_ensemble.run_consensus() - the CSV-level orchestrator."""
 import pandas as pd
 import pytest
 

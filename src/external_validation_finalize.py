@@ -364,7 +364,7 @@ def write_commands_log(run_dir: str, provenance_path: str) -> str:
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [
-        f"# External validation commands log — finalized {ts}",
+        f"# External validation commands log - finalized {ts}",
         f"host={platform.node()} platform={platform.platform()}",
         "",
         "# Tier A PredIG (batched Docker)",
@@ -464,7 +464,7 @@ def append_finalize_report(
     for name, df in subset_dfs.items():
         if df.empty:
             continue
-        sections.append(f"### Metrics — {name}")
+        sections.append(f"### Metrics - {name}")
         sections.append("")
         sections.append(_df_to_md(df))
         sections.append("")

@@ -1,6 +1,6 @@
 """End-to-end unit tests for ``score_immunogenicity`` and plotting.
 
-These exercise the real decision logic on Stage 4's scoring critical path — the
+These exercise the real decision logic on Stage 4's scoring critical path - the
 prototype RandomForest fallback, the joblib/.pt model branches (with the heavy
 loader mocked or a real lightweight checkpoint), calibration, freeze-mode guards,
 and the plotting helper. They complement the pure-helper tests in

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-SESTRAV Colab Pipeline — Full Model Training & Evaluation
+SESTRAV Colab Pipeline - Full Model Training & Evaluation
 =========================================================
 
 This script is designed to run in Google Colab. It clones the SESTRAV
@@ -121,7 +121,7 @@ print(f"\nRF  30f AUC-PR: {rf_avg['auc_pr']:.4f}")
 print(f"XGB 30f AUC-PR: {xgb_avg['auc_pr']:.4f}")
 
 # =============================================================================
-# Cell 6: Train ANN — Single Architecture (Project 2 Best)
+# Cell 6: Train ANN - Single Architecture (Project 2 Best)
 # =============================================================================
 
 from src.ann_benchmark import train_ann
@@ -141,7 +141,7 @@ ann_model, ann_scaler, ann_avg, ann_std = train_ann(
 print(f"\nANN 30f AUC-PR: {ann_avg['auc_pr']:.4f} +/- {ann_std['auc_pr']:.4f}")
 
 # =============================================================================
-# Cell 7: Architecture Search (Optional — ~30 min on T4 GPU)
+# Cell 7: Architecture Search (Optional - ~30 min on T4 GPU)
 # =============================================================================
 
 # Uncomment to run the full 14-config architecture search:
@@ -161,7 +161,7 @@ print(f"\nANN 30f AUC-PR: {ann_avg['auc_pr']:.4f} +/- {ann_std['auc_pr']:.4f}")
 # print(search_results[['config', 'auc_pr_mean', 'auc_roc_mean']].to_string())
 
 # =============================================================================
-# Cell 8: GNN Benchmarks (Optional — requires torch-geometric)
+# Cell 8: GNN Benchmarks (Optional - requires torch-geometric)
 # =============================================================================
 
 try:

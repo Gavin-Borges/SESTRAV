@@ -1,5 +1,5 @@
 """
-SESTRAV GNN Benchmark — Graph Neural Network Comparison
+SESTRAV GNN Benchmark - Graph Neural Network Comparison
 
 Implements GCN, GAT, and Bipartite Peptide-Allele GNN architectures for
 peptide immunogenicity prediction, backported from CMB 523 Project 2.
@@ -482,8 +482,8 @@ def run_bipartite_gnn_benchmark(X_physico, X_binding, labels, strat_key,
     """Run exploratory bipartite peptide-allele GNN benchmark.
 
     Args:
-        X_physico: np.ndarray of shape (n, 20) — physicochemical features.
-        X_binding: np.ndarray of shape (n, 10) — per-allele binding scores.
+        X_physico: np.ndarray of shape (n, 20) - physicochemical features.
+        X_binding: np.ndarray of shape (n, 10) - per-allele binding scores.
         labels:    np.ndarray of binary labels.
         strat_key: stratification keys.
         pos_weight: class weight.
@@ -553,7 +553,7 @@ def run_bipartite_gnn_benchmark(X_physico, X_binding, labels, strat_key,
 
 def main():
     parser = argparse.ArgumentParser(
-        description='SESTRAV GNN Benchmark — Graph Neural Network comparison'
+        description='SESTRAV GNN Benchmark - Graph Neural Network comparison'
     )
     parser.add_argument('--data', required=True,
                         help='Path to immunogenicity_dataset.csv')

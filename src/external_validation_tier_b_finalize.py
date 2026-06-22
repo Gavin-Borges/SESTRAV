@@ -77,7 +77,7 @@ def append_tier_b_report_section(
     combined = df[df["scope"] == "tierB_combined"] if "scope" in df.columns else df
     lines = [
         "",
-        "## Tier B — gold-standard recovery (finalized)",
+        "## Tier B - gold-standard recovery (finalized)",
         "",
         f"Run directory: `{os.path.basename(run_dir)}`",
         f"Finalized: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
@@ -103,7 +103,7 @@ def append_tier_b_report_section(
     if os.path.isfile(report_path):
         with open(report_path, "r", encoding="utf-8") as f:
             body = f.read()
-        marker = "## Tier B — gold-standard recovery"
+        marker = "## Tier B - gold-standard recovery"
         if marker in body:
             start = body.index(marker)
             end = body.find("\n## ", start + 1)

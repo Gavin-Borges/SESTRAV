@@ -6,13 +6,13 @@ All 15 epitopes are recoverable from the current 8-antigen FASTA files
 (confirmed: 15/15 Stage 1 recovery on Job 55598638, April 2026).
 
 Strain notes:
-  GLCTLVAML   — From BMLF1 (SM protein). BMLF1 is present in
+  GLCTLVAML   - From BMLF1 (SM protein). BMLF1 is present in
                 the EBV panel proteome FASTA.
-  FLRGRAYGI   — B95-8 EBNA3A carries the Ile variant at p9 (FLRGRAYGI).
+  FLRGRAYGI   - B95-8 EBNA3A carries the Ile variant at p9 (FLRGRAYGI).
                 The Leu variant (FLRGRAYGL) is from EBV type-2 strains.
                 Both variants are held out from training; pipeline
                 validation uses the B95-8 Ile variant.
-  HPVGEADYFEY — B95-8 EBNA1 (P03211) contains the Glu variant.
+  HPVGEADYFEY - B95-8 EBNA1 (P03211) contains the Glu variant.
                 GD1-strain EBNA1 (Q3KSS4) has HPVGDADYFEY (Asp at p5).
                 Current FASTA uses B95-8 EBNA1.
 """
@@ -48,13 +48,13 @@ GOLD_STANDARD_NEGATIVES = [
     # integrated model correctly rejects non-immunogenic strong binders.
     #
     # --- Original set (10): curated from v1 analysis ---
-    # EBV negatives (5) — sorted by predicted binding affinity
+    # EBV negatives (5) - sorted by predicted binding affinity
     {'peptide': 'LIPETVPYI',  'allele': 'HLA-A*02:01', 'virus': 'EBV',   'affinity_nM': 25.8},
     {'peptide': 'LPQGQLTAY',  'allele': 'HLA-B*35:01', 'virus': 'EBV',   'affinity_nM': 26.1},
     {'peptide': 'MLLLIVAGI',  'allele': 'HLA-A*02:01', 'virus': 'EBV',   'affinity_nM': 26.3},
     {'peptide': 'FTYPVLEEM',  'allele': 'HLA-A*02:01', 'virus': 'EBV',   'affinity_nM': 35.4},
     {'peptide': 'SYVKQPLCL',  'allele': 'HLA-A*24:02', 'virus': 'EBV',   'affinity_nM': 41.1},
-    # HPV16 negatives (5) — sorted by presentation score
+    # HPV16 negatives (5) - sorted by presentation score
     {'peptide': 'CLLIRPLLL',  'allele': 'HLA-B*08:01', 'virus': 'HPV',   'affinity_nM': 75.9},
     {'peptide': 'IVYRDGNPY',  'allele': 'HLA-B*35:01', 'virus': 'HPV',   'affinity_nM': 64.1},
     {'peptide': 'RLCVQSTHV',  'allele': 'HLA-A*02:01', 'virus': 'HPV',   'affinity_nM': 38.9},
@@ -65,7 +65,7 @@ GOLD_STANDARD_NEGATIVES = [
     # Selected from v2 training dataset negatives with highest MHC
     # presentation scores.  All are IEDB T-cell negative and absent from
     # the 201 cross-label conflict set.
-    # EBV expansion (10) — sorted by presentation score
+    # EBV expansion (10) - sorted by presentation score
     {'peptide': 'HYQTLCTNF',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
     {'peptide': 'DYMAIHRSL',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
     {'peptide': 'AYAEATSSL',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
@@ -76,7 +76,7 @@ GOLD_STANDARD_NEGATIVES = [
     {'peptide': 'GIDPHLPTL',   'allele': 'HLA-A*02:01', 'virus': 'EBV', 'affinity_nM': None},
     {'peptide': 'NYNPGTLSSL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
     {'peptide': 'IVTDLSIIK',   'allele': 'HLA-A*11:01', 'virus': 'EBV', 'affinity_nM': None},
-    # HPV16 expansion (5) — sorted by presentation score
+    # HPV16 expansion (5) - sorted by presentation score
     {'peptide': 'CYSVYGTTL',   'allele': 'HLA-A*24:02', 'virus': 'HPV', 'affinity_nM': None},
     {'peptide': 'VYLTAPTGCI',  'allele': 'HLA-A*24:02', 'virus': 'HPV', 'affinity_nM': None},
     {'peptide': 'QPETTDLYCY',  'allele': 'HLA-B*35:01', 'virus': 'HPV', 'affinity_nM': None},
@@ -88,7 +88,7 @@ GOLD_STANDARD_NEGATIVES_EXPANDED = [
     # Kept for backward compatibility; these are now merged into
     # GOLD_STANDARD_NEGATIVES above. The list below mirrors the expansion
     # entries with their original presentation_score metadata.
-    # EBV expansion (10) — sorted by presentation score
+    # EBV expansion (10) - sorted by presentation score
     {'peptide': 'HYQTLCTNF',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.964},
     {'peptide': 'DYMAIHRSL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.960},
     {'peptide': 'AYAEATSSL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.957},
@@ -99,7 +99,7 @@ GOLD_STANDARD_NEGATIVES_EXPANDED = [
     {'peptide': 'GIDPHLPTL',  'allele': 'HLA-A*02:01', 'virus': 'EBV', 'presentation_score': 0.918},
     {'peptide': 'NYNPGTLSSL', 'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.905},
     {'peptide': 'IVTDLSIIK',  'allele': 'HLA-A*11:01', 'virus': 'EBV', 'presentation_score': 0.902},
-    # HPV16 expansion (5) — sorted by presentation score
+    # HPV16 expansion (5) - sorted by presentation score
     {'peptide': 'CYSVYGTTL',  'allele': 'HLA-A*24:02', 'virus': 'HPV', 'presentation_score': 0.842},
     {'peptide': 'VYLTAPTGCI', 'allele': 'HLA-A*24:02', 'virus': 'HPV', 'presentation_score': 0.580},
     {'peptide': 'QPETTDLYCY', 'allele': 'HLA-B*35:01', 'virus': 'HPV', 'presentation_score': 0.520},

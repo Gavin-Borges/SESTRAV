@@ -40,7 +40,7 @@ GitHub's built-in private reporting is also available:
 
 1. Navigate to the [SESTRAV Security tab](https://github.com/Gavin-Borges/SESTRAV/security).
 2. Click **"Report a vulnerability"**.
-3. Fill in the advisory form — this is end-to-end encrypted between you and the maintainer.
+3. Fill in the advisory form - this is end-to-end encrypted between you and the maintainer.
 
 ## Response Commitment
 
@@ -80,7 +80,7 @@ sha256sum -c <manifest-file>   # confirm the downloaded ZIP matches the manifest
 Release **authenticity** (signing) is automated by
 [`.github/workflows/release.yml`](.github/workflows/release.yml): pushing a version
 tag builds the distribution and produces a **keyless SLSA build-provenance
-attestation** (Sigstore, via GitHub OIDC — no maintainer-managed keys). From the
+attestation** (Sigstore, via GitHub OIDC - no maintainer-managed keys). From the
 release at which signing is introduced onward:
 
 - **Tags** are signed (`git tag -s`) and verifiable with `git tag -v vX.Y.Z`.
@@ -190,9 +190,9 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   - **Severity:** Error (Semgrep default); not exploitable in SESTRAV's model.
   - **Mitigation:** All calls use the list/argv form (`shell=False`), so no shell
     interpretation occurs. Command arguments are sourced from the operator's local
-    CLI (`argparse`) and constant literals — never from untrusted or network input.
+    CLI (`argparse`) and constant literals - never from untrusted or network input.
   - **Suppression:** Reviewed and dismissed as *false positive* in GitHub code
-    scanning (Semgrep OSS, `dismissed_reason: false positive`) — the authoritative,
+    scanning (Semgrep OSS, `dismissed_reason: false positive`) - the authoritative,
     re-scan-durable disposition for all three call sites. Note: an inline
     `# nosemgrep` comment does **not** clear Semgrep's taint-mode finding (verified
     in CI), so suppression is handled via the Security-tab dismissal rather than

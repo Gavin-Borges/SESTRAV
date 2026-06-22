@@ -1,4 +1,4 @@
-"""Tests for scripts/fetch_iedb_tcell.py — pure logic layer, no network calls."""
+"""Tests for scripts/fetch_iedb_tcell.py - pure logic layer, no network calls."""
 
 import sys
 import os
@@ -41,7 +41,7 @@ class TestNormalizeAllele:
         assert _normalize_allele("HLA-B*0702") == "HLA-B*07:02"
 
     def test_supertypic_unchanged(self):
-        """Supertypic shorthand returned unchanged — insufficient info to expand."""
+        """Supertypic shorthand returned unchanged - insufficient info to expand."""
         assert _normalize_allele("HLA-A2") == "HLA-A2"
 
     def test_class_i_label_unchanged(self):

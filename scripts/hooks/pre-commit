@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# SESTRAV pre-commit hygiene gate
+#
+# Gate 1 -- blocks staged files whose paths match sensitive categories
+# Gate 2 -- scans staged file content for known credential patterns
+# Gate 3 -- rejects em-dashes (U+2014) in staged file content
+#
+# All gates read from the git index (staged content), not the working tree,
+# so they cannot be tricked by unstaged modifications to a file.
+#
+# Emergency override for authorized admin commits only:
+#   git commit --no-verify
+
+set -uo pipefail
+
+RED='\033[0;31m'
+NC='\033[0m'
+block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+
+# ---- Gate 1: Blocked path patterns ------------------------------------------
+# Pattern categories (add new entries here, never remove existing ones):
+#   - AI assistant configuration files and directories
+#   - Session state and personal notes
+#   - Prompt artifacts
+#   - Credential file extensions (belt-and-suspenders over .gitignore)
+
+BLOCKED_PATTERNS=(
+  '^CLAUDE'                  # CLAUDE.md, CLAUDE.local.md
+  '^\.claude/'               # Claude Code settings directory
+  '^\.cursor/'               # Cursor AI editor settings
+  '^\.gemini/'               # Gemini / Antigravity config
+  '^\.windsurf/'             # Windsurf AI editor
+  '^\.continue/'             # Continue AI plugin
+  '^\.cline/'                # Cline plugin
+  '^\.aider'                 # Aider tool
+  '^\.antigravityrules'      # Antigravity rules file
+  '^STATE\.md$'              # Session state file
+  '^_local/'                 # Local workspace (entire subtree)
+  'SESSION_.*\.md$'          # Session note files
+  '^NOTES\.md$'              # Personal notes
+  '^SCRATCH'                 # Scratch files
+  '\.draft\.md$'             # Draft documents
+  '\.wip\.md$'               # Work-in-progress files
+  '^prompts/'                # Prompts directory
+  '\.prompt\.md$'            # Explicit prompt artifact files
+  'prompt.*\.md$'            # Files with "prompt" in the name
+  '\.key$'                   # Private keys
+  '\.pem$'                   # PEM certificates
+  '\.p12$'                   # PKCS12 certificates
+  '\.pfx$'                   # PFX certificates
+  '^\.env$'                  # Literal .env file
+)
+
+gate1_failed=0
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  for pat in "${BLOCKED_PATTERNS[@]}"; do
+    if printf '%s' "$file" | grep -qE "$pat" 2>/dev/null; then
+      block "Staged file '$file' matches blocked pattern: $pat"
+      block "  Correct action: move to _local/ then: git reset HEAD '$file'"
+      gate1_failed=1
+      break
+    fi
+  done
+done <<< "$STAGED"
+
+if [[ $gate1_failed -ne 0 ]]; then
+  printf '\n' >&2
+  printf '%s\n' "  Personal artifacts and AI-tooling config must not be committed." >&2
+  printf '%s\n' "  See _local/ for the designated workspace for such files." >&2
+  exit 1
+fi
+
+# ---- Gate 2: Credential content scan ----------------------------------------
+# Reads the staged version of each file from the git index (git show :path),
+# not the working tree. Checks for known API key and token formats.
+
+CRED_PATTERNS=(
+  'sk-ant-api[0-9A-Za-z_-]{20,}'   # Anthropic API key
+  'sk-[a-zA-Z0-9]{48}'             # OpenAI API key
+  'AIza[0-9A-Za-z_-]{35}'          # Google AI / Firebase key
+  'AKIA[0-9A-Z]{16}'               # AWS access key ID
+  'ghp_[a-zA-Z0-9]{36}'            # GitHub personal access token
+  'ghs_[a-zA-Z0-9]{36}'            # GitHub Actions token
+  'xox[baprs]-[0-9A-Za-z-]{10,}'   # Slack token
+)
+
+gate2_failed=0
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  staged_content=$(git show ":${file}" 2>/dev/null) || continue
+  for pat in "${CRED_PATTERNS[@]}"; do
+    if printf '%s' "$staged_content" | grep -qE "$pat" 2>/dev/null; then
+      block "Credential pattern '$pat' detected in staged '$file'"
+      block "  Remove the secret, then re-stage: git add '$file'"
+      gate2_failed=1
+      break
+    fi
+  done
+done <<< "$STAGED"
+
+if [[ $gate2_failed -ne 0 ]]; then
+  printf '\n' >&2
+  printf '%s\n' "  Secrets must not be committed. Remove the value from the file." >&2
+  printf '%s\n' "  If this is a false positive, see scripts/check_secrets.py for the" >&2
+  printf '%s\n' "  authoritative scan logic and narrow the exclusion there." >&2
+  exit 1
+fi
+
+# ---- Gate 3: Em-dash (U+2014) content scan ----------------------------------
+# Em-dashes must not appear in committed text. Use ASCII hyphens ('-') instead.
+# Rationale: em-dashes caused a CI encoding failure (fa91670) and make diffs,
+# logs, and grep output unreliable on non-UTF-8 terminals. Bare hyphen or
+# spaced hyphen (' - ') is the project-wide standard.
+
+gate3_failed=0
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  staged_content=$(git show ":${file}" 2>/dev/null) || continue
+  if printf '%s' "$staged_content" | LC_ALL=C grep -qP "\xe2\x80\x94" 2>/dev/null; then
+    block "Em-dash (U+2014) detected in staged '${file}'"
+    block "  Replace the U+2014 character with a plain ASCII '-' or ' - ' (spaced)"
+    block "  Quick fix: python -c \"import pathlib; p=pathlib.Path('${file}'); p.write_text(p.read_text(encoding='utf-8').replace('\\u2014','-'), encoding='utf-8')\""
+    gate3_failed=1
+  fi
+done <<< "$STAGED"
+
+if [[ $gate3_failed -ne 0 ]]; then
+  printf '\n' >&2
+  printf '%s\n' "  Em-dashes (U+2014) are banned from this repository." >&2
+  printf '%s\n' "  Use ASCII hyphens ('-') or spaced hyphens (' - ') throughout." >&2
+  exit 1
+fi
+
+exit 0

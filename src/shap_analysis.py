@@ -10,7 +10,7 @@ Outputs:
   3. SHAP values CSV for downstream analysis
   4. Gold-standard waterfall plot (local explanation for top-ranked GS epitope)
 
-SHAP TreeExplainer is exact for tree models (RF, XGB) — no approximation.
+SHAP TreeExplainer is exact for tree models (RF, XGB) - no approximation.
 
 Usage (after pipeline.py has run):
     python -m src.shap_analysis --results-dir results --model-dir models
@@ -158,7 +158,7 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
             show=False,
             plot_size=(10, 8),
         )
-        plt.title(f'{name} — SHAP Feature Importance', fontsize=14, pad=20)
+        plt.title(f'{name} - SHAP Feature Importance', fontsize=14, pad=20)
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'shap_summary_{tag}.png'), dpi=150, bbox_inches='tight')
         plt.close()
@@ -173,7 +173,7 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
             show=False,
             plot_size=(10, 8),
         )
-        plt.title(f'{name} — Mean |SHAP| Feature Importance', fontsize=14, pad=20)
+        plt.title(f'{name} - Mean |SHAP| Feature Importance', fontsize=14, pad=20)
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f'shap_bar_{tag}.png'), dpi=150, bbox_inches='tight')
         plt.close()
@@ -255,7 +255,7 @@ def _shap_gold_standard_waterfall(model, results_dir, output_dir,
 
     plt.figure(figsize=(10, 8))
     shap.plots.waterfall(sv, show=False)
-    plt.title(f'SHAP Waterfall — {best_peptide} (rank {int(best_rank)})', fontsize=13, pad=15)
+    plt.title(f'SHAP Waterfall - {best_peptide} (rank {int(best_rank)})', fontsize=13, pad=15)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'shap_waterfall_top_gs.png'), dpi=150, bbox_inches='tight')
     plt.close()

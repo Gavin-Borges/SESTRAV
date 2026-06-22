@@ -1,5 +1,5 @@
 """
-SESTRAV 2.0 — Streamlit Interactive Demo
+SESTRAV 2.0 - Streamlit Interactive Demo
 
 Run locally:
     streamlit run app/demo.py
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")           # non-interactive backend — headless safe
+matplotlib.use("Agg")           # non-interactive backend - headless safe
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -37,7 +37,7 @@ if str(_ROOT) not in sys.path:
 # Page config (must be first Streamlit call)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="SESTRAV 2.0 — Immunogenicity Predictor",
+    page_title="SESTRAV 2.0 - Immunogenicity Predictor",
     page_icon="🧬",
     layout="centered",
 )
@@ -124,7 +124,7 @@ def _shap_waterfall_figure(
     top_n: int = 12,
 ) -> plt.Figure:
     """Render a waterfall chart using pure Matplotlib (no shap.plots.waterfall)
-    so that the Agg backend is the sole rendering path — no Qt/Tcl dependency."""
+    so that the Agg backend is the sole rendering path - no Qt/Tcl dependency."""
 
     vals = shap_values if shap_values.ndim == 1 else shap_values[0]
 
@@ -157,7 +157,7 @@ def _shap_waterfall_figure(
     ax.set_yticks(y_pos)
     ax.set_yticklabels([""] * len(y_pos))  # labels embedded in bars
     ax.set_xlabel("SHAP value  (contribution to P(immunogenic))", fontsize=9)
-    ax.set_title(f"Feature contributions — {peptide}", fontsize=11, pad=10)
+    ax.set_title(f"Feature contributions - {peptide}", fontsize=11, pad=10)
     ax.text(0.98, 0.02, f"Base: {base_value:.3f}", transform=ax.transAxes,
             ha="right", va="bottom", fontsize=8, color="#555555")
     ax.spines[["top", "right"]].set_visible(False)
@@ -188,7 +188,7 @@ def _build_pdf_scorecard(
         # --- Header panel ---
         ax_hdr = axes[0]
         ax_hdr.axis("off")
-        ax_hdr.text(0.0, 0.95, "SESTRAV 2.0 — Immunogenicity Scorecard",
+        ax_hdr.text(0.0, 0.95, "SESTRAV 2.0 - Immunogenicity Scorecard",
                     fontsize=15, fontweight="bold", va="top")
         ax_hdr.text(0.0, 0.72, f"Peptide:   {peptide}", fontsize=11, va="top",
                     family="monospace")
@@ -200,7 +200,7 @@ def _build_pdf_scorecard(
         bind_txt = f"{bind_score:.3f}" if bind_score is not None else "N/A (MHCflurry unavailable)"
         ax_hdr.text(0.0, 0.20, f"Binding Score:  {bind_txt}", fontsize=10, va="top")
         ax_hdr.text(0.0, 0.04,
-                    "⚠ Research use only — not for clinical decision-making.",
+                    "⚠ Research use only - not for clinical decision-making.",
                     fontsize=8, va="top", color="#777777")
 
         # --- SHAP waterfall panel ---
@@ -247,7 +247,7 @@ def main() -> None:
         </h1>
         <p style='color:#666; margin-top:0;'>
             T-cell epitope immunogenicity predictor &nbsp;|&nbsp;
-            <em>Research use only — not for clinical decision-making</em>
+            <em>Research use only - not for clinical decision-making</em>
         </p>
         <hr style='margin:0.5rem 0 1.5rem 0;'>
         """,
@@ -294,7 +294,7 @@ def main() -> None:
         # Binding score (optional)
         bind_score = _get_binding_score(sequence, allele)
         if bind_score is None:
-            st.warning("MHCflurry is not available — scoring without binding features.")
+            st.warning("MHCflurry is not available - scoring without binding features.")
 
         # Feature vector (30-feature aligned to rf_30feature_integrated)
         feat_vec, feat_cols = _build_feature_vector(sequence, bind_score or 0.0, allele=allele)

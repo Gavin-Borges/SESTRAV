@@ -42,11 +42,11 @@ import re
 import sys
 import time
 import urllib.error
-import urllib.request  # noqa: F401 — urlopen is called via urllib.request.urlopen below
+import urllib.request  # noqa: F401 - urlopen is called via urllib.request.urlopen below
 from urllib.parse import quote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
+import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
 from _dataset_utils import normalize_peptides, write_provenance
 
 import pandas as pd
@@ -187,7 +187,7 @@ def _fetch_page(url: str, *, max_retries: int = 4) -> list[dict]:
     return []
 
 # ---------------------------------------------------------------------------
-# Label / quality / allele normalization — pure functions, fully testable
+# Label / quality / allele normalization - pure functions, fully testable
 # ---------------------------------------------------------------------------
 
 def _normalize_allele(raw: str | None) -> str:
@@ -197,8 +197,8 @@ def _normalize_allele(raw: str | None) -> str:
       HLA-A*02:01  -> HLA-A*02:01  (already canonical)
       HLA-A*0201   -> HLA-A*02:01  (8-digit, insert colon)
       HLA-B*57:01  -> HLA-B*57:01
-      HLA-A2       -> HLA-A2       (supertypic — returned unchanged)
-      class I      -> class I      (too ambiguous — returned unchanged)
+      HLA-A2       -> HLA-A2       (supertypic - returned unchanged)
+      class I      -> class I      (too ambiguous - returned unchanged)
     """
     if not raw or not isinstance(raw, str):
         return ""
@@ -210,14 +210,14 @@ def _normalize_allele(raw: str | None) -> str:
     m = re.match(r"HLA-([A-C])\*(\d{2})(\d{2})$", allele)
     if m:
         return f"HLA-{m.group(1)}*{m.group(2)}:{m.group(3)}"
-    # Supertypic / ambiguous — return as-is
+    # Supertypic / ambiguous - return as-is
     return allele
 
 
 def _assign_label(qualitative_measurement: str | None) -> int | None:
     """Map IEDB qualitative_measurement to binary label.
 
-    Returns 1 (positive), 0 (negative), or None (exclude — inconclusive/missing).
+    Returns 1 (positive), 0 (negative), or None (exclude - inconclusive/missing).
     """
     if not isinstance(qualitative_measurement, str):
         return None

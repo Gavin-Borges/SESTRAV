@@ -1,7 +1,7 @@
 """Unit tests for scripts/precompute_esm2_embeddings.py.
 
 Covers the ESM_MODEL_DIMS registry, auto-output-path naming, and the
-unknown-model validation guard — without running actual ESM-2 inference.
+unknown-model validation guard - without running actual ESM-2 inference.
 """
 import sys
 from pathlib import Path

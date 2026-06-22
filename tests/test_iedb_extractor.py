@@ -61,7 +61,7 @@ class TestIsValidPeptide:
         assert is_valid_peptide("ACDE") is False
 
     def test_too_long(self):
-        assert is_valid_peptide("ACDEFGHIKLMN") is False  # 12 chars — exceeds max
+        assert is_valid_peptide("ACDEFGHIKLMN") is False  # 12 chars - exceeds max
 
     def test_exactly_11_valid(self):
         assert is_valid_peptide("ACDEFGHIKLM") is True

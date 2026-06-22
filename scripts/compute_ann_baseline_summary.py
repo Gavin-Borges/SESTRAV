@@ -113,7 +113,7 @@ def main():
         results_df.to_csv(args.results_file, index=False)
         print(f"Updated training_results.csv with ANN columns: {args.results_file}")
     else:
-        print(f"WARNING: {args.results_file} not found — skipping merge.")
+        print(f"WARNING: {args.results_file} not found - skipping merge.")
         print(f"         ANN-only summary is at {args.output_summary}")
 
     print(f"\n{'=' * 60}")

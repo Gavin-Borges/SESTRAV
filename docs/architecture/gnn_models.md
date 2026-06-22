@@ -43,7 +43,7 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
 - Full-dataset retrain; checkpoint saved as `models/gnn/structural_gnn_v2.pth`.
 
 ## Tensor Shapes & Boundaries
-- **ANN Input**: `(batch, n_features)` — `n_features` inferred dynamically.
+- **ANN Input**: `(batch, n_features)` - `n_features` inferred dynamically.
 - **GNN Node Input** (`node_x`): `(batch, max_len=11, 20)`.
 - **GNN Continuous Input** (`feat_x`): `(batch, num_continuous_features)`.
 - **GNN Fusion Layer**: `(batch, 64)` pool ‖ `(batch, 32)` physico → `(batch, 96)`.

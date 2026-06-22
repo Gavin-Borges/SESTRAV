@@ -1,5 +1,5 @@
 """
-SESTRAV External Benchmark Comparison — PredIG and PRIME
+SESTRAV External Benchmark Comparison - PredIG and PRIME
 
 Automates Steps 7-13 of the External Validation Plan:
   1. Parse PredIG and PRIME raw output files

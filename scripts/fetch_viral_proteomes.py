@@ -12,12 +12,12 @@ a provenance JSON alongside each FASTA so reruns can confirm the source.
 
 Supported panels
 ----------------
-HBV_ayw_panel4        Hepatitis B virus genotype D (ayw) — 4 proteins
-HCV_1a_panel4         Hepatitis C virus genotype 1a (H77) — 4 proteins
-HIV1_HXB2_panel4      HIV-1 clade B reference strain HXB2 — 4 proteins
-SARSCOV2_wuhan1_panel4  SARS-CoV-2 Wuhan-1 (Hu-1) — 4 proteins
-IAV_PR8_panel4        Influenza A virus A/Puerto Rico/8/1934 (H1N1) — 4 proteins
-CMV_AD169_panel4      Human cytomegalovirus strain AD169 — 4 proteins
+HBV_ayw_panel4        Hepatitis B virus genotype D (ayw) - 4 proteins
+HCV_1a_panel4         Hepatitis C virus genotype 1a (H77) - 4 proteins
+HIV1_HXB2_panel4      HIV-1 clade B reference strain HXB2 - 4 proteins
+SARSCOV2_wuhan1_panel4  SARS-CoV-2 Wuhan-1 (Hu-1) - 4 proteins
+IAV_PR8_panel4        Influenza A virus A/Puerto Rico/8/1934 (H1N1) - 4 proteins
+CMV_AD169_panel4      Human cytomegalovirus strain AD169 - 4 proteins
 """
 
 import argparse
@@ -29,12 +29,12 @@ import urllib.request
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
+import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
 
 UNIPROT_FASTA_URL = "https://rest.uniprot.org/uniprotkb/{accession}.fasta"
 
 # ---------------------------------------------------------------------------
-# Panel definitions — each entry is (uniprot_accession, protein_short_name)
+# Panel definitions - each entry is (uniprot_accession, protein_short_name)
 # ---------------------------------------------------------------------------
 
 HBV_AWY_PANEL4 = [
@@ -55,12 +55,12 @@ HCV_1A_PANEL4 = [
 # HIV-1 clade B reference strain HXB2 (GenBank K03455).
 # Gag and Env are the dominant CD8+ T-cell targets; Pol and Nef are well-studied.
 # Clade B is predominant in North America/Western Europe. Clade C (Sub-Saharan Africa,
-# South Asia) shows ~10 % amino-acid divergence — predictions carry additional uncertainty
+# South Asia) shows ~10 % amino-acid divergence - predictions carry additional uncertainty
 # when applied to non-clade-B populations. See antigen_accessions.md §5 for full caveats.
 HIV1_HXB2_PANEL4 = [
-    ("P04591", "Gag"),    # Gag polyprotein (MA, CA, p24, NC) — dominant CD8 target
+    ("P04591", "Gag"),    # Gag polyprotein (MA, CA, p24, NC) - dominant CD8 target
     ("P04585", "Pol"),    # Pol polyprotein (PR, RT, RNase H, IN)
-    ("P04601", "Nef"),    # Negative factor — accessory protein, strong CD8 target
+    ("P04601", "Nef"),    # Negative factor - accessory protein, strong CD8 target
     ("P04578", "Env"),    # Envelope glycoprotein gp160 (gp120 + gp41)
 ]
 
@@ -69,22 +69,22 @@ HIV1_HXB2_PANEL4 = [
 # Omicron BA.2+ has >30 Spike mutations that may reduce cross-reactivity with
 # Wuhan-1-derived predictions. See antigen_accessions.md §6.
 SARSCOV2_WUHAN1_PANEL4 = [
-    ("P0DTC2", "Spike"),  # Surface glycoprotein (S / ORF2) — 1273 AA
-    ("P0DTC9", "N"),      # Nucleocapsid phosphoprotein (N / ORF9) — highly conserved
-    ("P0DTC5", "M"),      # Membrane glycoprotein (M / ORF5) — conserved CD8 target
-    ("P0DTC3", "ORF3a"),  # Accessory protein 3a — pore-forming, immunogenic
+    ("P0DTC2", "Spike"),  # Surface glycoprotein (S / ORF2) - 1273 AA
+    ("P0DTC9", "N"),      # Nucleocapsid phosphoprotein (N / ORF9) - highly conserved
+    ("P0DTC5", "M"),      # Membrane glycoprotein (M / ORF5) - conserved CD8 target
+    ("P0DTC3", "ORF3a"),  # Accessory protein 3a - pore-forming, immunogenic
 ]
 
 # Influenza A virus A/Puerto Rico/8/1934 (PR8; H1N1).
-# NP and M1 are cross-strain conserved — the basis for universal flu vaccine proposals.
+# NP and M1 are cross-strain conserved - the basis for universal flu vaccine proposals.
 # HA is strain-specific and will not generalize to H3N2 or avian strains without retraining.
 # PB1-F2 is 90 AA (PR8); produces few peptides but is a well-documented CD8 target
 # associated with viral pathogenicity. See antigen_accessions.md §7.
 IAV_PR8_PANEL4 = [
-    ("P03466", "NP"),     # Nucleoprotein — dominant, cross-strain conserved CD8 target
-    ("P03485", "M1"),     # Matrix protein 1 — highly conserved CD8 target
-    ("P03437", "HA"),     # Hemagglutinin — strain-specific (H1N1 subtype only)
-    ("P0C0U1", "PB1F2"), # PB1-F2 — pathogenicity factor; 90 AA in PR8 strain
+    ("P03466", "NP"),     # Nucleoprotein - dominant, cross-strain conserved CD8 target
+    ("P03485", "M1"),     # Matrix protein 1 - highly conserved CD8 target
+    ("P03437", "HA"),     # Hemagglutinin - strain-specific (H1N1 subtype only)
+    ("P0C0U1", "PB1F2"), # PB1-F2 - pathogenicity factor; 90 AA in PR8 strain
 ]
 
 # Human cytomegalovirus (HCMV) strain AD169.
@@ -93,10 +93,10 @@ IAV_PR8_PANEL4 = [
 # IE1 (UL123) is the dominant target early in infection (lytic phase).
 # See antigen_accessions.md §8.
 CMV_AD169_PANEL4 = [
-    ("P06725", "pp65"),   # UL83 lower matrix phosphoprotein — immunodominant CD8 target
-    ("P13202", "IE1"),    # UL123 immediate-early antigen 1 — dominant lytic target
+    ("P06725", "pp65"),   # UL83 lower matrix phosphoprotein - immunodominant CD8 target
+    ("P13202", "IE1"),    # UL123 immediate-early antigen 1 - dominant lytic target
     ("P16785", "pp50"),   # UL44 DNA polymerase processivity factor
-    ("P06473", "gB"),     # UL55 envelope glycoprotein B — CD8 target in primary infection
+    ("P06473", "gB"),     # UL55 envelope glycoprotein B - CD8 target in primary infection
 ]
 
 PANELS = {

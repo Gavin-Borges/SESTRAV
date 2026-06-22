@@ -137,7 +137,7 @@ SYFPEITHI_CANONICAL: list[dict] = [
 ]
 
 # Close variants of canonical epitopes found in IEDB/training data
-# These are listed for informational matching — not counted in recall
+# These are listed for informational matching - not counted in recall
 SYFPEITHI_TRAINING_VARIANTS: dict[str, str] = {
     "CLGGLLTMV": "CLGGLLTMV",  # exact match
     "CLGGLLYMV": "CLGGLLTMV",  # 1-substitution variant
@@ -294,7 +294,7 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
         )
 
     if not_evaluable:
-        print("\nEpitopes not in OOF set (cannot evaluate — not in training data):")
+        print("\nEpitopes not in OOF set (cannot evaluate - not in training data):")
         for r in not_evaluable:
             print(f"  {r['peptide']}  ({r['protein']}, {r['virus']})")
 

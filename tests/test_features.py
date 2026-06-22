@@ -26,11 +26,11 @@ from src.features import compute_features, get_tcr_positions
 
 
 def test_clgglltmv_9mer():
-    """CLGGLLTMV (9-mer, LMP2A, HLA-A*02:01) — canonical test.
+    """CLGGLLTMV (9-mer, LMP2A, HLA-A*02:01) - canonical test.
 
     C(0) L(1) G(2) G(3) L(4) L(5) T(6) M(7) V(8)
     p4=G(3), p5=L(4), p6=L(5), p7=T(idx 6, L-3=6), p8=M(idx 7, L-2=7)
-    p7 is valid: 6 > 5 and 6 < 8.  p8: 7 > 5 and 7 < 8 — valid.
+    p7 is valid: 6 > 5 and 6 < 8.  p8: 7 > 5 and 7 < 8 - valid.
     """
     f = compute_features("CLGGLLTMV", binding_score=0.5)
 
@@ -63,7 +63,7 @@ def test_clgglltmv_9mer():
 
 
 def test_rakfkqll_8mer():
-    """RAKFKQLL (8-mer, BZLF1, HLA-B*08:01) — p7 and p8 must be zero-filled.
+    """RAKFKQLL (8-mer, BZLF1, HLA-B*08:01) - p7 and p8 must be zero-filled.
 
     R(0) A(1) K(2) F(3) K(4) Q(5) L(6) L(7)
     p4=F(3), p5=K(4), p6=Q(5)
@@ -91,7 +91,7 @@ def test_rakfkqll_8mer():
 
 
 def test_tihdiilecv_10mer():
-    """TIHDIILECV (10-mer, HPV16 E6, HLA-A*02:01) — all p4-p8 populated.
+    """TIHDIILECV (10-mer, HPV16 E6, HLA-A*02:01) - all p4-p8 populated.
 
     T(0) I(1) H(2) D(3) I(4) I(5) L(6) E(7) C(8) V(9)
     p4=D(3), p5=I(4), p6=I(5)
@@ -121,7 +121,7 @@ def test_tihdiilecv_10mer():
 
 
 def test_hpvgeadyfey_11mer():
-    """HPVGEADYFEY (11-mer, EBNA1, HLA-B*35:01) — all p4-p8 populated.
+    """HPVGEADYFEY (11-mer, EBNA1, HLA-B*35:01) - all p4-p8 populated.
 
     H(0) P(1) V(2) G(3) E(4) A(5) D(6) Y(7) F(8) E(9) Y(10)
     p4=G(3), p5=E(4), p6=A(5)

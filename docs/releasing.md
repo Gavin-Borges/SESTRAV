@@ -3,7 +3,7 @@
 SESTRAV releases are **cryptographically verifiable**. Pushing a version tag runs
 `.github/workflows/release.yml`, which builds the Python distribution, produces a
 keyless [SLSA build-provenance](https://slsa.dev/) attestation (Sigstore, via
-GitHub OIDC — no maintainer-managed keys), and publishes the artifacts plus a
+GitHub OIDC - no maintainer-managed keys), and publishes the artifacts plus a
 SHA-256 manifest to a GitHub Release.
 
 This is the mechanism behind OpenSSF Best Practices `signed_releases` and
@@ -65,10 +65,10 @@ sha256sum -c SHA256SUMS.txt
 git tag -v v2.0.2
 ```
 
-## Publishing to PyPI (Trusted Publishers — no API token)
+## Publishing to PyPI (Trusted Publishers - no API token)
 
 The publish job in `release.yml` authenticates to PyPI using **OpenID Connect
-Trusted Publishers** — no API token or GitHub secret is required.
+Trusted Publishers** - no API token or GitHub secret is required.
 
 ### One-time setup (already complete)
 
@@ -77,7 +77,7 @@ Trusted Publishers** — no API token or GitHub secret is required.
    → Publishing with:
    - Owner: `Gavin-Borges`, Repository: `SESTRAV`
    - Workflow: `release.yml`, Environment: `pypi`
-3. GitHub environment `pypi` configured with **Required reviewers** — every publish
+3. GitHub environment `pypi` configured with **Required reviewers** - every publish
    attempt pauses for manual approval before proceeding.
 4. Repository variable `PYPI_PUBLISH=true` gates the publish job; set it to `false`
    to disable publishing without touching the workflow.

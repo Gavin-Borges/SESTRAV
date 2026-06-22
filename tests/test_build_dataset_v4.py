@@ -1,4 +1,4 @@
-"""Tests for scripts/build_dataset_v4.py — v4 merge-and-validate logic.
+"""Tests for scripts/build_dataset_v4.py - v4 merge-and-validate logic.
 
 All tests use synthetic CSV files so no network access or real data is needed.
 This validates the pipeline that is on the critical path for v4 dataset build.
@@ -59,7 +59,7 @@ def test_build_missing_optional_sources_still_succeeds(tmp_path):
     v3 = tmp_path / "v3.csv"
     _v3_csv(v3)
     out = tmp_path / "v4.csv"
-    # vdjdb, tsnadb, decoys all absent — should warn but succeed
+    # vdjdb, tsnadb, decoys all absent - should warn but succeed
     build_dataset_v4(str(v3), str(tmp_path / "nope.csv"), None, None, SCHEMA_PATH, str(out))
     df = pd.read_csv(out)
     assert len(df) == 2
@@ -140,7 +140,7 @@ def test_build_iedb_dir_replaces_v3_fallback(tmp_path):
     ]
     pd.DataFrame(rows_iedb).to_csv(str(iedb_dir / "iav_tcell.csv"), index=False)
 
-    # v3 has a different peptide — it should NOT be loaded when iedb_dir works
+    # v3 has a different peptide - it should NOT be loaded when iedb_dir works
     v3 = tmp_path / "v3.csv"
     pd.DataFrame([{"peptide": "NLVPMVATV", "label": 0}]).to_csv(str(v3), index=False)
 

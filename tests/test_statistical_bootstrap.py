@@ -1,7 +1,7 @@
 """Tests for src/statistical_bootstrap.py.
 
 Targets the uncovered paths:
-  - _bootstrap_iter  (runs in joblib worker — test directly)
+  - _bootstrap_iter  (runs in joblib worker - test directly)
   - paired_bootstrap_comparison early-return (n_clean < 10)
   - None-result branch in the accumulator loop
   - main() CLI entry point
@@ -37,7 +37,7 @@ def _df(n_pos: int = 30, n_neg: int = 30, seed: int = 0) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# _bootstrap_iter — direct (covers lines 23-34)
+# _bootstrap_iter - direct (covers lines 23-34)
 # ---------------------------------------------------------------------------
 
 class TestBootstrapIter:
@@ -71,7 +71,7 @@ class TestBootstrapIter:
 
 
 # ---------------------------------------------------------------------------
-# paired_bootstrap_comparison — early-return path (line 55)
+# paired_bootstrap_comparison - early-return path (line 55)
 # ---------------------------------------------------------------------------
 
 def test_paired_bootstrap_too_few_clean_samples():
@@ -86,7 +86,7 @@ def test_paired_bootstrap_too_few_clean_samples():
 
 
 # ---------------------------------------------------------------------------
-# paired_bootstrap_comparison — None accumulator branch (line 82->81)
+# paired_bootstrap_comparison - None accumulator branch (line 82->81)
 # Inject a None into results_parallel via mock so the `if res is not None`
 # branch is explicitly exercised in the same process as coverage.
 # ---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ def test_paired_bootstrap_none_result_handled():
     """Force at least one _bootstrap_iter → None by using a y array that
     will produce a single-class bootstrap resample on the first draw."""
     rng = np.random.default_rng(42)
-    # 10 samples: 9 positives, 1 negative — high probability of all-positive resample
+    # 10 samples: 9 positives, 1 negative - high probability of all-positive resample
     y = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 0])
     ref = np.concatenate([rng.normal(0.85, 0.05, 9), [0.2]]).clip(0, 1)
     comp = np.concatenate([rng.normal(0.6, 0.1, 9), [0.4]]).clip(0, 1)
@@ -121,7 +121,7 @@ def test_paired_bootstrap_none_result_handled():
 
 
 # ---------------------------------------------------------------------------
-# paired_bootstrap_comparison — happy path with inline parallel
+# paired_bootstrap_comparison - happy path with inline parallel
 # (ensures _bootstrap_iter body is covered in the same process)
 # ---------------------------------------------------------------------------
 

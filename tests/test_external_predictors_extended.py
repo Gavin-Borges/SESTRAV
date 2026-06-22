@@ -27,7 +27,7 @@ from src.external_predictors import (
 
 
 # ---------------------------------------------------------------------------
-# _generate_mock_netchop_scores — proline path (line 66: val -= 0.08 branch)
+# _generate_mock_netchop_scores - proline path (line 66: val -= 0.08 branch)
 # ---------------------------------------------------------------------------
 
 class TestMockNetchopScores:
@@ -46,7 +46,7 @@ class TestMockNetchopScores:
 
 
 # ---------------------------------------------------------------------------
-# _generate_mock_tapreg_score — empty pep (87), PDE c-term (93-96),
+# _generate_mock_tapreg_score - empty pep (87), PDE c-term (93-96),
 #   RKYFW n-term (101), non-blosum branch (104->107)
 # ---------------------------------------------------------------------------
 
@@ -81,7 +81,7 @@ class TestMockTapregScore:
 
 
 # ---------------------------------------------------------------------------
-# parse_netchop_html — out-of-bounds pep index (lines 145->132)
+# parse_netchop_html - out-of-bounds pep index (lines 145->132)
 # ---------------------------------------------------------------------------
 
 class TestParseNetchopHtmlOOB:
@@ -94,7 +94,7 @@ class TestParseNetchopHtmlOOB:
         html = self._TABULAR_ROW_TEMPLATE.format(idx=99)
         result = parse_netchop_html(html, ["GLYF"])
         assert "GLYF" in result
-        assert result["GLYF"]["scores"] == [], "OOB idx must be skipped — no scores assigned"
+        assert result["GLYF"]["scores"] == [], "OOB idx must be skipped - no scores assigned"
 
     def test_mixed_valid_and_oob(self):
         html = (
@@ -107,7 +107,7 @@ class TestParseNetchopHtmlOOB:
 
 
 # ---------------------------------------------------------------------------
-# query_netchop — successful poll returns results (line 255)
+# query_netchop - successful poll returns results (line 255)
 # ---------------------------------------------------------------------------
 
 VALID_NETCHOP_POLL_RESPONSE = (
@@ -146,7 +146,7 @@ class TestQueryNetchopSuccessfulPoll:
 
 
 # ---------------------------------------------------------------------------
-# query_tapreg — threshold kwarg (346-347), parse success (362-364),
+# query_tapreg - threshold kwarg (346-347), parse success (362-364),
 #   empty-parse fallback (365-366)
 # ---------------------------------------------------------------------------
 

@@ -189,7 +189,7 @@ class TestPrepareFeatures35:
         ap = tmp_path / "ap.csv"
         _write_ap_cache(df['peptide'].tolist(), ap)
         sim = tmp_path / "sim.csv"
-        # Empty cache — all peptides missing
+        # Empty cache - all peptides missing
         pd.DataFrame(columns=['peptide', 'self_similarity_max_identity', 'self_similarity_exact_match']).to_csv(sim, index=False)
 
         X = prepare_features_35(df, str(bm), str(ap), str(sim))

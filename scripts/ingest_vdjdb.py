@@ -7,7 +7,7 @@ import zipfile
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import _ssl_fix  # noqa: F401, E402 — patch SSL before any network calls
+import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
 from _dataset_utils import normalize_peptides, validate_against_schema, write_provenance
 
 VDJDB_RELEASES_API = "https://api.github.com/repos/antigenomics/vdjdb-db/releases/latest"
@@ -189,7 +189,7 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     cdr3_alpha_count = int(df_v4['tcr_alpha_cdr3'].notna().sum())
     cdr3_beta_count  = int(df_v4['tcr_beta_cdr3'].notna().sum())
     if cdr3_alpha_count or cdr3_beta_count:
-        print(f"CDR3 sequences captured — alpha: {cdr3_alpha_count}, beta: {cdr3_beta_count} rows")
+        print(f"CDR3 sequences captured - alpha: {cdr3_alpha_count}, beta: {cdr3_beta_count} rows")
     else:
         print("CDR3 columns not found in this VDJdb release; tcr_alpha_cdr3/tcr_beta_cdr3 set to null.")
 

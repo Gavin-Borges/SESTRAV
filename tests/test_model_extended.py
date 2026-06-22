@@ -22,7 +22,7 @@ from src import model as M
 
 
 # ---------------------------------------------------------------------------
-# Shared toy dataset (tiny — tests must run in < 1 s on CPU)
+# Shared toy dataset (tiny - tests must run in < 1 s on CPU)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def toy():
 
 
 # ---------------------------------------------------------------------------
-# get_device — CUDA path (line 70)
+# get_device - CUDA path (line 70)
 # ---------------------------------------------------------------------------
 
 class TestGetDeviceCuda:
@@ -47,7 +47,7 @@ class TestGetDeviceCuda:
 
 
 # ---------------------------------------------------------------------------
-# set_seeds — CUDA seed paths (lines 79-81)
+# set_seeds - CUDA seed paths (lines 79-81)
 # ---------------------------------------------------------------------------
 
 class TestSetSeedsCuda:
@@ -67,7 +67,7 @@ class TestSetSeedsCuda:
 
 
 # ---------------------------------------------------------------------------
-# train_one_fold — device auto-detect (line 177)
+# train_one_fold - device auto-detect (line 177)
 # ---------------------------------------------------------------------------
 
 class TestTrainOneFoldDeviceNone:
@@ -84,7 +84,7 @@ class TestTrainOneFoldDeviceNone:
 
 
 # ---------------------------------------------------------------------------
-# train_one_fold — exhaust all epochs without early stopping (line 202->232)
+# train_one_fold - exhaust all epochs without early stopping (line 202->232)
 # ---------------------------------------------------------------------------
 
 class TestTrainOneFoldExhaustsEpochs:
@@ -101,7 +101,7 @@ class TestTrainOneFoldExhaustsEpochs:
 
 
 # ---------------------------------------------------------------------------
-# train_one_fold — best_state is None when max_epochs=0 (line 232->235)
+# train_one_fold - best_state is None when max_epochs=0 (line 232->235)
 # ---------------------------------------------------------------------------
 
 class TestTrainOneFoldBestStateNone:
@@ -118,7 +118,7 @@ class TestTrainOneFoldBestStateNone:
 
 
 # ---------------------------------------------------------------------------
-# run_cv — device auto-detect (line 259)
+# run_cv - device auto-detect (line 259)
 # ---------------------------------------------------------------------------
 
 class TestRunCvDeviceNone:
@@ -134,7 +134,7 @@ class TestRunCvDeviceNone:
 
 
 # ---------------------------------------------------------------------------
-# train_final_model — device auto-detect (line 291)
+# train_final_model - device auto-detect (line 291)
 # ---------------------------------------------------------------------------
 
 class TestTrainFinalModelDeviceNone:

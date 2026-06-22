@@ -2,7 +2,7 @@
 
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn)
-- **Version:** SESTRAV v2.0 — **Legacy model (feature_mode=30).** Canonical production model is `rf_31feature_integrated.joblib` (feature_mode=31). This card is retained for reproducibility of prior results.
+- **Version:** SESTRAV v2.0 - **Legacy model (feature_mode=30).** Canonical production model is `rf_31feature_integrated.joblib` (feature_mode=31). This card is retained for reproducibility of prior results.
 - **Primary Use:** Scoring the relative immunogenicity of peptide candidates presented by MHC Class I molecules for therapeutic vaccine triage.
 - **Input Features (30):** 20 physicochemical features at TCR contact positions p4–p8 (hydrophobicity, aromaticity, Van der Waals volume, charge, flexibility, bulkiness, hydrophilicity, upward-facing probability proxy) + 10 per-allele MHCflurry 2.0 presentation scores.
 - **Output:** A continuous probability score [0.0–1.0] representing population-level likelihood of T-cell activation. Does not represent allele-specific or donor-specific immunogenicity.
@@ -21,7 +21,7 @@
 - **Biases:** Taxonomic bias toward EBV anchor motifs; length bias toward 9-mers. Inverse-frequency sample weights applied at training time.
 
 ## Evaluation and Performance
-- **Evaluation method:** Strict out-of-fold (OOF) 5-fold cross-validation — conservative; never scores peptides seen during training.
+- **Evaluation method:** Strict out-of-fold (OOF) 5-fold cross-validation - conservative; never scores peptides seen during training.
 - **Metrics on v3 dataset (n=704 Tier A intersection):**
   - AUC-PR: **0.828** (OOF, conservative estimate)
   - ISSR@10: 0.843

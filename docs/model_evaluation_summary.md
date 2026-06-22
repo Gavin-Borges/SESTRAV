@@ -14,7 +14,7 @@
 | **ISSR@10** | **0.9158 ± 0.042** | 0.8842 ± 0.052 | True positive fraction in top 10% |
 | **ISSR@25** | 0.9102 ± 0.038 | 0.8816 ± 0.024 | True positive fraction in top 25% |
 
-> **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** — best single-number unweighted
+> **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** - best single-number unweighted
 > result for SESTRAV on v3. Improvement over feature_mode=31 unweighted (0.864): +0.022 AUC-PR.
 > Top feature: netchop_score (RF importance=0.118), confirming independent proteasomal processing signal.
 
@@ -34,7 +34,7 @@
 | **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | True positive fraction in top 25% |
 
 > **Note on ablation estimate:** An early unweighted ablation projected `full_31` AUC-PR 0.864.
-> The actual result with sample weights is 0.8276 — consistent with the frozen v2.0.0 30-feature
+> The actual result with sample weights is 0.8276 - consistent with the frozen v2.0.0 30-feature
 > result (0.828), since sample weighting increases the effective training difficulty on the majority
 > class. The 31-feature model should be
 > compared against the 30-feature result (0.810 ± 0.025) from the same weighted evaluation context.
@@ -58,7 +58,7 @@ ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev d
 | **ISSR@10** | 0.870 ± 0.050 | 0.865 ± 0.055 | **0.880 ± 0.045** |
 | **ISSR@25** | 0.920 ± 0.035 | 0.915 ± 0.038 | **0.930 ± 0.030** |
 
-**Best benchmark performer (30-feature track): ANN (256-128-64 ReLU dropout 0.2)** — highest AUC-PR and ISSR@10 in this comparison table.
+**Best benchmark performer (30-feature track): ANN (256-128-64 ReLU dropout 0.2)** - highest AUC-PR and ISSR@10 in this comparison table.
 
 > **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `src/train_classifier.py` and `src/ann_benchmark.py` locally to reproduce.
 
@@ -121,7 +121,7 @@ This section documents the legacy 21-feature benchmark retained for reproducibil
 | **ISSR@10** | 0.911 ± 0.057 | 0.911 ± 0.027 | **0.933 ± 0.082** |
 | **ISSR@25** | **0.947 ± 0.036** | 0.938 ± 0.022 | 0.929 ± 0.038 |
 
-**Best model (legacy benchmark line): RandomForest** — highest AUC-ROC, AUC-PR, and ISSR@25.
+**Best model (legacy benchmark line): RandomForest** - highest AUC-ROC, AUC-PR, and ISSR@25.
 This document should be interpreted as the legacy baseline comparison, not the canonical release default.
 
 ### Pipeline Gold-Standard Recovery (15 epitopes, full proteome screen)
@@ -137,14 +137,14 @@ This document should be interpreted as the legacy baseline comparison, not the c
 
 The binding-only baseline outperforms SESTRAV on gold-standard recovery because all 15 gold-standard epitopes were selected from literature specifically for being well-characterized strong MHC binders. This creates a selection bias favoring binding-based ranking.
 
-SESTRAV's value proposition is distinguishing immunogenic from non-immunogenic peptides **among good binders** — the specificity bottleneck that binding-based methods cannot address (Carri et al. 2023: AUC ~0.60 for binding as immunogenicity proxy). The CV metrics on IEDB data (which include both positive and negative peptides) are the proper evaluation.
+SESTRAV's value proposition is distinguishing immunogenic from non-immunogenic peptides **among good binders** - the specificity bottleneck that binding-based methods cannot address (Carri et al. 2023: AUC ~0.60 for binding as immunogenicity proxy). The CV metrics on IEDB data (which include both positive and negative peptides) are the proper evaluation.
 
 ### Top Features (RF importance, 21-feature track)
 
-1. `peptide_length` — 17.2%
-2. `p5_vdw_volume` — 7.3%
-3. `p6_vdw_volume` — 7.3%
-4. `p4_vdw_volume` — 7.2%
-5. `p4_hydrophobicity` — 7.2%
+1. `peptide_length` - 17.2%
+2. `p5_vdw_volume` - 7.3%
+3. `p6_vdw_volume` - 7.3%
+4. `p4_vdw_volume` - 7.2%
+5. `p4_hydrophobicity` - 7.2%
 
 Van der Waals volume and hydrophobicity at TCR contact positions dominate, consistent with the biophysical model of TCR recognition requiring specific steric and chemical complementarity at the binding interface.

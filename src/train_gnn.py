@@ -265,23 +265,23 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     print(f"Final GNN model and scaler saved to {model_dir}/")
  
 # ---------------------------------------------------------------------------
-# GNN v2.1 — GINEConv + ESM-2 node embeddings
+# GNN v2.1 - GINEConv + ESM-2 node embeddings
 # ---------------------------------------------------------------------------
 
 class GraphPeptideDatasetV2(torch.utils.data.Dataset):
     """PyG-compatible dataset returning Data objects with ESM-2 node features.
 
-    Each item carries a variable-length graph — only real residues are included
+    Each item carries a variable-length graph - only real residues are included
     as nodes.  Zero-padded positions in the ESM-2 cache are intentionally
     excluded so that GINEConv message passing and global mean pooling operate
     solely on true amino acid embeddings.
 
     Each item:
-        x:          (L, node_dim)  — ESM-2 per-residue embeddings, L = peptide length
-        edge_index: (2, num_edges) — chain graph for L nodes (no padding edges)
-        edge_attr:  (num_edges, 3) — one-hot [self_loop, forward, backward]
-        physico:    (1, num_features) — batches to (B, num_features) via PyG collation
-        y:          (1,)              — batches to (B,) via PyG collation
+        x:          (L, node_dim)  - ESM-2 per-residue embeddings, L = peptide length
+        edge_index: (2, num_edges) - chain graph for L nodes (no padding edges)
+        edge_attr:  (num_edges, 3) - one-hot [self_loop, forward, backward]
+        physico:    (1, num_features) - batches to (B, num_features) via PyG collation
+        y:          (1,)              - batches to (B,) via PyG collation
     """
     def __init__(self, df, feature_matrix, labels, esm2_cache, max_len=11):
         self.sequences = df['peptide'].values
@@ -305,7 +305,7 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         from torch_geometric.data import Data
         seq = self.sequences[idx]
         L = len(seq)
-        # Slice only the L real residue embeddings — exclude zero-padded positions.
+        # Slice only the L real residue embeddings - exclude zero-padded positions.
         node_feats = self.esm2_cache[seq][:L]  # (L, node_dim)
         edge_index, edge_attr = self._get_edges(L)
         label = self.labels[idx].view(1) if self.labels is not None else torch.zeros(1)
@@ -466,7 +466,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
             val_labels_ep, val_preds_ep = evaluate_model_v2(model, val_loader, device)
             ep_auc_pr = float(evaluate(val_labels_ep, val_preds_ep)['auc_pr'])
             if (epoch + 1) % 5 == 0:
-                print(f"  Epoch {epoch+1}/{epochs} — loss: {loss:.4f} | val AUC-PR: {ep_auc_pr:.4f}")
+                print(f"  Epoch {epoch+1}/{epochs} - loss: {loss:.4f} | val AUC-PR: {ep_auc_pr:.4f}")
             if ep_auc_pr > best_val_auc_pr:
                 best_val_auc_pr = ep_auc_pr
                 best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
@@ -492,7 +492,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
                 'gnn_oof_score': val_preds[i],
             })
 
-    # Save OOF predictions — pooling-tagged file always; canonical untagged only for mean-pool runs.
+    # Save OOF predictions - pooling-tagged file always; canonical untagged only for mean-pool runs.
     # Mirrors the RF per-mode artifact pattern; prevents future experiments from silently
     # overwriting the canonical v2.3 OOF (same class of bug fixed for train_classifier.py).
     oof_df = pd.DataFrame(oof_rows)
@@ -505,7 +505,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         oof_df.to_csv(oof_canonical_path, index=False)
     print(f"Saved GNN OOF predictions to {oof_tagged_path}")
 
-    # Post-hoc Platt calibration — fit logistic regression on raw OOF sigmoid scores
+    # Post-hoc Platt calibration - fit logistic regression on raw OOF sigmoid scores
     # to correct overconfidence without altering rank order (Platt 1999).
     platt = LogisticRegression(C=1.0, max_iter=1000)
     raw_scores = oof_df["gnn_oof_score"].values.reshape(-1, 1)
@@ -531,7 +531,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     print(f"Mean ISSR@10: {avg['issr_10']:.4f} (±{std['issr_10']:.4f})")
 
     avg_best_epochs = max(1, round(float(np.mean(best_epoch_per_fold))))
-    print(f"\nRetraining final GNN v2 model on all data ({avg_best_epochs} epochs — mean of per-fold best: {best_epoch_per_fold}) ...")
+    print(f"\nRetraining final GNN v2 model on all data ({avg_best_epochs} epochs - mean of per-fold best: {best_epoch_per_fold}) ...")
     scaler_full = StandardScaler()
     X_full_scaled = scaler_full.fit_transform(X_feats)
     full_dataset = GraphPeptideDatasetV2(

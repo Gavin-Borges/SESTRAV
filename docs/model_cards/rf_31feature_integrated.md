@@ -2,12 +2,12 @@
 
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights)
-- **Version:** SESTRAV v2.0.3 — **Current canonical production model.**
+- **Version:** SESTRAV v2.0.3 - **Current canonical production model.**
 - **Model file:** `models/rf_31feature_integrated.joblib`
 - **Provenance:** `models/rf_31feature_integrated_provenance.json`
 - **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides for T-cell vaccine candidate triage.
 - **Input Features (31):**
-  - 20 physicochemical features at TCR contact positions p4–p8 (hydrophobicity, aromaticity, Van der Waals volume, formal charge, flexibility, bulkiness, hydrophilicity, structural upward-facing probability proxy — 8 scales × 5 positions; zero-imputed at p7/p8 for 8-mers)
+  - 20 physicochemical features at TCR contact positions p4–p8 (hydrophobicity, aromaticity, Van der Waals volume, formal charge, flexibility, bulkiness, hydrophilicity, structural upward-facing probability proxy - 8 scales × 5 positions; zero-imputed at p7/p8 for 8-mers)
   - 10 per-allele MHCflurry 2.2.1 `presentation_score` for canonical alleles: A*01:01, A*02:01, A*03:01, A*11:01, A*24:02, B*07:02, B*08:01, B*27:05, B*35:01, B*44:02
   - `peptide_length` (critical mediating variable for 8-mer zero-imputation; see Limitations)
 - **Output:** Continuous probability [0.0–1.0] representing population-level likelihood of T-cell activation. Does not represent allele-specific or donor-specific immunogenicity.
@@ -15,7 +15,7 @@
 - **Superseded by:** `rf_33feature_integrated.joblib` where antigen processing cache is available
 
 ## Intended Use
-- **Primary Domain (trained):** EBV (B95-8 strain, 8 proteins) and HPV 16/18 (4 proteins each) — 8–11-mer peptides.
+- **Primary Domain (trained):** EBV (B95-8 strain, 8 proteins) and HPV 16/18 (4 proteins each) - 8–11-mer peptides.
 - **Exploratory (not validated):** HBV (genotype D, ayw), HCV (genotype 1a). Model trained on EBV/HPV data; cross-family accuracy is exploratory pending v4 training. Treat HBV/HCV outputs as screening candidates only.
 - **Out-of-Scope:** Clinical diagnostic or therapeutic decision-making; allele-specific predictions; neoantigen immunogenicity scoring.
 
@@ -28,7 +28,7 @@
 - **Holdout policy:** Tier A and Tier B Gold Standard validation peptides excluded from training manifold via `freeze_mode: true`.
 
 ## Evaluation and Performance
-- **Evaluation method:** Stratified 5-fold OOF cross-validation — conservative; models never score peptides seen during training.
+- **Evaluation method:** Stratified 5-fold OOF cross-validation - conservative; models never score peptides seen during training.
 - **v3 weighted production results (n=1,004):**
 
 | Metric | RF (mean ± std) | Notes |
@@ -38,18 +38,18 @@
 | ISSR@10 | 0.8105 ± 0.079 | True positives in top 10% of scored peptides |
 | ISSR@25 | 0.8367 ± 0.022 | |
 
-- **Unweighted ablation AUC-PR:** 0.864 — used for ablation comparisons in Table 1 of the paper.
+- **Unweighted ablation AUC-PR:** 0.864 - used for ablation comparisons in Table 1 of the paper.
 - **External benchmark context:** PredIG-Path (0.727) and PRIME 2.1 (0.777) are evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). SESTRAV OOF is conservative by design; the advantage is larger than raw numbers suggest.
 - **Cross-virus transfer:** EBV→HPV16 AUC-PR 0.742; HPV16→EBV 0.711.
 - **SYFPEITHI recall:** 1/6 evaluable epitopes in top 5%; 2/6 in top 25% (3.3× and 1.3× enrichment). See `results/syfpeithi_benchmark.json`.
 - **Feature importance note:** All 10 MHCflurry binding features (`bind_A0101`–`bind_B4402`) register RF importance = 0.0 in v3. Root cause: physico features at p5–p8 capture anchor-residue binding variance; v3 negative selection confound suppresses binding variance. This is a scientific finding, not a bug. Hard decoys (v4) will restore binding feature utility.
 
 ## Top Features (RF Importance, feature_mode=31)
-1. `peptide_length` — 0.076
-2. `p7_vdw_volume` — 0.068
-3. `p5_vdw_volume` — 0.065
-4. `p7_hydrophobicity` — 0.064
-5. `p5_hydrophobicity` — 0.062
+1. `peptide_length` - 0.076
+2. `p7_vdw_volume` - 0.068
+3. `p5_vdw_volume` - 0.065
+4. `p7_hydrophobicity` - 0.064
+5. `p5_hydrophobicity` - 0.062
 
 ## Limitations
 1. **No antigen processing features.** NetChop and TAPreg scores are not training features in this model. Use `rf_33feature_integrated.joblib` where antigen processing cache is available (+0.022 AUC-PR over this model).

@@ -54,7 +54,7 @@ def test_graph_predictor_eval_mode_single_sample():
 
 
 # ---------------------------------------------------------------------------
-# GNN v2.1 — GraphEncoderV2 + GraphPredictorV2 (GINEConv + ESM-2 node dim)
+# GNN v2.1 - GraphEncoderV2 + GraphPredictorV2 (GINEConv + ESM-2 node dim)
 # ---------------------------------------------------------------------------
 
 def _make_pyg_batch(batch_size: int, num_features: int, node_dim: int = 320):

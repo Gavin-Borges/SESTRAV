@@ -1,4 +1,4 @@
-# Dockerfile.demo — SESTRAV Streamlit Demo
+# Dockerfile.demo - SESTRAV Streamlit Demo
 # Installs the core ML stack + streamlit + shap + matplotlib.
 FROM python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
 
@@ -13,7 +13,7 @@ RUN chown -R sestrav_user:sestrav_user /app
 USER sestrav_user
 ENV PATH="/home/sestrav_user/.local/bin:${PATH}"
 ENV PYTHONUNBUFFERED=1
-# Agg backend — no display server required
+# Agg backend - no display server required
 ENV MPLBACKEND=Agg
 
 # Copy minimal source needed for the demo

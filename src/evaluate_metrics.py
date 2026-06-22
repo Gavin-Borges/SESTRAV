@@ -8,7 +8,7 @@ Core metrics (always returned by evaluate()):
   auc_roc  : Area Under the ROC Curve, unitless [0, 1].
              0.5 = random, 1.0 = perfect discrimination.
   auc_pr   : Area Under the Precision-Recall Curve, unitless [0, 1].
-             PRIMARY metric — robust to class imbalance.
+             PRIMARY metric - robust to class imbalance.
              Baseline equals the positive class prevalence.
   issr_10  : Immune-Stimulating Success Rate at top 10%, unitless [0, 1].
              Fraction of true positives among the highest-scoring 10% of
@@ -23,7 +23,7 @@ Cross-validation helper:
   summarize_fold_metrics() : Mean +/- std across k-fold CV results.
 
 Label convention: y_true binary (0 = non-immunogenic, 1 = immunogenic).
-Score convention: y_scores continuous — higher = more immunogenic.
+Score convention: y_scores continuous - higher = more immunogenic.
 """
 
 import numpy as np

@@ -183,10 +183,10 @@ def test_verify_artifact_checksum_cross_drive_fallback(tmp_path):
     artifact = subdir_a / "model.bin"
     artifact.write_bytes(b"content")
 
-    # Write the manifest under tmp_path/b/ — different subtree, so _manifest_key
+    # Write the manifest under tmp_path/b/ - different subtree, so _manifest_key
     # would raise ValueError when computing the relative path.  Write the manifest
     # directly (bypass update_checksum_manifest which has the same issue) with
-    # only the artifact's basename as the key — the fallback path the code uses.
+    # only the artifact's basename as the key - the fallback path the code uses.
     subdir_b = tmp_path / "b"
     subdir_b.mkdir()
     manifest_path = subdir_b / MODEL_CHECKSUM_MANIFEST
@@ -194,7 +194,7 @@ def test_verify_artifact_checksum_cross_drive_fallback(tmp_path):
         _json.dumps({
             "generated_utc": "2026-01-01T00:00:00Z",
             "artifacts": {
-                artifact.name: {  # basename key — what the fallback uses
+                artifact.name: {  # basename key - what the fallback uses
                     "sha256": sha256_file(artifact),
                     "size_bytes": artifact.stat().st_size,
                 }

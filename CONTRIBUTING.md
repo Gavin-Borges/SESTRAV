@@ -12,18 +12,27 @@ We recommend using Conda to manage environment dependencies.
    cd SESTRAV
    ```
 
-2. **Create the Conda Environment:**
+2. **Install git hooks:**
+   ```bash
+   bash scripts/hooks/install.sh
+   ```
+   This installs three local hooks (`pre-commit`, `commit-msg`) that enforce:
+   - No AI-assistant footprint in commit messages
+   - No credentials in staged content
+   - No em-dashes (U+2014) in staged files or commit messages (use ASCII `-` instead)
+
+3. **Create the Conda Environment:**
    ```bash
    conda env create -f environment.yml
    conda activate sestrav
    ```
 
-3. **Download MHCflurry Presentation Models:**
+4. **Download MHCflurry Presentation Models:**
    ```bash
    mhcflurry-downloads fetch models_class1_presentation
    ```
 
-4. **Train Canonical Local Models:**
+5. **Train Canonical Local Models:**
    Models must be trained before the production pipeline can execute.
    ```bash
    python -m src.train_classifier --data data/immunogenicity_dataset_v3.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v3.csv
@@ -181,12 +190,12 @@ git commit -s -m "Your message"
 We actively welcome substantial contributions, especially from collaborators
 outside the core institution. High-impact areas include:
 
-- **New pathogen/allele adapters** — extend curation/proteomes to additional
+- **New pathogen/allele adapters** - extend curation/proteomes to additional
   viruses or HLA alleles (see `ROADMAP.md`).
-- **External-dataset validation** — add independent benchmark datasets and
+- **External-dataset validation** - add independent benchmark datasets and
   comparison harnesses.
-- **Documentation** — tutorials, worked examples, and API reference improvements.
-- **Independent review** — review PRs, reproduce results, and audit methodology.
+- **Documentation** - tutorials, worked examples, and API reference improvements.
+- **Independent review** - review PRs, reproduce results, and audit methodology.
 
 Issues labelled **`good first issue`** and **`help wanted`** are good entry points.
 Sustained, significant contributors may be invited to become maintainers per

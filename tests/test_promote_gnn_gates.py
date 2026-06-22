@@ -30,7 +30,7 @@ def _oof_df(n_pos=50, n_neg=50, pos_score_mean=0.8, neg_score_mean=0.2, seed=0):
 
 
 # ---------------------------------------------------------------------------
-# Gate 1 — Generalization (AUC-PR)
+# Gate 1 - Generalization (AUC-PR)
 # ---------------------------------------------------------------------------
 
 def test_gate1_passes_on_good_predictions():
@@ -54,7 +54,7 @@ def test_gate1_fails_on_random_predictions():
 
 
 # ---------------------------------------------------------------------------
-# Gate 2 — Stability (cross-fold AUC-PR std)
+# Gate 2 - Stability (cross-fold AUC-PR std)
 # ---------------------------------------------------------------------------
 
 def test_gate2_passes_with_stable_folds():
@@ -97,7 +97,7 @@ def test_gate2_fails_with_high_variance_folds():
 
 
 # ---------------------------------------------------------------------------
-# Gate 4 — Calibration (ECE)
+# Gate 4 - Calibration (ECE)
 # ---------------------------------------------------------------------------
 
 def test_gate4_passes_on_well_calibrated_scores():
@@ -131,7 +131,7 @@ def test_gate4_fails_on_overconfident_scores():
 
 
 # ---------------------------------------------------------------------------
-# Gate 5 — Escape Sensitivity
+# Gate 5 - Escape Sensitivity
 # ---------------------------------------------------------------------------
 
 def test_gate5_passes_when_positives_above_median_negative():

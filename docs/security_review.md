@@ -28,7 +28,7 @@ every five years and whenever the architecture changes materially.
    least one implemented, evidence-backed control (threat table T1–T7).
 2. **Attack surface is small and offline.** The tool makes no outbound network
    calls during scoring, stores no credentials/PII, and exposes the optional
-   service on loopback only — limiting the realistic external attack surface.
+   service on loopback only - limiting the realistic external attack surface.
 3. **Highest-value controls are in place:** safe deserialization
    (`weights_only=True` + `ModelRegistry`), no shell/`eval`/`exec`, input
    validation via Pydantic, hash-pinned dependencies, and pre-merge secret/PII

@@ -1,7 +1,7 @@
 """Unit tests for the continuous IEDB benchmark logic (Part 11, obj #9).
 
 Covers the baseline-comparison and regression-alerting logic extracted from the
-monthly GitHub Actions job into ``src.continuous_validation`` — including the
+monthly GitHub Actions job into ``src.continuous_validation`` - including the
 >3% relative regression threshold, baseline I/O, input cleaning, and the
 orchestration that writes the ``REGRESSION_DETECTED`` marker the workflow uses to
 open a GitHub Issue. Scoring is injected so no trained model is required.
@@ -15,7 +15,7 @@ from src import continuous_validation as cv
 
 
 # ---------------------------------------------------------------------------
-# compute_regression — the core threshold logic
+# compute_regression - the core threshold logic
 # ---------------------------------------------------------------------------
 
 def test_no_baseline_is_not_a_regression():
@@ -48,7 +48,7 @@ def test_large_drop_above_threshold_is_a_regression():
 
 
 def test_drop_just_below_threshold_is_not_a_regression():
-    # 2.9% relative drop is strictly less than the 3% threshold — NOT a regression.
+    # 2.9% relative drop is strictly less than the 3% threshold - NOT a regression.
     # (Exact boundary testing avoided: 0.7635 * 0.97 / 0.7635 - 1 is floating-point
     # sensitive and rounds to exactly -0.03 ± machine epsilon.)
     result = cv.compute_regression(0.7635 * (1 - 0.029), 0.7635)
@@ -111,7 +111,7 @@ def test_load_inputs_concats_dedups_and_casts_label(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run() orchestration — regression marker + results persistence
+# run() orchestration - regression marker + results persistence
 # ---------------------------------------------------------------------------
 
 def _write_inputs(tmp_path):

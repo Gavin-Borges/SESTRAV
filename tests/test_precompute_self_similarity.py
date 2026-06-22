@@ -1,4 +1,4 @@
-"""Tests for scripts/precompute_self_similarity.py — pure logic, no FASTA I/O."""
+"""Tests for scripts/precompute_self_similarity.py - pure logic, no FASTA I/O."""
 
 import sys
 import os
@@ -153,7 +153,7 @@ class TestProcessPeptides:
 
 
 # ---------------------------------------------------------------------------
-# build_kmer_sets — integration test using an in-memory FASTA
+# build_kmer_sets - integration test using an in-memory FASTA
 # ---------------------------------------------------------------------------
 
 class TestBuildKmerSets:

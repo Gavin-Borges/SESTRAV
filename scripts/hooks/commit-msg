@@ -1,0 +1,33 @@
+#!/bin/bash
+# SESTRAV authorship, Zero-AI-Footprint, and encoding enforcement.
+#
+# Rejects commit messages that:
+#   1. Reference an AI assistant (Zero AI Footprint policy)
+#   2. Carry a Co-authored-by trailer (sole-authorship policy)
+#   3. Contain an em-dash (U+2014) - use ASCII hyphens instead
+
+commit_msg_file="$1"
+
+# 1. AI / assistant footprint (case-insensitive substring match).
+ai_patterns=("Claude" "Anthropic" "Copilot" "ChatGPT" "Generated with")
+for pattern in "${ai_patterns[@]}"; do
+    if grep -qi "$pattern" "$commit_msg_file"; then
+        echo "Commit rejected: message contains forbidden AI marker '$pattern' (Zero AI Footprint policy)." >&2
+        exit 1
+    fi
+done
+
+# 2. Sole authorship: reject ANY co-author trailer (humans included, per policy).
+if grep -qi "co-authored-by" "$commit_msg_file"; then
+    echo "Commit rejected: 'Co-authored-by' trailer found. Commits must list Gavin Borges as the sole author." >&2
+    exit 1
+fi
+
+# 3. Em-dash ban: commit messages must use ASCII hyphens, not U+2014.
+if LC_ALL=C grep -qP "\xe2\x80\x94" "$commit_msg_file" 2>/dev/null; then
+    echo "Commit rejected: em-dash (U+2014) found in commit message." >&2
+    echo "  Replace '-' with a plain ASCII '-' or ' - ' (spaced)." >&2
+    exit 1
+fi
+
+exit 0

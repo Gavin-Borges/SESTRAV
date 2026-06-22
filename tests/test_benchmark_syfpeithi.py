@@ -1,11 +1,11 @@
 """Unit and integration tests for scripts/benchmark_syfpeithi.py.
 
 Coverage targets:
-  _hamming1          — True/False for all distance cases
-  _lookup_in_oof     — exact, hamming1, not_in_oof paths
-  run_benchmark      — recall/enrichment arithmetic, output file I/O,
+  _hamming1          - True/False for all distance cases
+  _lookup_in_oof     - exact, hamming1, not_in_oof paths
+  run_benchmark      - recall/enrichment arithmetic, output file I/O,
                        all-not-in-oof edge case, hamming1 matching in full flow
-  main()             — --dry-run, missing file (returns 1), valid run (returns 0)
+  main()             - --dry-run, missing file (returns 1), valid run (returns 0)
 """
 
 from __future__ import annotations
@@ -196,7 +196,7 @@ def test_lookup_uses_label_column():
 
 
 # ---------------------------------------------------------------------------
-# run_benchmark — recall arithmetic
+# run_benchmark - recall arithmetic
 # ---------------------------------------------------------------------------
 #
 # Test fixture: 20 peptides total (3 canonical + 17 background).
@@ -271,7 +271,7 @@ def test_run_benchmark_n_in_top_k(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run_benchmark — all-not-in-oof edge case
+# run_benchmark - all-not-in-oof edge case
 # ---------------------------------------------------------------------------
 
 def test_run_benchmark_all_not_in_oof(tmp_path):
@@ -284,7 +284,7 @@ def test_run_benchmark_all_not_in_oof(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run_benchmark — hamming1 matching in full flow
+# run_benchmark - hamming1 matching in full flow
 # ---------------------------------------------------------------------------
 
 def test_run_benchmark_hamming1_scored(tmp_path):
@@ -298,7 +298,7 @@ def test_run_benchmark_hamming1_scored(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run_benchmark — output file I/O
+# run_benchmark - output file I/O
 # ---------------------------------------------------------------------------
 
 def test_run_benchmark_writes_valid_json(tmp_path):
@@ -327,7 +327,7 @@ def test_run_benchmark_creates_output_dir(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run_benchmark — column detection
+# run_benchmark - column detection
 # ---------------------------------------------------------------------------
 
 def test_run_benchmark_immunogenicity_score_column(tmp_path):
@@ -355,7 +355,7 @@ def test_run_benchmark_feature_mode_unknown_when_absent(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# run_benchmark — per_epitope structure
+# run_benchmark - per_epitope structure
 # ---------------------------------------------------------------------------
 
 def test_run_benchmark_per_epitope_count(tmp_path):

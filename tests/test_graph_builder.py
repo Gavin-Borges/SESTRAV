@@ -45,7 +45,7 @@ def test_build_spatial_adj_uses_cached_distances(tmp_path):
     dist = torch.tensor(
         [[0.0, 2.0, 50.0], [2.0, 0.0, 3.0], [50.0, 3.0, 0.0]], dtype=torch.float32
     )
-    torch.save(dist, tmp_path / "PEP_dist.pt")  # nosec B614 — test fixture, trusted tensor
+    torch.save(dist, tmp_path / "PEP_dist.pt")  # nosec B614 - test fixture, trusted tensor
     adj = GraphBuilder.build_spatial_adj(
         "PEP", str(tmp_path), max_len=3, distance_threshold=8.0
     )
@@ -56,7 +56,7 @@ def test_build_spatial_adj_uses_cached_distances(tmp_path):
 
 
 def test_sequence_to_node_features_unknown_aa_leaves_row_zero():
-    # 'X' is not in AA_VOCAB — the row should stay all-zero (branch 80->79).
+    # 'X' is not in AA_VOCAB - the row should stay all-zero (branch 80->79).
     seq = "GILXFVFTL"
     features = GraphBuilder.sequence_to_node_features(seq, max_len=9)
     assert features.shape == (9, 20)

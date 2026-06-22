@@ -9,22 +9,22 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 
 | # | Alert | Severity | Status |
 |---|-------|----------|--------|
-| 1 | keras CVEs (6×) — GHSA-36fq, 4f3f, cjgq, hjqc, mq84, 7gcm | **High** | ✅ Pinned & regenerated in `requirements.txt` |
-| 2 | protobuf DoS — GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt` |
+| 1 | keras CVEs (6×) - GHSA-36fq, 4f3f, cjgq, hjqc, mq84, 7gcm | **High** | ✅ Pinned & regenerated in `requirements.txt` |
+| 2 | protobuf DoS - GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt` |
 | 3 | Semgrep false positive (`joblib_load` pattern) | Low | ✅ Fixed in `semgrep-rules/sestrav-custom.yml` |
 | 4 | Branch-Protection (score 4/10) | **High** | ✅ Ruleset applied via automation script |
 | 5 | Code-Review (score 0/10) | **High** | ✅ Ruleset applied via automation script |
 | 6 | Pinned-Dependencies (score 9/10) | Medium | ✅ Scorecard upgraded to v2.4.3 |
 | 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
-| 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) — embedded in `README.md` |
-| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | **Critical** | ✅ Mitigated — zero usage (not imported/executed) |
+| 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) - embedded in `README.md` |
+| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | **Critical** | ✅ Mitigated - zero usage (not imported/executed) |
 
 ---
 
 ## ⬜ Manual Steps Required
 
-### Step 1: Regenerate requirements.txt (dependency CVEs) — ✅ Complete
+### Step 1: Regenerate requirements.txt (dependency CVEs) - ✅ Complete
 
 We have successfully regenerated `requirements.txt` from `requirements.in` using `pip-compile`.
 The compiled file resolves:
@@ -35,7 +35,7 @@ No conflicts with `mhcflurry` were encountered.
 
 ---
 
-### Step 2: Branch Protection Ruleset (HIGH SEVERITY — Score 4→9) — ✅ Complete
+### Step 2: Branch Protection Ruleset (HIGH SEVERITY - Score 4→9) - ✅ Complete
 
 The branch ruleset has been successfully automated and applied via `apply-branch-ruleset.ps1` utilizing the stored Git credential token.
 
@@ -56,7 +56,7 @@ Rules applied:
 
 ---
 
-### Step 3: Code Review Enforcement (HIGH SEVERITY — Score 0→7) — ✅ Complete
+### Step 3: Code Review Enforcement (HIGH SEVERITY - Score 0→7) - ✅ Complete
 
 The PR review workflow (`pr-review-check.yml`) is active and has been added as a required status check (`Require human review`) in the branch ruleset. This ensures:
 - If you (the repository owner) open the PR, the workflow automatically passes (bypassing approval requirements) for frictionless self-merging.
@@ -65,7 +65,7 @@ The PR review workflow (`pr-review-check.yml`) is active and has been added as a
 
 ---
 
-### Step 4: OpenSSF Best Practices Badge (LOW SEVERITY — Score 0→5) — ✅ Complete
+### Step 4: OpenSSF Best Practices Badge (LOW SEVERITY - Score 0→5) - ✅ Complete
 
 The project is registered at the OpenSSF Best Practices Badge Program as
 **project 13191** and has attained the **Passing** level. The questionnaire was
@@ -87,8 +87,8 @@ The live badge is embedded at the top of `README.md`:
 
 ### Dependency CVE Pins (`requirements.in`)
 Added explicit minimum version pins:
-- `keras>=3.13.2` — patches all 6 keras CVEs
-- `protobuf>=5.29.6` — patches protobuf DoS CVE
+- `keras>=3.13.2` - patches all 6 keras CVEs
+- `protobuf>=5.29.6` - patches protobuf DoS CVE
 
 ### Semgrep Rule Fix (`semgrep-rules/sestrav-custom.yml`)
 Removed overly-broad `joblib_load(...)` pattern that was false-positively matching
@@ -115,7 +115,7 @@ recognition of the MIT license.
 
 ## Mitigated Upstream Vulnerabilities
 
-### PyTorch Memory Corruption (CVE-2025-3000) — Mitigated (No execution path)
+### PyTorch Memory Corruption (CVE-2025-3000) - Mitigated (No execution path)
 
 - **Vulnerability:** CVE-2025-3000 involves a critical memory corruption (segmentation fault) in PyTorch's `torch.jit.script` function (underlying TorchScript compiler).
 - **Remediation Status:** There is currently **no upstream patched version** released by the PyTorch maintainers (all versions `<= 2.12.0` are affected).
@@ -126,7 +126,7 @@ recognition of the MIT license.
 
 ---
 
-## Fuzzing — How to Run Locally
+## Fuzzing - How to Run Locally
 
 ```bash
 # Standard fuzz run (200 examples)

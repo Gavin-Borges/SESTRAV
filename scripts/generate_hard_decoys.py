@@ -117,7 +117,7 @@ def _score_batched(
         found = sum(len(f) for f in frames)
         print(
             f"  {allele}: batch {i // batch_size + 1}/{(len(kmers) - 1) // batch_size + 1} "
-            f"— {len(strong)} strong binders (total {found})"
+            f"- {len(strong)} strong binders (total {found})"
         )
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
         columns=["peptide", "allele", "presentation_score"]
@@ -172,7 +172,7 @@ def generate_decoys(
 
     # Pre-sample to bound MHCflurry scoring time while keeping random coverage.
     # A 1M seeded sample from ~20M unique k-mers yields ~5k-50k strong binders
-    # per allele — far more than the per-allele quota — so decoy quality is
+    # per allele - far more than the per-allele quota - so decoy quality is
     # unaffected. Recorded in provenance for full reproducibility.
     if max_candidates is not None and len(kmers) > max_candidates:
         kmers = kmers[:max_candidates]

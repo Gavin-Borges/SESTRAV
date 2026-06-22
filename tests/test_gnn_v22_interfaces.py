@@ -173,7 +173,7 @@ def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatc
 
 
 # ---------------------------------------------------------------------------
-# v2.3: variable-length graph correctness — no zero-padding nodes in graphs
+# v2.3: variable-length graph correctness - no zero-padding nodes in graphs
 # ---------------------------------------------------------------------------
 
 def test_dataset_v2_node_count_equals_peptide_length():

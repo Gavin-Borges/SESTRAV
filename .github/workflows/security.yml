@@ -49,7 +49,7 @@ jobs:
 
       - name: Scan for credential-like patterns
         # Blocking gate: exits 1 if any high-entropy credential-like assignment
-        # is found in tracked source files. No external dependencies — pure stdlib.
+        # is found in tracked source files. No external dependencies - pure stdlib.
         run: python scripts/check_secrets.py
 
   codeql:
@@ -133,7 +133,7 @@ jobs:
       #
       # Risk-accepted advisories are suppressed here with verified IDs and logged
       # in SECURITY.md's Risk-Acceptance Register. To accept a new one, add its
-      # ID below with a comment and a matching register entry — never suppress
+      # ID below with a comment and a matching register entry - never suppress
       # without one. PYSEC ids are matched by pip-audit's PyPI source; GHSA ids
       # are kept alongside for traceability with Dependabot/Security-tab reports.
       - name: Audit pinned lockfile
@@ -145,7 +145,7 @@ jobs:
             --desc \
             --ignore-vuln PYSEC-2025-194 \
             --ignore-vuln GHSA-rrmf-rvhw-rf47
-            # ^ CVE-2025-3000 (torch.jit.script) — no upstream patch; torch.jit.script
+            # ^ CVE-2025-3000 (torch.jit.script) - no upstream patch; torch.jit.script
             #   is never called in SESTRAV. Risk-accepted, see SECURITY.md register.
 
       - name: Write triage digest to run summary
@@ -153,7 +153,7 @@ jobs:
         continue-on-error: true
         run: |
           {
-            echo "## pip-audit — environments/requirements.lock"
+            echo "## pip-audit - environments/requirements.lock"
             echo ""
             pip-audit -r environments/requirements.lock --no-deps --format markdown \
               --ignore-vuln PYSEC-2025-194 --ignore-vuln GHSA-rrmf-rvhw-rf47 || true
