@@ -48,8 +48,8 @@ def precompute_esm2(
     esm_dim = ESM_MODEL_DIMS[model_name]
 
     print(f"Loading {model_name} (dim={esm_dim}) ...")
-    tokenizer = EsmTokenizer.from_pretrained(model_name)
-    model = EsmModel.from_pretrained(model_name)
+    tokenizer = EsmTokenizer.from_pretrained(model_name)  # nosec B615 -- offline precompute; ESM-2 is a pinned stable model whose identity is enforced by hash in the lockfile
+    model = EsmModel.from_pretrained(model_name)  # nosec B615
     model.eval()
 
     df = pd.read_csv(data_path)

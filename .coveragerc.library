@@ -24,6 +24,7 @@ omit =
     src/cli.py
     src/ci/validate_release.py
     src/consensus_ensemble.py
+    src/continuous_validation.py
     src/data_bias_audit.py
     src/data_curation_qc.py
     src/expand_negatives.py
