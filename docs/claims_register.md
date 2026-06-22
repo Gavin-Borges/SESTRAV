@@ -77,4 +77,4 @@ Claims that are currently accurate but could become stale as the project evolves
 | "~767 tests passing (2 skipped)" | Any new test file added or removed | Update STATE.md and README after every test suite change |
 | "AUC-PR 0.7635 (OOF RF, v4, mode-31 canonical); 0.828/0.840 Tier A (v3)" | Further model training | v4 mode-31 (0.7635) is the canonical production figure (reproducible: `models/training_results_mode31.csv`, regenerated 2026-06-22 unweighted = 0.7635 ± 0.0093); v3 Tier A (0.828/0.840) retained as the labeled head-to-head benchmark (dual-paradigm) |
 | "12 viruses trained; 4 curated scanning panels (EBV/HPV/HBV/HCV)" | Any new virus or panel added | Update README, model cards, claims_register Section 2 |
-| "Whole-repo coverage [re-measure 2026-06-22]" | Every pytest run with coverage | Update STATE.md; update claims_register if coverage changes significantly |
+| "Whole-repo coverage 34.37% (measured 2026-06-22; below the 35% CI fail-under gate — coverage job red, plain pytest green)" | Every pytest run with coverage | OpenSSF Silver needs 80%; immediate sub-issue is clawing back over the 35% gate. Track in `_local/notes/openssf_silver_gaps.md` |
