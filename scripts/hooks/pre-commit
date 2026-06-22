@@ -115,17 +115,28 @@ fi
 # logs, and grep output unreliable on non-UTF-8 terminals. Bare hyphen or
 # spaced hyphen (' - ') is the project-wide standard.
 
+# One git diff --cached call reads all staged content; grep -P finds any
+# U+2014 byte sequence; -l shows only file names for diagnostics.
 gate3_failed=0
-while IFS= read -r file; do
-  [[ -z "$file" ]] && continue
-  staged_content=$(git show ":${file}" 2>/dev/null) || continue
-  if printf '%s' "$staged_content" | LC_ALL=C grep -qP "\xe2\x80\x94" 2>/dev/null; then
-    block "Em-dash (U+2014) detected in staged '${file}'"
-    block "  Replace the U+2014 character with a plain ASCII '-' or ' - ' (spaced)"
-    block "  Quick fix: python -c \"import pathlib; p=pathlib.Path('${file}'); p.write_text(p.read_text(encoding='utf-8').replace('\\u2014','-'), encoding='utf-8')\""
-    gate3_failed=1
+if [[ -n "$STAGED" ]]; then
+  em_dash_files=$(git diff --cached --unified=0 2>/dev/null \
+    | LC_ALL=C grep -P "^\+.*\xe2\x80\x94" \
+    | LC_ALL=C grep -oP '(?<=\+\+\+ b/).*' 2>/dev/null || true)
+  # Fallback: the diff header approach; scan the raw diff for the EM byte.
+  if git diff --cached 2>/dev/null | LC_ALL=C grep -qP "^\+.*\xe2\x80\x94"; then
+    # Identify which files contain the hit for a useful error message.
+    while IFS= read -r file; do
+      [[ -z "$file" ]] && continue
+      staged_content=$(git show ":${file}" 2>/dev/null) || continue
+      if printf '%s' "$staged_content" | LC_ALL=C grep -qP "\xe2\x80\x94" 2>/dev/null; then
+        block "Em-dash (U+2014) detected in staged '${file}'"
+        block "  Replace the U+2014 character with a plain ASCII '-' or ' - ' (spaced)"
+        block "  Quick fix: python -c \"import pathlib; p=pathlib.Path('${file}'); p.write_text(p.read_text(encoding='utf-8').replace('\\u2014','-'), encoding='utf-8')\""
+        gate3_failed=1
+      fi
+    done <<< "$STAGED"
   fi
-done <<< "$STAGED"
+fi
 
 if [[ $gate3_failed -ne 0 ]]; then
   printf '\n' >&2
