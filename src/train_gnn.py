@@ -492,11 +492,18 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
                 'gnn_oof_score': val_preds[i],
             })
 
-    # Save OOF predictions
+    # Save OOF predictions — pooling-tagged file always; canonical untagged only for mean-pool runs.
+    # Mirrors the RF per-mode artifact pattern; prevents future experiments from silently
+    # overwriting the canonical v2.3 OOF (same class of bug fixed for train_classifier.py).
     oof_df = pd.DataFrame(oof_rows)
-    oof_path = os.path.join(os.path.dirname(model_dir), 'gnn_oof_predictions.csv')
-    oof_df.to_csv(oof_path, index=False)
-    print(f"Saved GNN OOF predictions to {oof_path}")
+    _is_canonical = (pooling == 'mean')
+    _models_dir = os.path.dirname(model_dir)
+    oof_tagged_path = os.path.join(_models_dir, f'gnn_oof_predictions_{pooling}.csv')
+    oof_canonical_path = os.path.join(_models_dir, 'gnn_oof_predictions.csv')
+    oof_df.to_csv(oof_tagged_path, index=False)
+    if _is_canonical:
+        oof_df.to_csv(oof_canonical_path, index=False)
+    print(f"Saved GNN OOF predictions to {oof_tagged_path}")
 
     # Post-hoc Platt calibration — fit logistic regression on raw OOF sigmoid scores
     # to correct overconfidence without altering rank order (Platt 1999).
@@ -504,10 +511,14 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     raw_scores = oof_df["gnn_oof_score"].values.reshape(-1, 1)
     platt.fit(raw_scores, oof_df["label"].values)
     oof_df["gnn_oof_score"] = platt.predict_proba(raw_scores)[:, 1]
-    oof_df.to_csv(oof_path, index=False)
-    platt_path = os.path.join(model_dir, "gnn_platt_scaler.joblib")
-    joblib.dump(platt, platt_path)
-    print(f"Platt calibration applied; scaler saved to {platt_path}")
+    oof_df.to_csv(oof_tagged_path, index=False)
+    if _is_canonical:
+        oof_df.to_csv(oof_canonical_path, index=False)
+    platt_tagged_path = os.path.join(model_dir, f"gnn_platt_scaler_{pooling}.joblib")
+    joblib.dump(platt, platt_tagged_path)
+    if _is_canonical:
+        joblib.dump(platt, os.path.join(model_dir, "gnn_platt_scaler.joblib"))
+    print(f"Platt calibration applied; scaler saved to {platt_tagged_path}")
 
     # Summary
     avg = {k: np.mean([fm[k] for fm in fold_metrics]) for k in fold_metrics[0]}
@@ -539,9 +550,12 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         train_epoch_v2(model_final, full_loader, criterion_final, optimizer_final, device)
         scheduler_final.step()
 
-    checkpoint_path = os.path.join(model_dir, 'structural_gnn_v2.pth')
-    torch.save(model_final.state_dict(), checkpoint_path)  # nosec B614
-    joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
+    checkpoint_tagged = os.path.join(model_dir, f'structural_gnn_v2_{pooling}.pth')
+    torch.save(model_final.state_dict(), checkpoint_tagged)  # nosec B614
+    joblib.dump(scaler_full, os.path.join(model_dir, f'gnn_scaler_{pooling}.joblib'))
+    if _is_canonical:
+        torch.save(model_final.state_dict(), os.path.join(model_dir, 'structural_gnn_v2.pth'))  # nosec B614
+        joblib.dump(scaler_full, os.path.join(model_dir, 'gnn_scaler.joblib'))
 
     # Save config so promote_gnn.py and inference code know the node dim without guessing
     gnn_config = {
@@ -554,12 +568,15 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
         "early_stopping_patience": early_stopping_patience,
         "pooling": pooling,
     }
-    config_path = os.path.join(model_dir, 'gnn_config.json')
-    with open(config_path, 'w') as fh:
+    config_tagged_path = os.path.join(model_dir, f'gnn_config_{pooling}.json')
+    with open(config_tagged_path, 'w') as fh:
         json.dump(gnn_config, fh, indent=2)
+    if _is_canonical:
+        with open(os.path.join(model_dir, 'gnn_config.json'), 'w') as fh:
+            json.dump(gnn_config, fh, indent=2)
 
     print(f"Final GNN v2 model saved to {model_dir}/")
-    print(f"GNN config saved to {config_path}")
+    print(f"GNN config saved to {config_tagged_path}")
 
 
 if __name__ == '__main__':
