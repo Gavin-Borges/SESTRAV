@@ -580,7 +580,11 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
     results_df = pd.DataFrame(results_rows)
     results_path = os.path.join(model_dir, 'training_results.csv')
     results_df.to_csv(results_path, index=False)
-    print(f"\nCV comparison saved to {results_path}")
+    # Also write a per-mode copy so successive runs of different feature modes do
+    # not clobber each other's metrics (the generic file always holds the last run).
+    results_mode_path = os.path.join(model_dir, f'training_results_mode{feature_mode}.csv')
+    results_df.to_csv(results_mode_path, index=False)
+    print(f"\nCV comparison saved to {results_path} and {results_mode_path}")
 
     subgroup_metrics = pd.concat(
         [
@@ -608,6 +612,9 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         rf_oof_out["feature_mode"] = feature_mode
         rf_oof_path = os.path.join(model_dir, "rf_oof_predictions.csv")
         rf_oof_out.to_csv(rf_oof_path, index=False)
+        # Per-mode copy (see note above) so the canonical mode-31 OOF is not
+        # overwritten by later mode-33/35 runs.
+        rf_oof_out.to_csv(os.path.join(model_dir, f"rf_oof_predictions_mode{feature_mode}.csv"), index=False)
         threshold_payload = pick_operating_threshold(
             rf_oof_out,
             score_col="score",

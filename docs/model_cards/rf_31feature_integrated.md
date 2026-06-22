@@ -62,6 +62,6 @@
 ## Provenance
 - MHCflurry version: 2.2.1 (pinned in `config.yaml`)
 - Feature schema: `feature_mode=31`, `FEATURE_COLUMNS_31` in `src/features.py`
-- Training script: `src/train_classifier.py --feature-mode 31 --sample-weights`
+- Training script: `src/train_classifier.py --data data/immunogenicity_dataset_v4.csv --binding-matrix models/peptide_binding_matrix_v4.csv --feature-mode 31` (unweighted; reproduces the canonical v4 OOF AUC-PR 0.7635 ± 0.0093). The v3 weighted production figure (0.828) used `--sample-weights`.
 - Dataset checksum: see `models/rf_31feature_integrated_provenance.json`
 - OpenSSF Passing badge: https://www.bestpractices.dev/en/projects/13191

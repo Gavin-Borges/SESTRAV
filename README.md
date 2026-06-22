@@ -14,13 +14,13 @@
 | Cryptographic dataset governance (freeze mode) | ✓ | ✗ | ✗ | ✗ | ✗ |
 | OpenSSF Passing badge | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Antigen processing as training features | `feature_mode=33` | ✓ | Partial | ✗ | Partial |
-| Graph Neural Network scorer | ✓ (v2.1 GINEConv+ESM-2, 4/5 gates PASS) | ✗ | ✗ | ✗ | ✗ |
+| Graph Neural Network scorer | ✓ (v2.3 GINEConv+ESM-2; research/ensemble component) | ✗ | ✗ | ✗ | ✗ |
 | Pan-allele training | v4 schema ready | Partial | ✓ | ✓ | ✓ |
-| Multi-virus support (> 2 viruses) | 4 (HPV · EBV · HBV · HCV) | Limited | Limited | Pan-pathogen | Tumor |
+| Multi-virus support | 12 viruses trained · 4 curated scanning panels (HPV · EBV · HBV · HCV) | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
-| AUC-PR on labeled benchmark | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | 0.727 | 0.777 | N/A | N/A |
+| AUC-PR on labeled benchmark (Tier A) | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | 0.727 | 0.777 | N/A | N/A |
 
-*AUC-PR from 704-peptide labeled intersection. SESTRAV RF evaluated out-of-fold (conservative); external tools evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). The SESTRAV advantage is larger than raw numbers suggest when corrected for this asymmetry. `full_33` (extended antigen processing track) is the best v3 result; `full_31` is the canonical lightweight track. See `docs/external_testing/External_Validation_Sign_Off.md` for methodology.*
+*Tier A 704-peptide labeled benchmark. SESTRAV RF evaluated out-of-fold (conservative); external tools fully-trained on a test set with 36.9% confirmed training overlap (optimistic). The closest external tool is BigMHC (0.822); full field (incl. MixMHCpred, DeepImmuno) in External Benchmark Results below. Separately, on the harder v4 hard-decoy generalization set (14,699 peptides), canonical `mode_31` scores AUC-PR 0.7635 — lower by design (see below). `full_33` is the best Tier A result; `full_31`/`mode_31` is the canonical track. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
 
 ---
 
@@ -28,7 +28,7 @@ Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harde
 
 > SESTRAV is a governed computational workflow for viral T-cell epitope immunogenicity prediction. It integrates six computational stages — proteome-scale peptide generation, multi-allele MHC binding prediction, TCR contact physicochemical feature extraction, antigen processing scoring, ensemble immunogenicity inference, and freeze-mode governed output — under a single reproducible Snakemake DAG with cryptographic dataset provenance. To our knowledge, no publicly available tool integrates antigen processing, physicochemical TCR features, and graph neural network scoring within an OpenSSF-compliant, auditable pipeline.
 
-The canonical release uses a 31-feature model (20 physicochemical properties at TCR-contact positions + 10 per-allele MHC binding scores + peptide length as the critical mediating variable), achieving AUC-PR 0.864 on v3 cross-validation. Optional tiers include antigen processing features (NetChop/TAPreg, `feature_mode=33`) and GNN structural benchmarking.
+The canonical release uses a 31-feature model (20 physicochemical properties at TCR-contact positions + 10 per-allele MHC binding scores + peptide length as the critical mediating variable). On the Tier A labeled benchmark it achieves AUC-PR 0.828 (weighted OOF; 0.864 unweighted ablation); on the harder v4 hard-decoy generalization set it achieves 0.7635 (see External Benchmark Results). Optional tiers add antigen processing features (NetChop/TAPreg, `feature_mode=33`) and a GINEConv+ESM-2 graph neural network research track.
 
 ## Background and Motivation
 
@@ -38,7 +38,7 @@ This approach combines structural insights with multi-allele binding predictions
 
 ## Release Tracks and Policy
 
-* **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length), AUC-PR 0.864. This is the maintained release path.
+* **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length). Tier A AUC-PR 0.828 (weighted OOF) / v4 hard-decoy 0.7635. This is the maintained release path and the production scorer.
 * **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). AUC-PR 0.886 (unweighted) / 0.840 (weighted) — best v3 result; +0.022 over canonical. Requires antigen processing cache; see `scripts/precompute_antigen_processing.py`.
 * **Legacy comparator track:** 30-feature (without peptide length) and 21-feature (sequence-only) configurations retained for historical reproducibility.
 
@@ -67,20 +67,34 @@ The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) p
 
 **Important:** These results constitute computational validation only and do not establish biological efficacy. Wet-lab experimental confirmation is required for any therapeutic claims. See `results/final_validation_report.md` and `docs/limitations_statement_v1.md` for full details.
 
-## External Benchmark Results (v2.0.0, Frozen)
+## External Benchmark Results
 
-SESTRAV RF was benchmarked head-to-head against two state-of-the-art tools — PRIME 2.1 (Nielsen & Andreatta, 2021) and PredIG-Path (Farriol-Duran et al., 2025) — on a curated T-cell immunogenicity dataset (EBV + HPV16, MHC class I, IEDB-sourced).
+SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A labeled benchmark** for a clean head-to-head against the field, and (2) a **larger, harder hard-decoy generalization set** that decouples MHC binding from immunogenicity. The two numbers are not competing — the v4 figure is lower *by design* because the task is harder.
 
-### Tier A Results (N=720 intersection set)
+### Paradigm 1 — Tier A head-to-head (N=720 labeled; SESTRAV OOF on the N=704 scored intersection)
 
-| Tool | AUC-PR | AUC-ROC | ISSR@10 | ISSR@25 |
-|------|--------|---------|---------|----------|
-| **RF (SESTRAV 2.0)** | **0.828** | **0.776** | — | — |
-| PRIME 2.1 | 0.777 | 0.724 | — | — |
-| PredIG-Path | 0.727 | — | — | — |
+| Tool | AUC-PR | ISSR@10 | Evaluation |
+|------|--------|---------|------------|
+| **SESTRAV RF (`full_33`)** | **0.840** | 0.916 | OOF 5-fold (conservative) |
+| SESTRAV RF (`full_31`, canonical) | 0.828 | 0.843 | OOF 5-fold |
+| BigMHC | 0.822 | **0.917** | Fully trained |
+| MixMHCpred 2.2 | 0.795 | 0.847 | Fully scored |
+| Binding-only (MHCflurry) | 0.790 | 0.857 | Fully scored |
+| PRIME 2.1 | 0.777 | 0.871 | Fully trained |
+| PredIG-Path | 0.727 | 0.786 | Fully trained |
+| DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) |
 
-> **Primary metric:** AUC-PR is the primary metric because the dataset is class-imbalanced (positives ≈ 70%).
-> AUC-PR baseline (random model) ≈ positive class prevalence.
+> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall — but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's `full_33` (0.840) leads the field. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper §3.3.
+
+### Paradigm 2 — v4 hard-decoy generalization (N=14,699; 12 viruses + central-tolerance decoys)
+
+| Model | AUC-PR | Notes |
+|------|--------|-------|
+| **SESTRAV RF (`mode_31`, canonical)** | **0.7635 ± 0.009** | 5-fold OOF; production scorer |
+
+> The hard decoys are self-proteome MHC binders (label 0) that remove the "binding → immunogenic" shortcut present in conventional negative sets. The lower AUC-PR vs. Tier A reflects this harder, more realistic task — not a regression. This is the model shipped for production scoring.
+
+> **Primary metric:** AUC-PR (class-imbalanced data; random baseline ≈ positive prevalence). ISSR@10 = fraction of true positives ranked in the top 10%.
 
 ### Benchmark Overlap and Clean-Holdout Comparison
 
