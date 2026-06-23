@@ -144,7 +144,7 @@ def train_gnn(data_path, model_dir='models/gnn', epochs=15, batch_size=64, lr=1e
     # 2. Extract physicochemical features (with Cache resolution)
     # Include dataset fingerprint so switching datasets invalidates the cache.
     import hashlib as _hl
-    _data_tag = _hl.md5(open(data_path, "rb").read(65536)).hexdigest()[:8]  # nosec B324
+    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
@@ -400,7 +400,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
     # Extract feature matrix.  Mode 31 adds 10 per-allele MHCflurry binding scores,
     # matching RF mode 31 feature parity.  Mode 21 uses physico-only features.
     import hashlib as _hl
-    _data_tag = _hl.md5(open(data_path, "rb").read(65536)).hexdigest()[:8]  # nosec B324
+    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:

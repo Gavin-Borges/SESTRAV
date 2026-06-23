@@ -25,12 +25,15 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
   measured on two scopes, both gated in CI:
   - *Library scope* - the importable library surface (`src`/`functions` modules
     with no `__main__` CLI entry point), measured via `.coveragerc.library` and
-    gated at `fail_under=80`. Currently ≈83% statement / ≈81% branch-inclusive.
+    gated at `fail_under=95`. Currently 98.91% combined (~99% statement /
+    ~98% branch; measured 2026-06-22), clearing the OpenSSF Gold targets
+    (>=90% statement, >=80% branch).
     The omit list is generated mechanically from the presence of a `__main__`
     guard (`tools/check_library_coverage.py --check` enforces it stays in sync),
     so the scope is objective rather than hand-picked.
   - *Whole-repo floor* - a regression floor across the entire tree
-    (`pyproject.toml`), currently ≈30% statement. Executable research/pipeline
+    (`pyproject.toml`), gated at `fail_under=35`, currently ≈45% statement.
+    Executable research/pipeline
     scripts (those with `__main__`) are validated by integration tests and the CI
     data/benchmark gates rather than by unit statement coverage.
 - **Strict Data Typing:** Pydantic is utilized via `SestravConfig` to enforce configuration schema, preventing runtime type coercion errors and hardcoded path injection.
