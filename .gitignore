@@ -209,6 +209,9 @@ cython_debug/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+#  Project-level MCP server config (developer tooling - personal token references
+#  and local server paths vary per developer; not for public repo).
+.mcp.json
 #  Personal settings overrides - already covered by `.claude/` above; listed
 #  explicitly so the intent survives any future narrowing of that rule.
 .claude/settings.local.json

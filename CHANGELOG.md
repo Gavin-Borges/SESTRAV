@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   protected by required-reviewer approval before any upload proceeds.
   Deleted orphaned `environments/requirements-ci-twine.{in,txt}`.
 - **`pyproject.toml`**: removed personal email from author metadata; name retained.
+- **Library coverage gate raised** `90 -> 95` in `.coveragerc.library`. Verified
+  library-scope coverage is **98.91% combined** (~99% statement / ~98% branch;
+  measured 2026-06-22), comfortably clearing the new gate and the OpenSSF Gold
+  targets. Synced the stale `fail_under` references in `docs/security_compliance.md`,
+  `ROADMAP.md`, and the `ci.yml` step comment to the authoritative config value.
 
 ### Added
 - **HBV/HCV proteome ingestion path** (issue #78): `scripts/fetch_viral_proteomes.py`
