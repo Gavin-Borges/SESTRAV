@@ -8,6 +8,15 @@ Colab notebooks are convenience workflows for this optional track.
 
 ## Available Notebooks
 
+### `SESTRAV_GNN_v23_canonical_retrain.ipynb`
+
+A self-contained Google Colab notebook that regenerates the canonical v2.3 mean-pool GNN checkpoint
+(`models/gnn/structural_gnn_v2.pth` + scalers + `gnn_config.json` + OOF) on a GPU runtime. It clones
+the repo, regenerates the ESM-2 t12 (480-dim) embedding cache on-GPU, runs the mode-31 GINEConv
+training, verifies the checkpoint loads and OOF AUC-PR is in range, and zips the artifacts for
+download. Use this when no local GPU is available. Note: the v4 dataset CSV is gitignored, so the
+notebook prompts you to upload it (1.7 MB); the binding matrix comes from the clone.
+
 ### `SESTRAV_Colab_Pipeline.py`
 
 A complete Colab-ready script that runs the SESTRAV model training and evaluation pipeline directly in Google Colab. Covers:
