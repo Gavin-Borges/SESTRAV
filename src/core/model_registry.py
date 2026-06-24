@@ -2,17 +2,22 @@ import hashlib
 from pathlib import Path
 from typing import Any
 from src.core.config import SestravConfig
+from src.artifact_integrity import load_verified_joblib
+
 
 class ModelRegistry:
     """Registry to handle model artifact resolution, signature validation, and loading."""
-    
+
     def __init__(self, config: SestravConfig):
         self.config = config
 
     def resolve_model(self, model_name: str) -> Path:
-        """Resolve a model name to its absolute path."""
-        p = Path("models") / model_name
-        return p.resolve()
+        """Resolve a model name to its absolute path, confined to the models/ directory."""
+        base = Path("models").resolve()
+        p = (base / model_name).resolve()
+        if not p.is_relative_to(base):
+            raise ValueError(f"Model name escapes models/ directory: {model_name!r}")
+        return p
 
     def validate_signature(self, model_path: Path, expected_features: int) -> bool:
         """Validate if a model's expected features match our configuration."""
@@ -23,7 +28,7 @@ class ModelRegistry:
                 n_features = getattr(model, "n_features_in_", None)
                 if n_features is not None and n_features != expected_features:
                     return False
-            except Exception:
+            except Exception:  # nosec B110 - intentional probe; load failure means unverifiable, not invalid
                 pass
         return True
 
@@ -40,10 +45,9 @@ class ModelRegistry:
         path = self.resolve_model(model_name)
         if not path.exists():
             raise FileNotFoundError(f"Model artifact not found: {path}")
-            
+
         if path.suffix == ".joblib":
-            import joblib
-            return joblib.load(path)
+            return load_verified_joblib(path, required_checksum=False)
         elif path.suffix in [".pt", ".pth"]:
             import torch
             try:

@@ -25,7 +25,8 @@ def main():
         
         # Test model loading
         model = registry.load(config.model_path.name)
-        assert model.n_features_in_ in (21, 30, 50), f"Model expects unsupported feature count: {model.n_features_in_}"
+        if model.n_features_in_ not in (21, 30, 50):
+            raise ValueError(f"Model expects unsupported feature count: {model.n_features_in_}")
 
         print("Pre-flight checks PASSED")
         print(f"  Model name: {config.model_path.name}")
