@@ -1,0 +1,87 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Immunogenicity Dataset v5 Schema",
+    "description": "Standard schema for SESTRAV v5 datasets. Extends v4 with provenance columns (virus_family, negative_origin, assay_type, assay_quality_weight, reference_pmid) and singleton quarantine flag (is_quarantined). v4 is frozen; v5 is the Phase 2 research/depth dataset.",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "peptide": {
+                "type": "string",
+                "description": "The amino acid sequence of the peptide. MHC Class I canonical length: 8-11 residues.",
+                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$",
+                "minLength": 8,
+                "maxLength": 11
+            },
+            "label": {
+                "type": "integer",
+                "description": "Immunogenicity label. 1 for positive (immunogenic), 0 for negative (non-immunogenic or decoy).",
+                "enum": [0, 1]
+            },
+            "virus": {
+                "type": "string",
+                "description": "Legacy field. Original source virus/pathogen if applicable (e.g., EBV, HPV). In v5, HPV16/HPV18 are normalized to HPV with strain set accordingly."
+            },
+            "protein": {
+                "type": "string",
+                "description": "Original protein name the peptide is derived from."
+            },
+            "strain": {
+                "type": ["string", "null"],
+                "description": "Specific strain of the pathogen if applicable. In v5, HPV strain is set to HPV16, HPV18, or HPV_generic as appropriate."
+            },
+            "hla_allele": {
+                "type": "string",
+                "description": "The MHC Class I allele the peptide is presented by (e.g., HLA-A*02:01)."
+            },
+            "source_type": {
+                "type": "string",
+                "description": "The generalized origin of the peptide (Virus, Tumor, Self).",
+                "enum": ["Virus", "Tumor", "Self", "Unknown"]
+            },
+            "database_source": {
+                "type": "string",
+                "description": "The database from which the sequence was retrieved (e.g., IEDB, VDJdb, UniProt, dbPepNeo)."
+            },
+            "tcr_alpha_cdr3": {
+                "type": ["string", "null"],
+                "description": "CDR3 alpha chain (TRA) sequence from VDJdb. Null for non-VDJdb sources or when not recorded. Required for Phase 5 TCR repertoire matching.",
+                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$"
+            },
+            "tcr_beta_cdr3": {
+                "type": ["string", "null"],
+                "description": "CDR3 beta chain (TRB) sequence from VDJdb. Null for non-VDJdb sources or when not recorded. Required for Phase 5 TCR repertoire matching.",
+                "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$"
+            },
+            "virus_family": {
+                "type": ["string", "null"],
+                "description": "Taxonomic family of the source virus (e.g., Herpesviridae, Coronaviridae, Papillomaviridae). Null for non-viral sources (Self decoys, tumor). Used for virus-family-aware modeling experiments.",
+                "enum": ["Coronaviridae", "Herpesviridae", "Papillomaviridae", "Hepadnaviridae", "Flaviviridae", "Orthomyxoviridae", "Retroviridae", "Pneumoviridae", "Polyomaviridae", null]
+            },
+            "negative_origin": {
+                "type": ["string", "null"],
+                "description": "Origin of negative-labeled rows. Null for positive rows. Critical for negative-set ablation experiments (Q4).",
+                "enum": ["tested_negative", "self_proteome_decoy", "allele_matched_nonbinder", "published_negative", null]
+            },
+            "assay_type": {
+                "type": ["string", "null"],
+                "description": "IEDB assay type classification (e.g., T cell, B cell). Null for synthetic rows."
+            },
+            "assay_quality_weight": {
+                "type": ["number", "null"],
+                "description": "Quality weight assigned at ingestion: 1.0 for direct functional assays (T cell IFN-gamma ELISpot, MHC multimer), 0.7 for indirect assays, 0.5 for computational or low-confidence. Null for synthetic rows.",
+                "minimum": 0.0,
+                "maximum": 1.0
+            },
+            "reference_pmid": {
+                "type": ["string", "null"],
+                "description": "PubMed ID of the primary publication supporting this row. Required for all IEDB-sourced rows; null for synthetic decoys."
+            },
+            "is_quarantined": {
+                "type": "boolean",
+                "description": "True if this row's virus has fewer than 50 rows or fewer than 10 real tested negatives in v5. Quarantined rows are excluded from per-virus training and per-virus metrics but retained in the file for traceability."
+            }
+        },
+        "required": ["peptide", "label", "source_type", "is_quarantined"]
+    }
+}

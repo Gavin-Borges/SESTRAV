@@ -71,6 +71,80 @@ Recorded here so they cannot be silently reversed without a documented rationale
 
 ---
 
+## v4 Composition Audit (2026-06-24)
+
+Measured from `data/immunogenicity_dataset_v4.csv` (14,699 total rows).
+
+| Virus | n | Pos rate | Assessment |
+|---|---|---|---|
+| Self (hard decoys) | 5,000 | 0% | Synthetic negatives - OK |
+| SARS-CoV-2 | 4,057 | 69.9% | Dominant (28% of viral rows); COVID lit surge artifact |
+| CMV | 1,377 | 58.5% | Usable |
+| DENV | 874 | 96.2% | Near-no negatives; positive-reporting bias |
+| HCV | 719 | 57.6% | Usable |
+| HBV | 650 | 60.5% | Usable |
+| IAV | 520 | 70.4% | Usable |
+| EBV | 494 | 78.9% | Thin on real negatives |
+| HIV-1 | 464 | 81.7% | Thin on real negatives |
+| HPV16 | 208 | 73.1% | Thin; label fragmented |
+| HPV | 144 | 28.5% | Fragmented (HPV/HPV16/HPV18 are separate labels) |
+| RSV | 123 | 14.6% | Near-no positives |
+| HPV18 | 36 | - | Too thin |
+| ~17 singleton viruses | 1-6 each | ~100% | Unusable noise; quarantined in v5 |
+
+**Peptide length distribution:** 8mer 621, 9mer 9,158, 10mer 3,674, 11mer 1,246.
+
+**Key finding:** LOO cross-virus AUC-ROC is near-random (0.46-0.59) for every held-out virus.
+Signal does not currently transfer across viruses. v4 pooled AUC-PR 0.7635 is partially a
+SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
+
+---
+
+## v5 Schema (Phase 2)
+
+- **Status**: In design. Build target: 2026-07-13.
+- **Schema File**: `data/immunogenicity_dataset_v5_schema.json`
+- **v4 frozen**: Do NOT modify `data/immunogenicity_dataset_v4.csv`. v5 is a separate file.
+
+**New columns vs v4:**
+
+| Column | Type | Purpose |
+|---|---|---|
+| `virus_family` | string/null | Taxonomic family; enables family-aware modeling (Q3) |
+| `negative_origin` | enum/null | Origin of negative rows; enables negative-set ablation (Q4) |
+| `assay_type` | string/null | IEDB assay classification |
+| `assay_quality_weight` | float/null | Quality weight: 1.0 direct functional, 0.7 indirect, 0.5 computational |
+| `reference_pmid` | string/null | PubMed ID for provenance; required for IEDB rows |
+| `is_quarantined` | bool | True if virus has < 50 rows or < 10 real negatives |
+
+**HPV normalization in v5:**
+- `virus=HPV16` -> `virus=HPV`, `strain=HPV16`
+- `virus=HPV18` -> `virus=HPV`, `strain=HPV18`
+- `virus=HPV` with null strain -> `strain=HPV_generic`
+
+**Singleton quarantine threshold:** >= 50 rows AND >= 10 `negative_origin=tested_negative` rows.
+
+---
+
+## v5 Build Log
+
+| Date | Git SHA | Total rows | Real negatives added | Quarantined viruses | Notes |
+|---|---|---|---|---|---|
+| PENDING | - | - | - | - | Week 2 target: 2026-07-06 |
+
+---
+
+## Phase 2 Architecture Decisions
+
+| ID | Decision | Rationale | Date | Status |
+|---|---|---|---|---|
+| AD-10 | v5 is a new file; v4 is frozen | v4 is the paper's published artifact; v5 is the research/depth dataset. Numbers must not be confused. | 2026-06-24 | **LOCKED** |
+| AD-11 | Per-virus AUC-ROC replaces pooled AUC-PR as headline metric | Pooled AUC-PR is inflated by SARS-CoV-2 dominance and positive-rate imbalance. Per-virus AUC-ROC with matched negatives is the honest measure of immunogenicity discrimination. | 2026-06-24 | **LOCKED** |
+| AD-12 | No new viruses until existing set is deep | LOO shows no cross-virus signal transfer. Adding more viruses does not improve per-virus performance; going deeper on existing viruses does. | 2026-06-24 | **LOCKED** |
+| AD-13 | Singleton quarantine threshold: >= 50 rows AND >= 10 real tested negatives | Below this threshold, per-virus AUC-ROC is unreliable. The 17 singleton viruses inflate the virus count headline without contributing trainable signal. | 2026-06-24 | **LOCKED** |
+
+---
+
 Build command:
 ```bash
 # 1. Download VDJdb (auto-fetched if omitted):
