@@ -89,7 +89,7 @@ def _load_oof() -> pd.DataFrame:
     if not OOF_PATH.exists():
         raise FileNotFoundError(
             f"OOF predictions not found at {OOF_PATH}. "
-            "Run full GNN training on immunogenicity_dataset_v3.csv first."
+            "Run full GNN training on immunogenicity_dataset_v4.csv first."
         )
     df = pd.read_csv(OOF_PATH)
     required = {"label", "gnn_oof_score"}
@@ -362,7 +362,7 @@ def check_promotion_gates() -> bool:
     if not GNN_CHECKPOINT.exists():
         logger.error(
             f"Checkpoint {GNN_CHECKPOINT} not found. "
-            "Execute full GNN training on immunogenicity_dataset_v3.csv before promotion."
+            "Execute full GNN training on immunogenicity_dataset_v4.csv before promotion."
         )
         return False
 

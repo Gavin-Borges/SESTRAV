@@ -340,7 +340,7 @@ Subcommands:
 Examples:
   sestrav info
   sestrav predict --fasta data/proteomes/EBV_B95_8_panel8.fasta --model models/rf_31feature_integrated.joblib --output results/ebv_run/
-  sestrav validate --dataset data/immunogenicity_dataset_v3.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v3.csv
+  sestrav validate --dataset data/immunogenicity_dataset_v4.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v4.csv
   sestrav benchmark --predictions results/ebv_run/EBV_B95_8_panel8_ranked.csv
 """,
     )

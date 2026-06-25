@@ -67,7 +67,7 @@ def get_mhcflurry_predictions(peptides, alleles):
 
 def main():
     print("Generating SESTRAV binding matrix V3...")
-    data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/immunogenicity_dataset_v3.csv'))
+    data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/immunogenicity_dataset_v4.csv'))
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../config.yaml'))
     
     df = pd.read_csv(data_path)

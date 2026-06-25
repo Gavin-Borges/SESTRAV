@@ -398,7 +398,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV H2 Tier A evaluation")
     parser.add_argument(
         "--data",
-        default="data/immunogenicity_dataset_v3.csv",
+        default="data/immunogenicity_dataset_v4.csv",
         help="Path to labeled immunogenicity dataset CSV",
     )
     parser.add_argument(
