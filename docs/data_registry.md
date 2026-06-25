@@ -119,6 +119,7 @@ SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
 | `iedb_assay_id` | string/null | Persistent IEDB assay/reference identifier; row-level provenance (Amendment 1/2) |
 | `infection_phase` | enum/null | HBV acute vs chronic epitope hierarchy (Amendment 2) |
 | `antigen_latency_program` | enum/null | EBV lytic vs latency-I/II/III antigen program (Amendment 2) |
+| `assay_context` | enum/null | Immunization context: vaccine_induced / natural_infection / unknown (Amendment 4) |
 | `cross_reactivity_tested` | bool/null | HPV16/18 epitope tested against both strains vs assumed (Amendment 2) |
 | `virus_taxon_id` | int/null | NCBI Taxonomy ID; FAIR/Zenodo controlled vocabulary (Amendment 2) |
 | `is_quarantined` | bool | True if virus has < 50 rows or < 10 real negatives |

@@ -100,6 +100,11 @@
                 "description": "EBV antigen expression program. Lytic vs latency-I/II/III express different antigen sets; most IEDB EBV is lytic. Pooling latency programs is a known trap. Null when not applicable or unknown.",
                 "enum": ["lytic", "latent-I", "latent-II", "latent-III", "unknown", null]
             },
+            "assay_context": {
+                "type": ["string", "null"],
+                "description": "Immunization context for the assay: whether the T-cell response was measured in a vaccine recipient (vaccine_induced) or a naturally infected individual (natural_infection). Null when not applicable. Prevents pooling vaccine-trial responses with natural-infection responses (e.g., Stevanovic HPV panel is from vaccine recipients).",
+                "enum": ["vaccine_induced", "natural_infection", "unknown", null]
+            },
             "cross_reactivity_tested": {
                 "type": ["boolean", "null"],
                 "description": "HPV only: True if an HPV16/18 epitope was explicitly tested against both strains; False if cross-reactivity was assumed. Null when not applicable. Required before pooled HPV training is biologically defensible."

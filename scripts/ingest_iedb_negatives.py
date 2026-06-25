@@ -547,6 +547,7 @@ def build_output(
     # Per-virus biology context columns - populated by panel/build scripts.
     out["infection_phase"] = None
     out["antigen_latency_program"] = None
+    out["assay_context"] = None
     out["cross_reactivity_tested"] = None
     out["virus_taxon_id"] = None
 

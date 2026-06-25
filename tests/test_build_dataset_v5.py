@@ -37,6 +37,7 @@ NEW_COLUMNS = [
     "iedb_assay_id",
     "infection_phase",
     "antigen_latency_program",
+    "assay_context",
     "cross_reactivity_tested",
     "virus_taxon_id",
 ]
