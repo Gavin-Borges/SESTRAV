@@ -29,10 +29,12 @@ jobs:
 
       - name: Ruff lint (coding standards)
         run: ruff check .
-      # TODO: add mypy job. Requires environments/requirements-ci-mypy.txt (hash-pinned).
-      # Generate with: pip-compile --generate-hashes environments/requirements-ci-mypy.in
-      # Then add: pip install --require-hashes -r environments/requirements-ci-mypy.txt
-      #           mypy src/ --ignore-missing-imports --no-error-summary
+      # TODO(mypy-ci): environments/requirements-ci-mypy.in exists; compile on Linux to get
+      # correct wheel hashes, then add a mypy step here:
+      #   pip-compile --generate-hashes environments/requirements-ci-mypy.in \
+      #     --output-file environments/requirements-ci-mypy.txt --no-emit-index-url
+      #   pip install --require-hashes -r environments/requirements-ci-mypy.txt
+      #   mypy src/ --ignore-missing-imports --no-error-summary
 
   compat:
     # Lightweight Python-version compatibility check (OpenSSF Silver: works_as_advertised).
