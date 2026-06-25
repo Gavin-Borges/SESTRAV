@@ -168,8 +168,8 @@ rule full_validation_report:
     params:
         results_dir = lambda w, output: os.path.dirname(output[0]),
         model_dir = lambda w, input: os.path.dirname(input.model),
-        dataset_mode = config.get("dataset_mode", "expansion_alpha"),
-        dataset_version = config.get("dataset_version", "2.0.0-alpha"),
+        dataset_mode = config.get("dataset_mode", "expansion_v4"),
+        dataset_version = config.get("dataset_version", "4.0.0"),
         freeze_flag = "--freeze-mode" if config.get("freeze_mode", False) else ""
     log:
         "logs/full_validation_report.log"

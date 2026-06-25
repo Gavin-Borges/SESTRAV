@@ -288,7 +288,7 @@ def validate_output_schema(
     except Exception as exc:
         logger.warning("Could not load schema %s: %s - skipping validation", schema_path, exc)
         return
-    required_cols = schema.get("required", [])
+    required_cols = schema.get("items", {}).get("required", [])
     missing = [col for col in required_cols if col not in df.columns]
     if missing:
         raise ValueError(
