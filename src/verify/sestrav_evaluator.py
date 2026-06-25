@@ -15,7 +15,12 @@ from typing import Dict, Any, Optional
 
 import numpy as np
 import pandas as pd
-import torch
+try:
+    import torch
+except ImportError as _e:
+    raise ImportError(
+        "torch is required for sestrav_evaluator. Install with: pip install -r requirements-gnn.txt"
+    ) from _e
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

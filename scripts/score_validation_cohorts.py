@@ -2,12 +2,12 @@
 scripts/score_validation_cohorts.py
 ===================================
 Scores the clean validation cohorts (SARS-CoV-2 and Influenza A) using the
-canonical pre-trained 30-feature Random Forest model.
+canonical pre-trained 31-feature Random Forest model.
 
 Performs:
   1. MHCflurry binding prediction for the 10 target alleles (Stage 2).
   2. Physicochemical TCR feature extraction at positions p4-p8 (Stage 3).
-  3. Scoring and Platt calibration using models/rf_30feature_integrated.joblib (Stage 4).
+  3. Scoring using models/rf_31feature_integrated.joblib (Stage 4).
   4. Pre-registered metric evaluation (AUC-PR, AUC-ROC, ISSR@10) with 95% bootstrap CI (N=2,000).
 
 Outputs:
@@ -27,15 +27,15 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from src.features import compute_features_for_dataset, FEATURE_COLUMNS_30
+from src.features import compute_features_for_dataset, FEATURE_COLUMNS_31
 from src.evaluate_metrics import evaluate, issr_at_k
 from src.artifact_integrity import load_verified_joblib
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "rf_30feature_integrated.joblib")
-CALIBRATOR_PATH = os.path.join(PROJECT_ROOT, "models", "platt_calibrator.joblib")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "rf_31feature_integrated.joblib")
+CALIBRATOR_PATH = os.path.join(PROJECT_ROOT, "models", "platt_calibrator.joblib")  # legacy; skipped if absent
 ALLELES = [
     "HLA-A*02:01", "HLA-A*01:01", "HLA-A*03:01", "HLA-A*24:02",
     "HLA-A*11:01", "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05",
@@ -127,7 +127,7 @@ def run_evaluation(cohort_path, scored_output, name):
     # 4. Score immunogenicity
     print(f"Loading trained RF model: {os.path.basename(MODEL_PATH)}")
     model = load_verified_joblib(MODEL_PATH, required_checksum=True)
-    X = features_df[FEATURE_COLUMNS_30].copy()
+    X = features_df[FEATURE_COLUMNS_31].copy()
     
     raw_scores = model.predict_proba(X)[:, 1]
     features_df["immunogenicity_score"] = raw_scores

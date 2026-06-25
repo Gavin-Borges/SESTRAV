@@ -116,11 +116,11 @@ rule train_ann:
     input:
         data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
+        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v4.csv")
     output:
         "models/ann/ann_model.pth"
     params:
-        feature_mode = config.get("feature_mode", 21)
+        feature_mode = config.get("feature_mode", 31)
     log:
         "logs/train_ann.log"
     conda:
@@ -133,11 +133,11 @@ rule train_gnn:
     input:
         data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv")
+        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v4.csv")
     output:
         "models/gnn/gnn_model.pth"
     params:
-        feature_mode = config.get("feature_mode", 21)
+        feature_mode = config.get("feature_mode", 31)
     log:
         "logs/train_gnn.log"
     conda:
@@ -153,7 +153,7 @@ rule full_validation_report:
         data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
         binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
-        model = config.get("model_path", "models/rf_30feature_integrated.joblib")
+        model = config.get("model_path", "models/rf_31feature_integrated.joblib")
     output:
         "results/gold_standard_validation.csv",
         "results/baseline_comparison.csv",

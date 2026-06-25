@@ -31,11 +31,11 @@ from src.naming import canonical_output_filename, resolve_model_path
 def run_final_validation(
     results_dir: str = "results",
     model_dir: str = "models",
-    data_path: str = "data/immunogenicity_dataset_v3.csv",
-    binding_matrix_path: str = "models/peptide_binding_matrix_v3.csv",
-    model_path: str = "models/rf_30feature_integrated.joblib",
-    dataset_mode: str = "expansion_alpha",
-    dataset_version: str = "2.0.0-alpha",
+    data_path: str = "data/immunogenicity_dataset_v4.csv",
+    binding_matrix_path: str = "models/peptide_binding_matrix_v4.csv",
+    model_path: str = "models/rf_31feature_integrated.joblib",
+    dataset_mode: str = "expansion_v4",
+    dataset_version: str = "4.0.0",
     freeze_mode: bool = False,
 ) -> Tuple[str, str, str]:
     """Generate all final validation artifacts and return key output paths."""
@@ -222,11 +222,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV final validation bundle")
     parser.add_argument("--results-dir", default="results")
     parser.add_argument("--model-dir", default="models")
-    parser.add_argument("--data", default="data/immunogenicity_dataset_v3.csv")
-    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v3.csv")
-    parser.add_argument("--model-path", default="models/rf_30feature_integrated.joblib")
-    parser.add_argument("--dataset-mode", default="expansion_alpha")
-    parser.add_argument("--dataset-version", default="2.0.0-alpha")
+    parser.add_argument("--data", default="data/immunogenicity_dataset_v4.csv")
+    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
+    parser.add_argument("--model-path", default="models/rf_31feature_integrated.joblib")
+    parser.add_argument("--dataset-mode", default="expansion_v4")
+    parser.add_argument("--dataset-version", default="4.0.0")
     parser.add_argument("--freeze-mode", action="store_true")
     args = parser.parse_args()
 
