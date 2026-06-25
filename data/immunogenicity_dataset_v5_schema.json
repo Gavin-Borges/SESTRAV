@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "Immunogenicity Dataset v5 Schema",
-    "description": "Standard schema for SESTRAV v5 datasets. Extends v4 with provenance columns (virus_family, negative_origin, assay_type, assay_quality_weight, reference_pmid) and singleton quarantine flag (is_quarantined). v4 is frozen; v5 is the Phase 2 research/depth dataset.",
+    "description": "Standard schema for SESTRAV v5 datasets. Extends v4 with provenance columns (virus_family, negative_origin, assay_type, assay_quality_weight, assay_quality_tier, reference_pmid, iedb_assay_id, virus_taxon_id), per-virus biology context (infection_phase, antigen_latency_program, cross_reactivity_tested), and singleton quarantine flag (is_quarantined). All additions are nullable and not required. v4 is frozen; v5 is the Phase 2 research/depth dataset.",
     "type": "array",
     "items": {
         "type": "object",
@@ -80,6 +80,33 @@
             "is_quarantined": {
                 "type": "boolean",
                 "description": "True if this row's virus has fewer than 50 rows or fewer than 10 real tested negatives in v5. Quarantined rows are excluded from per-virus training and per-virus metrics but retained in the file for traceability."
+            },
+            "iedb_assay_id": {
+                "type": ["string", "null"],
+                "description": "Persistent IEDB assay/reference record identifier (Reference ID or Assay ID) for row-level provenance. Set by ingest_iedb_negatives.py; null for non-IEDB rows (decoys, published panels without an IEDB record)."
+            },
+            "assay_quality_tier": {
+                "type": ["integer", "null"],
+                "description": "Integer companion to assay_quality_weight for clean stratification queries. 1 = direct ex vivo functional assay (weight 1.0); 2 = indirect/other (0.7); 3 = expanded-culture protocol (0.5). Null for synthetic rows.",
+                "enum": [1, 2, 3, null]
+            },
+            "infection_phase": {
+                "type": ["string", "null"],
+                "description": "Infection phase for viruses whose epitope hierarchy depends on it (HBV: acute vs chronic generate distinct hierarchies, Thimme 2003 J Exp Med). Null when not applicable or unknown.",
+                "enum": ["acute", "chronic", "unknown", null]
+            },
+            "antigen_latency_program": {
+                "type": ["string", "null"],
+                "description": "EBV antigen expression program. Lytic vs latency-I/II/III express different antigen sets; most IEDB EBV is lytic. Pooling latency programs is a known trap. Null when not applicable or unknown.",
+                "enum": ["lytic", "latent-I", "latent-II", "latent-III", "unknown", null]
+            },
+            "cross_reactivity_tested": {
+                "type": ["boolean", "null"],
+                "description": "HPV only: True if an HPV16/18 epitope was explicitly tested against both strains; False if cross-reactivity was assumed. Null when not applicable. Required before pooled HPV training is biologically defensible."
+            },
+            "virus_taxon_id": {
+                "type": ["integer", "null"],
+                "description": "NCBI Taxonomy ID for the source virus (e.g., EBV=10376, HPV16=333760). Controlled vocabulary for virus names; required for FAIR/Zenodo compliance. Null for non-viral sources."
             }
         },
         "required": ["peptide", "label", "source_type", "is_quarantined"]

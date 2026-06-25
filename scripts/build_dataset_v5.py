@@ -21,10 +21,11 @@ import hashlib
 import json
 import logging
 import random
-import subprocess
+import subprocess  # nosec B404
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -71,9 +72,21 @@ V5_COLUMNS = [
     "negative_origin",
     "assay_type",
     "assay_quality_weight",
+    "assay_quality_tier",
     "reference_pmid",
+    "iedb_assay_id",
+    "infection_phase",
+    "antigen_latency_program",
+    "cross_reactivity_tested",
+    "virus_taxon_id",
     "is_quarantined",
 ]
+
+# The four Phase 2 target viruses (used for PMID-depth warnings).
+TARGET_VIRUSES = ("EBV", "HPV", "HBV", "HCV")
+
+# Minimum distinct PMIDs a target virus should be backed by before a v5 build.
+MIN_DISTINCT_PMIDS_PER_TARGET = 3
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -96,7 +109,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 def get_git_sha() -> str:
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,
@@ -271,6 +284,119 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
 
 
 # ---------------------------------------------------------------------------
+# Pre-build conflict audit (Part 16, Amendment 3)
+# ---------------------------------------------------------------------------
+
+
+def audit_label_conflicts(
+    v4_positives: pd.DataFrame,
+    iedb_negatives: pd.DataFrame,
+    out_path: Path,
+    logger: logging.Logger,
+) -> int:
+    """Detect v4-positive / IEDB-negative label collisions and write them out.
+
+    A collision on the same (peptide, hla_allele, virus) key is otherwise
+    silently suppressed by deduplication. The conflicting rows are written side
+    by side (sorted so the two versions are adjacent) to ``out_path`` for manual
+    review; Gavin confirms resolution before the first non-dry-run build.
+
+    Returns the number of conflicting (peptide, hla_allele, virus) keys.
+    """
+    key_cols = ["peptide", "hla_allele", "virus"]
+    if not all(c in v4_positives.columns for c in key_cols) or not all(
+        c in iedb_negatives.columns for c in key_cols
+    ):
+        logger.warning(
+            "Conflict audit skipped: key columns %s missing from a source",
+            key_cols,
+        )
+        return 0
+
+    def _key(df: pd.DataFrame) -> pd.Series:
+        return df[key_cols].fillna("").apply(tuple, axis=1)
+
+    pos_keys = set(_key(v4_positives))
+    neg_keys = _key(iedb_negatives)
+    conflict_keys = pos_keys.intersection(set(neg_keys))
+    n_conflicts = len(conflict_keys)
+
+    # Secondary, more permissive signal: same (peptide, hla_allele) across any
+    # virus. IEDB virus names are not yet normalized to the canonical vocabulary
+    # at this stage, so the strict triple key under-counts; this surfaces the
+    # rest.
+    pa_cols = ["peptide", "hla_allele"]
+    pos_pa = set(v4_positives[pa_cols].fillna("").apply(tuple, axis=1))
+    neg_pa = iedb_negatives[pa_cols].fillna("").apply(tuple, axis=1)
+    pa_conflicts = int(neg_pa.isin(pos_pa).sum())
+
+    logger.warning(
+        "Label conflict audit: %d (peptide, hla_allele, virus) keys are "
+        "v4-positive AND IEDB-negative; %d (peptide, hla_allele) collisions "
+        "across any virus",
+        n_conflicts,
+        pa_conflicts,
+    )
+
+    if conflict_keys:
+        pos_rows = v4_positives[_key(v4_positives).isin(conflict_keys)].copy()
+        neg_rows = iedb_negatives[neg_keys.isin(conflict_keys)].copy()
+        pos_rows["conflict_source"] = "v4_positive"
+        neg_rows["conflict_source"] = "iedb_negative"
+        combined = pd.concat([pos_rows, neg_rows], ignore_index=True, sort=False)
+        sort_keys = [c for c in key_cols if c in combined.columns] + [
+            "conflict_source"
+        ]
+        combined = combined.sort_values(sort_keys).reset_index(drop=True)
+    else:
+        combined = pd.DataFrame(
+            columns=[*list(v4_positives.columns), "conflict_source"]
+        )
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    combined.to_csv(out_path, index=False)
+    logger.info(
+        "Wrote conflict pre-audit file: %s (%d rows)", out_path, len(combined)
+    )
+    return n_conflicts
+
+
+def warn_low_pmid_depth(
+    df: pd.DataFrame, logger: logging.Logger
+) -> dict[str, int]:
+    """Warn if any target virus is backed by fewer than the minimum distinct
+    PMIDs among its non-quarantined rows. Returns per-target distinct PMID
+    counts. Not a quarantine trigger - a visibility check (Amendment 3)."""
+    counts: dict[str, int] = {}
+    if "reference_pmid" not in df.columns or "virus" not in df.columns:
+        logger.warning("PMID depth check skipped: required columns missing")
+        return counts
+
+    quar = (
+        df["is_quarantined"]
+        if "is_quarantined" in df.columns
+        else pd.Series(False, index=df.index)
+    ).fillna(False).astype(bool)
+
+    for virus in TARGET_VIRUSES:
+        mask = (df["virus"] == virus) & (~quar)
+        pmids = df.loc[mask, "reference_pmid"].dropna().astype(str).str.strip()
+        pmids = pmids[pmids != ""]
+        n_distinct = int(pmids.nunique())
+        counts[virus] = n_distinct
+        if n_distinct < MIN_DISTINCT_PMIDS_PER_TARGET:
+            logger.warning(
+                "PMID depth: target virus %s backed by only %d distinct "
+                "PMID(s) (< %d). A virus backed by few publications is fragile.",
+                virus,
+                n_distinct,
+                MIN_DISTINCT_PMIDS_PER_TARGET,
+            )
+    logger.info("Target-virus distinct PMID counts: %s", counts)
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # Schema validation (data-ingest rule 3)
 # ---------------------------------------------------------------------------
 
@@ -350,7 +476,13 @@ def ensure_v5_columns(df: pd.DataFrame) -> pd.DataFrame:
         "negative_origin": None,
         "assay_type": None,
         "assay_quality_weight": None,
+        "assay_quality_tier": None,
         "reference_pmid": None,
+        "iedb_assay_id": None,
+        "infection_phase": None,
+        "antigen_latency_program": None,
+        "cross_reactivity_tested": None,
+        "virus_taxon_id": None,
         "is_quarantined": False,
         "strain": None,
         "protein": "",
@@ -393,7 +525,7 @@ def build_virus_composition_table(
                 "is_quarantined": quarantined,
             }
         )
-    rows.sort(key=lambda r: r["n"], reverse=True)
+    rows.sort(key=lambda r: cast(int, r["n"]), reverse=True)
     return rows
 
 
@@ -477,6 +609,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to v5 JSON Schema for output validation (default: %(default)s).",
     )
     parser.add_argument(
+        "--conflict-audit-path",
+        type=Path,
+        metavar="PATH",
+        default=Path("data/holding/conflicts_v5_preaudit.csv"),
+        help=(
+            "Path for the v4-positive / IEDB-negative conflict pre-audit CSV "
+            "(default: %(default)s). Review and sign off before a non-dry-run "
+            "build."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help=(
@@ -526,6 +669,16 @@ def main(argv: list[str] | None = None) -> int:
     source_counts["iedb_negatives"] = len(iedb_neg_df)
 
     # -----------------------------------------------------------------------
+    # 2b. Pre-build conflict audit (Amendment 3): v4-positive vs IEDB-negative
+    #     label collisions. Always run so the file exists for review even on a
+    #     dry-run; sign-off is required before a non-dry-run build.
+    # -----------------------------------------------------------------------
+    conflict_count = audit_label_conflicts(
+        v4_positives, iedb_neg_df, args.conflict_audit_path, logger
+    )
+    source_counts["label_conflicts"] = conflict_count
+
+    # -----------------------------------------------------------------------
     # 3. Load optional published panels
     # -----------------------------------------------------------------------
     panels_df: pd.DataFrame | None = None
@@ -564,6 +717,9 @@ def main(argv: list[str] | None = None) -> int:
     # 6. Singleton quarantine
     # -----------------------------------------------------------------------
     merged, quarantine_list = apply_quarantine(merged, logger)
+
+    # 6b. PMID-depth visibility check for the target viruses (Amendment 3).
+    target_pmid_counts = warn_low_pmid_depth(merged, logger)
 
     # -----------------------------------------------------------------------
     # 7. Column alignment and ordering
@@ -617,6 +773,8 @@ def main(argv: list[str] | None = None) -> int:
             "min_rows": MIN_ROWS_PER_VIRUS,
             "min_real_negatives": MIN_REAL_NEGATIVES_PER_VIRUS,
         },
+        "label_conflicts": conflict_count,
+        "target_virus_pmid_counts": target_pmid_counts,
         "virus_composition_table": composition_table,
         "output_file": str(args.output),
         "output_checksum_sha256": checksum,

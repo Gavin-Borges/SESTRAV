@@ -113,9 +113,28 @@ SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
 | `virus_family` | string/null | Taxonomic family; enables family-aware modeling (Q3) |
 | `negative_origin` | enum/null | Origin of negative rows; enables negative-set ablation (Q4) |
 | `assay_type` | string/null | IEDB assay classification |
-| `assay_quality_weight` | float/null | Quality weight: 1.0 direct functional, 0.7 indirect, 0.5 computational |
+| `assay_quality_weight` | float/null | Quality weight: 1.0 direct functional, 0.7 indirect, 0.5 expanded-culture |
+| `assay_quality_tier` | int/null (1/2/3) | Integer companion to `assay_quality_weight` for stratification queries (Amendment 2) |
 | `reference_pmid` | string/null | PubMed ID for provenance; required for IEDB rows |
+| `iedb_assay_id` | string/null | Persistent IEDB assay/reference identifier; row-level provenance (Amendment 1/2) |
+| `infection_phase` | enum/null | HBV acute vs chronic epitope hierarchy (Amendment 2) |
+| `antigen_latency_program` | enum/null | EBV lytic vs latency-I/II/III antigen program (Amendment 2) |
+| `cross_reactivity_tested` | bool/null | HPV16/18 epitope tested against both strains vs assumed (Amendment 2) |
+| `virus_taxon_id` | int/null | NCBI Taxonomy ID; FAIR/Zenodo controlled vocabulary (Amendment 2) |
 | `is_quarantined` | bool | True if virus has < 50 rows or < 10 real negatives |
+
+**Ingestion/build hardening status (Amendments 1-3, 2026-06-25):**
+- `scripts/ingest_iedb_negatives.py` hardened: two-row IEDB header detection,
+  `response_frequency < 0.1` secondary-negative signal, `mhcgnomes` 4-digit HLA
+  normalization (supertypes/non-human/Class II rejected), intra-export dedup on
+  `(peptide, hla_allele, reference_pmid)`, `iedb_assay_id` provenance, 3-tier
+  assay quality, and `input_sha256` in the provenance sidecar.
+- `scripts/build_dataset_v5.py`: `ensure_v5_columns` + `V5_COLUMNS` carry all 6
+  new columns; `--dry-run` runs the v4-positive / IEDB-negative conflict audit
+  (`data/holding/conflicts_v5_preaudit.csv`) and a <3-distinct-PMID warning for
+  the target viruses. Reviewed before any non-dry-run build.
+- Tests: `tests/test_ingest_iedb_negatives.py`, `tests/test_build_dataset_v5.py`
+  (56 tests; ruff + mypy clean; bandit 0 issues).
 
 **HPV normalization in v5:**
 - `virus=HPV16` -> `virus=HPV`, `strain=HPV16`

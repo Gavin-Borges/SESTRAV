@@ -6,6 +6,16 @@ Reads a standard IEDB T cell assay bulk export CSV and outputs a v5-schema-
 compatible CSV of filtered, deduplicated negative rows suitable for inclusion
 in the v5 dataset build.
 
+Hardening (MASTER_STRATEGIC_PLAN Part 16, Amendment 1):
+  1. Two-row IEDB header detection (post-2023 exports carry a group-name row).
+  2. Secondary negativity signal via response_frequency < 0.1 when the
+     qualitative measure is blank.
+  3. HLA normalization through mhcgnomes (4-digit; Class I HLA-A/B/C only;
+     supertypes and non-human alleles rejected).
+  4. Intra-export deduplication on (peptide, hla_allele, reference_pmid).
+  5. Persistent IEDB assay/reference id preserved as iedb_assay_id.
+Plus a 3-tier assay quality weighting and an input_sha256 provenance pin.
+
 Usage:
     python scripts/ingest_iedb_negatives.py \
         --input data/iedb_tcell_export.csv \
@@ -20,11 +30,13 @@ import json
 import logging
 import random
 import re
-import subprocess
+import subprocess  # nosec B404
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import mhcgnomes
 import numpy as np
 import pandas as pd
 
@@ -35,23 +47,84 @@ import pandas as pd
 # Standard amino acid alphabet (single-letter codes)
 AA_PATTERN = re.compile(r"^[ACDEFGHIKLMNPQRSTVWY]+$")
 
-# HLA allele prefix filter - only Class I A/B/C alleles
-HLA_PREFIX = ("HLA-A", "HLA-B", "HLA-C")
+# Class I HLA genes accepted after mhcgnomes normalization.
+CLASS_I_GENES = {"A", "B", "C"}
 
 # IEDB qualitative measures considered negative
 NEGATIVE_MEASURES = {"negative", "negative-low"}
 
-# Assay groups considered direct functional assays (quality weight 1.0)
-DIRECT_FUNCTIONAL_ASSAY_GROUPS = {
-    "T cell",
-    "IFN-gamma",
-    "ELISpot",
-    "IFN-gamma ELISpot",
-    "MHC multimer",
-    "intracellular cytokine staining",
-    "proliferation",
+# Secondary negativity signal: a blank qualitative measure with a reported
+# response frequency below this threshold is treated as a tested negative.
+RESPONSE_FREQUENCY_NEG_THRESHOLD = 0.1
+
+# Assay-group keyword markers indicating a direct ex vivo functional readout
+# (quality tier 1, weight 1.0).
+DIRECT_FUNCTIONAL_MARKERS = (
+    "ifn-gamma",
+    "elispot",
+    "multimer",
     "cytotoxicity",
+    "intracellular cytokine",
+    "proliferation",
+)
+
+# Assay-group keyword markers indicating an expanded-culture protocol
+# (quality tier 3, weight 0.5) - less direct than ex vivo functional assays.
+EXPANDED_CULTURE_MARKERS = (
+    "stimulated",
+    "expanded",
+    "bulk culture",
+    "cultured",
+)
+
+# Quality tier -> sample weight.
+TIER_WEIGHT = {1: 1.0, 2: 0.7, 3: 0.5}
+
+# Lower-cased IEDB top-level group tokens. When pandas reads a post-2023 export
+# with header=0, the first column name is one of these group labels rather than
+# a field name, signalling that the real header is on row 1.
+IEDB_GROUP_TOKENS = {
+    "reference",
+    "epitope",
+    "related object",
+    "host",
+    "1st in vivo process",
+    "2nd in vivo process",
+    "in vitro process",
+    "adoptive transfer",
+    "immunization comments",
+    "assay",
+    "effector cell",
+    "antigen presenting cell",
+    "mhc restriction",
+    "assay antigen",
+    "assay comments",
 }
+
+# Repairs the "HLA-A 02:01" space form to the "HLA-A*02:01" form mhcgnomes
+# parses. Only touches a gene-then-space-then-digit prefix.
+_ALLELE_SPACE_RE = re.compile(r"^(HLA-[A-Z]+[0-9]*)\s+(\d)")
+
+# ---------------------------------------------------------------------------
+# Resolved-column container
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResolvedColumns:
+    """Actual column names resolved from a (header-normalized) IEDB export."""
+
+    host: str
+    measure: str
+    epitope: str
+    allele: str
+    assay_group: str | None
+    antigen: str | None
+    pmid: str | None
+    description: str | None
+    response_frequency: str | None
+    assay_id: str | None
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -70,7 +143,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 def get_git_sha() -> str:
     """Return the short HEAD git SHA, or 'unknown' if git is unavailable."""
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,
@@ -78,7 +151,7 @@ def get_git_sha() -> str:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except Exception:
+    except Exception:  # nosec B110
         pass
     return "unknown"
 
@@ -92,18 +165,46 @@ def compute_file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def normalize_hla_allele(raw: str) -> str | None:
-    """Normalize an HLA allele string.
+def _repair_allele_spacing(allele: str) -> str:
+    """Repair the 'HLA-A 02:01' space form to 'HLA-A*02:01'."""
+    return _ALLELE_SPACE_RE.sub(r"\1*\2", allele)
 
-    Returns the normalized allele string or None if it cannot be parsed as a
-    Class I HLA-A/B/C allele.
+
+def normalize_hla_allele(raw: str) -> str | None:
+    """Normalize an HLA allele string to 4-digit Class I HLA-A/B/C resolution.
+
+    Uses mhcgnomes to parse and normalize. Returns the normalized allele string
+    (e.g. ``HLA-A*02:01``) or ``None`` if the value is not a parseable human
+    Class I HLA-A/B/C allele. Supertypes (``HLA-A2``), non-human alleles
+    (``H-2-Kb``), Class II alleles, and bare class strings (``Class I``) are all
+    rejected.
     """
     if not isinstance(raw, str):
         return None
-    allele = raw.strip()
-    if not allele.startswith(HLA_PREFIX):
+    allele = _repair_allele_spacing(raw.strip())
+    if not allele:
         return None
-    return allele
+    try:
+        parsed = mhcgnomes.parse(allele)
+    except Exception:
+        return None
+    # Reject Serotype (supertype), MhcClass, Gene and anything that is not a
+    # fully specified Allele.
+    if not isinstance(parsed, mhcgnomes.Allele):
+        return None
+    if not (
+        getattr(parsed, "is_human", False)
+        and getattr(parsed, "is_class1", False)
+        and getattr(parsed, "gene_name", None) in CLASS_I_GENES
+    ):
+        return None
+    # Restrict to 4-digit (2-field) resolution where the allele is more specific.
+    try:
+        if parsed.num_allele_fields >= 2:
+            parsed = parsed.restrict_allele_fields(2)
+    except Exception:  # nosec B110
+        pass
+    return parsed.to_string()
 
 
 def is_valid_peptide(seq: str) -> bool:
@@ -116,23 +217,114 @@ def is_valid_peptide(seq: str) -> bool:
     return bool(AA_PATTERN.match(seq))
 
 
-def assign_quality_weight(assay_group: str | None) -> float:
-    """Return quality weight for the given assay group string."""
+def assign_quality_tier(assay_group: str | None) -> int:
+    """Return the assay quality tier (1/2/3) for an assay-group string.
+
+    Tier 1: direct ex vivo functional assay (IFN-gamma ELISpot, multimer, ...).
+    Tier 3: expanded-culture protocol (stimulated / expanded / cultured / bulk
+            culture) - downweighted as less direct, even with a functional
+            readout.
+    Tier 2: everything else (default).
+    """
     if not isinstance(assay_group, str):
-        return 0.7
-    # Check for keywords indicating direct functional measurement
-    ag_lower = assay_group.lower()
-    for marker in (
-        "ifn-gamma",
-        "elispot",
-        "multimer",
-        "cytotoxicity",
-        "intracellular cytokine",
-        "proliferation",
-    ):
-        if marker in ag_lower:
-            return 1.0
-    return 0.7
+        return 2
+    ag = assay_group.lower()
+    if any(marker in ag for marker in EXPANDED_CULTURE_MARKERS):
+        return 3
+    if any(marker in ag for marker in DIRECT_FUNCTIONAL_MARKERS):
+        return 1
+    return 2
+
+
+def assign_quality_weight(assay_group: str | None) -> float:
+    """Return the sample weight for an assay-group string (tier -> weight)."""
+    return TIER_WEIGHT[assign_quality_tier(assay_group)]
+
+
+# ---------------------------------------------------------------------------
+# Column resolution
+# ---------------------------------------------------------------------------
+
+
+def _find_col(columns: list[str], *candidates: str) -> str | None:
+    col_lower = {c.lower(): c for c in columns}
+    for candidate in candidates:
+        if candidate.lower() in col_lower:
+            return col_lower[candidate.lower()]
+    return None
+
+
+def strip_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip surrounding whitespace from column names."""
+    return df.rename(columns={c: str(c).strip() for c in df.columns})
+
+
+def resolve_columns(df: pd.DataFrame, logger: logging.Logger) -> ResolvedColumns:
+    """Resolve logical IEDB fields to actual column names; exit if any required
+    column is missing."""
+    cols = list(df.columns)
+    host = _find_col(cols, "Host Organism Name", "host organism name", "host")
+    measure = _find_col(
+        cols, "Qualitative Measure", "qualitative measure", "qualitative_measure"
+    )
+    epitope = _find_col(cols, "Epitope Name", "epitope name", "name", "epitope")
+    allele = _find_col(cols, "Allele Name", "allele name", "allele")
+
+    missing = [
+        name
+        for name, col in (
+            ("Host Organism Name", host),
+            ("Qualitative Measure", measure),
+            ("Epitope Name", epitope),
+            ("Allele Name", allele),
+        )
+        if col is None
+    ]
+    if missing:
+        logger.error(
+            "Required columns not found in input: %s. Available: %s",
+            missing,
+            cols[:20],
+        )
+        sys.exit(1)
+
+    return ResolvedColumns(
+        host=host,  # type: ignore[arg-type]
+        measure=measure,  # type: ignore[arg-type]
+        epitope=epitope,  # type: ignore[arg-type]
+        allele=allele,  # type: ignore[arg-type]
+        assay_group=_find_col(cols, "Assay Group", "assay group", "assay_group"),
+        antigen=_find_col(
+            cols, "Antigen Name", "antigen name", "antigen", "description"
+        ),
+        pmid=_find_col(
+            cols,
+            "Reference PubMed ID",
+            "reference pubmed id",
+            "pubmed id",
+            "pubmed_id",
+            "pmid",
+        ),
+        description=_find_col(
+            cols, "Description", "description", "antigen description"
+        ),
+        response_frequency=_find_col(
+            cols,
+            "Response Frequency As Reported",
+            "response frequency as reported",
+            "response frequency",
+            "response_frequency",
+        ),
+        assay_id=_find_col(
+            cols,
+            "Assay ID",
+            "assay id",
+            "Assay ID - IEDB IRI",
+            "Reference ID",
+            "reference id",
+            "Reference IRI",
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -141,10 +333,11 @@ def assign_quality_weight(assay_group: str | None) -> float:
 
 
 def load_iedb_export(path: Path, logger: logging.Logger) -> pd.DataFrame:
-    """Load an IEDB bulk export CSV.
+    """Load an IEDB bulk export CSV, handling the post-2023 two-row header.
 
-    IEDB exports sometimes have a multi-row header; handle the common case
-    where the real column header is on row 0 or row 1.
+    Post-2023 IEDB exports carry a group-name row (Reference, Epitope, Assay,
+    ...) as row 0 and the real field names on row 1. When that is detected the
+    file is re-read with ``header=1``.
     """
     logger.info("Loading IEDB export from %s", path)
     try:
@@ -152,74 +345,34 @@ def load_iedb_export(path: Path, logger: logging.Logger) -> pd.DataFrame:
     except Exception as exc:
         logger.error("Failed to read %s: %s", path, exc)
         sys.exit(1)
+
+    first_col = str(df.columns[0]).strip().lower()
+    if first_col in IEDB_GROUP_TOKENS or first_col.startswith("unnamed"):
+        logger.info(
+            "Detected IEDB two-row header (row 0 group token %r); "
+            "re-reading with header=1",
+            df.columns[0],
+        )
+        try:
+            df = pd.read_csv(path, header=1, low_memory=False)
+        except Exception as exc:
+            logger.error("Failed to re-read %s with header=1: %s", path, exc)
+            sys.exit(1)
+
     logger.info("Raw input: %d rows x %d columns", len(df), len(df.columns))
     return df
 
 
 def filter_rows(
-    df: pd.DataFrame, logger: logging.Logger
+    df: pd.DataFrame, cols: ResolvedColumns, logger: logging.Logger
 ) -> tuple[pd.DataFrame, dict[str, int]]:
     """Apply all inclusion filters and return (filtered_df, stats_dict)."""
     stats: dict[str, int] = {}
     stats["raw_input"] = len(df)
 
-    # Normalise column names: strip whitespace, lower case for lookup
-    col_map = {c: c.strip() for c in df.columns}
-    df = df.rename(columns=col_map)
-
-    # Identify required columns using flexible matching
-    col_lower = {c.lower(): c for c in df.columns}
-
-    def find_col(*candidates: str) -> str | None:
-        for c in candidates:
-            if c.lower() in col_lower:
-                return col_lower[c.lower()]
-        return None
-
-    col_host = find_col("Host Organism Name", "host organism name", "host")
-    col_measure = find_col(
-        "Qualitative Measure", "qualitative measure", "qualitative_measure"
-    )
-    col_epitope = find_col("Epitope Name", "epitope name", "name", "epitope")
-    col_allele = find_col("Allele Name", "allele name", "allele")
-    col_assay_group = find_col("Assay Group", "assay group", "assay_group")
-    col_antigen = find_col(
-        "Antigen Name", "antigen name", "antigen", "description"
-    )
-    col_pmid = find_col(
-        "Reference PubMed ID",
-        "reference pubmed id",
-        "pubmed id",
-        "pubmed_id",
-        "pmid",
-    )
-    col_description = find_col(
-        "Description", "description", "antigen description"
-    )
-
-    missing = [
-        name
-        for name, col in (
-            ("Host Organism Name", col_host),
-            ("Qualitative Measure", col_measure),
-            ("Epitope Name", col_epitope),
-            ("Allele Name", col_allele),
-        )
-        if col is None
-    ]
-    if missing:
-        logger.error(
-            "Required columns not found in input: %s. Available: %s",
-            missing,
-            list(df.columns[:20]),
-        )
-        sys.exit(1)
-
     # --- Filter 1: Human host ---
     mask_host = (
-        df[col_host]
-        .fillna("")
-        .str.contains("Homo sapiens", case=False, na=False)
+        df[cols.host].fillna("").str.contains("Homo sapiens", case=False, na=False)
     )
     df = df[mask_host].copy()
     stats["after_human_host_filter"] = len(df)
@@ -229,35 +382,49 @@ def filter_rows(
         stats["raw_input"] - len(df),
     )
 
-    # --- Filter 2: Negative qualitative measure ---
-    mask_neg = (
-        df[col_measure]
-        .fillna("")
-        .str.strip()
-        .str.lower()
-        .isin(NEGATIVE_MEASURES)
+    # --- Filter 2: Negative outcome ---
+    # Primary signal: explicit negative qualitative measure.
+    measure_series = df[cols.measure].fillna("").str.strip().str.lower()
+    mask_neg_qual = measure_series.isin(NEGATIVE_MEASURES)
+    # Secondary signal: blank qualitative measure but a reported response
+    # frequency below threshold (Amendment 1, Filter 2).
+    mask_neg_rf = pd.Series(False, index=df.index)
+    if cols.response_frequency is not None:
+        rf = pd.to_numeric(df[cols.response_frequency], errors="coerce")
+        mask_neg_rf = (
+            (measure_series == "")
+            & rf.notna()
+            & (rf < RESPONSE_FREQUENCY_NEG_THRESHOLD)
+        )
+    mask_neg = mask_neg_qual | mask_neg_rf
+    stats["negatives_by_qualitative_measure"] = int(mask_neg_qual.sum())
+    stats["negatives_by_response_frequency"] = int(
+        (mask_neg_rf & ~mask_neg_qual).sum()
     )
     df = df[mask_neg].copy()
     stats["after_negative_measure_filter"] = len(df)
     logger.info(
-        "After negative measure filter: %d rows (removed %d)",
+        "After negative filter: %d rows (%d by qualitative measure, %d by "
+        "response frequency)",
         len(df),
-        stats["after_human_host_filter"] - len(df),
+        stats["negatives_by_qualitative_measure"],
+        stats["negatives_by_response_frequency"],
     )
 
     # --- Filter 3 & 4: Peptide length 8-11 and standard AA ---
-    peptides = df[col_epitope].fillna("").str.strip()
+    peptides = df[cols.epitope].fillna("").str.strip()
     mask_peptide = peptides.apply(is_valid_peptide)
     df = df[mask_peptide].copy()
     stats["after_peptide_filter"] = len(df)
     logger.info(
-        "After peptide validity filter (length 8-11, standard AA): %d rows (removed %d)",
+        "After peptide validity filter (length 8-11, standard AA): %d rows "
+        "(removed %d)",
         len(df),
         stats["after_negative_measure_filter"] - len(df),
     )
 
-    # --- Filter 5: HLA allele parseable as Class I A/B/C ---
-    alleles_raw = df[col_allele].fillna("").str.strip()
+    # --- Filter 5: HLA allele resolvable as Class I A/B/C (mhcgnomes) ---
+    alleles_raw = df[cols.allele].fillna("").str.strip()
     mask_hla = alleles_raw.apply(lambda x: normalize_hla_allele(x) is not None)
     df = df[mask_hla].copy()
     stats["after_hla_filter"] = len(df)
@@ -267,39 +434,63 @@ def filter_rows(
         stats["after_peptide_filter"] - len(df),
     )
 
-    return df, stats, col_epitope, col_allele, col_assay_group, col_antigen, col_pmid, col_description
+    # --- Intra-export dedup on (peptide, hla_allele, reference_pmid) ---
+    # Collapse the same epitope reported across multiple assay-format rows of a
+    # single publication before the v4 cross-dedup runs in the caller.
+    dedup_keys = pd.DataFrame(
+        {
+            "peptide": df[cols.epitope].fillna("").str.strip(),
+            "allele": df[cols.allele]
+            .fillna("")
+            .str.strip()
+            .apply(normalize_hla_allele),
+            "pmid": (
+                df[cols.pmid].fillna("").astype(str).str.strip()
+                if cols.pmid is not None
+                else ""
+            ),
+        }
+    )
+    before_dedup = len(df)
+    keep_mask = ~dedup_keys.duplicated(keep="first")
+    df = df[keep_mask.to_numpy()].copy()
+    stats["intra_export_duplicates_removed"] = before_dedup - len(df)
+    stats["after_intra_export_dedup"] = len(df)
+    logger.info(
+        "Intra-export dedup: %d duplicate rows removed; %d rows remain",
+        stats["intra_export_duplicates_removed"],
+        len(df),
+    )
+
+    return df, stats
 
 
 def build_output(
     df: pd.DataFrame,
-    col_epitope: str,
-    col_allele: str,
-    col_assay_group: str | None,
-    col_antigen: str | None,
-    col_pmid: str | None,
-    col_description: str | None,
+    cols: ResolvedColumns,
     logger: logging.Logger,
 ) -> pd.DataFrame:
     """Construct the v5-schema output DataFrame from filtered IEDB rows."""
     out: dict[str, object] = {}
 
-    out["peptide"] = df[col_epitope].str.strip()
+    out["peptide"] = df[cols.epitope].str.strip()
     out["label"] = 0
     out["hla_allele"] = (
-        df[col_allele].fillna("").str.strip().apply(normalize_hla_allele)
+        df[cols.allele].fillna("").str.strip().apply(normalize_hla_allele)
     )
 
-    # virus: attempt to extract from description or antigen name
-    if col_description is not None:
-        out["virus"] = df[col_description].fillna("Unknown").str.strip()
-    elif col_antigen is not None:
-        out["virus"] = df[col_antigen].fillna("Unknown").str.strip()
+    # virus: attempt to extract from description or antigen name. The canonical
+    # virus name is assigned downstream in build_dataset_v5.py.
+    if cols.description is not None:
+        out["virus"] = df[cols.description].fillna("Unknown").str.strip()
+    elif cols.antigen is not None:
+        out["virus"] = df[cols.antigen].fillna("Unknown").str.strip()
     else:
         out["virus"] = "Unknown"
 
     # protein
-    if col_antigen is not None:
-        out["protein"] = df[col_antigen].fillna("").str.strip()
+    if cols.antigen is not None:
+        out["protein"] = df[cols.antigen].fillna("").str.strip()
     else:
         out["protein"] = ""
 
@@ -311,21 +502,22 @@ def build_output(
     out["virus_family"] = None  # filled by build_dataset_v5.py
     out["negative_origin"] = "tested_negative"
 
-    if col_assay_group is not None:
-        out["assay_type"] = df[col_assay_group].fillna("").str.strip()
-        out["assay_quality_weight"] = (
-            df[col_assay_group].fillna("").apply(assign_quality_weight)
-        )
+    if cols.assay_group is not None:
+        assay_group = df[cols.assay_group].fillna("").str.strip()
+        out["assay_type"] = assay_group
+        out["assay_quality_tier"] = assay_group.apply(assign_quality_tier)
+        out["assay_quality_weight"] = assay_group.apply(assign_quality_weight)
     else:
         out["assay_type"] = None
-        out["assay_quality_weight"] = 0.7
+        out["assay_quality_tier"] = 2
+        out["assay_quality_weight"] = TIER_WEIGHT[2]
         logger.warning(
-            "Assay Group column not found; defaulting quality weight to 0.7"
+            "Assay Group column not found; defaulting quality tier 2 (0.7)"
         )
 
-    if col_pmid is not None:
+    if cols.pmid is not None:
         out["reference_pmid"] = (
-            df[col_pmid]
+            df[cols.pmid]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -335,6 +527,28 @@ def build_output(
     else:
         out["reference_pmid"] = None
         logger.warning("Reference PubMed ID column not found; setting to null")
+
+    # Row-level provenance: persistent IEDB assay/reference identifier.
+    if cols.assay_id is not None:
+        out["iedb_assay_id"] = (
+            df[cols.assay_id]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .replace("", None)
+            .replace("nan", None)
+        )
+    else:
+        out["iedb_assay_id"] = None
+        logger.warning(
+            "Assay/Reference ID column not found; iedb_assay_id set to null"
+        )
+
+    # Per-virus biology context columns - populated by panel/build scripts.
+    out["infection_phase"] = None
+    out["antigen_latency_program"] = None
+    out["cross_reactivity_tested"] = None
+    out["virus_taxon_id"] = None
 
     out["is_quarantined"] = False  # determined by build_dataset_v5.py
 
@@ -361,14 +575,10 @@ def deduplicate_against_existing(
     # Only deduplicate on columns that exist in both dataframes
     available = [c for c in key_cols if c in existing.columns and c in new_df.columns]
     if not available:
-        logger.warning(
-            "No common key columns found for deduplication; skipping"
-        )
+        logger.warning("No common key columns found for deduplication; skipping")
         return new_df, 0
 
-    existing_keys = set(
-        existing[available].fillna("").apply(tuple, axis=1)
-    )
+    existing_keys = set(existing[available].fillna("").apply(tuple, axis=1))
     new_keys = new_df[available].fillna("").apply(tuple, axis=1)
     mask_dup = new_keys.isin(existing_keys)
     n_dup = int(mask_dup.sum())
@@ -451,27 +661,21 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("Existing dataset not found: %s", args.existing_dataset)
         return 1
 
-    # Load and filter
+    # Load (with two-row header handling), normalize column names, resolve cols
     raw_df = load_iedb_export(args.input, logger)
-    result = filter_rows(raw_df, logger)
-    filtered_df, stats, col_epitope, col_allele, col_assay_group, col_antigen, col_pmid, col_description = result
+    raw_df = strip_column_names(raw_df)
+    cols = resolve_columns(raw_df, logger)
+
+    # Filter
+    filtered_df, stats = filter_rows(raw_df, cols, logger)
 
     if len(filtered_df) == 0:
         logger.warning("No rows survived filtering; output will be empty.")
 
     # Build v5-schema output
-    out_df = build_output(
-        filtered_df,
-        col_epitope,
-        col_allele,
-        col_assay_group,
-        col_antigen,
-        col_pmid,
-        col_description,
-        logger,
-    )
+    out_df = build_output(filtered_df, cols, logger)
 
-    # Deduplication
+    # Deduplication against the existing (frozen) dataset
     out_df, n_dup = deduplicate_against_existing(
         out_df, args.existing_dataset, logger
     )
@@ -490,13 +694,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print("\n=== DRY RUN - no output written ===")
-        print(f"  raw_input:                          {stats['raw_input']}")
-        print(f"  after_human_host_filter:            {stats['after_human_host_filter']}")
-        print(f"  after_negative_measure_filter:      {stats['after_negative_measure_filter']}")
-        print(f"  after_peptide_filter:               {stats['after_peptide_filter']}")
-        print(f"  after_hla_filter:                   {stats['after_hla_filter']}")
-        print(f"  deduplication_hits:                 {stats['deduplication_hits']}")
-        print(f"  final_output_rows:                  {stats['final_output_rows']}")
+        for key in (
+            "raw_input",
+            "after_human_host_filter",
+            "negatives_by_qualitative_measure",
+            "negatives_by_response_frequency",
+            "after_negative_measure_filter",
+            "after_peptide_filter",
+            "after_hla_filter",
+            "intra_export_duplicates_removed",
+            "after_intra_export_dedup",
+            "deduplication_hits",
+            "final_output_rows",
+        ):
+            print(f"  {key + ':':<38} {stats.get(key, 0)}")
         return 0
 
     # Write output CSV
@@ -504,12 +715,15 @@ def main(argv: list[str] | None = None) -> int:
     out_df.to_csv(args.output, index=False)
     logger.info("Wrote %d rows to %s", len(out_df), args.output)
 
-    # Write provenance sidecar JSON (data-ingest rule 2)
+    # Write provenance sidecar JSON (data-ingest rule 2). input_sha256 pins the
+    # exact IEDB export snapshot (IEDB updates weekly; the same URL can return a
+    # different file the following month).
     provenance_path = args.output.with_name(args.output.stem + "_provenance.json")
     provenance = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         "git_sha": get_git_sha(),
         "input_file": str(args.input),
+        "input_sha256": compute_file_sha256(args.input),
         "existing_dataset": str(args.existing_dataset),
         "filter_stats": stats,
         "output_file": str(args.output),
