@@ -107,7 +107,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-virus transfer table (A1)")
     parser.add_argument("--data", default="data/immunogenicity_dataset_v4.csv")
     parser.add_argument(
-        "--binding-matrix", default="models/peptide_binding_matrix_v3.csv"
+        "--binding-matrix", default="models/peptide_binding_matrix_v4.csv"
     )
     parser.add_argument(
         "--output", default="results/external_validation_cross_virus.csv"

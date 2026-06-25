@@ -6,7 +6,7 @@ ANTIGENS = config["antigens"]
 
 DATASET_MODE = config.get("dataset_mode", "expansion_alpha")
 DATASET_VERSION = config.get("dataset_version", "2.0.0-alpha")
-TRAINING_DATASET = config.get("training_dataset", "data/immunogenicity_dataset_v3.csv")
+TRAINING_DATASET = config.get("training_dataset", "data/immunogenicity_dataset_v4.csv")
 
 rule Results:
     input:
@@ -152,7 +152,7 @@ rule full_validation_report:
         ranked = expand("results/{proteome_id}_ranked.csv", proteome_id=ANTIGENS),
         data = TRAINING_DATASET,
         qc = "results/qc/dataset_qc.json",
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v3.csv"),
+        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v4.csv"),
         model = config.get("model_path", "models/rf_31feature_integrated.joblib")
     output:
         "results/gold_standard_validation.csv",

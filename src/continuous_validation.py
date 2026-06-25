@@ -175,7 +175,7 @@ def _resolve_paths(model_path: Optional[str], binding_matrix: Optional[str]) -> 
 
     model_path = model_path or cfg.get("model_path", "models/rf_31feature_integrated.joblib")
     binding_matrix = binding_matrix or cfg.get(
-        "binding_matrix_path", "models/peptide_binding_matrix_v3.csv"
+        "binding_matrix_path", "models/peptide_binding_matrix_v4.csv"
     )
 
     # Resolve canonical/legacy model aliases when the literal path is absent.

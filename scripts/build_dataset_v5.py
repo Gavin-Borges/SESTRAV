@@ -20,11 +20,13 @@ import argparse
 import hashlib
 import json
 import logging
+import random
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
@@ -88,7 +90,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Git utilities
+# Git and checksum utilities
 # ---------------------------------------------------------------------------
 
 
@@ -103,6 +105,14 @@ def get_git_sha() -> str:
         return result.stdout.strip()
     except Exception:
         return "unknown"
+
+
+def compute_file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +271,36 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
 
 
 # ---------------------------------------------------------------------------
+# Schema validation (data-ingest rule 3)
+# ---------------------------------------------------------------------------
+
+
+def validate_output_schema(
+    df: pd.DataFrame, schema_path: Path, logger: logging.Logger
+) -> None:
+    """Validate required columns against the v5 JSON Schema before write."""
+    if not schema_path.exists():
+        logger.warning("Schema file not found: %s - skipping validation", schema_path)
+        return
+    try:
+        with open(schema_path, encoding="utf-8") as fh:
+            schema = json.load(fh)
+    except Exception as exc:
+        logger.warning("Could not load schema %s: %s - skipping validation", schema_path, exc)
+        return
+    required_cols = schema.get("required", [])
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        raise ValueError(
+            f"Output dataset missing required schema columns: {missing}. "
+            f"Check V5_COLUMNS and transformation pipeline."
+        )
+    logger.info(
+        "Schema validation passed: all %d required columns present", len(required_cols)
+    )
+
+
+# ---------------------------------------------------------------------------
 # Source composition helpers
 # ---------------------------------------------------------------------------
 
@@ -327,14 +367,6 @@ def ensure_v5_columns(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Output helpers
 # ---------------------------------------------------------------------------
-
-
-def compute_file_sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def build_virus_composition_table(
@@ -438,6 +470,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional path to additional published panels CSV in v5 schema format.",
     )
     parser.add_argument(
+        "--schema",
+        type=Path,
+        metavar="PATH",
+        default=Path("data/immunogenicity_dataset_v5_schema.json"),
+        help="Path to v5 JSON Schema for output validation (default: %(default)s).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help=(
@@ -453,6 +492,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Deterministic output: seed both RNGs at entry (data-ingest rule 1).
+    random.seed(42)
+    np.random.seed(42)
+
     args = parse_args(argv)
     setup_logging(logging.DEBUG if args.verbose else logging.INFO)
     logger = logging.getLogger("build_dataset_v5")
@@ -537,7 +580,12 @@ def main(argv: list[str] | None = None) -> int:
     merged = merged[ordered_cols]
 
     # -----------------------------------------------------------------------
-    # 8. Report / dry-run
+    # 8. Schema validation before write (data-ingest rule 3)
+    # -----------------------------------------------------------------------
+    validate_output_schema(merged, args.schema, logger)
+
+    # -----------------------------------------------------------------------
+    # 9. Report / dry-run
     # -----------------------------------------------------------------------
     composition_table = build_virus_composition_table(merged)
     print_composition_table(merged, quarantine_list, logger)
@@ -547,14 +595,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # -----------------------------------------------------------------------
-    # 9. Write output CSV
+    # 10. Write output CSV
     # -----------------------------------------------------------------------
     args.output.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(args.output, index=False)
     logger.info("Wrote v5 dataset: %d rows to %s", len(merged), args.output)
 
     # -----------------------------------------------------------------------
-    # 10. Write provenance sidecar JSON
+    # 11. Write provenance sidecar JSON
     # -----------------------------------------------------------------------
     provenance_path = args.output.with_name(
         args.output.stem + "_provenance.json"

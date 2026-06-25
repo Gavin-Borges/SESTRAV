@@ -403,12 +403,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model-path",
-        default="models/rf_30feature_integrated.joblib",
+        default="models/rf_31feature_integrated.joblib",
         help="Path to integrated model .joblib used as CV template",
     )
     parser.add_argument(
         "--binding-matrix",
-        default="models/peptide_binding_matrix_v3.csv",
+        default="models/peptide_binding_matrix_v4.csv",
         help="Path to per-allele binding matrix CSV",
     )
     parser.add_argument(

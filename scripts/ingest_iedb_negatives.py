@@ -15,11 +15,17 @@ Usage:
 """
 
 import argparse
+import hashlib
+import json
 import logging
+import random
 import re
+import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
@@ -59,6 +65,31 @@ def setup_logging(level: int = logging.INFO) -> None:
         level=level,
         stream=sys.stderr,
     )
+
+
+def get_git_sha() -> str:
+    """Return the short HEAD git SHA, or 'unknown' if git is unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def compute_file_sha256(path: Path) -> str:
+    """Return the hex SHA-256 digest of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def normalize_hla_allele(raw: str) -> str | None:
@@ -405,6 +436,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Deterministic output: seed both RNGs at entry (data-ingest rule 1).
+    random.seed(42)
+    np.random.seed(42)
+
     args = parse_args(argv)
     setup_logging(logging.DEBUG if args.verbose else logging.INFO)
     logger = logging.getLogger("ingest_iedb_negatives")
@@ -443,6 +478,11 @@ def main(argv: list[str] | None = None) -> int:
     stats["deduplication_hits"] = n_dup
     stats["final_output_rows"] = len(out_df)
 
+    # Sort deterministically so re-runs on the same input are byte-stable
+    sort_cols = [c for c in ("peptide", "hla_allele", "virus") if c in out_df.columns]
+    if sort_cols:
+        out_df = out_df.sort_values(sort_cols).reset_index(drop=True)
+
     # Report
     logger.info("--- Filter stage summary ---")
     for stage, count in stats.items():
@@ -459,10 +499,26 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  final_output_rows:                  {stats['final_output_rows']}")
         return 0
 
-    # Write output
+    # Write output CSV
     args.output.parent.mkdir(parents=True, exist_ok=True)
     out_df.to_csv(args.output, index=False)
     logger.info("Wrote %d rows to %s", len(out_df), args.output)
+
+    # Write provenance sidecar JSON (data-ingest rule 2)
+    provenance_path = args.output.with_name(args.output.stem + "_provenance.json")
+    provenance = {
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "git_sha": get_git_sha(),
+        "input_file": str(args.input),
+        "existing_dataset": str(args.existing_dataset),
+        "filter_stats": stats,
+        "output_file": str(args.output),
+        "output_checksum_sha256": compute_file_sha256(args.output),
+    }
+    with open(provenance_path, "w", encoding="utf-8") as fh:
+        json.dump(provenance, fh, indent=2)
+    logger.info("Wrote provenance sidecar: %s", provenance_path)
+
     return 0
 
 
