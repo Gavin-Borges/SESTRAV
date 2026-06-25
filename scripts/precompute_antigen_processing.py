@@ -6,17 +6,17 @@ This cache is consumed by feature_mode=33 training via load_antigen_processing_c
 Usage (recommended flow):
     # Dry-run: print plan without querying external APIs
     python scripts/precompute_antigen_processing.py \
-        --data data/immunogenicity_dataset_v3.csv --output data/antigen_processing_cache.csv \
+        --data data/immunogenicity_dataset_v4.csv --output data/antigen_processing_cache.csv \
         --dry-run
 
     # Smoke-test: first 20 peptides only
     python scripts/precompute_antigen_processing.py \
-        --data data/immunogenicity_dataset_v3.csv --output data/antigen_processing_cache.csv \
+        --data data/immunogenicity_dataset_v4.csv --output data/antigen_processing_cache.csv \
         --limit 20
 
     # Full overnight run (resume-safe)
     python scripts/precompute_antigen_processing.py \
-        --data data/immunogenicity_dataset_v3.csv --output data/antigen_processing_cache.csv \
+        --data data/immunogenicity_dataset_v4.csv --output data/antigen_processing_cache.csv \
         --resume
 
 External dependencies:

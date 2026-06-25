@@ -42,7 +42,7 @@ python -m src.build_predig_recombinant_input
 
 $HashManifest = Join-Path (Join-Path $RunDir "manifests") "input_hashes.json"
 $files = @(
-    "data/immunogenicity_dataset_v3.csv",
+    "data/immunogenicity_dataset_v4.csv",
     "results/external_validation_input.csv",
     "results/external_predig_input_recombinant.csv",
     "results/external_prime_peptides.txt"

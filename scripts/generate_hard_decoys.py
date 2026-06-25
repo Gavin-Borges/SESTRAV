@@ -24,7 +24,7 @@ Usage
     # Then generate decoys
     python scripts/generate_hard_decoys.py \\
         --fasta data/proteomes/human_uniprot_UP000005640.fasta \\
-        --training-data data/immunogenicity_dataset_v3.csv \\
+        --training-data data/immunogenicity_dataset_v4.csv \\
         --output data/hard_decoys.csv \\
         --num-decoys 10000
 
@@ -290,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--training-data",
-        default="data/immunogenicity_dataset_v3.csv",
+        default="data/immunogenicity_dataset_v4.csv",
         help="Training CSV to extract positives for exclusion (default: %(default)s)",
     )
     parser.add_argument(

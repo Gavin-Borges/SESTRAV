@@ -33,7 +33,7 @@ MAX_LEN = 11
 
 TRAINING_DATA_PATHS = [
     os.path.join(PROJECT_ROOT, "immunogenicity_dataset.csv"),
-    os.path.join(PROJECT_ROOT, "data", "immunogenicity_dataset_v3.csv")
+    os.path.join(PROJECT_ROOT, "data", "immunogenicity_dataset_v4.csv")
 ]
 
 SARS2_OUTPUT = os.path.join(PROJECT_ROOT, "data", "external", "sars2_clean.csv")

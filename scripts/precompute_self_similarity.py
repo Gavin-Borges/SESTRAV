@@ -46,7 +46,7 @@ Usage
 
     python scripts/precompute_self_similarity.py \\
         --fasta data/proteomes/human_uniprot_UP000005640.fasta \\
-        --peptides data/immunogenicity_dataset_v3.csv \\
+        --peptides data/immunogenicity_dataset_v4.csv \\
         --output data/self_similarity_cache.csv
 
     # Dry-run: estimate coverage without writing
@@ -249,8 +249,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument(
         "--peptides",
-        default="data/immunogenicity_dataset_v3.csv",
-        help="Training CSV containing a 'peptide' column (default: v3 dataset)",
+        default="data/immunogenicity_dataset_v4.csv",
+        help="Training CSV containing a 'peptide' column (default: v4 dataset)",
     )
     p.add_argument(
         "--output",

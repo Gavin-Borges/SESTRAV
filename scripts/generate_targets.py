@@ -82,7 +82,7 @@ def main():
     )
     parser.add_argument(
         "--binding-matrix",
-        default="models/peptide_binding_matrix_v3.csv",
+        default="models/peptide_binding_matrix_v4.csv",
         help="Path to peptide binding matrix CSV."
     )
     parser.add_argument(

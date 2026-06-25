@@ -12,7 +12,7 @@ Checks datasets for strict adherence to biological and dataset governance polici
 7. Minimum Yield: Post-curation unique peptide count must be >= min_peptide_yield (default 500).
 
 Usage:
-    python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v3.csv
+    python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv
     python scripts/data_qc_gate.py --dataset data/raw/iedb_tcell_assay/ebv_20260606.csv --quarantine results/qc/quarantined_ebv.csv
 """
 

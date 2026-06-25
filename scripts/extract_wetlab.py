@@ -17,7 +17,7 @@ def main():
     # Ensure they have a label column or some structure. The ranked CSV has peptide, immunogenicity_score
     
     # Also load the gold standard positives from the dataset if they have positive labels
-    dataset = pd.read_csv('data/immunogenicity_dataset_v3.csv')
+    dataset = pd.read_csv('data/immunogenicity_dataset_v4.csv')
     gs_df = dataset[dataset['peptide'].isin(GOLD_STANDARD_EPITOPES)].copy()
     gs_df = gs_df[gs_df['label'] == 1].copy()
     
