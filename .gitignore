@@ -456,3 +456,9 @@ NOTES.md
 SCRATCH.md
 *.draft.md
 *.wip.md
+
+# Raw IEDB bulk export downloads (processed versions committed as data/iedb_negatives_v5.csv)
+data/iedb_tcell_export_*/
+
+# Intermediate pre-audit holding files (reviewed locally, not part of public dataset)
+data/holding/
