@@ -365,6 +365,22 @@ def _cross_validate(
     return avg, std, subgroup_df, oof_df
 
 
+def _filter_quarantined(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop rows where is_quarantined is True.
+
+    If the column is absent (v4 dataset), returns df unchanged.
+    NaN values are treated as False (row is kept).
+    """
+    if "is_quarantined" not in df.columns:
+        return df
+    n_before = len(df)
+    out = df[~df["is_quarantined"].fillna(False).astype(bool)].copy()
+    n_dropped = n_before - len(out)
+    if n_dropped:
+        print(f"  Quarantine filter: dropped {n_dropped} rows (is_quarantined=True), {len(out)} remain.")
+    return out
+
+
 def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
                   feature_mode=21, binding_matrix_path=None,
                   antigen_processing_cache_path=None,
@@ -384,6 +400,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
     os.makedirs(model_dir, exist_ok=True)
 
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     print(f"Loaded {len(df)} records from {data_path}")
 
     # Map peptides to parent proteins

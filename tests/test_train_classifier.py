@@ -15,6 +15,7 @@ from src.train_classifier import (
     load_all_proteins, _get_protein_name_from_header, _cross_validate,
     prepare_features_30, prepare_features_31, prepare_features_33,
     prepare_features_35, prepare_features_166, train_models,
+    _filter_quarantined,
 )
 
 _AAS = "ACDEFGHIKLMNPQRSTVWY"
@@ -252,3 +253,40 @@ def test_train_models_mode31_requires_binding_matrix(tmp_path):
         train_models(
             str(data_path), model_dir=str(tmp_path / "m"), n_cv_folds=3, feature_mode=31
         )
+
+
+# ---------------------------------------------------------------------------
+# Quarantine filter
+# ---------------------------------------------------------------------------
+
+
+def test_filter_quarantined_drops_flagged_rows():
+    df = pd.DataFrame({
+        "peptide": _make_peptides(4),
+        "label": [0, 1, 0, 1],
+        "is_quarantined": [True, False, True, False],
+    })
+    result = _filter_quarantined(df)
+    assert len(result) == 2
+    assert result["is_quarantined"].tolist() == [False, False]
+
+
+def test_filter_quarantined_noop_without_column():
+    df = pd.DataFrame({
+        "peptide": _make_peptides(4),
+        "label": [0, 1, 0, 1],
+    })
+    result = _filter_quarantined(df)
+    assert len(result) == 4
+
+
+def test_filter_quarantined_handles_nan():
+    df = pd.DataFrame({
+        "peptide": _make_peptides(3),
+        "label": [0, 1, 0],
+        "is_quarantined": [True, False, None],
+    })
+    result = _filter_quarantined(df)
+    # True row dropped; False and NaN rows kept
+    assert len(result) == 2
+    assert True not in result["is_quarantined"].tolist()
