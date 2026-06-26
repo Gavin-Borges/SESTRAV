@@ -128,7 +128,14 @@ jobs:
           --cov-report=term-missing --cov-report=xml
 
       - name: Run Dataset Curation QC Gate
-        run: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv --config config.yaml
+        # Dataset is gitignored (researcher-local artefact); skip in CI when absent.
+        # Run locally before every push: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv
+        run: |
+          if [ -f data/immunogenicity_dataset_v4.csv ]; then
+            python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv --config config.yaml
+          else
+            echo "data/immunogenicity_dataset_v4.csv not present (gitignored); QC gate skipped in CI."
+          fi
 
       - name: Run Contamination and Benchmark Evaluation Gate
         run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
