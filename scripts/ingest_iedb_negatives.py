@@ -80,6 +80,14 @@ EXPANDED_CULTURE_MARKERS = (
 # Quality tier -> sample weight.
 TIER_WEIGHT = {1: 1.0, 2: 0.7, 3: 0.5}
 
+# Assay types that represent biochemical / non-T-cell-functional readouts.
+# These must not be used as immunogenicity negatives in training data because
+# a "negative" biological-activity outcome (e.g., a failed binding assay) does
+# not imply the peptide is non-immunogenic in a T cell context. Confirmed
+# root-cause of HPV AUC-ROC inversion in v5 (PMID 38608022 contributed 66
+# mislabelled negatives; OOF score mean 0.71 vs HPV positives 0.37).
+EXCLUDED_ASSAY_TYPES: frozenset[str] = frozenset({"biological activity"})
+
 # Lower-cased IEDB top-level group tokens. When pandas reads a post-2023 export
 # with header=0, the first column name is one of these group labels rather than
 # a field name, signalling that the real header is on row 1.
@@ -513,6 +521,22 @@ def filter_rows(
         stats["after_peptide_filter"] - len(df),
     )
 
+    # --- Filter 6: Exclude non-T-cell-functional assay types ---
+    if cols.assay_group is not None:
+        assay_group_series = df[cols.assay_group].fillna("").str.strip()
+        mask_excluded = assay_group_series.isin(EXCLUDED_ASSAY_TYPES)
+        n_excluded = int(mask_excluded.sum())
+        df = df[~mask_excluded].copy()
+        stats["biological_activity_rows_excluded"] = n_excluded
+        stats["after_assay_type_filter"] = len(df)
+        if n_excluded:
+            logger.info(
+                "Assay type filter: excluded %d rows (%s); %d rows remain",
+                n_excluded,
+                ", ".join(sorted(EXCLUDED_ASSAY_TYPES)),
+                len(df),
+            )
+
     # --- Intra-export dedup on (peptide, hla_allele, reference_pmid) ---
     # Collapse the same epitope reported across multiple assay-format rows of a
     # single publication before the v4 cross-dedup runs in the caller.
@@ -783,6 +807,8 @@ def main(argv: list[str] | None = None) -> int:
             "after_negative_measure_filter",
             "after_peptide_filter",
             "after_hla_filter",
+            "biological_activity_rows_excluded",
+            "after_assay_type_filter",
             "intra_export_duplicates_removed",
             "after_intra_export_dedup",
             "deduplication_hits",

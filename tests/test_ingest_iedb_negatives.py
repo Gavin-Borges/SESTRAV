@@ -21,6 +21,7 @@ import pandas as pd
 import pytest
 
 from scripts.ingest_iedb_negatives import (
+    EXCLUDED_ASSAY_TYPES,
     TIER_WEIGHT,
     ResolvedColumns,
     _repair_allele_spacing,
@@ -410,3 +411,30 @@ def test_main_cross_dedup_drops_existing(tmp_path: Path) -> None:
     out_df = pd.read_csv(output)
     # PEP_A collides with the existing row and is dropped; only PEP_B remains.
     assert list(out_df["peptide"]) == [PEP_B]
+
+
+# ---------------------------------------------------------------------------
+# filter_rows: assay-type exclusion (Filter 6)
+# ---------------------------------------------------------------------------
+
+
+def test_biological_activity_rows_excluded() -> None:
+    """'biological activity' rows are excluded; ELISPOT rows survive."""
+    rows = [
+        _iedb_row(PEP_A, assay_group="biological activity"),
+        _iedb_row(PEP_B, assay_group="biological activity"),
+        _iedb_row(PEP_C, assay_group="IFN-gamma ELISpot"),
+    ]
+    df = _make_iedb_df(rows)
+    cols = _resolve(df)
+    filtered, stats = filter_rows(df, cols, LOGGER)
+
+    assert stats["biological_activity_rows_excluded"] == 2
+    assert stats["after_assay_type_filter"] == 1
+    kept = set(filtered["Epitope Name"])
+    assert kept == {PEP_C}
+
+
+def test_excluded_assay_types_constant() -> None:
+    """Sanity check: the constant contains the expected value."""
+    assert "biological activity" in EXCLUDED_ASSAY_TYPES
