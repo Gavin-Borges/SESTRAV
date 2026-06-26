@@ -209,6 +209,6 @@
     }
   },
   "exit_criterion_passed": false,
-  "exit_criterion_detail": "EBV AUC-ROC 95% CI lower=0.429 (FAIL, threshold>=0.57); HPV AUC-ROC=0.560 (FAIL, threshold>=0.58)",
+  "exit_criterion_detail": "EBV AUC-ROC=0.553 (FAIL, threshold>=0.57); HPV AUC-ROC=0.560 (FAIL, threshold>=0.58)",
   "comparisons": {}
 }
