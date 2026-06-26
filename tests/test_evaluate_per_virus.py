@@ -313,8 +313,8 @@ def test_check_exit_criterion_passes() -> None:
     assert "PASS" in msg
 
 
-def test_check_exit_criterion_fails_ebv_lo() -> None:
-    results = _make_results(ebv_roc=0.70, ebv_lo=0.55, hpv_roc=0.65)
+def test_check_exit_criterion_fails_ebv_roc() -> None:
+    results = _make_results(ebv_roc=0.50, ebv_lo=0.40, hpv_roc=0.65)
     passed, msg = check_exit_criterion(results)
     assert not passed
     assert "EBV" in msg
