@@ -30,7 +30,7 @@ import json
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold
+from src.ml_utils import MultiStratifiedKFold
 from xgboost import XGBClassifier
 from joblib import dump
 
@@ -305,8 +305,13 @@ def _cross_validate(
         splits = list(logo.split(X, y, groups=groups))
         print(f"  LOPO CV: detected {len(np.unique(groups))} unique groups -> {len(splits)} folds")
     else:
-        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-        splits = list(skf.split(X, y))
+        mskf = MultiStratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        splits = list(mskf.split(
+            X, y,
+            negative_origin=metadata["negative_origin"] if "negative_origin" in metadata.columns else None,
+            hla_alleles=metadata["hla_allele"] if "hla_allele" in metadata.columns else None,
+            peptides=metadata["peptide"] if "peptide" in metadata.columns else None,
+        ))
 
     fold_metrics = []
     subgroup_rows = []
@@ -476,7 +481,7 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         mode_label = "21-feature sequence-only"
 
     y = train_pool['label'].values
-    metadata_cols = [c for c in ["peptide", "virus", "strain", "protein"] if c in train_pool.columns]
+    metadata_cols = [c for c in ["peptide", "virus", "strain", "protein", "negative_origin", "hla_allele"] if c in train_pool.columns]
     metadata = train_pool[metadata_cols].copy().reset_index(drop=True)
     print(f"Features: {X.shape[1]} ({mode_label})")
     print(f"Class balance: {np.mean(y):.2%} positive, {1 - np.mean(y):.2%} negative")

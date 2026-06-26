@@ -199,6 +199,23 @@ def test_load_iedb_export_two_row_header(tmp_path: Path) -> None:
     assert df.iloc[0]["Epitope Name"] == PEP_A
 
 
+def test_load_iedb_export_two_row_header_assay_id_first_col(tmp_path: Path) -> None:
+    """Real June-2026 IEDB export has 'Assay ID' as first group-row column."""
+    csv_path = tmp_path / "iedb_assay_id_first.csv"
+    lines = [
+        '"Assay ID",Reference,Reference,Epitope,Host,Assay,"MHC Restriction"',
+        '"IEDB IRI","Reference PubMed ID",Type,"Epitope Name","Host Organism Name","Qualitative Measure","Allele Name"',
+        f'http://www.iedb.org/assay/1,12345,Literature,{PEP_A},Homo sapiens,Negative,HLA-A*02:01',
+    ]
+    csv_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    df = load_iedb_export(csv_path, LOGGER)
+    assert "Epitope Name" in df.columns
+    assert "Qualitative Measure" in df.columns
+    assert len(df) == 1
+    assert df.iloc[0]["Epitope Name"] == PEP_A
+
+
 def test_load_iedb_export_single_row_header(tmp_path: Path) -> None:
     csv_path = tmp_path / "iedb_single_row.csv"
     df_in = _make_iedb_df([_iedb_row(PEP_A)])

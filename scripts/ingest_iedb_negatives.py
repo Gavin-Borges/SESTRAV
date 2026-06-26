@@ -94,11 +94,59 @@ IEDB_GROUP_TOKENS = {
     "adoptive transfer",
     "immunization comments",
     "assay",
+    "assay id",
     "effector cell",
     "antigen presenting cell",
     "mhc restriction",
     "assay antigen",
     "assay comments",
+}
+
+# Mapping from (group.lower(), field.lower()) pairs in the June 2026 IEDB v3
+# CSV two-row header to the legacy column names that resolve_columns expects.
+# Older exports already use the legacy names directly in the field row so this
+# map produces no-op renames for those files.
+_TWO_ROW_V3_LEGACY_MAP: dict[tuple[str, str], str] = {
+    ("epitope", "name"): "Epitope Name",
+    ("host", "name"): "Host Organism Name",
+    ("mhc restriction", "name"): "Allele Name",
+    ("assay antigen", "name"): "Antigen Name",
+    ("assay", "qualitative measurement"): "Qualitative Measure",
+    ("reference", "pmid"): "Reference PubMed ID",
+    ("assay", "response frequency (%)"): "Response Frequency As Reported",
+    ("epitope", "species"): "Description",
+    ("assay", "method"): "Assay Group",
+    ("assay id", "iedb iri"): "Assay ID",
+}
+
+# NCBI taxonomy names used by post-2023 IEDB exports that differ from the
+# common abbreviations in the SESTRAV v4 dataset. Keys are lowercased for
+# case-insensitive lookup. Only maps names that would otherwise mismatch the
+# v4 virus column and break per-virus deduplication and evaluation grouping.
+_VIRUS_TAXONOMY_TO_COMMON: dict[str, str] = {
+    "human gammaherpesvirus 4": "EBV",
+    "orthohepadnavirus hominoidei": "HBV",
+    "hepacivirus hominis": "HCV",
+    "alphapapillomavirus 9": "HPV16",
+    "alphapapillomavirus 7": "HPV18",
+    "alphapapillomavirus 10": "HPV",
+    "human betaherpesvirus 5": "CMV",
+    "lentivirus humimdef1": "HIV-1",
+    "human alphaherpesvirus 1": "HSV-1",
+    "human alphaherpesvirus 2": "HSV-2",
+    "human alphaherpesvirus 3": "VZV",
+    "human respiratory syncytial virus": "RSV",
+    "deltaretrovirus priTlym1".lower(): "HTLV-1",
+    "betapolyomavirus hominis": "MCPyV",
+    "homo sapiens": "Self",
+    "enterovirus betacoxsackie": "CoxsackievirusB",
+    "severe acute respiratory syndrome coronavirus 2": "SARS-CoV-2",
+    "yellow fever virus": "YFV",
+    "dengue virus": "DENV",
+    "rotavirus alphagastroenteritidis": "RotavirusA",
+    "mammarenavirus lassaense": "LassaVirus",
+    "alphavirus chikungunya": "CHIKV",
+    "zika virus": "ZIKV",
 }
 
 # Repairs the "HLA-A 02:01" space form to the "HLA-A*02:01" form mhcgnomes
@@ -336,27 +384,58 @@ def load_iedb_export(path: Path, logger: logging.Logger) -> pd.DataFrame:
     """Load an IEDB bulk export CSV, handling the post-2023 two-row header.
 
     Post-2023 IEDB exports carry a group-name row (Reference, Epitope, Assay,
-    ...) as row 0 and the real field names on row 1. When that is detected the
-    file is re-read with ``header=1``.
+    ...) as row 0 and the real field names on row 1. Detection uses a fast
+    2-row peek so large files are not read twice just for header sniffing.
+
+    When the two-row format is detected, column names are normalized using
+    ``_TWO_ROW_V3_LEGACY_MAP`` so that the downstream ``resolve_columns``
+    function sees the same logical names regardless of which IEDB export
+    vintage produced the file.
     """
     logger.info("Loading IEDB export from %s", path)
     try:
-        df = pd.read_csv(path, low_memory=False)
+        df_peek = pd.read_csv(path, header=None, nrows=2, low_memory=False)
     except Exception as exc:
         logger.error("Failed to read %s: %s", path, exc)
         sys.exit(1)
 
-    first_col = str(df.columns[0]).strip().lower()
-    if first_col in IEDB_GROUP_TOKENS or first_col.startswith("unnamed"):
+    first_val = str(df_peek.iloc[0, 0]).strip().lower()
+    if first_val in IEDB_GROUP_TOKENS or first_val.startswith("unnamed"):
         logger.info(
             "Detected IEDB two-row header (row 0 group token %r); "
             "re-reading with header=1",
-            df.columns[0],
+            df_peek.iloc[0, 0],
         )
         try:
+            groups_row = (
+                df_peek.iloc[0].fillna("").astype(str).str.strip().str.lower().tolist()
+            )
+            fields_row = (
+                df_peek.iloc[1].fillna("").astype(str).str.strip().str.lower().tolist()
+            )
             df = pd.read_csv(path, header=1, low_memory=False)
+            pandas_cols = list(df.columns)
+            rename: dict[str, str] = {}
+            for i, (g, f) in enumerate(zip(groups_row, fields_row)):
+                if i >= len(pandas_cols):
+                    break
+                legacy = _TWO_ROW_V3_LEGACY_MAP.get((g, f))
+                if legacy and pandas_cols[i] not in rename:
+                    rename[pandas_cols[i]] = legacy
+            if rename:
+                df = df.rename(columns=rename)
+                logger.info(
+                    "Normalized %d column names from two-row header format",
+                    len(rename),
+                )
         except Exception as exc:
             logger.error("Failed to re-read %s with header=1: %s", path, exc)
+            sys.exit(1)
+    else:
+        try:
+            df = pd.read_csv(path, low_memory=False)
+        except Exception as exc:
+            logger.error("Failed to read %s: %s", path, exc)
             sys.exit(1)
 
     logger.info("Raw input: %d rows x %d columns", len(df), len(df.columns))
@@ -479,14 +558,15 @@ def build_output(
         df[cols.allele].fillna("").str.strip().apply(normalize_hla_allele)
     )
 
-    # virus: attempt to extract from description or antigen name. The canonical
-    # virus name is assigned downstream in build_dataset_v5.py.
     if cols.description is not None:
-        out["virus"] = df[cols.description].fillna("Unknown").str.strip()
+        raw_virus = df[cols.description].fillna("Unknown").str.strip()
     elif cols.antigen is not None:
-        out["virus"] = df[cols.antigen].fillna("Unknown").str.strip()
+        raw_virus = df[cols.antigen].fillna("Unknown").str.strip()
     else:
-        out["virus"] = "Unknown"
+        raw_virus = pd.Series(["Unknown"] * len(df), index=df.index)
+    out["virus"] = raw_virus.apply(
+        lambda v: _VIRUS_TAXONOMY_TO_COMMON.get(str(v).lower(), v)
+    )
 
     # protein
     if cols.antigen is not None:
