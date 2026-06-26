@@ -6,8 +6,19 @@ The LANL HCV Immunology Database (hcv.lanl.gov) does not support programmatic
 bulk download; the file must be downloaded manually from the web interface:
 
   1. Navigate to hcv.lanl.gov > Immunology > T Cell Epitopes > Search
-  2. Run an unfiltered search or filter for Negative assay results
-  3. Export as tab-delimited or CSV; save to data/lanl_hcv_tcell_export.tsv
+  2. Export all T-cell assay records as tab-delimited or CSV;
+     save to data/lanl_hcv_tcell_export.tsv
+
+IMPORTANT: The LANL HCV database is primarily a curated POSITIVE-epitope
+repository. Third-party analyses (e.g. Repitope, PMC6477061) treat all LANL
+HCV entries as immunogenic a priori, and an independent extract of ~195 LANL
+HCV entries showed zero negative qualitative-measure values.
+
+Run --inspect immediately after download. If the export has no negative
+qualitative measure column (or all values are positive), the output will be
+empty and IEDB is the correct source for HCV negatives (see
+ingest_iedb_negatives.py). The --col-* override flags remain available in
+case the actual export format differs from this expectation.
 
 Run --inspect on the downloaded file first to confirm actual column names, then
 re-run with the correct column-map overrides if the defaults do not match:
@@ -24,9 +35,7 @@ re-run with the correct column-map overrides if the defaults do not match:
       [--col-assay-type "Assay Type"] \\
       [--dry-run]
 
-Expected output: ~150-200 rows from ~3800 raw entries after filtering for
-Class I HLA-A/B/C 4-digit alleles, Class I peptide lengths (8-11 AA), and
-negative assay outcomes. These are appended to the IEDB negatives pool for v5.
+If the export yields 0 rows, use IEDB bulk export for HCV negatives instead.
 """
 
 import argparse
