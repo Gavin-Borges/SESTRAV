@@ -270,6 +270,9 @@ results/*
 !results/external_validation_cross_virus.csv
 # Shareout presentation assets (PNGs + summary files)
 !results/shareout_20260426/
+# v5 per-virus evaluation results (canonical output, Amendment 6)
+!results/per_virus_eval_v5_mode31.json
+!results/per_virus_eval_v5_mode31.csv
 release_artifacts/
 *.pyc
 __pycache__/
