@@ -265,7 +265,7 @@ def compute_length_stratified(df: pd.DataFrame, score_col: str, label_col: str =
     for label, mask in [("9mer", df["pep_len"] == 9), ("non_9mer", df["pep_len"] != 9)]:
         subset = df[mask]
         if len(subset) == 0 or len(np.unique(subset[label_col])) < 2:
-            results[label] = {"n": len(subset), "auc_pr": None}
+            results[label] = {"n": int(len(subset)), "auc_pr": float("nan")}
         else:
             from sklearn.metrics import average_precision_score
             auc_pr = average_precision_score(subset[label_col].values, subset[score_col].values)

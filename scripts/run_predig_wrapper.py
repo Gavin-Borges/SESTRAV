@@ -95,9 +95,17 @@ def main():
             "--model", "path",
             "--type", "recombinant"
         ]
-        
+
+        # Defensive: do not allow mounting root-adjacent paths
+        output_dir = os.path.dirname(os.path.abspath(args.output))
+        sensitive_roots = {"/", "/etc", "/usr", "/bin", "/sbin", "/lib", "/proc", "/sys"}
+        if output_dir in sensitive_roots or not output_dir:
+            sys.exit(f"Error: output path resolves to a sensitive location: {output_dir!r}")
+
         try:
             print(f"[PredIG Wrapper] Running Docker: {' '.join(cmd)}")
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args
+            # Docker volume mount scoped to dirname(args.output); researcher-only CLI, no web exposure
             subprocess.run(cmd, check=True)
             print("[PredIG Wrapper] Execution completed successfully.")
             

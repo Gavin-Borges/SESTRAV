@@ -90,12 +90,22 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-# Ruff's default rule set (Pyflakes `F` + pycodestyle `E4/E7/E9`). The ignores
-# below are deliberate and documented, not blanket suppressions.
+# E4/E7/E9 + F mirrors ruff's default selection; S adds flake8-bandit security checks.
+# W (whitespace) and B (bugbear) are deferred until a dedicated cleanup pass.
+# The ignores below are deliberate and documented, not blanket suppressions.
+select = ["E4", "E7", "E9", "F", "S"]
 ignore = [
     "E402",  # entry-point / benchmark scripts adjust sys.path or set the matplotlib backend before imports
     "E741",  # short identifiers (l, I, O) recur in mathematical / statistical expressions
     "F841",  # locals intentionally retained for readability in benchmark/experimental code
+    # S-rules suppressed globally: these patterns are already reviewed and approved
+    # via bandit nosec annotations; suppressing here avoids duplicate annotation burden.
+    "S101",  # assert - legitimate in tests
+    "S404",  # subprocess import - all uses reviewed (nosec B404)
+    "S603",  # subprocess without shell=True - all uses list-form, safe (nosec B603)
+    "S607",  # partial executable path - all executables are fixed constants (nosec B607)
+    "S110",  # try/except/pass - all uses reviewed (nosec B110)
+    "S310",  # urllib urlopen - all URLs are HTTPS and scheme-validated (nosec B310)
 ]
 
 [tool.ruff.lint.per-file-ignores]

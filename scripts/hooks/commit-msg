@@ -8,14 +8,31 @@
 
 commit_msg_file="$1"
 
-# 1. AI / assistant footprint (case-insensitive substring match).
-ai_patterns=("Claude" "Anthropic" "Copilot" "ChatGPT" "Generated with")
-for pattern in "${ai_patterns[@]}"; do
+# 1. AI / assistant footprint (Zero AI Footprint policy).
+# Narrowed to attribution contexts to allow legitimate tool-config file
+# references (.claudeignore, CLAUDE.md, .claude/, claude.ai, Anthropic API).
+
+# 1a. Terms with no legitimate non-attribution use in commit messages:
+bare_ai_patterns=("ChatGPT" "Copilot" "Generated with")
+for pattern in "${bare_ai_patterns[@]}"; do
     if grep -qi "$pattern" "$commit_msg_file"; then
         echo "Commit rejected: message contains forbidden AI marker '$pattern' (Zero AI Footprint policy)." >&2
         exit 1
     fi
 done
+
+# 1b. Contextual attribution patterns for 'Claude' and 'Anthropic', which may
+# appear legitimately in file paths and config references:
+#   Rejects: "(generated|authored|created|...) with/by Claude/Anthropic",
+#            "Claude Code", "Signed-off-by: Claude", "by Anthropic", "Anthropic AI"
+#   Allows:  .claudeignore, CLAUDE.md, .claude/, claude.ai, "Anthropic API",
+#            "add anthropic sdk", any file-path reference to Claude config files
+if grep -qiE \
+    "(generated|authored|created|written|made)\s+(with|by)\s+(claude|anthropic)|claude\s+code|signed-off-by\s*:\s*claude|\bby\s+anthropic\b|anthropic\s+ai\b" \
+    "$commit_msg_file"; then
+    echo "Commit rejected: message contains AI attribution pattern (Zero AI Footprint policy)." >&2
+    exit 1
+fi
 
 # 2. Sole authorship: reject ANY co-author trailer (humans included, per policy).
 if grep -qi "co-authored-by" "$commit_msg_file"; then

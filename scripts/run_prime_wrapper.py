@@ -8,6 +8,7 @@ import argparse
 import subprocess
 import pandas as pd
 import numpy as np
+import re
 
 def main():
     parser = argparse.ArgumentParser(description="Run PRIME or mock it if missing")
@@ -15,7 +16,10 @@ def main():
     parser.add_argument("--output", required=True, help="Output PRIME raw txt file")
     parser.add_argument("--alleles", required=True, help="Comma-separated alleles list")
     args = parser.parse_args()
-    
+
+    if not re.match(r'^[A-Za-z0-9*:,\-_\s]+$', args.alleles) or len(args.alleles) > 500:
+        sys.exit(f"Error: --alleles contains invalid characters or exceeds 500 chars: {args.alleles!r}")
+
     # 1. Parse peptides from binding file
     if not os.path.isfile(args.binding_csv):
         print(f"Error: binding file not found: {args.binding_csv}")
@@ -92,6 +96,8 @@ def main():
             
         try:
             print(f"[PRIME Wrapper] Executing: {' '.join(cmd)}")
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args
+            # alleles validated above (regex + length cap); researcher-only CLI tool, no web exposure
             subprocess.run(cmd, check=True)
             print("[PRIME Wrapper] Execution completed successfully.")
             # Cleanup temp file

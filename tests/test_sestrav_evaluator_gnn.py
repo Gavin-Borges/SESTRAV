@@ -92,7 +92,7 @@ def test_run_evaluation_pipeline_loads_wrapped_checkpoint(tmp_path):
 
     targets = _write_targets(tmp_path)
     ckpt = tmp_path / "gnn_wrapped.pth"
-    torch.save({"model_state_dict": StructuralGNN().state_dict()}, ckpt)
+    torch.save({"model_state_dict": StructuralGNN().state_dict()}, ckpt)  # nosec B614
 
     report = run_evaluation_pipeline(
         targets, model_checkpoint_path=ckpt,
@@ -108,7 +108,7 @@ def test_run_evaluation_pipeline_loads_bare_state_dict(tmp_path):
 
     targets = _write_targets(tmp_path)
     ckpt = tmp_path / "gnn_bare.pth"
-    torch.save(StructuralGNN().state_dict(), ckpt)  # bare state_dict branch
+    torch.save(StructuralGNN().state_dict(), ckpt)  # bare state_dict branch  # nosec B614
 
     report = run_evaluation_pipeline(
         targets, model_checkpoint_path=ckpt,

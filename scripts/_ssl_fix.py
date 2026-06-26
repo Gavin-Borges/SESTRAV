@@ -51,7 +51,7 @@ def _apply() -> None:
     except ssl.SSLError:
         # Broken - apply patch
         ssl.create_default_context = _patched_create_default_context  # type: ignore[assignment]
-        ssl._create_default_https_context = _patched_create_default_context  # type: ignore[attr-defined]
+        ssl._create_default_https_context = _patched_create_default_context  # type: ignore[assignment]
 
 
 _apply()
