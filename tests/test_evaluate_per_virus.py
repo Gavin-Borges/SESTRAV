@@ -23,9 +23,11 @@ from scripts.evaluate_per_virus import (
     MIN_SAMPLES_DEFAULT,
     bootstrap_metric,
     check_exit_criterion,
+    compare_predictions,
     evaluate_all_viruses,
     evaluate_virus,
     expected_calibration_error,
+    format_table,
     main,
     precision_at_recall,
 )
@@ -415,4 +417,127 @@ def test_main_no_virus_column_returns_1(tmp_path: Path) -> None:
     df = _make_df().drop(columns=["virus"])
     pred = _write_csv(tmp_path, df)
     rc = main(["--predictions", str(pred), "--n-bootstrap", "5"])
+    assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# format_table
+# ---------------------------------------------------------------------------
+
+
+def _make_format_result(precision_val: object = 0.90) -> dict:
+    return {
+        "n_pos": 10,
+        "n_neg_real": 5,
+        "n_neg_decoy": 5,
+        "n_total": 20,
+        "auc_roc": 0.75,
+        "auc_roc_lower": 0.65,
+        "auc_roc_upper": 0.85,
+        "auc_pr": 0.70,
+        "auc_pr_lower": 0.60,
+        "auc_pr_upper": 0.80,
+        "precision_at_10pct_recall": precision_val,
+        "ece": 0.05,
+        "auc_roc_9mer": 0.72,
+        "auc_roc_non9mer": 0.68,
+        "auc_roc_real_neg_only": 0.73,
+    }
+
+
+def test_format_table_contains_header() -> None:
+    table = format_table({"EBV": _make_format_result()})
+    assert "Virus" in table
+    assert "AUC-ROC" in table
+
+
+def test_format_table_none_formats_as_na() -> None:
+    table = format_table({"EBV": _make_format_result(precision_val=None)})
+    assert "N/A" in table
+
+
+def test_format_table_sorted_by_virus() -> None:
+    table = format_table({
+        "ZIKV": _make_format_result(),
+        "EBV": _make_format_result(),
+    })
+    assert table.index("EBV") < table.index("ZIKV")
+
+
+# ---------------------------------------------------------------------------
+# compare_predictions
+# ---------------------------------------------------------------------------
+
+
+def test_compare_predictions_row_mismatch_returns_empty() -> None:
+    df_a = _make_df(n_pos=10, n_neg_real=5, n_neg_decoy=5)
+    df_b = _make_df(n_pos=5, n_neg_real=3, n_neg_decoy=2)
+    result = compare_predictions(df_a, df_b, "score", "score")
+    assert result == {}
+
+
+def test_compare_predictions_small_group_skipped() -> None:
+    df = _make_df(n_pos=3, n_neg_real=1, n_neg_decoy=1, virus="TINY")
+    result = compare_predictions(df, df.copy(), "score", "score")
+    assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# additional main() and evaluate_virus() paths
+# ---------------------------------------------------------------------------
+
+
+def test_main_missing_label_col_returns_1(tmp_path: Path) -> None:
+    df = _make_df().drop(columns=["label"])
+    pred = _write_csv(tmp_path, df)
+    rc = main(["--predictions", str(pred), "--n-bootstrap", "5"])
+    assert rc == 1
+
+
+def test_main_no_results_returns_1(tmp_path: Path) -> None:
+    df_a = _make_df(n_pos=3, n_neg_real=2, n_neg_decoy=2, virus="EBV")
+    df_b = _make_df(n_pos=3, n_neg_real=2, n_neg_decoy=2, virus="HPV")
+    df = pd.concat([df_a, df_b], ignore_index=True)
+    pred = _write_csv(tmp_path, df)
+    rc = main(["--predictions", str(pred), "--n-bootstrap", "5", "--min-virus-size", "20"])
+    assert rc == 1
+
+
+def test_evaluate_virus_small_n_no_bootstrap() -> None:
+    rng = np.random.default_rng(9)
+    df = pd.DataFrame({
+        "label": [1] * 5 + [0] * 5,
+        "score": np.concatenate([rng.uniform(0.5, 1.0, 5), rng.uniform(0.0, 0.5, 5)]),
+        "negative_origin": ["tested_negative"] * 10,
+        "peptide": ["GILGFVFTL"] * 10,
+    })
+    r = evaluate_virus(df, "score", n_bootstrap=10)
+    assert not math.isnan(r["auc_roc"])
+    assert math.isnan(r["auc_roc_lower"])
+
+
+# ---------------------------------------------------------------------------
+# evaluate_virus() no-peptide-column path
+# ---------------------------------------------------------------------------
+
+
+def test_evaluate_virus_no_peptide_column() -> None:
+    df = _make_df().drop(columns=["peptide"])
+    r = evaluate_virus(df, "score", n_bootstrap=10)
+    assert r["auc_roc_9mer"] is None
+    assert r["auc_roc_non9mer"] is None
+
+
+# ---------------------------------------------------------------------------
+# main() compare file not found
+# ---------------------------------------------------------------------------
+
+
+def test_main_compare_file_not_found_returns_1(tmp_path: Path) -> None:
+    pred = _write_multi_virus_csv(tmp_path)
+    rc = main([
+        "--predictions", str(pred),
+        "--compare", "/nonexistent/path.csv",
+        "--n-bootstrap", "5",
+    ])
     assert rc == 1

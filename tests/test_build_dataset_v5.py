@@ -343,3 +343,64 @@ def test_main_full_build(tmp_path: Path) -> None:
 
     sidecar = out.with_name(out.stem + "_provenance.json")
     assert sidecar.exists()
+
+
+# ---------------------------------------------------------------------------
+# Null virus_family quarantine
+# ---------------------------------------------------------------------------
+
+
+def test_assign_virus_family_new_entries() -> None:
+    df = pd.DataFrame(
+        {
+            "virus": [
+                "ZIKV",
+                "CHIKV",
+                "Orthopoxvirus vaccinia",
+                "Influenza A virus",
+                "HTLV-1",
+            ]
+        }
+    )
+    out = assign_virus_family(df, LOGGER)
+    assert out.loc[0, "virus_family"] == "Flaviviridae"
+    assert out.loc[1, "virus_family"] == "Togaviridae"
+    assert out.loc[2, "virus_family"] == "Poxviridae"
+    assert out.loc[3, "virus_family"] == "Orthomyxoviridae"
+    assert out.loc[4, "virus_family"] == "Retroviridae"
+
+
+def _virus_block_with_family(
+    virus: str, n_rows: int, n_real_neg: int, family: str | None
+) -> pd.DataFrame:
+    origins = ["tested_negative"] * n_real_neg + ["self_proteome_decoy"] * (
+        n_rows - n_real_neg
+    )
+    return pd.DataFrame(
+        {
+            "virus": [virus] * n_rows,
+            "source_type": ["Virus"] * n_rows,
+            "label": [0] * n_rows,
+            "negative_origin": origins,
+            "virus_family": [family] * n_rows,
+        }
+    )
+
+
+def test_apply_quarantine_null_family_quarantined() -> None:
+    deep = _virus_block_with_family("EBV", n_rows=60, n_real_neg=12, family="Herpesviridae")
+    unknown = _virus_block_with_family("Unknown", n_rows=60, n_real_neg=12, family=None)
+    df = pd.concat([deep, unknown], ignore_index=True)
+
+    _out, quarantined = apply_quarantine(df, LOGGER)
+    assert "Unknown" in quarantined
+    assert "EBV" not in quarantined
+
+
+def test_apply_quarantine_null_family_real_neg_threshold_independent() -> None:
+    # Null-family rule must fire regardless of row/real-neg counts.
+    df = _virus_block_with_family(
+        "Mycobacterium tuberculosis", n_rows=200, n_real_neg=150, family=None
+    )
+    _out, quarantined = apply_quarantine(df, LOGGER)
+    assert "Mycobacterium tuberculosis" in quarantined

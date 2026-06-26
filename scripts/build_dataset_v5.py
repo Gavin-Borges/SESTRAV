@@ -40,16 +40,26 @@ VIRUS_FAMILY_MAP: dict[str, str] = {
     "HSV-1": "Herpesviridae",
     "HSV-2": "Herpesviridae",
     "VZV": "Herpesviridae",
+    "Human betaherpesvirus 6B": "Herpesviridae",
+    "Rhadinovirus humangamma8": "Herpesviridae",
     "SARS-CoV-2": "Coronaviridae",
     "HPV": "Papillomaviridae",
     "HBV": "Hepadnaviridae",
     "HCV": "Flaviviridae",
     "DENV": "Flaviviridae",
     "YFV": "Flaviviridae",
+    "ZIKV": "Flaviviridae",
     "IAV": "Orthomyxoviridae",
+    "Influenza A virus": "Orthomyxoviridae",
+    "Influenza B virus": "Orthomyxoviridae",
     "HIV-1": "Retroviridae",
+    "HTLV-1": "Retroviridae",
     "RSV": "Pneumoviridae",
     "MCPyV": "Polyomaviridae",
+    "Orthopoxvirus vaccinia": "Poxviridae",
+    "CHIKV": "Togaviridae",
+    "LassaVirus": "Arenaviridae",
+    "CoxsackievirusB": "Picornaviridae",
 }
 
 # Quarantine thresholds
@@ -256,6 +266,20 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
         n_real_neg = real_neg_counts.get(virus, 0)
         if n_rows < MIN_ROWS_PER_VIRUS or n_real_neg < MIN_REAL_NEGATIVES_PER_VIRUS:
             quarantined_viruses.append(virus)
+
+    # Quarantine viruses with null virus_family: non-canonical or non-virus entries.
+    if "virus_family" in df.columns:
+        null_fam_mask = viral_mask & df["virus_family"].isna()
+        null_fam_viruses = (
+            df.loc[null_fam_mask, "virus"].dropna().unique().tolist()
+        )
+        for v in null_fam_viruses:
+            if v not in quarantined_viruses:
+                quarantined_viruses.append(v)
+                logger.warning(
+                    "Quarantined %s: virus_family is null (not in VIRUS_FAMILY_MAP)",
+                    v,
+                )
 
     if quarantined_viruses:
         mask_quar = df["virus"].isin(quarantined_viruses)
