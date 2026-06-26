@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-06-26T03:06:00.085360+00:00",
+  "git_sha": "c6f2e4c",
+  "input_file": "data\\iedb_tcell_export_2026-06-26.csv\\tcell_full_v3.csv",
+  "input_sha256": "9c3b7c30dcf44b5308a2194dcf7cd947dbc2237b6b9ff69b2181af94e6b2636a",
+  "existing_dataset": "data\\immunogenicity_dataset_v4.csv",
+  "filter_stats": {
+    "raw_input": 573409,
+    "after_human_host_filter": 403277,
+    "negatives_by_qualitative_measure": 264079,
+    "negatives_by_response_frequency": 0,
+    "after_negative_measure_filter": 264079,
+    "after_peptide_filter": 51624,
+    "after_hla_filter": 42737,
+    "intra_export_duplicates_removed": 4994,
+    "after_intra_export_dedup": 37743,
+    "deduplication_hits": 3385,
+    "final_output_rows": 34358
+  },
+  "output_file": "data\\iedb_negatives_v5.csv",
+  "output_checksum_sha256": "75aa5b875ee0b4387220bc26abdbadb47338aae6c2fcafa28300c2301a9cec52"
+}
