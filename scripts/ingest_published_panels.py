@@ -128,7 +128,7 @@ def filter_rows(
     stats["after_label_filter"] = len(df)
 
     # --- Peptide validity: length 8-11, standard AA ---
-    mask_pep = df["peptide"].fillna("").str.strip().apply(is_valid_peptide)
+    mask_pep = df["peptide"].fillna("").str.strip().apply(is_valid_peptide).astype(bool)
     n_bad_pep = int((~mask_pep).sum())
     if n_bad_pep:
         logger.warning(
