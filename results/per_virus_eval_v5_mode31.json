@@ -22,20 +22,20 @@
     },
     "EBV": {
       "n_pos": 350,
-      "n_neg_real": 13,
+      "n_neg_real": 10,
       "n_neg_decoy": 0,
-      "n_total": 363,
-      "auc_roc": 0.5532967032967033,
-      "auc_roc_lower": 0.4289777640941434,
-      "auc_roc_upper": 0.6560540270909022,
-      "auc_pr": 0.9750241165842833,
-      "auc_pr_lower": 0.9565255265061386,
-      "auc_pr_upper": 0.9892207618292719,
+      "n_total": 360,
+      "auc_roc": 0.6558571428571429,
+      "auc_roc_lower": 0.5830879360291126,
+      "auc_roc_upper": 0.7234110090228874,
+      "auc_pr": 0.9880978967502734,
+      "auc_pr_lower": 0.9794502401179559,
+      "auc_pr_upper": 0.9953367177629329,
       "precision_at_10pct_recall": 1.0,
-      "ece": 0.3553534640238133,
-      "auc_roc_9mer": 0.5797258297258298,
-      "auc_roc_non9mer": 0.20588235294117646,
-      "auc_roc_real_neg_only": 0.5532967032967033
+      "ece": 0.36586219250168683,
+      "auc_roc_9mer": 0.6569264069264069,
+      "auc_roc_non9mer": null,
+      "auc_roc_real_neg_only": 0.6558571428571429
     },
     "HCV": {
       "n_pos": 414,
@@ -209,6 +209,6 @@
     }
   },
   "exit_criterion_passed": false,
-  "exit_criterion_detail": "EBV AUC-ROC=0.553 (FAIL, threshold>=0.57); HPV AUC-ROC=0.560 (FAIL, threshold>=0.58)",
+  "exit_criterion_detail": "EBV AUC-ROC=0.656 (PASS, threshold>=0.57); HPV AUC-ROC=0.560 (FAIL, threshold>=0.58)",
   "comparisons": {}
 }

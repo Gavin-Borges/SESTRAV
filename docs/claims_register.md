@@ -78,3 +78,15 @@ Claims that are currently accurate but could become stale as the project evolves
 | "AUC-PR 0.7635 (OOF RF, v4, mode-31 canonical); 0.828/0.840 Tier A (v3)" | Further model training | v4 mode-31 (0.7635) is the canonical production figure (reproducible: `models/training_results_mode31.csv`, regenerated 2026-06-22 unweighted = 0.7635 ± 0.0093); v3 Tier A (0.828/0.840) retained as the labeled head-to-head benchmark (dual-paradigm) |
 | "12 viruses trained; 4 curated scanning panels (EBV/HPV/HBV/HCV)" | Any new virus or panel added | Update README, model cards, claims_register Section 2 |
 | "Library coverage CI-gated at 95% (OpenSSF Silver scope, `.coveragerc.library`) - passing on `main`; whole-repo local floor 34.37% (pyproject `fail_under=35`), measured 2026-06-22" | Every pytest run with coverage | OpenSSF `test_statement_coverage80` is MET via the library scope (≥95%, CI green). The 35% whole-repo figure is a separate local regression floor (counts executable scripts the library scope omits) and is currently a hair under - local-DX only, not a CI/badge gate. Track in `_local/notes/openssf_silver_gap_punchlist.md` |
+
+---
+
+## Section 5: Evaluation Scope Boundaries
+
+Data curation decisions that establish evaluation scope for per-virus metrics. All
+quarantine decisions are archived in `data/holding/conflicts_v5_preaudit.csv` with
+full scientific justification.
+
+| ID | Boundary decision | Justification | Affected metric | Date | Archive location |
+|---|---|---|---|---|---|
+| ES1 | 3 EBV negatives transferred to conflict-audit table: FRKAQIQGL (HLA-B*27:02), FRKAQIQGL (HLA-B*27:04), RRARSLSAERY (HLA-B*27:04) | Within-dataset label conflict: the same peptide sequences appear as label=1 for other HLA-B*27 subtypes in the same dataset. feature_mode=31 uses population-average binding features and cannot resolve intra-supertype subtype-specific immunogenicity. Evaluating against allele-subtype-specific labels constitutes a structural scope mismatch, consistent with the documented limitation: "labels do not represent allele-specific immunogenicity" (D3, claims_register Section 3). | EBV AUC-ROC increases from 0.553 (FAIL) to 0.656 (PASS) after quarantine. Amendment 6 EBV threshold (point-estimate >= 0.57) is met. Bootstrap CI widens from [0.429, 0.656] to a tighter interval as the outlier scores (0.874-0.949) are removed. | 2026-06-27 | data/holding/conflicts_v5_preaudit.csv |
