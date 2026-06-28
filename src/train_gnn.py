@@ -19,7 +19,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-from src.train_classifier import prepare_features, prepare_features_31, prepare_features_50
+from src.train_classifier import _filter_quarantined, prepare_features, prepare_features_31, prepare_features_50
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
@@ -385,6 +385,7 @@ def train_gnn_v2(data_path, model_dir='models/gnn', epochs=50, batch_size=64,
 
     # Load data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df['peptide'].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     print(f"Training pool: {len(train_pool)} records")
@@ -601,11 +602,14 @@ if __name__ == '__main__':
                         help='Early stopping patience on val AUC-PR (epochs without improvement)')
     parser.add_argument('--pooling', choices=['mean', 'attention'], default='mean',
                         help='Graph readout: mean pool (default) or attentional aggregation (v2.4)')
+    parser.add_argument('--batch-size', type=int, default=64,
+                        help='Training batch size (reduce to 32 for t33 650M to avoid OOM)')
     args = parser.parse_args()
 
     if args.architecture == 'v2':
         train_gnn_v2(
             args.data, args.model_dir, epochs=args.epochs,
+            batch_size=args.batch_size,
             feature_mode=args.feature_mode, esm2_cache_path=args.esm2_cache,
             node_dim=args.node_dim, esm2_model_name=args.esm2_model,
             early_stopping_patience=args.patience,
