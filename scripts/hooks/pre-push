@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# SESTRAV pre-push guard
+#
+# Blocks direct pushes to the 'main' branch.
+# The canonical path is: typed feature branch -> PR -> CI green -> merge.
+#
+# Branch naming convention:
+#   feat/     new feature
+#   fix/      bug fix
+#   docs/     documentation only
+#   chore/    tooling, deps, config
+#   data/     dataset or curation changes
+#   results/  results artefacts
+#   refactor/ code restructuring
+#   security/ security hardening
+#   release/  release preparation
+#
+# Override for authorized admin/hotfix operations: git push --no-verify
+
+set -uo pipefail
+
+RED='\033[0;31m'
+NC='\033[0m'
+block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
+
+protected_branch="main"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [[ "$remote_ref" == "refs/heads/${protected_branch}" ]]; then
+        block "Direct push to '${protected_branch}' is not allowed."
+        printf '\n' >&2
+        printf '%s\n' "  Correct workflow: create a typed feature branch, open a PR," >&2
+        printf '%s\n' "  confirm CI is green, then merge via GitHub." >&2
+        printf '%s\n' "  Branch naming: feat/ fix/ docs/ chore/ data/ results/" >&2
+        printf '%s\n' "                 refactor/ security/ release/" >&2
+        printf '\n' >&2
+        printf '%s\n' "  Authorized admin override: git push --no-verify" >&2
+        exit 1
+    fi
+done
+
+exit 0
