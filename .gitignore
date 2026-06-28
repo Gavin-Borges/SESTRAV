@@ -459,6 +459,11 @@ SCRATCH.md
 *.draft.md
 *.wip.md
 
+# Ad-hoc session output files (e.g. scratchpad_output.txt, stale_search.txt)
+*_output.txt
+stale_*.txt
+stale_*.md
+
 # Raw IEDB bulk export downloads (processed versions committed as data/iedb_negatives_v5.csv)
 data/iedb_tcell_export_*/
 
