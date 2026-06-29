@@ -28,7 +28,7 @@ torch==2.12.0
 torch-geometric==2.7.0
 
 # API scaffolding
-fastapi==0.138.0
+fastapi==0.138.2
 uvicorn==0.49.0
 pydantic==2.13.4
 
@@ -37,7 +37,7 @@ pydantic==2.13.4
 # untrusted deserialization, arbitrary code execution via safe_mode bypass).
 # GHSA-36fq-jgmw-4r9c, GHSA-4f3f-g24h-fr8m, GHSA-cjgq-5qmw-rcj6,
 # GHSA-hjqc-jx6g-rwp9, GHSA-mq84-hjqx-cwf2, GHSA-7gcm-g887-7qv7
-keras==3.14.1
+keras==3.15.0
 
 # protobuf < 5.29.6 allows DoS via Any-message recursion depth bypass.
 # GHSA-m2f8-v8q4-3m59 / PYSEC-2025-121

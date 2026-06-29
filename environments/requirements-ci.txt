@@ -413,9 +413,9 @@ jupyter-core==5.9.1 \
     --hash=sha256:4d09aaff303b9566c3ce657f580bd089ff5c91f5f89cf7d8846c3cdf465b5508 \
     --hash=sha256:ebf87fdc6073d142e114c72c9e29a9d7ca03fad818c5d300ce2adc1fb0743407
     # via nbformat
-keras==3.14.1 \
-    --hash=sha256:ebd2c14d2af3c9de18083604d408483996407fc7d2f9ebd1d565961f96608c29 \
-    --hash=sha256:ef479173102ad29db89b53c232efdc3fb5ad57c28bc27ead59f3e78a1eecd05b
+keras==3.15.0 \
+    --hash=sha256:0123749ac2a704d63f691994b18e432e006cb8ae910cc0ea7035d777aed9c00d \
+    --hash=sha256:9bbd7df12b7b53500d00dc24d97b7e066c771260482cb7118de0b7687a7a2781
     # via -r requirements-ci.in
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \

@@ -24,8 +24,9 @@ fastjsonschema==2.21.2 \
     --hash=sha256:1c797122d0a86c5cace2e54bf4e819c36223b552017172f32c5c024a6b77e463
 ipykernel==6.29.5 \
     --hash=sha256:afdb66ba5aa354b09b91379bac28ae4afebbb30e8b39510c9690afb7a10421b5
-ipython==9.14.1 \
-    --hash=sha256:5d4a9ecaa3b10e6e5f269dd0948bdb58ca9cb851899cd23e07c320d3eb11613c
+ipython==9.15.0 \
+    --hash=sha256:515ad9c3cdf0c932a5a9f6245419e8aba706b7bd03c3e1d3a1c83d9351d6aa6e \
+    --hash=sha256:da2819ce2aa83135257df830660b1176d986c3d2876db24df01974fa955b2756
 ipython_pygments_lexers==1.1.1 \
     --hash=sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c
 jedi==0.20.0 \
