@@ -273,6 +273,8 @@ results/*
 # v5 per-virus evaluation results (canonical output, Amendment 6)
 !results/per_virus_eval_v5_mode31.json
 !results/per_virus_eval_v5_mode31.csv
+# v5 HLA population coverage (M16 deliverable)
+!results/population_coverage_v5.json
 release_artifacts/
 *.pyc
 __pycache__/
@@ -456,6 +458,11 @@ NOTES.md
 SCRATCH.md
 *.draft.md
 *.wip.md
+
+# Ad-hoc session output files (e.g. scratchpad_output.txt, stale_search.txt)
+*_output.txt
+stale_*.txt
+stale_*.md
 
 # Raw IEDB bulk export downloads (processed versions committed as data/iedb_negatives_v5.csv)
 data/iedb_tcell_export_*/
