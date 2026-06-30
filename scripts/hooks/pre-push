@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# SESTRAV pre-push gate
+#
+# Check 1 -- blocks direct pushes to the 'main' branch.
+#   Every change to main goes through a typed feature branch -> PR -> CI -> merge.
+#   Authorized admin/hotfix override: git push --no-verify
+#
+# Check 2 -- runs the fast test gate before pushing any branch.
+#   Heavy/slow tests (GNN checkpoint loads, network calls) are excluded here;
+#   they are covered by CI. The gate catches regressions before they reach
+#   the remote.
+
+set -uo pipefail
+
+RED='\033[0;31m'
+NC='\033[0m'
+block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
+
+# ---- Check 1: Direct-push guard ----------------------------------------
+protected_branch="main"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [[ "$remote_ref" == "refs/heads/${protected_branch}" ]]; then
+        block "Direct push to '${protected_branch}' is not allowed."
+        printf '\n' >&2
+        printf '%s\n' "  Correct workflow: create a typed feature branch, open a PR," >&2
+        printf '%s\n' "  confirm CI is green, then merge via GitHub." >&2
+        printf '%s\n' "  Branch naming: feat/ fix/ docs/ chore/ data/ results/" >&2
+        printf '%s\n' "                 refactor/ security/ release/" >&2
+        printf '\n' >&2
+        printf '%s\n' "  Authorized admin override: git push --no-verify" >&2
+        exit 1
+    fi
+done
+
+# ---- Check 2: Fast test gate -------------------------------------------
+printf '[pre-push] Running fast test gate (slow GNN tests excluded, covered by CI)...\n'
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Activate conda environment if not already active.
+if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; then
+    if command -v conda >/dev/null 2>&1; then
+        eval "$(conda shell.bash hook 2>/dev/null)" && conda activate sestrav 2>/dev/null || true
+    fi
+fi
+
+# Run fast tests: exclude heavy (model checkpoints) and slow (network) markers.
+cd "${REPO_ROOT}" && python -m pytest tests/ -q -m "not heavy and not slow"
+
+status=$?
+
+if [[ $status -ne 0 ]]; then
+    printf '\n' >&2
+    block "Fast test gate failed. Fix failures before pushing."
+    exit 1
+fi
+
+printf '[pre-push] All fast tests passed -- push allowed.\n'
+exit 0

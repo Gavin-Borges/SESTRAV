@@ -46,8 +46,8 @@ The exact ruleset and any documented exceptions live in `pyproject.toml`
 (`[tool.ruff]`). CI runs `ruff check .` as a required gate, so please lint and
 format before submitting:
 ```bash
-ruff check . --fix     # lint (and auto-fix what is safely fixable)
-ruff format .          # format (black-compatible)
+ruff check . --fix   # lint (and auto-fix what is safely fixable)
+ruff format .        # format (ruff-format, black-compatible)
 ```
 
 ### 2. Running Tests
@@ -115,15 +115,57 @@ Ensure that `results/freeze_status.json` has `"valid": true` before releasing an
 ### 4. Continuous Integration
 All pushes and pull requests to `main` will trigger a GitHub Actions run to execute `pytest` and a Snakemake dry-run.
 
+### 5. Branch Naming and Pull Request Workflow
+
+`main` is a protected branch. **No direct pushes.** Every change reaches `main` through a
+pull request; CI must be green before merging.
+
+**Branch prefix conventions** (match the commit-scope convention):
+
+| Prefix | Use for |
+|---|---|
+| `feat/` | new feature or capability |
+| `fix/` | bug fix |
+| `docs/` | documentation only |
+| `chore/` | tooling, deps, config, CI |
+| `data/` | dataset assembly or curation |
+| `results/` | results artefacts, evaluation runs |
+| `refactor/` | code restructuring, no behaviour change |
+| `security/` | security hardening |
+| `release/` | release preparation |
+
+**Workflow in practice:**
+
+```bash
+# 1. Create a typed branch from up-to-date main
+git checkout main && git pull
+git checkout -b feat/my-feature
+
+# 2. Commit with a scoped message
+git commit -m "feat(module): description of what and why"
+
+# 3. Push the branch and open a PR
+git push -u origin feat/my-feature
+gh pr create --fill          # or open via GitHub UI
+
+# 4. Wait for CI to pass, then merge via GitHub
+```
+
+The `pre-push` hook (installed by `bash scripts/hooks/install.sh`) blocks direct pushes
+to `main` locally. The GitHub branch ruleset enforces the same policy at the remote.
+Admin overrides are available with `git push --no-verify` for authorized hotfixes.
+
 ---
 
 ## Pull Request Checklist
 
 When submitting a pull request, ensure the following checklist is completed:
 
+- [ ] Git hooks installed: `bash scripts/hooks/install.sh` (pre-commit, commit-msg, pre-push).
+- [ ] Branch follows naming convention (`feat/`, `fix/`, `docs/`, `chore/`, etc.).
 - [ ] All tests pass locally using `pytest`.
 - [ ] Snakemake dry-run succeeds.
-- [ ] Coding style follows PEP 8 / formatting via `black` is applied.
+- [ ] Coding style follows PEP 8 / formatting via `ruff` is applied.
 - [ ] No changes are made to frozen validation outputs in `results/` unless explicitly requested.
 - [ ] `freeze_mode: true` is enabled in `config.yaml` for release-grade validation runs.
 

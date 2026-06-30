@@ -7,7 +7,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 HOOKS_SRC="${REPO_ROOT}/scripts/hooks"
 HOOKS_DST="${REPO_ROOT}/.git/hooks"
 
-HOOKS=(pre-commit commit-msg)
+HOOKS=(pre-commit commit-msg pre-push)
 
 for hook in "${HOOKS[@]}"; do
     src="${HOOKS_SRC}/${hook}"
