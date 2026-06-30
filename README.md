@@ -5,6 +5,15 @@
 ![Version](https://img.shields.io/badge/version-2.0.3-informational?style=flat-square)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 
+**SESTRAV** is a dry-lab (purely computational) pipeline for prioritizing viral CD8+ T-cell epitopes by predicted immunogenicity, with a primary focus on HPV and EBV. It targets the specificity bottleneck that binding-only tools leave open: MHC binding is a weak proxy for T-cell immunogenicity, so SESTRAV scores peptides on the physicochemical structure of TCR-contact residues (positions p4-p8) in addition to multi-allele presentation.
+
+The system is organized as two model tracks under a single reproducible Snakemake workflow:
+
+- **Production track (validated):** a Random Forest / XGBoost ensemble over a 31-feature structural representation (canonical `mode_31`). This is the maintained, benchmarked scorer.
+- **Research track (gated):** a graph neural network (GINEConv + ESM-2 residue embeddings) that fuses a peptide residue graph with the same physicochemical features. It is the v2.0 forward architecture and is held to explicit promotion gates before it can become canonical.
+
+SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) with a documented roadmap toward the Silver and Gold tiers (see Security and Compliance Posture). All results reported here are computational; no wet-lab efficacy is claimed. The end-to-end design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ## SESTRAV vs Field
 
 | Capability | SESTRAV | PredIG | PRIME | NetMHCpan | pVACtools |
@@ -50,6 +59,16 @@ SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data p
 *   **SAST & CI:** All commits are gated by Bandit, CodeQL, and Semgrep via GitHub Actions.
 *   **Dependency Pinning:** Environment files use strict `--require-hashes` to mitigate supply-chain attacks.
 *   **Data Integrity:** The pipeline uses `freeze_mode` constraints to guarantee data immutability during reproducibility benchmarking.
+
+### OpenSSF Best Practices
+
+| Tier | Status | Evidence and remaining gap |
+|---|---|---|
+| **Passing** | Attained ([project 13191](https://www.bestpractices.dev/projects/13191)) | Full criteria-to-evidence mapping in `docs/openssf_best_practices_readiness.md`. |
+| **Silver** | Substantially met | Documented governance, two-scope CI coverage gating, Sigstore-signed releases, and a published threat model are in place. Remaining gap: the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. |
+| **Gold** | Coverage targets met; in progress | Library-scope statement and branch coverage already clear the Gold thresholds (>= 90% statement, >= 80% branch; currently ~99% / ~98%). Remaining gaps: the multi-person criteria above, plus per-file SPDX/copyright headers (`license_per_file`), deferred until a second contributor lands so authorship is attributed accurately. |
+
+Tier progress is tracked in `ROADMAP.md`; governance and assurance evidence is in `docs/threat_model.md` and `GOVERNANCE.md`.
 
 For vulnerability reporting, refer to `SECURITY.md`. For a detailed compliance matrix against OpenSSF standards, see `docs/security_compliance.md`.
 
@@ -139,7 +158,7 @@ graph LR
 3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-contact positions p4–p8 + 10 binding scores + peptide length = 31 features (canonical) or 33 with antigen processing tier.
 4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with SHAP interpretability and conformal prediction intervals.
 5. **Antigen Processing** *(optional, `feature_mode=33`)*: NetChop 3.1 proteasomal cleavage + TAPreg TAP transport scores as additional training features.
-6. **GNN Structural Benchmark** *(optional)*: Graph neural network scoring on peptide backbone graphs; Gates 2+3 pass on v3 data.
+6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph; passes 4 of 5 promotion gates on v4 data. See `ARCHITECTURE.md` for the gating policy that governs promotion to a canonical scorer.
 
 **Input:** Viral proteome FASTA files (default: HPV16/18, EBV B95-8, HBV ayw, HCV 1a panels).
 **Output:** Ranked epitope candidates with immunogenicity scores, SHAP values, and visualizations.
@@ -321,8 +340,8 @@ See `scripts/README.md` for the external-validation utilities and workflow.
 
 * **ANN:** `pip install -r requirements-ann.txt`, then `python -m src.ann_benchmark --help`.
 Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
-* **GNN v2.1:** `pip install "sestrav[gnn]"`, then `python -m src.train_gnn --help`.
-Architecture: GINEConv × 2 (GINEConv + ESM-2 320-dim node embeddings, `facebook/esm2_t6_8M_UR50D`). 4/5 promotion gates PASS on v4 data (AUC-PR 0.7241; Gate 1 ≥ 0.85 target in progress). Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
+* **GNN v2.3 (research track):** `pip install "sestrav[gnn]"`, then `python -m src.train_gnn --help`.
+Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. On v4 data it passes 4 of 5 promotion gates (mean-fold AUC-PR 0.7281); the AUC-PR >= 0.85 gate (Gate 1) is not yet met, so the GNN remains a research track rather than the canonical scorer. Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
 
 ### 7. Google Colab
 
