@@ -8,9 +8,8 @@ the data-governance layer, and the reproducibility and security posture. It is w
 for bioinformatics and computational-immunology reviewers who want to evaluate, run, or
 extend the pipeline.
 
-> This document supersedes the earlier course-era design note in
-> `docs/architecture/SESTRAV_Framework_and_Architecture.md`, which is retained only for
-> historical reference.
+> This document is the current authoritative architecture reference. It supersedes
+> earlier, course-era design notes that predate the v2.0 redesign.
 
 ---
 
