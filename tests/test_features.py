@@ -202,6 +202,29 @@ def test_esm_and_graph_features():
     assert wl_11.shape == (32,), f"Expected shape (32,), got {wl_11.shape}"
 
 
+def test_mode_51_contact_weights():
+    """ALLELE_CONTACT_WEIGHTS structure is correct; FEATURE_COLUMNS_51 has 55 columns."""
+    from src.features import (
+        ALLELE_CONTACT_WEIGHTS, POPULATION_AVG_CONTACT_WEIGHTS,
+        CONTACT_WEIGHT_COLUMNS, FEATURE_COLUMNS_51, FEATURE_COLUMNS_50,
+    )
+    canonical_alleles = {
+        'HLA-A*01:01', 'HLA-A*02:01', 'HLA-A*03:01', 'HLA-A*11:01', 'HLA-A*24:02',
+        'HLA-B*07:02', 'HLA-B*08:01', 'HLA-B*27:05', 'HLA-B*35:01', 'HLA-B*44:02',
+    }
+    assert set(ALLELE_CONTACT_WEIGHTS.keys()) == canonical_alleles, (
+        f"Missing or extra alleles: {set(ALLELE_CONTACT_WEIGHTS.keys()) ^ canonical_alleles}"
+    )
+    for allele, weights in ALLELE_CONTACT_WEIGHTS.items():
+        assert len(weights) == 5, f"{allele}: expected 5 weights, got {len(weights)}"
+        assert all(0.0 <= w <= 1.0 for w in weights), f"{allele}: weights must be in [0.0, 1.0]"
+    assert len(POPULATION_AVG_CONTACT_WEIGHTS) == 5
+    assert all(0.0 <= w <= 1.0 for w in POPULATION_AVG_CONTACT_WEIGHTS)
+    assert len(CONTACT_WEIGHT_COLUMNS) == 5
+    assert FEATURE_COLUMNS_51 == FEATURE_COLUMNS_50 + CONTACT_WEIGHT_COLUMNS
+    assert len(FEATURE_COLUMNS_51) == 55
+
+
 if __name__ == "__main__":
     test_clgglltmv_9mer()
     test_rakfkqll_8mer()
@@ -210,4 +233,5 @@ if __name__ == "__main__":
     test_get_tcr_positions_length_relative()
     test_feature_count()
     test_esm_and_graph_features()
+    test_mode_51_contact_weights()
     print("All feature extraction tests passed.")

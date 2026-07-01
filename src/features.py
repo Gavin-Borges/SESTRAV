@@ -147,6 +147,36 @@ FEATURE_COLUMNS_35 = FEATURE_COLUMNS_33 + ['self_similarity_max_identity', 'self
 FEATURE_COLUMNS_50 = EXPANDED_PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 
 # ---------------------------------------------------------------------------
+# Per-allele TCR contact frequency priors at positions p4-p8 (mode 51)
+# ---------------------------------------------------------------------------
+# Each list is [p4_weight, p5_weight, p6_weight, p7_weight, p8_weight].
+# Values are literature-informed priors (Chowell et al. 2015 PNAS; Baker et al.
+# 2012 J Immunol) and will be replaced by compute_contact_freqs.py output once
+# the ATLAS / STCRDab PDB corpus has been downloaded and parsed.
+ALLELE_CONTACT_WEIGHTS: dict[str, list[float]] = {
+    'HLA-A*01:01': [0.60, 0.48, 0.80, 0.48, 0.32],
+    'HLA-A*02:01': [0.65, 0.45, 0.82, 0.55, 0.35],
+    'HLA-A*03:01': [0.58, 0.52, 0.76, 0.50, 0.30],
+    'HLA-A*11:01': [0.58, 0.52, 0.76, 0.50, 0.30],  # A*03 supertype proxy
+    'HLA-A*24:02': [0.62, 0.47, 0.79, 0.49, 0.33],
+    'HLA-B*07:02': [0.58, 0.60, 0.75, 0.50, 0.40],
+    'HLA-B*08:01': [0.62, 0.50, 0.78, 0.52, 0.38],
+    'HLA-B*27:05': [0.55, 0.65, 0.70, 0.45, 0.35],
+    'HLA-B*35:01': [0.60, 0.55, 0.72, 0.48, 0.36],
+    'HLA-B*44:02': [0.61, 0.53, 0.76, 0.51, 0.37],
+}
+
+# Population-average fallback (allele absent or not in ALLELE_CONTACT_WEIGHTS)
+POPULATION_AVG_CONTACT_WEIGHTS: list[float] = [0.60, 0.53, 0.77, 0.50, 0.36]
+
+CONTACT_WEIGHT_COLUMNS: list[str] = [
+    'tcr_contact_weight_p4', 'tcr_contact_weight_p5', 'tcr_contact_weight_p6',
+    'tcr_contact_weight_p7', 'tcr_contact_weight_p8',
+]
+
+FEATURE_COLUMNS_51 = FEATURE_COLUMNS_50 + CONTACT_WEIGHT_COLUMNS
+
+# ---------------------------------------------------------------------------
 # HLA Pocket Pseudo-sequence feature columns (allele-aware extension)
 # ---------------------------------------------------------------------------
 # NetMHCpan 4.1 convention: 34 variable MHC pocket residues, each encoded

@@ -38,6 +38,7 @@ def precompute_esm2(
     output_path: str,
     model_name: str = "facebook/esm2_t6_8M_UR50D",
     batch_size: int = 64,
+    incremental: bool = False,
 ) -> None:
     if model_name not in ESM_MODEL_DIMS:
         raise ValueError(
@@ -53,7 +54,16 @@ def precompute_esm2(
     model.eval()
 
     df = pd.read_csv(data_path)
-    peptides = sorted(df["peptide"].unique().tolist())
+    all_peptides = sorted(df["peptide"].unique().tolist())
+
+    existing: dict = {}
+    if incremental and Path(output_path).exists():
+        existing = torch.load(output_path, map_location="cpu", weights_only=True)  # nosec B614 -- loading our own previously saved embeddings
+        print(f"Incremental mode: {len(existing)} peptides already cached, skipping.")
+        peptides = [p for p in all_peptides if p not in existing]
+    else:
+        peptides = all_peptides
+
     print(f"Computing embeddings for {len(peptides)} unique peptides (batch_size={batch_size}) ...")
 
     embeddings: dict = {}
@@ -81,6 +91,8 @@ def precompute_esm2(
             done = min((batch_idx + 1) * batch_size, len(peptides))
             print(f"  {done}/{len(peptides)} peptides processed")
 
+    if existing:
+        embeddings.update(existing)
     print(f"Saving {len(embeddings)} embeddings to {output_path}")
     torch.save(embeddings, output_path)  # nosec B614
     print("Done.")
@@ -97,10 +109,17 @@ if __name__ == "__main__":
                         help="Output .pt path (default: data/esm2_embeddings_<variant>.pt)")
     parser.add_argument("--batch-size", type=int, default=64,
                         help="Peptides per ESM-2 forward pass")
+    parser.add_argument("--incremental", action="store_true",
+                        help="Skip peptides already present in an existing output cache")
     args = parser.parse_args()
 
     if args.output is None:
         variant = args.model.split("/")[-1].lower().replace("_ur50d", "")
         args.output = f"data/esm2_embeddings_{variant}.pt"
 
-    precompute_esm2(args.data, args.output, model_name=args.model, batch_size=args.batch_size)
+    precompute_esm2(
+        args.data, args.output,
+        model_name=args.model,
+        batch_size=args.batch_size,
+        incremental=args.incremental,
+    )

@@ -41,6 +41,7 @@ from src.features import (
     BINDING_ALLELE_COLUMNS, PHYSICO_COLUMNS,
     FEATURE_COLUMNS_ALLELE, HLA_PSEUDO_COLS,
     FEATURE_COLUMNS_50, EXPANDED_PHYSICO_COLUMNS,
+    FEATURE_COLUMNS_51, ALLELE_CONTACT_WEIGHTS, POPULATION_AVG_CONTACT_WEIGHTS, CONTACT_WEIGHT_COLUMNS,
     compute_sample_weights,
     get_esm_cls_token, get_cb_cb_edges, compute_wl_features,
     FEATURE_COLUMNS_30_ESM, FEATURE_COLUMNS_30_GRAPH,
@@ -183,6 +184,26 @@ def prepare_features_50(df, binding_matrix_path):
 
     return pd.concat([physico_df.reset_index(drop=True),
                       bind_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_50]
+
+
+def prepare_features_51(df, binding_matrix_path, allele_col='hla_allele'):
+    """Build the 55-feature matrix: mode-50 expanded + per-allele TCR contact weights.
+
+    Contact weights at positions p4-p8 are looked up from ALLELE_CONTACT_WEIGHTS
+    using the allele in allele_col. Rows with missing or unrecognized alleles
+    receive POPULATION_AVG_CONTACT_WEIGHTS (backward-compatible fallback).
+    """
+    base_50 = prepare_features_50(df, binding_matrix_path)
+
+    alleles = df[allele_col].values if allele_col in df.columns else [None] * len(df)
+    weight_records = []
+    for allele in alleles:
+        weights = ALLELE_CONTACT_WEIGHTS.get(allele, POPULATION_AVG_CONTACT_WEIGHTS)
+        weight_records.append(dict(zip(CONTACT_WEIGHT_COLUMNS, weights)))
+    weight_df = pd.DataFrame(weight_records)
+
+    return pd.concat([base_50.reset_index(drop=True),
+                      weight_df.reset_index(drop=True)], axis=1)[FEATURE_COLUMNS_51]
 
 
 def prepare_features_166(df, binding_matrix_path):
@@ -441,6 +462,12 @@ def train_models(data_path, model_dir='models', n_cv_folds=5, random_state=42,
         X = prepare_features_166(train_pool, binding_matrix_path)
         feature_cols_used = FEATURE_COLUMNS_ALLELE
         mode_label = "166-feature allele-aware (20 physico + 10 binding + 136 HLA pseudo-seq)"
+    elif feature_mode == 51:
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 51")
+        X = prepare_features_51(train_pool, binding_matrix_path)
+        feature_cols_used = FEATURE_COLUMNS_51
+        mode_label = "55-feature (50 expanded + 5 per-allele TCR contact weights)"
     elif feature_mode == 50:
         if binding_matrix_path is None:
             raise ValueError("--binding-matrix is required for feature-mode 50")
