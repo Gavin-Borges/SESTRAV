@@ -47,7 +47,7 @@ class ModelRegistry:
             raise FileNotFoundError(f"Model artifact not found: {path}")
 
         if path.suffix == ".joblib":
-            return load_verified_joblib(path, required_checksum=False)
+            return load_verified_joblib(path, required_checksum=True)
         elif path.suffix in [".pt", ".pth"]:
             import torch
             try:
