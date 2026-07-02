@@ -33,7 +33,9 @@ jobs:
           python-version: '3.13'
 
       - name: Install CPU PyTorch (no CUDA needed for fuzz tests)
-        run: pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu
+        # Hash-pinned like every other workflow (--require-hashes --no-deps) so the
+        # fuzz job does not break the repo-wide pinned-dependency guarantee.
+        run: pip install --no-deps --require-hashes -r environments/requirements-ci-torch-cpu.txt --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
         run: |

@@ -6,8 +6,20 @@ From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083
     Version 2.0
     Description SESTRAV - Structural Epitope Scoring via TCR Recognition And Vaccinology
 
+# %files: selective allowlist only. Never use `. /app` here - Apptainer/Singularity
+# does NOT honor .dockerignore, so a wildcard copy would bake _local/ (prompts,
+# notes, credentials), the .git history, .claude/, .env, and coverage data into
+# any distributed .sif. Enumerate only the runtime-required paths.
 %files
-    . /app
+    pyproject.toml /app/pyproject.toml
+    README.md /app/README.md
+    config.yaml /app/config.yaml
+    pipeline.py /app/pipeline.py
+    src /app/src
+    functions /app/functions
+    environments /app/environments
+    data/proteomes /app/data/proteomes
+    models /app/models
 
 %post
     apt-get update && apt-get install -y --no-install-recommends build-essential

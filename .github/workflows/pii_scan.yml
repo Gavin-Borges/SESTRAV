@@ -19,11 +19,14 @@ jobs:
           fetch-depth: 0
 
       - name: Scan Diff for Absolute Paths
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Compare against the PR base (or previous commit on push). Exclude this gate
           # workflow itself, whose grep patterns intentionally contain example fragments.
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git diff "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git diff "origin/$BASE_REF...HEAD" -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
           else
             git diff HEAD~1...HEAD -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
           fi

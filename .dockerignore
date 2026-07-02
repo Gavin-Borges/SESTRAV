@@ -58,6 +58,7 @@ docs/
 !README.md
 
 # Environments and secrets
+_local/
 .env
 .venv
 environments/
