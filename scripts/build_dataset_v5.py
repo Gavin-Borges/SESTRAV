@@ -765,7 +765,7 @@ def main(argv: list[str] | None = None) -> int:
     merged = merged.drop_duplicates(subset=["peptide", "hla_allele"], keep="first")
     n_dedup_dropped = pre_dedup_len - len(merged)
     if n_dedup_dropped:
-        logger.info("Dedup dropped %d same-label duplicate (peptide, hla_allele) rows", n_dedup_dropped)
+        logger.info("Dedup dropped %d overlapping-source (peptide, hla_allele) rows (same- or cross-label)", n_dedup_dropped)
     source_counts["merged_total"] = len(merged)
     source_counts["dedup_dropped"] = n_dedup_dropped
 
