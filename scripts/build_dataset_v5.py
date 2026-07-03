@@ -714,6 +714,34 @@ def main(argv: list[str] | None = None) -> int:
         )
         source_counts["published_panels"] = len(panels_df)
 
+        # Warn when a panel-positive (peptide, hla_allele) is also an IEDB
+        # negative. Dedup resolves correctly (panels win by priority), but the
+        # conflict is worth surfacing for audit: it means IEDB called the
+        # peptide non-immunogenic while the panel says otherwise.
+        _pa = ["peptide", "hla_allele"]
+        if (
+            "label" in panels_df.columns
+            and all(c in panels_df.columns for c in _pa)
+            and all(c in iedb_neg_df.columns for c in _pa)
+        ):
+            _panel_pos_keys = set(
+                panels_df.loc[panels_df["label"] == 1, _pa]
+                .fillna("")
+                .apply(tuple, axis=1)
+            )
+            _n_conflict = int(
+                iedb_neg_df[_pa].fillna("").apply(tuple, axis=1)
+                .isin(_panel_pos_keys)
+                .sum()
+            )
+            if _n_conflict:
+                logger.warning(
+                    "Panel/IEDB conflict: %d panel-positive (peptide, hla_allele) "
+                    "pairs are also IEDB-negative; dedup keeps panel version (higher priority)",
+                    _n_conflict,
+                )
+                source_counts["panel_iedb_conflicts"] = _n_conflict
+
     # -----------------------------------------------------------------------
     # 4. Ensure all parts have v5 columns before concat
     # -----------------------------------------------------------------------

@@ -237,7 +237,9 @@ def write_allele_map(
 def download_pdb(pdb_id: str, dest: Path) -> bool:
     """Download a single PDB file from RCSB with up to MAX_ATTEMPTS tries.
 
-    Returns True on success, False on failure.
+    Returns True on success, False on network/IO failure.
+    Raises ValueError if the resolved URL scheme is not https:// (programming
+    error - indicates RCSB_PDB_URL constant was changed to a non-HTTPS value).
     """
     url = RCSB_PDB_URL.format(pdb_id=pdb_id.upper())
     if not url.startswith("https://"):
