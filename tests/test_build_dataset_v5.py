@@ -404,3 +404,47 @@ def test_apply_quarantine_null_family_real_neg_threshold_independent() -> None:
     )
     _out, quarantined = apply_quarantine(df, LOGGER)
     assert "Mycobacterium tuberculosis" in quarantined
+
+
+# ---------------------------------------------------------------------------
+# Deduplication on (peptide, hla_allele) across sources
+# ---------------------------------------------------------------------------
+
+
+def _write_iedb_with_overlap(path: Path) -> None:
+    pd.DataFrame(
+        {
+            "peptide": ["KLGGALQAK", "CINGVCWTV", "AAAAAAAAA"],
+            "label": [0, 0, 0],
+            "virus": ["CMV", "HCV", "Self"],
+            "hla_allele": ["HLA-A*02:01", "HLA-A*02:01", "HLA-A*02:01"],
+            "source_type": ["Virus", "Virus", "Self"],
+            "negative_origin": ["tested_negative", "tested_negative", "tested_negative"],
+            "reference_pmid": ["555", "666", "777"],
+        }
+    ).to_csv(path, index=False)
+
+
+def test_main_dedup_drops_cross_source_same_label_duplicates(tmp_path: Path) -> None:
+    base = tmp_path / "v4.csv"
+    iedb = tmp_path / "iedb_neg.csv"
+    out = tmp_path / "v5.csv"
+    conflicts = tmp_path / "conflicts.csv"
+    _write_base_v4(base)
+    _write_iedb_with_overlap(iedb)  # AAAAAAAAA also in v4 decoys
+
+    rc = main(
+        [
+            "--base-dataset", str(base),
+            "--iedb-negatives", str(iedb),
+            "--output", str(out),
+            "--schema", str(SCHEMA_PATH),
+            "--conflict-audit-path", str(conflicts),
+        ]
+    )
+    assert rc == 0
+    v5 = pd.read_csv(out)
+    # No (peptide, hla_allele) duplicates after dedup.
+    assert v5.duplicated(subset=["peptide", "hla_allele"]).sum() == 0
+    # 4 v4 rows + 3 IEDB rows - 1 duplicate = 6 rows (not 7).
+    assert len(v5) == 6
