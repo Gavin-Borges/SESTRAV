@@ -50,7 +50,7 @@ BLOCKED_PATTERNS=(
   '\.pem$'                   # PEM certificates
   '\.p12$'                   # PKCS12 certificates
   '\.pfx$'                   # PFX certificates
-  '^\.env$'                  # Literal .env file
+  '(^|/)\.env(\.[^/]+)?$'    # .env, .env.local, .env.production, or in any subdir
 )
 
 gate1_failed=0
@@ -85,6 +85,11 @@ CRED_PATTERNS=(
   'ghp_[a-zA-Z0-9]{36}'            # GitHub personal access token
   'ghs_[a-zA-Z0-9]{36}'            # GitHub Actions token
   'xox[baprs]-[0-9A-Za-z-]{10,}'   # Slack token
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'  # PEM private key block
+  'github_pat_[A-Za-z0-9_]{20,}'   # GitHub fine-grained PAT
+  'gh[oupsr]_[A-Za-z0-9]{20,}'     # GitHub tokens (oauth/user/pat/server/refresh)
+  'sk-(proj|svcacct)-[A-Za-z0-9_-]{20,}'  # OpenAI project/service keys
+  'sk-ant-[A-Za-z0-9_-]{20,}'      # Anthropic keys
 )
 
 gate2_failed=0
