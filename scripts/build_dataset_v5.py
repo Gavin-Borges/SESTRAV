@@ -730,8 +730,9 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Merged pre-dedup: %d rows", len(merged))
 
     # Deduplicate on (peptide, hla_allele), keeping the highest-priority source.
-    # audit_label_conflicts above already aborts on cross-label v4/IEDB conflicts;
-    # remaining duplicates are same-label rows from overlapping sources.
+    # audit_label_conflicts above writes a CSV for v4-positive / IEDB-negative
+    # cross-label conflicts but does not abort; any surviving cross-label pairs
+    # are resolved here by keep-first priority order.
     pre_dedup_len = len(merged)
     merged = merged.drop_duplicates(subset=["peptide", "hla_allele"], keep="first")
     n_dedup_dropped = pre_dedup_len - len(merged)

@@ -448,3 +448,7 @@ def test_main_dedup_drops_cross_source_same_label_duplicates(tmp_path: Path) -> 
     assert v5.duplicated(subset=["peptide", "hla_allele"]).sum() == 0
     # 4 v4 rows + 3 IEDB rows - 1 duplicate = 6 rows (not 7).
     assert len(v5) == 6
+    # v4 decoy takes priority over IEDB overlap: database_source "UniProt" is kept.
+    aaa = v5[v5["peptide"] == "AAAAAAAAA"]
+    assert len(aaa) == 1
+    assert aaa.iloc[0]["database_source"] == "UniProt"
