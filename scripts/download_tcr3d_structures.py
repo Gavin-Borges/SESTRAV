@@ -67,9 +67,11 @@ MAX_ATTEMPTS = 2
 
 def fetch_tsv(url: str) -> list[dict[str, str]]:
     """Fetch the TCR3d metadata TSV and return it as a list of row dicts."""
+    if not url.startswith("https://"):
+        raise ValueError(f"Only HTTPS URLs are permitted; got: {url!r}")
     print(f"Fetching metadata TSV: {url}")
     try:
-        with urllib.request.urlopen(url, timeout=60) as resp:
+        with urllib.request.urlopen(url, timeout=60) as resp:  # nosec B310
             raw_bytes = resp.read()
     except Exception as exc:
         print(f"ERROR: Failed to download TSV: {exc}", file=sys.stderr)
@@ -238,9 +240,11 @@ def download_pdb(pdb_id: str, dest: Path) -> bool:
     Returns True on success, False on failure.
     """
     url = RCSB_PDB_URL.format(pdb_id=pdb_id.upper())
+    if not url.startswith("https://"):
+        raise ValueError(f"Only HTTPS URLs are permitted; got: {url!r}")
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
-            with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as resp:  # nosec B310
                 content_bytes = resp.read()
             content = content_bytes.decode("ascii", errors="ignore")
             dest.write_text(content, encoding="ascii")
