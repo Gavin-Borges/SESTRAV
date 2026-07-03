@@ -394,7 +394,11 @@ def main(argv: list[str] | None = None) -> int:
     filtered_df, stats = filter_rows(raw_df, args.hla_allele, logger)
 
     if len(filtered_df) == 0:
-        logger.warning("No rows survived filtering; output would be empty.")
+        logger.warning(
+            "0 rows survived filtering (raw_input=%d). "
+            "--dry-run will show stats; live run will abort.",
+            stats.get("raw_input", 0),
+        )
 
     out_df = build_output(
         filtered_df,
@@ -429,6 +433,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {'positives:':<35} {n_pos}")
         print(f"  {'negatives:':<35} {n_neg}")
         return 0
+
+    if len(out_df) == 0:
+        logger.error(
+            "Aborting: 0 rows survived filtering (raw_input=%d). "
+            "Verify peptide and label columns are populated in %s "
+            "and that all peptides are 8-11 AA standard residues.",
+            stats.get("raw_input", 0),
+            args.input,
+        )
+        return 1
 
     # Resolve output path.
     output_path = args.output

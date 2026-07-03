@@ -185,11 +185,13 @@ def main() -> None:
     for pdb_path in pdb_files:
         allele = allele_map.get(pdb_path.stem.lower()) or _allele_from_remark(pdb_path)
         if allele is None:
+            print(f"  SKIP {pdb_path.name}: no allele in map or REMARK 950")
             n_skipped += 1
             continue
 
         contacts = _contacts_for_pdb(pdb_path, args.cutoff)
         if contacts is None:
+            print(f"  SKIP {pdb_path.name}: parse error or no peptide/TCR chain")
             n_skipped += 1
             continue
 

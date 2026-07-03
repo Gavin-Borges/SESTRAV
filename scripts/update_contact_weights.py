@@ -23,6 +23,7 @@ import argparse
 import csv
 import pathlib
 import re
+import shutil
 import sys
 
 
@@ -264,7 +265,10 @@ def main() -> None:
 
     # Apply changes to features.py
     new_source = _replace_weights_in_source(source, new_block, pop_avg)
+    backup_path = args.features_py.with_suffix('.py.bak')
+    shutil.copy2(args.features_py, backup_path)
     args.features_py.write_text(new_source, encoding='utf-8')
+    print(f"Backup at: {backup_path}")
     print(
         f"\nUpdated {args.features_py}: "
         f"{len(allele_weights)} alleles from structures, "

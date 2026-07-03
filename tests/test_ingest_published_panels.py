@@ -442,6 +442,49 @@ def test_main_missing_input_returns_1(tmp_path: Path) -> None:
     assert rc == 1
 
 
+def test_main_empty_csv_live_run_returns_1(tmp_path: Path) -> None:
+    panel = tmp_path / "panel.csv"
+    out = tmp_path / "out.csv"
+    # 'X' is not in the standard 20 AA set, so every row fails the peptide
+    # validity filter. Using a valid label avoids the label-drop path so the
+    # peptide filter actually runs and leaves 0 rows.
+    pd.DataFrame(
+        [
+            {"peptide": "XXXXXXXXX", "label": 1, "hla_allele": "HLA-A*02:01"},
+            {"peptide": "XXXXXXXXX", "label": 0, "hla_allele": "HLA-A*02:01"},
+        ]
+    ).to_csv(panel, index=False)
+
+    rc = main(
+        [
+            "--input", str(panel),
+            "--virus", "HPV",
+            "--pmid", "7538538",
+            "--output", str(out),
+        ]
+    )
+    assert rc == 1
+    assert not out.exists()
+
+
+def test_main_empty_csv_dry_run_returns_0(tmp_path: Path) -> None:
+    panel = tmp_path / "panel.csv"
+    pd.DataFrame(
+        [{"peptide": "XXXXXXXXX", "label": 1, "hla_allele": "HLA-A*02:01"}]
+    ).to_csv(panel, index=False)
+
+    rc = main(
+        [
+            "--input", str(panel),
+            "--virus", "HPV",
+            "--pmid", "7538538",
+            "--dry-run",
+        ]
+    )
+    # dry-run always returns 0 regardless of row count
+    assert rc == 0
+
+
 def test_main_default_output_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     panel = tmp_path / "panel.csv"
     _write_panel_csv(panel)

@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from scripts.evaluate_per_virus import (
+    EXIT_CRITERION,
     MIN_SAMPLES_DEFAULT,
     bootstrap_metric,
     check_exit_criterion,
@@ -541,3 +542,64 @@ def test_main_compare_file_not_found_returns_1(tmp_path: Path) -> None:
         "--n-bootstrap", "5",
     ])
     assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# New targeted tests (Fix 1 + Fix 3)
+# ---------------------------------------------------------------------------
+
+
+def test_main_returns_2_when_hpv_below_threshold(tmp_path: Path) -> None:
+    # HPV with all-negative labels produces NaN AUC, failing the exit criterion.
+    ebv = _make_df(virus="EBV", seed=3)
+    hpv_all_neg = _make_df(n_pos=0, n_neg_real=30, n_neg_decoy=20, virus="HPV", seed=4)
+    df = pd.concat([ebv, hpv_all_neg], ignore_index=True)
+    pred = _write_csv(tmp_path, df)
+    rc = main(["--predictions", str(pred), "--n-bootstrap", "10"])
+    assert rc == 2
+
+
+def test_main_returns_2_when_ebv_missing_from_predictions(tmp_path: Path) -> None:
+    # No EBV rows at all; check_exit_criterion reports EBV missing and fails.
+    hpv = _make_df(virus="HPV", seed=5)
+    pred = _write_csv(tmp_path, hpv)
+    rc = main(["--predictions", str(pred), "--n-bootstrap", "10"])
+    assert rc == 2
+
+
+def test_check_exit_criterion_hpv_at_exact_boundary() -> None:
+    # Exactly at threshold: should pass.
+    results_pass = _make_results(ebv_roc=0.70, ebv_lo=0.60, hpv_roc=0.58)
+    passed, _ = check_exit_criterion(results_pass)
+    assert passed
+
+    # One ULP below threshold: should fail.
+    results_fail = _make_results(ebv_roc=0.70, ebv_lo=0.60, hpv_roc=0.5799)
+    passed, _ = check_exit_criterion(results_fail)
+    assert not passed
+
+
+def test_check_exit_criterion_ebv_at_exact_boundary() -> None:
+    # Exactly at threshold: should pass.
+    results_pass = _make_results(ebv_roc=0.57, ebv_lo=0.50, hpv_roc=0.65)
+    passed, _ = check_exit_criterion(results_pass)
+    assert passed
+
+    # One ULP below threshold: should fail.
+    results_fail = _make_results(ebv_roc=0.5699, ebv_lo=0.50, hpv_roc=0.65)
+    passed, _ = check_exit_criterion(results_fail)
+    assert not passed
+
+
+def test_exit_criterion_dict_matches_check_function() -> None:
+    # Catches drift if a threshold is updated in one place but not the other.
+    assert EXIT_CRITERION["HPV"]["auc_roc"] == 0.58
+    assert EXIT_CRITERION["EBV"]["auc_roc"] == 0.57
+
+
+def test_evaluate_all_viruses_missing_virus_returns_no_entry() -> None:
+    # Only EBV rows; HPV must not appear as a key in the results dict.
+    df = _make_df(virus="EBV")
+    results = evaluate_all_viruses(df, "score", n_bootstrap=10)
+    assert "EBV" in results
+    assert "HPV" not in results
