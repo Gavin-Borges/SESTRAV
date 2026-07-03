@@ -25,6 +25,7 @@ Usage example:
 import argparse
 import csv
 import io
+import re
 import sys
 import time
 import urllib.error
@@ -163,6 +164,9 @@ def filter_rows(
             continue
 
         pdb_id = pdb_raw.lower()
+        if not re.fullmatch(r"[a-z0-9]{4}", pdb_id):
+            counts["invalid_format"] = counts.get("invalid_format", 0) + 1
+            continue
         if pdb_id in seen_pdb:
             counts["duplicate_pdb"] += 1
             continue

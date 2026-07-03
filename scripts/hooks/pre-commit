@@ -11,7 +11,7 @@
 # Emergency override for authorized admin commits only:
 #   git commit --no-verify
 
-set -uo pipefail
+set -euo pipefail
 
 RED='\033[0;31m'
 NC='\033[0m'
