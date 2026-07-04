@@ -3,7 +3,7 @@ message: "If you reference this software, please cite it using the metadata from
 type: software
 title: "SESTRAV - Structural Epitope Scoring via TCR Recognition And Vaccinology"
 version: 2.0.3
-date-released: 2026-06-17
+date-released: 2026-07-04
 license: MIT
 repository-code: "https://github.com/Gavin-Borges/SESTRAV"
 contact:
