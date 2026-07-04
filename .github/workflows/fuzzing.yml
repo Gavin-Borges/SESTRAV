@@ -43,14 +43,18 @@ jobs:
           pip install --no-deps --require-hashes -r environments/requirements-ci.txt
 
       - name: Run Hypothesis fuzz tests
-        # HYPOTHESIS_MAX_EXAMPLES controls depth; 200 on push, 1000 on schedule
+        # HYPOTHESIS_MAX_EXAMPLES controls depth; 200 on push/PR, 1000 on schedule.
+        # Seed: fixed (0) on push/PR for reproducibility; random on schedule to
+        # broaden the example space across weekly runs.
         env:
           HYPOTHESIS_MAX_EXAMPLES: ${{ github.event_name == 'schedule' && '1000' || '200' }}
         run: |
+          SEED=''
+          [ "${{ github.event_name }}" != "schedule" ] && SEED='--hypothesis-seed=0'
           python -m pytest tests/test_fuzz.py -v \
             --tb=short \
             -p hypothesis \
-            --hypothesis-seed=0
+            $SEED
 
       - name: Upload Hypothesis database (persists failure examples between runs)
         if: always()

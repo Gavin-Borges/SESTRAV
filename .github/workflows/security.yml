@@ -158,3 +158,44 @@ jobs:
             pip-audit -r environments/requirements.lock --no-deps --format markdown \
               --ignore-vuln PYSEC-2025-194 --ignore-vuln GHSA-rrmf-rvhw-rf47 || true
           } >> "$GITHUB_STEP_SUMMARY"
+
+  python-sbom:
+    name: Python SBOM (pip-licenses)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-licenses
+        # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
+        #   pip download pip-licenses==5.5.5 -d /tmp/sbom_pkgs && pip hash /tmp/sbom_pkgs/*.whl
+        run: pip install --require-hashes -r environments/requirements-sbom.txt
+
+      - name: Install pinned dependencies for SBOM scan
+        # pip-licenses reports on installed packages; install the fully-pinned
+        # lockfile so the SBOM covers the exact production dependency set.
+        # --no-deps: trust the resolved set, do not re-resolve.
+        # continue-on-error: some platform-specific wheels (CUDA, etc.) may be
+        # absent on this runner; pip-licenses will report on what installed.
+        continue-on-error: true
+        run: pip install --no-deps -r environments/requirements.lock
+
+      - name: Generate Python SBOM
+        run: |
+          pip-licenses --format=json --output-file=sbom.json
+          pip-licenses --format=markdown --output-file=DEPENDENCY_LICENSES.md
+
+      - name: Upload SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-sbom
+          path: |
+            sbom.json
+            DEPENDENCY_LICENSES.md
+          retention-days: 90

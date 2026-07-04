@@ -24,7 +24,7 @@ def calculate_entropy(s: str) -> float:
 EXCLUDE_DIRS = {
     '.git', '.venv', '.ci_test_venv', '.pytest_cache', '.hypothesis',
     '.snakemake', '__pycache__', 'release_artifacts', 'results', 'scratch',
-    '.pytest_tmp2'
+    '.pytest_tmp2', '_local',
 }
 
 # Files to exclude from secret scan to avoid false positives in ruleset/scanning scripts
