@@ -1,28 +1,26 @@
 {
-  "timestamp": "2026-06-26T12:10:19.972262+00:00",
-  "git_sha": "24645a6",
+  "timestamp": "2026-07-04T01:36:17.728398+00:00",
+  "git_sha": "175eb6b",
   "source_counts": {
     "v4_positives": 6687,
     "v4_hard_decoys": 5000,
     "v4_other_negatives": 3012,
-    "iedb_negatives": 32470,
-    "label_conflicts": 0,
-    "merged_total": 44157
+    "iedb_negatives": 36689,
+    "label_conflicts": 1333,
+    "merged_total": 46386,
+    "dedup_dropped": 1990
   },
   "quarantine_list": [
     "Adeno-associated virus",
     "Alistipes putredinis",
     "Alphacoronavirus amsterdamense",
     "Alphacoronavirus chicagoense",
-    "Alphapolyomavirus quintihominis",
     "Ambrosia artemisiifolia",
     "Bacteroidales bacterium",
     "Bat coronavirus",
     "Betacoronavirus gravedinis",
     "Betacoronavirus hongkongense",
-    "CMV",
     "Chlamydia trachomatis",
-    "DENV",
     "Dependoparvovirus primate1",
     "Dickeya",
     "Erythroparvovirus primate1",
@@ -31,7 +29,6 @@
     "Gammaretrovirus murleu",
     "HAdV2",
     "HAdV5",
-    "HBV",
     "HCoV-HKU1",
     "HCoV-OC43",
     "HSV-1",
@@ -41,7 +38,6 @@
     "Hepatitis delta virus",
     "Hepatovirus A",
     "Human endogenous retrovirus W",
-    "IAV",
     "Influenza B virus",
     "Influenza C virus",
     "InfluenzaA",
@@ -65,7 +61,6 @@
     "Paslahepevirus balayani",
     "Plasmodium falciparum",
     "Purpureocillium lilacinum",
-    "RSV",
     "Rhadinovirus humangamma8",
     "Roseolovirus humanbeta6a",
     "RotavirusA",
@@ -92,112 +87,121 @@
     "min_rows": 50,
     "min_real_negatives": 10
   },
-  "label_conflicts": 0,
+  "label_conflicts": 1333,
   "target_virus_pmid_counts": {
-    "EBV": 117,
-    "HPV": 64,
-    "HBV": 0,
-    "HCV": 78
+    "EBV": 125,
+    "HPV": 66,
+    "HBV": 74,
+    "HCV": 81
   },
   "virus_composition_table": [
     {
       "virus": "Orthopoxvirus vaccinia",
-      "n": 21469,
+      "n": 21432,
       "n_pos": 0,
-      "n_neg": 21469,
-      "n_real_neg": 21469,
+      "n_neg": 21432,
+      "n_real_neg": 21432,
       "pos_rate": 0.0,
       "is_quarantined": false
     },
     {
       "virus": "Self",
-      "n": 9099,
+      "n": 8811,
       "n_pos": 0,
-      "n_neg": 9099,
-      "n_real_neg": 4099,
+      "n_neg": 8811,
+      "n_real_neg": 3811,
       "pos_rate": 0.0,
       "is_quarantined": true
     },
     {
       "virus": "Unknown",
-      "n": 4655,
+      "n": 4577,
       "n_pos": 1,
-      "n_neg": 4654,
-      "n_real_neg": 4654,
+      "n_neg": 4576,
+      "n_real_neg": 4576,
       "pos_rate": 0.0002,
       "is_quarantined": true
     },
     {
       "virus": "SARS-CoV-2",
-      "n": 2977,
+      "n": 4154,
       "n_pos": 2835,
-      "n_neg": 142,
-      "n_real_neg": 142,
-      "pos_rate": 0.9523,
+      "n_neg": 1319,
+      "n_real_neg": 1319,
+      "pos_rate": 0.6825,
+      "is_quarantined": false
+    },
+    {
+      "virus": "CMV",
+      "n": 1377,
+      "n_pos": 806,
+      "n_neg": 571,
+      "n_real_neg": 571,
+      "pos_rate": 0.5853,
       "is_quarantined": false
     },
     {
       "virus": "DENV",
-      "n": 841,
+      "n": 874,
       "n_pos": 841,
-      "n_neg": 0,
-      "n_real_neg": 0,
-      "pos_rate": 1.0,
-      "is_quarantined": true
-    },
-    {
-      "virus": "CMV",
-      "n": 806,
-      "n_pos": 806,
-      "n_neg": 0,
-      "n_real_neg": 0,
-      "pos_rate": 1.0,
-      "is_quarantined": true
+      "n_neg": 33,
+      "n_real_neg": 33,
+      "pos_rate": 0.9622,
+      "is_quarantined": false
     },
     {
       "virus": "HCV",
-      "n": 487,
+      "n": 792,
       "n_pos": 414,
-      "n_neg": 73,
-      "n_real_neg": 73,
-      "pos_rate": 0.8501,
-      "is_quarantined": false
-    },
-    {
-      "virus": "EBV",
-      "n": 404,
-      "n_pos": 390,
-      "n_neg": 14,
-      "n_real_neg": 14,
-      "pos_rate": 0.9653,
-      "is_quarantined": false
-    },
-    {
-      "virus": "HIV-1",
-      "n": 403,
-      "n_pos": 379,
-      "n_neg": 24,
-      "n_real_neg": 24,
-      "pos_rate": 0.9404,
+      "n_neg": 378,
+      "n_real_neg": 378,
+      "pos_rate": 0.5227,
       "is_quarantined": false
     },
     {
       "virus": "HBV",
-      "n": 393,
+      "n": 650,
       "n_pos": 393,
-      "n_neg": 0,
-      "n_real_neg": 0,
-      "pos_rate": 1.0,
-      "is_quarantined": true
+      "n_neg": 257,
+      "n_real_neg": 257,
+      "pos_rate": 0.6046,
+      "is_quarantined": false
+    },
+    {
+      "virus": "EBV",
+      "n": 508,
+      "n_pos": 390,
+      "n_neg": 118,
+      "n_real_neg": 118,
+      "pos_rate": 0.7677,
+      "is_quarantined": false
+    },
+    {
+      "virus": "HIV-1",
+      "n": 488,
+      "n_pos": 379,
+      "n_neg": 109,
+      "n_real_neg": 109,
+      "pos_rate": 0.7766,
+      "is_quarantined": false
     },
     {
       "virus": "IAV",
-      "n": 366,
+      "n": 411,
       "n_pos": 366,
-      "n_neg": 0,
-      "n_real_neg": 0,
-      "pos_rate": 1.0,
-      "is_quarantined": true
+      "n_neg": 45,
+      "n_real_neg": 45,
+      "pos_rate": 0.8905,
+      "is_quarantined": false
+    },
+    {
+      "virus": "HPV",
+      "n": 388,
+      "n_pos": 212,
+      "n_neg": 176,
+      "n_real_neg": 176,
+      "pos_rate": 0.5464,
+      "is_quarantined": false
     },
     {
       "virus": "Human betaherpesvirus 6B",
@@ -209,49 +213,49 @@
       "is_quarantined": false
     },
     {
-      "virus": "HPV",
-      "n": 277,
-      "n_pos": 212,
-      "n_neg": 65,
-      "n_real_neg": 65,
-      "pos_rate": 0.7653,
-      "is_quarantined": false
-    },
-    {
       "virus": "YFV",
-      "n": 263,
+      "n": 232,
       "n_pos": 1,
-      "n_neg": 262,
-      "n_real_neg": 262,
-      "pos_rate": 0.0038,
-      "is_quarantined": false
-    },
-    {
-      "virus": "Influenza A virus",
-      "n": 196,
-      "n_pos": 0,
-      "n_neg": 196,
-      "n_real_neg": 196,
-      "pos_rate": 0.0,
+      "n_neg": 231,
+      "n_real_neg": 231,
+      "pos_rate": 0.0043,
       "is_quarantined": false
     },
     {
       "virus": "Mycobacterium tuberculosis",
-      "n": 166,
+      "n": 165,
       "n_pos": 0,
-      "n_neg": 166,
-      "n_real_neg": 166,
+      "n_neg": 165,
+      "n_real_neg": 165,
       "pos_rate": 0.0,
       "is_quarantined": true
     },
     {
       "virus": "Trypanosoma cruzi",
-      "n": 153,
+      "n": 149,
       "n_pos": 0,
-      "n_neg": 153,
-      "n_real_neg": 153,
+      "n_neg": 149,
+      "n_real_neg": 149,
       "pos_rate": 0.0,
       "is_quarantined": true
+    },
+    {
+      "virus": "RSV",
+      "n": 123,
+      "n_pos": 18,
+      "n_neg": 105,
+      "n_real_neg": 105,
+      "pos_rate": 0.1463,
+      "is_quarantined": false
+    },
+    {
+      "virus": "Influenza A virus",
+      "n": 112,
+      "n_pos": 0,
+      "n_neg": 112,
+      "n_real_neg": 112,
+      "pos_rate": 0.0,
+      "is_quarantined": false
     },
     {
       "virus": "unidentified",
@@ -273,11 +277,11 @@
     },
     {
       "virus": "CoxsackievirusB",
-      "n": 55,
+      "n": 54,
       "n_pos": 2,
-      "n_neg": 53,
-      "n_real_neg": 53,
-      "pos_rate": 0.0364,
+      "n_neg": 52,
+      "n_real_neg": 52,
+      "pos_rate": 0.037,
       "is_quarantined": false
     },
     {
@@ -291,10 +295,10 @@
     },
     {
       "virus": "Influenza B virus",
-      "n": 48,
+      "n": 46,
       "n_pos": 0,
-      "n_neg": 48,
-      "n_real_neg": 48,
+      "n_neg": 46,
+      "n_real_neg": 46,
       "pos_rate": 0.0,
       "is_quarantined": true
     },
@@ -317,15 +321,6 @@
       "is_quarantined": true
     },
     {
-      "virus": "HTLV-1",
-      "n": 33,
-      "n_pos": 4,
-      "n_neg": 29,
-      "n_real_neg": 29,
-      "pos_rate": 0.1212,
-      "is_quarantined": true
-    },
-    {
       "virus": "Paslahepevirus balayani",
       "n": 32,
       "n_pos": 0,
@@ -335,30 +330,21 @@
       "is_quarantined": true
     },
     {
-      "virus": "Rhadinovirus humangamma8",
-      "n": 32,
-      "n_pos": 0,
-      "n_neg": 32,
-      "n_real_neg": 32,
-      "pos_rate": 0.0,
-      "is_quarantined": true
-    },
-    {
-      "virus": "SARS-CoV1",
+      "virus": "HTLV-1",
       "n": 31,
-      "n_pos": 0,
-      "n_neg": 31,
-      "n_real_neg": 31,
-      "pos_rate": 0.0,
-      "is_quarantined": true
-    },
-    {
-      "virus": "HSV-1",
-      "n": 28,
-      "n_pos": 1,
+      "n_pos": 4,
       "n_neg": 27,
       "n_real_neg": 27,
-      "pos_rate": 0.0357,
+      "pos_rate": 0.129,
+      "is_quarantined": true
+    },
+    {
+      "virus": "Rhadinovirus humangamma8",
+      "n": 29,
+      "n_pos": 0,
+      "n_neg": 29,
+      "n_real_neg": 29,
+      "pos_rate": 0.0,
       "is_quarantined": true
     },
     {
@@ -407,15 +393,6 @@
       "is_quarantined": true
     },
     {
-      "virus": "MCPyV",
-      "n": 19,
-      "n_pos": 3,
-      "n_neg": 16,
-      "n_real_neg": 16,
-      "pos_rate": 0.1579,
-      "is_quarantined": true
-    },
-    {
       "virus": "Chlamydia trachomatis",
       "n": 18,
       "n_pos": 0,
@@ -425,21 +402,12 @@
       "is_quarantined": true
     },
     {
-      "virus": "RSV",
+      "virus": "MCPyV",
       "n": 18,
-      "n_pos": 18,
-      "n_neg": 0,
-      "n_real_neg": 0,
-      "pos_rate": 1.0,
-      "is_quarantined": true
-    },
-    {
-      "virus": "West Nile virus",
-      "n": 18,
-      "n_pos": 0,
-      "n_neg": 18,
-      "n_real_neg": 18,
-      "pos_rate": 0.0,
+      "n_pos": 3,
+      "n_neg": 15,
+      "n_real_neg": 15,
+      "pos_rate": 0.1667,
       "is_quarantined": true
     },
     {
@@ -448,6 +416,33 @@
       "n_pos": 0,
       "n_neg": 16,
       "n_real_neg": 16,
+      "pos_rate": 0.0,
+      "is_quarantined": true
+    },
+    {
+      "virus": "HSV-1",
+      "n": 16,
+      "n_pos": 1,
+      "n_neg": 15,
+      "n_real_neg": 15,
+      "pos_rate": 0.0625,
+      "is_quarantined": true
+    },
+    {
+      "virus": "West Nile virus",
+      "n": 16,
+      "n_pos": 0,
+      "n_neg": 16,
+      "n_real_neg": 16,
+      "pos_rate": 0.0,
+      "is_quarantined": true
+    },
+    {
+      "virus": "SARS-CoV1",
+      "n": 15,
+      "n_pos": 0,
+      "n_neg": 15,
+      "n_real_neg": 15,
       "pos_rate": 0.0,
       "is_quarantined": true
     },
@@ -695,15 +690,6 @@
       "is_quarantined": true
     },
     {
-      "virus": "JC polyomavirus",
-      "n": 2,
-      "n_pos": 0,
-      "n_neg": 2,
-      "n_real_neg": 2,
-      "pos_rate": 0.0,
-      "is_quarantined": true
-    },
-    {
       "virus": "SARS-CoV",
       "n": 2,
       "n_pos": 2,
@@ -723,15 +709,6 @@
     },
     {
       "virus": "Alistipes putredinis",
-      "n": 1,
-      "n_pos": 0,
-      "n_neg": 1,
-      "n_real_neg": 1,
-      "pos_rate": 0.0,
-      "is_quarantined": true
-    },
-    {
-      "virus": "Alphapolyomavirus quintihominis",
       "n": 1,
       "n_pos": 0,
       "n_neg": 1,
@@ -813,6 +790,15 @@
     },
     {
       "virus": "Influenza C virus",
+      "n": 1,
+      "n_pos": 0,
+      "n_neg": 1,
+      "n_real_neg": 1,
+      "pos_rate": 0.0,
+      "is_quarantined": true
+    },
+    {
+      "virus": "JC polyomavirus",
       "n": 1,
       "n_pos": 0,
       "n_neg": 1,
@@ -903,5 +889,5 @@
     }
   ],
   "output_file": "data\\immunogenicity_dataset_v5.csv",
-  "output_checksum_sha256": "fc0b74f2a05cdb2c3894e8d7e66ab11d1c80c611db965fddde2e1e92dee58bd0"
+  "output_checksum_sha256": "9e5ecf298156592c08f20f16958bb65ded5103ba69bb434da673c705868baa71"
 }
