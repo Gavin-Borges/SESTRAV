@@ -51,7 +51,7 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
 ## Promotion Gate
 `src/verify/promote_gnn.py` runs 5 gates (AUC-PR ≥ 0.85, fold-std ≤ 0.02,
 latency ≤ 2× RF, ECE < 0.05, escape sensitivity ≥ 80%) before mutating
-`config.yaml` and the checksum manifest. Gates are blocked until the v4
+`config.yaml` and the checksum manifest. Gates are blocked until the v5
 dataset is finalized and a benchmark pass is confirmed.
 
 ## [PENDING]

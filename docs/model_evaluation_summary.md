@@ -62,8 +62,6 @@
 > result (0.828), since sample weighting increases the effective training difficulty on the majority
 > class. The 31-feature model should be
 > compared against the 30-feature result (0.810 ± 0.025) from the same weighted evaluation context.
-> Update `claims_register.md` Section 4 trigger value from 0.828 → 0.8276.
-
 ---
 
 ## v2 Canonical Track: 30-Feature Integrated (720 peptides, 2.36:1 class ratio)
