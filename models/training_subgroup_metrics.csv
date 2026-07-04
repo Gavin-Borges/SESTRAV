@@ -31,9 +31,9 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 1,strain,Hepatitis B virus subtype AYR,1,1,0,,,,,,,,,,,RandomForest
 1,strain,Hepatitis B virus subtype adr,1,1,0,,,,,,,,,,,RandomForest
 1,strain,Hepatitis B virus subtype ayw,3,1,2,,,,,,,,,,,RandomForest
-1,strain,Hepatitis C virus (isolate 1),9,5,4,,,,,,,,,,,RandomForest
+1,strain,Hepatitis C virus (isolate 1),8,5,3,,,,,,,,,,,RandomForest
 1,strain,Hepatitis C virus (isolate BK),3,3,0,,,,,,,,,,,RandomForest
-1,strain,Hepatitis C virus (isolate H),1,1,0,,,,,,,,,,,RandomForest
+1,strain,Hepatitis C virus (isolate H),2,1,1,,,,,,,,,,,RandomForest
 1,strain,Hepatitis C virus (isolate H77),14,12,2,,,,,,,,,,,RandomForest
 1,strain,Hepatitis C virus (isolate Taiwan),16,1,15,0.2666666666666667,0.08333333333333333,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,RandomForest
 1,strain,Hepatitis C virus JFH-1,1,1,0,,,,,,,,,,,RandomForest
@@ -71,7 +71,7 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 1,strain,Influenza A virus (A/X-31(H3N2)) A/X-31 X HK,1,1,0,,,,,,,,,,,RandomForest
 1,strain,Influenza A virus (A/duck/Vietnam/37/2007(H5N1)),1,1,0,,,,,,,,,,,RandomForest
 1,strain,Influenza A virus (A/ferret/Maryland/P10-UMD/2008(H9N2)),1,1,0,,,,,,,,,,,RandomForest
-1,strain,Severe acute respiratory syndrome coronavirus 2,683,511,172,0.6772743821963318,0.8663593166694848,0.9411764705882353,0.9352941176470588,0.9411764705882353,0.12524461839530332,0.950406200427289,0.9352941176470588,0.3111545988258317,0.9423042568840793,RandomForest
+1,strain,Severe acute respiratory syndrome coronavirus 2,685,511,174,0.6792181208808512,0.8658832666715878,0.9411764705882353,0.9298245614035088,0.9411764705882353,0.12524461839530332,0.950406200427289,0.9298245614035088,0.3111545988258317,0.9382077117478228,RandomForest
 1,strain,Severe acute respiratory syndrome coronavirus 2 Canada/QC-L00478241001/2022,1,1,0,,,,,,,,,,,RandomForest
 1,strain,Severe acute respiratory syndrome coronavirus 2 DNK/7023000080/2023,1,0,1,,,,,,,,,,,RandomForest
 1,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/MinkCluster5/2020,1,1,0,,,,,,,,,,,RandomForest
@@ -80,7 +80,7 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 1,strain,Severe acute respiratory syndrome coronavirus 2 USA/FL-CDC-LC1105671/2024,1,0,1,,,,,,,,,,,RandomForest
 1,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,3,2,1,,,,,,,,,,,RandomForest
 1,strain,Severe acute respiratory syndrome coronavirus 2 USA/NJ-CDC-LC0471426/2022,1,0,1,,,,,,,,,,,RandomForest
-1,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,115,45,70,0.5720634920634922,0.45336567038236514,0.45454545454545453,0.4642857142857143,0.45454545454545453,0.1111111111111111,0.4092390792411001,0.4642857142857143,0.28888888888888886,0.44193148728709025,RandomForest
+1,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,113,45,68,0.5637254901960784,0.45623735746668886,0.45454545454545453,0.4642857142857143,0.45454545454545453,0.1111111111111111,0.4092390792411001,0.4642857142857143,0.28888888888888886,0.4426326723568818,RandomForest
 1,strain,Unknown,47,47,0,,,,,,,,,,,RandomForest
 1,strain,dengue virus type 1,17,16,1,0.25,0.9277363006682859,1.0,1.0,1.0,0.0625,1.0,1.0,0.25,0.9999999999999998,RandomForest
 1,strain,dengue virus type 2,25,24,1,0.75,0.9888242283079239,1.0,1.0,1.0,0.08333333333333333,1.0,1.0,0.25,1.0,RandomForest
@@ -5086,8 +5086,8 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 2,strain,Hepatitis C virus (isolate BK),1,1,0,,,,,,,,,,,RandomForest
 2,strain,Hepatitis C virus (isolate H77),14,13,1,,,,,,,,,,,RandomForest
 2,strain,Hepatitis C virus (isolate Japanese),3,2,1,,,,,,,,,,,RandomForest
-2,strain,Hepatitis C virus (isolate Taiwan),11,2,9,,,,,,,,,,,RandomForest
-2,strain,Hepatitis C virus genotype 1,21,18,3,0.2592592592592593,0.798957618223614,0.5,0.6,0.5,0.05555555555555555,0.6131471927654585,0.6,0.16666666666666666,0.6548086577531306,RandomForest
+2,strain,Hepatitis C virus (isolate Taiwan),12,2,10,,,,,,,,,,,RandomForest
+2,strain,Hepatitis C virus genotype 1,21,18,3,0.40740740740740744,0.8662235313228606,1.0,0.8,1.0,0.1111111111111111,1.0,0.8,0.2222222222222222,0.8539316501572934,RandomForest
 2,strain,Hepatitis C virus genotype 2,4,1,3,,,,,,,,,,,RandomForest
 2,strain,Hepatitis C virus genotype 3,7,2,5,,,,,,,,,,,RandomForest
 2,strain,Hepatitis C virus genotype 4,9,3,6,,,,,,,,,,,RandomForest
@@ -5125,20 +5125,20 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 2,strain,Influenza A virus (A/bar-headed goose/Qinghai/3/2005(H5N1)),1,1,0,,,,,,,,,,,RandomForest
 2,strain,Influenza A virus (A/nt/60/1968(H3N2)),1,1,0,,,,,,,,,,,RandomForest
 2,strain,Mupapillomavirus 1,1,1,0,,,,,,,,,,,RandomForest
-2,strain,Severe acute respiratory syndrome coronavirus 2,678,515,163,0.6294180713562451,0.8434705741619646,0.9402985074626866,0.8816568047337278,0.9402985074626866,0.12233009708737864,0.9413979928006057,0.8816568047337278,0.28932038834951457,0.8950277256689545,RandomForest
+2,strain,Severe acute respiratory syndrome coronavirus 2,676,515,161,0.6255140806850389,0.843545298182343,0.9402985074626866,0.8816568047337278,0.9402985074626866,0.12233009708737864,0.9413979928006057,0.8816568047337278,0.28932038834951457,0.8950277256689545,RandomForest
 2,strain,Severe acute respiratory syndrome coronavirus 2 BA.1 strain YJ20220223,1,1,0,,,,,,,,,,,RandomForest
 2,strain,Severe acute respiratory syndrome coronavirus 2 DNK/7023000080/2023,1,0,1,,,,,,,,,,,RandomForest
 2,strain,Severe acute respiratory syndrome coronavirus 2 Germany/BY-MVP-0283/2020,2,2,0,,,,,,,,,,,RandomForest
 2,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,1,0,1,,,,,,,,,,,RandomForest
 2,strain,Severe acute respiratory syndrome coronavirus 2 USA/NV-CDC-QDX39324276/2022,1,1,0,,,,,,,,,,,RandomForest
-2,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,133,46,87,0.5464767616191905,0.3785480564553974,0.38461538461538464,0.42424242424242425,0.38461538461538464,0.10869565217391304,0.3024786153505392,0.42424242424242425,0.30434782608695654,0.3665540136017517,RandomForest
+2,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,135,46,89,0.5559355153883732,0.3793006162848523,0.38461538461538464,0.42424242424242425,0.38461538461538464,0.10869565217391304,0.3024786153505392,0.42424242424242425,0.30434782608695654,0.3665540136017517,RandomForest
 2,strain,Unknown,47,47,0,,,,,,,,,,,RandomForest
 2,strain,dengue virus type 1,26,26,0,,,,,,,,,,,RandomForest
 2,strain,dengue virus type 2,31,30,1,0.9,0.9966641947843282,1.0,1.0,1.0,0.1,1.0,1.0,0.23333333333333334,1.0000000000000002,RandomForest
 2,strain,dengue virus type 3,14,13,1,,,,,,,,,,,RandomForest
 2,strain,dengue virus type 4,13,12,1,,,,,,,,,,,RandomForest
 2,strain,hepatitis B virus genotype C,4,3,1,,,,,,,,,,,RandomForest
-2,strain,hepatitis C virus genotype 1a,22,14,8,0.7410714285714286,0.8256099875847774,1.0,0.8,1.0,0.14285714285714285,1.0,0.8,0.2857142857142857,0.8539316501572934,RandomForest
+2,strain,hepatitis C virus genotype 1a,21,14,7,0.7653061224489796,0.8496292514674867,1.0,0.8,1.0,0.14285714285714285,1.0,0.8,0.2857142857142857,0.8539316501572934,RandomForest
 2,strain,human gammaherpesvirus 4,64,51,13,0.7149321266968325,0.9142257216625456,1.0,1.0,1.0,0.11764705882352941,1.0,1.0,0.3137254901960784,1.0,RandomForest
 2,strain,human papillomavirus 11,4,4,0,,,,,,,,,,,RandomForest
 2,strain,human papillomavirus 18,1,0,1,,,,,,,,,,,RandomForest
@@ -10152,8 +10152,8 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 3,strain,Dengue virus type 1 Hawaii,3,3,0,,,,,,,,,,,RandomForest
 3,strain,HPV16,52,30,22,0.7030303030303031,0.8375167531488599,1.0,1.0,1.0,0.16666666666666666,0.9999999999999999,1.0,0.43333333333333335,0.9999999999999999,RandomForest
 3,strain,HPV18,8,6,2,,,,,,,,,,,RandomForest
-3,strain,Hepatitis B virus,128,84,44,0.7552759740259739,0.8605266029588599,1.0,0.90625,1.0,0.14285714285714285,0.9845948475440875,0.90625,0.34523809523809523,0.9267747427412085,RandomForest
-3,strain,Hepatitis B virus genotype B,3,1,2,,,,,,,,,,,RandomForest
+3,strain,Hepatitis B virus,129,84,45,0.7492063492063492,0.8548433715637649,1.0,0.90625,1.0,0.14285714285714285,0.9845948475440875,0.90625,0.34523809523809523,0.9267747427412085,RandomForest
+3,strain,Hepatitis B virus genotype B,2,1,1,,,,,,,,,,,RandomForest
 3,strain,Hepatitis C virus (isolate 1),3,2,1,,,,,,,,,,,RandomForest
 3,strain,Hepatitis C virus (isolate BK),1,1,0,,,,,,,,,,,RandomForest
 3,strain,Hepatitis C virus (isolate H),1,0,1,,,,,,,,,,,RandomForest
@@ -10201,12 +10201,12 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 3,strain,Influenza A virus (A/duck/Hong Kong/140/1998(H5N1)),1,1,0,,,,,,,,,,,RandomForest
 3,strain,Influenza A virus (A/swine/Guangdong/01/2005(H3N2)),1,1,0,,,,,,,,,,,RandomForest
 3,strain,Influenza A virus H3N2 (A/Netherlands/9/03 (H3N2)),1,1,0,,,,,,,,,,,RandomForest
-3,strain,Severe acute respiratory syndrome coronavirus 2,656,506,150,0.6336363636363637,0.8648089933714733,0.9538461538461539,0.9207317073170732,0.9538461538461539,0.1225296442687747,0.9645032566085122,0.9207317073170732,0.2984189723320158,0.9342771501303584,RandomForest
+3,strain,Severe acute respiratory syndrome coronavirus 2,655,506,149,0.6345863066026474,0.8657192123197998,0.9538461538461539,0.9202453987730062,0.9538461538461539,0.1225296442687747,0.9645032566085122,0.9202453987730062,0.2964426877470356,0.9339786812457251,RandomForest
 3,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/DCGC-647646/2023,1,1,0,,,,,,,,,,,RandomForest
 3,strain,Severe acute respiratory syndrome coronavirus 2 South Africa/NICD-N21671/2021,1,0,1,,,,,,,,,,,RandomForest
 3,strain,Severe acute respiratory syndrome coronavirus 2 USA/MI-UM-10052670540/2023,1,1,0,,,,,,,,,,,RandomForest
 3,strain,Severe acute respiratory syndrome coronavirus 2 USA/NJ-CDC-LC0471426/2022,1,0,1,,,,,,,,,,,RandomForest
-3,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,121,46,75,0.5736231884057971,0.43719780641231887,0.5,0.36666666666666664,0.5,0.13043478260869565,0.4199659839148501,0.36666666666666664,0.2391304347826087,0.3670771814169599,RandomForest
+3,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,122,46,76,0.5692219679633868,0.4321034042529548,0.5,0.36666666666666664,0.5,0.13043478260869565,0.4199659839148501,0.36666666666666664,0.2391304347826087,0.3670771814169599,RandomForest
 3,strain,Unknown,33,33,0,,,,,,,,,,,RandomForest
 3,strain,dengue virus type 1,18,17,1,1.0,1.0,1.0,1.0,1.0,0.058823529411764705,1.0,1.0,0.23529411764705882,0.9999999999999998,RandomForest
 3,strain,dengue virus type 2,22,22,0,,,,,,,,,,,RandomForest
@@ -15169,12 +15169,12 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 4,strain,Hepatitis B virus ayw/France/Tiollais/1979,1,1,0,,,,,,,,,,,RandomForest
 4,strain,Hepatitis B virus genotype B,2,1,1,,,,,,,,,,,RandomForest
 4,strain,Hepatitis B virus subtype ayw,1,1,0,,,,,,,,,,,RandomForest
-4,strain,Hepatitis C virus (isolate 1),8,5,3,,,,,,,,,,,RandomForest
+4,strain,Hepatitis C virus (isolate 1),7,5,2,,,,,,,,,,,RandomForest
 4,strain,Hepatitis C virus (isolate BK),4,4,0,,,,,,,,,,,RandomForest
 4,strain,Hepatitis C virus (isolate H77),11,9,2,,,,,,,,,,,RandomForest
 4,strain,Hepatitis C virus (isolate Japanese),2,1,1,,,,,,,,,,,RandomForest
-4,strain,Hepatitis C virus (isolate Taiwan),20,0,20,,,,,,,,,,,RandomForest
-4,strain,Hepatitis C virus genotype 1,30,19,11,0.4784688995215311,0.6000864634933823,0.3333333333333333,0.42857142857142855,0.3333333333333333,0.05263157894736842,0.2960819109658652,0.42857142857142855,0.15789473684210525,0.3897233752935702,RandomForest
+4,strain,Hepatitis C virus (isolate Taiwan),19,0,19,,,,,,,,,,,RandomForest
+4,strain,Hepatitis C virus genotype 1,31,19,12,0.5394736842105263,0.612498329843531,0.3333333333333333,0.42857142857142855,0.3333333333333333,0.05263157894736842,0.2960819109658652,0.42857142857142855,0.15789473684210525,0.3897233752935702,RandomForest
 4,strain,Hepatitis C virus genotype 3,3,1,2,,,,,,,,,,,RandomForest
 4,strain,Hepatitis C virus genotype 4,12,2,10,,,,,,,,,,,RandomForest
 4,strain,Hepatitis C virus subtype 1b,23,13,10,0.5538461538461539,0.6828254010946317,1.0,0.6,1.0,0.15384615384615385,1.0,0.6,0.23076923076923078,0.6843515475204854,RandomForest
@@ -15208,18 +15208,18 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 4,strain,Influenza A virus (A/X-31(H3N2)) A/X-31 X HK,3,3,0,,,,,,,,,,,RandomForest
 4,strain,Influenza A virus (A/mallard/Quebec/10969/2006(H2N3)),1,1,0,,,,,,,,,,,RandomForest
 4,strain,Influenza A virus H3N2,1,1,0,,,,,,,,,,,RandomForest
-4,strain,Severe acute respiratory syndrome coronavirus 2,683,515,168,0.6427242256125751,0.8475715984100743,0.9264705882352942,0.8823529411764706,0.9264705882352942,0.12233009708737864,0.9395710820109425,0.8823529411764706,0.2912621359223301,0.8994353457072777,RandomForest
+4,strain,Severe acute respiratory syndrome coronavirus 2,680,515,165,0.6398528979111504,0.8484622986689373,0.9264705882352942,0.8823529411764706,0.9264705882352942,0.12233009708737864,0.9395710820109425,0.8823529411764706,0.2912621359223301,0.8994353457072777,RandomForest
 4,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/DCGC-647646/2023,2,2,0,,,,,,,,,,,RandomForest
 4,strain,Severe acute respiratory syndrome coronavirus 2 Germany/BY-MVP-0283/2020,1,1,0,,,,,,,,,,,RandomForest
 4,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,3,3,0,,,,,,,,,,,RandomForest
-4,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,111,42,69,0.4618702553485162,0.3517598612893639,0.18181818181818182,0.37037037037037035,0.18181818181818182,0.047619047619047616,0.19273529581584178,0.37037037037037035,0.23809523809523808,0.324917283903427,RandomForest
+4,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,114,42,72,0.47536375661375657,0.348629328793283,0.18181818181818182,0.35714285714285715,0.18181818181818182,0.047619047619047616,0.19273529581584178,0.35714285714285715,0.23809523809523808,0.31727867316369296,RandomForest
 4,strain,Unknown,46,46,0,,,,,,,,,,,RandomForest
 4,strain,dengue virus type 1,18,18,0,,,,,,,,,,,RandomForest
 4,strain,dengue virus type 2,34,34,0,,,,,,,,,,,RandomForest
 4,strain,dengue virus type 3,11,9,2,,,,,,,,,,,RandomForest
 4,strain,dengue virus type 4,19,17,2,0.2647058823529412,0.8490287611576994,1.0,0.75,1.0,0.058823529411764705,1.0,0.75,0.17647058823529413,0.7536976112592699,RandomForest
 4,strain,hepatitis B virus genotype C,6,5,1,,,,,,,,,,,RandomForest
-4,strain,hepatitis C virus genotype 1a,20,15,5,0.7866666666666666,0.8997496460654355,1.0,0.8,1.0,0.13333333333333333,1.0,0.8,0.26666666666666666,0.8539316501572934,RandomForest
+4,strain,hepatitis C virus genotype 1a,21,15,6,0.7666666666666666,0.8788441188441188,1.0,0.8,1.0,0.13333333333333333,1.0,0.8,0.26666666666666666,0.8539316501572934,RandomForest
 4,strain,human gammaherpesvirus 4,77,65,12,0.5724358974358974,0.8722370823136177,0.8571428571428571,0.9473684210526315,0.8571428571428571,0.09230769230769231,0.775848005048735,0.9473684210526315,0.27692307692307694,0.8803004579400441,RandomForest
 4,strain,human papillomavirus 52,7,3,4,,,,,,,,,,,RandomForest
 4,strain,human papillomavirus 58,4,1,3,,,,,,,,,,,RandomForest
@@ -20234,14 +20234,14 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 5,strain,Hepatitis C virus (isolate H),2,1,1,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus (isolate H77),20,16,4,0.5,0.7506114902254608,0.0,0.6,0.0,0.0,0.0,0.6,0.1875,0.44685352999185624,RandomForest
 5,strain,Hepatitis C virus (isolate Japanese),1,1,0,,,,,,,,,,,RandomForest
-5,strain,Hepatitis C virus (isolate Taiwan),16,0,16,,,,,,,,,,,RandomForest
-5,strain,Hepatitis C virus genotype 1,32,19,13,0.43522267206477727,0.6540578550973917,1.0,0.625,1.0,0.15789473684210525,1.0,0.625,0.2631578947368421,0.7277341624565862,RandomForest
+5,strain,Hepatitis C virus (isolate Taiwan),15,0,15,,,,,,,,,,,RandomForest
+5,strain,Hepatitis C virus genotype 1,30,19,11,0.40909090909090906,0.6730450389853078,1.0,0.5714285714285714,1.0,0.15789473684210525,1.0,0.5714285714285714,0.21052631578947367,0.7041249493150387,RandomForest
 5,strain,Hepatitis C virus genotype 2,1,0,1,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus genotype 3,5,2,3,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus genotype 4,8,2,6,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus genotype 6,1,1,0,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus isolate HC-J6,1,1,0,,,,,,,,,,,RandomForest
-5,strain,Hepatitis C virus subtype 1b,16,13,3,0.7179487179487181,0.935947065754758,1.0,1.0,1.0,0.07692307692307693,1.0,1.0,0.3076923076923077,0.9999999999999998,RandomForest
+5,strain,Hepatitis C virus subtype 1b,18,13,5,0.6000000000000001,0.83588569550108,1.0,0.75,1.0,0.07692307692307693,1.0,0.75,0.23076923076923078,0.8318724637288825,RandomForest
 5,strain,Hepatitis C virus subtype 2a,7,7,0,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus subtype 2b,1,0,1,,,,,,,,,,,RandomForest
 5,strain,Hepatitis C virus subtype 3a,8,6,2,,,,,,,,,,,RandomForest
@@ -20269,14 +20269,14 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 5,strain,Influenza A virus (A/duck/Fujian/13/2002(H5N1)),1,1,0,,,,,,,,,,,RandomForest
 5,strain,Influenza A virus (A/nt/60/1968(H3N2)),1,0,1,,,,,,,,,,,RandomForest
 5,strain,Influenza A virus H3N2 (A/Resvir-9 (H3N2)),1,1,0,,,,,,,,,,,RandomForest
-5,strain,Severe acute respiratory syndrome coronavirus 2,696,521,175,0.6324650397587057,0.8334523498873405,0.8695652173913043,0.8735632183908046,0.8695652173913043,0.11516314779270634,0.89527180667722,0.8735632183908046,0.29174664107485604,0.8873591704110272,RandomForest
+5,strain,Severe acute respiratory syndrome coronavirus 2,693,521,172,0.625675132794715,0.8328908012800662,0.8695652173913043,0.8728323699421965,0.8695652173913043,0.11516314779270634,0.89527180667722,0.8728323699421965,0.28982725527831094,0.8868753184164645,RandomForest
 5,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/DCGC-647646/2023,1,1,0,,,,,,,,,,,RandomForest
 5,strain,Severe acute respiratory syndrome coronavirus 2 England/22K457422/2022,1,0,1,,,,,,,,,,,RandomForest
 5,strain,Severe acute respiratory syndrome coronavirus 2 Germany/BY-MVP-0283/2020,1,1,0,,,,,,,,,,,RandomForest
 5,strain,Severe acute respiratory syndrome coronavirus 2 USA/FL-CDC-LC1105671/2024,1,0,1,,,,,,,,,,,RandomForest
 5,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,1,0,1,,,,,,,,,,,RandomForest
 5,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP47946-PIDOZJUORR/2023,1,1,0,,,,,,,,,,,RandomForest
-5,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,139,63,76,0.5642230576441103,0.5116478103652429,0.46153846153846156,0.47058823529411764,0.46153846153846156,0.09523809523809523,0.5356623491275521,0.47058823529411764,0.25396825396825395,0.5110533384420672,RandomForest
+5,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,142,63,79,0.5934297769740807,0.5209761962558095,0.5,0.5142857142857142,0.5,0.1111111111111111,0.5568428120046023,0.5142857142857142,0.2857142857142857,0.5408446642375221,RandomForest
 5,strain,Unknown,40,40,0,,,,,,,,,,,RandomForest
 5,strain,dengue virus type 1,21,20,1,0.55,0.9728925986723975,1.0,1.0,1.0,0.1,1.0,1.0,0.25,0.9999999999999999,RandomForest
 5,strain,dengue virus type 2,28,27,1,0.1111111111111111,0.9317097146061839,1.0,0.8571428571428571,1.0,0.07407407407407407,1.0,0.8571428571428571,0.2222222222222222,0.8816172070446372,RandomForest
@@ -20284,7 +20284,7 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 5,strain,dengue virus type 4,16,13,3,0.6153846153846154,0.9115176490176491,1.0,1.0,1.0,0.07692307692307693,1.0,1.0,0.3076923076923077,0.9999999999999998,RandomForest
 5,strain,hepatitis B virus genotype A,1,1,0,,,,,,,,,,,RandomForest
 5,strain,hepatitis B virus genotype C,6,5,1,,,,,,,,,,,RandomForest
-5,strain,hepatitis C virus genotype 1a,18,11,7,0.5324675324675325,0.6225771999836172,0.0,0.5,0.0,0.0,0.0,0.5,0.18181818181818182,0.4144299250118473,RandomForest
+5,strain,hepatitis C virus genotype 1a,19,11,8,0.5284090909090909,0.5960430983158256,0.0,0.5,0.0,0.0,0.0,0.5,0.18181818181818182,0.4144299250118473,RandomForest
 5,strain,human gammaherpesvirus 4,85,65,20,0.7569230769230769,0.9239884920837643,1.0,1.0,1.0,0.12307692307692308,1.0000000000000002,1.0,0.3230769230769231,0.9999999999999999,RandomForest
 5,strain,human papillomavirus 11,1,1,0,,,,,,,,,,,RandomForest
 5,strain,human papillomavirus 39,1,1,0,,,,,,,,,,,RandomForest
@@ -25326,9 +25326,9 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 1,strain,Hepatitis B virus subtype AYR,1,1,0,,,,,,,,,,,XGBoost
 1,strain,Hepatitis B virus subtype adr,1,1,0,,,,,,,,,,,XGBoost
 1,strain,Hepatitis B virus subtype ayw,3,1,2,,,,,,,,,,,XGBoost
-1,strain,Hepatitis C virus (isolate 1),9,5,4,,,,,,,,,,,XGBoost
+1,strain,Hepatitis C virus (isolate 1),8,5,3,,,,,,,,,,,XGBoost
 1,strain,Hepatitis C virus (isolate BK),3,3,0,,,,,,,,,,,XGBoost
-1,strain,Hepatitis C virus (isolate H),1,1,0,,,,,,,,,,,XGBoost
+1,strain,Hepatitis C virus (isolate H),2,1,1,,,,,,,,,,,XGBoost
 1,strain,Hepatitis C virus (isolate H77),14,12,2,,,,,,,,,,,XGBoost
 1,strain,Hepatitis C virus (isolate Taiwan),16,1,15,0.2666666666666667,0.08333333333333333,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,XGBoost
 1,strain,Hepatitis C virus JFH-1,1,1,0,,,,,,,,,,,XGBoost
@@ -25366,7 +25366,7 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 1,strain,Influenza A virus (A/X-31(H3N2)) A/X-31 X HK,1,1,0,,,,,,,,,,,XGBoost
 1,strain,Influenza A virus (A/duck/Vietnam/37/2007(H5N1)),1,1,0,,,,,,,,,,,XGBoost
 1,strain,Influenza A virus (A/ferret/Maryland/P10-UMD/2008(H9N2)),1,1,0,,,,,,,,,,,XGBoost
-1,strain,Severe acute respiratory syndrome coronavirus 2,683,511,172,0.6712556319118919,0.8629007090112271,0.9705882352941176,0.9411764705882353,0.9705882352941176,0.12915851272015655,0.9659007189086273,0.9411764705882353,0.3131115459882583,0.9438427675549103,XGBoost
+1,strain,Severe acute respiratory syndrome coronavirus 2,685,511,174,0.6709179656746969,0.8608438171810626,0.9705882352941176,0.935672514619883,0.9705882352941176,0.12915851272015655,0.9659007189086273,0.935672514619883,0.3131115459882583,0.9394546325435236,XGBoost
 1,strain,Severe acute respiratory syndrome coronavirus 2 Canada/QC-L00478241001/2022,1,1,0,,,,,,,,,,,XGBoost
 1,strain,Severe acute respiratory syndrome coronavirus 2 DNK/7023000080/2023,1,0,1,,,,,,,,,,,XGBoost
 1,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/MinkCluster5/2020,1,1,0,,,,,,,,,,,XGBoost
@@ -25375,7 +25375,7 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 1,strain,Severe acute respiratory syndrome coronavirus 2 USA/FL-CDC-LC1105671/2024,1,0,1,,,,,,,,,,,XGBoost
 1,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,3,2,1,,,,,,,,,,,XGBoost
 1,strain,Severe acute respiratory syndrome coronavirus 2 USA/NJ-CDC-LC0471426/2022,1,0,1,,,,,,,,,,,XGBoost
-1,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,115,45,70,0.590952380952381,0.47184035349212927,0.36363636363636365,0.5,0.36363636363636365,0.08888888888888889,0.4313057452203534,0.5,0.3111111111111111,0.4991867476546813,XGBoost
+1,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,113,45,68,0.5893790849673203,0.48366341532956925,0.45454545454545453,0.5357142857142857,0.45454545454545453,0.1111111111111111,0.49423981753027785,0.5357142857142857,0.3333333333333333,0.530222192056549,XGBoost
 1,strain,Unknown,47,47,0,,,,,,,,,,,XGBoost
 1,strain,dengue virus type 1,17,16,1,0.3125,0.9381529673349526,1.0,1.0,1.0,0.0625,1.0,1.0,0.25,0.9999999999999998,XGBoost
 1,strain,dengue virus type 2,25,24,1,0.5833333333333334,0.9792612839781453,1.0,1.0,1.0,0.08333333333333333,1.0,1.0,0.25,1.0,XGBoost
@@ -30381,8 +30381,8 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 2,strain,Hepatitis C virus (isolate BK),1,1,0,,,,,,,,,,,XGBoost
 2,strain,Hepatitis C virus (isolate H77),14,13,1,,,,,,,,,,,XGBoost
 2,strain,Hepatitis C virus (isolate Japanese),3,2,1,,,,,,,,,,,XGBoost
-2,strain,Hepatitis C virus (isolate Taiwan),11,2,9,,,,,,,,,,,XGBoost
-2,strain,Hepatitis C virus genotype 1,21,18,3,0.33333333333333337,0.83485505412105,1.0,0.8,1.0,0.1111111111111111,1.0,0.8,0.2222222222222222,0.8304198973631918,XGBoost
+2,strain,Hepatitis C virus (isolate Taiwan),12,2,10,,,,,,,,,,,XGBoost
+2,strain,Hepatitis C virus genotype 1,21,18,3,0.29629629629629634,0.7885587578247536,0.5,0.8,0.5,0.05555555555555555,0.3868528072345415,0.8,0.2222222222222222,0.6608397947263838,XGBoost
 2,strain,Hepatitis C virus genotype 2,4,1,3,,,,,,,,,,,XGBoost
 2,strain,Hepatitis C virus genotype 3,7,2,5,,,,,,,,,,,XGBoost
 2,strain,Hepatitis C virus genotype 4,9,3,6,,,,,,,,,,,XGBoost
@@ -30420,20 +30420,20 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 2,strain,Influenza A virus (A/bar-headed goose/Qinghai/3/2005(H5N1)),1,1,0,,,,,,,,,,,XGBoost
 2,strain,Influenza A virus (A/nt/60/1968(H3N2)),1,1,0,,,,,,,,,,,XGBoost
 2,strain,Mupapillomavirus 1,1,1,0,,,,,,,,,,,XGBoost
-2,strain,Severe acute respiratory syndrome coronavirus 2,678,515,163,0.6274108046935494,0.8388031305064826,0.9253731343283582,0.8698224852071006,0.9253731343283582,0.1203883495145631,0.9158959154760317,0.8698224852071006,0.2854368932038835,0.874151380776829,XGBoost
+2,strain,Severe acute respiratory syndrome coronavirus 2,676,515,161,0.6242899354760899,0.8384967217122101,0.9253731343283582,0.863905325443787,0.9253731343283582,0.1203883495145631,0.9158959154760317,0.863905325443787,0.283495145631068,0.871854343173779,XGBoost
 2,strain,Severe acute respiratory syndrome coronavirus 2 BA.1 strain YJ20220223,1,1,0,,,,,,,,,,,XGBoost
 2,strain,Severe acute respiratory syndrome coronavirus 2 DNK/7023000080/2023,1,0,1,,,,,,,,,,,XGBoost
 2,strain,Severe acute respiratory syndrome coronavirus 2 Germany/BY-MVP-0283/2020,2,2,0,,,,,,,,,,,XGBoost
 2,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,1,0,1,,,,,,,,,,,XGBoost
 2,strain,Severe acute respiratory syndrome coronavirus 2 USA/NV-CDC-QDX39324276/2022,1,1,0,,,,,,,,,,,XGBoost
-2,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,133,46,87,0.5564717641179411,0.40125785449353896,0.38461538461538464,0.3939393939393939,0.38461538461538464,0.10869565217391304,0.3996311624672977,0.3939393939393939,0.2826086956521739,0.3938617143337658,XGBoost
+2,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,135,46,89,0.5620420127015144,0.402028193705837,0.38461538461538464,0.3939393939393939,0.38461538461538464,0.10869565217391304,0.3996311624672977,0.3939393939393939,0.2826086956521739,0.39607490461541955,XGBoost
 2,strain,Unknown,47,47,0,,,,,,,,,,,XGBoost
 2,strain,dengue virus type 1,26,26,0,,,,,,,,,,,XGBoost
 2,strain,dengue virus type 2,31,30,1,0.5333333333333333,0.9804102442401412,1.0,1.0,1.0,0.1,1.0,1.0,0.23333333333333334,1.0000000000000002,XGBoost
 2,strain,dengue virus type 3,14,13,1,,,,,,,,,,,XGBoost
 2,strain,dengue virus type 4,13,12,1,,,,,,,,,,,XGBoost
 2,strain,hepatitis B virus genotype C,4,3,1,,,,,,,,,,,XGBoost
-2,strain,hepatitis C virus genotype 1a,22,14,8,0.6964285714285714,0.7468684909861381,0.5,0.6,0.5,0.07142857142857142,0.6131471927654585,0.6,0.21428571428571427,0.6164336326286642,XGBoost
+2,strain,hepatitis C virus genotype 1a,21,14,7,0.7857142857142857,0.8329909294720219,0.5,0.8,0.5,0.07142857142857142,0.6131471927654585,0.8,0.2857142857142857,0.7860137352654724,XGBoost
 2,strain,human gammaherpesvirus 4,64,51,13,0.6591251885369532,0.8997030450515586,1.0,0.9375,1.0,0.11764705882352941,1.0,0.9375,0.29411764705882354,0.959932754567456,XGBoost
 2,strain,human papillomavirus 11,4,4,0,,,,,,,,,,,XGBoost
 2,strain,human papillomavirus 18,1,0,1,,,,,,,,,,,XGBoost
@@ -35447,8 +35447,8 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 3,strain,Dengue virus type 1 Hawaii,3,3,0,,,,,,,,,,,XGBoost
 3,strain,HPV16,52,30,22,0.5757575757575757,0.7316319132035903,1.0,0.7692307692307693,1.0,0.16666666666666666,0.9999999999999999,0.7692307692307693,0.3333333333333333,0.830906861442655,XGBoost
 3,strain,HPV18,8,6,2,,,,,,,,,,,XGBoost
-3,strain,Hepatitis B virus,128,84,44,0.7437770562770563,0.8580024946602296,1.0,0.90625,1.0,0.14285714285714285,1.0,0.90625,0.34523809523809523,0.9332496759044847,XGBoost
-3,strain,Hepatitis B virus genotype B,3,1,2,,,,,,,,,,,XGBoost
+3,strain,Hepatitis B virus,129,84,45,0.7382275132275132,0.8528621573112442,1.0,0.90625,1.0,0.14285714285714285,1.0,0.90625,0.34523809523809523,0.9332496759044847,XGBoost
+3,strain,Hepatitis B virus genotype B,2,1,1,,,,,,,,,,,XGBoost
 3,strain,Hepatitis C virus (isolate 1),3,2,1,,,,,,,,,,,XGBoost
 3,strain,Hepatitis C virus (isolate BK),1,1,0,,,,,,,,,,,XGBoost
 3,strain,Hepatitis C virus (isolate H),1,0,1,,,,,,,,,,,XGBoost
@@ -35496,12 +35496,12 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 3,strain,Influenza A virus (A/duck/Hong Kong/140/1998(H5N1)),1,1,0,,,,,,,,,,,XGBoost
 3,strain,Influenza A virus (A/swine/Guangdong/01/2005(H3N2)),1,1,0,,,,,,,,,,,XGBoost
 3,strain,Influenza A virus H3N2 (A/Netherlands/9/03 (H3N2)),1,1,0,,,,,,,,,,,XGBoost
-3,strain,Severe acute respiratory syndrome coronavirus 2,656,506,150,0.6180500658761527,0.8486326923550418,0.9384615384615385,0.8902439024390244,0.9384615384615385,0.12055335968379446,0.9377430968367025,0.8902439024390244,0.2885375494071146,0.8992601586752048,XGBoost
+3,strain,Severe acute respiratory syndrome coronavirus 2,655,506,149,0.6194790036342415,0.8498157695961387,0.9384615384615385,0.8895705521472392,0.9384615384615385,0.12055335968379446,0.9377430968367025,0.8895705521472392,0.2865612648221344,0.8988026662180459,XGBoost
 3,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/DCGC-647646/2023,1,1,0,,,,,,,,,,,XGBoost
 3,strain,Severe acute respiratory syndrome coronavirus 2 South Africa/NICD-N21671/2021,1,0,1,,,,,,,,,,,XGBoost
 3,strain,Severe acute respiratory syndrome coronavirus 2 USA/MI-UM-10052670540/2023,1,1,0,,,,,,,,,,,XGBoost
 3,strain,Severe acute respiratory syndrome coronavirus 2 USA/NJ-CDC-LC0471426/2022,1,0,1,,,,,,,,,,,XGBoost
-3,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,121,46,75,0.6144927536231883,0.4605384239658356,0.3333333333333333,0.4666666666666667,0.3333333333333333,0.08695652173913043,0.40237297089032126,0.4666666666666667,0.30434782608695654,0.46348359862596733,XGBoost
+3,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,122,46,76,0.6101258581235698,0.454549617228185,0.3333333333333333,0.43333333333333335,0.3333333333333333,0.08695652173913043,0.40237297089032126,0.43333333333333335,0.2826086956521739,0.4414514749499058,XGBoost
 3,strain,Unknown,33,33,0,,,,,,,,,,,XGBoost
 3,strain,dengue virus type 1,18,17,1,0.8823529411764706,0.9932718185313342,1.0,1.0,1.0,0.058823529411764705,1.0,1.0,0.23529411764705882,0.9999999999999998,XGBoost
 3,strain,dengue virus type 2,22,22,0,,,,,,,,,,,XGBoost
@@ -40464,12 +40464,12 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 4,strain,Hepatitis B virus ayw/France/Tiollais/1979,1,1,0,,,,,,,,,,,XGBoost
 4,strain,Hepatitis B virus genotype B,2,1,1,,,,,,,,,,,XGBoost
 4,strain,Hepatitis B virus subtype ayw,1,1,0,,,,,,,,,,,XGBoost
-4,strain,Hepatitis C virus (isolate 1),8,5,3,,,,,,,,,,,XGBoost
+4,strain,Hepatitis C virus (isolate 1),7,5,2,,,,,,,,,,,XGBoost
 4,strain,Hepatitis C virus (isolate BK),4,4,0,,,,,,,,,,,XGBoost
 4,strain,Hepatitis C virus (isolate H77),11,9,2,,,,,,,,,,,XGBoost
 4,strain,Hepatitis C virus (isolate Japanese),2,1,1,,,,,,,,,,,XGBoost
-4,strain,Hepatitis C virus (isolate Taiwan),20,0,20,,,,,,,,,,,XGBoost
-4,strain,Hepatitis C virus genotype 1,30,19,11,0.45454545454545453,0.5855390156546231,0.3333333333333333,0.42857142857142855,0.3333333333333333,0.05263157894736842,0.2960819109658652,0.42857142857142855,0.15789473684210525,0.36296602664297095,XGBoost
+4,strain,Hepatitis C virus (isolate Taiwan),19,0,19,,,,,,,,,,,XGBoost
+4,strain,Hepatitis C virus genotype 1,31,19,12,0.4956140350877193,0.5941492105523177,0.3333333333333333,0.5714285714285714,0.3333333333333333,0.05263157894736842,0.2960819109658652,0.5714285714285714,0.21052631578947367,0.46930270767320087,XGBoost
 4,strain,Hepatitis C virus genotype 3,3,1,2,,,,,,,,,,,XGBoost
 4,strain,Hepatitis C virus genotype 4,12,2,10,,,,,,,,,,,XGBoost
 4,strain,Hepatitis C virus subtype 1b,23,13,10,0.5076923076923077,0.6400637760931878,1.0,0.4,1.0,0.15384615384615385,1.0,0.4,0.15384615384615385,0.5531464700081437,XGBoost
@@ -40503,18 +40503,18 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 4,strain,Influenza A virus (A/X-31(H3N2)) A/X-31 X HK,3,3,0,,,,,,,,,,,XGBoost
 4,strain,Influenza A virus (A/mallard/Quebec/10969/2006(H2N3)),1,1,0,,,,,,,,,,,XGBoost
 4,strain,Influenza A virus H3N2,1,1,0,,,,,,,,,,,XGBoost
-4,strain,Severe acute respiratory syndrome coronavirus 2,683,515,168,0.6358009708737864,0.8366799267708614,0.9117647058823529,0.8411764705882353,0.9117647058823529,0.1203883495145631,0.8890827687676287,0.8411764705882353,0.27766990291262134,0.8427277722494925,XGBoost
+4,strain,Severe acute respiratory syndrome coronavirus 2,680,515,165,0.6337687555163283,0.8377440359216268,0.9264705882352942,0.8470588235294118,0.9264705882352942,0.12233009708737864,0.8890827687676287,0.8470588235294118,0.2796116504854369,0.8427277722494925,XGBoost
 4,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/DCGC-647646/2023,2,2,0,,,,,,,,,,,XGBoost
 4,strain,Severe acute respiratory syndrome coronavirus 2 Germany/BY-MVP-0283/2020,1,1,0,,,,,,,,,,,XGBoost
 4,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,3,3,0,,,,,,,,,,,XGBoost
-4,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,111,42,69,0.46169772256728775,0.34931561814732937,0.18181818181818182,0.3333333333333333,0.18181818181818182,0.047619047619047616,0.16362145207861453,0.3333333333333333,0.21428571428571427,0.2820546524406774,XGBoost
+4,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,114,42,72,0.47222222222222227,0.3456322788825096,0.18181818181818182,0.32142857142857145,0.18181818181818182,0.047619047619047616,0.16362145207861453,0.32142857142857145,0.21428571428571427,0.27542371649463615,XGBoost
 4,strain,Unknown,46,46,0,,,,,,,,,,,XGBoost
 4,strain,dengue virus type 1,18,18,0,,,,,,,,,,,XGBoost
 4,strain,dengue virus type 2,34,34,0,,,,,,,,,,,XGBoost
 4,strain,dengue virus type 3,11,9,2,,,,,,,,,,,XGBoost
 4,strain,dengue virus type 4,19,17,2,0.20588235294117646,0.8143882382818824,0.0,0.75,0.0,0.0,0.0,0.75,0.17647058823529413,0.6096199500078981,XGBoost
 4,strain,hepatitis B virus genotype C,6,5,1,,,,,,,,,,,XGBoost
-4,strain,hepatitis C virus genotype 1a,20,15,5,0.6933333333333334,0.8110768044591574,0.5,0.8,0.5,0.06666666666666667,0.3868528072345415,0.8,0.26666666666666666,0.6608397947263838,XGBoost
+4,strain,hepatitis C virus genotype 1a,21,15,6,0.6333333333333333,0.7592237667160268,0.5,0.8,0.5,0.06666666666666667,0.3868528072345415,0.8,0.26666666666666666,0.6608397947263838,XGBoost
 4,strain,human gammaherpesvirus 4,77,65,12,0.4878205128205128,0.8517134645329976,0.8571428571428571,0.8421052631578947,0.8571428571428571,0.09230769230769231,0.9020870746500322,0.8421052631578947,0.24615384615384617,0.8649762476112072,XGBoost
 4,strain,human papillomavirus 52,7,3,4,,,,,,,,,,,XGBoost
 4,strain,human papillomavirus 58,4,1,3,,,,,,,,,,,XGBoost
@@ -45529,14 +45529,14 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 5,strain,Hepatitis C virus (isolate H),2,1,1,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus (isolate H77),20,16,4,0.5625,0.8481736339103794,1.0,0.8,1.0,0.125,1.0,0.8,0.25,0.8304198973631918,XGBoost
 5,strain,Hepatitis C virus (isolate Japanese),1,1,0,,,,,,,,,,,XGBoost
-5,strain,Hepatitis C virus (isolate Taiwan),16,0,16,,,,,,,,,,,XGBoost
-5,strain,Hepatitis C virus genotype 1,32,19,13,0.5242914979757084,0.6378067214159848,0.3333333333333333,0.75,0.3333333333333333,0.05263157894736842,0.46927872602275655,0.75,0.3157894736842105,0.7139395714912752,XGBoost
+5,strain,Hepatitis C virus (isolate Taiwan),15,0,15,,,,,,,,,,,XGBoost
+5,strain,Hepatitis C virus genotype 1,30,19,11,0.5047846889952152,0.6610576937772634,0.3333333333333333,0.7142857142857143,0.3333333333333333,0.05263157894736842,0.46927872602275655,0.7142857142857143,0.2631578947368421,0.6891341765546153,XGBoost
 5,strain,Hepatitis C virus genotype 2,1,0,1,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus genotype 3,5,2,3,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus genotype 4,8,2,6,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus genotype 6,1,1,0,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus isolate HC-J6,1,1,0,,,,,,,,,,,XGBoost
-5,strain,Hepatitis C virus subtype 1b,16,13,3,0.4871794871794871,0.8679170188785574,1.0,1.0,1.0,0.07692307692307693,1.0,1.0,0.3076923076923077,0.9999999999999998,XGBoost
+5,strain,Hepatitis C virus subtype 1b,18,13,5,0.46153846153846156,0.7467846821353608,1.0,0.75,1.0,0.07692307692307693,1.0,0.75,0.23076923076923078,0.7536976112592699,XGBoost
 5,strain,Hepatitis C virus subtype 2a,7,7,0,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus subtype 2b,1,0,1,,,,,,,,,,,XGBoost
 5,strain,Hepatitis C virus subtype 3a,8,6,2,,,,,,,,,,,XGBoost
@@ -45564,14 +45564,14 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 5,strain,Influenza A virus (A/duck/Fujian/13/2002(H5N1)),1,1,0,,,,,,,,,,,XGBoost
 5,strain,Influenza A virus (A/nt/60/1968(H3N2)),1,0,1,,,,,,,,,,,XGBoost
 5,strain,Influenza A virus H3N2 (A/Resvir-9 (H3N2)),1,1,0,,,,,,,,,,,XGBoost
-5,strain,Severe acute respiratory syndrome coronavirus 2,696,521,175,0.6310775980257746,0.8235450639907784,0.8695652173913043,0.8563218390804598,0.8695652173913043,0.11516314779270634,0.8741362562893242,0.8563218390804598,0.28598848368522073,0.8616992672370164,XGBoost
+5,strain,Severe acute respiratory syndrome coronavirus 2,693,521,172,0.6252343436146945,0.8229560532420377,0.8695652173913043,0.8497109826589595,0.8695652173913043,0.11516314779270634,0.8741362562893242,0.8497109826589595,0.2821497120921305,0.8566612534556827,XGBoost
 5,strain,Severe acute respiratory syndrome coronavirus 2 Denmark/DCGC-647646/2023,1,1,0,,,,,,,,,,,XGBoost
 5,strain,Severe acute respiratory syndrome coronavirus 2 England/22K457422/2022,1,0,1,,,,,,,,,,,XGBoost
 5,strain,Severe acute respiratory syndrome coronavirus 2 Germany/BY-MVP-0283/2020,1,1,0,,,,,,,,,,,XGBoost
 5,strain,Severe acute respiratory syndrome coronavirus 2 USA/FL-CDC-LC1105671/2024,1,0,1,,,,,,,,,,,XGBoost
 5,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP20874-PIDUYWZOWA/2021,1,0,1,,,,,,,,,,,XGBoost
 5,strain,Severe acute respiratory syndrome coronavirus 2 USA/MD-HP47946-PIDOZJUORR/2023,1,1,0,,,,,,,,,,,XGBoost
-5,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,139,63,76,0.5554511278195489,0.5213057961123936,0.38461538461538464,0.5294117647058824,0.38461538461538464,0.07936507936507936,0.521975876806583,0.5294117647058824,0.2857142857142857,0.5677860876002968,XGBoost
+5,strain,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,142,63,79,0.5733373518183645,0.5263365697870837,0.35714285714285715,0.5714285714285714,0.35714285714285715,0.07936507936507936,0.49816628337679125,0.5714285714285714,0.31746031746031744,0.5993705962699695,XGBoost
 5,strain,Unknown,40,40,0,,,,,,,,,,,XGBoost
 5,strain,dengue virus type 1,21,20,1,0.7,0.9836435144233133,1.0,1.0,1.0,0.1,1.0,1.0,0.25,0.9999999999999999,XGBoost
 5,strain,dengue virus type 2,28,27,1,0.37037037037037035,0.9663965298485546,1.0,1.0,1.0,0.07407407407407407,1.0,1.0,0.25925925925925924,1.0000000000000002,XGBoost
@@ -45579,7 +45579,7 @@ fold,subgroup_key,subgroup_value,n_samples,n_positive,n_negative,auc_roc,auc_pr,
 5,strain,dengue virus type 4,16,13,3,0.5384615384615385,0.8894926654542039,1.0,1.0,1.0,0.07692307692307693,1.0,1.0,0.3076923076923077,0.9999999999999998,XGBoost
 5,strain,hepatitis B virus genotype A,1,1,0,,,,,,,,,,,XGBoost
 5,strain,hepatitis B virus genotype C,6,5,1,,,,,,,,,,,XGBoost
-5,strain,hepatitis C virus genotype 1a,18,11,7,0.6103896103896104,0.7308416627935345,1.0,0.5,1.0,0.09090909090909091,1.0,0.5,0.18181818181818182,0.6366824387328316,XGBoost
+5,strain,hepatitis C virus genotype 1a,19,11,8,0.5625,0.677331759149941,1.0,0.5,1.0,0.09090909090909091,1.0,0.5,0.18181818181818182,0.6366824387328316,XGBoost
 5,strain,human gammaherpesvirus 4,85,65,20,0.7307692307692308,0.9158255481694833,1.0,1.0,1.0,0.12307692307692308,1.0000000000000002,1.0,0.3230769230769231,0.9999999999999999,XGBoost
 5,strain,human papillomavirus 11,1,1,0,,,,,,,,,,,XGBoost
 5,strain,human papillomavirus 39,1,1,0,,,,,,,,,,,XGBoost

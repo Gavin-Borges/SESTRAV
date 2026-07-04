@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-07-04T01:36:17.728398+00:00",
-  "git_sha": "175eb6b",
+  "timestamp": "2026-07-04T02:35:21.356788+00:00",
+  "git_sha": "b5ffe37",
   "source_counts": {
     "v4_positives": 6687,
     "v4_hard_decoys": 5000,
     "v4_other_negatives": 3012,
     "iedb_negatives": 36689,
-    "label_conflicts": 1333,
+    "label_conflicts": 1331,
     "merged_total": 46386,
     "dedup_dropped": 1990
   },
@@ -87,11 +87,11 @@
     "min_rows": 50,
     "min_real_negatives": 10
   },
-  "label_conflicts": 1333,
+  "label_conflicts": 1331,
   "target_virus_pmid_counts": {
     "EBV": 125,
-    "HPV": 66,
-    "HBV": 74,
+    "HPV": 67,
+    "HBV": 73,
     "HCV": 81
   },
   "virus_composition_table": [
@@ -889,5 +889,5 @@
     }
   ],
   "output_file": "data\\immunogenicity_dataset_v5.csv",
-  "output_checksum_sha256": "9e5ecf298156592c08f20f16958bb65ded5103ba69bb434da673c705868baa71"
+  "output_checksum_sha256": "8ba4d85cd48cae7d3fc7fb09e1bfa68e0b19683ffbee50439858866b439cfd32"
 }

@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-07-04T01:37:14.992514Z",
-  "git_sha": "175eb6b",
+  "timestamp": "2026-07-04T02:35:56.636756Z",
+  "git_sha": "b5ffe37",
   "source_dataset": "immunogenicity_dataset_v5.csv",
   "existing_matrix": "peptide_binding_matrix_v4.csv",
   "new_peptide_count": 6740,

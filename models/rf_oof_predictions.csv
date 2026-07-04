@@ -2135,7 +2135,7 @@ FLLFVCISYY,Orthopoxvirus vaccinia,,SYNTH_FLLFVCISYY,tested_negative,HLA-A*03:01,
 FLLFVCISYY,Orthopoxvirus vaccinia,,SYNTH_FLLFVCISYY,tested_negative,HLA-A*11:01,0,0.03,1,RandomForest,31
 FLLFVCISYY,Orthopoxvirus vaccinia,,SYNTH_FLLFVCISYY,tested_negative,HLA-A*68:01,0,0.03,1,RandomForest,31
 FLLIRYITT,Orthopoxvirus vaccinia,,SYNTH_FLLIRYITT,tested_negative,HLA-A*02:01,0,0.26473766652837105,1,RandomForest,31
-FLLLADARV,HCV,Hepatitis C virus (isolate 1),SYNTH_FLLLADARV,iedb_api,HLA-A*02:01,0,0.18942317347361987,1,RandomForest,31
+FLLLADARV,HCV,Hepatitis C virus (isolate H),SYNTH_FLLLADARV,iedb_api,HLA-A*02:01,0,0.18942317347361987,1,RandomForest,31
 FLLLILLEK,Orthopoxvirus vaccinia,,SYNTH_FLLLILLEK,tested_negative,HLA-A*33:01,0,0.0,1,RandomForest,31
 FLLLYTIIV,Orthopoxvirus vaccinia,,SYNTH_FLLLYTIIV,tested_negative,HLA-A*02:01,0,0.225,1,RandomForest,31
 FLLRSIIVA,Orthopoxvirus vaccinia,,SYNTH_FLLRSIIVA,tested_negative,HLA-A*02:01,0,0.2401829447944827,1,RandomForest,31
@@ -2176,7 +2176,7 @@ FNATIIEAY,Orthopoxvirus vaccinia,,SYNTH_FNATIIEAY,tested_negative,HLA-A*01:01,0,
 FNDGVYFAS,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FNDGVYFAS,iedb_api,HLA-A*01:01,0,0.44081734195371114,1,RandomForest,31
 FNEDLSSKY,Orthopoxvirus vaccinia,,SYNTH_FNEDLSSKY,tested_negative,HLA-A*01:01,0,0.009600069618912127,1,RandomForest,31
 FNFNGLKGT,SARS-CoV-2,,SYNTH_FNFNGLKGT,tested_negative,HLA-A*02:01,0,0.4539656724596837,1,RandomForest,31
-FNFNGLTGT,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FNFNGLTGT,iedb_api,HLA-A*02:01,0,0.5811563960138415,1,RandomForest,31
+FNFNGLTGT,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_FNFNGLTGT,iedb_api,HLA-A*02:01,0,0.5811563960138415,1,RandomForest,31
 FNSLNTDDY,Orthopoxvirus vaccinia,,SYNTH_FNSLNTDDY,tested_negative,HLA-A*01:01,0,0.005,1,RandomForest,31
 FPDSNSPIM,ZIKV,,SYNTH_FPDSNSPIM,tested_negative,HLA-B*07:02,0,0.4641289508080949,1,RandomForest,31
 FPFTGIDRSI,Orthopoxvirus vaccinia,,SYNTH_FPFTGIDRSI,tested_negative,HLA-B*51:01,0,0.01,1,RandomForest,31
@@ -3685,7 +3685,7 @@ LLLPIVSSV,CMV,Human herpesvirus 5 strain AD169,SYNTH_LLLPIVSSV,iedb_api,HLA clas
 LLLSINSSFY,Orthopoxvirus vaccinia,,SYNTH_LLLSINSSFY,tested_negative,HLA-A*11:01,0,0.0,1,RandomForest,31
 LLLSSVDYK,Orthopoxvirus vaccinia,,SYNTH_LLLSSVDYK,tested_negative,HLA-A*33:01,0,0.013965672459683734,1,RandomForest,31
 LLLSSVDYK,Orthopoxvirus vaccinia,,SYNTH_LLLSSVDYK,tested_negative,HLA-A*33:03,0,0.013965672459683734,1,RandomForest,31
-LLLSVCLGSL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_LLLSVCLGSL,iedb_api,HLA-A*02:01,0,0.22975211069418386,1,RandomForest,31
+LLLSVCLGSL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_LLLSVCLGSL,iedb_api,HLA-A*02:01,0,0.22975211069418386,1,RandomForest,31
 LLLWPLYVL,Orthopoxvirus vaccinia,,SYNTH_LLLWPLYVL,tested_negative,HLA-A*02:01,0,0.23127398323488793,1,RandomForest,31
 LLMPAATAV,CMV,Human herpesvirus 5 strain AD169,SYNTH_LLMPAATAV,iedb_api,HLA class I,0,0.4645536739872992,1,RandomForest,31
 LLMVISGAAL,Orthopoxvirus vaccinia,,SYNTH_LLMVISGAAL,tested_negative,HLA-A*02:01,0,0.3009341519835254,1,RandomForest,31
@@ -4036,7 +4036,7 @@ MPVLAYSSSI,Orthopoxvirus vaccinia,,SYNTH_MPVLAYSSSI,tested_negative,HLA-B*55:01,
 MQKCYFSYK,Orthopoxvirus vaccinia,,SYNTH_MQKCYFSYK,tested_negative,HLA-A*68:01,0,0.0,1,RandomForest,31
 MQKFTILEY,Orthopoxvirus vaccinia,,SYNTH_MQKFTILEY,tested_negative,HLA-A*03:01,0,0.015,1,RandomForest,31
 MQKFTILEY,Orthopoxvirus vaccinia,,SYNTH_MQKFTILEY,tested_negative,HLA-A*68:01,0,0.015,1,RandomForest,31
-MQMAYRFNGI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_MQMAYRFNGI,iedb_api,HLA-A*02:01,0,0.10396567245968374,1,RandomForest,31
+MQMAYRFNGI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_MQMAYRFNGI,iedb_api,HLA-A*02:01,0,0.10396567245968374,1,RandomForest,31
 MQSYNSVPIK,Orthopoxvirus vaccinia,,SYNTH_MQSYNSVPIK,tested_negative,HLA-A*33:01,0,0.01,1,RandomForest,31
 MQTVKLFVK,Orthopoxvirus vaccinia,,SYNTH_MQTVKLFVK,tested_negative,HLA-A*33:03,0,0.003965672459683732,1,RandomForest,31
 MQYEIMNYF,CMV,Human betaherpesvirus 5,SYNTH_MQYEIMNYF,iedb_api,HLA-Cw4,0,0.1842574824008364,1,RandomForest,31
@@ -5905,7 +5905,7 @@ VQKAPIYKR,Orthopoxvirus vaccinia,,SYNTH_VQKAPIYKR,tested_negative,HLA-A*68:01,0,
 VQKAPIYKRK,Orthopoxvirus vaccinia,,SYNTH_VQKAPIYKRK,tested_negative,HLA-A*11:01,0,0.005,1,RandomForest,31
 VQKAPIYKRK,Orthopoxvirus vaccinia,,SYNTH_VQKAPIYKRK,tested_negative,HLA-A*33:01,0,0.005,1,RandomForest,31
 VQKSADFTK,Orthopoxvirus vaccinia,,SYNTH_VQKSADFTK,tested_negative,HLA-A*33:01,0,0.003965672459683732,1,RandomForest,31
-VQMAPISAMV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_VQMAPISAMV,iedb_api,HLA-A*02:01,0,0.4792061878870147,1,RandomForest,31
+VQMAPISAMV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_VQMAPISAMV,iedb_api,HLA-A*02:01,0,0.4792061878870147,1,RandomForest,31
 VQQRLANNK,Orthopoxvirus vaccinia,,SYNTH_VQQRLANNK,tested_negative,HLA-A*33:01,0,0.01,1,RandomForest,31
 VQSTHVDIRT,HPV,HPV16,VE7_HPV16,iedb_api,HLA class I,0,0.4676252768373169,1,RandomForest,31
 VQSTQWSLF,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_VQSTQWSLF,iedb_api,HLA-A*24:02,0,0.3828859970343437,1,RandomForest,31
@@ -6202,7 +6202,7 @@ YILYIVFCII,Orthopoxvirus vaccinia,,SYNTH_YILYIVFCII,tested_negative,HLA-A*02:01,
 YIPLVGAPL,HCV,Hepatitis C virus (isolate Taiwan),SYNTH_YIPLVGAPL,iedb_api,HLA-A2,0,0.4716750743088358,1,RandomForest,31
 YISWCLWW,HCV,Hepatitis C virus genotype 1,SYNTH_YISWCLWW,iedb_api,HLA-A23,0,0.4695566049622102,1,RandomForest,31
 YISWCLWWL,HCV,Hepatitis C virus (isolate 1),SYNTH_YISWCLWWL,iedb_api,HLA-A29,0,0.7202663226082089,1,RandomForest,31
-YITGGVVQL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YITGGVVQL,iedb_api,HLA-A*02:01,0,0.6175381592727222,1,RandomForest,31
+YITGGVVQL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YITGGVVQL,iedb_api,HLA-A*02:01,0,0.6175381592727222,1,RandomForest,31
 YKDANISMY,Orthopoxvirus vaccinia,,SYNTH_YKDANISMY,tested_negative,HLA-A*26:01,0,0.02,1,RandomForest,31
 YKDILPGTY,Orthopoxvirus vaccinia,,SYNTH_YKDILPGTY,tested_negative,HLA-A*01:01,0,0.04,1,RandomForest,31
 YKDILPGTY,Orthopoxvirus vaccinia,,SYNTH_YKDILPGTY,tested_negative,HLA-A*29:02,0,0.04,1,RandomForest,31
@@ -6282,7 +6282,7 @@ YPRSNCGGLA,Orthopoxvirus vaccinia,,SYNTH_YPRSNCGGLA,tested_negative,HLA-B*55:01,
 YPTNDIPSL,Orthopoxvirus vaccinia,,SYNTH_YPTNDIPSL,tested_negative,HLA-B*07:02,0,0.044423173473619876,1,RandomForest,31
 YPTNDIPSL,Orthopoxvirus vaccinia,,SYNTH_YPTNDIPSL,tested_negative,HLA-B*53:01,0,0.044423173473619876,1,RandomForest,31
 YQCAMRHNFT,SARS-CoV-2,,SYNTH_YQCAMRHNFT,tested_negative,HLA-A*02:01,0,0.3427091008890514,1,RandomForest,31
-YQCAMRPNFT,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YQCAMRPNFT,iedb_api,HLA-A*02:01,0,0.425,1,RandomForest,31
+YQCAMRPNFT,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YQCAMRPNFT,iedb_api,HLA-A*02:01,0,0.425,1,RandomForest,31
 YQKVGMQKY,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YQKVGMQKY,iedb_api,HLA-B*15:01,0,0.7382859274154314,1,RandomForest,31
 YQMLLALVAL,Orthopoxvirus vaccinia,,SYNTH_YQMLLALVAL,tested_negative,HLA-A*02:01,0,0.347098251249053,1,RandomForest,31
 YQSFLFWFLK,Orthopoxvirus vaccinia,,SYNTH_YQSFLFWFLK,tested_negative,HLA-A*33:01,0,0.0,1,RandomForest,31
@@ -8556,7 +8556,7 @@ FLTTLSSVTK,Orthopoxvirus vaccinia,,SYNTH_FLTTLSSVTK,tested_negative,HLA-A*03:01,
 FLTTLSSVTK,Orthopoxvirus vaccinia,,SYNTH_FLTTLSSVTK,tested_negative,HLA-A*33:03,0,0.005,2,RandomForest,31
 FLVCFPSTQR,Orthopoxvirus vaccinia,,SYNTH_FLVCFPSTQR,tested_negative,HLA-A*33:01,0,0.038757427231721465,2,RandomForest,31
 FLVCFPSTQR,Orthopoxvirus vaccinia,,SYNTH_FLVCFPSTQR,tested_negative,HLA-A*33:03,0,0.038757427231721465,2,RandomForest,31
-FLVQAGNVQL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_FLVQAGNVQL,iedb_api,HLA-A*02:01,0,0.4991160261714275,2,RandomForest,31
+FLVQAGNVQL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FLVQAGNVQL,iedb_api,HLA-A*02:01,0,0.4991160261714275,2,RandomForest,31
 FLYHTSAAK,Orthopoxvirus vaccinia,,SYNTH_FLYHTSAAK,tested_negative,HLA-A*33:01,0,0.004423198655403488,2,RandomForest,31
 FLYIIKLIFL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FLYIIKLIFL,iedb_api,HLA class I,0,0.5262809942048934,2,RandomForest,31
 FLYNFWTNV,Orthopoxvirus vaccinia,,SYNTH_FLYNFWTNV,tested_negative,HLA-A*02:01,0,0.38777279079442517,2,RandomForest,31
@@ -9196,7 +9196,7 @@ ILGGVLHTK,Orthopoxvirus vaccinia,,SYNTH_ILGGVLHTK,tested_negative,HLA-A*33:03,0,
 ILGGWVAAQL,HCV,,SYNTH_ILGGWVAAQL,tested_negative,HLA-A*02:01,0,0.47154780551030595,2,RandomForest,31
 ILHHHRNVFK,Orthopoxvirus vaccinia,,SYNTH_ILHHHRNVFK,tested_negative,HLA-A*03:01,0,0.005,2,RandomForest,31
 ILHLILWIL,IAV,Influenza A virus,SYNTH_ILHLILWIL,iedb_api,HLA-A2,0,0.19400772749388945,2,RandomForest,31
-ILHTPGCV,HCV,Hepatitis C virus genotype 1,SYNTH_ILHTPGCV,iedb_api,HLA-A2,0,0.8033889115991587,2,RandomForest,31
+ILHTPGCV,HCV,Hepatitis C virus (isolate Taiwan),SYNTH_ILHTPGCV,iedb_api,HLA-A2,0,0.8033889115991587,2,RandomForest,31
 ILKEPVHGV,HIV-1,Human immunodeficiency virus 1,SYNTH_ILKEPVHGV,iedb_api,HLA-A*02:14,0,0.9123194544414349,2,RandomForest,31
 ILLAKDTTEA,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_ILLAKDTTEA,iedb_api,HLA-A*02:01,0,0.3700986443423872,2,RandomForest,31
 ILLFVIVIYI,Orthopoxvirus vaccinia,,SYNTH_ILLFVIVIYI,tested_negative,HLA-A*02:01,0,0.21150345932370718,2,RandomForest,31
@@ -10160,7 +10160,7 @@ LPYGANKDGII,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_LPY
 LPYQGQLKLL,Orthopoxvirus vaccinia,,SYNTH_LPYQGQLKLL,tested_negative,HLA-B*07:02,0,0.03,2,RandomForest,31
 LPYQGQLKLL,Orthopoxvirus vaccinia,,SYNTH_LPYQGQLKLL,tested_negative,HLA-B*51:01,0,0.03,2,RandomForest,31
 LQASLLRIPY,HCV,Hepatitis C virus genotype 4,SYNTH_LQASLLRIPY,iedb_api,HLA-B15,0,0.435,2,RandomForest,31
-LQDVVNQNA,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_LQDVVNQNA,iedb_api,HLA-A*02:01,0,0.3596063204924417,2,RandomForest,31
+LQDVVNQNA,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_LQDVVNQNA,iedb_api,HLA-A*02:01,0,0.3596063204924417,2,RandomForest,31
 LQELGKYEQ,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_LQELGKYEQ,iedb_api,HLA-A*24:02,0,0.355,2,RandomForest,31
 LQKCVMLAR,Orthopoxvirus vaccinia,,SYNTH_LQKCVMLAR,tested_negative,HLA-A*11:01,0,0.003965712943755137,2,RandomForest,31
 LQMDKTSSLR,Orthopoxvirus vaccinia,,SYNTH_LQMDKTSSLR,tested_negative,HLA-A*33:01,0,0.008285983005772848,2,RandomForest,31
@@ -11497,7 +11497,7 @@ SPAITHEEAL,Orthopoxvirus vaccinia,,SYNTH_SPAITHEEAL,tested_negative,HLA-B*51:01,
 SPARENYFM,Orthopoxvirus vaccinia,,SYNTH_SPARENYFM,tested_negative,HLA-B*53:01,0,0.1065719660115457,2,RandomForest,31
 SPARENYFM,Orthopoxvirus vaccinia,,SYNTH_SPARENYFM,tested_negative,HLA-B*55:01,0,0.1065719660115457,2,RandomForest,31
 SPASGICLPA,Orthopoxvirus vaccinia,,SYNTH_SPASGICLPA,tested_negative,HLA-B*53:01,0,0.015,2,RandomForest,31
-SPDAELIEANL,HCV,hepatitis C virus genotype 1a,SYNTH_SPDAELIEANL,iedb_api,HLA-A2,0,0.48689713883126534,2,RandomForest,31
+SPDAELIEANL,HCV,Hepatitis C virus genotype 1,SYNTH_SPDAELIEANL,iedb_api,HLA-A2,0,0.48689713883126534,2,RandomForest,31
 SPDCMVICL,Orthopoxvirus vaccinia,,SYNTH_SPDCMVICL,tested_negative,HLA-B*51:01,0,0.035,2,RandomForest,31
 SPDCMVICL,Orthopoxvirus vaccinia,,SYNTH_SPDCMVICL,tested_negative,HLA-B*55:01,0,0.035,2,RandomForest,31
 SPFGYSFSM,Orthopoxvirus vaccinia,,SYNTH_SPFGYSFSM,tested_negative,HLA-B*51:01,0,0.06157196601154571,2,RandomForest,31
@@ -11969,7 +11969,7 @@ TPRCIVDY,HCV,,SYNTH_TPRCIVDY,tested_negative,HLA-B*35:01,0,0.5463779109746993,2,
 TPRYSGASV,Orthopoxvirus vaccinia,,SYNTH_TPRYSGASV,tested_negative,HLA-B*55:01,0,0.008593991096607132,2,RandomForest,31
 TQIFEVYWY,Orthopoxvirus vaccinia,,SYNTH_TQIFEVYWY,tested_negative,HLA-A*33:03,0,0.04,2,RandomForest,31
 TQLKRALTGI,SARS-CoV-2,,SYNTH_TQLKRALTGI,tested_negative,HLA-A*02:01,0,0.28635324745435115,2,RandomForest,31
-TQLNRALTGI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_TQLNRALTGI,iedb_api,HLA-A*02:01,0,0.07,2,RandomForest,31
+TQLNRALTGI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_TQLNRALTGI,iedb_api,HLA-A*02:01,0,0.07,2,RandomForest,31
 TQMRTPLHK,Orthopoxvirus vaccinia,,SYNTH_TQMRTPLHK,tested_negative,HLA-A*33:01,0,0.0,2,RandomForest,31
 TQMRTPLHK,Orthopoxvirus vaccinia,,SYNTH_TQMRTPLHK,tested_negative,HLA-A*68:01,0,0.0,2,RandomForest,31
 TQQMIIKHIY,Orthopoxvirus vaccinia,,SYNTH_TQQMIIKHIY,tested_negative,HLA-A*03:01,0,0.01,2,RandomForest,31
@@ -12250,7 +12250,7 @@ VLMRYVNMSK,Orthopoxvirus vaccinia,,SYNTH_VLMRYVNMSK,tested_negative,HLA-A*03:01,
 VLMRYVNMSK,Orthopoxvirus vaccinia,,SYNTH_VLMRYVNMSK,tested_negative,HLA-A*11:01,0,0.04,2,RandomForest,31
 VLMRYVNMSK,Orthopoxvirus vaccinia,,SYNTH_VLMRYVNMSK,tested_negative,HLA-A*68:01,0,0.04,2,RandomForest,31
 VLNDQYAKV,Orthopoxvirus vaccinia,,SYNTH_VLNDQYAKV,tested_negative,HLA-A*02:01,0,0.3624114922856807,2,RandomForest,31
-VLNEKCSAYTV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_VLNEKCSAYTV,iedb_api,HLA-A*02:01,0,0.34293142588751024,2,RandomForest,31
+VLNEKCSAYTV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_VLNEKCSAYTV,iedb_api,HLA-A*02:01,0,0.34293142588751024,2,RandomForest,31
 VLPFNDGVYF,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_VLPFNDGVYF,iedb_api,HLA-B*53:01,0,0.24293142588751027,2,RandomForest,31
 VLPIPNLVK,Orthopoxvirus vaccinia,,SYNTH_VLPIPNLVK,tested_negative,HLA-A*03:01,0,0.0,2,RandomForest,31
 VLQDQLTMVK,Orthopoxvirus vaccinia,,SYNTH_VLQDQLTMVK,tested_negative,HLA-A*03:01,0,0.015,2,RandomForest,31
@@ -19028,7 +19028,7 @@ YLVTSINKL,Human betaherpesvirus 6B,,SYNTH_YLVTSINKL,tested_negative,HLA-A*02:01,
 YLYNKYSFK,Orthopoxvirus vaccinia,,SYNTH_YLYNKYSFK,tested_negative,HLA-A*11:01,0,0.0,3,RandomForest,31
 YLYRLFRKS,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YLYRLFRKS,iedb_api,HLA-A*02:01,0,0.4852680584501705,3,RandomForest,31
 YMDAVFEYTI,YFV,,SYNTH_YMDAVFEYTI,tested_negative,HLA-A*02:01,0,0.1318794642857143,3,RandomForest,31
-YMDDVVLGA,HBV,Hepatitis B virus genotype B,SYNTH_YMDDVVLGA,iedb_api,HLA-A*02:01,0,0.7922512315270935,3,RandomForest,31
+YMDDVVLGA,HBV,Hepatitis B virus,SYNTH_YMDDVVLGA,iedb_api,HLA-A*02:01,0,0.7922512315270935,3,RandomForest,31
 YMDDVVLGAK,HBV,Hepatitis B virus,SYNTH_YMDDVVLGAK,iedb_api,HLA-A*03:01,0,0.11629251277714911,3,RandomForest,31
 YMFYKIFFVW,Orthopoxvirus vaccinia,,SYNTH_YMFYKIFFVW,tested_negative,HLA-A*23:01,0,0.06293103448275861,3,RandomForest,31
 YMLTINDLY,Orthopoxvirus vaccinia,,SYNTH_YMLTINDLY,tested_negative,HLA-A*01:01,0,0.015,3,RandomForest,31
@@ -19074,7 +19074,7 @@ YSHKNNLEY,Orthopoxvirus vaccinia,,SYNTH_YSHKNNLEY,tested_negative,HLA-A*30:02,0,
 YSHPIILGFRK,HBV,Hepatitis B virus,SYNTH_YSHPIILGFRK,iedb_api,HLA-A*11:01,0,0.2328609876246546,3,RandomForest,31
 YSISNDLLY,Orthopoxvirus vaccinia,,SYNTH_YSISNDLLY,tested_negative,HLA-A*01:01,0,0.0474503657262278,3,RandomForest,31
 YSISNDLLY,Orthopoxvirus vaccinia,,SYNTH_YSISNDLLY,tested_negative,HLA-A*29:02,0,0.0474503657262278,3,RandomForest,31
-YSKHTPINLV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YSKHTPINLV,iedb_api,HLA-A*02:01,0,0.6072512315270936,3,RandomForest,31
+YSKHTPINLV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YSKHTPINLV,iedb_api,HLA-A*02:01,0,0.6072512315270936,3,RandomForest,31
 YSKSALCTY,Orthopoxvirus vaccinia,,SYNTH_YSKSALCTY,tested_negative,HLA-A*01:01,0,0.01,3,RandomForest,31
 YSLLMPILTL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YSLLMPILTL,iedb_api,HLA-A*02:01,0,0.5415714285714286,3,RandomForest,31
 YSLNFMGY,HBV,Hepatitis B virus,SYNTH_YSLNFMGY,iedb_api,HLA-A*11:01,0,0.4784416608022519,3,RandomForest,31
@@ -20967,7 +20967,7 @@ DLVYLRLYK,Orthopoxvirus vaccinia,,SYNTH_DLVYLRLYK,tested_negative,HLA-A*03:01,0,
 DLYCYEQL,HPV,HPV16,VE7_HPV16,iedb_api,HLA-B8,0,0.33762907452049057,4,RandomForest,31
 DMCDIYLLY,Orthopoxvirus vaccinia,,SYNTH_DMCDIYLLY,tested_negative,HLA-A*30:02,0,0.10575648592999315,4,RandomForest,31
 DMMLMIGNY,Orthopoxvirus vaccinia,,SYNTH_DMMLMIGNY,tested_negative,HLA-A*26:01,0,0.01896551724137931,4,RandomForest,31
-DPRRRSRNL,HCV,Hepatitis C virus genotype 1,SYNTH_DPRRRSRNL,iedb_api,HLA-B7,0,0.5377659013108458,4,RandomForest,31
+DPRRRSRNL,HCV,hepatitis C virus genotype 1a,SYNTH_DPRRRSRNL,iedb_api,HLA-B7,0,0.5377659013108458,4,RandomForest,31
 DPVAALFFF,CMV,Human herpesvirus 5 strain AD169,SYNTH_DPVAALFFF,iedb_api,HLA-A*68:01,0,0.024693877551020406,4,RandomForest,31
 DQSEFYLVVK,Orthopoxvirus vaccinia,,SYNTH_DQSEFYLVVK,tested_negative,HLA-A*03:01,0,0.0,4,RandomForest,31
 DSIQDLLLEY,Orthopoxvirus vaccinia,,SYNTH_DSIQDLLLEY,tested_negative,HLA-A*01:01,0,0.005,4,RandomForest,31
@@ -21312,7 +21312,7 @@ FLFTSPFVL,CoxsackievirusB,,SYNTH_FLFTSPFVL,tested_negative,HLA-A*02:01,0,0.49179
 FLFVIGALA,Orthopoxvirus vaccinia,,SYNTH_FLFVIGALA,tested_negative,HLA-A*02:01,0,0.3132857142857143,4,RandomForest,31
 FLFYPSMFTL,Orthopoxvirus vaccinia,,SYNTH_FLFYPSMFTL,tested_negative,HLA-A*02:01,0,0.2695968270235512,4,RandomForest,31
 FLGVYKNN,SARS-CoV-2,,SYNTH_FLGVYKNN,tested_negative,HLA-A*02:01,0,0.38293103448275867,4,RandomForest,31
-FLGVYYHKNN,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FLGVYYHKNN,iedb_api,HLA-A*02:01,0,0.1682857142857143,4,RandomForest,31
+FLGVYYHKNN,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_FLGVYYHKNN,iedb_api,HLA-A*02:01,0,0.1682857142857143,4,RandomForest,31
 FLHESDPMVI,Orthopoxvirus vaccinia,,SYNTH_FLHESDPMVI,tested_negative,HLA-A*02:01,0,0.4943685037285037,4,RandomForest,31
 FLHNYILYA,Orthopoxvirus vaccinia,,SYNTH_FLHNYILYA,tested_negative,HLA-A*02:01,0,0.28605657446002275,4,RandomForest,31
 FLIQSNSLL,Orthopoxvirus vaccinia,,SYNTH_FLIQSNSLL,tested_negative,HLA-A*02:01,0,0.5085767580212162,4,RandomForest,31
@@ -21697,7 +21697,7 @@ HERPVILSL,Orthopoxvirus vaccinia,,SYNTH_HERPVILSL,tested_negative,HLA-B*40:01,0,
 HETIARRGY,Orthopoxvirus vaccinia,,SYNTH_HETIARRGY,tested_negative,HLA-B*40:01,0,0.01,4,RandomForest,31
 HETIARRGY,Orthopoxvirus vaccinia,,SYNTH_HETIARRGY,tested_negative,HLA-B*40:02,0,0.01,4,RandomForest,31
 HETRNYLYKY,Orthopoxvirus vaccinia,,SYNTH_HETRNYLYKY,tested_negative,HLA-B*44:02,0,0.0,4,RandomForest,31
-HEYPVGSQL,HCV,hepatitis C virus genotype 1a,SYNTH_HEYPVGSQL,iedb_api,HLA-B60,0,0.28942307692307695,4,RandomForest,31
+HEYPVGSQL,HCV,Hepatitis C virus genotype 1,SYNTH_HEYPVGSQL,iedb_api,HLA-B60,0,0.28942307692307695,4,RandomForest,31
 HEYVFVDERF,Orthopoxvirus vaccinia,,SYNTH_HEYVFVDERF,tested_negative,HLA-B*40:01,0,0.005,4,RandomForest,31
 HFASAHTPF,Orthopoxvirus vaccinia,,SYNTH_HFASAHTPF,tested_negative,HLA-A*23:01,0,0.05,4,RandomForest,31
 HFFMYFCEQK,Orthopoxvirus vaccinia,,SYNTH_HFFMYFCEQK,tested_negative,HLA-A*33:01,0,0.005,4,RandomForest,31
@@ -21969,7 +21969,7 @@ IIVALTIMGV,Orthopoxvirus vaccinia,,SYNTH_IIVALTIMGV,tested_negative,HLA-A*02:01,
 IIYTCINFI,Orthopoxvirus vaccinia,,SYNTH_IIYTCINFI,tested_negative,HLA-A*02:01,0,0.34396551724137936,4,RandomForest,31
 IKKGLGISY,HIV-1,,SYNTH_IKKGLGISY,tested_negative,HLA-C*12:02,0,0.35220660385670405,4,RandomForest,31
 IKRLKNPDL,Human betaherpesvirus 6B,,SYNTH_IKRLKNPDL,tested_negative,HLA-B*08:01,0,0.315,4,RandomForest,31
-ILAGYGAGV,HCV,Hepatitis C virus (isolate 1),SYNTH_ILAGYGAGV,iedb_api,HLA-A2,0,0.16073591253153907,4,RandomForest,31
+ILAGYGAGV,HCV,Hepatitis C virus genotype 1,SYNTH_ILAGYGAGV,iedb_api,HLA-A2,0,0.16073591253153907,4,RandomForest,31
 ILAYLMSKNK,Orthopoxvirus vaccinia,,SYNTH_ILAYLMSKNK,tested_negative,HLA-A*33:03,0,0.0,4,RandomForest,31
 ILCIFETRK,Orthopoxvirus vaccinia,,SYNTH_ILCIFETRK,tested_negative,HLA-A*11:01,0,0.005,4,RandomForest,31
 ILCTRTPPK,Orthopoxvirus vaccinia,,SYNTH_ILCTRTPPK,tested_negative,HLA-A*33:01,0,0.01,4,RandomForest,31
@@ -21995,7 +21995,7 @@ ILKEPVHGV,HIV-1,Human immunodeficiency virus 1,SYNTH_ILKEPVHGV,iedb_api,HLA-B*07
 ILKESVHGAY,HIV-1,Human immunodeficiency virus 1,SYNTH_ILKESVHGAY,iedb_api,HLA-B*15:10,0,0.3956022305280926,4,RandomForest,31
 ILKETVHGAY,HIV-1,Human immunodeficiency virus 1,SYNTH_ILKETVHGAY,iedb_api,HLA-B*15:10,0,0.3576824717154766,4,RandomForest,31
 ILKITEEV,SARS-CoV-2,,SYNTH_ILKITEEV,tested_negative,HLA-A*02:01,0,0.485,4,RandomForest,31
-ILKPANNSLKI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_ILKPANNSLKI,iedb_api,HLA-A*02:01,0,0.5054375097848605,4,RandomForest,31
+ILKPANNSLKI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_ILKPANNSLKI,iedb_api,HLA-A*02:01,0,0.5054375097848605,4,RandomForest,31
 ILKPLIGQK,Orthopoxvirus vaccinia,,SYNTH_ILKPLIGQK,tested_negative,HLA-A*03:01,0,0.013285714285714284,4,RandomForest,31
 ILKPLIGQK,Orthopoxvirus vaccinia,,SYNTH_ILKPLIGQK,tested_negative,HLA-A*11:01,0,0.013285714285714284,4,RandomForest,31
 ILMALFGIKL,Orthopoxvirus vaccinia,,SYNTH_ILMALFGIKL,tested_negative,HLA-A*02:01,0,0.2797014297729184,4,RandomForest,31
@@ -23418,7 +23418,7 @@ NQNLIPSTVK,Orthopoxvirus vaccinia,,SYNTH_NQNLIPSTVK,tested_negative,HLA-A*03:01,
 NQNLIPSTVK,Orthopoxvirus vaccinia,,SYNTH_NQNLIPSTVK,tested_negative,HLA-A*11:01,0,0.009423076923076923,4,RandomForest,31
 NQNLIPSTVK,Orthopoxvirus vaccinia,,SYNTH_NQNLIPSTVK,tested_negative,HLA-A*33:03,0,0.009423076923076923,4,RandomForest,31
 NQPWIKTISK,Orthopoxvirus vaccinia,,SYNTH_NQPWIKTISK,tested_negative,HLA-A*68:01,0,0.0,4,RandomForest,31
-NQRNAPRITF,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_NQRNAPRITF,iedb_api,HLA-A*02:01,0,0.11741167108753317,4,RandomForest,31
+NQRNAPRITF,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_NQRNAPRITF,iedb_api,HLA-A*02:01,0,0.11741167108753317,4,RandomForest,31
 NQVKFYFNK,Orthopoxvirus vaccinia,,SYNTH_NQVKFYFNK,tested_negative,HLA-A*11:01,0,0.0,4,RandomForest,31
 NQYEIINYF,CMV,Human betaherpesvirus 5,SYNTH_NQYEIINYF,iedb_api,HLA-Cw4,0,0.20270879120879123,4,RandomForest,31
 NQYNVKYLAK,Orthopoxvirus vaccinia,,SYNTH_NQYNVKYLAK,tested_negative,HLA-A*68:01,0,0.0,4,RandomForest,31
@@ -23660,7 +23660,7 @@ QLLRIPQAI,HCV,Hepatitis C virus (isolate Taiwan),SYNTH_QLLRIPQAI,iedb_api,HLA-A2
 QLMYALEPR,Orthopoxvirus vaccinia,,SYNTH_QLMYALEPR,tested_negative,HLA-A*68:01,0,0.0,4,RandomForest,31
 QLNRHSYLK,CMV,Human herpesvirus 5 strain AD169,SYNTH_QLNRHSYLK,iedb_api,HLA-A3,0,0.07844615384615385,4,RandomForest,31
 QLPEVQQRL,CMV,Human herpesvirus 5 strain AD169,SYNTH_QLPEVQQRL,iedb_api,HLA class I,0,0.5092053429329291,4,RandomForest,31
-QLRRHIDLLV,HCV,Hepatitis C virus (isolate Taiwan),SYNTH_QLRRHIDLLV,iedb_api,HLA-A2,0,0.15280487804878048,4,RandomForest,31
+QLRRHIDLLV,HCV,hepatitis C virus genotype 1a,SYNTH_QLRRHIDLLV,iedb_api,HLA-A2,0,0.15280487804878048,4,RandomForest,31
 QLSDVIYWA,CMV,Human herpesvirus 5 strain AD169,SYNTH_QLSDVIYWA,iedb_api,HLA class I,0,0.371953807900582,4,RandomForest,31
 QLSEYQTSV,Orthopoxvirus vaccinia,,SYNTH_QLSEYQTSV,tested_negative,HLA-A*02:01,0,0.4533667265764249,4,RandomForest,31
 QLSPINIETK,Orthopoxvirus vaccinia,,SYNTH_QLSPINIETK,tested_negative,HLA-A*33:03,0,0.005,4,RandomForest,31
@@ -24210,7 +24210,7 @@ SMSSYDFST,Orthopoxvirus vaccinia,,SYNTH_SMSSYDFST,tested_negative,HLA-A*02:01,0,
 SMTYLYNKY,Orthopoxvirus vaccinia,,SYNTH_SMTYLYNKY,tested_negative,HLA-A*01:01,0,0.0,4,RandomForest,31
 SMVNGVIKI,YFV,,SYNTH_SMVNGVIKI,tested_negative,HLA-A*02:01,0,0.43008416389198617,4,RandomForest,31
 SNGCDYVSNK,RSV,human respiratory syncytial virus,SYNTH_SNGCDYVSNK,iedb_api,HLA-A*02:02,0,0.1732857142857143,4,RandomForest,31
-SNQNGERSGA,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_SNQNGERSGA,iedb_api,HLA-A*02:01,0,0.41254497354497355,4,RandomForest,31
+SNQNGERSGA,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_SNQNGERSGA,iedb_api,HLA-A*02:01,0,0.41254497354497355,4,RandomForest,31
 SPAHLINKL,Orthopoxvirus vaccinia,,SYNTH_SPAHLINKL,tested_negative,HLA-B*51:01,0,0.025,4,RandomForest,31
 SPAHLINKL,Orthopoxvirus vaccinia,,SYNTH_SPAHLINKL,tested_negative,HLA-B*55:01,0,0.025,4,RandomForest,31
 SPAIFQSSM,HIV-1,Human immunodeficiency virus 1,SYNTH_SPAIFQSSM,iedb_api,HLA-B*07:02,0,0.7222512315270936,4,RandomForest,31
@@ -25363,7 +25363,7 @@ YLDAYNMMIS,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1
 YLDEFIEDRY,Orthopoxvirus vaccinia,,SYNTH_YLDEFIEDRY,tested_negative,HLA-A*01:01,0,0.09714497354497353,4,RandomForest,31
 YLDFLLLLL,Orthopoxvirus vaccinia,,SYNTH_YLDFLLLLL,tested_negative,HLA-A*02:01,0,0.34336580405134354,4,RandomForest,31
 YLDGAADIV,Orthopoxvirus vaccinia,,SYNTH_YLDGAADIV,tested_negative,HLA-A*02:01,0,0.4569492715648254,4,RandomForest,31
-YLDGADVTKI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YLDGADVTKI,iedb_api,HLA-A*02:01,0,0.44334965888257005,4,RandomForest,31
+YLDGADVTKI,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YLDGADVTKI,iedb_api,HLA-A*02:01,0,0.44334965888257005,4,RandomForest,31
 YLDIFCWKV,Orthopoxvirus vaccinia,,SYNTH_YLDIFCWKV,tested_negative,HLA-A*02:01,0,0.29933481240808085,4,RandomForest,31
 YLDLTLTPI,Orthopoxvirus vaccinia,,SYNTH_YLDLTLTPI,tested_negative,HLA-A*02:01,0,0.5423978405506099,4,RandomForest,31
 YLEEPIRGY,Orthopoxvirus vaccinia,,SYNTH_YLEEPIRGY,tested_negative,HLA-A*29:02,0,0.023846153846153847,4,RandomForest,31
@@ -27536,7 +27536,7 @@ FAEESYTYY,Orthopoxvirus vaccinia,,SYNTH_FAEESYTYY,tested_negative,HLA-A*30:02,0,
 FAIIAIVFV,Orthopoxvirus vaccinia,,SYNTH_FAIIAIVFV,tested_negative,HLA-A*02:01,0,0.36344131400514385,5,RandomForest,31
 FASAHTPFY,Orthopoxvirus vaccinia,,SYNTH_FASAHTPFY,tested_negative,HLA-A*26:01,0,0.0,5,RandomForest,31
 FASAHTPFY,Orthopoxvirus vaccinia,,SYNTH_FASAHTPFY,tested_negative,HLA-A*30:02,0,0.0,5,RandomForest,31
-FASTEKSNII,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FASTEKSNII,iedb_api,HLA-A*02:01,0,0.3232857142857143,5,RandomForest,31
+FASTEKSNII,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_FASTEKSNII,iedb_api,HLA-A*02:01,0,0.3232857142857143,5,RandomForest,31
 FAVQTIVFI,Orthopoxvirus vaccinia,,SYNTH_FAVQTIVFI,tested_negative,HLA-A*02:01,0,0.5917982792224795,5,RandomForest,31
 FCIKVLCPY,ZIKV,,SYNTH_FCIKVLCPY,tested_negative,HLA-B*35:01,0,0.3085655172413793,5,RandomForest,31
 FDASISQVNE,RSV,human respiratory syncytial virus,SYNTH_FDASISQVNE,iedb_api,HLA-A*02:02,0,0.3496,5,RandomForest,31
@@ -27809,7 +27809,7 @@ FVQLFRVFK,Orthopoxvirus vaccinia,,SYNTH_FVQLFRVFK,tested_negative,HLA-A*68:01,0,
 FVSILNKYK,Orthopoxvirus vaccinia,,SYNTH_FVSILNKYK,tested_negative,HLA-A*03:01,0,0.0,5,RandomForest,31
 FVSILNKYK,Orthopoxvirus vaccinia,,SYNTH_FVSILNKYK,tested_negative,HLA-A*33:01,0,0.0,5,RandomForest,31
 FVSILNKYK,Orthopoxvirus vaccinia,,SYNTH_FVSILNKYK,tested_negative,HLA-A*33:03,0,0.0,5,RandomForest,31
-FVSNGTHWFV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_FVSNGTHWFV,iedb_api,HLA-A*02:01,0,0.7147698855787524,5,RandomForest,31
+FVSNGTHWFV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FVSNGTHWFV,iedb_api,HLA-A*02:01,0,0.7147698855787524,5,RandomForest,31
 FVSNKVFDK,Orthopoxvirus vaccinia,,SYNTH_FVSNKVFDK,tested_negative,HLA-A*33:01,0,0.0,5,RandomForest,31
 FVSSIKFYI,Orthopoxvirus vaccinia,,SYNTH_FVSSIKFYI,tested_negative,HLA-A*02:01,0,0.2303325227963526,5,RandomForest,31
 FVVFLLVTL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_FVVFLLVTL,iedb_api,HLA-A*02:06,0,0.6703834157717449,5,RandomForest,31
@@ -27910,8 +27910,8 @@ GLIRATFDR,Orthopoxvirus vaccinia,,SYNTH_GLIRATFDR,tested_negative,HLA-A*03:01,0,
 GLLGASMDL,CMV,Human herpesvirus 5 strain AD169,SYNTH_GLLGASMDL,iedb_api,HLA-A2,0,0.45225164892655867,5,RandomForest,31
 GLLGCIITSL,HCV,Hepatitis C virus (isolate Taiwan),SYNTH_GLLGCIITSL,iedb_api,HLA-A2,0,0.4631133004926108,5,RandomForest,31
 GLNAVAYYR,HCV,,SYNTH_GLNAVAYYR,tested_negative,HLA-A*03:01,0,0.6779310344827586,5,RandomForest,31
-GLNDNLLEIL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_GLNDNLLEIL,iedb_api,HLA-A*02:01,0,0.49106378882519036,5,RandomForest,31
-GLQDCTMLV,HCV,Hepatitis C virus genotype 1,SYNTH_GLQDCTMLV,iedb_api,HLA-A2,0,0.46844488330542283,5,RandomForest,31
+GLNDNLLEIL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_GLNDNLLEIL,iedb_api,HLA-A*02:01,0,0.49106378882519036,5,RandomForest,31
+GLQDCTMLV,HCV,hepatitis C virus genotype 1a,SYNTH_GLQDCTMLV,iedb_api,HLA-A2,0,0.46844488330542283,5,RandomForest,31
 GLRMNFGFTK,Orthopoxvirus vaccinia,,SYNTH_GLRMNFGFTK,tested_negative,HLA-A*11:01,0,0.005,5,RandomForest,31
 GLSRYVARL,HBV,Hepatitis B virus,SYNTH_GLSRYVARL,iedb_api,HLA-A*02:05,0,0.995,5,RandomForest,31
 GLTDEEMCIK,Orthopoxvirus vaccinia,,SYNTH_GLTDEEMCIK,tested_negative,HLA-A*33:01,0,0.015,5,RandomForest,31
@@ -28437,7 +28437,7 @@ ITMSAFLIV,Orthopoxvirus vaccinia,,SYNTH_ITMSAFLIV,tested_negative,HLA-A*02:01,0,
 ITMVNSLTY,Orthopoxvirus vaccinia,,SYNTH_ITMVNSLTY,tested_negative,HLA-A*68:01,0,0.0,5,RandomForest,31
 ITNGYLISI,Orthopoxvirus vaccinia,,SYNTH_ITNGYLISI,tested_negative,HLA-A*02:01,0,0.4763909751919406,5,RandomForest,31
 ITNILTSEY,Orthopoxvirus vaccinia,,SYNTH_ITNILTSEY,tested_negative,HLA-A*29:02,0,0.0,5,RandomForest,31
-ITNLCPFGEV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_ITNLCPFGEV,iedb_api,HLA-A*02:01,0,0.2467771883289125,5,RandomForest,31
+ITNLCPFGEV,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_ITNLCPFGEV,iedb_api,HLA-A*02:01,0,0.2467771883289125,5,RandomForest,31
 ITRFQTLLA,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_ITRFQTLLA,iedb_api,HLA-A*30:01,0,0.4046,5,RandomForest,31
 ITVNVLAWL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_ITVNVLAWL,iedb_api,HLA-A*02:01,0,0.6166521514435674,5,RandomForest,31
 ITVPFRLSY,Orthopoxvirus vaccinia,,SYNTH_ITVPFRLSY,tested_negative,HLA-A*26:01,0,0.005,5,RandomForest,31
@@ -29173,7 +29173,7 @@ LLFGIKCIKK,Orthopoxvirus vaccinia,,SYNTH_LLFGIKCIKK,tested_negative,HLA-A*11:01,
 LLFHETGVGK,Orthopoxvirus vaccinia,,SYNTH_LLFHETGVGK,tested_negative,HLA-A*11:01,0,0.005,5,RandomForest,31
 LLFHYRNLV,CMV,Human herpesvirus 5 strain AD169,SYNTH_LLFHYRNLV,iedb_api,HLA class I,0,0.32832534034510485,5,RandomForest,31
 LLFNFTISSK,Orthopoxvirus vaccinia,,SYNTH_LLFNFTISSK,tested_negative,HLA-A*33:01,0,0.01,5,RandomForest,31
-LLFNILGGWV,HCV,Hepatitis C virus (isolate Taiwan),SYNTH_LLFNILGGWV,iedb_api,HLA-A2,0,0.7839655172413793,5,RandomForest,31
+LLFNILGGWV,HCV,Hepatitis C virus subtype 1b,SYNTH_LLFNILGGWV,iedb_api,HLA-A2,0,0.7839655172413793,5,RandomForest,31
 LLFPWPLPT,Orthopoxvirus vaccinia,,SYNTH_LLFPWPLPT,tested_negative,HLA-A*02:01,0,0.38343900520713153,5,RandomForest,31
 LLFVCISYY,Orthopoxvirus vaccinia,,SYNTH_LLFVCISYY,tested_negative,HLA-A*03:01,0,0.005,5,RandomForest,31
 LLFVCISYY,Orthopoxvirus vaccinia,,SYNTH_LLFVCISYY,tested_negative,HLA-A*33:03,0,0.005,5,RandomForest,31
@@ -29220,7 +29220,7 @@ LLPGFVLTCI,Orthopoxvirus vaccinia,,SYNTH_LLPGFVLTCI,tested_negative,HLA-A*02:01,
 LLPIFFCLWV,HBV,Hepatitis B virus subtype ayw,SYNTH_LLPIFFCLWV,iedb_api,HLA-A*02:01,0,0.20942307692307693,5,RandomForest,31
 LLPIFFCLWV,HBV,Hepatitis B virus,SYNTH_LLPIFFCLWV,iedb_api,HLA-A2,0,0.20942307692307693,5,RandomForest,31
 LLQRLGQTL,CMV,Human herpesvirus 5 strain AD169,SYNTH_LLQRLGQTL,iedb_api,HLA class I,0,0.31163161354441554,5,RandomForest,31
-LLRHHNMVY,HCV,Hepatitis C virus genotype 1,SYNTH_LLRHHNMVY,iedb_api,HLA-B15,0,0.4120609876246546,5,RandomForest,31
+LLRHHNMVY,HCV,Hepatitis C virus subtype 1b,SYNTH_LLRHHNMVY,iedb_api,HLA-B15,0,0.4120609876246546,5,RandomForest,31
 LLRREVYDF,HPV,HPV16,VE6_HPV16,iedb_api,HLA-B*15:01,0,0.3113703952901598,5,RandomForest,31
 LLRYRQCL,Human betaherpesvirus 6B,,SYNTH_LLRYRQCL,tested_negative,HLA-B*08:01,0,0.055,5,RandomForest,31
 LLSAALPSA,CMV,Human herpesvirus 5 strain AD169,SYNTH_LLSAALPSA,iedb_api,HLA class I,0,0.55860810646168,5,RandomForest,31
@@ -29732,7 +29732,7 @@ NFNQFVSIF,Orthopoxvirus vaccinia,,SYNTH_NFNQFVSIF,tested_negative,HLA-A*24:07,0,
 NFRRYDTYL,Orthopoxvirus vaccinia,,SYNTH_NFRRYDTYL,tested_negative,HLA-A*24:02,0,0.135,5,RandomForest,31
 NFRRYDTYL,Orthopoxvirus vaccinia,,SYNTH_NFRRYDTYL,tested_negative,HLA-A*24:07,0,0.135,5,RandomForest,31
 NFSMVYRTK,Orthopoxvirus vaccinia,,SYNTH_NFSMVYRTK,tested_negative,HLA-A*33:01,0,0.02,5,RandomForest,31
-NGLTVLPPL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_NGLTVLPPL,iedb_api,HLA-A*02:01,0,0.3144230769230769,5,RandomForest,31
+NGLTVLPPL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_NGLTVLPPL,iedb_api,HLA-A*02:01,0,0.3144230769230769,5,RandomForest,31
 NGVEGFNCY,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_NGVEGFNCY,iedb_api,HLA class I,0,0.34437383045420383,5,RandomForest,31
 NHDSPDAEL,HCV,Hepatitis C virus genotype 1,SYNTH_NHDSPDAEL,iedb_api,HLA-B38,0,0.4290995481102917,5,RandomForest,31
 NIDGYFKIY,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_NIDGYFKIY,iedb_api,HLA-A*01:01,0,0.1278857142857143,5,RandomForest,31
@@ -31443,7 +31443,7 @@ VLTGGSGSGK,Orthopoxvirus vaccinia,,SYNTH_VLTGGSGSGK,tested_negative,HLA-A*03:01,
 VLVQSTQWSL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_VLVQSTQWSL,iedb_api,HLA-A*02:01,0,0.3597519003922007,5,RandomForest,31
 VLYDEFKCFI,Orthopoxvirus vaccinia,,SYNTH_VLYDEFKCFI,tested_negative,HLA-A*02:01,0,0.3839655172413793,5,RandomForest,31
 VLYKSMMRNR,Orthopoxvirus vaccinia,,SYNTH_VLYKSMMRNR,tested_negative,HLA-A*68:01,0,0.0,5,RandomForest,31
-VLYNSASFST,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_VLYNSASFST,iedb_api,HLA-A*02:01,0,0.19630254120879123,5,RandomForest,31
+VLYNSASFST,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_VLYNSASFST,iedb_api,HLA-A*02:01,0,0.19630254120879123,5,RandomForest,31
 VLYYQNNVFM,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_VLYYQNNVFM,iedb_api,HLA-A*02:01,0,0.41942307692307695,5,RandomForest,31
 VLYYYIITR,Orthopoxvirus vaccinia,,SYNTH_VLYYYIITR,tested_negative,HLA-A*03:01,0,0.0,5,RandomForest,31
 VMAPSTEHI,Orthopoxvirus vaccinia,,SYNTH_VMAPSTEHI,tested_negative,HLA-A*24:02,0,0.15259720852790237,5,RandomForest,31
@@ -31843,7 +31843,7 @@ YQPYRVVVL,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YQPYR
 YQSFLFWFLK,Orthopoxvirus vaccinia,,SYNTH_YQSFLFWFLK,tested_negative,HLA-A*11:01,0,0.0,5,RandomForest,31
 YQSHVLLAV,CoxsackievirusB,,SYNTH_YQSHVLLAV,tested_negative,HLA-A*02:01,0,0.41975047548656513,5,RandomForest,31
 YQTQTNSHR,SARS-CoV-2,,SYNTH_YQTQTNSHR,tested_negative,HLA-A*02:01,0,0.18,5,RandomForest,31
-YQTQTNSPR,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2,SYNTH_YQTQTNSPR,iedb_api,HLA-A*02:01,0,0.1746,5,RandomForest,31
+YQTQTNSPR,SARS-CoV-2,Severe acute respiratory syndrome coronavirus 2 Wuhan/Hu-1/2019,SYNTH_YQTQTNSPR,iedb_api,HLA-A*02:01,0,0.1746,5,RandomForest,31
 YREHTTLYY,Orthopoxvirus vaccinia,,SYNTH_YREHTTLYY,tested_negative,HLA-A*26:01,0,0.025,5,RandomForest,31
 YRLEDIPSV,CMV,Human herpesvirus 5 strain AD169,SYNTH_YRLEDIPSV,iedb_api,HLA class I,0,0.4568584292659958,5,RandomForest,31
 YRSGIIAVV,EBV,human gammaherpesvirus 4,EAD_EBVG,iedb_api,HLA-B*39:06,0,0.3624404171977285,5,RandomForest,31
