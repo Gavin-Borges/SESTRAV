@@ -38,7 +38,7 @@ Immunogenicity labels derived from the Immune Epitope Database (IEDB) and VDJdb 
 
 *   **Near-Zero Allele Coverage (v3):** The v3 training labels lack specific MHC allele annotations (~0% coverage). Assays are labeled based on population/donor responses without recording the presenting HLA allele.
 *   **Impact on Modeling:** SESTRAV v3 is trained against a population-average immunogenicity target, not an allele-stratified target. Per-allele MHCflurry features provide allele context at scoring time, but the training labels themselves are not allele-stratified.
-*   **v4 allele-aware schema:** The `hla_allele` column in the v4 schema enables allele-stratified training once the v4 dataset is built (blocked on VDJdb + MHCflurry model download). The allele-aware 166-feature model is planned but not yet trained.
+*   **v5 allele-aware schema:** The `hla_allele` column is present in the v5 schema (active as of 2026-07-04, 31,999 active rows). Population-average features are used for the current production model. Allele-stratified training requires the full VDJdb-sourced allele annotations; the 166-feature allele-aware model is planned for v2.2.
 *   **Restriction to Fixed Alleles:** Predictions for HLA alleles outside the 10 canonical alleles in `config.yaml`, or for HLA Class II alleles, are unsupported. Do not interpret per-allele scores for alleles not in the fixed panel.
 
 ### 2.2 Taxonomic & Length Biases in Training Data

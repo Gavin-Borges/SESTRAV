@@ -8,6 +8,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **v5 dataset (31,999 active rows / 46,386 total)**: Rebuilt from merged IEDB API negatives
+  pipeline. Key numbers: 36,689 IEDB viral negatives, 4,219 net-new experimentally confirmed
+  non-immunogenic peptides added via `scripts/merge_iedb_api_negatives.py` (bridges Pipeline A
+  IEDB REST API downloads to Pipeline B v5 schema). Provenance sidecar:
+  `data/immunogenicity_dataset_v5_provenance.json`. 17 singleton viruses quarantined (<50 rows
+  or <10 real negatives).
+- **v5 RF model (mode-31 canonical)**: Retrained on v5 dataset. Evaluation results:
+  AUC-PR 0.7678 within-virus (harder same-pathogen discrimination context) / AUC-PR 0.8897
+  self-proteome Gate 1 (viral epitopes vs. self-peptide background; Gate 1 threshold protocol) /
+  AUC-ROC 0.9368. Per-virus Amendment 6 thresholds met: HPV >= 0.58 (achieved 0.598), EBV >= 0.57
+  (achieved 0.667 post-quarantine). OOF predictions: `models/rf_oof_predictions.csv`,
+  `models/rf_oof_predictions_mode31.csv`.
+- **B*27 EBV conflict quarantine**: 3 rows (FRKAQIQGL x2, RRARSLSAERY) transferred to
+  `data/holding/conflicts_v5_preaudit.csv`. These share sequences with label=1 rows for
+  other B*27 subtypes; the allele-subtype-specific conflict is documented in claims_register
+  Section 5 (ES1). EBV within-virus AUC-ROC: 0.553 (FAIL) -> 0.656 (PASS, beats 0.57 threshold).
+- **`scripts/merge_iedb_api_negatives.py`**: New pipeline bridge connecting IEDB REST API
+  negative downloads (`data/iedb/*.csv`) to the v5 build schema.
+- **ESM-2 embedding cache**: 27,376 peptides pre-computed for GNN v5 training
+  (`data/esm2_cache_v5/`). GNN t12 baseline training pending GPU availability.
+- **`scripts/download_tcr3d_structures.py`**: Downloads TCR3d 2.0 TSV, applies 4 quality
+  filters, downloads ~100 PDB files from RCSB with retry/backoff logic.
+- **`scripts/update_contact_weights.py`**: Patches `ALLELE_CONTACT_WEIGHTS` and
+  `POPULATION_AVG_CONTACT_WEIGHTS` in `src/features.py` from TCR3d-derived contact frequency
+  matrices with `--dry-run` support.
+
 ### Changed
 - **PyPI publish migrated to OIDC Trusted Publishers**: removed `twine` and the
   `PYPI_API_TOKEN` secret from `release.yml`; replaced with
