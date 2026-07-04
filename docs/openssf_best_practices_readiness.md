@@ -66,7 +66,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 *   **Requirement:** The project MUST commit to responding to private vulnerability reports within a specified timeframe.
 *   **SESTRAV Status:** ✅ **PASSING**
 *   **Evidence:** [SECURITY.md](../SECURITY.md) commits to:
-    *   Acknowledge receipt of vulnerability reports within **3–5 business days**.
+    *   Acknowledge receipt of vulnerability reports within **3-5 business days**.
     *   Provide an initial assessment (severity, scope) within **10 business days** of acknowledgement.
 
 ---

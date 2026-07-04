@@ -46,7 +46,7 @@ FastAPI microservice and Streamlit demo are developer tools that bind to
 
 | # | Threat (STRIDE) | Mitigation | Evidence |
 | --- | --- | --- | --- |
-| T1 | **Tampering** - malformed FASTA/CSV/config corrupts a run | Pydantic schema validation (`SestravConfig`); length/alphabet validation of peptides; property-based fuzzing of parsers | `docs/security_compliance.md` §4–5; `tests/test_fuzz.py`; `fuzzing.yml` |
+| T1 | **Tampering** - malformed FASTA/CSV/config corrupts a run | Pydantic schema validation (`SestravConfig`); length/alphabet validation of peptides; property-based fuzzing of parsers | `docs/security_compliance.md` §4-5; `tests/test_fuzz.py`; `fuzzing.yml` |
 | T2 | **Elevation of privilege** - arbitrary code execution via malicious model file | `torch.load(..., weights_only=True)`; `ModelRegistry` validates expected features before use | `docs/security_compliance.md` §5; Bandit B614 fix in `CHANGELOG.md` |
 | T3 | **Elevation of privilege** - command/shell injection | No `shell=True`; no `eval`/`exec`; external-tool wrappers use argv-list form with constant/CLI-sourced args | `SECURITY.md` Risk-Acceptance Register; `security.yml` (Bandit/Semgrep) |
 | T4 | **Tampering** - compromised dependency | Hash-pinned lockfiles (`--require-hashes`); `dependency-review.yml` blocks vulnerable deps in PRs; Dependabot + `pip-audit` monitor; SLA in `SECURITY.md` | `.github/workflows/dependency-review.yml`; `.github/dependabot.yml`; `environments/requirements.lock` |

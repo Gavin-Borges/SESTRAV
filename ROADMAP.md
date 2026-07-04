@@ -7,7 +7,7 @@ GitHub Issues and reflected in `CHANGELOG.md`.
 
 _Last updated: 2026-06._
 
-## Near term (0–3 months)
+## Near term (0-3 months)
 
 - **OpenSSF Best Practices badge.** The **Passing** badge is attained
   ([project 13191](https://www.bestpractices.dev/projects/13191)). Next, complete
@@ -39,7 +39,7 @@ _Last updated: 2026-06._
   pre-built Docker image (with the canonical 30-feature model) to a container
   registry.
 
-## Mid term (3–9 months)
+## Mid term (3-9 months)
 
 - **Pathogen expansion.** Curate IEDB-derived training data for additional
   oncogenic viruses (e.g. HBV, HCV, KSHV) and add the corresponding proteomes.
@@ -51,7 +51,7 @@ _Last updated: 2026-06._
 - **Release automation.** Automate release-bundle attachment and checksum/signature
   verification in the GitHub Release workflow.
 
-## Longer term (9–18 months)
+## Longer term (9-18 months)
 
 - **Deep-learning promotion.** ANN/GNN tracks remain optional benchmarks until they
   meet published quantitative gates (sufficient multi-virus training data,
@@ -76,7 +76,7 @@ _Last updated: 2026-06._
     `.reuse/dep5` (or `REUSE.toml`) config so binary/data assets are covered by
     declaration rather than inline edits.
   - Preserve file preambles exactly: keep any encoding cookie or shebang on
-    lines 1–2, and insert headers **after** `from __future__ import ...` lines so
+    lines 1-2, and insert headers **after** `from __future__ import ...` lines so
     import ordering and `__future__` semantics are unaffected.
   - Verify with `reuse lint` in CI before merging the headers commit.
 

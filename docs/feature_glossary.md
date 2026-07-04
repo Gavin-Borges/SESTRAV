@@ -77,7 +77,7 @@ Adds two orthogonal antigen processing signals to the 31-feature canonical basel
 
 | Feature | Tool | Reference | Range |
 |---------|------|-----------|-------|
-| `netchop_score` | NetChop 3.1 C-terminal cleavage probability | Nielsen et al., *Protein Sci* 2005;14(11):2759–2763 | [0, 1] |
+| `netchop_score` | NetChop 3.1 C-terminal cleavage probability | Nielsen et al., *Protein Sci* 2005;14(11):2759-2763 | [0, 1] |
 | `tap_score` | TAPreg TAP transport efficiency | Doytchinova et al., *BMC Bioinformatics* 2004;5:48 | [0, ~1] |
 
 - `FEATURE_COLUMNS_33` (33): FEATURE_COLUMNS_31 + `netchop_score` + `tap_score`

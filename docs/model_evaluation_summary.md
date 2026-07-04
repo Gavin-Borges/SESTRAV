@@ -29,7 +29,7 @@
 > **Status:** Best current v3 model. Dataset: v3 n=1004 peptides, 76.6% positive, 5-fold OOF.
 > Sample weights applied (virus_weight=0.5, length_weight=0.5).
 > Models: `models/rf_33feature_integrated.joblib`, `models/xgb_33feature_integrated.joblib`
-> Features: 20 physico (p4–p8) + 10 binding (MHCflurry) + peptide_length + netchop_score + tap_score
+> Features: 20 physico (p4-p8) + 10 binding (MHCflurry) + peptide_length + netchop_score + tap_score
 
 | Metric | RF (mean ± std) | XGBoost (mean ± std) | Notes |
 |--------|-----------------|----------------------|-------|
@@ -66,7 +66,7 @@
 
 ## v2 Canonical Track: 30-Feature Integrated (720 peptides, 2.36:1 class ratio)
 
-The canonical evaluation track uses 20 physicochemical features (p4–p8 × 4 properties) plus 10 per-allele MHC binding features. All results are 5-fold stratified cross-validation with gold-standard epitopes held out.
+The canonical evaluation track uses 20 physicochemical features (p4-p8 × 4 properties) plus 10 per-allele MHC binding features. All results are 5-fold stratified cross-validation with gold-standard epitopes held out.
 
 Release-scope boundary: The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate. The canonical publish gate is based on the RF-configured Stage 1-4 workflow and frozen validation artifacts.
 ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev docs.

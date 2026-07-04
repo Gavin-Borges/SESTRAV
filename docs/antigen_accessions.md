@@ -55,7 +55,7 @@ All sequences are derived from the **HBV genotype D subtype ayw** reference stra
 > Sequences are downloaded via `scripts/fetch_viral_proteomes.py` with provenance recorded in `data/proteomes/HBV_ayw_panel4_provenance.json`.
 
 > [!WARNING]
-> **HBV Genotype Coverage Caveat.** This panel uses genotype D (ayw) reference sequences - the best-curated Swiss-Prot entries available. Genotype B and C strains dominate East and Southeast Asia, where HBV-related hepatocellular carcinoma burden is highest. Genotypes B and C show 8–12% nucleotide divergence from genotype D, producing peptide-level differences that may affect epitope prediction accuracy. Predicted epitopes derived from this panel should be treated with reduced confidence when applied to genotype B/C-predominant patient populations. Genotype-specific expansion targeting genotypes B and C is planned for v2.2.
+> **HBV Genotype Coverage Caveat.** This panel uses genotype D (ayw) reference sequences - the best-curated Swiss-Prot entries available. Genotype B and C strains dominate East and Southeast Asia, where HBV-related hepatocellular carcinoma burden is highest. Genotypes B and C show 8-12% nucleotide divergence from genotype D, producing peptide-level differences that may affect epitope prediction accuracy. Predicted epitopes derived from this panel should be treated with reduced confidence when applied to genotype B/C-predominant patient populations. Genotype-specific expansion targeting genotypes B and C is planned for v2.2.
 
 ---
 
@@ -133,7 +133,7 @@ All sequences are derived from the **CMV strain AD169** (Human betaherpesvirus 5
 
 | Protein Name | UniProt Accession | Gene | Length | Biological Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **pp65** | `P06725` | `UL83` | 561 AA | Lower matrix phosphoprotein - immunodominant CD8+ target; dominates CMV-specific T-cell pool (up to 10–20% of CD8+ T-cells in seropositive adults) |
+| **pp65** | `P06725` | `UL83` | 561 AA | Lower matrix phosphoprotein - immunodominant CD8+ target; dominates CMV-specific T-cell pool (up to 10-20% of CD8+ T-cells in seropositive adults) |
 | **IE1** | `P13202` | `UL123` | 491 AA | Immediate-early antigen 1 - dominant CD8+ target during primary/reactivation lytic phase |
 | **pp50** | `P16785` | `UL44` | 433 AA | DNA polymerase processivity factor - documented CD8+ T-cell target in transplant recipients |
 | **gB** | `P06473` | `UL55` | 906 AA | Envelope glycoprotein B - CD8+ T-cell responses documented in primary infection and post-transplant |
@@ -142,7 +142,7 @@ All sequences are derived from the **CMV strain AD169** (Human betaherpesvirus 5
 > CMV drives the largest pathogen-specific CD8+ T-cell pool of any common human infection (Sylwester et al. 2005, *J Exp Med*). pp65 and IE1 are the primary targets used in CMV-specific T-cell monitoring (tetramer assays, ELISPOT). Sequences downloaded via `scripts/fetch_viral_proteomes.py` with provenance in `data/proteomes/CMV_AD169_panel4_provenance.json`.
 
 > [!WARNING]
-> **AD169 Laboratory Adaptation Caveat.** The AD169 strain is highly passage-adapted and has lost the UL/b' genomic region (RL1–RL13, UL1–UL20) present in low-passage clinical isolates. Clinical CMV isolates express additional immunogenic proteins absent from AD169. Predictions from this panel may underrepresent clinical strain epitope diversity. Future versions will supplement with Merlin strain (ATCC VR-1745), which retains the UL/b' region.
+> **AD169 Laboratory Adaptation Caveat.** The AD169 strain is highly passage-adapted and has lost the UL/b' genomic region (RL1-RL13, UL1-UL20) present in low-passage clinical isolates. Clinical CMV isolates express additional immunogenic proteins absent from AD169. Predictions from this panel may underrepresent clinical strain epitope diversity. Future versions will supplement with Merlin strain (ATCC VR-1745), which retains the UL/b' region.
 
 ---
 

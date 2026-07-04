@@ -46,7 +46,7 @@ GitHub's built-in private reporting is also available:
 
 As a solo-maintained project, the maintainer commits to:
 
-- **Acknowledge** receipt of your report within **3–5 business days**.
+- **Acknowledge** receipt of your report within **3-5 business days**.
 - **Provide an initial assessment** (severity, scope, reproducibility) within
   **10 business days** of acknowledgement.
 - **Coordinate a fix and disclosure timeline** with you collaboratively.

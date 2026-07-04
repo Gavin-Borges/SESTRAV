@@ -92,7 +92,7 @@ Run 2026-06-18 (Day 5) with pip-audit 2.10.1. **4 packages flagged; 3 are transi
 |---------|---------|--------------|-----|-------------|
 | `aiohttp` | 3.13.5 | CVE-2026-54273 through CVE-2026-54280, CVE-2026-50269 (9 CVEs) | ≥3.14.1 | **Tolerable risk - transitive dependency.** `aiohttp` is pulled in by `mhcflurry` as an HTTP client for model download; SESTRAV's inference pipeline does not make network calls at prediction time. Will upgrade when mhcflurry releases a compatible version. |
 | `cryptography` | 46.0.7 | GHSA-537c-gmf6-5ccf | ≥48.0.1 | **Tolerable risk - transitive dependency** of `mhcflurry`/`paramiko`. SESTRAV does not perform cryptographic operations directly. Will upgrade when upstream dependency releases a compatible version. |
-| `pyjwt` | 2.12.0 | PYSEC-2026-175–179 | ≥2.13.0 | **Tolerable risk - transitive dependency** (pulled in by semgrep/mcp tooling). Not a SESTRAV runtime dependency; SESTRAV does not issue or verify JWTs. |
+| `pyjwt` | 2.12.0 | PYSEC-2026-175-179 | ≥2.13.0 | **Tolerable risk - transitive dependency** (pulled in by semgrep/mcp tooling). Not a SESTRAV runtime dependency; SESTRAV does not issue or verify JWTs. |
 | `torch` | 2.11.0 | CVE-2025-3000 (CVSS 5.3) | No upstream patch | **Pre-documented tolerable risk** (dismissed in prior session). `torch.jit.script` not exposed to untrusted input. Local-only AV, EPSS 0.08%. Will reopen when PyTorch patches. |
 
 **Summary:** 0 actionable CVEs in SESTRAV's own code or direct runtime dependencies. All findings are transitive dependencies of third-party ML tooling with no exposure surface in the deployed package.

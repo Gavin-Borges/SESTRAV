@@ -25,7 +25,7 @@ every five years and whenever the architecture changes materially.
 
 1. **Security requirements considered.** The six security requirements in
    `docs/threat_model.md` were reviewed against the implementation; each maps to at
-   least one implemented, evidence-backed control (threat table T1–T7).
+   least one implemented, evidence-backed control (threat table T1-T7).
 2. **Attack surface is small and offline.** The tool makes no outbound network
    calls during scoring, stores no credentials/PII, and exposes the optional
    service on loopback only - limiting the realistic external attack surface.
