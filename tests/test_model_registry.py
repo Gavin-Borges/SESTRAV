@@ -2,6 +2,7 @@ import hashlib
 
 import joblib
 import pytest
+from src.artifact_integrity import default_manifest_path_for, update_checksum_manifest
 from src.core.config import SestravConfig
 from src.core.model_registry import ModelRegistry
 
@@ -73,6 +74,7 @@ def test_load_joblib_roundtrip(tmp_path, monkeypatch):
     registry = _registry(tmp_path)
     artifact = tmp_path / "model.joblib"
     joblib.dump({"params": [1, 2, 3]}, artifact)
+    update_checksum_manifest(default_manifest_path_for(artifact), [artifact])
     monkeypatch.setattr(registry, "resolve_model", lambda name: artifact)
     assert registry.load("model.joblib") == {"params": [1, 2, 3]}
 

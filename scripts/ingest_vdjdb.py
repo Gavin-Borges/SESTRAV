@@ -13,6 +13,16 @@ from _dataset_utils import normalize_peptides, validate_against_schema, write_pr
 VDJDB_RELEASES_API = "https://api.github.com/repos/antigenomics/vdjdb-db/releases/latest"
 
 
+def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
+    """Extract with a zip-slip guard: reject any member that escapes dest_dir."""
+    dest_root = os.path.realpath(dest_dir)
+    for member in zip_ref.infolist():
+        target = os.path.realpath(os.path.join(dest_dir, member.filename))
+        if target != dest_root and not target.startswith(dest_root + os.sep):
+            raise RuntimeError(f"Unsafe zip member path (path traversal): {member.filename}")
+    zip_ref.extractall(dest_dir)
+
+
 def _resolve_vdjdb_asset_url() -> str:
     """Resolve the latest VDJdb release asset URL via GitHub API."""
     import json
@@ -39,7 +49,7 @@ def fetch_vdjdb(output_dir: str = "data") -> str | None:
             print(f"Downloading VDJdb from {url}...")
             urllib.request.urlretrieve(url, zip_path)  # nosec B310
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(output_dir)
+                _safe_extract_zip(zip_ref, output_dir)
             print("Downloaded and extracted VDJdb.")
         except Exception as e:
             print(f"Failed to fetch VDJdb: {e}")

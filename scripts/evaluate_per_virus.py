@@ -14,7 +14,7 @@ DeLong's test: paired bootstrap gives empirical CIs for correlated AUC estimates
 without assuming a Gaussian AUC distribution, which is preferable for small n.
 
 Amendment 6 exit criterion (checked automatically):
-  EBV: AUC-ROC 95% CI lower bound >= 0.57
+  EBV: AUC-ROC point estimate >= 0.57
   HPV: AUC-ROC point estimate >= 0.58
 
 Usage:
@@ -299,23 +299,27 @@ def evaluate_all_viruses(
 def check_exit_criterion(
     results: dict[str, dict],
 ) -> tuple[bool, str]:
-    """Check Amendment 6 exit criterion: EBV AUC-ROC>=0.57, HPV AUC-ROC>=0.58.
+    """Check Amendment 6 exit criterion using thresholds from EXIT_CRITERION.
 
-    EBV uses point estimate (not CI-lower): with only 14 IEDB-sourced tested negatives,
-    CI-lower is dominated by bootstrap sampling noise and is unachievable at any realistic
-    AUC. Point estimate is the correct instrument for sparse-negative viruses.
+    Both EBV and HPV use point estimate (not CI-lower): with only 14 IEDB-sourced
+    tested negatives for EBV, CI-lower is dominated by bootstrap sampling noise and
+    is unachievable at any realistic AUC. Point estimate is the correct instrument
+    for sparse-negative viruses.
 
     Returns (passed, detail_message).
     """
     msgs: list[str] = []
     passed = True
 
+    ebv_threshold = EXIT_CRITERION["EBV"]["auc_roc"]
+    hpv_threshold = EXIT_CRITERION["HPV"]["auc_roc"]
+
     ebv = results.get("EBV", {})
     if ebv:
         val = ebv.get("auc_roc", float("nan"))
-        ok = val == val and val >= 0.57  # nan == nan is False
+        ok = val == val and val >= ebv_threshold  # nan == nan is False
         msgs.append(
-            f"EBV AUC-ROC={val:.3f} ({'PASS' if ok else 'FAIL'}, threshold>=0.57)"
+            f"EBV AUC-ROC={val:.3f} ({'PASS' if ok else 'FAIL'}, threshold>={ebv_threshold})"
         )
         if not ok:
             passed = False
@@ -326,9 +330,9 @@ def check_exit_criterion(
     hpv = results.get("HPV", {})
     if hpv:
         val = hpv.get("auc_roc", float("nan"))
-        ok = val == val and val >= 0.58
+        ok = val == val and val >= hpv_threshold
         msgs.append(
-            f"HPV AUC-ROC={val:.3f} ({'PASS' if ok else 'FAIL'}, threshold>=0.58)"
+            f"HPV AUC-ROC={val:.3f} ({'PASS' if ok else 'FAIL'}, threshold>={hpv_threshold})"
         )
         if not ok:
             passed = False

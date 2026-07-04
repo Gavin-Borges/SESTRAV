@@ -29,6 +29,10 @@ services:
     image: sestrav-api:2.0
     container_name: sestrav_api
     restart: unless-stopped
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - "ALL"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -51,6 +55,10 @@ services:
     image: sestrav-demo:2.0
     container_name: sestrav_demo
     restart: unless-stopped
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - "ALL"
     ports:
       - "127.0.0.1:8501:8501"
     volumes:

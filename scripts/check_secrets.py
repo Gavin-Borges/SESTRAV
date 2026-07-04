@@ -64,7 +64,10 @@ def main() -> None:
         for f in files:
             if f in EXCLUDE_FILES:
                 continue
-            if f.endswith(('.py', '.sh', '.ps1', '.yaml', '.yml', '.json', '.txt', '.md')):
+            if f.endswith((
+                '.py', '.sh', '.ps1', '.yaml', '.yml', '.json', '.txt', '.md',
+                '.toml', '.cff', '.in', '.def'
+            )) or f.startswith('Dockerfile'):
                 path = os.path.join(root, f)
                 flagged = scan_file(path)
                 for line_no in flagged:

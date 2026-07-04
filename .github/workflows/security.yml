@@ -97,10 +97,10 @@ jobs:
       # Advisory gate (OpenSSF tier: non-blocking). `semgrep scan` exits non-zero
       # on any finding, so without continue-on-error this step silently blocked
       # merges. Findings are surfaced as tracked, dismissable alerts in the
-      # Security ▸ Code scanning tab via the SARIF upload below instead.
+      # Security > Code scanning tab via the SARIF upload below instead.
       - name: Run Semgrep
         continue-on-error: true
-        run: semgrep scan --config p/python --sarif --output semgrep.sarif
+        run: semgrep scan --config p/python --config semgrep-rules/ --sarif --output semgrep.sarif
 
       - name: Upload Semgrep SARIF
         if: always()

@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-06-26T05:21:34.227818Z",
-  "git_sha": "dc7a25d",
+  "timestamp": "2026-07-04T02:35:56.636756Z",
+  "git_sha": "b5ffe37",
   "source_dataset": "immunogenicity_dataset_v5.csv",
   "existing_matrix": "peptide_binding_matrix_v4.csv",
-  "new_peptide_count": 7131,
-  "total_peptide_count": 18926,
+  "new_peptide_count": 6740,
+  "total_peptide_count": 18535,
   "alleles": [
     "HLA-A*01:01",
     "HLA-A*02:01",

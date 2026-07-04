@@ -404,3 +404,101 @@ def test_apply_quarantine_null_family_real_neg_threshold_independent() -> None:
     )
     _out, quarantined = apply_quarantine(df, LOGGER)
     assert "Mycobacterium tuberculosis" in quarantined
+
+
+# ---------------------------------------------------------------------------
+# Deduplication on (peptide, hla_allele) across sources
+# ---------------------------------------------------------------------------
+
+
+def _write_iedb_with_overlap(path: Path) -> None:
+    pd.DataFrame(
+        {
+            "peptide": ["KLGGALQAK", "CINGVCWTV", "AAAAAAAAA"],
+            "label": [0, 0, 0],
+            "virus": ["CMV", "HCV", "Self"],
+            "hla_allele": ["HLA-A*02:01", "HLA-A*02:01", "HLA-A*02:01"],
+            "source_type": ["Virus", "Virus", "Self"],
+            "negative_origin": ["tested_negative", "tested_negative", "tested_negative"],
+            "reference_pmid": ["555", "666", "777"],
+        }
+    ).to_csv(path, index=False)
+
+
+def test_main_dedup_drops_cross_source_same_label_duplicates(tmp_path: Path) -> None:
+    base = tmp_path / "v4.csv"
+    iedb = tmp_path / "iedb_neg.csv"
+    out = tmp_path / "v5.csv"
+    conflicts = tmp_path / "conflicts.csv"
+    _write_base_v4(base)
+    _write_iedb_with_overlap(iedb)  # AAAAAAAAA also in v4 decoys
+
+    rc = main(
+        [
+            "--base-dataset", str(base),
+            "--iedb-negatives", str(iedb),
+            "--output", str(out),
+            "--schema", str(SCHEMA_PATH),
+            "--conflict-audit-path", str(conflicts),
+        ]
+    )
+    assert rc == 0
+    v5 = pd.read_csv(out)
+    # No (peptide, hla_allele) duplicates after dedup.
+    assert v5.duplicated(subset=["peptide", "hla_allele"]).sum() == 0
+    # 4 v4 rows + 3 IEDB rows - 1 duplicate = 6 rows (not 7).
+    assert len(v5) == 6
+    # v4 decoy takes priority over IEDB overlap: database_source "UniProt" is kept.
+    aaa = v5[v5["peptide"] == "AAAAAAAAA"]
+    assert len(aaa) == 1
+    assert aaa.iloc[0]["database_source"] == "UniProt"
+
+
+# ---------------------------------------------------------------------------
+# Panel / IEDB conflict warning
+# ---------------------------------------------------------------------------
+
+
+def _write_panel_positive_iedb_overlap(path: Path) -> None:
+    """Panel with KLGGALQAK label=1, which is label=0 in _write_iedb_negatives."""
+    pd.DataFrame(
+        {
+            "peptide": ["KLGGALQAK"],
+            "label": [1],
+            "hla_allele": ["HLA-A*02:01"],
+            "virus": ["CMV"],
+        }
+    ).to_csv(path, index=False)
+
+
+def test_main_warns_on_panel_iedb_label_conflict(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    base = tmp_path / "v4.csv"
+    iedb = tmp_path / "iedb_neg.csv"
+    panel = tmp_path / "panel.csv"
+    out = tmp_path / "v5.csv"
+    conflicts = tmp_path / "conflicts.csv"
+    _write_base_v4(base)
+    _write_iedb_negatives(iedb)  # KLGGALQAK is label=0 here
+    _write_panel_positive_iedb_overlap(panel)  # KLGGALQAK is label=1 here
+
+    with caplog.at_level(logging.WARNING):
+        rc = main(
+            [
+                "--base-dataset", str(base),
+                "--iedb-negatives", str(iedb),
+                "--published-panels", str(panel),
+                "--output", str(out),
+                "--schema", str(SCHEMA_PATH),
+                "--conflict-audit-path", str(conflicts),
+            ]
+        )
+
+    assert rc == 0
+    assert any("Panel/IEDB conflict" in m for m in caplog.messages)
+    # Panel label=1 must win over IEDB label=0 for same peptide.
+    v5 = pd.read_csv(out)
+    klgg = v5[v5["peptide"] == "KLGGALQAK"]
+    assert len(klgg) == 1
+    assert klgg.iloc[0]["label"] == 1

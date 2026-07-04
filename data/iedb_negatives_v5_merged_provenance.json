@@ -1,0 +1,22 @@
+{
+  "output": "iedb_negatives_v5_merged.csv",
+  "sources": [
+    "data\\iedb",
+    "data\\iedb_negatives_v5.csv"
+  ],
+  "row_count": 36689,
+  "generated_utc": "2026-07-04T02:35:17.547701+00:00",
+  "git_sha": "b5ffe3793058f04281f670f74a18cb0ffde4f39c",
+  "existing_rows": 32470,
+  "net_new_api_rows": 4219,
+  "per_virus_counts": {
+    "EBV": 248,
+    "HBV": 351,
+    "HCV": 465,
+    "HIV-1": 147,
+    "HPV": 108,
+    "HPV16": 136,
+    "HPV18": 30,
+    "SARS-CoV-2": 1992
+  }
+}

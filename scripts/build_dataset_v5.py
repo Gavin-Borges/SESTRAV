@@ -253,9 +253,11 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
     virus_counts = (
         df.loc[viral_mask, "virus"].value_counts().to_dict()
     )
-    # Real tested negatives per virus
+    # Real tested negatives per virus: both bulk-export ("tested_negative") and
+    # API-bridge ("iedb_api") origins represent genuine assay-confirmed negatives.
+    _real_neg_origins = {"tested_negative", "iedb_api"}
     real_neg_mask = viral_mask & (
-        df["negative_origin"].fillna("") == "tested_negative"
+        df["negative_origin"].fillna("").isin(_real_neg_origins)
     )
     real_neg_counts = (
         df.loc[real_neg_mask, "virus"].value_counts().to_dict()
@@ -536,7 +538,10 @@ def build_virus_composition_table(
         n_pos = int((group["label"] == 1).sum())
         n_neg = int((group["label"] == 0).sum())
         n_real_neg = int(
-            (group.get("negative_origin", pd.Series(dtype=str)).fillna("") == "tested_negative").sum()
+            group.get("negative_origin", pd.Series(dtype=str))
+            .fillna("")
+            .isin({"tested_negative", "iedb_api"})
+            .sum()
         )
         pos_rate = round(n_pos / n, 4) if n > 0 else 0.0
         quarantined = bool(group["is_quarantined"].any()) if "is_quarantined" in group.columns else False
@@ -714,18 +719,60 @@ def main(argv: list[str] | None = None) -> int:
         )
         source_counts["published_panels"] = len(panels_df)
 
+        # Warn when a panel-positive (peptide, hla_allele) is also an IEDB
+        # negative. Dedup resolves correctly (panels win by priority), but the
+        # conflict is worth surfacing for audit: it means IEDB called the
+        # peptide non-immunogenic while the panel says otherwise.
+        _pa = ["peptide", "hla_allele"]
+        if (
+            "label" in panels_df.columns
+            and all(c in panels_df.columns for c in _pa)
+            and all(c in iedb_neg_df.columns for c in _pa)
+        ):
+            _panel_pos_keys = set(
+                panels_df.loc[panels_df["label"] == 1, _pa]
+                .fillna("")
+                .apply(tuple, axis=1)
+            )
+            _n_conflict = int(
+                iedb_neg_df[_pa].fillna("").apply(tuple, axis=1)
+                .isin(_panel_pos_keys)
+                .sum()
+            )
+            if _n_conflict:
+                logger.warning(
+                    "Panel/IEDB conflict: %d panel-positive (peptide, hla_allele) "
+                    "pairs are also IEDB-negative; dedup keeps panel version (higher priority)",
+                    _n_conflict,
+                )
+                source_counts["panel_iedb_conflicts"] = _n_conflict
+
     # -----------------------------------------------------------------------
     # 4. Ensure all parts have v5 columns before concat
     # -----------------------------------------------------------------------
-    parts = [v4_positives, v4_decoys, iedb_neg_df]
+    # Priority order for keep-first dedup below:
+    #   curated v4 positives > published panels > self-proteome decoys > IEDB negatives
+    parts: list[pd.DataFrame] = [v4_positives]
     if panels_df is not None:
         parts.append(panels_df)
+    parts.extend([v4_decoys, iedb_neg_df])
 
     parts = [ensure_v5_columns(p) for p in parts]
 
     merged = pd.concat(parts, ignore_index=True, sort=False)
-    logger.info("Merged total: %d rows", len(merged))
+    logger.info("Merged pre-dedup: %d rows", len(merged))
+
+    # Deduplicate on (peptide, hla_allele), keeping the highest-priority source.
+    # audit_label_conflicts above writes a CSV for v4-positive / IEDB-negative
+    # cross-label conflicts but does not abort; any surviving cross-label pairs
+    # are resolved here by keep-first priority order.
+    pre_dedup_len = len(merged)
+    merged = merged.drop_duplicates(subset=["peptide", "hla_allele"], keep="first")
+    n_dedup_dropped = pre_dedup_len - len(merged)
+    if n_dedup_dropped:
+        logger.info("Dedup dropped %d overlapping-source (peptide, hla_allele) rows (same- or cross-label)", n_dedup_dropped)
     source_counts["merged_total"] = len(merged)
+    source_counts["dedup_dropped"] = n_dedup_dropped
 
     # -----------------------------------------------------------------------
     # 5. Transformations
