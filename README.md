@@ -24,12 +24,12 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 | OpenSSF Passing badge | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Antigen processing as training features | `feature_mode=33` | ✓ | Partial | ✗ | Partial |
 | Graph Neural Network scorer | ✓ (v2.3 GINEConv+ESM-2; research/ensemble component) | ✗ | ✗ | ✗ | ✗ |
-| Pan-allele training | v4 schema ready | Partial | ✓ | ✓ | ✓ |
+| Pan-allele training | v5 active | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support | 12 viruses trained · 4 curated scanning panels (HPV · EBV · HBV · HCV) | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
 | AUC-PR on labeled benchmark (Tier A) | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | 0.727 | 0.777 | N/A | N/A |
 
-*Tier A 704-peptide labeled benchmark. SESTRAV RF evaluated out-of-fold (conservative); external tools fully-trained on a test set with 36.9% confirmed training overlap (optimistic). The closest external tool is BigMHC (0.822); full field (incl. MixMHCpred, DeepImmuno) in External Benchmark Results below. Separately, on the harder v4 hard-decoy generalization set (14,699 peptides), canonical `mode_31` scores AUC-PR 0.7635 - lower by design (see below). `full_33` is the best Tier A result; `full_31`/`mode_31` is the canonical track. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
+*Tier A 704-peptide labeled benchmark. SESTRAV RF evaluated out-of-fold (conservative); external tools fully-trained on a test set with 36.9% confirmed training overlap (optimistic). The closest external tool is BigMHC (0.822); full field (incl. MixMHCpred, DeepImmuno) in External Benchmark Results below. Separately, on the harder v5 generalization set (31,999 active rows), canonical `mode_31` scores AUC-PR 0.7678 within-virus / 0.8897 self-proteome Gate 1, AUC-ROC 0.9368 (see below). `full_33` is the best Tier A result; `full_31`/`mode_31` is the canonical track. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
 
 ---
 
@@ -37,7 +37,7 @@ Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harde
 
 > SESTRAV is a governed computational workflow for viral T-cell epitope prioritization (immunogenicity scoring against a self-proteome background). It integrates six computational stages - proteome-scale peptide generation, multi-allele MHC binding prediction, TCR contact physicochemical feature extraction, antigen processing scoring, ensemble immunogenicity inference, and freeze-mode governed output - under a single reproducible Snakemake DAG with cryptographic dataset provenance. To our knowledge, no publicly available tool integrates antigen processing, physicochemical TCR features, and graph neural network scoring within an OpenSSF-compliant, auditable pipeline.
 
-The canonical release uses a 31-feature model (20 physicochemical properties at TCR-contact positions + 10 per-allele MHC binding scores + peptide length as the critical mediating variable). On the Tier A labeled benchmark it achieves AUC-PR 0.828 (weighted OOF; 0.864 unweighted ablation); on the harder v4 hard-decoy generalization set it achieves 0.7635 (see External Benchmark Results). Leave-one-virus-out analysis shows the model generalizes as viral-vs-self epitope prioritization (its intended use; AUC-ROC 0.99 separating viral epitopes from self-peptides); within-virus ranking of immunogenic vs non-immunogenic peptides is limited and reported transparently. Optional tiers add antigen processing features (NetChop/TAPreg, `feature_mode=33`) and a GINEConv+ESM-2 graph neural network research track.
+The canonical release uses a 31-feature model (20 physicochemical properties at TCR-contact positions + 10 per-allele MHC binding scores + peptide length as the critical mediating variable). On the Tier A labeled benchmark it achieves AUC-PR 0.828 (weighted OOF; 0.864 unweighted ablation); on the harder v5 generalization set (31,999 active rows) it achieves AUC-PR 0.7678 within-virus and AUC-PR 0.8897 self-proteome Gate 1, AUC-ROC 0.9368 (see External Benchmark Results). Leave-one-virus-out analysis shows the model generalizes as viral-vs-self epitope prioritization (its intended use; AUC-ROC 0.99 separating viral epitopes from self-peptides); within-virus ranking of immunogenic vs non-immunogenic peptides is limited and reported transparently. Optional tiers add antigen processing features (NetChop/TAPreg, `feature_mode=33`) and a GINEConv+ESM-2 graph neural network research track.
 
 ## Background and Motivation
 
@@ -47,7 +47,7 @@ This approach combines structural insights with multi-allele binding predictions
 
 ## Release Tracks and Policy
 
-* **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length). Tier A AUC-PR 0.828 (weighted OOF) / v4 hard-decoy 0.7635. This is the maintained release path and the production scorer.
+* **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length). Tier A AUC-PR 0.828 (weighted OOF) / v5 generalization AUC-PR 0.7678 within-virus (0.8897 self-proteome Gate 1), AUC-ROC 0.9368. This is the maintained release path and the production scorer.
 * **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). AUC-PR 0.886 (unweighted) / 0.840 (weighted) - best v3 result; +0.022 over canonical. Requires antigen processing cache; see `scripts/precompute_antigen_processing.py`.
 * **Legacy comparator track:** 30-feature (without peptide length) and 21-feature (sequence-only) configurations retained for historical reproducibility.
 
@@ -105,13 +105,13 @@ SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A label
 
 > **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's `full_33` (0.840) leads the field. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper §3.3.
 
-### Paradigm 2 - v4 hard-decoy generalization (N=14,699; 12 viruses + central-tolerance decoys)
+### Paradigm 2 - v5 generalization set (N=31,999 active; 12 viruses + IEDB viral negatives + central-tolerance decoys)
 
-| Model | AUC-PR | Notes |
-|------|--------|-------|
-| **SESTRAV RF (`mode_31`, canonical)** | **0.7635 ± 0.009** | 5-fold OOF; production scorer |
+| Model | AUC-PR | AUC-ROC | Notes |
+|------|--------|---------|-------|
+| **SESTRAV RF (`mode_31`, canonical)** | **0.7678** (within-virus) / **0.8897** (Gate 1) | **0.9368** | 5-fold OOF; production scorer |
 
-> The hard decoys are self-proteome MHC binders (label 0) that remove the "binding → immunogenic" shortcut present in conventional negative sets. The lower AUC-PR vs. Tier A reflects this harder, more realistic task - not a regression. This is the model shipped for production scoring.
+> v5 incorporates 4,219 experimentally confirmed non-immunogenic viral peptides from the IEDB REST API alongside central-tolerance hard decoys. Two evaluation contexts are reported: within-virus AUC-PR 0.7678 (harder discrimination among same-pathogen peptides) and self-proteome Gate 1 AUC-PR 0.8897 (viral epitopes vs. self-peptide background, consistent with the Gate 1 threshold protocol). Both are strict 5-fold OOF. This is the model shipped for production scoring.
 
 > **Primary metric:** AUC-PR (class-imbalanced data; random baseline ≈ positive prevalence). ISSR@10 = fraction of true positives ranked in the top 10%.
 
@@ -158,7 +158,7 @@ graph LR
 3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-contact positions p4–p8 + 10 binding scores + peptide length = 31 features (canonical) or 33 with antigen processing tier.
 4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with SHAP interpretability and conformal prediction intervals.
 5. **Antigen Processing** *(optional, `feature_mode=33`)*: NetChop 3.1 proteasomal cleavage + TAPreg TAP transport scores as additional training features.
-6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph; passes 4 of 5 promotion gates on v4 data. See `ARCHITECTURE.md` for the gating policy that governs promotion to a canonical scorer.
+6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph; passes 4 of 5 promotion gates on v4 data (v5 retraining pending; ESM-2 cache complete at 27,376 peptides). See `ARCHITECTURE.md` for the gating policy that governs promotion to a canonical scorer.
 
 **Input:** Viral proteome FASTA files (default: HPV16/18, EBV B95-8, HBV ayw, HCV 1a panels).
 **Output:** Ranked epitope candidates with immunogenicity scores, SHAP values, and visualizations.
@@ -279,18 +279,18 @@ Models must be trained before production pipeline execution:
 ```bash
 # Canonical 31-feature track (recommended)
 python -m src.train_classifier \
-  --data data/immunogenicity_dataset_v4.csv \
+  --data data/immunogenicity_dataset_v5.csv \
   --feature-mode 31 \
-  --binding-matrix models/peptide_binding_matrix_v4.csv \
+  --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights
 
 # CLI equivalent
 sestrav validate \
-  --dataset data/immunogenicity_dataset_v4.csv \
+  --dataset data/immunogenicity_dataset_v5.csv \
   --feature-mode 31 \
-  --binding-matrix models/peptide_binding_matrix_v4.csv \
+  --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights \
-  --report results/validation_report_v4.md
+  --report results/validation_report_v5.md
 ```
 
 *Note:* Without trained models, the pipeline falls back to a prototype mode using binding-derived pseudo-labels (for testing only; not scientifically valid).
@@ -341,7 +341,7 @@ See `scripts/README.md` for the external-validation utilities and workflow.
 * **ANN:** `pip install -r requirements-ann.txt`, then `python -m src.ann_benchmark --help`.
 Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
 * **GNN v2.3 (research track):** `pip install "sestrav[gnn]"`, then `python -m src.train_gnn --help`.
-Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. On v4 data it passes 4 of 5 promotion gates (mean-fold AUC-PR 0.7281); the AUC-PR >= 0.85 gate (Gate 1) is not yet met, so the GNN remains a research track rather than the canonical scorer. Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
+Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. On v4 data it passes 4 of 5 promotion gates (mean-fold AUC-PR 0.7281); v5 retraining is in progress (ESM-2 cache complete at 27,376 peptides; GPU training pending). The GNN remains a research track pending v5 evaluation. Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
 
 ### 7. Google Colab
 
@@ -354,8 +354,8 @@ The Docker image does **not** include trained models. Build and then train:
 ```bash
 docker build -t sestrav:latest .
 docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
-  -m src.train_classifier --data data/immunogenicity_dataset_v4.csv \
-  --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v4.csv
+  -m src.train_classifier --data data/immunogenicity_dataset_v5.csv \
+  --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 
 Run the pipeline with bind-mounted directories:
@@ -434,9 +434,9 @@ All metrics are computed by `src/evaluate_metrics.py`.
 
 **Included in this repository:**
 
-* Training dataset (`data/immunogenicity_dataset_v4.csv`, 14,699 rows - v3 also retained for historical comparison)
+* Training dataset (`data/immunogenicity_dataset_v5.csv`, 31,999 active rows / 46,386 total; v4 retained for historical comparison)
 * Viral proteomes (`data/proteomes/`)
-* Binding matrix (`models/peptide_binding_matrix_v4.csv`) and model metadata
+* Binding matrix (`models/peptide_binding_matrix_v5.csv`) and model metadata
 * All pipeline code, tests, and documentation
 
 **Generated locally (excluded from git):**
