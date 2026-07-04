@@ -253,9 +253,11 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
     virus_counts = (
         df.loc[viral_mask, "virus"].value_counts().to_dict()
     )
-    # Real tested negatives per virus
+    # Real tested negatives per virus: both bulk-export ("tested_negative") and
+    # API-bridge ("iedb_api") origins represent genuine assay-confirmed negatives.
+    _real_neg_origins = {"tested_negative", "iedb_api"}
     real_neg_mask = viral_mask & (
-        df["negative_origin"].fillna("") == "tested_negative"
+        df["negative_origin"].fillna("").isin(_real_neg_origins)
     )
     real_neg_counts = (
         df.loc[real_neg_mask, "virus"].value_counts().to_dict()
@@ -536,7 +538,10 @@ def build_virus_composition_table(
         n_pos = int((group["label"] == 1).sum())
         n_neg = int((group["label"] == 0).sum())
         n_real_neg = int(
-            (group.get("negative_origin", pd.Series(dtype=str)).fillna("") == "tested_negative").sum()
+            group.get("negative_origin", pd.Series(dtype=str))
+            .fillna("")
+            .isin({"tested_negative", "iedb_api"})
+            .sum()
         )
         pos_rate = round(n_pos / n, 4) if n > 0 else 0.0
         quarantined = bool(group["is_quarantined"].any()) if "is_quarantined" in group.columns else False
