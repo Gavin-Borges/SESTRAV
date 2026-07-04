@@ -95,7 +95,7 @@ VIRUS_DISPLAY: dict[str, str] = {
 
 # Assay response quality weights. Higher = more direct/reliable cytotoxic T-cell signal.
 # Cytolytic assays (cytotoxicity, degranulation) are Tier 1: direct killing.
-# Cytokine release assays (IFNg, TNFa) are Tier 1–2: canonical CD8+ functional readout.
+# Cytokine release assays (IFNg, TNFa) are Tier 1-2: canonical CD8+ functional readout.
 # Proliferation / activation are Tier 3: less specific.
 # Binding assays are Tier 4: structural but not functional immunogenicity.
 ASSAY_QUALITY_MAP: dict[str, float] = {
@@ -244,7 +244,7 @@ def _process_records(raw_records: list[dict], virus_display: str) -> list[dict]:
     """Convert raw IEDB API records to v4-compatible dicts.
 
     Applies:
-    - 8–11mer length filter (MHC Class I canonical range)
+    - 8-11mer length filter (MHC Class I canonical range)
     - Standard amino acid filter (drops X, B, modified residues)
     - Binary label assignment (excludes inconclusive)
     - Allele normalization

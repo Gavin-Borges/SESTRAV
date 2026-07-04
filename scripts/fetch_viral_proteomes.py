@@ -89,7 +89,7 @@ IAV_PR8_PANEL4 = [
 
 # Human cytomegalovirus (HCMV) strain AD169.
 # pp65 (UL83) is immunodominant in CMV-seropositive individuals; it drives the
-# CMV-specific CD8+ T-cell pool that can reach 10–20 % of total CD8+ T-cells.
+# CMV-specific CD8+ T-cell pool that can reach 10-20 % of total CD8+ T-cells.
 # IE1 (UL123) is the dominant target early in infection (lytic phase).
 # See antigen_accessions.md §8.
 CMV_AD169_PANEL4 = [

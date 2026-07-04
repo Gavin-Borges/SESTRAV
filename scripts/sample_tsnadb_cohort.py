@@ -6,7 +6,7 @@ as the positive arm of the tumor cross-domain benchmark.
 
 Filters (applied in order):
   1. Canonical-10 HLA alleles only (SESTRAV panel).
-  2. Peptide length 8–11 (MHC Class I canonical range).
+  2. Peptide length 8-11 (MHC Class I canonical range).
   3. Valid standard amino acids only.
   4. DeepImmuno immunogenicity score >= 0.5  (Deep_imm column).
   5. MHCflurry presentation rank <= 2.0%     (MHCf_rank (%) column).

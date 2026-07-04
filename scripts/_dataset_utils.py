@@ -34,12 +34,12 @@ def normalize_peptides(df, peptide_col="peptide",
 
     Enforces:
     1. Standard amino acids only (no X, B, modified residues, whitespace).
-    2. MHC Class I canonical length: 8–11 amino acids.
+    2. MHC Class I canonical length: 8-11 amino acids.
 
-    MHC Class I-restricted epitopes are canonically 8–11 residues. VDJdb and
+    MHC Class I-restricted epitopes are canonically 8-11 residues. VDJdb and
     other sources occasionally include longer peptides that may reflect Class II
     epitopes, nested peptide pools, or annotation errors. These must be excluded
-    because binding prediction and TCR-contact features are calibrated for 8–11mers.
+    because binding prediction and TCR-contact features are calibrated for 8-11mers.
     """
     df = df.copy()
     df[peptide_col] = df[peptide_col].astype(str).str.strip().str.upper()
