@@ -37,7 +37,7 @@ accompanied by a `_provenance.json` sidecar next to the output artifact.
 
 | Date | Git SHA | Total rows | Positives | Negatives | Pos rate | Notes |
 |---|---|---|---|---|---|---|
-| PENDING | - | - | - | - | - | Blocked on VDJdb download + MHCflurry models |
+| Superseded | - | - | - | - | - | v4 was never built standalone; v5 (commit b5ffe37, 2026-07-04) is the active dataset |
 
 ### Component artifact row counts (fill in after build)
 
