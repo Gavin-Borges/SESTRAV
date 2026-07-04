@@ -217,18 +217,88 @@ def _virus_from_organism(org_str):
     return None
 
 
+def _is_processed_tcell_csv(df: pd.DataFrame) -> bool:
+    """Return True if df looks like a fetch_iedb_tcell.py output (flat binary-label format).
+
+    The processed format has a binary 'label' column (0/1) and 'hla_allele' column,
+    produced by fetch_iedb_tcell.py. Raw IEDB exports use 'Qualitative Measure'.
+    """
+    cols = {c.lower() for c in df.columns}
+    return "label" in cols and "hla_allele" in cols and "virus" in cols
+
+
+def _load_processed_tcell_csv(fpath: str, verbose: bool = False) -> list[dict]:
+    """Load a fetch_iedb_tcell.py output CSV into the canonical record format.
+
+    The processed format has columns: peptide, label (0/1), virus, hla_allele,
+    protein, strain, assay_type, assay_quality_weight, reference_pmid.
+    Each row is already one (peptide, assay, allele) observation; majority voting
+    across duplicate (peptide, allele) pairs happens downstream in
+    build_allele_aware_dataset().
+    """
+    from src.iedb_data_loader import STANDARD_AA
+
+    try:
+        df = pd.read_csv(fpath, low_memory=False)
+    except Exception as e:
+        if verbose:
+            print(f"    [skip] {fpath}: read error ({e})")
+        return []
+
+    if not _is_processed_tcell_csv(df):
+        return []
+
+    records = []
+    for _, row in df.iterrows():
+        pep = str(row.get("peptide", "")).strip().upper()
+        if not (8 <= len(pep) <= 11):
+            continue
+        if not all(aa in STANDARD_AA for aa in pep):
+            continue
+
+        try:
+            lbl = int(row["label"])
+        except (ValueError, TypeError):
+            continue
+        if lbl not in (0, 1):
+            continue
+
+        allele_raw = row.get("hla_allele", None)
+        if pd.isna(allele_raw) or not str(allele_raw).strip():
+            continue
+        allele = standardize_allele_name(str(allele_raw).strip())
+        if allele and any(allele.startswith(p) for p in ("HLA-DR", "HLA-DP", "HLA-DQ")):
+            continue
+
+        virus = str(row.get("virus", "")).strip()
+        if not virus:
+            continue
+
+        records.append({
+            "peptide": pep,
+            "label": lbl,
+            "allele": allele,
+            "virus": virus,
+        })
+
+    return records
+
+
 def load_tcell_assay_files(data_dir, verbose=False):
     """Load IEDB T-cell Assay format files from data_dir.
 
-    Handles two formats:
+    Handles three formats:
     1. 2-level multi-header CSV (standard IEDB T-cell Assay export) - parsed
        with header=[0,1] using _parse_iedb_multiheader_csv().
     2. Single-level header CSV/XLSX (older format) - detected by presence of
        a 'Qualitative Measure' column in the first header row.
+    3. Processed fetch_iedb_tcell.py output CSV - detected by presence of
+       'label' (binary 0/1), 'hla_allele', and 'virus' columns.
 
-    Virus assignment priority:
+    Virus assignment priority (formats 1 and 2):
     1. Filename (if it contains 'ebv', 'herpesvirus', 'hpv16', 'papillomavirus').
     2. Organism column in the data (per-row assignment, for combined exports).
+    Format 3 uses the 'virus' column directly (already in SESTRAV display names).
 
     Returns a DataFrame with columns: peptide, label, allele, virus
     """
@@ -258,21 +328,45 @@ def load_tcell_assay_files(data_dir, verbose=False):
                 print(f"  [skip] {fname}: read error ({e})")
             continue
 
-        is_flat_header_csv = any(" - " in c for c in row0)
-        if is_flat_header_csv:
-            is_multiheader = False
-            is_flat_qualitative = True
-        else:
-            is_multiheader = (
-                "qualitative measurement" in row1
-                or "qualitative measure" in row1
-                or any("qualitative" in v for v in row1)
-            )
-            is_flat_qualitative = any("qualitative" in v for v in row0)
+        # --- Format 3 (highest priority): processed fetch_iedb_tcell.py output ---
+        # Check the header row (row0) for the flat binary-label signature BEFORE
+        # running the multiheader detection, because the first DATA row of these
+        # files may contain "qualitative binding" in assay_type, which would
+        # otherwise falsely trigger the multiheader detector.
+        is_processed_flat = (
+            "label" in row0
+            and "hla_allele" in row0
+            and "virus" in row0
+        )
 
-        if not (is_multiheader or is_flat_qualitative):
+        if not is_processed_flat:
+            is_flat_header_csv = any(" - " in c for c in row0)
+            if is_flat_header_csv:
+                is_multiheader = False
+                is_flat_qualitative = True
+            else:
+                is_multiheader = (
+                    "qualitative measurement" in row1
+                    or "qualitative measure" in row1
+                    or any("qualitative" in v for v in row1)
+                )
+                is_flat_qualitative = any("qualitative" in v for v in row0)
+        else:
+            is_multiheader = False
+            is_flat_qualitative = False
+
+        if not (is_multiheader or is_flat_qualitative or is_processed_flat):
             if verbose:
-                print(f"  [skip] {fname}: no Qualitative Measure column found in either header row")
+                print(f"  [skip] {fname}: unrecognized format (no Qualitative Measure or processed-flat columns)")
+            continue
+
+        if is_processed_flat:
+            if verbose:
+                print(f"  [load] {fname}: format=processed-flat (fetch_iedb_tcell.py output), virus=from-column")
+            new_records = _load_processed_tcell_csv(fpath, verbose=verbose)
+            if verbose:
+                print(f"    -> {len(new_records)} valid records added")
+            records.extend(new_records)
             continue
 
         if verbose:
@@ -448,7 +542,12 @@ def sha256_df(df):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Build SESTRAV allele-aware training dataset from IEDB T-cell Assay exports"
+        description=(
+            "Build SESTRAV allele-aware training dataset from IEDB T-cell Assay exports "
+            "or processed fetch_iedb_tcell.py output CSVs (auto-detected). "
+            "Supports raw IEDB multi-header exports, flat-header exports, and "
+            "the binary-label format produced by fetch_iedb_tcell.py."
+        )
     )
     parser.add_argument(
         "--data-dir",
@@ -458,7 +557,9 @@ def main():
     parser.add_argument(
         "--output",
         default=None,
-        help="Output CSV path (default: data/allele_aware/IEDB-<date>-EBV_HPV16_ALLELE_AWARE-v1.csv)",
+        help=(
+            "Output CSV path (default: data/allele_aware/IEDB-<date>-MULTI_VIRUS_ALLELE_AWARE-v2.csv)"
+        ),
     )
     parser.add_argument(
         "--all-alleles",
@@ -478,7 +579,7 @@ def main():
         os.makedirs(out_dir, exist_ok=True)
         args.output = os.path.join(
             out_dir,
-            f"IEDB-{today_str}-EBV_HPV16_ALLELE_AWARE-v1.csv"
+            f"IEDB-{today_str}-MULTI_VIRUS_ALLELE_AWARE-v2.csv"
         )
 
     if not os.path.isdir(args.data_dir):

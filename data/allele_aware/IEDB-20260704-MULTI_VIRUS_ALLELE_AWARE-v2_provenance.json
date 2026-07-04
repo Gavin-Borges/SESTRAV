@@ -1,0 +1,24 @@
+{
+  "status": "complete",
+  "output_path": "data/allele_aware\\IEDB-20260704-MULTI_VIRUS_ALLELE_AWARE-v2.csv",
+  "holdout_path": "data/allele_aware\\IEDB-20260704-MULTI_VIRUS_ALLELE_AWARE-v2_holdouts.csv",
+  "training_pairs": 4567,
+  "holdout_pairs": 30,
+  "unique_peptides": 4169,
+  "unique_alleles": 10,
+  "class_balance_positive": 0.6871031311583096,
+  "pseudo_seq_dims": 136,
+  "sha256": "cb901d7a57b8fbb54b4b81d0451770070f84f5fe25c13685bca5117461610d08",
+  "allele_panel": [
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02"
+  ]
+}
