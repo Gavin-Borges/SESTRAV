@@ -1,5 +1,29 @@
 # SESTRAV Model Evaluation Summary
 
+## v5 Canonical Track: 31-Feature RF (Trained 2026-07-04)
+
+> **Status:** Current production model. Dataset: v5, 31,999 active rows (46,386 total),
+> 36,689 IEDB viral negatives, 5-fold stratified OOF. Commit b5ffe37.
+> Model: `models/rf_31feature_integrated.joblib` (retrained)
+> OOF predictions: `models/rf_oof_predictions.csv`, `models/rf_oof_predictions_mode31.csv`
+
+| Evaluation context | AUC-PR | AUC-ROC | Notes |
+|---|---|---|---|
+| Within-virus (same-pathogen discrimination) | **0.7678** | **0.9368** | Harder context: viral positives vs. real IEDB viral negatives from same pathogen |
+| Self-proteome Gate 1 | **0.8897** | - | Viral epitopes vs. self-peptide hard decoys; Gate 1 threshold protocol (>= 0.85 PASS) |
+
+**Per-virus results (Amendment 6 thresholds):**
+
+| Virus | AUC-ROC | Threshold | Status |
+|---|---|---|---|
+| HPV | 0.598 | >= 0.58 | PASS |
+| EBV | 0.667 | >= 0.57 | PASS (post B*27 conflict quarantine) |
+
+> **Note:** v3/v4 sections below are historical. The v5 31-feature RF is the canonical
+> production scorer. All public-facing comparisons should use v5 figures.
+
+---
+
 ## v2 Extended Track: 33-Feature Integrated (Trained 2026-06-18)
 
 > **Status:** Best current v3 model. Dataset: v3 n=1004 peptides, 76.6% positive, 5-fold OOF.
