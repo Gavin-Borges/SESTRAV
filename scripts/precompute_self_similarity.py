@@ -113,7 +113,7 @@ def build_kmer_sets(fasta_path: str, kmer_lengths: tuple[int, ...] = (8, 9)) -> 
 
     Args:
         fasta_path: Path to the human proteome FASTA.
-        kmer_lengths: Which k-mer sizes to index (8 for 8-mer peptides, 9 for 9–11mers).
+        kmer_lengths: Which k-mer sizes to index (8 for 8-mer peptides, 9 for 9-11mers).
 
     Returns:
         Dict mapping k -> frozenset of all k-mers of that length.

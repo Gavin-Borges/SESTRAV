@@ -246,7 +246,7 @@ def test_dataset_v2_pyg_batch_node_count():
 # ---------------------------------------------------------------------------
 
 def test_predictor_v2_default_pooling_is_mean():
-    """Default readout must stay mean pool so existing v2.1–v2.3 checkpoints load."""
+    """Default readout must stay mean pool so existing v2.1-v2.3 checkpoints load."""
     from src.gnn.models import GraphPredictorV2
     model = GraphPredictorV2(num_continuous_features=10)
     assert model.encoder.pooling == "mean"

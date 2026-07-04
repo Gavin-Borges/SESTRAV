@@ -242,7 +242,7 @@ def test_mock_tapreg_score_empty_peptide():
     assert isinstance(score, float)
 
 
-# lines 93–96 - _generate_mock_tapreg_score C-terminal PDE branch
+# lines 93-96 - _generate_mock_tapreg_score C-terminal PDE branch
 # line 94   - C-terminal RK branch
 # branch 95→99 (False) - c_term not in any penalty/bonus set (fall-through to N-term check)
 def test_mock_tapreg_score_cterminal_branches():
@@ -283,7 +283,7 @@ def test_parse_netchop_html_out_of_range_idx():
     assert result["AAY"]["scores"] == []
 
 
-# lines 149–150 - parse_netchop_html ValueError/IndexError on malformed ident
+# lines 149-150 - parse_netchop_html ValueError/IndexError on malformed ident
 def test_parse_netchop_html_invalid_ident_skipped():
     # "pep_abc" cannot be int-cast → ValueError caught → row skipped
     html = "  1 G .  0.12000  pep_abc\n"
@@ -338,7 +338,7 @@ def test_parse_tapreg_html_html_table_fallback():
     assert result == {"GLFYTRTGL": 1.2345}
 
 
-# lines 346–347 - query_tapreg threshold is not None → payload populated
+# lines 346-347 - query_tapreg threshold is not None → payload populated
 def test_query_tapreg_threshold_populates_payload():
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
@@ -355,7 +355,7 @@ def test_query_tapreg_threshold_populates_payload():
     assert sent_data["thresh"] == "0.5"
 
 
-# lines 244–247 - query_netchop polling detects "Job is running" → wait path exercised
+# lines 244-247 - query_netchop polling detects "Job is running" → wait path exercised
 def test_query_netchop_polling_job_running_falls_back_after_exhaustion():
     """Every poll returns 'Job is running' → polling exhausts → mock fallback."""
     peptides = ["GLF"]
@@ -391,7 +391,7 @@ def test_query_tapreg_empty_parse_logs_warning_and_falls_back():
     assert isinstance(results["GLFYTRTGL"], float)
 
 
-# lines 362–366 - query_tapreg successful parse returns real scores (no mock fallback)
+# lines 362-366 - query_tapreg successful parse returns real scores (no mock fallback)
 def test_query_tapreg_successful_parse_returns_scores():
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()

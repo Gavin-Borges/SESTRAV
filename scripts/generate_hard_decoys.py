@@ -9,7 +9,7 @@ rather than relying on MHC binding as a proxy.
 
 Algorithm
 ---------
-1. Extract all valid 8–11-mer peptides from the human proteome FASTA.
+1. Extract all valid 8-11-mer peptides from the human proteome FASTA.
 2. Screen with MHCflurry Class1PresentationPredictor for all 10 canonical alleles.
 3. Keep peptides with presentation_score ≥ PRESENTATION_THRESHOLD for ≥1 allele.
 4. Exclude any peptide present as a positive (label=1) in the supplied training set.

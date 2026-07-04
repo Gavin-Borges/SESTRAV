@@ -2,7 +2,7 @@ import torch
 
 AA_VOCAB = "ACDEFGHIKLMNPQRSTVWY"
 AA_TO_IDX = {aa: i for i, aa in enumerate(AA_VOCAB)}
-MAX_PEPTIDE_LEN: int = 11  # longest supported peptide (9–11-mer; pad shorter seqs)
+MAX_PEPTIDE_LEN: int = 11  # longest supported peptide (9-11-mer; pad shorter seqs)
 
 
 class GraphBuilder:

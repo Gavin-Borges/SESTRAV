@@ -33,7 +33,7 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 
 ---
 
-Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harder than predicting MHC binding. Binding-only approaches achieve AUC-PR ≈ 0.80 on the SESTRAV benchmark - yet most public tools stop there. SESTRAV bridges this gap by extracting physicochemical features from TCR-contact residues (positions p4–p8, following Chowell et al. 2015) and training ensemble classifiers on experimentally validated IEDB immunogenicity data.
+Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harder than predicting MHC binding. Binding-only approaches achieve AUC-PR ≈ 0.80 on the SESTRAV benchmark - yet most public tools stop there. SESTRAV bridges this gap by extracting physicochemical features from TCR-contact residues (positions p4-p8, following Chowell et al. 2015) and training ensemble classifiers on experimentally validated IEDB immunogenicity data.
 
 > SESTRAV is a governed computational workflow for viral T-cell epitope prioritization (immunogenicity scoring against a self-proteome background). It integrates six computational stages - proteome-scale peptide generation, multi-allele MHC binding prediction, TCR contact physicochemical feature extraction, antigen processing scoring, ensemble immunogenicity inference, and freeze-mode governed output - under a single reproducible Snakemake DAG with cryptographic dataset provenance. To our knowledge, no publicly available tool integrates antigen processing, physicochemical TCR features, and graph neural network scoring within an OpenSSF-compliant, auditable pipeline.
 
@@ -41,7 +41,7 @@ The canonical release uses a 31-feature model (20 physicochemical properties at 
 
 ## Background and Motivation
 
-Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by extracting features from TCR-contact residues (primarily positions p4–p8) and training classifiers on experimentally validated immunogenicity data from the IEDB.
+Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by extracting features from TCR-contact residues (primarily positions p4-p8) and training classifiers on experimentally validated immunogenicity data from the IEDB.
 
 This approach combines structural insights with multi-allele binding predictions to better discriminate true immunogenic epitopes.
 
@@ -130,7 +130,7 @@ The clean holdout is the appropriate rigorous comparator: it removes evaluation 
 
 SHAP analysis (Random Forest, 720 samples) attributes the decision to:
 - **60%** MHC binding features (per-allele presentation scores)
-- **40%** TCR-contact physicochemical features (positions p4–p8)
+- **40%** TCR-contact physicochemical features (positions p4-p8)
 
 This 60/40 split confirms that TCR features provide meaningful independent signal beyond binding alone, consistent with the 9/10 gold-standard negative discrimination result.
 
@@ -142,7 +142,7 @@ SESTRAV proceeds through six computational stages under a reproducible Snakemake
 
 ```mermaid
 graph LR
-    A("Viral Proteome FASTA<br/>HPV · EBV · HBV · HCV") -->|Stage 1| B("Peptide Generation<br/>8–11mer sliding window")
+    A("Viral Proteome FASTA<br/>HPV · EBV · HBV · HCV") -->|Stage 1| B("Peptide Generation<br/>8-11mer sliding window")
     B -->|Stage 2| C("MHC Binding Prediction<br/>MHCflurry · 10-allele panel")
     C -->|Stage 3| D("TCR Feature Extraction<br/>20 physico · 10 binding · 1 length")
     D -->|Stage 4| E("Immunogenicity Scoring<br/>RF · XGBoost ensemble")
@@ -153,9 +153,9 @@ graph LR
     G --> H
 ```
 
-1. **Peptide Generation:** Sliding-window extraction of 8–11mer peptides from viral proteome FASTA files.
+1. **Peptide Generation:** Sliding-window extraction of 8-11mer peptides from viral proteome FASTA files.
 2. **MHC Binding Prediction:** MHCflurry 2.2.1 presentation scores across 10 common HLA alleles (pinned version, CI-gated).
-3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-contact positions p4–p8 + 10 binding scores + peptide length = 31 features (canonical) or 33 with antigen processing tier.
+3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-contact positions p4-p8 + 10 binding scores + peptide length = 31 features (canonical) or 33 with antigen processing tier.
 4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with SHAP interpretability and conformal prediction intervals.
 5. **Antigen Processing** *(optional, `feature_mode=33`)*: NetChop 3.1 proteasomal cleavage + TAPreg TAP transport scores as additional training features.
 6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph; passes 4 of 5 promotion gates on v4 data (v5 retraining pending; ESM-2 cache complete at 27,376 peptides). See `ARCHITECTURE.md` for the gating policy that governs promotion to a canonical scorer.
@@ -163,7 +163,7 @@ graph LR
 **Input:** Viral proteome FASTA files (default: HPV16/18, EBV B95-8, HBV ayw, HCV 1a panels).
 **Output:** Ranked epitope candidates with immunogenicity scores, SHAP values, and visualizations.
 
-> **Scope note:** TCR contact positions p4–p8 follow Chowell et al. (2015), applied as a length-agnostic approximation. For 8-mer peptides, p7/p8 are zero-imputed to reflect the compressed binding register; predictions for non-canonical binding registers carry additional uncertainty.
+> **Scope note:** TCR contact positions p4-p8 follow Chowell et al. (2015), applied as a length-agnostic approximation. For 8-mer peptides, p7/p8 are zero-imputed to reflect the compressed binding register; predictions for non-canonical binding registers carry additional uncertainty.
 
 ## Input Data and Naming Conventions
 
