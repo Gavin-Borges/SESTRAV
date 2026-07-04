@@ -1,5 +1,7 @@
 # SESTRAV Analytical Validation Summary
 
+> **Note (2026-07-04):** This document reflects early-stage validation results on the 30-feature track (pre-v2 canonical designation). The current canonical production model is the **31-feature RF (`mode_31`)** on the v5 dataset (31,999 active rows; AUC-PR 0.7678 within-virus / 0.8897 self-proteome Gate 1, AUC-ROC 0.9368). For current model performance, see `docs/paper.md` §3.1 and `results/per_virus_eval_v5_mode31.json`. The methodology sections below remain valid historical reference.
+
 This document provides a comprehensive summary of the validation methodologies, mathematical formulations, and benchmarking protocols utilized in the SESTRAV pipeline. All calculations are executed via a custom verification framework configured to ensure absolute mathematical reproducibility and prevent computational drift.
 
 ---

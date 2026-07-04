@@ -24,7 +24,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 ### 1.4 Contribution Guidelines
 *   **Requirement:** The project MUST explain how to contribute code and submit pull requests.
 *   **SESTRAV Status:** ✅ **PASSING**
-*   **Evidence:** [CONTRIBUTING.md](../CONTRIBUTING.md) details development environment setup (conda, requirements), code style formatting rules (`black`), local test suite execution, containerized testing configurations (Docker and Singularity), and the mandatory PR checklist.
+*   **Evidence:** [CONTRIBUTING.md](../CONTRIBUTING.md) details development environment setup (conda, requirements), code style formatting rules (`ruff`), local test suite execution, containerized testing configurations (Docker and Singularity), and the mandatory PR checklist.
 
 ### 1.5 Public Discussion Forum
 *   **Requirement:** The project MUST support a public forum or mailing list for discussion.
@@ -85,7 +85,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 ### 4.2 Automated Test Suite
 *   **Requirement:** The project MUST possess an automated test suite.
 *   **SESTRAV Status:** ✅ **PASSING**
-*   **Evidence:** Features 133 unit and integration tests (verified via `pytest --collect-only`) under the [tests/](../tests) folder, covering feature extraction, pipeline stages, consensus ensemble scoring, and API schema validations.
+*   **Evidence:** Features 1108 unit and integration tests (verified via `pytest --collect-only`) under the [tests/](../tests) folder, covering feature extraction, pipeline stages, consensus ensemble scoring, API schema validations, dataset build pipeline, and security hardening paths.
 
 ### 4.3 Automated Testing in CI
 *   **Requirement:** The test suite MUST run automatically on new commits (CI).

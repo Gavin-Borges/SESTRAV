@@ -9,8 +9,8 @@ This document catalogs the current datasets, schemas, and evidence freezes used 
 *   **Columns**: `peptide`, `label`, `virus`, `protein`, `strain`.
 *   **Limitations**: No HLA-allele tracking; highly biased towards viral sources (EBV/HPV).
 
-### v4 Schema (Current)
-*   **Status**: Active.
+### v4 Schema (Frozen)
+*   **Status**: Frozen. Superseded by v5. The v4 artifact (`data/immunogenicity_dataset_v4.csv`) is retained as the paper's published baseline.
 *   **Description**: Introduced in the Post-Badge Phase 1 expansion.
 *   **Schema File**: `data/immunogenicity_dataset_v4_schema.json`
 *   **New Columns**:
@@ -100,9 +100,9 @@ SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
 
 ---
 
-## v5 Schema (Phase 2)
+## v5 Schema (Active)
 
-- **Status**: In design. Build target: 2026-07-13.
+- **Status**: Active. Built and deployed 2026-07-04 (commit b5ffe37).
 - **Schema File**: `data/immunogenicity_dataset_v5_schema.json`
 - **v4 frozen**: Do NOT modify `data/immunogenicity_dataset_v4.csv`. v5 is a separate file.
 
@@ -148,9 +148,9 @@ SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
 
 ## v5 Build Log
 
-| Date | Git SHA | Total rows | Real negatives added | Quarantined viruses | Notes |
-|---|---|---|---|---|---|
-| PENDING | - | - | - | - | Week 2 target: 2026-07-06 |
+| Date | Git SHA | Total rows | Active rows | IEDB negatives | Quarantined viruses | Notes |
+|---|---|---|---|---|---|---|
+| 2026-07-04 | b5ffe37 | 46,386 | 31,999 | 36,689 | 17 singletons (< 50 rows or < 10 real negatives) | Merged 4,219 net-new IEDB API negatives via `scripts/merge_iedb_api_negatives.py`; B*27 EBV conflict quarantine (3 rows: FRKAQIQGL x2, RRARSLSAERY); RF v5 AUC-PR 0.7678 within-virus / 0.8897 Gate 1 / AUC-ROC 0.9368; sidecar: `data/immunogenicity_dataset_v5_provenance.json` |
 
 ---
 
