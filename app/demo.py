@@ -259,7 +259,7 @@ def main() -> None:
         col1, col2 = st.columns([2, 1])
         with col1:
             sequence = st.text_input(
-                "Peptide sequence (8–11 IUPAC amino acids)",
+                "Peptide sequence (8-11 IUPAC amino acids)",
                 value="GILGFVFTL",
                 max_chars=11,
                 placeholder="e.g. GILGFVFTL",
@@ -278,7 +278,7 @@ def main() -> None:
     sequence = sequence.strip().upper()
     if not re.fullmatch(r"[ACDEFGHIKLMNPQRSTVWY]{8,11}", sequence):
         st.error(
-            "Invalid sequence. Use 8–11 uppercase standard amino acid letters "
+            "Invalid sequence. Use 8-11 uppercase standard amino acid letters "
             "(no B, J, O, U, X, Z)."
         )
         return
@@ -329,7 +329,7 @@ def main() -> None:
         "Rank",
         rank,
         delta=None,
-        help="HIGH ≥ 0.70 | MEDIUM 0.40–0.69 | LOW < 0.40",
+        help="HIGH ≥ 0.70 | MEDIUM 0.40-0.69 | LOW < 0.40",
     )
     st.markdown(
         f"<p style='font-size:0.85rem; color:{rank_color}; font-weight:600;'>"
@@ -377,7 +377,7 @@ def main() -> None:
             **Usage limits**
             - Predictions are for research hypothesis generation only.
             - Do not use SESTRAV as a clinical decision engine.
-            - Peptides outside the 8–11-mer MHC-I binding length range are not supported.
+            - Peptides outside the 8-11-mer MHC-I binding length range are not supported.
 
             See `docs/validation_summary.md` for validation metrics.
             """

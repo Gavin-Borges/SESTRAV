@@ -5,11 +5,11 @@ Validates the 5 Canonical Promotion Gates before mutating config.yaml and
 model_artifact_checksums.json.
 
 Gate definitions (all must pass):
-  Gate 1 – Generalization:   GNN OOF AUC-PR >= 0.85 on full training dataset.
-  Gate 2 – Stability:        Cross-fold AUC-PR std <= 0.02 across 5 CV folds.
-  Gate 3 – Latency:          GNN CPU inference <= 2× RF CPU inference (per batch).
-  Gate 4 – Calibration:      Expected Calibration Error (ECE) < 0.05.
-  Gate 5 – Escape Sensitivity: GNN correctly differentiates >= 80% of IEDB
+  Gate 1 - Generalization:   GNN OOF AUC-PR >= 0.85 on full training dataset.
+  Gate 2 - Stability:        Cross-fold AUC-PR std <= 0.02 across 5 CV folds.
+  Gate 3 - Latency:          GNN CPU inference <= 2× RF CPU inference (per batch).
+  Gate 4 - Calibration:      Expected Calibration Error (ECE) < 0.05.
+  Gate 5 - Escape Sensitivity: GNN correctly differentiates >= 80% of IEDB
                                gold-standard epitopes from decoys.
 
 Security hardening:
@@ -247,7 +247,7 @@ def gate3_latency() -> GateResult:
     import json as _json
     node_dim = 320  # default (t6 ESM-2)
     num_features = len(TRAIN_FEATURE_COLUMNS)  # default: 21 physico-only
-    pooling = "mean"  # default readout (v2.1–v2.3); v2.4 may use attention
+    pooling = "mean"  # default readout (v2.1-v2.3); v2.4 may use attention
     if GNN_CONFIG.exists():
         with GNN_CONFIG.open() as _fh:
             _cfg = _json.load(_fh)

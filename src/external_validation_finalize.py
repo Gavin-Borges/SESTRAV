@@ -341,11 +341,11 @@ def assign_mcda_verdict(
         rationale = "Evidence insufficient for directional classification." + cap_note
 
     if contaminated and verdict == "Strongly Better":
-        verdict = "Comparable – Contaminated"
+        verdict = "Comparable - Contaminated"
         rationale += " Downgraded from Strongly Better due to training overlap cap."
 
     if contaminated and verdict == "Comparable":
-        verdict = "Comparable – Contaminated"
+        verdict = "Comparable - Contaminated"
 
     return {
         "tool": tool_name,

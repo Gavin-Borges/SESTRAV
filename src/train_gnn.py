@@ -289,7 +289,7 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         self.labels = torch.tensor(labels, dtype=torch.float32) if labels is not None else None
         self.esm2_cache = esm2_cache
         self.max_len = max_len
-        # Pre-build edge tensors for each supported peptide length (8–11) to
+        # Pre-build edge tensors for each supported peptide length (8-11) to
         # avoid repeated construction in the hot __getitem__ path.
         self._edge_cache: dict = {}
 
