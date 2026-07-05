@@ -47,7 +47,7 @@ st.set_page_config(
 # Model singleton (cached across user interactions)
 # ---------------------------------------------------------------------------
 
-@st.cache_resource(show_spinner="Loading SESTRAV model …")
+@st.cache_resource(show_spinner="Loading SESTRAV model...")
 def _load_model():
     from src.artifact_integrity import load_verified_joblib
     model_path = _ROOT / "models" / "rf_30feature_integrated.joblib"
@@ -59,7 +59,7 @@ def _load_model():
     return load_verified_joblib(model_path, required_checksum=True)
 
 
-@st.cache_resource(show_spinner="Loading SHAP explainer …")
+@st.cache_resource(show_spinner="Loading SHAP explainer...")
 def _load_explainer(model):
     import shap
     return shap.TreeExplainer(model)
@@ -290,7 +290,7 @@ def main() -> None:
         st.error(str(exc))
         return
 
-    with st.spinner("Computing …"):
+    with st.spinner("Computing..."):
         # Binding score (optional)
         bind_score = _get_binding_score(sequence, allele)
         if bind_score is None:

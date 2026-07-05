@@ -394,15 +394,15 @@ def check_promotion_gates() -> bool:
 
     # Log full scorecard
     logger.info("")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     all_passed = True
     for r in sorted(results, key=lambda x: x.name):
-        status = "PASS ✓" if r.passed else "FAIL ✗"
+        status = "PASS" if r.passed else "FAIL"
         logger.info(f"  {r.name}")
         logger.info(f"    Value: {r.value}   Threshold: {r.threshold}   [{status}]")
         if not r.passed:
             all_passed = False
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     if all_passed:
         logger.info("SCORECARD RESULT: ALL GATES PASSED - ready for promotion.")
     else:
@@ -422,7 +422,7 @@ def promote_model() -> None:
         logger.error("Model failed promotion gates. config.yaml will NOT be modified.")
         return
 
-    logger.info("Promoting Structural GNN to canonical pipeline …")
+    logger.info("Promoting Structural GNN to canonical pipeline...")
 
     # Secure SHA-256 (native Python; no shell=True, no subprocess)
     gnn_sha256 = _sha256_file(GNN_CHECKPOINT)

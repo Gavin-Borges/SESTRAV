@@ -12,7 +12,7 @@ Usage:
         --base-dataset data/immunogenicity_dataset_v4.csv \
         --iedb-negatives data/iedb_negatives_v5.csv \
         --output data/immunogenicity_dataset_v5.csv \
-        [--published-panels data/published_panels_v5.csv] \
+        [--published-panels data/published_panels_v5_combined.csv] \
         [--dry-run]
 """
 

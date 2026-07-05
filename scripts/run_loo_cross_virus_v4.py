@@ -70,7 +70,7 @@ def run_loo(
 
     # Precompute full feature matrix - build once, slice per fold
     full = pd.concat([viral, decoys], ignore_index=True)
-    print(f"[loo] Computing mode-31 features for {len(full)} rows …")
+    print(f"[loo] Computing mode-31 features for {len(full)} rows...")
     t0 = time.time()
     X_full = prepare_features_31(full, binding_matrix_path)
     y_full = full["label"].values
@@ -117,7 +117,7 @@ def run_loo(
 
         print(
             f"  [{test_virus}] train={len(y_train)} (viral={n_train_viral} + decoy={n_train_decoy}) "
-            f"| test={len(y_test)} (pos={n_test_pos}, neg={n_test_neg}) …",
+            f"| test={len(y_test)} (pos={n_test_pos}, neg={n_test_neg})...",
             end="",
             flush=True,
         )
