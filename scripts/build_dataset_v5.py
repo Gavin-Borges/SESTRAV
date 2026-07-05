@@ -31,7 +31,11 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _dataset_utils import normalize_hla_alleles, normalize_virus_names  # noqa: E402
+from _dataset_utils import (  # noqa: E402
+    normalize_hla_alleles,
+    normalize_virus_names,
+    _HLA_AMBIGUOUS,
+)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -249,7 +253,17 @@ def backfill_negative_origin(
 def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataFrame, list[str]]:
     """Mark is_quarantined for viruses below depth thresholds."""
     df = df.copy()
+    # Reset virus-level quarantine state (clears stale flags from source CSVs).
+    # Row-level allele quarantines (e.g. "HLA class I" set by normalize_hla_alleles)
+    # are re-applied immediately below so they are not lost by this reset.
     df["is_quarantined"] = False
+    ambiguous_allele_mask = df["hla_allele"].isin(_HLA_AMBIGUOUS)
+    if ambiguous_allele_mask.any():
+        df.loc[ambiguous_allele_mask, "is_quarantined"] = True
+        logger.info(
+            "Re-quarantined %d rows with ambiguous HLA alleles after state reset",
+            int(ambiguous_allele_mask.sum()),
+        )
 
     # Compute per-virus stats (only for viral rows - not Self/Tumor)
     viral_mask = df["source_type"].fillna("") == "Virus"

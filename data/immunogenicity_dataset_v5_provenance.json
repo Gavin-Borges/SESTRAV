@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-07-05T04:04:23.168339+00:00",
-  "git_sha": "6983761",
+  "timestamp": "2026-07-05T04:31:30.286865+00:00",
+  "git_sha": "206904c",
   "source_counts": {
     "v4_positives": 6687,
     "v4_hard_decoys": 5000,
     "v4_other_negatives": 3012,
     "iedb_negatives": 36689,
     "label_conflicts": 1331,
-    "published_panels": 8532,
+    "published_panels": 9206,
     "panel_iedb_conflicts": 475,
-    "merged_total": 50595,
-    "dedup_dropped": 6313
+    "merged_total": 51185,
+    "dedup_dropped": 6397
   },
   "quarantine_list": [
     "Adeno-associated virus",
@@ -89,10 +89,10 @@
   },
   "label_conflicts": 1331,
   "target_virus_pmid_counts": {
-    "EBV": 114,
-    "HPV": 64,
-    "HBV": 69,
-    "HCV": 78
+    "EBV": 110,
+    "HPV": 60,
+    "HBV": 65,
+    "HCV": 73
   },
   "virus_composition_table": [
     {
@@ -124,12 +124,12 @@
     },
     {
       "virus": "SARS-CoV-2",
-      "n": 4104,
+      "n": 4401,
       "n_pos": 2818,
-      "n_neg": 1286,
-      "n_real_neg": 1286,
-      "pos_rate": 0.6866,
-      "is_quarantined": false
+      "n_neg": 1583,
+      "n_real_neg": 1209,
+      "pos_rate": 0.6403,
+      "is_quarantined": true
     },
     {
       "virus": "HIV-1",
@@ -138,7 +138,7 @@
       "n_neg": 756,
       "n_real_neg": 63,
       "pos_rate": 0.7749,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "DENV",
@@ -147,16 +147,16 @@
       "n_neg": 1026,
       "n_real_neg": 26,
       "pos_rate": 0.4469,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "CMV",
-      "n": 1298,
+      "n": 1591,
       "n_pos": 765,
-      "n_neg": 533,
-      "n_real_neg": 533,
-      "pos_rate": 0.5894,
-      "is_quarantined": false
+      "n_neg": 826,
+      "n_real_neg": 526,
+      "pos_rate": 0.4808,
+      "is_quarantined": true
     },
     {
       "virus": "IAV",
@@ -165,7 +165,7 @@
       "n_neg": 575,
       "n_real_neg": 130,
       "pos_rate": 0.3777,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "EBV",
@@ -174,7 +174,7 @@
       "n_neg": 387,
       "n_real_neg": 87,
       "pos_rate": 0.4677,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "HCV",
@@ -183,7 +183,7 @@
       "n_neg": 332,
       "n_real_neg": 332,
       "pos_rate": 0.5402,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "HBV",
@@ -192,7 +192,7 @@
       "n_neg": 239,
       "n_real_neg": 239,
       "pos_rate": 0.6069,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "HPV",
@@ -201,7 +201,7 @@
       "n_neg": 174,
       "n_real_neg": 174,
       "pos_rate": 0.5397,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "Human betaherpesvirus 6B",
@@ -246,7 +246,7 @@
       "n_neg": 105,
       "n_real_neg": 105,
       "pos_rate": 0.1322,
-      "is_quarantined": false
+      "is_quarantined": true
     },
     {
       "virus": "unidentified",
@@ -862,5 +862,5 @@
     }
   ],
   "output_file": "data\\immunogenicity_dataset_v5.csv",
-  "output_checksum_sha256": "91798d94c38019eac4f0c15f9ec264b2e76da950e7ad14e6391a771a4a9db821"
+  "output_checksum_sha256": "1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7"
 }

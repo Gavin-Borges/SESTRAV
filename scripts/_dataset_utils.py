@@ -115,9 +115,16 @@ _HLA_ALIAS_MAP: dict[str, str] = {
 # Allele strings that are too ambiguous to map safely; rows carrying these
 # are quarantined (is_quarantined=True) so they don't pollute training.
 _HLA_AMBIGUOUS: frozenset[str] = frozenset([
+    # Fully unresolved class annotations
     "HLA class I",
     "HLA-class I",
     "Class I",
+    "HLA class II",
+    # Half-resolved supertypes NOT in _HLA_ALIAS_MAP - no single dominant subtype
+    # can be assumed. B*57:01 and B*57:03 have distinct clinical profiles (e.g.
+    # abacavir hypersensitivity). If a source reports only "HLA-B57", quarantine.
+    "HLA-B57",
+    "HLA-B*57",
 ])
 
 
