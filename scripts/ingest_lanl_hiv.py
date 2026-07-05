@@ -425,12 +425,12 @@ def build_output(
         assay_series = df[assay_col].fillna("").str.strip()
         out["assay_type"] = assay_series
         # LANL assay descriptions are free text; default to tier 2.
-        out["assay_quality_tier"] = 2
         out["assay_quality_weight"] = 0.7
+        out["assay_quality_tier"] = 2
     else:
         out["assay_type"] = None
-        out["assay_quality_tier"] = 2
         out["assay_quality_weight"] = 0.7
+        out["assay_quality_tier"] = 2
 
     out["reference_pmid"] = (
         df[pmid_col].fillna("").astype(str).str.strip().replace("", None)

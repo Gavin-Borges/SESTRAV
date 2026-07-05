@@ -1,14 +1,16 @@
 {
-  "timestamp": "2026-07-04T02:35:21.356788+00:00",
-  "git_sha": "b5ffe37",
+  "timestamp": "2026-07-05T00:39:59.910208+00:00",
+  "git_sha": "9b747d3",
   "source_counts": {
     "v4_positives": 6687,
     "v4_hard_decoys": 5000,
     "v4_other_negatives": 3012,
     "iedb_negatives": 36689,
     "label_conflicts": 1331,
-    "merged_total": 46386,
-    "dedup_dropped": 1990
+    "published_panels": 5028,
+    "panel_iedb_conflicts": 63,
+    "merged_total": 48786,
+    "dedup_dropped": 4618
   },
   "quarantine_list": [
     "Adeno-associated virus",
@@ -132,6 +134,15 @@
       "is_quarantined": false
     },
     {
+      "virus": "HIV-1",
+      "n": 2888,
+      "n_pos": 2820,
+      "n_neg": 68,
+      "n_real_neg": 68,
+      "pos_rate": 0.9765,
+      "is_quarantined": false
+    },
+    {
       "virus": "CMV",
       "n": 1377,
       "n_pos": 806,
@@ -174,15 +185,6 @@
       "n_neg": 118,
       "n_real_neg": 118,
       "pos_rate": 0.7677,
-      "is_quarantined": false
-    },
-    {
-      "virus": "HIV-1",
-      "n": 488,
-      "n_pos": 379,
-      "n_neg": 109,
-      "n_real_neg": 109,
-      "pos_rate": 0.7766,
       "is_quarantined": false
     },
     {
@@ -889,5 +891,5 @@
     }
   ],
   "output_file": "data\\immunogenicity_dataset_v5.csv",
-  "output_checksum_sha256": "8ba4d85cd48cae7d3fc7fb09e1bfa68e0b19683ffbee50439858866b439cfd32"
+  "output_checksum_sha256": "f9141ab0220317a4e321fa32997ce07b8ae9b788a54694608527483e4bc5bdcc"
 }

@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-07-05T00:39:20.064337+00:00",
+  "git_sha": "9b747d3",
+  "input_file": "data\\raw\\ctl_all.csv",
+  "input_sha256": "05aa34f9d915f1a91f87ad819b6c6e2efaf74ddc3f6303aab376a3776dcbda27",
+  "source": "LANL HIV Molecular Immunology Database (hiv.lanl.gov)",
+  "negatives_only": false,
+  "column_mapping": {
+    "epitope": "Epitope",
+    "hla": "Restricting MHC/HLA",
+    "result": null,
+    "pmid": "Reference",
+    "protein": "Author location (strain)",
+    "assay": "Experimental methods",
+    "subtype": "Subtype"
+  },
+  "filter_stats": {
+    "raw_input": 12743,
+    "after_label_filter": 12743,
+    "after_peptide_filter": 9799,
+    "after_hla_filter": 5051,
+    "intra_export_duplicates_removed": 23,
+    "after_dedup": 5028,
+    "final_rows": 5028
+  },
+  "output_file": "data\\lanl_hiv_v5.csv",
+  "positive_count": 5028,
+  "negative_count": 0,
+  "output_checksum_sha256": "90ab8eb6aa20d67ca1a046a95b98ac7c35169dd2a7b7f37717c6d97bca7f2009"
+}
