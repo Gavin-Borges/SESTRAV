@@ -161,11 +161,31 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     unique_epitopes = df.drop_duplicates(subset=['Epitope', 'MHC A']).copy()
     unique_epitopes = unique_epitopes[unique_epitopes['MHC A'].str.contains('HLA', na=False)].copy()
 
+    # Map VDJdb taxonomy species names to SESTRAV canonical virus labels.
+    # VDJdb uses its own naming conventions; these must align with IEDB-sourced
+    # labels in the main dataset so dedup and per-virus evaluation work correctly.
+    _VDJDB_VIRUS_MAP: dict[str, str] = {
+        'InfluenzaA': 'IAV',
+        'InfluenzaB': 'IBV',
+        'HPV16': 'HPV',
+        'HPV18': 'HPV',
+        'InfluenzaA(H1N1)': 'IAV',
+        'InfluenzaA(H3N2)': 'IAV',
+        'YellowFeverVirus': 'YFV',
+        'SARSCoV2': 'SARS-CoV-2',
+        'SARS-CoV': 'SARS-CoV',
+    }
+    raw_species = (
+        unique_epitopes.get('Epitope species', pd.Series(dtype='object'))
+        .fillna('Unknown')
+    )
+    mapped_virus = raw_species.map(lambda v: _VDJDB_VIRUS_MAP.get(str(v).strip(), str(v).strip()))
+
     # Build the v5 DataFrame
     df_v4 = pd.DataFrame({
         'peptide': unique_epitopes['Epitope'].values,
         'label': 1,  # VDJdb contains known positive binders
-        'virus': unique_epitopes.get('Epitope species', pd.Series(dtype='object')).fillna('Unknown').values,
+        'virus': mapped_virus.values,
         'protein': unique_epitopes.get('Epitope gene', pd.Series(dtype='object')).fillna('Unknown').values,
         'strain': 'Unknown',
         'hla_allele': unique_epitopes['MHC A'].values,

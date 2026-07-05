@@ -153,6 +153,62 @@ def normalize_hla_alleles(df, allele_col: str = "hla_allele"):
     return df, summary
 
 
+# ---------------------------------------------------------------------------
+# Virus name normalization
+# ---------------------------------------------------------------------------
+
+# Maps source-specific virus name strings to the canonical short labels used
+# throughout SESTRAV. IEDB uses full NCBI taxonomy names for negatives while
+# the IEDB T-cell loader uses short codes for positives; without this step
+# "Influenza A virus" (IEDB negatives) and "IAV" (IEDB positives) remain as
+# separate viruses, splitting their training rows and breaking dedup.
+# VDJdb uses its own taxonomy names (belt-and-suspenders over ingest_vdjdb.py).
+_VIRUS_NAME_MAP: dict[str, str] = {
+    # IEDB full taxonomy -> SESTRAV short label
+    "Influenza A virus": "IAV",
+    "Influenza B virus": "IBV",
+    "Influenza A Virus": "IAV",
+    "Human immunodeficiency virus 1": "HIV-1",
+    "Human immunodeficiency virus type 1": "HIV-1",
+    "Severe acute respiratory syndrome coronavirus 2": "SARS-CoV-2",
+    "Hepatitis C virus": "HCV",
+    "Hepatitis B virus": "HBV",
+    "Dengue virus": "DENV",
+    "Dengue virus 2": "DENV",
+    "Epstein-Barr virus": "EBV",
+    "Human cytomegalovirus": "CMV",
+    "Cytomegalovirus": "CMV",
+    "Human papillomavirus": "HPV",
+    "Human papillomavirus type 16": "HPV",
+    "Human papillomavirus type 18": "HPV",
+    "Respiratory syncytial virus": "RSV",
+    # VDJdb species names (also mapped in ingest_vdjdb.py)
+    "InfluenzaA": "IAV",
+    "InfluenzaB": "IBV",
+    "HPV16": "HPV",
+    "HPV18": "HPV",
+}
+
+
+def normalize_virus_names(df, virus_col: str = "virus"):
+    """Map source-specific virus name strings to SESTRAV canonical short labels.
+
+    Returns (updated_df, n_resolved). Applied before dedup so that the same
+    epitope arriving from different sources with different virus name conventions
+    collapses to a single canonical row.
+    """
+    df = df.copy()
+    original = df[virus_col].copy()
+    df[virus_col] = df[virus_col].map(
+        lambda v: _VIRUS_NAME_MAP.get(str(v).strip(), str(v).strip())
+    )
+    n_resolved = int((df[virus_col] != original).sum())
+    if n_resolved:
+        changed = original[df[virus_col] != original].value_counts()
+        print(f"  Normalized {n_resolved} virus name aliases: {changed.to_dict()}")
+    return df, n_resolved
+
+
 def validate_against_schema(df, schema_path):
     """Validate a dataframe's records against the v4 JSON schema before write."""
     import math

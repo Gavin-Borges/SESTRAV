@@ -1,8 +1,8 @@
 {
-  "threshold": 0.32061023580410364,
-  "overall_precision": 0.6671056344652432,
-  "overall_recall": 0.8203585887796414,
-  "overall_f1": 0.7358373106453623,
+  "threshold": 0.33757208111872034,
+  "overall_precision": 0.6819393700009875,
+  "overall_recall": 0.7985661424606846,
+  "overall_f1": 0.7356591211717709,
   "min_subgroup_f1": 0.0,
   "method": "RandomForest",
   "feature_mode": 31,

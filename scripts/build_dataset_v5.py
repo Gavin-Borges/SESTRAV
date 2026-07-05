@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _dataset_utils import normalize_hla_alleles  # noqa: E402
+from _dataset_utils import normalize_hla_alleles, normalize_virus_names  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -764,6 +764,13 @@ def main(argv: list[str] | None = None) -> int:
 
     merged = pd.concat(parts, ignore_index=True, sort=False)
     logger.info("Merged pre-dedup: %d rows", len(merged))
+
+    # Normalize virus names before dedup: IEDB negatives use full taxonomy names
+    # ("Influenza A virus") while IEDB positives use short codes ("IAV"). Without
+    # this step the same epitope from different sources never merges on virus label.
+    merged, n_virus_resolved = normalize_virus_names(merged)
+    if n_virus_resolved:
+        logger.info("Virus name normalization: %d rows remapped", n_virus_resolved)
 
     # Resolve low-resolution HLA aliases (e.g. HLA-A2 -> HLA-A*02:01) before
     # dedup so that alias rows correctly merge with canonical-format rows from
