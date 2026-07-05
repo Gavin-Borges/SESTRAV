@@ -1,33 +1,33 @@
 {
-  "generated_utc": "2026-05-21T19:17:57.471851+00:00",
+  "generated_utc": "2026-07-05T00:56:32.220798+00:00",
   "artifacts": {
     "rf_166feature_allele_aware.joblib": {
-      "sha256": "413e26afb18c8306199c8a5a0ecd6b345d100b4e0f48472c7687d647e63ecbe2",
-      "size_bytes": 2226761
+      "sha256": "fcb3ed74497f22a8b093009812ac19ee9acad62bb68041ec92295f85579e4b0f",
+      "size_bytes": 35916841
     },
     "xgb_166feature_allele_aware.joblib": {
-      "sha256": "643350b75e2c13351a67f8d9156eb03a6a5f9af29804de2d78753507dc86b8a5",
-      "size_bytes": 217856
+      "sha256": "d601e1767ec72d93300580e7e2c9725981fb9290f89301ab8ad66cfd02f2aa3b",
+      "size_bytes": 574037
     },
     "training_results.csv": {
-      "sha256": "603e02cc2a8afe873439d3f925e4e42309c998bb1c5e59186e2875d63acf62c8",
-      "size_bytes": 878
+      "sha256": "b3f0dc515b19e5a90ab490aba112a6629f74c85dc5f3b8cb88bb74fabb577650",
+      "size_bytes": 950
     },
     "training_subgroup_metrics.csv": {
-      "sha256": "0cbe2467eda7fcc2d345cbd12ed3849deda9d03ae1eb311d3dc311073ab005ce",
-      "size_bytes": 5259
+      "sha256": "a616b4b25410e80fda93934f0f8b39b8c62fbc78ca99e7b56ead0c245e4e2555",
+      "size_bytes": 483808
     },
     "feature_importances.csv": {
-      "sha256": "59031fc3c2d04ff11904929caf506448c8316406730a8c1e90ddcbc0246b09ea",
-      "size_bytes": 5333
+      "sha256": "685f8e4d65858bd89bf4a848177aeffe543122f69477ce4b50e6814ee15703f5",
+      "size_bytes": 5415
     },
     "rf_oof_predictions.csv": {
-      "sha256": "c17b09158cb6d41728a287203922accea570cd0af5af6c5f130103a02a546765",
-      "size_bytes": 14395
+      "sha256": "4e40665285d0f41d853a2b7708a2a4d3de91ad848bbc23e579b30a31c9079d5f",
+      "size_bytes": 314736
     },
     "optimal_thresholds.json": {
-      "sha256": "6a9d3612f9ae50448c0ad5e6ae65608fb31d551e92d98e248adcc01e20aaa178",
-      "size_bytes": 315
+      "sha256": "40c1ab4255d34396d94422bd5f2664737970415c83962d504f61d6e4e67283e4",
+      "size_bytes": 316
     }
   }
 }

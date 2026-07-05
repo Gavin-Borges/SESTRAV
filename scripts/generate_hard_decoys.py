@@ -134,6 +134,11 @@ def generate_decoys(
     seed: int = 42,
     lengths: tuple[int, ...] = (8, 9, 10, 11),
     max_candidates: int | None = None,
+    virus_name: str = "Self",
+    strain: str = "GRCh38",
+    source_type: str = "Self",
+    database_source: str = "UniProt_UP000005640",
+    negative_origin: str = "self_proteome_decoy",
 ) -> pd.DataFrame:
     random.seed(seed)
     np.random.seed(seed)
@@ -223,17 +228,20 @@ def generate_decoys(
         sampled = pd.concat([sampled, extra], ignore_index=True)
 
     # Format to v4 schema
+    protein_name = "HumanProteome" if virus_name == "Self" else f"ViralProteome_{strain}"
     df_out = pd.DataFrame({
         "peptide": sampled["peptide"],
         "label": 0,
-        "virus": "Self",
-        "protein": "HumanProteome",
-        "strain": "GRCh38",
+        "virus": virus_name,
+        "protein": protein_name,
+        "strain": strain,
         "hla_allele": sampled["allele"],
-        "source_type": "Self",
-        "database_source": "UniProt_UP000005640",
+        "source_type": source_type,
+        "database_source": database_source,
+        "negative_origin": negative_origin,
         "tcr_alpha_cdr3": None,
         "tcr_beta_cdr3": None,
+        "is_quarantined": False,
     })
     df_out = normalize_peptides(df_out)
     df_out = df_out.drop_duplicates(subset=["peptide", "hla_allele"]).reset_index(drop=True)
@@ -327,6 +335,30 @@ def main(argv: list[str] | None = None) -> int:
             "1_000_000 is sufficient for a 5k decoy target."
         ),
     )
+    # Viral proteome overrides (default: human self-proteome)
+    parser.add_argument(
+        "--virus-name", default="Self",
+        help="Virus name written to the virus column (default: Self).",
+    )
+    parser.add_argument(
+        "--strain", default="GRCh38",
+        help="Strain/reference written to the strain column (default: GRCh38).",
+    )
+    parser.add_argument(
+        "--source-type", default="Self",
+        help="Value for source_type column: Self | Virus (default: Self).",
+    )
+    parser.add_argument(
+        "--db-source", default="UniProt_UP000005640",
+        help="Value for database_source column (default: UniProt_UP000005640).",
+    )
+    parser.add_argument(
+        "--negative-origin", default="self_proteome_decoy",
+        help=(
+            "Value for negative_origin column: self_proteome_decoy | "
+            "allele_matched_nonbinder (default: self_proteome_decoy)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if not Path(args.fasta).exists():
@@ -347,6 +379,11 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
         lengths=tuple(args.lengths),
         max_candidates=args.max_candidates,
+        virus_name=args.virus_name,
+        strain=args.strain,
+        source_type=args.source_type,
+        database_source=args.db_source,
+        negative_origin=args.negative_origin,
     )
     return 0
 

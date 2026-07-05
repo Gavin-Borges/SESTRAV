@@ -99,6 +99,16 @@ CMV_AD169_PANEL4 = [
     ("P06473", "gB"),     # UL55 envelope glycoprotein B - CD8 target in primary infection
 ]
 
+# Dengue virus serotype 2 New Guinea C (DENV-2 NGC) reference strain.
+# NGC is the most-sequenced DENV-2 strain in the T-cell literature; polyprotein
+# P29991 encodes all structural (C/prM/E) and non-structural (NS1-NS5) proteins.
+# DENV-2 and DENV-3 share ~70% amino-acid identity; NS3/NS5 are most conserved
+# across serotypes. Per-serotype divergence (~30%) means predictions carry
+# additional uncertainty when applied to DENV-1/3/4 epitopes.
+DENV2_NGC_PANEL1 = [
+    ("P29991", "Polyprotein"),  # Full DENV-2 NGC polyprotein (C/prM/E/NS1/NS2A/NS2B/NS3/NS4A/NS4B/NS5)
+]
+
 PANELS = {
     "HBV_ayw_panel4":         HBV_AWY_PANEL4,
     "HCV_1a_panel4":          HCV_1A_PANEL4,
@@ -106,6 +116,7 @@ PANELS = {
     "SARSCOV2_wuhan1_panel4": SARSCOV2_WUHAN1_PANEL4,
     "IAV_PR8_panel4":         IAV_PR8_PANEL4,
     "CMV_AD169_panel4":       CMV_AD169_PANEL4,
+    "DENV2_NGC_panel1":       DENV2_NGC_PANEL1,
 }
 
 
