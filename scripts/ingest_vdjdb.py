@@ -161,7 +161,7 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     unique_epitopes = df.drop_duplicates(subset=['Epitope', 'MHC A']).copy()
     unique_epitopes = unique_epitopes[unique_epitopes['MHC A'].str.contains('HLA', na=False)].copy()
 
-    # Build the v4 DataFrame
+    # Build the v5 DataFrame
     df_v4 = pd.DataFrame({
         'peptide': unique_epitopes['Epitope'].values,
         'label': 1,  # VDJdb contains known positive binders
@@ -171,6 +171,7 @@ def ingest_vdjdb(input_path, output_path, schema_path):
         'hla_allele': unique_epitopes['MHC A'].values,
         'source_type': 'Virus',
         'database_source': 'VDJdb',
+        'is_quarantined': False,
     })
 
     # Attach CDR3 sequences
@@ -233,11 +234,11 @@ def ingest_vdjdb(input_path, output_path, schema_path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Ingest VDJdb TSV into SESTRAV v4 Schema")
+    parser = argparse.ArgumentParser(description="Ingest VDJdb TSV into SESTRAV v5 schema")
     parser.add_argument("--input", required=False, help="Path to VDJdb TSV file (will fetch if omitted)")
     parser.add_argument("--output", required=True, help="Output CSV path")
-    parser.add_argument("--schema", default="data/immunogenicity_dataset_v4_schema.json",
-                        help="v4 schema path")
+    parser.add_argument("--schema", default="data/immunogenicity_dataset_v5_schema.json",
+                        help="Schema path for validation (default: v5)")
     args = parser.parse_args()
 
     ingest_vdjdb(args.input, args.output, args.schema)

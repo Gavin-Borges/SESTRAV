@@ -1,0 +1,14 @@
+{
+  "output": "vdjdb_v5.csv",
+  "sources": [
+    "data/vdjdb-2026-06-03/vdjdb.txt"
+  ],
+  "row_count": 1066,
+  "generated_utc": "2026-07-05T02:23:54.233294+00:00",
+  "git_sha": "542b06bf81312c08bc954394e63801ebd354fc80",
+  "database": "VDJdb",
+  "fetched_latest_release": false,
+  "url": null,
+  "tcr_alpha_cdr3_populated": 1098,
+  "tcr_beta_cdr3_populated": 1283
+}

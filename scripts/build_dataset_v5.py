@@ -30,6 +30,9 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _dataset_utils import normalize_hla_alleles  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -761,6 +764,13 @@ def main(argv: list[str] | None = None) -> int:
 
     merged = pd.concat(parts, ignore_index=True, sort=False)
     logger.info("Merged pre-dedup: %d rows", len(merged))
+
+    # Resolve low-resolution HLA aliases (e.g. HLA-A2 -> HLA-A*02:01) before
+    # dedup so that alias rows correctly merge with canonical-format rows from
+    # other sources. Ambiguous entries ("HLA class I") are quarantined.
+    merged, hla_norm_summary = normalize_hla_alleles(merged)
+    if hla_norm_summary["aliases_resolved"]:
+        logger.info("HLA normalization: %s", hla_norm_summary)
 
     # Deduplicate on (peptide, hla_allele), keeping the highest-priority source.
     # audit_label_conflicts above writes a CSV for v4-positive / IEDB-negative

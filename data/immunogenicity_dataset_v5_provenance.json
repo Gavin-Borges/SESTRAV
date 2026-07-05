@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-07-05T01:36:26.789681+00:00",
-  "git_sha": "e8a4aad",
+  "timestamp": "2026-07-05T03:03:19.894094+00:00",
+  "git_sha": "542b06b",
   "source_counts": {
     "v4_positives": 6687,
     "v4_hard_decoys": 5000,
     "v4_other_negatives": 3012,
     "iedb_negatives": 36689,
     "label_conflicts": 1331,
-    "published_panels": 6721,
-    "panel_iedb_conflicts": 63,
-    "merged_total": 50471,
-    "dedup_dropped": 4626
+    "published_panels": 7787,
+    "panel_iedb_conflicts": 475,
+    "merged_total": 49867,
+    "dedup_dropped": 6296
   },
   "quarantine_list": [
     "Adeno-associated virus",
@@ -91,10 +91,10 @@
   },
   "label_conflicts": 1331,
   "target_virus_pmid_counts": {
-    "EBV": 125,
-    "HPV": 67,
-    "HBV": 73,
-    "HCV": 81
+    "EBV": 114,
+    "HPV": 64,
+    "HBV": 69,
+    "HCV": 78
   },
   "virus_composition_table": [
     {
@@ -126,83 +126,83 @@
     },
     {
       "virus": "SARS-CoV-2",
-      "n": 4154,
-      "n_pos": 2835,
-      "n_neg": 1319,
-      "n_real_neg": 1319,
-      "pos_rate": 0.6825,
+      "n": 4104,
+      "n_pos": 2818,
+      "n_neg": 1286,
+      "n_real_neg": 1286,
+      "pos_rate": 0.6866,
       "is_quarantined": false
     },
     {
       "virus": "HIV-1",
-      "n": 3581,
-      "n_pos": 2820,
-      "n_neg": 761,
-      "n_real_neg": 68,
-      "pos_rate": 0.7875,
+      "n": 3358,
+      "n_pos": 2602,
+      "n_neg": 756,
+      "n_real_neg": 63,
+      "pos_rate": 0.7749,
       "is_quarantined": false
     },
     {
       "virus": "DENV",
-      "n": 1869,
-      "n_pos": 841,
-      "n_neg": 1028,
-      "n_real_neg": 28,
-      "pos_rate": 0.45,
+      "n": 1855,
+      "n_pos": 829,
+      "n_neg": 1026,
+      "n_real_neg": 26,
+      "pos_rate": 0.4469,
       "is_quarantined": false
     },
     {
       "virus": "CMV",
-      "n": 1377,
-      "n_pos": 806,
-      "n_neg": 571,
-      "n_real_neg": 571,
-      "pos_rate": 0.5853,
+      "n": 1298,
+      "n_pos": 765,
+      "n_neg": 533,
+      "n_real_neg": 533,
+      "pos_rate": 0.5894,
       "is_quarantined": false
     },
     {
       "virus": "HCV",
-      "n": 792,
-      "n_pos": 414,
-      "n_neg": 378,
-      "n_real_neg": 378,
-      "pos_rate": 0.5227,
+      "n": 722,
+      "n_pos": 390,
+      "n_neg": 332,
+      "n_real_neg": 332,
+      "pos_rate": 0.5402,
       "is_quarantined": false
     },
     {
       "virus": "HBV",
-      "n": 650,
-      "n_pos": 393,
-      "n_neg": 257,
-      "n_real_neg": 257,
-      "pos_rate": 0.6046,
+      "n": 608,
+      "n_pos": 369,
+      "n_neg": 239,
+      "n_real_neg": 239,
+      "pos_rate": 0.6069,
       "is_quarantined": false
     },
     {
       "virus": "EBV",
-      "n": 508,
-      "n_pos": 390,
-      "n_neg": 118,
-      "n_real_neg": 118,
-      "pos_rate": 0.7677,
+      "n": 435,
+      "n_pos": 340,
+      "n_neg": 95,
+      "n_real_neg": 95,
+      "pos_rate": 0.7816,
       "is_quarantined": false
     },
     {
       "virus": "IAV",
-      "n": 411,
-      "n_pos": 366,
-      "n_neg": 45,
-      "n_real_neg": 45,
-      "pos_rate": 0.8905,
+      "n": 384,
+      "n_pos": 346,
+      "n_neg": 38,
+      "n_real_neg": 38,
+      "pos_rate": 0.901,
       "is_quarantined": false
     },
     {
       "virus": "HPV",
-      "n": 388,
-      "n_pos": 212,
-      "n_neg": 176,
-      "n_real_neg": 176,
-      "pos_rate": 0.5464,
+      "n": 378,
+      "n_pos": 204,
+      "n_neg": 174,
+      "n_real_neg": 174,
+      "pos_rate": 0.5397,
       "is_quarantined": false
     },
     {
@@ -243,19 +243,19 @@
     },
     {
       "virus": "RSV",
-      "n": 123,
-      "n_pos": 18,
+      "n": 121,
+      "n_pos": 16,
       "n_neg": 105,
       "n_real_neg": 105,
-      "pos_rate": 0.1463,
+      "pos_rate": 0.1322,
       "is_quarantined": false
     },
     {
       "virus": "Influenza A virus",
-      "n": 112,
+      "n": 101,
       "n_pos": 0,
-      "n_neg": 112,
-      "n_real_neg": 112,
+      "n_neg": 101,
+      "n_real_neg": 101,
       "pos_rate": 0.0,
       "is_quarantined": false
     },
@@ -440,15 +440,6 @@
       "is_quarantined": true
     },
     {
-      "virus": "SARS-CoV1",
-      "n": 15,
-      "n_pos": 0,
-      "n_neg": 15,
-      "n_real_neg": 15,
-      "pos_rate": 0.0,
-      "is_quarantined": true
-    },
-    {
       "virus": "Triticum aestivum",
       "n": 14,
       "n_pos": 0,
@@ -459,6 +450,15 @@
     },
     {
       "virus": "Leishmania donovani",
+      "n": 12,
+      "n_pos": 0,
+      "n_neg": 12,
+      "n_real_neg": 12,
+      "pos_rate": 0.0,
+      "is_quarantined": true
+    },
+    {
+      "virus": "SARS-CoV1",
       "n": 12,
       "n_pos": 0,
       "n_neg": 12,
@@ -891,5 +891,5 @@
     }
   ],
   "output_file": "data\\immunogenicity_dataset_v5.csv",
-  "output_checksum_sha256": "916acd4eab8e93836829de82d0dc8a215835056cadb441b90e87ea976cc91afc"
+  "output_checksum_sha256": "1500ba9bbcd6bb00bbdf8d1b8b84d3195dfa79bae625eacecf875638e930193b"
 }

@@ -60,6 +60,99 @@ def normalize_peptides(df, peptide_col="peptide",
     return df[mask].reset_index(drop=True)
 
 
+# ---------------------------------------------------------------------------
+# HLA allele normalization
+# ---------------------------------------------------------------------------
+
+# Maps low-resolution or alias allele strings to the canonical HLA format
+# (HLA-X*XX:XX) used throughout SESTRAV. Only aliases that unambiguously
+# resolve to one specific allele are included; ambiguous supertypes like
+# "HLA-B*57" (covers B*57:01 and B*57:03) are intentionally omitted.
+# Derived from published HLA frequency databases and IEDB allele annotations.
+_HLA_ALIAS_MAP: dict[str, str] = {
+    # A*01:01 aliases
+    "HLA-A1":    "HLA-A*01:01",
+    "HLA-A*01":  "HLA-A*01:01",
+    "HLA-A0101": "HLA-A*01:01",
+    # A*02:01 aliases (dominant A2 subtype in Western cohorts)
+    "HLA-A2":    "HLA-A*02:01",
+    "HLA-A*02":  "HLA-A*02:01",
+    "HLA-A0201": "HLA-A*02:01",
+    # A*03:01 aliases
+    "HLA-A3":    "HLA-A*03:01",
+    "HLA-A*03":  "HLA-A*03:01",
+    "HLA-A0301": "HLA-A*03:01",
+    # A*11:01 aliases
+    "HLA-A11":   "HLA-A*11:01",
+    "HLA-A*11":  "HLA-A*11:01",
+    "HLA-A1101": "HLA-A*11:01",
+    # A*24:02 aliases
+    "HLA-A24":   "HLA-A*24:02",
+    "HLA-A*24":  "HLA-A*24:02",
+    "HLA-A2402": "HLA-A*24:02",
+    # B*07:02 aliases
+    "HLA-B7":    "HLA-B*07:02",
+    "HLA-B*07":  "HLA-B*07:02",
+    "HLA-B0702": "HLA-B*07:02",
+    # B*08:01 aliases
+    "HLA-B8":    "HLA-B*08:01",
+    "HLA-B*08":  "HLA-B*08:01",
+    "HLA-B0801": "HLA-B*08:01",
+    # B*27:05 aliases
+    "HLA-B27":   "HLA-B*27:05",
+    "HLA-B*27":  "HLA-B*27:05",
+    "HLA-B2705": "HLA-B*27:05",
+    # B*35:01 aliases
+    "HLA-B35":   "HLA-B*35:01",
+    "HLA-B*35":  "HLA-B*35:01",
+    "HLA-B3501": "HLA-B*35:01",
+    # B*44:02 aliases
+    "HLA-B44":   "HLA-B*44:02",
+    "HLA-B*44":  "HLA-B*44:02",
+    "HLA-B4402": "HLA-B*44:02",
+}
+
+# Allele strings that are too ambiguous to map safely; rows carrying these
+# are quarantined (is_quarantined=True) so they don't pollute training.
+_HLA_AMBIGUOUS: frozenset[str] = frozenset([
+    "HLA class I",
+    "HLA-class I",
+    "Class I",
+])
+
+
+def normalize_hla_alleles(df, allele_col: str = "hla_allele"):
+    """Resolve low-resolution HLA alias strings to canonical HLA-X*XX:XX format.
+
+    Returns (updated_df, summary_dict). Rows with fully ambiguous alleles
+    (e.g. 'HLA class I') have is_quarantined set to True so they are excluded
+    from training but preserved for audit.
+    """
+    df = df.copy()
+    original = df[allele_col].copy()
+
+    df[allele_col] = df[allele_col].map(
+        lambda a: _HLA_ALIAS_MAP.get(str(a).strip(), str(a).strip())
+    )
+
+    n_resolved = int((df[allele_col] != original).sum())
+
+    ambiguous_mask = original.isin(_HLA_AMBIGUOUS)
+    n_ambiguous = int(ambiguous_mask.sum())
+    if n_ambiguous > 0 and "is_quarantined" in df.columns:
+        df.loc[ambiguous_mask, "is_quarantined"] = True
+
+    summary = {
+        "aliases_resolved": n_resolved,
+        "ambiguous_quarantined": n_ambiguous,
+    }
+    if n_resolved:
+        print(f"  Resolved {n_resolved} low-resolution HLA aliases to canonical format.")
+    if n_ambiguous:
+        print(f"  Quarantined {n_ambiguous} rows with ambiguous alleles ('HLA class I' etc.).")
+    return df, summary
+
+
 def validate_against_schema(df, schema_path):
     """Validate a dataframe's records against the v4 JSON schema before write."""
     import math
