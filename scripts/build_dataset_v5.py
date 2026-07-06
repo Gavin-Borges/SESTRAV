@@ -257,13 +257,14 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
     # Row-level allele quarantines (e.g. "HLA class I" set by normalize_hla_alleles)
     # are re-applied immediately below so they are not lost by this reset.
     df["is_quarantined"] = False
-    ambiguous_allele_mask = df["hla_allele"].isin(_HLA_AMBIGUOUS)
-    if ambiguous_allele_mask.any():
-        df.loc[ambiguous_allele_mask, "is_quarantined"] = True
-        logger.info(
-            "Re-quarantined %d rows with ambiguous HLA alleles after state reset",
-            int(ambiguous_allele_mask.sum()),
-        )
+    if "hla_allele" in df.columns:
+        ambiguous_allele_mask = df["hla_allele"].isin(_HLA_AMBIGUOUS)
+        if ambiguous_allele_mask.any():
+            df.loc[ambiguous_allele_mask, "is_quarantined"] = True
+            logger.info(
+                "Re-quarantined %d rows with ambiguous HLA alleles after state reset",
+                int(ambiguous_allele_mask.sum()),
+            )
 
     # Compute per-virus stats (only for viral rows - not Self/Tumor)
     viral_mask = df["source_type"].fillna("") == "Virus"
