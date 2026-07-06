@@ -76,7 +76,7 @@ def run_loo(
     y_full = full["label"].values
     virus_full = full["virus"].fillna("Self").values
     source_type_full = full["source_type"].values
-    print(f"[loo] Features ready in {time.time()-t0:.1f}s  shape={X_full.shape}")
+    print(f"[loo] Features ready in {time.time() - t0:.1f}s  shape={X_full.shape}")
 
     # Index gold-standard peptides for exclusion from training
     gs_mask = full["peptide"].isin(GOLD_STANDARD_EPITOPES).values
@@ -94,8 +94,8 @@ def run_loo(
 
     rows = []
     for test_virus in sorted(eligible):
-        is_test = (virus_full == test_virus)
-        is_decoy = (source_type_full == "Self")
+        is_test = virus_full == test_virus
+        is_decoy = source_type_full == "Self"
         is_train_viral = (source_type_full == "Virus") & (~is_test) & (~gs_mask)
         is_train = is_train_viral | is_decoy
 
@@ -173,8 +173,9 @@ def run_loo(
     print(f"[loo] Wrote {output_json}")
     print("\nSummary table (sorted by AUC-PR):")
     print(
-        result_df[["test_virus", "auc_pr", "auc_roc", "issr_10", "n_test_total", "pos_rate_test"]]
-        .to_string(index=False)
+        result_df[
+            ["test_virus", "auc_pr", "auc_roc", "issr_10", "n_test_total", "pos_rate_test"]
+        ].to_string(index=False)
     )
     return result_df
 

@@ -43,7 +43,12 @@ def _load_iedb_dir(iedb_dir: str) -> tuple[list[pd.DataFrame], list[str]]:
 
 
 def build_dataset_v4(
-    v3_path, vdjdb_path, tsnadb_path, decoys_path, schema_path, output_path,
+    v3_path,
+    vdjdb_path,
+    tsnadb_path,
+    decoys_path,
+    schema_path,
+    output_path,
     iedb_dir=None,
 ):
     print("Building Dataset v4...")
@@ -75,7 +80,11 @@ def build_dataset_v4(
         else:
             print(f"Warning: No IEDB data found (iedb_dir={iedb_dir!r}, v3={v3_path!r})")
 
-    for name, path in [("VDJdb", vdjdb_path), ("TSNAdb", tsnadb_path), ("Hard Decoys", decoys_path)]:
+    for name, path in [
+        ("VDJdb", vdjdb_path),
+        ("TSNAdb", tsnadb_path),
+        ("Hard Decoys", decoys_path),
+    ]:
         if path and os.path.exists(path):
             print(f"Loading {name} data from {path}")
             df_src = pd.read_csv(path)
@@ -134,11 +143,18 @@ def build_dataset_v4(
 
         agg = (
             df_tmp.groupby(grp_cols, sort=False)
-            .apply(lambda g: pd.Series({
-                "voted_label": int((g["_q"] * g["label"]).sum() >= (g["_q"] * (1 - g["label"])).sum()),
-                "best_idx":    g["_q"].idxmax(),
-                "n_labels":    g["label"].nunique(),
-            }), include_groups=False)
+            .apply(
+                lambda g: pd.Series(
+                    {
+                        "voted_label": int(
+                            (g["_q"] * g["label"]).sum() >= (g["_q"] * (1 - g["label"])).sum()
+                        ),
+                        "best_idx": g["_q"].idxmax(),
+                        "n_labels": g["label"].nunique(),
+                    }
+                ),
+                include_groups=False,
+            )
             .reset_index()
         )
 
@@ -151,14 +167,18 @@ def build_dataset_v4(
         df_merged = df_merged.drop_duplicates(subset=["peptide", "hla_allele"])
 
     n_dropped = initial_len - len(df_merged)
-    print(f"Dedup: {initial_len:,} -> {len(df_merged):,} rows (dropped {n_dropped:,}, "
-          f"{n_dropped / initial_len * 100:.1f}%).")
+    print(
+        f"Dedup: {initial_len:,} -> {len(df_merged):,} rows (dropped {n_dropped:,}, "
+        f"{n_dropped / initial_len * 100:.1f}%)."
+    )
     df_merged["label"] = df_merged["label"].astype(int)
     df_merged = df_merged.sort_values(["peptide", "hla_allele"]).reset_index(drop=True)
 
     pos = int((df_merged["label"] == 1).sum())
     neg = int((df_merged["label"] == 0).sum())
-    print(f"Final: {len(df_merged)} rows | {pos} pos ({pos/len(df_merged)*100:.1f}%) | {neg} neg")
+    print(
+        f"Final: {len(df_merged)} rows | {pos} pos ({pos / len(df_merged) * 100:.1f}%) | {neg} neg"
+    )
 
     validate_against_schema(df_merged, schema_path)
     df_merged.to_csv(output_path, index=False)
@@ -174,7 +194,9 @@ def build_dataset_v4(
             "positive_fraction": round(pos / len(df_merged), 4),
             "n_sources": len(used_sources),
             "label_conflicts_resolved": n_conflicts,
-            "dedup_strategy": "quality_weighted_majority_vote" if n_conflicts else "drop_duplicates_first",
+            "dedup_strategy": "quality_weighted_majority_vote"
+            if n_conflicts
+            else "drop_duplicates_first",
         },
     )
 
@@ -186,21 +208,32 @@ if __name__ == "__main__":
         epilog=__doc__,
     )
     parser.add_argument(
-        "--iedb-dir", default="data/iedb",
+        "--iedb-dir",
+        default="data/iedb",
         help="Directory of per-virus IEDB CSVs (*_tcell.csv). Default: data/iedb/",
     )
-    parser.add_argument("--v3", default="data/immunogenicity_dataset_v3.csv",
-                        help="Legacy v3 fallback (used only if --iedb-dir is empty/absent)")
+    parser.add_argument(
+        "--v3",
+        default="data/immunogenicity_dataset_v3.csv",
+        help="Legacy v3 fallback (used only if --iedb-dir is empty/absent)",
+    )
     parser.add_argument("--vdjdb", default="data/vdjdb_v4.csv", help="Processed VDJdb path")
     parser.add_argument("--tsnadb", default="data/tsnadb_v4.csv", help="Processed TSNAdb path")
     parser.add_argument("--decoys", default="data/hard_decoys.csv", help="Hard decoys path")
-    parser.add_argument("--schema", default="data/immunogenicity_dataset_v4_schema.json",
-                        help="Schema path")
-    parser.add_argument("--output", default="data/immunogenicity_dataset_v4.csv",
-                        help="Output path")
+    parser.add_argument(
+        "--schema", default="data/immunogenicity_dataset_v4_schema.json", help="Schema path"
+    )
+    parser.add_argument(
+        "--output", default="data/immunogenicity_dataset_v4.csv", help="Output path"
+    )
     args = parser.parse_args()
 
     build_dataset_v4(
-        args.v3, args.vdjdb, args.tsnadb, args.decoys, args.schema, args.output,
+        args.v3,
+        args.vdjdb,
+        args.tsnadb,
+        args.decoys,
+        args.schema,
+        args.output,
         iedb_dir=args.iedb_dir,
     )

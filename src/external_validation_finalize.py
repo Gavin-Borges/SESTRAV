@@ -181,15 +181,15 @@ def flag_overlap_columns(
 
     merged = merged.copy()
     if predig_flagged:
-        merged["in_predig_training"] = merged["peptide"].astype(str).str.upper().isin(
-            {p.upper() for p in predig_flagged}
+        merged["in_predig_training"] = (
+            merged["peptide"].astype(str).str.upper().isin({p.upper() for p in predig_flagged})
         )
     else:
         merged["in_predig_training"] = np.nan
 
     if prime_flagged:
-        merged["in_prime_training"] = merged["peptide"].astype(str).str.upper().isin(
-            {p.upper() for p in prime_flagged}
+        merged["in_prime_training"] = (
+            merged["peptide"].astype(str).str.upper().isin({p.upper() for p in prime_flagged})
         )
     else:
         merged["in_prime_training"] = np.nan
@@ -271,22 +271,12 @@ def assign_mcda_verdict(
     issr_delta = issr_rf - issr_tool
 
     tool_fdr = fdr_df.loc[fdr_df["tool"] == tool_name]
-    auc_fdr_sig = bool(
-        tool_fdr.loc[tool_fdr["metric"] == "auc_pr", "fdr_significant"].any()
-    )
-    issr_fdr_sig = bool(
-        tool_fdr.loc[tool_fdr["metric"] == "issr_10", "fdr_significant"].any()
-    )
+    auc_fdr_sig = bool(tool_fdr.loc[tool_fdr["metric"] == "auc_pr", "fdr_significant"].any())
+    issr_fdr_sig = bool(tool_fdr.loc[tool_fdr["metric"] == "issr_10", "fdr_significant"].any())
 
-    boot = bootstrap_df.loc[
-        bootstrap_df["comparison"] == f"{REFERENCE_NAME} vs {tool_name}"
-    ]
-    auc_ci_sig = (
-        boot["auc_pr_significant"].values[0] == "yes" if not boot.empty else False
-    )
-    issr_ci_sig = (
-        boot["issr10_significant"].values[0] == "yes" if not boot.empty else False
-    )
+    boot = bootstrap_df.loc[bootstrap_df["comparison"] == f"{REFERENCE_NAME} vs {tool_name}"]
+    auc_ci_sig = boot["auc_pr_significant"].values[0] == "yes" if not boot.empty else False
+    issr_ci_sig = boot["issr10_significant"].values[0] == "yes" if not boot.empty else False
 
     contaminated = overlap_pct is not None and overlap_pct > CONTAMINATION_CAP_PCT
     cap_note = ""
@@ -302,27 +292,22 @@ def assign_mcda_verdict(
         verdict = "Worse"
         rationale = (
             f"SESTRAV RF leads on both primary metrics (ΔAUC-PR={auc_delta:+.3f}, "
-            f"ΔISSR@10={issr_delta:+.3f}). Bootstrap/FDR support RF advantage on AUC-PR."
-            + cap_note
+            f"ΔISSR@10={issr_delta:+.3f}). Bootstrap/FDR support RF advantage on AUC-PR." + cap_note
         )
     elif tool_wins_auc and tool_wins_issr and auc_fdr_sig and issr_fdr_sig and not contaminated:
         verdict = "Strongly Better"
-        rationale = (
-            f"{tool_name} leads on both primary metrics with FDR-significant differences."
-        )
+        rationale = f"{tool_name} leads on both primary metrics with FDR-significant differences."
     elif tool_wins_auc and tool_wins_issr and not contaminated:
         verdict = "Comparable"
         rationale = (
             f"{tool_name} leads on point estimates but uncertainty is wide or FDR "
-            f"non-significant; classify as Comparable pending stronger evidence."
-            + cap_note
+            f"non-significant; classify as Comparable pending stronger evidence." + cap_note
         )
     elif (rf_wins_auc and tool_wins_issr) or (tool_wins_auc and rf_wins_issr):
         verdict = "Comparable"
         rationale = (
             f"Mixed primary metrics (ΔAUC-PR={auc_delta:+.3f}, ΔISSR@10={issr_delta:+.3f}); "
-            f"tie-break yields Comparable."
-            + cap_note
+            f"tie-break yields Comparable." + cap_note
         )
     elif not auc_ci_sig and not issr_ci_sig:
         verdict = "Inconclusive"
@@ -496,9 +481,15 @@ def append_finalize_report(
     sections.append("### Fairness Checklist Sign-Off")
     sections.append("")
     checks = [
-        ("720 peptide scores (PredIG + PRIME)", coverage["tools"].get("PredIG-Path", {}).get("scored", 0) >= 720),
+        (
+            "720 peptide scores (PredIG + PRIME)",
+            coverage["tools"].get("PredIG-Path", {}).get("scored", 0) >= 720,
+        ),
         ("10-metric intersection table", coverage.get("intersection_n", 0) >= 700),
-        ("Exact+substring overlap quantified", overlap_meta["predig"].get("status") != "missing_train_list"),
+        (
+            "Exact+substring overlap quantified",
+            overlap_meta["predig"].get("status") != "missing_train_list",
+        ),
         ("FDR correction on 4 primary tests", not fdr_df.empty),
         ("MCDA verdicts assigned", len(mcda) >= 2),
         ("Provenance bundle under run dir", True),
@@ -572,9 +563,7 @@ def run_finalize(
     if not fdr_df.empty:
         fdr_df.to_csv(os.path.join(processed, "fdr_primary_tests.csv"), index=False)
 
-    bootstrap_df = run_bootstrap_comparisons(
-        merged.loc[inter], tool_cols, n_bootstrap=n_bootstrap
-    )
+    bootstrap_df = run_bootstrap_comparisons(merged.loc[inter], tool_cols, n_bootstrap=n_bootstrap)
 
     mcda = []
     for tool in ["PredIG-Path", "PRIME 2.1"]:
@@ -583,11 +572,7 @@ def run_finalize(
         )
         if pct == "unknown":
             pct = None
-        mcda.append(
-            assign_mcda_verdict(
-                tool, intersection_metrics, fdr_df, bootstrap_df, pct
-            )
-        )
+        mcda.append(assign_mcda_verdict(tool, intersection_metrics, fdr_df, bootstrap_df, pct))
     with open(os.path.join(processed, "mcda_verdicts.json"), "w", encoding="utf-8") as f:
         json.dump(mcda, f, indent=2)
 
@@ -621,9 +606,7 @@ def run_finalize(
         json.dump(artifact_manifest, f, indent=2)
 
     report_path = os.path.join(results_dir, "external_benchmark_comparison.md")
-    append_finalize_report(
-        report_path, overlap_meta, subset_dfs, fdr_df, mcda, coverage, run_dir
-    )
+    append_finalize_report(report_path, overlap_meta, subset_dfs, fdr_df, mcda, coverage, run_dir)
 
     if run_cross_virus and not os.path.isfile(
         os.path.join(results_dir, "external_validation_cross_virus.csv")

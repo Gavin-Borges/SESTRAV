@@ -9,6 +9,7 @@ Covers the uncovered paths not reached by test_sestrav_evaluator.py:
   - _load_torch_checkpoint success and fallback paths
   - main() CLI entry point
 """
+
 import json
 from unittest.mock import patch
 
@@ -31,6 +32,7 @@ from src.verify.sestrav_evaluator import (
 # calculate_average_precision - n_pos=0 early return (line 76)
 # ---------------------------------------------------------------------------
 
+
 def test_calculate_average_precision_all_negative():
     y_true = np.array([0, 0, 0, 0])
     y_scores = np.array([0.9, 0.8, 0.2, 0.1])
@@ -49,12 +51,15 @@ def test_calculate_roc_auc_all_same_class():
 # run_mock_predictions - mutation type variants (lines 138-143)
 # ---------------------------------------------------------------------------
 
+
 class TestRunMockPredictions:
     def _df(self, n=4):
-        return pd.DataFrame({
-            "peptide": ["GILGFVFTL", "FMYSDFHFI", "KLVALGINA", "ACDEFGHIK"][:n],
-            "label":   [1, 1, 0, 0][:n],
-        })
+        return pd.DataFrame(
+            {
+                "peptide": ["GILGFVFTL", "FMYSDFHFI", "KLVALGINA", "ACDEFGHIK"][:n],
+                "label": [1, 1, 0, 0][:n],
+            }
+        )
 
     def test_no_mutation_scores_in_range(self):
         scores = run_mock_predictions(self._df())
@@ -85,10 +90,12 @@ class TestRunMockPredictions:
 # evaluate_single_virus - empty DataFrame (lines 174-175)
 # ---------------------------------------------------------------------------
 
+
 def test_evaluate_single_virus_empty_df():
     df = pd.DataFrame(columns=["peptide", "label", "allele", "protein"])
-    result = evaluate_single_virus("TestVirus", df, model=None,
-                                   device=torch.device("cpu"), use_mock=True)
+    result = evaluate_single_virus(
+        "TestVirus", df, model=None, device=torch.device("cpu"), use_mock=True
+    )
     assert result == {}
 
 
@@ -96,15 +103,19 @@ def test_evaluate_single_virus_empty_df():
 # evaluate_single_virus - all-negative cohort (no positives for mutant CV)
 # ---------------------------------------------------------------------------
 
+
 def test_evaluate_single_virus_no_positives():
-    df = pd.DataFrame({
-        "peptide": ["KLVALGINA", "CINGVCWTV", "ACDEFGHIK"],
-        "label":   [0, 0, 0],
-        "allele":  ["HLA-A*02:01"] * 3,
-        "protein": ["Decoy"] * 3,
-    })
-    result = evaluate_single_virus("TestVirus", df, model=None,
-                                   device=torch.device("cpu"), use_mock=True)
+    df = pd.DataFrame(
+        {
+            "peptide": ["KLVALGINA", "CINGVCWTV", "ACDEFGHIK"],
+            "label": [0, 0, 0],
+            "allele": ["HLA-A*02:01"] * 3,
+            "protein": ["Decoy"] * 3,
+        }
+    )
+    result = evaluate_single_virus(
+        "TestVirus", df, model=None, device=torch.device("cpu"), use_mock=True
+    )
     assert "roc_auc" in result
     esc = result["escape_mutant_cross_validation"]
     assert esc["positive_count"] == 0
@@ -115,6 +126,7 @@ def test_evaluate_single_virus_no_positives():
 # run_evaluation_pipeline - val_csv absent → auto-mock extraction
 # (lines 333-335)
 # ---------------------------------------------------------------------------
+
 
 def test_run_evaluation_pipeline_auto_mock_when_csv_missing(tmp_path):
     targets = {
@@ -145,12 +157,12 @@ def test_run_evaluation_pipeline_auto_mock_when_csv_missing(tmp_path):
 # run_evaluation_pipeline - empty viruses block (graceful)
 # ---------------------------------------------------------------------------
 
+
 def test_run_evaluation_pipeline_empty_viruses(tmp_path):
     targets = {"viruses": {}}
     targets_json = tmp_path / "targets.json"
     targets_json.write_text(json.dumps(targets))
-    report = run_evaluation_pipeline(targets_json, results_dir=tmp_path / "results",
-                                     use_mock=True)
+    report = run_evaluation_pipeline(targets_json, results_dir=tmp_path / "results", use_mock=True)
     assert report["global_summary"]["total_cohorts"] == 0
     assert report["global_summary"]["mean_roc_auc"] == 0.0
 
@@ -158,6 +170,7 @@ def test_run_evaluation_pipeline_empty_viruses(tmp_path):
 # ---------------------------------------------------------------------------
 # _load_torch_checkpoint - success path (lines 268-281)
 # ---------------------------------------------------------------------------
+
 
 def test_load_torch_checkpoint_success(tmp_path):
     chk = tmp_path / "model.pth"
@@ -192,6 +205,7 @@ def test_load_torch_checkpoint_raises_on_complete_failure(tmp_path):
 # main() CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def test_main_runs_with_mock_flag(tmp_path):
     from src.verify.sestrav_evaluator import main
 
@@ -216,8 +230,7 @@ def test_main_exits_on_missing_targets(tmp_path):
     from src.verify.sestrav_evaluator import main
 
     with (
-        patch("sys.argv", ["sestrav_evaluator.py",
-                            str(tmp_path / "nonexistent.json")]),
+        patch("sys.argv", ["sestrav_evaluator.py", str(tmp_path / "nonexistent.json")]),
         pytest.raises(SystemExit),
     ):
         main()

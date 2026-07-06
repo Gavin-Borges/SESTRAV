@@ -37,10 +37,16 @@ from src.features import KD_HYDRO, VDW_VOL, AROMATIC, CHARGE
 # ---------------------------------------------------------------------------
 
 TARGET_ALLELES = {
-    "HLA-A*01:01", "HLA-A*02:01", "HLA-A*03:01",
-    "HLA-A*11:01", "HLA-A*24:02",
-    "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05",
-    "HLA-B*35:01", "HLA-B*44:02",
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 }
 
 # ---------------------------------------------------------------------------
@@ -67,7 +73,7 @@ for allele, seq in HLA_PSEUDOSEQ.items():
     HLA_PSEUDOSEQ[allele] = seq[:PSEUDO_LEN]
 
 ALLELE_PSEUDO_COLS = [
-    f"hla_p{i+1}_{prop}"
+    f"hla_p{i + 1}_{prop}"
     for i in range(PSEUDO_LEN)
     for prop in ("hydrophobicity", "aromaticity", "vdw_volume", "charge")
 ]
@@ -86,8 +92,7 @@ def pseudoseq_to_features(seq):
 
 # Pre-compute pseudo-sequence feature rows for each target allele
 ALLELE_PSEUDO_FEATURES = {
-    allele: pseudoseq_to_features(seq)
-    for allele, seq in HLA_PSEUDOSEQ.items()
+    allele: pseudoseq_to_features(seq) for allele, seq in HLA_PSEUDOSEQ.items()
 }
 
 
@@ -102,14 +107,14 @@ def standardize_allele_name(name):
     if "*" not in s:
         for prefix in ("HLA-A", "HLA-B", "HLA-C"):
             if s.startswith(prefix):
-                s = prefix + "*" + s[len(prefix):]
+                s = prefix + "*" + s[len(prefix) :]
                 break
     # Insert colon if missing (HLA-A*0201 -> HLA-A*02:01)
     if ":" not in s and "*" in s:
         star_pos = s.index("*")
-        suffix = s[star_pos + 1:]
+        suffix = s[star_pos + 1 :]
         if len(suffix) == 4:
-            s = s[:star_pos + 1] + suffix[:2] + ":" + suffix[2:]
+            s = s[: star_pos + 1] + suffix[:2] + ":" + suffix[2:]
     return s
 
 
@@ -138,8 +143,9 @@ def _parse_iedb_multiheader_csv(fpath, verbose=False):
 
     # Required columns
     pep_col = col_lookup.get(("epitope", "name"))
-    label_col = (col_lookup.get(("assay", "qualitative measurement"))
-                 or col_lookup.get(("assay", "qualitative measure")))
+    label_col = col_lookup.get(("assay", "qualitative measurement")) or col_lookup.get(
+        ("assay", "qualitative measure")
+    )
     mhc_class_col = col_lookup.get(("mhc restriction", "class"))
     # Prefer precise allele from host column, fall back to MHC Restriction Name
     allele_col_precise = col_lookup.get(("host", "mhc present"))
@@ -148,7 +154,9 @@ def _parse_iedb_multiheader_csv(fpath, verbose=False):
 
     if pep_col is None or label_col is None:
         if verbose:
-            print(f"    [multi-header] missing required columns; pep_col={pep_col}, label_col={label_col}")
+            print(
+                f"    [multi-header] missing required columns; pep_col={pep_col}, label_col={label_col}"
+            )
         return pd.DataFrame()
 
     records = []
@@ -197,12 +205,14 @@ def _parse_iedb_multiheader_csv(fpath, verbose=False):
         if org_col is not None:
             org_str = str(row.get(org_col, "")).strip().lower()
 
-        records.append({
-            "peptide": peptide,
-            "label": label,
-            "allele": allele,
-            "organism_str": org_str,
-        })
+        records.append(
+            {
+                "peptide": peptide,
+                "label": label,
+                "allele": allele,
+                "organism_str": org_str,
+            }
+        )
 
     return pd.DataFrame(records)
 
@@ -274,12 +284,14 @@ def _load_processed_tcell_csv(fpath: str, verbose: bool = False) -> list[dict]:
         if not virus:
             continue
 
-        records.append({
-            "peptide": pep,
-            "label": lbl,
-            "allele": allele,
-            "virus": virus,
-        })
+        records.append(
+            {
+                "peptide": pep,
+                "label": lbl,
+                "allele": allele,
+                "virus": virus,
+            }
+        )
 
     return records
 
@@ -319,8 +331,11 @@ def load_tcell_assay_files(data_dir, verbose=False):
 
         # --- Detect whether this is a 2-level IEDB multi-header file ---
         try:
-            peek_raw = pd.read_csv(fpath, header=None, nrows=2) if fname.endswith(".csv") else \
-                       pd.read_excel(fpath, header=None, nrows=2)
+            peek_raw = (
+                pd.read_csv(fpath, header=None, nrows=2)
+                if fname.endswith(".csv")
+                else pd.read_excel(fpath, header=None, nrows=2)
+            )
             row0 = [str(v).lower().strip() for v in peek_raw.iloc[0]]
             row1 = [str(v).lower().strip() for v in peek_raw.iloc[1]] if len(peek_raw) > 1 else []
         except Exception as e:
@@ -333,11 +348,7 @@ def load_tcell_assay_files(data_dir, verbose=False):
         # running the multiheader detection, because the first DATA row of these
         # files may contain "qualitative binding" in assay_type, which would
         # otherwise falsely trigger the multiheader detector.
-        is_processed_flat = (
-            "label" in row0
-            and "hla_allele" in row0
-            and "virus" in row0
-        )
+        is_processed_flat = "label" in row0 and "hla_allele" in row0 and "virus" in row0
 
         if not is_processed_flat:
             is_flat_header_csv = any(" - " in c for c in row0)
@@ -357,12 +368,16 @@ def load_tcell_assay_files(data_dir, verbose=False):
 
         if not (is_multiheader or is_flat_qualitative or is_processed_flat):
             if verbose:
-                print(f"  [skip] {fname}: unrecognized format (no Qualitative Measure or processed-flat columns)")
+                print(
+                    f"  [skip] {fname}: unrecognized format (no Qualitative Measure or processed-flat columns)"
+                )
             continue
 
         if is_processed_flat:
             if verbose:
-                print(f"  [load] {fname}: format=processed-flat (fetch_iedb_tcell.py output), virus=from-column")
+                print(
+                    f"  [load] {fname}: format=processed-flat (fetch_iedb_tcell.py output), virus=from-column"
+                )
             new_records = _load_processed_tcell_csv(fpath, verbose=verbose)
             if verbose:
                 print(f"    -> {len(new_records)} valid records added")
@@ -390,12 +405,14 @@ def load_tcell_assay_files(data_dir, verbose=False):
                     virus = _virus_from_organism(str(row.get("organism_str", "")))
                 if virus is None:
                     continue  # can't assign virus, skip
-                records.append({
-                    "peptide": row["peptide"],
-                    "label": row["label"],
-                    "allele": row["allele"],
-                    "virus": virus,
-                })
+                records.append(
+                    {
+                        "peptide": row["peptide"],
+                        "label": row["label"],
+                        "allele": row["allele"],
+                        "virus": virus,
+                    }
+                )
                 added += 1
             if verbose:
                 print(f"    -> {added} valid records added")
@@ -407,6 +424,7 @@ def load_tcell_assay_files(data_dir, verbose=False):
                     df = pd.read_csv(fpath, low_memory=False)
                 else:
                     import openpyxl  # noqa
+
                     df = pd.read_excel(fpath)
             except Exception as e:
                 if verbose:
@@ -416,7 +434,9 @@ def load_tcell_assay_files(data_dir, verbose=False):
             col_map = {}
             for col in df.columns:
                 cl = str(col).lower().strip()
-                if "description" in cl or ("epitope" in cl and ("linear" in cl or "name" in cl or "sequence" in cl)):
+                if "description" in cl or (
+                    "epitope" in cl and ("linear" in cl or "name" in cl or "sequence" in cl)
+                ):
                     col_map.setdefault("peptide", col)
                 elif "qualitative" in cl:
                     col_map.setdefault("label", col)
@@ -427,10 +447,13 @@ def load_tcell_assay_files(data_dir, verbose=False):
 
             if "peptide" not in col_map or "label" not in col_map:
                 if verbose:
-                    print(f"    -> missing peptide or label column in flat header (found: {list(df.columns[:5])})")
+                    print(
+                        f"    -> missing peptide or label column in flat header (found: {list(df.columns[:5])})"
+                    )
                 continue
 
             from src.iedb_data_loader import STANDARD_AA
+
             added = 0
             for _, row in df.iterrows():
                 pep_raw = row.get(col_map["peptide"])
@@ -459,7 +482,9 @@ def load_tcell_assay_files(data_dir, verbose=False):
                     virus = _virus_from_organism(org_str)
                 if virus is None:
                     continue
-                records.append({"peptide": peptide, "label": label, "allele": allele, "virus": virus})
+                records.append(
+                    {"peptide": peptide, "label": label, "allele": allele, "virus": virus}
+                )
                 added += 1
             if verbose:
                 print(f"    -> {added} valid records added")
@@ -525,8 +550,7 @@ def build_allele_aware_dataset(raw_df, target_alleles=None, verbose=False):
         print(f"  Class balance: {agg['label'].mean():.2%} positive")
         print("\n  Per-virus breakdown:")
         for virus, grp in agg.groupby("virus"):
-            print(f"    {virus}: {len(grp)} pairs, "
-                  f"{grp['label'].mean():.1%} positive")
+            print(f"    {virus}: {len(grp)} pairs, {grp['label'].mean():.1%} positive")
         print("\n  Per-allele breakdown:")
         for allele, grp in agg.groupby("allele"):
             print(f"    {allele}: {len(grp)} pairs, {grp['label'].mean():.1%} positive")
@@ -567,7 +591,8 @@ def main():
         help="Keep all MHC-I alleles (not just the 10-allele panel)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Print per-file loading details",
     )
@@ -577,10 +602,7 @@ def main():
     if args.output is None:
         out_dir = "data/allele_aware"
         os.makedirs(out_dir, exist_ok=True)
-        args.output = os.path.join(
-            out_dir,
-            f"IEDB-{today_str}-MULTI_VIRUS_ALLELE_AWARE-v2.csv"
-        )
+        args.output = os.path.join(out_dir, f"IEDB-{today_str}-MULTI_VIRUS_ALLELE_AWARE-v2.csv")
 
     if not os.path.isdir(args.data_dir):
         print(f"ERROR: data directory not found: {args.data_dir}")

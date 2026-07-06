@@ -9,6 +9,7 @@ Covers the uncovered paths:
   - process_target with mock=True
   - main() entry point
 """
+
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -33,6 +34,7 @@ from src.verify.iedb_multi_virus_extractor import (
 # sanitize_csv_string
 # ---------------------------------------------------------------------------
 
+
 class TestSanitizeCsvString:
     def test_empty_returns_empty(self):
         assert sanitize_csv_string("") == ""
@@ -52,6 +54,7 @@ class TestSanitizeCsvString:
 # ---------------------------------------------------------------------------
 # is_valid_peptide
 # ---------------------------------------------------------------------------
+
 
 class TestIsValidPeptide:
     def test_valid_9mer(self):
@@ -74,6 +77,7 @@ class TestIsValidPeptide:
 
     def test_nan_input(self):
         import numpy as np
+
         assert is_valid_peptide(np.nan) is False
 
 
@@ -81,14 +85,21 @@ class TestIsValidPeptide:
 # clean_and_pool_epitopes
 # ---------------------------------------------------------------------------
 
+
 class TestCleanAndPoolEpitopes:
     def _rec(self, seq="GILGFVFTL", allele="HLA-A*02:01", label="Positive", protein="M1"):
-        return {"linear_sequence": seq, "mhc_allele_name": allele,
-                "qualitative_measure": label, "source_molecule": protein}
+        return {
+            "linear_sequence": seq,
+            "mhc_allele_name": allele,
+            "qualitative_measure": label,
+            "source_molecule": protein,
+        }
 
     def test_happy_path(self):
-        records = [self._rec("GILGFVFTL", label="Positive"),
-                   self._rec("FMYSDFHFI", label="Negative")]
+        records = [
+            self._rec("GILGFVFTL", label="Positive"),
+            self._rec("FMYSDFHFI", label="Negative"),
+        ]
         df = clean_and_pool_epitopes(records)
         assert len(df) == 2
         assert set(df["label"].unique()) <= {0, 1}
@@ -99,8 +110,7 @@ class TestCleanAndPoolEpitopes:
         assert list(df.columns) == ["peptide", "label", "allele", "protein"]
 
     def test_invalid_peptide_dropped(self):
-        records = [self._rec("XBADPEP", label="Positive"),
-                   self._rec("GILGFVFTL", label="Positive")]
+        records = [self._rec("XBADPEP", label="Positive"), self._rec("GILGFVFTL", label="Positive")]
         df = clean_and_pool_epitopes(records)
         assert len(df) == 1
         assert df["peptide"].iloc[0] == "GILGFVFTL"
@@ -121,8 +131,14 @@ class TestCleanAndPoolEpitopes:
         assert df["label"].iloc[0] == 1  # majority positive
 
     def test_none_sequence_dropped(self):
-        records = [{"linear_sequence": None, "mhc_allele_name": "HLA-A*02:01",
-                    "qualitative_measure": "Positive", "source_molecule": "M1"}]
+        records = [
+            {
+                "linear_sequence": None,
+                "mhc_allele_name": "HLA-A*02:01",
+                "qualitative_measure": "Positive",
+                "source_molecule": "M1",
+            }
+        ]
         df = clean_and_pool_epitopes(records)
         assert df.empty
 
@@ -130,6 +146,7 @@ class TestCleanAndPoolEpitopes:
 # ---------------------------------------------------------------------------
 # extract_mock_data
 # ---------------------------------------------------------------------------
+
 
 class TestExtractMockData:
     def test_known_virus_returns_records(self):
@@ -150,28 +167,30 @@ class TestExtractMockData:
 # query_iedb_rest (mocked HTTP)
 # ---------------------------------------------------------------------------
 
+
 class TestQueryIedbRest:
     def test_returns_json_on_200(self):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [{"linear_sequence": "GILGFVFTL"}]
-        with patch("src.verify.iedb_multi_virus_extractor.requests.get",
-                   return_value=mock_resp):
+        with patch("src.verify.iedb_multi_virus_extractor.requests.get", return_value=mock_resp):
             result = query_iedb_rest(11520, max_retries=1)
         assert result == [{"linear_sequence": "GILGFVFTL"}]
 
     def test_returns_empty_on_all_failures(self):
         import requests as req
-        with patch("src.verify.iedb_multi_virus_extractor.requests.get",
-                   side_effect=req.exceptions.RequestException("timeout")):
+
+        with patch(
+            "src.verify.iedb_multi_virus_extractor.requests.get",
+            side_effect=req.exceptions.RequestException("timeout"),
+        ):
             result = query_iedb_rest(11520, max_retries=2, backoff=0.01)
         assert result == []
 
     def test_retries_on_non_200(self):
         mock_resp = MagicMock()
         mock_resp.status_code = 503
-        with patch("src.verify.iedb_multi_virus_extractor.requests.get",
-                   return_value=mock_resp):
+        with patch("src.verify.iedb_multi_virus_extractor.requests.get", return_value=mock_resp):
             result = query_iedb_rest(11520, max_retries=2, backoff=0.01)
         assert result == []
 
@@ -179,6 +198,7 @@ class TestQueryIedbRest:
 # ---------------------------------------------------------------------------
 # query_vdjdb_cached (temp TSV file)
 # ---------------------------------------------------------------------------
+
 
 class TestQueryVdjdbCached:
     def _write_vdjdb(self, path: Path):
@@ -211,14 +231,15 @@ class TestQueryVdjdbCached:
             "GILGFVFTL\tHLA-A*02:01\t11520\tM1\n"
         )
         mock_resp.raise_for_status = MagicMock()
-        with patch("src.verify.iedb_multi_virus_extractor.requests.get",
-                   return_value=mock_resp):
+        with patch("src.verify.iedb_multi_virus_extractor.requests.get", return_value=mock_resp):
             records = query_vdjdb_cached(11520, tmp_path)
         assert len(records) == 1
 
     def test_returns_empty_on_download_failure(self, tmp_path):
-        with patch("src.verify.iedb_multi_virus_extractor.requests.get",
-                   side_effect=Exception("network error")):
+        with patch(
+            "src.verify.iedb_multi_virus_extractor.requests.get",
+            side_effect=Exception("network error"),
+        ):
             records = query_vdjdb_cached(11520, tmp_path)
         assert records == []
 
@@ -226,6 +247,7 @@ class TestQueryVdjdbCached:
 # ---------------------------------------------------------------------------
 # load_proteome_peptides (FASTA parsing)
 # ---------------------------------------------------------------------------
+
 
 class TestLoadProteomePeptides:
     def test_missing_file_returns_empty(self, tmp_path):
@@ -261,6 +283,7 @@ class TestLoadProteomePeptides:
 # ---------------------------------------------------------------------------
 # generate_decoys
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateDecoys:
     def test_happy_path(self):
@@ -302,6 +325,7 @@ class TestGenerateDecoys:
 # process_target with mock=True
 # ---------------------------------------------------------------------------
 
+
 def test_process_target_mock_mode(tmp_path):
     config = {
         "taxonomy_id": 11520,
@@ -337,6 +361,7 @@ def test_process_target_empty_records_falls_back_to_mock(tmp_path):
 # main() entry point (lines 305-323, 326)
 # ---------------------------------------------------------------------------
 
+
 def test_main_runs_with_valid_json(tmp_path):
     from src.verify.iedb_multi_virus_extractor import main
 
@@ -363,8 +388,7 @@ def test_main_exits_on_missing_file(tmp_path):
     from src.verify.iedb_multi_virus_extractor import main
 
     with (
-        patch("sys.argv", ["iedb_multi_virus_extractor.py",
-                            str(tmp_path / "nonexistent.json")]),
+        patch("sys.argv", ["iedb_multi_virus_extractor.py", str(tmp_path / "nonexistent.json")]),
         pytest.raises(SystemExit),
     ):
         main()

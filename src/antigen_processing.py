@@ -63,40 +63,82 @@ import pandas as pd
 
 _ERAP_P1_WEIGHTS: dict[str, float] = {
     # Hydrophobic / aromatic residues are preferred substrates at P1
-    "L": +2.1, "I": +1.9, "V": +1.6, "M": +1.4, "F": +2.0,
-    "W": +1.8, "Y": +1.5, "A": +0.9, "C": +0.5,
+    "L": +2.1,
+    "I": +1.9,
+    "V": +1.6,
+    "M": +1.4,
+    "F": +2.0,
+    "W": +1.8,
+    "Y": +1.5,
+    "A": +0.9,
+    "C": +0.5,
     # Proline at P1 stalls ERAP (the "proline rule")
     "P": -4.0,
     # Charged residues are neutral-to-mildly disfavoured
-    "R": +0.4, "K": +0.3, "H": +0.1,
-    "D": -0.5, "E": -0.4,
+    "R": +0.4,
+    "K": +0.3,
+    "H": +0.1,
+    "D": -0.5,
+    "E": -0.4,
     # Polar / small
-    "S": -0.2, "T": -0.1, "N": -0.3, "Q": -0.2, "G": +0.2,
+    "S": -0.2,
+    "T": -0.1,
+    "N": -0.3,
+    "Q": -0.2,
+    "G": +0.2,
 }
 
 _ERAP_P2_WEIGHTS: dict[str, float] = {
     # Proline at P2 strongly blocks trimming (chain rigidity)
     "P": -5.0,
     "G": -0.5,
-    "L": +1.0, "I": +0.9, "V": +0.8, "F": +1.1, "W": +1.0, "Y": +0.9,
-    "A": +0.4, "M": +0.6,
-    "R": +0.2, "K": +0.1, "H": +0.0,
-    "D": -0.4, "E": -0.3, "N": -0.2, "Q": -0.1, "S": -0.1, "T": +0.0, "C": +0.3,
+    "L": +1.0,
+    "I": +0.9,
+    "V": +0.8,
+    "F": +1.1,
+    "W": +1.0,
+    "Y": +0.9,
+    "A": +0.4,
+    "M": +0.6,
+    "R": +0.2,
+    "K": +0.1,
+    "H": +0.0,
+    "D": -0.4,
+    "E": -0.3,
+    "N": -0.2,
+    "Q": -0.1,
+    "S": -0.1,
+    "T": +0.0,
+    "C": +0.3,
 }
 
 _ERAP_C1_WEIGHTS: dict[str, float] = {
     # ERAP1 has a preference for C-terminal hydrophobic (the anchor residues
     # tend to be hydrophobic and buried, which indirectly aids trimming of the
     # extension residues N-terminal to it).
-    "L": +0.8, "I": +0.7, "V": +0.5, "M": +0.6, "F": +1.0,
-    "W": +0.9, "Y": +0.8,
-    "K": +0.3, "R": +0.2,
-    "D": -0.3, "E": -0.2, "P": -1.5,
-    "A": +0.1, "G": -0.1, "S": +0.0, "T": +0.1,
-    "N": -0.1, "Q": -0.1, "H": +0.1, "C": +0.2,
+    "L": +0.8,
+    "I": +0.7,
+    "V": +0.5,
+    "M": +0.6,
+    "F": +1.0,
+    "W": +0.9,
+    "Y": +0.8,
+    "K": +0.3,
+    "R": +0.2,
+    "D": -0.3,
+    "E": -0.2,
+    "P": -1.5,
+    "A": +0.1,
+    "G": -0.1,
+    "S": +0.0,
+    "T": +0.1,
+    "N": -0.1,
+    "Q": -0.1,
+    "H": +0.1,
+    "C": +0.2,
 }
 
-_ERAP_WEIGHT_SCALE = 9.0   # max possible raw score ≈ P1+P2+C1 highs
+_ERAP_WEIGHT_SCALE = 9.0  # max possible raw score ≈ P1+P2+C1 highs
 
 # ---------------------------------------------------------------------------
 # TAP transport preference matrix
@@ -110,45 +152,109 @@ _ERAP_WEIGHT_SCALE = 9.0   # max possible raw score ≈ P1+P2+C1 highs
 
 _TAP_N1_WEIGHTS: dict[str, float] = {
     # TAP strongly prefers hydrophobic / aliphatic N-terminal residues
-    "L": +3.5, "I": +3.0, "M": +2.5, "V": +2.0, "F": +3.2,
-    "W": +2.8, "Y": +2.4, "A": +1.5, "C": +1.0,
+    "L": +3.5,
+    "I": +3.0,
+    "M": +2.5,
+    "V": +2.0,
+    "F": +3.2,
+    "W": +2.8,
+    "Y": +2.4,
+    "A": +1.5,
+    "C": +1.0,
     # Proline and charged are disfavoured
-    "P": -3.0, "D": -2.0, "E": -1.8, "R": -1.5, "K": -1.2,
-    "G": +0.5, "H": +0.3, "N": -0.5, "Q": -0.4, "S": -0.2, "T": -0.1,
+    "P": -3.0,
+    "D": -2.0,
+    "E": -1.8,
+    "R": -1.5,
+    "K": -1.2,
+    "G": +0.5,
+    "H": +0.3,
+    "N": -0.5,
+    "Q": -0.4,
+    "S": -0.2,
+    "T": -0.1,
 }
 
 _TAP_N2_WEIGHTS: dict[str, float] = {
-    "L": +1.5, "I": +1.4, "V": +1.2, "F": +1.6, "W": +1.4, "Y": +1.2,
-    "M": +1.0, "A": +0.6, "C": +0.4,
-    "P": -2.5, "D": -0.8, "E": -0.6, "R": -0.5, "K": -0.4,
-    "G": +0.2, "H": +0.1, "N": -0.2, "Q": -0.1, "S": -0.1, "T": +0.0,
+    "L": +1.5,
+    "I": +1.4,
+    "V": +1.2,
+    "F": +1.6,
+    "W": +1.4,
+    "Y": +1.2,
+    "M": +1.0,
+    "A": +0.6,
+    "C": +0.4,
+    "P": -2.5,
+    "D": -0.8,
+    "E": -0.6,
+    "R": -0.5,
+    "K": -0.4,
+    "G": +0.2,
+    "H": +0.1,
+    "N": -0.2,
+    "Q": -0.1,
+    "S": -0.1,
+    "T": +0.0,
 }
 
 _TAP_C1_WEIGHTS: dict[str, float] = {
     # TAP transports peptides with C-terminal hydrophobic or basic residues
-    "L": +3.8, "I": +3.5, "V": +3.0, "F": +4.0, "W": +3.6, "Y": +3.5,
-    "M": +2.8, "K": +2.0, "R": +2.2,
+    "L": +3.8,
+    "I": +3.5,
+    "V": +3.0,
+    "F": +4.0,
+    "W": +3.6,
+    "Y": +3.5,
+    "M": +2.8,
+    "K": +2.0,
+    "R": +2.2,
     "A": +1.5,
-    "D": -2.5, "E": -2.0, "P": -3.5, "G": -1.5,
-    "H": +0.5, "N": -0.5, "Q": -0.4, "S": -0.3, "T": -0.1, "C": +0.8,
+    "D": -2.5,
+    "E": -2.0,
+    "P": -3.5,
+    "G": -1.5,
+    "H": +0.5,
+    "N": -0.5,
+    "Q": -0.4,
+    "S": -0.3,
+    "T": -0.1,
+    "C": +0.8,
 }
 
 _TAP_N3_WEIGHTS: dict[str, float] = {
     # Weaker position, small contribution
-    "L": +0.8, "I": +0.7, "V": +0.6, "F": +0.9, "W": +0.8, "Y": +0.7,
-    "M": +0.5, "A": +0.3, "C": +0.2,
-    "P": -1.5, "D": -0.5, "E": -0.4, "R": -0.3, "K": -0.3,
-    "G": +0.1, "H": +0.1, "N": -0.1, "Q": -0.1, "S": -0.1, "T": +0.0,
+    "L": +0.8,
+    "I": +0.7,
+    "V": +0.6,
+    "F": +0.9,
+    "W": +0.8,
+    "Y": +0.7,
+    "M": +0.5,
+    "A": +0.3,
+    "C": +0.2,
+    "P": -1.5,
+    "D": -0.5,
+    "E": -0.4,
+    "R": -0.3,
+    "K": -0.3,
+    "G": +0.1,
+    "H": +0.1,
+    "N": -0.1,
+    "Q": -0.1,
+    "S": -0.1,
+    "T": +0.0,
 }
 
 # Approximate bounds for normalisation: sum of P1 hi + P2 hi + N3 hi + C1 hi
-_TAP_MAX_RAW = 4.0 + 1.6 + 0.9 + 4.0   # ≈ 10.5
+_TAP_MAX_RAW = 4.0 + 1.6 + 0.9 + 4.0  # ≈ 10.5
 _TAP_MIN_RAW = -3.0 + -2.5 + -1.5 + -3.5  # ≈ -10.5
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _lookup(table: dict[str, float], aa: str, default: float = 0.0) -> float:
     """Return the weight for amino-acid *aa* in *table*, or *default*."""
@@ -160,6 +266,7 @@ def _lookup(table: dict[str, float], aa: str, default: float = 0.0) -> float:
 # ---------------------------------------------------------------------------
 # Per-peptide scoring functions
 # ---------------------------------------------------------------------------
+
 
 def score_erap(peptide: str, flanking_n: str = "") -> float:
     """Compute ERAP1/2 N-terminal trimming likelihood for *peptide*.
@@ -244,6 +351,7 @@ def score_tap(peptide: str) -> float:
 # Batch / DataFrame integration
 # ---------------------------------------------------------------------------
 
+
 def append_antigen_processing_features(
     df: pd.DataFrame,
     peptide_col: str = "peptide",
@@ -287,10 +395,7 @@ def append_antigen_processing_features(
 
     if flanking_col and flanking_col in df.columns:
         flankings: pd.Series = df[flanking_col].fillna("").astype(str)
-        df["erap_score"] = [
-            score_erap(pep, flk)
-            for pep, flk in zip(peptides, flankings)
-        ]
+        df["erap_score"] = [score_erap(pep, flk) for pep, flk in zip(peptides, flankings)]
     else:
         df["erap_score"] = peptides.apply(score_erap)
 
@@ -311,6 +416,7 @@ FEATURE_COLUMNS_32: list[str]
 # Deferred import to avoid circular dependency with features.py
 try:
     from src.features import FEATURE_COLUMNS_30
+
     FEATURE_COLUMNS_32 = list(FEATURE_COLUMNS_30) + ANTIGEN_PROCESSING_COLS
 except ImportError:
     FEATURE_COLUMNS_32 = ANTIGEN_PROCESSING_COLS  # standalone fallback

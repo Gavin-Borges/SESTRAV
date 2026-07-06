@@ -49,8 +49,16 @@ from _dataset_utils import normalize_peptides, validate_against_schema, write_pr
 
 # 10 canonical HLA supertypes used throughout SESTRAV
 CANONICAL_ALLELES = [
-    "HLA-A*02:01", "HLA-A*01:01", "HLA-A*03:01", "HLA-A*11:01", "HLA-A*24:02",
-    "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05", "HLA-B*35:01", "HLA-B*44:02",
+    "HLA-A*02:01",
+    "HLA-A*01:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
 # Minimum MHCflurry presentation_score to qualify as a strong binder
@@ -88,7 +96,7 @@ def _extract_kmers(sequences: list[str], lengths: tuple[int, ...] = (8, 9, 10, 1
         seq_upper = seq.upper()
         for k in lengths:
             for i in range(len(seq_upper) - k + 1):
-                frag = seq_upper[i: i + k]
+                frag = seq_upper[i : i + k]
                 if all(c in _VALID_AA for c in frag):
                     kmers.add(frag)
     return sorted(kmers)
@@ -103,7 +111,7 @@ def _score_batched(
     """Return a DataFrame with (peptide, allele, presentation_score) for kmers."""
     frames: list[pd.DataFrame] = []
     for i in range(0, len(kmers), batch_size):
-        batch = kmers[i: i + batch_size]
+        batch = kmers[i : i + batch_size]
         result = predictor.predict(peptides=batch, alleles=[allele], verbose=0)
         # Column name differs between MHCflurry versions
         score_col = next(
@@ -119,8 +127,10 @@ def _score_batched(
             f"  {allele}: batch {i // batch_size + 1}/{(len(kmers) - 1) // batch_size + 1} "
             f"- {len(strong)} strong binders (total {found})"
         )
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
-        columns=["peptide", "allele", "presentation_score"]
+    return (
+        pd.concat(frames, ignore_index=True)
+        if frames
+        else pd.DataFrame(columns=["peptide", "allele", "presentation_score"])
     )
 
 
@@ -151,6 +161,7 @@ def generate_decoys(
     print("Loading MHCflurry Class1PresentationPredictor...")
     try:
         from mhcflurry import Class1PresentationPredictor
+
         predictor = Class1PresentationPredictor.load()
     except Exception as exc:
         print(f"Error loading MHCflurry: {exc}")
@@ -224,25 +235,29 @@ def generate_decoys(
     ]
     shortfall = num_decoys - len(sampled)
     if shortfall > 0 and len(remaining) > 0:
-        extra = remaining.sample(n=min(shortfall, len(remaining)), random_state=int(rng.integers(2**31)))
+        extra = remaining.sample(
+            n=min(shortfall, len(remaining)), random_state=int(rng.integers(2**31))
+        )
         sampled = pd.concat([sampled, extra], ignore_index=True)
 
     # Format to v4 schema
     protein_name = "HumanProteome" if virus_name == "Self" else f"ViralProteome_{strain}"
-    df_out = pd.DataFrame({
-        "peptide": sampled["peptide"],
-        "label": 0,
-        "virus": virus_name,
-        "protein": protein_name,
-        "strain": strain,
-        "hla_allele": sampled["allele"],
-        "source_type": source_type,
-        "database_source": database_source,
-        "negative_origin": negative_origin,
-        "tcr_alpha_cdr3": None,
-        "tcr_beta_cdr3": None,
-        "is_quarantined": False,
-    })
+    df_out = pd.DataFrame(
+        {
+            "peptide": sampled["peptide"],
+            "label": 0,
+            "virus": virus_name,
+            "protein": protein_name,
+            "strain": strain,
+            "hla_allele": sampled["allele"],
+            "source_type": source_type,
+            "database_source": database_source,
+            "negative_origin": negative_origin,
+            "tcr_alpha_cdr3": None,
+            "tcr_beta_cdr3": None,
+            "is_quarantined": False,
+        }
+    )
     df_out = normalize_peptides(df_out)
     df_out = df_out.drop_duplicates(subset=["peptide", "hla_allele"]).reset_index(drop=True)
     df_out = df_out.sort_values(["peptide", "hla_allele"]).reset_index(drop=True)
@@ -277,6 +292,7 @@ def generate_decoys(
 def _get_mhcflurry_version() -> str:
     try:
         import mhcflurry
+
         return mhcflurry.__version__
     except Exception:
         return "unknown"
@@ -293,7 +309,8 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "--fasta", required=True,
+        "--fasta",
+        required=True,
         help="Path to human reference proteome FASTA (UniProt UP000005640, see fetch_human_proteome.py)",
     )
     parser.add_argument(
@@ -312,23 +329,34 @@ def main(argv: list[str] | None = None) -> int:
         help="v4 schema path for validation (default: %(default)s)",
     )
     parser.add_argument(
-        "--num-decoys", type=int, default=10_000,
+        "--num-decoys",
+        type=int,
+        default=10_000,
         help="Target number of hard decoys (default: %(default)s)",
     )
     parser.add_argument(
-        "--alleles", nargs="+", default=CANONICAL_ALLELES,
+        "--alleles",
+        nargs="+",
+        default=CANONICAL_ALLELES,
         help="HLA alleles to screen (default: all 10 canonical alleles)",
     )
     parser.add_argument(
-        "--lengths", nargs="+", type=int, default=[8, 9, 10, 11],
+        "--lengths",
+        nargs="+",
+        type=int,
+        default=[8, 9, 10, 11],
         help="Peptide lengths to extract (default: 8 9 10 11)",
     )
     parser.add_argument(
-        "--seed", type=int, default=42,
+        "--seed",
+        type=int,
+        default=42,
         help="Random seed for reproducible runs (default: %(default)s)",
     )
     parser.add_argument(
-        "--max-candidates", type=int, default=None,
+        "--max-candidates",
+        type=int,
+        default=None,
         help=(
             "Pre-sample this many k-mers (after seeded shuffle) before MHCflurry "
             "scoring to bound runtime. None = score all k-mers (default). "
@@ -337,23 +365,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     # Viral proteome overrides (default: human self-proteome)
     parser.add_argument(
-        "--virus-name", default="Self",
+        "--virus-name",
+        default="Self",
         help="Virus name written to the virus column (default: Self).",
     )
     parser.add_argument(
-        "--strain", default="GRCh38",
+        "--strain",
+        default="GRCh38",
         help="Strain/reference written to the strain column (default: GRCh38).",
     )
     parser.add_argument(
-        "--source-type", default="Self",
+        "--source-type",
+        default="Self",
         help="Value for source_type column: Self | Virus (default: Self).",
     )
     parser.add_argument(
-        "--db-source", default="UniProt_UP000005640",
+        "--db-source",
+        default="UniProt_UP000005640",
         help="Value for database_source column (default: UniProt_UP000005640).",
     )
     parser.add_argument(
-        "--negative-origin", default="self_proteome_decoy",
+        "--negative-origin",
+        default="self_proteome_decoy",
         help=(
             "Value for negative_origin column: self_proteome_decoy | "
             "allele_matched_nonbinder (default: self_proteome_decoy)."
@@ -363,8 +396,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not Path(args.fasta).exists():
         print(
-            f"ERROR: FASTA not found: {args.fasta}\n"
-            "Run: python scripts/fetch_human_proteome.py",
+            f"ERROR: FASTA not found: {args.fasta}\nRun: python scripts/fetch_human_proteome.py",
             file=sys.stderr,
         )
         return 1

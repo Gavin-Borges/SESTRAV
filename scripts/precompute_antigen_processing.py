@@ -48,45 +48,50 @@ def load_existing_cache(output_path: str) -> set:
     if not os.path.exists(output_path):
         return set()
     try:
-        existing = pd.read_csv(output_path, usecols=['peptide'])
-        return set(existing['peptide'].dropna().unique())
+        existing = pd.read_csv(output_path, usecols=["peptide"])
+        return set(existing["peptide"].dropna().unique())
     except Exception:
         return set()
 
 
 def write_batch(output_path: str, rows: list, first_write: bool) -> None:
     """Incrementally append a batch of rows to the cache CSV."""
-    batch_df = pd.DataFrame(rows, columns=['peptide', 'netchop_score', 'tap_score'])
+    batch_df = pd.DataFrame(rows, columns=["peptide", "netchop_score", "tap_score"])
     if first_write and not os.path.exists(output_path):
         batch_df.to_csv(output_path, index=False)
     else:
-        batch_df.to_csv(output_path, mode='a', header=False, index=False)
+        batch_df.to_csv(output_path, mode="a", header=False, index=False)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Precompute NetChop/TAPreg antigen processing scores'
+        description="Precompute NetChop/TAPreg antigen processing scores"
     )
-    parser.add_argument('--data', required=True,
-                        help='Path to immunogenicity dataset CSV (must have "peptide" column)')
-    parser.add_argument('--output', required=True,
-                        help='Output cache CSV path')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Print plan without querying external APIs')
-    parser.add_argument('--resume', action='store_true',
-                        help='Skip peptides already present in the output cache')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Process at most N peptides (for smoke-testing)')
+    parser.add_argument(
+        "--data",
+        required=True,
+        help='Path to immunogenicity dataset CSV (must have "peptide" column)',
+    )
+    parser.add_argument("--output", required=True, help="Output cache CSV path")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print plan without querying external APIs"
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="Skip peptides already present in the output cache"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Process at most N peptides (for smoke-testing)"
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.data):
         parser.error(f"Data file not found: '{args.data}'")
 
     df = pd.read_csv(args.data)
-    if 'peptide' not in df.columns:
+    if "peptide" not in df.columns:
         parser.error("Dataset must contain a 'peptide' column.")
 
-    peptides = df['peptide'].dropna().unique().tolist()
+    peptides = df["peptide"].dropna().unique().tolist()
     peptides = sorted(set(str(p).strip().upper() for p in peptides if p))
 
     already_done: set = set()
@@ -96,7 +101,7 @@ def main():
 
     todo = [p for p in peptides if p not in already_done]
     if args.limit is not None:
-        todo = todo[:args.limit]
+        todo = todo[: args.limit]
 
     print(f"Dataset: {args.data}")
     print(f"Total unique peptides: {len(peptides)}")
@@ -104,10 +109,12 @@ def main():
     print(f"Output: {args.output}")
     print(f"Batch size: {BATCH_SIZE} | Rate limit: {RATE_LIMIT_SECONDS}s/request")
 
-    print("[NOTE] Using biologically-informed mock scores: DTU NetChop webface2 response "
-          "format changed (real parser finds no tabular data) and TAPreg requires UCM "
-          "institutional VPN. Scores are deterministic and sequence-derived but are NOT "
-          "real NetChop 3.1 / TAPreg predictions. Document this in limitations.")
+    print(
+        "[NOTE] Using biologically-informed mock scores: DTU NetChop webface2 response "
+        "format changed (real parser finds no tabular data) and TAPreg requires UCM "
+        "institutional VPN. Scores are deterministic and sequence-derived but are NOT "
+        "real NetChop 3.1 / TAPreg predictions. Document this in limitations."
+    )
 
     if args.dry_run:
         print("[dry-run] No API calls made. Exiting.")
@@ -121,8 +128,8 @@ def main():
     tap_unavailable = False
 
     for i, peptide in enumerate(todo, start=1):
-        netchop_score = float('nan')
-        tap_score = float('nan')
+        netchop_score = float("nan")
+        tap_score = float("nan")
 
         try:
             # mock_fallback=True: DTU NetChop webface2 response format changed (parser finds no
@@ -130,8 +137,8 @@ def main():
             # back to deterministic mock scores anyway after exhausting retries (~154s/peptide).
             # Using mock_fallback=True takes the fast path directly and is honest about the source.
             result = query_netchop([peptide], mock_fallback=True)
-            pep_scores = result.get(peptide, {}).get('scores', [])
-            netchop_score = float(sum(pep_scores) / len(pep_scores)) if pep_scores else float('nan')
+            pep_scores = result.get(peptide, {}).get("scores", [])
+            netchop_score = float(sum(pep_scores) / len(pep_scores)) if pep_scores else float("nan")
         except Exception as e:
             print(f"  [NetChop ERROR] {peptide}: {e}")
             errors += 1
@@ -140,17 +147,19 @@ def main():
             try:
                 result = query_tapreg([peptide], mock_fallback=True)
                 tap_raw = result.get(peptide)
-                tap_score = float(tap_raw) if tap_raw is not None else float('nan')
+                tap_score = float(tap_raw) if tap_raw is not None else float("nan")
             except Exception as e:
                 err_str = str(e)
-                if 'VPN' in err_str or 'restricted' in err_str.lower():
-                    print("  [TAPreg] Network restriction detected - setting tap_score=NaN for remaining peptides.")
+                if "VPN" in err_str or "restricted" in err_str.lower():
+                    print(
+                        "  [TAPreg] Network restriction detected - setting tap_score=NaN for remaining peptides."
+                    )
                     tap_unavailable = True
                 else:
                     print(f"  [TAPreg ERROR] {peptide}: {e}")
                     errors += 1
 
-        batch.append({'peptide': peptide, 'netchop_score': netchop_score, 'tap_score': tap_score})
+        batch.append({"peptide": peptide, "netchop_score": netchop_score, "tap_score": tap_score})
 
         if len(batch) >= BATCH_SIZE:
             write_batch(args.output, batch, first_write and not os.path.exists(args.output))
@@ -172,5 +181,5 @@ def main():
         print(f"  Total errors: {errors} (NaN written for failed rows)")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

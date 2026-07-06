@@ -26,6 +26,7 @@ from scripts.ingest_immunecode import (
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _mira_df(
     peptides,
     alleles,
@@ -35,11 +36,13 @@ def _mira_df(
     tcr_col="Amino Acids",
 ) -> pd.DataFrame:
     """Minimal MIRA-format DataFrame for unit tests."""
-    return pd.DataFrame({
-        pep_col: peptides,
-        allele_col: alleles,
-        tcr_col: amino_acids,
-    })
+    return pd.DataFrame(
+        {
+            pep_col: peptides,
+            allele_col: alleles,
+            tcr_col: amino_acids,
+        }
+    )
 
 
 # Two SARS-CoV-2 negatives (no TCR data) and one positive (has TCR).
@@ -61,6 +64,7 @@ _ALL_POSITIVE_MIRA_CSV = (
 # ---------------------------------------------------------------------------
 # _normalize_allele
 # ---------------------------------------------------------------------------
+
 
 def test_normalize_allele_canonical_hla_a_unchanged():
     assert _normalize_allele("HLA-A*02:01") == "HLA-A*02:01"
@@ -92,7 +96,7 @@ def test_normalize_allele_class_ii_dpb1_returns_none():
 
 def test_normalize_allele_non_string_returns_none():
     assert _normalize_allele(None) is None  # type: ignore[arg-type]
-    assert _normalize_allele(42) is None    # type: ignore[arg-type]
+    assert _normalize_allele(42) is None  # type: ignore[arg-type]
 
 
 def test_normalize_allele_empty_string_returns_none():
@@ -106,6 +110,7 @@ def test_normalize_allele_strips_surrounding_whitespace():
 # ---------------------------------------------------------------------------
 # _detect_column and _require_column
 # ---------------------------------------------------------------------------
+
 
 def test_detect_column_returns_first_candidate_present():
     df = pd.DataFrame({"Peptide": [], "HLA Restrictions": []})
@@ -136,6 +141,7 @@ def test_require_column_raises_value_error_when_all_candidates_absent():
 # ---------------------------------------------------------------------------
 # _extract_negatives
 # ---------------------------------------------------------------------------
+
 
 def test_extract_negatives_zero_tcr_row_becomes_negative():
     df = _mira_df(["YLQPRTFLL"], ["HLA-A*02:01"], [None])
@@ -208,10 +214,12 @@ def test_extract_negatives_nonstandard_amino_acids_filtered():
 
 
 def test_extract_negatives_no_tcr_column_returns_empty_list():
-    df = pd.DataFrame({
-        "Peptide": ["YLQPRTFLL"],
-        "HLA Restrictions": ["HLA-A*02:01"],
-    })
+    df = pd.DataFrame(
+        {
+            "Peptide": ["YLQPRTFLL"],
+            "HLA Restrictions": ["HLA-A*02:01"],
+        }
+    )
     records = _extract_negatives(df)
     assert records == []
 
@@ -239,6 +247,7 @@ def test_extract_negatives_semicolon_allele_field_expands_to_two_records():
 # ---------------------------------------------------------------------------
 # _build_output_df
 # ---------------------------------------------------------------------------
+
 
 def test_build_output_df_empty_records_returns_dataframe_with_schema_columns():
     df = _build_output_df([])
@@ -316,6 +325,7 @@ def test_build_output_df_database_source_is_immunecode():
 # ---------------------------------------------------------------------------
 # CLI / main()
 # ---------------------------------------------------------------------------
+
 
 def test_main_happy_path_returns_zero_and_writes_csv(tmp_path):
     infile = tmp_path / "mira.csv"

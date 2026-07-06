@@ -26,16 +26,17 @@ from src.antigen_processing import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-CANONICAL_9MER = "GILGFVFTL"   # common immunodominant, hydrophobic anchors
-PROLINE_N1     = "PILTFVGTL"   # P at position 1 → ERAP suppressed
-PROLINE_N2     = "GPLTFVGTL"   # P at position 2 → ERAP suppressed
-CHARGED_CTERM  = "GILGFVFTD"   # D at C-term → lower TAP score
-HYDRO_CTERM    = "GILGFVFTL"   # L at C-term → higher TAP score
+CANONICAL_9MER = "GILGFVFTL"  # common immunodominant, hydrophobic anchors
+PROLINE_N1 = "PILTFVGTL"  # P at position 1 → ERAP suppressed
+PROLINE_N2 = "GPLTFVGTL"  # P at position 2 → ERAP suppressed
+CHARGED_CTERM = "GILGFVFTD"  # D at C-term → lower TAP score
+HYDRO_CTERM = "GILGFVFTL"  # L at C-term → higher TAP score
 
 
 # ---------------------------------------------------------------------------
 # score_erap
 # ---------------------------------------------------------------------------
+
 
 class TestScoreErap:
     def test_returns_float_in_unit_interval(self):
@@ -45,24 +46,20 @@ class TestScoreErap:
 
     def test_proline_at_p1_suppresses_score(self):
         """Proline at the N-terminal residue must reduce trimming likelihood."""
-        normal  = score_erap("LILTFVGTL")
+        normal = score_erap("LILTFVGTL")
         proline = score_erap(PROLINE_N1)
-        assert proline < normal, (
-            f"Expected proline P1 suppression: {proline:.4f} < {normal:.4f}"
-        )
+        assert proline < normal, f"Expected proline P1 suppression: {proline:.4f} < {normal:.4f}"
 
     def test_proline_at_p2_suppresses_score(self):
         """Proline at P2 strongly inhibits ERAP - score must be lower."""
-        normal  = score_erap("GLLTFVGTL")
+        normal = score_erap("GLLTFVGTL")
         proline = score_erap(PROLINE_N2)
-        assert proline < normal, (
-            f"Expected proline P2 suppression: {proline:.4f} < {normal:.4f}"
-        )
+        assert proline < normal, f"Expected proline P2 suppression: {proline:.4f} < {normal:.4f}"
 
     def test_hydrophobic_c_term_raises_score(self):
         """Hydrophobic C-terminal anchor is preferred by ERAP1."""
-        hydro   = score_erap("GILGFVFTL")   # L at C-term
-        charged = score_erap("GILGFVFTD")   # D at C-term
+        hydro = score_erap("GILGFVFTL")  # L at C-term
+        charged = score_erap("GILGFVFTD")  # D at C-term
         assert hydro > charged, (
             f"Hydrophobic C-term should be preferred: {hydro:.4f} > {charged:.4f}"
         )
@@ -72,7 +69,7 @@ class TestScoreErap:
 
     def test_flanking_seq_is_used(self):
         """ERAP score changes when flanking_n context shifts P1/P2."""
-        no_flank   = score_erap("GILTFVGTL", flanking_n="")
+        no_flank = score_erap("GILTFVGTL", flanking_n="")
         with_flank = score_erap("GILTFVGTL", flanking_n="LL")
         # Flanking LL (hydrophobic) at P1/P2 should not decrease score
         assert with_flank >= 0.0
@@ -93,6 +90,7 @@ class TestScoreErap:
 # score_tap
 # ---------------------------------------------------------------------------
 
+
 class TestScoreTap:
     def test_returns_float_in_unit_interval(self):
         s = score_tap(CANONICAL_9MER)
@@ -107,13 +105,13 @@ class TestScoreTap:
 
     def test_hydrophobic_n1_increases_tap(self):
         """TAP prefers hydrophobic N-terminal residue."""
-        good_n1 = score_tap("LILTFVGTL")   # L at N1
-        bad_n1  = score_tap("DILTFVGTL")   # D at N1 (charged)
+        good_n1 = score_tap("LILTFVGTL")  # L at N1
+        bad_n1 = score_tap("DILTFVGTL")  # D at N1 (charged)
         assert good_n1 > bad_n1
 
     def test_proline_n1_depresses_tap(self):
         """Proline at N1 is strongly disfavoured by TAP."""
-        normal  = score_tap("LILTFVGTL")
+        normal = score_tap("LILTFVGTL")
         proline = score_tap("PILTFVGTL")
         assert proline < normal
 
@@ -122,12 +120,15 @@ class TestScoreTap:
         assert score_tap("LIL") == 0.0
         assert score_tap("") == 0.0
 
-    @pytest.mark.parametrize("peptide", [
-        "GILGFVFTL",     # 9-mer immunodominant
-        "KLGGALQAK",     # 9-mer EBV
-        "LLDFVRFMGV",    # 10-mer
-        "KTWGQYWQVL",    # 10-mer
-    ])
+    @pytest.mark.parametrize(
+        "peptide",
+        [
+            "GILGFVFTL",  # 9-mer immunodominant
+            "KLGGALQAK",  # 9-mer EBV
+            "LLDFVRFMGV",  # 10-mer
+            "KTWGQYWQVL",  # 10-mer
+        ],
+    )
     def test_known_peptides_in_range(self, peptide):
         assert 0.0 <= score_tap(peptide) <= 1.0
 
@@ -136,13 +137,16 @@ class TestScoreTap:
 # append_antigen_processing_features
 # ---------------------------------------------------------------------------
 
+
 class TestAppendAntigenProcessingFeatures:
     @pytest.fixture
     def sample_df(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "peptide": ["GILGFVFTL", "KLGGALQAK", "LLDFVRFMGV"],
-            "label":   [1, 1, 0],
-        })
+        return pd.DataFrame(
+            {
+                "peptide": ["GILGFVFTL", "KLGGALQAK", "LLDFVRFMGV"],
+                "label": [1, 1, 0],
+            }
+        )
 
     def test_adds_both_columns(self, sample_df):
         out = append_antigen_processing_features(sample_df)
@@ -164,13 +168,15 @@ class TestAppendAntigenProcessingFeatures:
     def test_inplace_mutates_original(self, sample_df):
         append_antigen_processing_features(sample_df, inplace=True)
         assert "erap_score" in sample_df.columns
-        assert "tap_score"  in sample_df.columns
+        assert "tap_score" in sample_df.columns
 
     def test_flanking_col_respected(self):
-        df = pd.DataFrame({
-            "peptide":  ["GILGFVFTL", "PILTFVGTL"],
-            "flanking": ["LL", "PP"],
-        })
+        df = pd.DataFrame(
+            {
+                "peptide": ["GILGFVFTL", "PILTFVGTL"],
+                "flanking": ["LL", "PP"],
+            }
+        )
         out = append_antigen_processing_features(df, flanking_col="flanking")
         assert "erap_score" in out.columns
         assert len(out) == 2
@@ -202,6 +208,7 @@ class TestAppendAntigenProcessingFeatures:
 # ---------------------------------------------------------------------------
 # Score correlation sanity check (statistical, not just boundary)
 # ---------------------------------------------------------------------------
+
 
 class TestScoringConsistency:
     """End-to-end consistency checks across a set of well-characterised peptides."""
@@ -239,11 +246,13 @@ class TestScoringConsistency:
 # _lookup internal helper - branch coverage for empty/multi-char aa
 # ---------------------------------------------------------------------------
 
+
 class TestLookupHelper:
     """Covers the early-return branch in _lookup (line 155-156)."""
 
     def setup_method(self):
         from src.antigen_processing import _lookup
+
         self._lookup = _lookup
         self._table = {"A": 1.0, "L": 0.5}
 

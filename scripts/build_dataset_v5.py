@@ -212,12 +212,7 @@ def assign_virus_family(df: pd.DataFrame, logger: logging.Logger) -> pd.DataFram
     mapped = df.loc[mask_needs_family, "virus"].map(VIRUS_FAMILY_MAP)
     df.loc[mask_needs_family, "virus_family"] = mapped
 
-    unmapped_viruses = (
-        df.loc[mask_needs_family & mapped.isna(), "virus"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
+    unmapped_viruses = df.loc[mask_needs_family & mapped.isna(), "virus"].dropna().unique().tolist()
     if unmapped_viruses:
         logger.warning(
             "Viruses not in VIRUS_FAMILY_MAP (virus_family left null): %s",
@@ -229,24 +224,18 @@ def assign_virus_family(df: pd.DataFrame, logger: logging.Logger) -> pd.DataFram
     return df
 
 
-def backfill_negative_origin(
-    df: pd.DataFrame, logger: logging.Logger
-) -> pd.DataFrame:
+def backfill_negative_origin(df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
     """Set negative_origin for v4 Self rows that lack it."""
     df = df.copy()
     if "negative_origin" not in df.columns:
         df["negative_origin"] = None
 
     mask = (
-        (df["source_type"].fillna("") == "Self")
-        & (df["label"] == 0)
-        & df["negative_origin"].isna()
+        (df["source_type"].fillna("") == "Self") & (df["label"] == 0) & df["negative_origin"].isna()
     )
     n = int(mask.sum())
     df.loc[mask, "negative_origin"] = "self_proteome_decoy"
-    logger.info(
-        "negative_origin backfill: set 'self_proteome_decoy' on %d Self rows", n
-    )
+    logger.info("negative_origin backfill: set 'self_proteome_decoy' on %d Self rows", n)
     return df
 
 
@@ -268,18 +257,12 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
 
     # Compute per-virus stats (only for viral rows - not Self/Tumor)
     viral_mask = df["source_type"].fillna("") == "Virus"
-    virus_counts = (
-        df.loc[viral_mask, "virus"].value_counts().to_dict()
-    )
+    virus_counts = df.loc[viral_mask, "virus"].value_counts().to_dict()
     # Real tested negatives per virus: both bulk-export ("tested_negative") and
     # API-bridge ("iedb_api") origins represent genuine assay-confirmed negatives.
     _real_neg_origins = {"tested_negative", "iedb_api"}
-    real_neg_mask = viral_mask & (
-        df["negative_origin"].fillna("").isin(_real_neg_origins)
-    )
-    real_neg_counts = (
-        df.loc[real_neg_mask, "virus"].value_counts().to_dict()
-    )
+    real_neg_mask = viral_mask & (df["negative_origin"].fillna("").isin(_real_neg_origins))
+    real_neg_counts = df.loc[real_neg_mask, "virus"].value_counts().to_dict()
 
     quarantined_viruses: list[str] = []
     for virus, n_rows in virus_counts.items():
@@ -290,9 +273,7 @@ def apply_quarantine(df: pd.DataFrame, logger: logging.Logger) -> tuple[pd.DataF
     # Quarantine viruses with null virus_family: non-canonical or non-virus entries.
     if "virus_family" in df.columns:
         null_fam_mask = viral_mask & df["virus_family"].isna()
-        null_fam_viruses = (
-            df.loc[null_fam_mask, "virus"].dropna().unique().tolist()
-        )
+        null_fam_viruses = df.loc[null_fam_mask, "virus"].dropna().unique().tolist()
         for v in null_fam_viruses:
             if v not in quarantined_viruses:
                 quarantined_viruses.append(v)
@@ -389,26 +370,18 @@ def audit_label_conflicts(
         pos_rows["conflict_source"] = "v4_positive"
         neg_rows["conflict_source"] = "iedb_negative"
         combined = pd.concat([pos_rows, neg_rows], ignore_index=True, sort=False)
-        sort_keys = [c for c in key_cols if c in combined.columns] + [
-            "conflict_source"
-        ]
+        sort_keys = [c for c in key_cols if c in combined.columns] + ["conflict_source"]
         combined = combined.sort_values(sort_keys).reset_index(drop=True)
     else:
-        combined = pd.DataFrame(
-            columns=[*list(v4_positives.columns), "conflict_source"]
-        )
+        combined = pd.DataFrame(columns=[*list(v4_positives.columns), "conflict_source"])
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     combined.to_csv(out_path, index=False)
-    logger.info(
-        "Wrote conflict pre-audit file: %s (%d rows)", out_path, len(combined)
-    )
+    logger.info("Wrote conflict pre-audit file: %s (%d rows)", out_path, len(combined))
     return n_conflicts
 
 
-def warn_low_pmid_depth(
-    df: pd.DataFrame, logger: logging.Logger
-) -> dict[str, int]:
+def warn_low_pmid_depth(df: pd.DataFrame, logger: logging.Logger) -> dict[str, int]:
     """Warn if any target virus is backed by fewer than the minimum distinct
     PMIDs among its non-quarantined rows. Returns per-target distinct PMID
     counts. Not a quarantine trigger - a visibility check (Amendment 3)."""
@@ -418,10 +391,14 @@ def warn_low_pmid_depth(
         return counts
 
     quar = (
-        df["is_quarantined"]
-        if "is_quarantined" in df.columns
-        else pd.Series(False, index=df.index)
-    ).fillna(False).astype(bool)
+        (
+            df["is_quarantined"]
+            if "is_quarantined" in df.columns
+            else pd.Series(False, index=df.index)
+        )
+        .fillna(False)
+        .astype(bool)
+    )
 
     for virus in TARGET_VIRUSES:
         mask = (df["virus"] == virus) & (~quar)
@@ -446,9 +423,7 @@ def warn_low_pmid_depth(
 # ---------------------------------------------------------------------------
 
 
-def validate_output_schema(
-    df: pd.DataFrame, schema_path: Path, logger: logging.Logger
-) -> None:
+def validate_output_schema(df: pd.DataFrame, schema_path: Path, logger: logging.Logger) -> None:
     """Validate required columns against the v5 JSON Schema before write."""
     if not schema_path.exists():
         logger.warning("Schema file not found: %s - skipping validation", schema_path)
@@ -466,9 +441,7 @@ def validate_output_schema(
             f"Output dataset missing required schema columns: {missing}. "
             f"Check V5_COLUMNS and transformation pipeline."
         )
-    logger.info(
-        "Schema validation passed: all %d required columns present", len(required_cols)
-    )
+    logger.info("Schema validation passed: all %d required columns present", len(required_cols))
 
 
 # ---------------------------------------------------------------------------
@@ -484,9 +457,7 @@ def extract_v4_sources(
 
     # Positives: viral rows with label=1
     if "source_type" in base_df.columns:
-        pos_mask = (
-            base_df["label"] == 1
-        ) & base_df["source_type"].isin(["Virus", "VDJdb"])
+        pos_mask = (base_df["label"] == 1) & base_df["source_type"].isin(["Virus", "VDJdb"])
         # Also include rows without source_type if label=1
         pos_mask_no_type = (base_df["label"] == 1) & ~base_df["source_type"].isin(
             ["Virus", "VDJdb", "Self", "Tumor", "Unknown"]
@@ -562,7 +533,9 @@ def build_virus_composition_table(
             .sum()
         )
         pos_rate = round(n_pos / n, 4) if n > 0 else 0.0
-        quarantined = bool(group["is_quarantined"].any()) if "is_quarantined" in group.columns else False
+        quarantined = (
+            bool(group["is_quarantined"].any()) if "is_quarantined" in group.columns else False
+        )
         rows.append(
             {
                 "virus": str(virus) if virus is not None else "null",
@@ -592,7 +565,11 @@ def print_composition_table(
     print(f"  {'Virus':<20} {'N':>6} {'Pos%':>6} {'RealNeg':>8} {'Quarantined':>12}")
     print("  " + "-" * 56)
 
-    viral_df = df[df.get("source_type", pd.Series("Virus")) == "Virus"] if "source_type" in df.columns else df
+    viral_df = (
+        df[df.get("source_type", pd.Series("Virus")) == "Virus"]
+        if "source_type" in df.columns
+        else df
+    )
     for _, row in pd.DataFrame(build_virus_composition_table(viral_df)).iterrows():
         qflag = "YES" if row["is_quarantined"] else "-"
         pos_pct = f"{row['pos_rate'] * 100:.1f}%"
@@ -671,9 +648,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help=(
-            "Print composition table and quarantine list without writing files."
-        ),
+        help=("Print composition table and quarantine list without writing files."),
     )
     parser.add_argument(
         "--verbose",
@@ -732,9 +707,7 @@ def main(argv: list[str] | None = None) -> int:
     # -----------------------------------------------------------------------
     panels_df: pd.DataFrame | None = None
     if args.published_panels:
-        panels_df = load_csv(
-            args.published_panels, "published panels", logger
-        )
+        panels_df = load_csv(args.published_panels, "published panels", logger)
         source_counts["published_panels"] = len(panels_df)
 
         # Warn when a panel-positive (peptide, hla_allele) is also an IEDB
@@ -748,14 +721,10 @@ def main(argv: list[str] | None = None) -> int:
             and all(c in iedb_neg_df.columns for c in _pa)
         ):
             _panel_pos_keys = set(
-                panels_df.loc[panels_df["label"] == 1, _pa]
-                .fillna("")
-                .apply(tuple, axis=1)
+                panels_df.loc[panels_df["label"] == 1, _pa].fillna("").apply(tuple, axis=1)
             )
             _n_conflict = int(
-                iedb_neg_df[_pa].fillna("").apply(tuple, axis=1)
-                .isin(_panel_pos_keys)
-                .sum()
+                iedb_neg_df[_pa].fillna("").apply(tuple, axis=1).isin(_panel_pos_keys).sum()
             )
             if _n_conflict:
                 logger.warning(
@@ -802,7 +771,10 @@ def main(argv: list[str] | None = None) -> int:
     merged = merged.drop_duplicates(subset=["peptide", "hla_allele"], keep="first")
     n_dedup_dropped = pre_dedup_len - len(merged)
     if n_dedup_dropped:
-        logger.info("Dedup dropped %d overlapping-source (peptide, hla_allele) rows (same- or cross-label)", n_dedup_dropped)
+        logger.info(
+            "Dedup dropped %d overlapping-source (peptide, hla_allele) rows (same- or cross-label)",
+            n_dedup_dropped,
+        )
     source_counts["merged_total"] = len(merged)
     source_counts["dedup_dropped"] = n_dedup_dropped
 
@@ -865,9 +837,7 @@ def main(argv: list[str] | None = None) -> int:
     # -----------------------------------------------------------------------
     # 11. Write provenance sidecar JSON
     # -----------------------------------------------------------------------
-    provenance_path = args.output.with_name(
-        args.output.stem + "_provenance.json"
-    )
+    provenance_path = args.output.with_name(args.output.stem + "_provenance.json")
     checksum = compute_file_sha256(args.output)
     provenance = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),

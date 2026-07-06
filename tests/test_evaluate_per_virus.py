@@ -54,10 +54,7 @@ def _make_df(
     scores[:n_pos] = rng.uniform(0.4, 1.0, size=n_pos)
     scores[n_pos:] = rng.uniform(0.0, 0.6, size=n_neg_real + n_neg_decoy)
 
-    origins = (
-        ["tested_negative"] * n_neg_real
-        + ["self_proteome_decoy"] * n_neg_decoy
-    )
+    origins = ["tested_negative"] * n_neg_real + ["self_proteome_decoy"] * n_neg_decoy
     peptides = ["GILGFVFTL"] * n_pos + ["NLVPMVATV"] * (n_neg_real + n_neg_decoy)
 
     return pd.DataFrame(
@@ -87,6 +84,7 @@ def test_bootstrap_metric_returns_triple() -> None:
     y_true = np.array([1] * 20 + [0] * 20)
     y_score = rng.uniform(0, 1, 40)
     from sklearn.metrics import roc_auc_score
+
     result = bootstrap_metric(y_true, y_score, roc_auc_score, n_resamples=50, seed=0)
     assert len(result) == 3
     point, lower, upper = result
@@ -98,6 +96,7 @@ def test_bootstrap_metric_ci_ordered() -> None:
     y_true = np.array([1] * 30 + [0] * 30)
     y_score = np.concatenate([rng.uniform(0.4, 1.0, 30), rng.uniform(0.0, 0.6, 30)])
     from sklearn.metrics import roc_auc_score
+
     _, lo, hi = bootstrap_metric(y_true, y_score, roc_auc_score, n_resamples=100, seed=0)
     assert lo <= hi
 
@@ -105,8 +104,10 @@ def test_bootstrap_metric_ci_ordered() -> None:
 def test_bootstrap_metric_single_class_uses_point() -> None:
     y_true = np.array([1] * 20)
     y_score = np.linspace(0, 1, 20)
+
     def dummy_fn(yt: np.ndarray, ys: np.ndarray) -> float:
         return 0.5
+
     point, lo, hi = bootstrap_metric(y_true, y_score, dummy_fn, n_resamples=10, seed=0)
     assert point == 0.5
 
@@ -181,12 +182,20 @@ def test_precision_at_recall_returns_none_unreachable() -> None:
 
 
 REQUIRED_KEYS = {
-    "n_pos", "n_neg_real", "n_neg_decoy", "n_total",
-    "auc_roc", "auc_roc_lower", "auc_roc_upper",
-    "auc_pr", "auc_pr_lower", "auc_pr_upper",
+    "n_pos",
+    "n_neg_real",
+    "n_neg_decoy",
+    "n_total",
+    "auc_roc",
+    "auc_roc_lower",
+    "auc_roc_upper",
+    "auc_pr",
+    "auc_pr_lower",
+    "auc_pr_upper",
     "precision_at_10pct_recall",
     "ece",
-    "auc_roc_9mer", "auc_roc_non9mer",
+    "auc_roc_9mer",
+    "auc_roc_non9mer",
     "auc_roc_real_neg_only",
 }
 
@@ -236,12 +245,14 @@ def test_evaluate_virus_no_origin_column() -> None:
 
 
 def test_evaluate_virus_single_class_nan() -> None:
-    df = pd.DataFrame({
-        "label": [0] * 30,
-        "score": np.random.default_rng(0).uniform(0, 1, 30),
-        "negative_origin": ["self_proteome_decoy"] * 30,
-        "peptide": ["GILGFVFTL"] * 30,
-    })
+    df = pd.DataFrame(
+        {
+            "label": [0] * 30,
+            "score": np.random.default_rng(0).uniform(0, 1, 30),
+            "negative_origin": ["self_proteome_decoy"] * 30,
+            "peptide": ["GILGFVFTL"] * 30,
+        }
+    )
     r = evaluate_virus(df, "score", n_bootstrap=5)
     assert math.isnan(r["auc_roc"])
 
@@ -290,9 +301,7 @@ def test_evaluate_all_viruses_empty_input_returns_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_results(
-    ebv_roc: float, ebv_lo: float, hpv_roc: float
-) -> dict:
+def _make_results(ebv_roc: float, ebv_lo: float, hpv_roc: float) -> dict:
     return {
         "EBV": {
             "auc_roc": ebv_roc,
@@ -361,12 +370,18 @@ def test_main_full_write_produces_outputs(tmp_path: Path) -> None:
     pred = _write_multi_virus_csv(tmp_path)
     out_json = tmp_path / "results.json"
     out_csv = tmp_path / "results.csv"
-    rc = main([
-        "--predictions", str(pred),
-        "--output-json", str(out_json),
-        "--output-csv", str(out_csv),
-        "--n-bootstrap", "20",
-    ])
+    rc = main(
+        [
+            "--predictions",
+            str(pred),
+            "--output-json",
+            str(out_json),
+            "--output-csv",
+            str(out_csv),
+            "--n-bootstrap",
+            "20",
+        ]
+    )
     assert rc in (0, 2), f"Expected exit code 0 or 2, got {rc}"
     assert out_json.exists()
     assert out_csv.exists()
@@ -406,11 +421,16 @@ def test_main_missing_score_column_returns_1(tmp_path: Path) -> None:
 
 def test_main_compare_same_file(tmp_path: Path) -> None:
     pred = _write_multi_virus_csv(tmp_path)
-    rc = main([
-        "--predictions", str(pred),
-        "--compare", str(pred),
-        "--n-bootstrap", "10",
-    ])
+    rc = main(
+        [
+            "--predictions",
+            str(pred),
+            "--compare",
+            str(pred),
+            "--n-bootstrap",
+            "10",
+        ]
+    )
     assert rc in (0, 1, 2)
 
 
@@ -458,10 +478,12 @@ def test_format_table_none_formats_as_na() -> None:
 
 
 def test_format_table_sorted_by_virus() -> None:
-    table = format_table({
-        "ZIKV": _make_format_result(),
-        "EBV": _make_format_result(),
-    })
+    table = format_table(
+        {
+            "ZIKV": _make_format_result(),
+            "EBV": _make_format_result(),
+        }
+    )
     assert table.index("EBV") < table.index("ZIKV")
 
 
@@ -506,12 +528,14 @@ def test_main_no_results_returns_1(tmp_path: Path) -> None:
 
 def test_evaluate_virus_small_n_no_bootstrap() -> None:
     rng = np.random.default_rng(9)
-    df = pd.DataFrame({
-        "label": [1] * 5 + [0] * 5,
-        "score": np.concatenate([rng.uniform(0.5, 1.0, 5), rng.uniform(0.0, 0.5, 5)]),
-        "negative_origin": ["tested_negative"] * 10,
-        "peptide": ["GILGFVFTL"] * 10,
-    })
+    df = pd.DataFrame(
+        {
+            "label": [1] * 5 + [0] * 5,
+            "score": np.concatenate([rng.uniform(0.5, 1.0, 5), rng.uniform(0.0, 0.5, 5)]),
+            "negative_origin": ["tested_negative"] * 10,
+            "peptide": ["GILGFVFTL"] * 10,
+        }
+    )
     r = evaluate_virus(df, "score", n_bootstrap=10)
     assert not math.isnan(r["auc_roc"])
     assert math.isnan(r["auc_roc_lower"])
@@ -536,11 +560,16 @@ def test_evaluate_virus_no_peptide_column() -> None:
 
 def test_main_compare_file_not_found_returns_1(tmp_path: Path) -> None:
     pred = _write_multi_virus_csv(tmp_path)
-    rc = main([
-        "--predictions", str(pred),
-        "--compare", "/nonexistent/path.csv",
-        "--n-bootstrap", "5",
-    ])
+    rc = main(
+        [
+            "--predictions",
+            str(pred),
+            "--compare",
+            "/nonexistent/path.csv",
+            "--n-bootstrap",
+            "5",
+        ]
+    )
     assert rc == 1
 
 

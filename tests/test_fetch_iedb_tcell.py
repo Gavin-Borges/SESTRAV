@@ -23,6 +23,7 @@ from fetch_iedb_tcell import (
 # _normalize_allele
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizeAllele:
     def test_canonical_a_allele(self):
         assert _normalize_allele("HLA-A*02:01") == "HLA-A*02:01"
@@ -60,6 +61,7 @@ class TestNormalizeAllele:
 # ---------------------------------------------------------------------------
 # _assign_label
 # ---------------------------------------------------------------------------
+
 
 class TestAssignLabel:
     def test_positive(self):
@@ -99,6 +101,7 @@ class TestAssignLabel:
 # _assay_quality
 # ---------------------------------------------------------------------------
 
+
 class TestAssayQuality:
     def test_cytotoxicity_tier1(self):
         assert _assay_quality("cytotoxicity") == 1.0
@@ -130,9 +133,16 @@ class TestAssayQuality:
 # _process_records
 # ---------------------------------------------------------------------------
 
-def _make_rec(peptide="GILGFVFTL", qm="Positive", response="IFNg release",
-              allele="HLA-A*02:01", organism="Human gammaherpesvirus 4",
-              molecule="gp350", pmid="12345678"):
+
+def _make_rec(
+    peptide="GILGFVFTL",
+    qm="Positive",
+    response="IFNg release",
+    allele="HLA-A*02:01",
+    organism="Human gammaherpesvirus 4",
+    molecule="gp350",
+    pmid="12345678",
+):
     return {
         "epitope__name": peptide,
         "assay__qualitative_measurement": qm,
@@ -151,8 +161,16 @@ class TestProcessRecords:
 
     def test_output_columns_complete(self):
         required = [
-            "peptide", "label", "virus", "protein", "strain", "hla_allele",
-            "source_type", "database_source", "assay_type", "assay_quality_weight",
+            "peptide",
+            "label",
+            "virus",
+            "protein",
+            "strain",
+            "hla_allele",
+            "source_type",
+            "database_source",
+            "assay_type",
+            "assay_quality_weight",
             "reference_pmid",
         ]
         result = _process_records([_make_rec()], "EBV")
@@ -227,10 +245,10 @@ class TestProcessRecords:
 
     def test_mixed_records(self):
         records = [
-            _make_rec(peptide="GILGFVFTL", qm="Positive"),   # valid
-            _make_rec(peptide="ACDEF", qm="Positive"),        # too short
-            _make_rec(peptide="GILGFVFTL", qm="Negative"),    # valid negative
-            _make_rec(peptide="GILGXVFTL", qm="Positive"),    # invalid AA
+            _make_rec(peptide="GILGFVFTL", qm="Positive"),  # valid
+            _make_rec(peptide="ACDEF", qm="Positive"),  # too short
+            _make_rec(peptide="GILGFVFTL", qm="Negative"),  # valid negative
+            _make_rec(peptide="GILGXVFTL", qm="Positive"),  # invalid AA
         ]
         result = _process_records(records, "EBV")
         assert len(result) == 2
@@ -241,6 +259,7 @@ class TestProcessRecords:
 # ---------------------------------------------------------------------------
 # _build_url
 # ---------------------------------------------------------------------------
+
 
 class TestBuildUrl:
     def test_url_starts_with_base(self):
@@ -277,8 +296,12 @@ class TestBuildUrl:
 
     def test_select_includes_key_fields(self):
         url = _build_url("gammaherpesvirus 4", 0)
-        for field in ["epitope__name", "assay__qualitative_measurement",
-                      "mhc_restriction__name", "assay__response_measured"]:
+        for field in [
+            "epitope__name",
+            "assay__qualitative_measurement",
+            "mhc_restriction__name",
+            "assay__response_measured",
+        ]:
             assert field in url
 
 
@@ -286,10 +309,10 @@ class TestBuildUrl:
 # Organism / display maps
 # ---------------------------------------------------------------------------
 
+
 class TestOrganismMap:
     def test_all_supported_viruses_present(self):
-        for key in ["EBV", "HPV16", "HPV18", "HBV", "HCV", "HIV",
-                    "SARSCOV2", "IAV", "CMV"]:
+        for key in ["EBV", "HPV16", "HPV18", "HBV", "HCV", "HIV", "SARSCOV2", "IAV", "CMV"]:
             assert key in ORGANISM_MAP
 
     def test_organism_patterns_nonempty(self):

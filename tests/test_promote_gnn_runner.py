@@ -6,6 +6,7 @@ These tests focus on:
   - promote_model() config-mutation and checksum behaviour
 All heavy I/O (torch.load, joblib, real model files) is mocked.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,6 +27,7 @@ from src.verify.promote_gnn import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_path(exists: bool = True, content: bytes = b"") -> MagicMock:
     """Return a Path-like MagicMock with a controllable .exists() and .open()."""
     p = MagicMock(spec=Path)
@@ -43,18 +45,23 @@ def _failing_gate(name: str) -> GateResult:
 
 def _good_oof() -> pd.DataFrame:
     rng = np.random.default_rng(7)
-    return pd.DataFrame({
-        "label": np.array([1] * 60 + [0] * 60),
-        "gnn_oof_score": np.concatenate([
-            rng.normal(0.9, 0.03, 60).clip(0, 1),
-            rng.normal(0.1, 0.03, 60).clip(0, 1),
-        ]),
-    })
+    return pd.DataFrame(
+        {
+            "label": np.array([1] * 60 + [0] * 60),
+            "gnn_oof_score": np.concatenate(
+                [
+                    rng.normal(0.9, 0.03, 60).clip(0, 1),
+                    rng.normal(0.1, 0.03, 60).clip(0, 1),
+                ]
+            ),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # check_promotion_gates - checkpoint-not-found path
 # ---------------------------------------------------------------------------
+
 
 def test_check_gates_returns_false_when_checkpoint_missing():
     with patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=False)):
@@ -66,11 +73,11 @@ def test_check_gates_returns_false_when_checkpoint_missing():
 # check_promotion_gates - OOF file not found
 # ---------------------------------------------------------------------------
 
+
 def test_check_gates_returns_false_when_oof_missing():
     with (
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
-        patch("src.verify.promote_gnn._load_oof",
-              side_effect=FileNotFoundError("OOF not found")),
+        patch("src.verify.promote_gnn._load_oof", side_effect=FileNotFoundError("OOF not found")),
     ):
         result = check_promotion_gates()
     assert result is False
@@ -80,11 +87,13 @@ def test_check_gates_returns_false_when_oof_missing():
 # check_promotion_gates - OOF file has wrong schema
 # ---------------------------------------------------------------------------
 
+
 def test_check_gates_returns_false_when_oof_schema_bad():
     with (
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
-        patch("src.verify.promote_gnn._load_oof",
-              side_effect=ValueError("OOF file missing columns")),
+        patch(
+            "src.verify.promote_gnn._load_oof", side_effect=ValueError("OOF file missing columns")
+        ),
     ):
         result = check_promotion_gates()
     assert result is False
@@ -94,20 +103,18 @@ def test_check_gates_returns_false_when_oof_schema_bad():
 # check_promotion_gates - a single gate fails
 # ---------------------------------------------------------------------------
 
+
 def test_check_gates_returns_false_when_one_gate_fails():
     with (
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
         patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
-        patch("src.verify.promote_gnn.gate1_generalization",
-              return_value=_failing_gate("Gate 1")),
-        patch("src.verify.promote_gnn.gate2_stability",
-              return_value=_passing_gate("Gate 2")),
-        patch("src.verify.promote_gnn.gate4_calibration",
-              return_value=_passing_gate("Gate 4")),
-        patch("src.verify.promote_gnn.gate5_escape_sensitivity",
-              return_value=_passing_gate("Gate 5")),
-        patch("src.verify.promote_gnn.gate3_latency",
-              return_value=_passing_gate("Gate 3")),
+        patch("src.verify.promote_gnn.gate1_generalization", return_value=_failing_gate("Gate 1")),
+        patch("src.verify.promote_gnn.gate2_stability", return_value=_passing_gate("Gate 2")),
+        patch("src.verify.promote_gnn.gate4_calibration", return_value=_passing_gate("Gate 4")),
+        patch(
+            "src.verify.promote_gnn.gate5_escape_sensitivity", return_value=_passing_gate("Gate 5")
+        ),
+        patch("src.verify.promote_gnn.gate3_latency", return_value=_passing_gate("Gate 3")),
     ):
         result = check_promotion_gates()
     assert result is False
@@ -117,20 +124,18 @@ def test_check_gates_returns_false_when_one_gate_fails():
 # check_promotion_gates - all five gates pass
 # ---------------------------------------------------------------------------
 
+
 def test_check_gates_returns_true_when_all_pass():
     with (
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
         patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
-        patch("src.verify.promote_gnn.gate1_generalization",
-              return_value=_passing_gate("Gate 1")),
-        patch("src.verify.promote_gnn.gate2_stability",
-              return_value=_passing_gate("Gate 2")),
-        patch("src.verify.promote_gnn.gate4_calibration",
-              return_value=_passing_gate("Gate 4")),
-        patch("src.verify.promote_gnn.gate5_escape_sensitivity",
-              return_value=_passing_gate("Gate 5")),
-        patch("src.verify.promote_gnn.gate3_latency",
-              return_value=_passing_gate("Gate 3")),
+        patch("src.verify.promote_gnn.gate1_generalization", return_value=_passing_gate("Gate 1")),
+        patch("src.verify.promote_gnn.gate2_stability", return_value=_passing_gate("Gate 2")),
+        patch("src.verify.promote_gnn.gate4_calibration", return_value=_passing_gate("Gate 4")),
+        patch(
+            "src.verify.promote_gnn.gate5_escape_sensitivity", return_value=_passing_gate("Gate 5")
+        ),
+        patch("src.verify.promote_gnn.gate3_latency", return_value=_passing_gate("Gate 3")),
     ):
         result = check_promotion_gates()
     assert result is True
@@ -140,6 +145,7 @@ def test_check_gates_returns_true_when_all_pass():
 # check_promotion_gates - gate raises unexpectedly → treated as failure
 # ---------------------------------------------------------------------------
 
+
 def test_check_gates_treats_gate_exception_as_failure():
     def _raising_gate1(_df):
         raise RuntimeError("unexpected error")
@@ -148,14 +154,12 @@ def test_check_gates_treats_gate_exception_as_failure():
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
         patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
         patch("src.verify.promote_gnn.gate1_generalization", _raising_gate1),
-        patch("src.verify.promote_gnn.gate2_stability",
-              return_value=_passing_gate("Gate 2")),
-        patch("src.verify.promote_gnn.gate4_calibration",
-              return_value=_passing_gate("Gate 4")),
-        patch("src.verify.promote_gnn.gate5_escape_sensitivity",
-              return_value=_passing_gate("Gate 5")),
-        patch("src.verify.promote_gnn.gate3_latency",
-              return_value=_passing_gate("Gate 3")),
+        patch("src.verify.promote_gnn.gate2_stability", return_value=_passing_gate("Gate 2")),
+        patch("src.verify.promote_gnn.gate4_calibration", return_value=_passing_gate("Gate 4")),
+        patch(
+            "src.verify.promote_gnn.gate5_escape_sensitivity", return_value=_passing_gate("Gate 5")
+        ),
+        patch("src.verify.promote_gnn.gate3_latency", return_value=_passing_gate("Gate 3")),
     ):
         result = check_promotion_gates()
     assert result is False
@@ -164,6 +168,7 @@ def test_check_gates_treats_gate_exception_as_failure():
 # ---------------------------------------------------------------------------
 # promote_model - gates fail → config.yaml not written
 # ---------------------------------------------------------------------------
+
 
 def test_promote_model_does_not_modify_config_when_gates_fail(tmp_path):
     config_path = tmp_path / "config.yaml"
@@ -181,6 +186,7 @@ def test_promote_model_does_not_modify_config_when_gates_fail(tmp_path):
 # ---------------------------------------------------------------------------
 # promote_model - gates pass → config.yaml updated
 # ---------------------------------------------------------------------------
+
 
 def test_promote_model_updates_config_when_gates_pass(tmp_path):
     import yaml
@@ -211,6 +217,7 @@ def test_promote_model_updates_config_when_gates_pass(tmp_path):
 # promote_model - missing config.yaml is handled gracefully (warning only)
 # ---------------------------------------------------------------------------
 
+
 def test_promote_model_no_config_does_not_crash(tmp_path):
     checkpoint = tmp_path / "structural_gnn_v2.pth"
     checkpoint.write_bytes(b"fake-weights")
@@ -232,6 +239,7 @@ def test_promote_model_no_config_does_not_crash(tmp_path):
 # ---------------------------------------------------------------------------
 # _load_oof - direct unit tests
 # ---------------------------------------------------------------------------
+
 
 def test_load_oof_raises_when_file_missing(tmp_path):
     from src.verify.promote_gnn import _load_oof
@@ -273,6 +281,7 @@ def test_load_oof_returns_dataframe_on_valid_file(tmp_path):
 # _time_model_ms - direct unit test
 # ---------------------------------------------------------------------------
 
+
 def test_time_model_ms_returns_positive_float():
     from src.verify.promote_gnn import _time_model_ms
     import torch
@@ -287,6 +296,7 @@ def test_time_model_ms_returns_positive_float():
 # check_promotion_gates - gate3_latency exception handler (lines 350-352)
 # ---------------------------------------------------------------------------
 
+
 def test_check_gates_treats_gate3_exception_as_failure():
     def _raise_gate3():
         raise RuntimeError("GPU OOM in gate3")
@@ -294,14 +304,12 @@ def test_check_gates_treats_gate3_exception_as_failure():
     with (
         patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
         patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
-        patch("src.verify.promote_gnn.gate1_generalization",
-              return_value=_passing_gate("Gate 1")),
-        patch("src.verify.promote_gnn.gate2_stability",
-              return_value=_passing_gate("Gate 2")),
-        patch("src.verify.promote_gnn.gate4_calibration",
-              return_value=_passing_gate("Gate 4")),
-        patch("src.verify.promote_gnn.gate5_escape_sensitivity",
-              return_value=_passing_gate("Gate 5")),
+        patch("src.verify.promote_gnn.gate1_generalization", return_value=_passing_gate("Gate 1")),
+        patch("src.verify.promote_gnn.gate2_stability", return_value=_passing_gate("Gate 2")),
+        patch("src.verify.promote_gnn.gate4_calibration", return_value=_passing_gate("Gate 4")),
+        patch(
+            "src.verify.promote_gnn.gate5_escape_sensitivity", return_value=_passing_gate("Gate 5")
+        ),
         patch("src.verify.promote_gnn.gate3_latency", _raise_gate3),
     ):
         result = check_promotion_gates()
@@ -311,6 +319,7 @@ def test_check_gates_treats_gate3_exception_as_failure():
 # ---------------------------------------------------------------------------
 # promote_model - update_checksum_manifest raises → re-raised (lines 407-409)
 # ---------------------------------------------------------------------------
+
 
 def test_promote_model_reraises_on_checksum_failure(tmp_path):
     import pytest
@@ -326,8 +335,9 @@ def test_promote_model_reraises_on_checksum_failure(tmp_path):
         patch.object(pgnn, "CONFIG_PATH", config_path),
         patch.object(pgnn, "GNN_CHECKPOINT", checkpoint),
         patch.object(pgnn, "CHECKSUM_FILE", checksum_path),
-        patch("src.artifact_integrity.update_checksum_manifest",
-              side_effect=RuntimeError("disk full")),
+        patch(
+            "src.artifact_integrity.update_checksum_manifest", side_effect=RuntimeError("disk full")
+        ),
         pytest.raises(RuntimeError, match="disk full"),
     ):
         promote_model()
@@ -336,6 +346,7 @@ def test_promote_model_reraises_on_checksum_failure(tmp_path):
 # ---------------------------------------------------------------------------
 # gate3_latency - GNN v2.1: PyG batch must be passed to GraphPredictorV2.forward()
 # ---------------------------------------------------------------------------
+
 
 def test_gate3_latency_passes_pyg_batch_to_forward():
     """gate3_latency must supply a PyG Data batch to GraphPredictorV2.forward().
@@ -374,6 +385,7 @@ def test_gate3_latency_passes_pyg_batch_to_forward():
 # gate3_latency - RF model not found path
 # ---------------------------------------------------------------------------
 
+
 def test_gate3_latency_fails_when_rf_missing():
     from src.verify.promote_gnn import gate3_latency
 
@@ -390,6 +402,7 @@ def test_gate3_latency_fails_when_rf_missing():
 # ---------------------------------------------------------------------------
 # gate3_latency - GNN checkpoint not found path
 # ---------------------------------------------------------------------------
+
 
 def test_gate3_latency_fails_when_gnn_missing():
     import numpy as np

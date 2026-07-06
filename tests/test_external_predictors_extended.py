@@ -10,6 +10,7 @@ the base test_external_predictors.py suite:
   - query_tapreg: threshold kwarg (346-347), successful parse (362-364),
     empty-parse fallback (365-366)
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -29,6 +30,7 @@ from src.external_predictors import (
 # ---------------------------------------------------------------------------
 # _generate_mock_netchop_scores - proline path (line 66: val -= 0.08 branch)
 # ---------------------------------------------------------------------------
+
 
 class TestMockNetchopScores:
     def test_proline_residue_reduces_score(self):
@@ -50,6 +52,7 @@ class TestMockNetchopScores:
 #   RKYFW n-term (101), non-blosum branch (104->107)
 # ---------------------------------------------------------------------------
 
+
 class TestMockTapregScore:
     def test_empty_peptide_returns_score(self):
         score = _generate_mock_tapreg_score("", "blosum")
@@ -66,9 +69,7 @@ class TestMockTapregScore:
         # pep ends with A (no c-term group), starts with R (RKYFW: -0.2), blosum: -0.05
         base = 1.5 + (hash(pep) % 10) * 0.05
         expected = round(base - 0.2 - 0.05, 5)
-        assert score == pytest.approx(expected), (
-            "RKYFW n-terminus must reduce score by exactly 0.2"
-        )
+        assert score == pytest.approx(expected), "RKYFW n-terminus must reduce score by exactly 0.2"
 
     def test_sparse_model_no_blosum_adjustment(self):
         score_blosum = _generate_mock_tapreg_score("GILGFVFTL", "blosum")
@@ -84,11 +85,9 @@ class TestMockTapregScore:
 # parse_netchop_html - out-of-bounds pep index (lines 145->132)
 # ---------------------------------------------------------------------------
 
+
 class TestParseNetchopHtmlOOB:
-    _TABULAR_ROW_TEMPLATE = (
-        "  1 G . 0.10000 pep_{idx}\n"
-        "  2 L . 0.20000 pep_{idx}\n"
-    )
+    _TABULAR_ROW_TEMPLATE = "  1 G . 0.10000 pep_{idx}\n  2 L . 0.20000 pep_{idx}\n"
 
     def test_oob_pep_index_silently_skipped(self):
         html = self._TABULAR_ROW_TEMPLATE.format(idx=99)
@@ -97,11 +96,7 @@ class TestParseNetchopHtmlOOB:
         assert result["GLYF"]["scores"] == [], "OOB idx must be skipped - no scores assigned"
 
     def test_mixed_valid_and_oob(self):
-        html = (
-            "  1 G . 0.10000 pep_0\n"
-            "  2 L . 0.20000 pep_0\n"
-            "  1 A . 0.30000 pep_99\n"
-        )
+        html = "  1 G . 0.10000 pep_0\n  2 L . 0.20000 pep_0\n  1 A . 0.30000 pep_99\n"
         result = parse_netchop_html(html, ["GL"])
         assert result["GL"]["scores"] == [0.10000, 0.20000]
 
@@ -135,10 +130,11 @@ class TestQueryNetchopSuccessfulPoll:
         poll_resp.raise_for_status.return_value = None
         poll_resp.text = VALID_NETCHOP_POLL_RESPONSE
 
-        with patch("src.external_predictors.requests.post", return_value=submit_resp), \
-             patch("src.external_predictors.requests.get", return_value=poll_resp):
-            results = query_netchop(peptides, mock_fallback=False,
-                                    max_retries=1, initial_backoff=0)
+        with (
+            patch("src.external_predictors.requests.post", return_value=submit_resp),
+            patch("src.external_predictors.requests.get", return_value=poll_resp),
+        ):
+            results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
         assert "GLFYTRTGL" in results
         assert len(results["GLFYTRTGL"]["scores"]) == 9
@@ -157,11 +153,16 @@ _TAPREG_RESP_NO_SCORES = "<html>No matching content</html>"
 class TestQueryTapregThresholdAndParse:
     def test_threshold_kwarg_accepted_with_mock_connection_error(self):
         peptides = ["GLFYTRTGL"]
-        with patch("src.external_predictors.requests.post",
-                   side_effect=requests.exceptions.ConnectionError("no net")):
+        with patch(
+            "src.external_predictors.requests.post",
+            side_effect=requests.exceptions.ConnectionError("no net"),
+        ):
             results = query_tapreg(
-                peptides, threshold=0.5, mock_fallback=False,
-                max_retries=1, initial_backoff=0,
+                peptides,
+                threshold=0.5,
+                mock_fallback=False,
+                max_retries=1,
+                initial_backoff=0,
             )
         assert "GLFYTRTGL" in results
         assert isinstance(results["GLFYTRTGL"], float)
@@ -174,22 +175,31 @@ class TestQueryTapregThresholdAndParse:
 
         with patch("src.external_predictors.requests.post", return_value=mock_resp):
             results = query_tapreg(
-                peptides, mock_fallback=False, max_retries=1, initial_backoff=0,
+                peptides,
+                mock_fallback=False,
+                max_retries=1,
+                initial_backoff=0,
             )
         assert "GLFYTRTGL" in results
         assert results["GLFYTRTGL"] == pytest.approx(1.2345)
 
     def test_successful_post_empty_parse_logs_warning_and_falls_back(self, caplog):
         import logging
+
         peptides = ["GLFYTRTGL"]
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
         mock_resp.text = _TAPREG_RESP_NO_SCORES
 
-        with patch("src.external_predictors.requests.post", return_value=mock_resp), \
-             caplog.at_level(logging.WARNING, logger="src.external_predictors"):
+        with (
+            patch("src.external_predictors.requests.post", return_value=mock_resp),
+            caplog.at_level(logging.WARNING, logger="src.external_predictors"),
+        ):
             results = query_tapreg(
-                peptides, mock_fallback=False, max_retries=1, initial_backoff=0,
+                peptides,
+                mock_fallback=False,
+                max_retries=1,
+                initial_backoff=0,
             )
         assert "GLFYTRTGL" in results
         assert any("no peptide scores" in m.lower() for m in caplog.messages)

@@ -59,9 +59,7 @@ def build_release_bundle(
         )
 
     if missing:
-        raise FileNotFoundError(
-            "Missing required files for release bundle: " + ", ".join(missing)
-        )
+        raise FileNotFoundError("Missing required files for release bundle: " + ", ".join(missing))
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     manifest_path = Path(output_dir) / f"{bundle_name}-{stamp}.manifest.json"
@@ -87,9 +85,7 @@ def build_release_bundle(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Build canonical SESTRAV release artifact bundle"
-    )
+    parser = argparse.ArgumentParser(description="Build canonical SESTRAV release artifact bundle")
     parser.add_argument(
         "--output-dir",
         default="release_artifacts",

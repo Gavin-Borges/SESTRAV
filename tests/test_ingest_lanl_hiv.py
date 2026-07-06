@@ -24,6 +24,7 @@ from scripts.ingest_lanl_hiv import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_df(**kwargs) -> pd.DataFrame:
     """Build a minimal test DataFrame with given column data."""
     return pd.DataFrame(kwargs)
@@ -34,12 +35,12 @@ def _sample_raw() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "Optimal Sequence": [
-                "SLYNTVATL",   # 9-mer, valid
-                "ILKEPVHGV",   # 9-mer, valid
+                "SLYNTVATL",  # 9-mer, valid
+                "ILKEPVHGV",  # 9-mer, valid
                 "TOOLONG_PEPTIDE",  # too long, should be filtered
-                "AAAA",        # too short, should be filtered
-                "SLYNTVATL",   # duplicate of row 0 (same peptide+HLA+PMID)
-                "KLNWASQIY",   # 9-mer, valid positive
+                "AAAA",  # too short, should be filtered
+                "SLYNTVATL",  # duplicate of row 0 (same peptide+HLA+PMID)
+                "KLNWASQIY",  # 9-mer, valid positive
             ],
             "HLA": [
                 "HLA-A*02:01",
@@ -59,8 +60,14 @@ def _sample_raw() -> pd.DataFrame:
             ],
             "PMID": ["12345", "67890", "11111", "22222", "12345", "33333"],
             "Protein": ["Gag", "Pol", "Env", "Gag", "Gag", "Gag"],
-            "Assay": ["IFNg ELISpot", "Cytotoxicity", "IFNg ELISpot",
-                      "IFNg ELISpot", "IFNg ELISpot", "IFNg ELISpot"],
+            "Assay": [
+                "IFNg ELISpot",
+                "Cytotoxicity",
+                "IFNg ELISpot",
+                "IFNg ELISpot",
+                "IFNg ELISpot",
+                "IFNg ELISpot",
+            ],
             "Subtype": ["B", "B", "B", "B", "B", "C"],
         }
     )
@@ -70,16 +77,33 @@ def _sample_raw() -> pd.DataFrame:
 # _parse_label
 # ---------------------------------------------------------------------------
 
+
 class TestParseLabel:
     def test_positive_variants(self):
-        for s in ["Positive", "positive", "POSITIVE", "Positive-High", "yes",
-                  "immunogenic", "response", "reactive", "confirmed"]:
+        for s in [
+            "Positive",
+            "positive",
+            "POSITIVE",
+            "Positive-High",
+            "yes",
+            "immunogenic",
+            "response",
+            "reactive",
+            "confirmed",
+        ]:
             result = _parse_label(s)
             assert result == 1, f"Expected 1 for {s!r}, got {result}"
 
     def test_negative_variants(self):
-        for s in ["Negative", "negative", "neg", "no response",
-                  "non-responder", "not detected", "not immunogenic"]:
+        for s in [
+            "Negative",
+            "negative",
+            "neg",
+            "no response",
+            "non-responder",
+            "not detected",
+            "not immunogenic",
+        ]:
             result = _parse_label(s)
             assert result == 0, f"Expected 0 for {s!r}, got {result}"
 
@@ -98,6 +122,7 @@ class TestParseLabel:
 # ---------------------------------------------------------------------------
 # _find_col
 # ---------------------------------------------------------------------------
+
 
 class TestFindCol:
     def test_exact_match(self):
@@ -128,6 +153,7 @@ class TestFindCol:
 # resolve_columns
 # ---------------------------------------------------------------------------
 
+
 class TestResolveColumns:
     def _logger(self):
         return logging.getLogger("test_resolve")
@@ -144,8 +170,9 @@ class TestResolveColumns:
         assert mapping["subtype"] == "Subtype"
 
     def test_override_respected(self):
-        df = pd.DataFrame({"MyPeptide": ["SLYNTVATL"], "MyHLA": ["HLA-A*02:01"],
-                           "MyResult": ["Negative"]})
+        df = pd.DataFrame(
+            {"MyPeptide": ["SLYNTVATL"], "MyHLA": ["HLA-A*02:01"], "MyResult": ["Negative"]}
+        )
         overrides = {"epitope": "MyPeptide", "hla": "MyHLA", "result": "MyResult"}
         mapping = resolve_columns(df, overrides, self._logger())
         assert mapping["epitope"] == "MyPeptide"
@@ -163,6 +190,7 @@ class TestResolveColumns:
 # ---------------------------------------------------------------------------
 # filter_rows
 # ---------------------------------------------------------------------------
+
 
 class TestFilterRows:
     def _mapping(self, df):
@@ -203,15 +231,22 @@ class TestFilterRows:
             assert 8 <= len(pep) <= 11
 
     def test_class_ii_hla_rejected(self):
-        df = pd.DataFrame({
-            "Optimal Sequence": ["SLYNTVATL", "LLAALVVAK"],
-            "HLA": ["HLA-A*02:01", "HLA-DRB1*01:01"],
-            "Assay Result": ["Negative", "Negative"],
-            "PMID": ["1", "2"],
-        })
+        df = pd.DataFrame(
+            {
+                "Optimal Sequence": ["SLYNTVATL", "LLAALVVAK"],
+                "HLA": ["HLA-A*02:01", "HLA-DRB1*01:01"],
+                "Assay Result": ["Negative", "Negative"],
+                "PMID": ["1", "2"],
+            }
+        )
         mapping = {
-            "epitope": "Optimal Sequence", "hla": "HLA", "result": "Assay Result",
-            "pmid": "PMID", "protein": None, "assay": None, "subtype": None,
+            "epitope": "Optimal Sequence",
+            "hla": "HLA",
+            "result": "Assay Result",
+            "pmid": "PMID",
+            "protein": None,
+            "assay": None,
+            "subtype": None,
         }
         logger = logging.getLogger("test_filter")
         filtered, stats = filter_rows(df, mapping, negatives_only=True, logger=logger)
@@ -230,13 +265,20 @@ class TestFilterRows:
         assert count == 1
 
     def test_no_result_col_all_positive(self):
-        df = pd.DataFrame({
-            "Optimal Sequence": ["SLYNTVATL", "ILKEPVHGV"],
-            "HLA": ["HLA-A*02:01", "HLA-B*08:01"],
-        })
+        df = pd.DataFrame(
+            {
+                "Optimal Sequence": ["SLYNTVATL", "ILKEPVHGV"],
+                "HLA": ["HLA-A*02:01", "HLA-B*08:01"],
+            }
+        )
         mapping = {
-            "epitope": "Optimal Sequence", "hla": "HLA", "result": None,
-            "pmid": None, "protein": None, "assay": None, "subtype": None,
+            "epitope": "Optimal Sequence",
+            "hla": "HLA",
+            "result": None,
+            "pmid": None,
+            "protein": None,
+            "assay": None,
+            "subtype": None,
         }
         logger = logging.getLogger("test_filter")
         filtered, stats = filter_rows(df, mapping, negatives_only=False, logger=logger)
@@ -247,23 +289,45 @@ class TestFilterRows:
 # build_output
 # ---------------------------------------------------------------------------
 
+
 class TestBuildOutput:
     REQUIRED_V5_COLS = {
-        "peptide", "label", "virus", "protein", "strain", "hla_allele",
-        "source_type", "database_source", "tcr_alpha_cdr3", "tcr_beta_cdr3",
-        "virus_family", "negative_origin", "assay_type", "assay_quality_tier",
-        "assay_quality_weight", "reference_pmid", "iedb_assay_id",
-        "infection_phase", "antigen_latency_program", "assay_context",
-        "cross_reactivity_tested", "virus_taxon_id", "is_quarantined",
+        "peptide",
+        "label",
+        "virus",
+        "protein",
+        "strain",
+        "hla_allele",
+        "source_type",
+        "database_source",
+        "tcr_alpha_cdr3",
+        "tcr_beta_cdr3",
+        "virus_family",
+        "negative_origin",
+        "assay_type",
+        "assay_quality_tier",
+        "assay_quality_weight",
+        "reference_pmid",
+        "iedb_assay_id",
+        "infection_phase",
+        "antigen_latency_program",
+        "assay_context",
+        "cross_reactivity_tested",
+        "virus_taxon_id",
+        "is_quarantined",
     }
 
     def _make_filtered(self):
         df = _sample_raw()
         logger = logging.getLogger("test_build")
         mapping = {
-            "epitope": "Optimal Sequence", "hla": "HLA",
-            "result": "Assay Result", "pmid": "PMID",
-            "protein": "Protein", "assay": "Assay", "subtype": "Subtype",
+            "epitope": "Optimal Sequence",
+            "hla": "HLA",
+            "result": "Assay Result",
+            "pmid": "PMID",
+            "protein": "Protein",
+            "assay": "Assay",
+            "subtype": "Subtype",
         }
         filtered, _ = filter_rows(df, mapping, negatives_only=False, logger=logger)
         return filtered, mapping
@@ -327,10 +391,12 @@ class TestBuildOutput:
 # load_lanl_export
 # ---------------------------------------------------------------------------
 
+
 class TestLoadLanlExport:
     def test_loads_tsv(self, tmp_path):
-        tsv_content = "Optimal Sequence\tHLA\tAssay Result\tPMID\n" \
-                      "SLYNTVATL\tHLA-A*02:01\tNegative\t12345\n"
+        tsv_content = (
+            "Optimal Sequence\tHLA\tAssay Result\tPMID\nSLYNTVATL\tHLA-A*02:01\tNegative\t12345\n"
+        )
         f = tmp_path / "test.tsv"
         f.write_text(tsv_content)
         logger = logging.getLogger("test_load")
@@ -348,8 +414,7 @@ class TestLoadLanlExport:
         assert "Sequence" in df.columns
 
     def test_single_column_csv_retries_as_tsv(self, tmp_path):
-        tsv_content = "Optimal Sequence\tHLA\tAssay Result\n" \
-                      "SLYNTVATL\tHLA-A*02:01\tNegative\n"
+        tsv_content = "Optimal Sequence\tHLA\tAssay Result\nSLYNTVATL\tHLA-A*02:01\tNegative\n"
         f = tmp_path / "test.csv"
         f.write_text(tsv_content)
         logger = logging.getLogger("test_load")
@@ -361,6 +426,7 @@ class TestLoadLanlExport:
 # ---------------------------------------------------------------------------
 # CLI integration: --dry-run
 # ---------------------------------------------------------------------------
+
 
 class TestCLIDryRun:
     def test_dry_run_no_output_written(self, tmp_path):
@@ -374,11 +440,16 @@ class TestCLIDryRun:
         outfile = tmp_path / "out.csv"
 
         from scripts.ingest_lanl_hiv import main
-        ret = main([
-            "--input", str(infile),
-            "--output", str(outfile),
-            "--dry-run",
-        ])
+
+        ret = main(
+            [
+                "--input",
+                str(infile),
+                "--output",
+                str(outfile),
+                "--dry-run",
+            ]
+        )
         assert ret == 0
         assert not outfile.exists()
 
@@ -393,11 +464,16 @@ class TestCLIDryRun:
         outfile = tmp_path / "out.csv"
 
         from scripts.ingest_lanl_hiv import main
-        ret = main([
-            "--input", str(infile),
-            "--output", str(outfile),
-            "--negatives-only",
-        ])
+
+        ret = main(
+            [
+                "--input",
+                str(infile),
+                "--output",
+                str(outfile),
+                "--negatives-only",
+            ]
+        )
         assert ret == 0
         df = pd.read_csv(outfile)
         assert (df["label"] == 0).all()
@@ -414,10 +490,15 @@ class TestCLIDryRun:
         outfile = tmp_path / "out.csv"
 
         from scripts.ingest_lanl_hiv import main
-        ret = main([
-            "--input", str(infile),
-            "--output", str(outfile),
-        ])
+
+        ret = main(
+            [
+                "--input",
+                str(infile),
+                "--output",
+                str(outfile),
+            ]
+        )
         assert ret == 0
         df = pd.read_csv(outfile)
         assert set(df["label"].unique()) == {0, 1}
@@ -425,14 +506,14 @@ class TestCLIDryRun:
 
     def test_provenance_sidecar_written(self, tmp_path):
         csv_content = (
-            "Optimal Sequence,HLA,Assay Result,PMID\n"
-            "SLYNTVATL,HLA-A*02:01,Negative,12345\n"
+            "Optimal Sequence,HLA,Assay Result,PMID\nSLYNTVATL,HLA-A*02:01,Negative,12345\n"
         )
         infile = tmp_path / "export.csv"
         infile.write_text(csv_content)
         outfile = tmp_path / "out.csv"
 
         from scripts.ingest_lanl_hiv import main
+
         ret = main(["--input", str(infile), "--output", str(outfile)])
         assert ret == 0
         prov_path = tmp_path / "out_provenance.json"
@@ -445,5 +526,6 @@ class TestCLIDryRun:
 
     def test_missing_input_returns_nonzero(self, tmp_path):
         from scripts.ingest_lanl_hiv import main
+
         ret = main(["--input", str(tmp_path / "nonexistent.csv")])
         assert ret != 0

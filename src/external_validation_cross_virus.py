@@ -57,9 +57,7 @@ def run_cross_virus(
 
     # Pooled baseline
     oof_all = _oof_scores(X_all, y_all, n_folds=n_folds)
-    rows.append(
-        {"train": "All", "test": "All", **evaluate(y_all, oof_all), "n_test": len(y_all)}
-    )
+    rows.append({"train": "All", "test": "All", **evaluate(y_all, oof_all), "n_test": len(y_all)})
 
     for train_virus in sorted(df["virus"].unique()):
         for test_virus in sorted(df["virus"].unique()):
@@ -106,12 +104,8 @@ def run_cross_virus(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-virus transfer table (A1)")
     parser.add_argument("--data", default="data/immunogenicity_dataset_v4.csv")
-    parser.add_argument(
-        "--binding-matrix", default="models/peptide_binding_matrix_v4.csv"
-    )
-    parser.add_argument(
-        "--output", default="results/external_validation_cross_virus.csv"
-    )
+    parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
+    parser.add_argument("--output", default="results/external_validation_cross_virus.csv")
     parser.add_argument("--n-folds", type=int, default=5)
     args = parser.parse_args()
 

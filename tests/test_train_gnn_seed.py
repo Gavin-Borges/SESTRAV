@@ -1,4 +1,5 @@
 """Reproducibility tests for src.train_gnn.set_seed."""
+
 import pytest
 
 torch = pytest.importorskip("torch")

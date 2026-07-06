@@ -32,8 +32,12 @@ from src.features import PHYSICO_COLUMNS, BINDING_ALLELE_COLUMNS
 from src.evaluate_metrics import summarize_fold_metrics
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.model import (
-    set_seeds, get_device, compute_pos_weight, run_cv,
-    SEED, N_FOLDS,
+    set_seeds,
+    get_device,
+    compute_pos_weight,
+    run_cv,
+    SEED,
+    N_FOLDS,
 )
 from src.train_classifier import prepare_features_30
 
@@ -48,8 +52,7 @@ FEATURE_GROUPS = {
 }
 
 
-def run_ablation(data_path, binding_matrix_path, config=None,
-                 n_folds=N_FOLDS, output_dir='models'):
+def run_ablation(data_path, binding_matrix_path, config=None, n_folds=N_FOLDS, output_dir="models"):
     """Run ablation study across all feature groups.
 
     Args:
@@ -71,10 +74,10 @@ def run_ablation(data_path, binding_matrix_path, config=None,
 
     # Load data
     df = pd.read_csv(data_path)
-    gs_mask = df['peptide'].isin(GOLD_STANDARD_EPITOPES)
+    gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     pool = df[~gs_mask].copy()
-    y = pool['label'].values
-    virus = pool['virus'].values if 'virus' in pool.columns else np.zeros(len(pool))
+    y = pool["label"].values
+    virus = pool["virus"].values if "virus" in pool.columns else np.zeros(len(pool))
     strat_key = np.array([f"{l}_{v}" for l, v in zip(y, virus)])
     pos_weight = compute_pos_weight(y)
 
@@ -84,9 +87,9 @@ def run_ablation(data_path, binding_matrix_path, config=None,
     X_30 = prepare_features_30(pool, binding_matrix_path)
 
     # Add peptide_length column
-    lengths = pool['peptide'].str.len().values
+    lengths = pool["peptide"].str.len().values
     X_full = X_30.copy()
-    X_full['peptide_length'] = lengths
+    X_full["peptide_length"] = lengths
 
     # Run ablation
     config_name = "-".join(str(h) for h in config["hidden"])
@@ -107,28 +110,33 @@ def run_ablation(data_path, binding_matrix_path, config=None,
         # Adjust architecture input dim
         group_config = config.copy()
 
-        fold_metrics = run_cv(X_group, y, strat_key, group_config, pos_weight,
-                              n_folds=n_folds, device=device)
+        fold_metrics = run_cv(
+            X_group, y, strat_key, group_config, pos_weight, n_folds=n_folds, device=device
+        )
         avg, std = summarize_fold_metrics(fold_metrics)
 
-        print(f"  AUC-ROC={avg['auc_roc']:.4f} +/- {std['auc_roc']:.4f}  "
-              f"AUC-PR={avg['auc_pr']:.4f} +/- {std['auc_pr']:.4f}")
+        print(
+            f"  AUC-ROC={avg['auc_roc']:.4f} +/- {std['auc_roc']:.4f}  "
+            f"AUC-PR={avg['auc_pr']:.4f} +/- {std['auc_pr']:.4f}"
+        )
 
-        results.append({
-            "feature_set": group_name,
-            "n_features": n_features,
-            "auc_roc_mean": avg["auc_roc"],
-            "auc_roc_std": std["auc_roc"],
-            "auc_pr_mean": avg["auc_pr"],
-            "auc_pr_std": std["auc_pr"],
-            "issr_10_mean": avg["issr_10"],
-            "issr_25_mean": avg["issr_25"],
-        })
+        results.append(
+            {
+                "feature_set": group_name,
+                "n_features": n_features,
+                "auc_roc_mean": avg["auc_roc"],
+                "auc_roc_std": std["auc_roc"],
+                "auc_pr_mean": avg["auc_pr"],
+                "auc_pr_std": std["auc_pr"],
+                "issr_10_mean": avg["issr_10"],
+                "issr_25_mean": avg["issr_25"],
+            }
+        )
 
     df_results = pd.DataFrame(results)
 
     os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, 'ablation_study_results.csv')
+    out_path = os.path.join(output_dir, "ablation_study_results.csv")
     df_results.to_csv(out_path, index=False)
     print(f"\n{'=' * 60}")
     print("Ablation Study Results:")
@@ -139,23 +147,24 @@ def run_ablation(data_path, binding_matrix_path, config=None,
     return df_results
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='SESTRAV Ablation Study - Feature group contribution analysis'
+        description="SESTRAV Ablation Study - Feature group contribution analysis"
     )
-    parser.add_argument('--data', required=True,
-                        help='Path to immunogenicity_dataset.csv')
-    parser.add_argument('--binding-matrix', required=True,
-                        help='Path to peptide_binding_matrix.csv')
-    parser.add_argument('--architecture', default='256-128-64',
-                        help='Hidden layer sizes (default: 256-128-64)')
-    parser.add_argument('--dropout', type=float, default=0.2)
-    parser.add_argument('--activation', default='relu')
-    parser.add_argument('--cv-folds', type=int, default=5)
-    parser.add_argument('--output-dir', default='models')
+    parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
+    parser.add_argument(
+        "--binding-matrix", required=True, help="Path to peptide_binding_matrix.csv"
+    )
+    parser.add_argument(
+        "--architecture", default="256-128-64", help="Hidden layer sizes (default: 256-128-64)"
+    )
+    parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--activation", default="relu")
+    parser.add_argument("--cv-folds", type=int, default=5)
+    parser.add_argument("--output-dir", default="models")
     args = parser.parse_args()
 
-    hidden = [int(x) for x in args.architecture.split('-')]
+    hidden = [int(x) for x in args.architecture.split("-")]
     config = {"hidden": hidden, "dropout": args.dropout, "activation": args.activation}
 
     run_ablation(

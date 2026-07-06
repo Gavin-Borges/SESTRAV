@@ -56,6 +56,7 @@ except ImportError:
 # PredIG / PRIME parsing helpers
 # ---------------------------------------------------------------------------
 
+
 def parse_predig(
     path: str,
     peptide_col: str = "peptide",
@@ -114,9 +115,7 @@ def parse_prime(
         )
     else:
         collapsed = df[[peptide_key, score_key]].copy()
-        collapsed = collapsed.rename(
-            columns={peptide_key: "peptide", score_key: "prime_score"}
-        )
+        collapsed = collapsed.rename(columns={peptide_key: "peptide", score_key: "prime_score"})
     return collapsed
 
 
@@ -129,9 +128,7 @@ def _find_col(df: pd.DataFrame, target: str) -> Optional[str]:
     return None
 
 
-def _fuzzy_column_map(
-    df: pd.DataFrame, peptide_col: str, score_col: str
-) -> Dict[str, str]:
+def _fuzzy_column_map(df: pd.DataFrame, peptide_col: str, score_col: str) -> Dict[str, str]:
     """Resolve user-specified column names against actual DataFrame columns."""
     pep = _find_col(df, peptide_col) or _find_col(df, "epitope") or _find_col(df, "Peptide")
     sc = (
@@ -142,19 +139,16 @@ def _fuzzy_column_map(
         or _find_col(df, "PRIME_score")
     )
     if pep is None:
-        raise ValueError(
-            f"Peptide column '{peptide_col}' not found. Available: {list(df.columns)}"
-        )
+        raise ValueError(f"Peptide column '{peptide_col}' not found. Available: {list(df.columns)}")
     if sc is None:
-        raise ValueError(
-            f"Score column '{score_col}' not found. Available: {list(df.columns)}"
-        )
+        raise ValueError(f"Score column '{score_col}' not found. Available: {list(df.columns)}")
     return {"peptide": pep, "score": sc}
 
 
 # ---------------------------------------------------------------------------
 # Merge and evaluate
 # ---------------------------------------------------------------------------
+
 
 def build_merged_table(
     base_path: str,
@@ -212,6 +206,7 @@ def evaluate_all_tools(
 # Derived comparisons
 # ---------------------------------------------------------------------------
 
+
 def compute_issr_ratios(
     results_df: pd.DataFrame,
     binding_tool: str = "Binding-only (max)",
@@ -223,12 +218,8 @@ def compute_issr_ratios(
     b10 = float(bind_row["issr_10"].values[0])
     b25 = float(bind_row["issr_25"].values[0])
     results_df = results_df.copy()
-    results_df["R10"] = results_df["issr_10"].apply(
-        lambda x: x / b10 if b10 > 0.05 else np.nan
-    )
-    results_df["R25"] = results_df["issr_25"].apply(
-        lambda x: x / b25 if b25 > 0.05 else np.nan
-    )
+    results_df["R10"] = results_df["issr_10"].apply(lambda x: x / b10 if b10 > 0.05 else np.nan)
+    results_df["R25"] = results_df["issr_25"].apply(lambda x: x / b25 if b25 > 0.05 else np.nan)
     return results_df
 
 
@@ -245,9 +236,7 @@ def spearman_correlation_matrix(
             if len(valid) < 5:
                 continue
             rho, pval = spearmanr(valid[col_a], valid[col_b])
-            rows.append(
-                {"tool_a": name_a, "tool_b": name_b, "rho": rho, "p_value": pval}
-            )
+            rows.append({"tool_a": name_a, "tool_b": name_b, "rho": rho, "p_value": pval})
     return pd.DataFrame(rows)
 
 
@@ -311,6 +300,7 @@ def per_virus_metrics(
 # Bootstrap statistical testing
 # ---------------------------------------------------------------------------
 
+
 def bootstrap_metric_diff(
     y_true: np.ndarray,
     scores_a: np.ndarray,
@@ -334,8 +324,10 @@ def bootstrap_metric_diff(
     if not _diffs:
         return np.nan, np.nan, np.nan
     diffs = np.array(_diffs)
-    return float(np.mean(diffs)), float(np.percentile(diffs, 2.5)), float(
-        np.percentile(diffs, 97.5)
+    return (
+        float(np.mean(diffs)),
+        float(np.percentile(diffs, 2.5)),
+        float(np.percentile(diffs, 97.5)),
     )
 
 
@@ -370,9 +362,7 @@ def run_bootstrap_comparisons(
         def issr10(yt, ys):
             return issr_at_k(yt, ys, 10)
 
-        mean_issr, lo_issr, hi_issr = bootstrap_metric_diff(
-            y_v, ref_v, tool_v, issr10, n_bootstrap
-        )
+        mean_issr, lo_issr, hi_issr = bootstrap_metric_diff(y_v, ref_v, tool_v, issr10, n_bootstrap)
 
         rows.append(
             {
@@ -384,9 +374,7 @@ def run_bootstrap_comparisons(
                 "issr10_diff_mean": mean_issr,
                 "issr10_diff_ci_low": lo_issr,
                 "issr10_diff_ci_high": hi_issr,
-                "issr10_significant": "yes"
-                if lo_issr > 0 or hi_issr < 0
-                else "no",
+                "issr10_significant": "yes" if lo_issr > 0 or hi_issr < 0 else "no",
             }
         )
     return pd.DataFrame(rows)
@@ -395,6 +383,7 @@ def run_bootstrap_comparisons(
 # ---------------------------------------------------------------------------
 # Visualization
 # ---------------------------------------------------------------------------
+
 
 def generate_figures(
     merged: pd.DataFrame,
@@ -448,7 +437,9 @@ def generate_figures(
     paths.append(dist_path)
 
     if "rf_oof_score" in merged.columns:
-        ext_tools = {k: v for k, v in tool_columns.items() if v not in ("rf_oof_score", "binding_max")}
+        ext_tools = {
+            k: v for k, v in tool_columns.items() if v not in ("rf_oof_score", "binding_max")
+        }
         if ext_tools:
             fig, axes = plt.subplots(
                 1, len(ext_tools), figsize=(6 * len(ext_tools), 5), squeeze=False
@@ -466,17 +457,19 @@ def generate_figures(
                 ]:
                     mask = complete["peptide"].isin(pep_set)
                     ax.scatter(
-                        rf_ranks[mask], tool_ranks[mask],
-                        s=30, color=color, label=label, zorder=5,
+                        rf_ranks[mask],
+                        tool_ranks[mask],
+                        s=30,
+                        color=color,
+                        label=label,
+                        zorder=5,
                     )
                 ax.set_xlabel("SESTRAV RF rank")
                 ax.set_ylabel(f"{tool_name} rank")
                 ax.set_title(f"SESTRAV RF vs {tool_name}")
                 ax.legend(fontsize=7)
             plt.tight_layout()
-            scatter_path = os.path.join(
-                output_dir, "external_benchmark_rank_scatter.png"
-            )
+            scatter_path = os.path.join(output_dir, "external_benchmark_rank_scatter.png")
             fig.savefig(scatter_path, dpi=150)
             plt.close(fig)
             paths.append(scatter_path)
@@ -487,6 +480,7 @@ def generate_figures(
 # ---------------------------------------------------------------------------
 # Report writer
 # ---------------------------------------------------------------------------
+
 
 def write_comparison_report(
     output_dir: str,
@@ -599,6 +593,7 @@ def _df_to_md_table(df: pd.DataFrame) -> str:
 # Main orchestrator
 # ---------------------------------------------------------------------------
 
+
 def run_comparison(
     predig_path: Optional[str] = None,
     prime_path: Optional[str] = None,
@@ -649,9 +644,7 @@ def run_comparison(
         )
         print(f"[comparison] PRIME: {len(prime_scores)} peptides parsed")
 
-    provenance_path = os.path.join(
-        results_dir, "external_tool_outputs", "provenance.json"
-    )
+    provenance_path = os.path.join(results_dir, "external_tool_outputs", "provenance.json")
     if os.path.isfile(provenance_path):
         with open(provenance_path, encoding="utf-8") as f:
             ext_prov = json.load(f)
@@ -681,9 +674,7 @@ def run_comparison(
     corr_df = spearman_correlation_matrix(merged, tool_columns)
     neg_disc_df = negative_discrimination(merged, tool_columns)
     virus_df = per_virus_metrics(merged, tool_columns)
-    bootstrap_df = run_bootstrap_comparisons(
-        merged, tool_columns, n_bootstrap=n_bootstrap
-    )
+    bootstrap_df = run_bootstrap_comparisons(merged, tool_columns, n_bootstrap=n_bootstrap)
 
     figure_paths = generate_figures(merged, tool_columns, results_dir)
 
@@ -729,6 +720,7 @@ def _discover_tool_columns(merged: pd.DataFrame) -> Dict[str, str]:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="SESTRAV External Benchmark Comparison (PredIG / PRIME)"
@@ -759,31 +751,39 @@ def main() -> None:
         help="Path to external_validation_input.csv (default: results-dir/external_validation_input.csv)",
     )
     parser.add_argument(
-        "--predig-peptide-col", default="peptide",
+        "--predig-peptide-col",
+        default="peptide",
         help="PredIG peptide column name",
     )
     parser.add_argument(
-        "--predig-score-col", default="predig_score",
+        "--predig-score-col",
+        default="predig_score",
         help="PredIG score column name",
     )
     parser.add_argument(
-        "--prime-peptide-col", default="peptide",
+        "--prime-peptide-col",
+        default="peptide",
         help="PRIME peptide column name",
     )
     parser.add_argument(
-        "--prime-score-col", default="PRIME_score",
+        "--prime-score-col",
+        default="PRIME_score",
         help="PRIME score column name",
     )
     parser.add_argument(
-        "--prime-sep", default="\t",
+        "--prime-sep",
+        default="\t",
         help="PRIME file delimiter (default: tab)",
     )
     parser.add_argument(
-        "--prime-use-pctrank", action="store_true",
+        "--prime-use-pctrank",
+        action="store_true",
         help="Use inverted %%Rank instead of PRIME Score (fallback only)",
     )
     parser.add_argument(
-        "--n-bootstrap", type=int, default=2000,
+        "--n-bootstrap",
+        type=int,
+        default=2000,
         help="Number of bootstrap resamples (default: 2000)",
     )
     args = parser.parse_args()

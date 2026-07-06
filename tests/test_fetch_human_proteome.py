@@ -3,6 +3,7 @@
 Network-dependent download is not tested here; only pure-logic functions
 (_sha256, _count_sequences, fetch skip-if-present, CLI parsing) are covered.
 """
+
 import hashlib
 import os
 import sys
@@ -13,6 +14,7 @@ from fetch_human_proteome import _count_sequences, _sha256, fetch, main  # noqa:
 # ---------------------------------------------------------------------------
 # _count_sequences
 # ---------------------------------------------------------------------------
+
 
 def test_count_sequences_single(tmp_path):
     fa = tmp_path / "test.fasta"
@@ -48,6 +50,7 @@ def test_count_sequences_no_header(tmp_path):
 # _sha256
 # ---------------------------------------------------------------------------
 
+
 def test_sha256_known_content(tmp_path):
     f = tmp_path / "known.txt"
     content = b"hello world"
@@ -73,6 +76,7 @@ def test_sha256_reproducible(tmp_path):
 # fetch - skip-if-present (no network)
 # ---------------------------------------------------------------------------
 
+
 def test_fetch_skips_when_file_exists(tmp_path, capsys):
     dest = tmp_path / "human.fasta"
     dest.write_text(">sp|P00001|TEST_HUMAN\nACDE\n")
@@ -93,6 +97,7 @@ def test_fetch_reports_sequence_count_on_skip(tmp_path, capsys):
 # ---------------------------------------------------------------------------
 # main() - CLI argument parsing (no-network paths only)
 # ---------------------------------------------------------------------------
+
 
 def test_main_skips_existing_file(tmp_path, capsys):
     dest = tmp_path / "proteome.fasta"

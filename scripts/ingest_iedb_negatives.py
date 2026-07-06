@@ -320,9 +320,7 @@ def resolve_columns(df: pd.DataFrame, logger: logging.Logger) -> ResolvedColumns
     column is missing."""
     cols = list(df.columns)
     host = _find_col(cols, "Host Organism Name", "host organism name", "host")
-    measure = _find_col(
-        cols, "Qualitative Measure", "qualitative measure", "qualitative_measure"
-    )
+    measure = _find_col(cols, "Qualitative Measure", "qualitative measure", "qualitative_measure")
     epitope = _find_col(cols, "Epitope Name", "epitope name", "name", "epitope")
     allele = _find_col(cols, "Allele Name", "allele name", "allele")
 
@@ -350,9 +348,7 @@ def resolve_columns(df: pd.DataFrame, logger: logging.Logger) -> ResolvedColumns
         epitope=epitope,  # type: ignore[arg-type]
         allele=allele,  # type: ignore[arg-type]
         assay_group=_find_col(cols, "Assay Group", "assay group", "assay_group"),
-        antigen=_find_col(
-            cols, "Antigen Name", "antigen name", "antigen", "description"
-        ),
+        antigen=_find_col(cols, "Antigen Name", "antigen name", "antigen", "description"),
         pmid=_find_col(
             cols,
             "Reference PubMed ID",
@@ -361,9 +357,7 @@ def resolve_columns(df: pd.DataFrame, logger: logging.Logger) -> ResolvedColumns
             "pubmed_id",
             "pmid",
         ),
-        description=_find_col(
-            cols, "Description", "description", "antigen description"
-        ),
+        description=_find_col(cols, "Description", "description", "antigen description"),
         response_frequency=_find_col(
             cols,
             "Response Frequency As Reported",
@@ -410,17 +404,12 @@ def load_iedb_export(path: Path, logger: logging.Logger) -> pd.DataFrame:
     first_val = str(df_peek.iloc[0, 0]).strip().lower()
     if first_val in IEDB_GROUP_TOKENS or first_val.startswith("unnamed"):
         logger.info(
-            "Detected IEDB two-row header (row 0 group token %r); "
-            "re-reading with header=1",
+            "Detected IEDB two-row header (row 0 group token %r); re-reading with header=1",
             df_peek.iloc[0, 0],
         )
         try:
-            groups_row = (
-                df_peek.iloc[0].fillna("").astype(str).str.strip().str.lower().tolist()
-            )
-            fields_row = (
-                df_peek.iloc[1].fillna("").astype(str).str.strip().str.lower().tolist()
-            )
+            groups_row = df_peek.iloc[0].fillna("").astype(str).str.strip().str.lower().tolist()
+            fields_row = df_peek.iloc[1].fillna("").astype(str).str.strip().str.lower().tolist()
             df = pd.read_csv(path, header=1, low_memory=False)
             pandas_cols = list(df.columns)
             rename: dict[str, str] = {}
@@ -458,9 +447,7 @@ def filter_rows(
     stats["raw_input"] = len(df)
 
     # --- Filter 1: Human host ---
-    mask_host = (
-        df[cols.host].fillna("").str.contains("Homo sapiens", case=False, na=False)
-    )
+    mask_host = df[cols.host].fillna("").str.contains("Homo sapiens", case=False, na=False)
     df = df[mask_host].copy()
     stats["after_human_host_filter"] = len(df)
     logger.info(
@@ -478,21 +465,14 @@ def filter_rows(
     mask_neg_rf = pd.Series(False, index=df.index)
     if cols.response_frequency is not None:
         rf = pd.to_numeric(df[cols.response_frequency], errors="coerce")
-        mask_neg_rf = (
-            (measure_series == "")
-            & rf.notna()
-            & (rf < RESPONSE_FREQUENCY_NEG_THRESHOLD)
-        )
+        mask_neg_rf = (measure_series == "") & rf.notna() & (rf < RESPONSE_FREQUENCY_NEG_THRESHOLD)
     mask_neg = mask_neg_qual | mask_neg_rf
     stats["negatives_by_qualitative_measure"] = int(mask_neg_qual.sum())
-    stats["negatives_by_response_frequency"] = int(
-        (mask_neg_rf & ~mask_neg_qual).sum()
-    )
+    stats["negatives_by_response_frequency"] = int((mask_neg_rf & ~mask_neg_qual).sum())
     df = df[mask_neg].copy()
     stats["after_negative_measure_filter"] = len(df)
     logger.info(
-        "After negative filter: %d rows (%d by qualitative measure, %d by "
-        "response frequency)",
+        "After negative filter: %d rows (%d by qualitative measure, %d by response frequency)",
         len(df),
         stats["negatives_by_qualitative_measure"],
         stats["negatives_by_response_frequency"],
@@ -504,8 +484,7 @@ def filter_rows(
     df = df[mask_peptide].copy()
     stats["after_peptide_filter"] = len(df)
     logger.info(
-        "After peptide validity filter (length 8-11, standard AA): %d rows "
-        "(removed %d)",
+        "After peptide validity filter (length 8-11, standard AA): %d rows (removed %d)",
         len(df),
         stats["after_negative_measure_filter"] - len(df),
     )
@@ -543,14 +522,9 @@ def filter_rows(
     dedup_keys = pd.DataFrame(
         {
             "peptide": df[cols.epitope].fillna("").str.strip(),
-            "allele": df[cols.allele]
-            .fillna("")
-            .str.strip()
-            .apply(normalize_hla_allele),
+            "allele": df[cols.allele].fillna("").str.strip().apply(normalize_hla_allele),
             "pmid": (
-                df[cols.pmid].fillna("").astype(str).str.strip()
-                if cols.pmid is not None
-                else ""
+                df[cols.pmid].fillna("").astype(str).str.strip() if cols.pmid is not None else ""
             ),
         }
     )
@@ -578,9 +552,7 @@ def build_output(
 
     out["peptide"] = df[cols.epitope].str.strip()
     out["label"] = 0
-    out["hla_allele"] = (
-        df[cols.allele].fillna("").str.strip().apply(normalize_hla_allele)
-    )
+    out["hla_allele"] = df[cols.allele].fillna("").str.strip().apply(normalize_hla_allele)
 
     if cols.description is not None:
         raw_virus = df[cols.description].fillna("Unknown").str.strip()
@@ -588,9 +560,7 @@ def build_output(
         raw_virus = df[cols.antigen].fillna("Unknown").str.strip()
     else:
         raw_virus = pd.Series(["Unknown"] * len(df), index=df.index)
-    out["virus"] = raw_virus.apply(
-        lambda v: _VIRUS_TAXONOMY_TO_COMMON.get(str(v).lower(), v)
-    )
+    out["virus"] = raw_virus.apply(lambda v: _VIRUS_TAXONOMY_TO_COMMON.get(str(v).lower(), v))
 
     # protein
     if cols.antigen is not None:
@@ -615,18 +585,11 @@ def build_output(
         out["assay_type"] = None
         out["assay_quality_tier"] = 2
         out["assay_quality_weight"] = TIER_WEIGHT[2]
-        logger.warning(
-            "Assay Group column not found; defaulting quality tier 2 (0.7)"
-        )
+        logger.warning("Assay Group column not found; defaulting quality tier 2 (0.7)")
 
     if cols.pmid is not None:
         out["reference_pmid"] = (
-            df[cols.pmid]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .replace("", None)
-            .replace("nan", None)
+            df[cols.pmid].fillna("").astype(str).str.strip().replace("", None).replace("nan", None)
         )
     else:
         out["reference_pmid"] = None
@@ -644,9 +607,7 @@ def build_output(
         )
     else:
         out["iedb_assay_id"] = None
-        logger.warning(
-            "Assay/Reference ID column not found; iedb_assay_id set to null"
-        )
+        logger.warning("Assay/Reference ID column not found; iedb_assay_id set to null")
 
     # Per-virus biology context columns - populated by panel/build scripts.
     out["infection_phase"] = None
@@ -781,9 +742,7 @@ def main(argv: list[str] | None = None) -> int:
     out_df = build_output(filtered_df, cols, logger)
 
     # Deduplication against the existing (frozen) dataset
-    out_df, n_dup = deduplicate_against_existing(
-        out_df, args.existing_dataset, logger
-    )
+    out_df, n_dup = deduplicate_against_existing(out_df, args.existing_dataset, logger)
     stats["deduplication_hits"] = n_dup
     stats["final_output_rows"] = len(out_df)
 

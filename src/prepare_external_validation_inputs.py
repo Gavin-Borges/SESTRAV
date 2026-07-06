@@ -99,14 +99,15 @@ def main() -> None:
         oof_rf = oof.copy()
     if oof_rf.empty:
         oof_rf = oof.copy()
-    oof_rf = oof_rf.drop_duplicates(subset=["peptide"], keep="first")[
-        ["peptide", "score"]
-    ].rename(columns={"score": "rf_oof_score"})
+    oof_rf = oof_rf.drop_duplicates(subset=["peptide"], keep="first")[["peptide", "score"]].rename(
+        columns={"score": "rf_oof_score"}
+    )
 
     bind_cols = [c for c in bind.columns if c.startswith("bind_")]
     n_alleles = len(alleles)
     if len(bind_cols) != n_alleles:
         import warnings
+
         warnings.warn(
             f"Binding matrix has {len(bind_cols)} bind_* columns but "
             f"config.yaml defines {n_alleles} alleles; proceeding with "
@@ -116,33 +117,26 @@ def main() -> None:
     if not bind_cols:
         raise ValueError("Binding matrix contains no bind_* columns")
 
-    bind_sub = bind[["peptide"] + bind_cols].drop_duplicates(
-        subset=["peptide"], keep="first"
-    ).copy()
-    bind_sub["binding_max"] = bind_sub.apply(
-        lambda r: _binding_max_row(r, bind_cols), axis=1
+    bind_sub = (
+        bind[["peptide"] + bind_cols].drop_duplicates(subset=["peptide"], keep="first").copy()
     )
+    bind_sub["binding_max"] = bind_sub.apply(lambda r: _binding_max_row(r, bind_cols), axis=1)
 
-    merged = (
-        ds.merge(oof_rf, on="peptide", how="left")
-        .merge(bind_sub[["peptide", "binding_max"]], on="peptide", how="left")
+    merged = ds.merge(oof_rf, on="peptide", how="left").merge(
+        bind_sub[["peptide", "binding_max"]], on="peptide", how="left"
     )
 
     def map_proteome(v: str) -> str:
         key = str(v).strip()
         if key not in DEFAULT_VIRUS_TO_PROTEOME:
-            raise KeyError(
-                f"Unknown virus '{key}' - add mapping in DEFAULT_VIRUS_TO_PROTEOME"
-            )
+            raise KeyError(f"Unknown virus '{key}' - add mapping in DEFAULT_VIRUS_TO_PROTEOME")
         return DEFAULT_VIRUS_TO_PROTEOME[key]
 
     merged["proteome_id"] = merged["virus"].map(map_proteome)
-    merged["is_gold_standard_holdout"] = merged["peptide"].isin(
-        GOLD_STANDARD_EPITOPES
+    merged["is_gold_standard_holdout"] = merged["peptide"].isin(GOLD_STANDARD_EPITOPES)
+    merged["tier_a_baseline_complete"] = (
+        merged["rf_oof_score"].notna() & merged["binding_max"].notna()
     )
-    merged["tier_a_baseline_complete"] = merged["rf_oof_score"].notna() & merged[
-        "binding_max"
-    ].notna()
 
     out_main = os.path.join(results_dir, "external_validation_input.csv")
     out_cols = [

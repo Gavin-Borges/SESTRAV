@@ -27,7 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 
 
@@ -49,14 +49,10 @@ def slice_fasta_sequences(fasta_path: str, pathogen_name: str) -> list:
         seq = str(record.seq).upper()
         # Slide window of length 9
         for i in range(len(seq) - 8):
-            pep = seq[i:i+9]
+            pep = seq[i : i + 9]
             # Verify only standard amino acids
             if all(c in "ACDEFGHIKLMNPQRSTVWY" for c in pep):
-                extracted.append({
-                    "peptide": pep,
-                    "virus": pathogen_name,
-                    "source_id": record.id
-                })
+                extracted.append({"peptide": pep, "virus": pathogen_name, "source_id": record.id})
 
     logging.info(f"Extracted {len(extracted)} candidate 9-mers from {fasta_path}")
     return extracted
@@ -69,26 +65,21 @@ def main():
     parser.add_argument(
         "--fasta",
         nargs="+",
-        default=[
-            "data/proteomes/EBV_B95_8_panel8.fasta",
-            "data/proteomes/HPV16_18_panel8.fasta"
-        ],
-        help="Path to one or more FASTA files."
+        default=["data/proteomes/EBV_B95_8_panel8.fasta", "data/proteomes/HPV16_18_panel8.fasta"],
+        help="Path to one or more FASTA files.",
     )
     parser.add_argument(
         "--model",
         default="models/ann_30feature_integrated.pt",
-        help="Path to trained PyTorch model checkpoint."
+        help="Path to trained PyTorch model checkpoint.",
     )
     parser.add_argument(
         "--binding-matrix",
         default="models/peptide_binding_matrix_v4.csv",
-        help="Path to peptide binding matrix CSV."
+        help="Path to peptide binding matrix CSV.",
     )
     parser.add_argument(
-        "--output",
-        default="top_20_candidates.csv",
-        help="Path to output CSV file."
+        "--output", default="top_20_candidates.csv", help="Path to output CSV file."
     )
 
     args = parser.parse_args()
@@ -121,6 +112,7 @@ def main():
     # 2. Run feature extractor (30-feature schema)
     logging.info(f"Extracting features using binding matrix: {args.binding_matrix}")
     from src.train_classifier import prepare_features_30
+
     try:
         X_df = prepare_features_30(df_unique, args.binding_matrix)
     except Exception as e:
@@ -130,6 +122,7 @@ def main():
     # 3. Model inference using PyTorch ANN model
     logging.info(f"Loading PyTorch ANN model checkpoint: {args.model}")
     from src.baseline_comparison import _score_with_ann
+
     try:
         df_unique["score"] = _score_with_ann(X_df, args.model)
     except Exception as e:
@@ -146,12 +139,14 @@ def main():
     logging.info(f"Successfully generated top 20 targets. Saved to: {args.output}")
 
     # Display candidates in logs
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("  TOP 20 IMMUNOGENIC EPITOPE CANDIDATES")
-    print("="*50)
+    print("=" * 50)
     for idx, (_, row) in enumerate(top_df.iterrows(), 1):
-        print(f"  {idx:2d}. {row['peptide']:10s} | {row['pathogen']:6s} | Score: {row['confidence']:.4f}")
-    print("="*50 + "\n")
+        print(
+            f"  {idx:2d}. {row['peptide']:10s} | {row['pathogen']:6s} | Score: {row['confidence']:.4f}"
+        )
+    print("=" * 50 + "\n")
 
 
 if __name__ == "__main__":

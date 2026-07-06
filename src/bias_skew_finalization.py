@@ -41,7 +41,10 @@ def _gate_status(
     if os.path.isfile(threshold_json):
         with open(threshold_json, "r", encoding="utf-8") as f:
             payload = json.load(f)
-        threshold_ok = bool(payload.get("overall_precision", 0.0) >= 0.55 and payload.get("overall_recall", 0.0) >= 0.55)
+        threshold_ok = bool(
+            payload.get("overall_precision", 0.0) >= 0.55
+            and payload.get("overall_recall", 0.0) >= 0.55
+        )
     gates["acceptable_threshold_tradeoff"] = threshold_ok
 
     sensitivity_ok = True
@@ -51,7 +54,9 @@ def _gate_status(
             sensitivity_ok = bool((deltas["delta_recovery_top25"] > -0.20).all())
     gates["gold_standard_not_brittle"] = sensitivity_ok
 
-    provenance_ok = bool(bias_summary.get("n_total", 0) > 0 and bias_summary.get("raw_n_records", 0) > 0)
+    provenance_ok = bool(
+        bias_summary.get("n_total", 0) > 0 and bias_summary.get("raw_n_records", 0) > 0
+    )
     gates["dataset_provenance_complete"] = provenance_ok
     gates["all_passed"] = all(gates.values())
     return gates

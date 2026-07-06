@@ -142,8 +142,8 @@ SYFPEITHI_TRAINING_VARIANTS: dict[str, str] = {
     "CLGGLLTMV": "CLGGLLTMV",  # exact match
     "CLGGLLYMV": "CLGGLLTMV",  # 1-substitution variant
     "CLGGLITMV": "CLGGLLTMV",  # 1-substitution variant
-    "CLGLLTMV": "CLGGLLTMV",   # 8-mer variant (compressed register)
-    "LLWTLVLL": "LLWTLVVLL",   # 8-mer compressed form
+    "CLGLLTMV": "CLGGLLTMV",  # 8-mer variant (compressed register)
+    "LLWTLVLL": "LLWTLVVLL",  # 8-mer compressed form
     "RAHYNIVTE": "RAHYNIVTF",  # 1-substitution variant
     "KLPHLCTEL": "KLPQLCTEL",  # 1-substitution variant
 }
@@ -204,8 +204,11 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
         oof_df.columns[0],
     )
     score_col = next(
-        (c for c in ["score", "immunogenicity_score", "probability", "Score"]
-         if c in oof_df.columns),
+        (
+            c
+            for c in ["score", "immunogenicity_score", "probability", "Score"]
+            if c in oof_df.columns
+        ),
         oof_df.columns[-1],
     )
 
@@ -214,12 +217,10 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
 
     # Compute percentile ranks (higher score = lower percentile rank = better)
     oof_df = oof_df.copy()
-    oof_df["_rank_pctl"] = (
-        oof_df[score_col].rank(ascending=False, pct=True) * 100
-    )
+    oof_df["_rank_pctl"] = oof_df[score_col].rank(ascending=False, pct=True) * 100
 
     print("\nSYFPEITHI Rank-Overlap Benchmark")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  OOF predictions : {predictions_path.name}")
     print(f"  Feature mode    : {feature_mode}")
     print(f"  Total peptides  : {n_total}")
@@ -244,22 +245,26 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
             else:
                 match["rank_percentile"] = float(rows["_rank_pctl"].iloc[0])
 
-        results.append({
-            "peptide": ref["peptide"],
-            "protein": ref["protein"],
-            "virus": ref["virus"],
-            "hla": ref["hla"],
-            "syfpeithi_score": ref["syfpeithi_score"],
-            "source": ref["source"],
-            **match,
-        })
+        results.append(
+            {
+                "peptide": ref["peptide"],
+                "protein": ref["protein"],
+                "virus": ref["virus"],
+                "hla": ref["hla"],
+                "syfpeithi_score": ref["syfpeithi_score"],
+                "source": ref["source"],
+                **match,
+            }
+        )
 
     # Print per-epitope table
     print(f"{'Peptide':<14} {'Protein':<8} {'Virus':<8} {'Match':<20} {'Score':>7} {'Pctile':>7}")
     print("-" * 70)
     for r in results:
         score_str = f"{r['sestrav_score']:.3f}" if r["sestrav_score"] is not None else "  N/A "
-        pctile_str = f"{r['rank_percentile']:.1f}%" if r["rank_percentile"] is not None else "  N/A "
+        pctile_str = (
+            f"{r['rank_percentile']:.1f}%" if r["rank_percentile"] is not None else "  N/A "
+        )
         print(
             f"{r['peptide']:<14} {r['protein']:<8} {r['virus']:<8} "
             f"{r['match_type']:<20} {score_str:>7} {pctile_str:>7}"
@@ -284,7 +289,9 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
             "n_evaluable": len(evaluable),
         }
 
-    print(f"Rank-overlap summary  (n_evaluable={len(evaluable)}, n_not_in_oof={len(not_evaluable)})")
+    print(
+        f"Rank-overlap summary  (n_evaluable={len(evaluable)}, n_not_in_oof={len(not_evaluable)})"
+    )
     print(f"{'Cutoff':>8} {'Recall':>8} {'Baseline':>10} {'Enrichment':>12} {'In top-K':>10}")
     print("-" * 55)
     for k, s in recall_summary.items():
@@ -318,7 +325,12 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(benchmark_output, f, indent=2, default=lambda x: int(x) if hasattr(x, "item") else str(x))
+            json.dump(
+                benchmark_output,
+                f,
+                indent=2,
+                default=lambda x: int(x) if hasattr(x, "item") else str(x),
+            )
         print(f"\nResults written: {output_path}")
 
     return benchmark_output
@@ -350,8 +362,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print(f"SYFPEITHI reference set ({len(SYFPEITHI_CANONICAL)} epitopes):")
         for r in SYFPEITHI_CANONICAL:
-            print(f"  {r['peptide']:12s}  {r['protein']:6s}  {r['virus']:6s}  "
-                  f"A*02:01  score={r['syfpeithi_score']}  [{r['source']}]")
+            print(
+                f"  {r['peptide']:12s}  {r['protein']:6s}  {r['virus']:6s}  "
+                f"A*02:01  score={r['syfpeithi_score']}  [{r['source']}]"
+            )
         return 0
 
     if not args.predictions.exists():

@@ -3,11 +3,13 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from pydantic import BaseModel, field_validator
 
+
 class ProvenanceConfig(BaseModel):
     timestamp: str
     source_databases: List[str]
     negative_sampling_strategy: str
     checksum: str
+
 
 class QCThresholdsConfig(BaseModel):
     min_peptide_yield: int
@@ -15,12 +17,14 @@ class QCThresholdsConfig(BaseModel):
     max_null_allele_fraction: float
     class_ratio_bounds: List[float]
 
+
 class DatasetGovernanceConfig(BaseModel):
     current_version: str
     versions: Dict[str, str]
     provenance: ProvenanceConfig
     qc_thresholds: QCThresholdsConfig
     require_checksum_match_in_freeze_mode: bool
+
 
 class SestravConfig(BaseModel):
     antigens: List[str]
@@ -46,7 +50,9 @@ class SestravConfig(BaseModel):
     structural_cache_dir: Optional[Path] = Path("data/structural_cache")
     use_spatial_adj: bool = False
 
-    @field_validator('model_path', 'binding_matrix_path', 'output_dir', 'structural_cache_dir', mode='before')
+    @field_validator(
+        "model_path", "binding_matrix_path", "output_dir", "structural_cache_dir", mode="before"
+    )
     def validate_paths(cls, v):
         if v is None:
             return v

@@ -15,6 +15,7 @@ Research disclaimer:
     SESTRAV is a research-grade immunogenicity predictor.  Predictions are for
     hypothesis generation only and must not drive clinical decisions.
 """
+
 from __future__ import annotations
 
 import io
@@ -22,7 +23,8 @@ import sys
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")           # non-interactive backend - headless safe
+
+matplotlib.use("Agg")  # non-interactive backend - headless safe
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -47,14 +49,15 @@ st.set_page_config(
 # Model singleton (cached across user interactions)
 # ---------------------------------------------------------------------------
 
+
 @st.cache_resource(show_spinner="Loading SESTRAV model...")
 def _load_model():
     from src.artifact_integrity import load_verified_joblib
+
     model_path = _ROOT / "models" / "rf_30feature_integrated.joblib"
     if not model_path.exists():
         raise FileNotFoundError(
-            f"RF model not found at {model_path}. "
-            "Run the SESTRAV training pipeline first."
+            f"RF model not found at {model_path}. Run the SESTRAV training pipeline first."
         )
     return load_verified_joblib(model_path, required_checksum=True)
 
@@ -62,6 +65,7 @@ def _load_model():
 @st.cache_resource(show_spinner="Loading SHAP explainer...")
 def _load_explainer(model):
     import shap
+
     return shap.TreeExplainer(model)
 
 
@@ -69,9 +73,11 @@ def _load_explainer(model):
 # Feature computation helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_binding_score(sequence: str, allele: str) -> float | None:
     try:
         from mhcflurry import Class1PresentationPredictor
+
         predictor = Class1PresentationPredictor.load()
         result = predictor.predict(
             peptides=[sequence],
@@ -83,7 +89,9 @@ def _get_binding_score(sequence: str, allele: str) -> float | None:
         return None
 
 
-def _build_feature_vector(sequence: str, binding_score: float, allele: str = "") -> tuple[np.ndarray, list[str]]:
+def _build_feature_vector(
+    sequence: str, binding_score: float, allele: str = ""
+) -> tuple[np.ndarray, list[str]]:
     """Build a 30-feature vector matching rf_30feature_integrated.joblib.
 
     FEATURE_COLUMNS_30 = 20 physicochemical (p4-p8 × 4 properties) +
@@ -92,13 +100,13 @@ def _build_feature_vector(sequence: str, binding_score: float, allele: str = "")
     queried allele's column which receives the provided binding_score.
     """
     from src.features import compute_features, FEATURE_COLUMNS_30, BINDING_ALLELE_COLUMNS
+
     feat_dict = compute_features(sequence, binding_score=0.0)
 
     # Map the allele-specific binding score into the correct column.
     # Allele format: HLA-A*02:01 -> bind_A0201
     allele_col = (
-        "bind_" + allele.replace("HLA-", "").replace("*", "").replace(":", "")
-        if allele else None
+        "bind_" + allele.replace("HLA-", "").replace("*", "").replace(":", "") if allele else None
     )
     for col in BINDING_ALLELE_COLUMNS:
         if col == allele_col:
@@ -115,6 +123,7 @@ def _build_feature_vector(sequence: str, binding_score: float, allele: str = "")
 # SHAP waterfall (Matplotlib / Agg)
 # ---------------------------------------------------------------------------
 
+
 def _shap_waterfall_figure(
     shap_values,
     feature_names: list[str],
@@ -130,15 +139,15 @@ def _shap_waterfall_figure(
 
     # Keep top_n features by |SHAP| magnitude
     order = np.argsort(np.abs(vals))[::-1][:top_n]
-    sel_vals   = vals[order]
-    sel_names  = [feature_names[i] for i in order]
-    sel_feats  = feature_values[order]
+    sel_vals = vals[order]
+    sel_names = [feature_names[i] for i in order]
+    sel_feats = feature_values[order]
 
     # Sort ascending for visual waterfall (low → high)
-    sort_idx   = np.argsort(sel_vals)
-    sel_vals   = sel_vals[sort_idx]
-    sel_names  = [sel_names[i] for i in sort_idx]
-    sel_feats  = sel_feats[sort_idx]
+    sort_idx = np.argsort(sel_vals)
+    sel_vals = sel_vals[sort_idx]
+    sel_names = [sel_names[i] for i in sort_idx]
+    sel_feats = sel_feats[sort_idx]
 
     colors = ["#e05c5c" if v < 0 else "#4a9e7f" for v in sel_vals]
 
@@ -149,17 +158,32 @@ def _shap_waterfall_figure(
     for bar, name, fval, sv in zip(bars, sel_names, sel_feats, sel_vals):
         label = f"{name} = {fval:.3g}"
         x_off = 0.003 if sv >= 0 else -0.003
-        ha    = "left" if sv >= 0 else "right"
-        ax.text(sv + x_off, bar.get_y() + bar.get_height() / 2,
-                label, va="center", ha=ha, fontsize=7.5, color="#1a1a1a")
+        ha = "left" if sv >= 0 else "right"
+        ax.text(
+            sv + x_off,
+            bar.get_y() + bar.get_height() / 2,
+            label,
+            va="center",
+            ha=ha,
+            fontsize=7.5,
+            color="#1a1a1a",
+        )
 
     ax.axvline(0, color="#333333", linewidth=0.8, linestyle="--")
     ax.set_yticks(y_pos)
     ax.set_yticklabels([""] * len(y_pos))  # labels embedded in bars
     ax.set_xlabel("SHAP value  (contribution to P(immunogenic))", fontsize=9)
     ax.set_title(f"Feature contributions - {peptide}", fontsize=11, pad=10)
-    ax.text(0.98, 0.02, f"Base: {base_value:.3f}", transform=ax.transAxes,
-            ha="right", va="bottom", fontsize=8, color="#555555")
+    ax.text(
+        0.98,
+        0.02,
+        f"Base: {base_value:.3f}",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=8,
+        color="#555555",
+    )
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     return fig
@@ -168,6 +192,7 @@ def _shap_waterfall_figure(
 # ---------------------------------------------------------------------------
 # PDF scorecard
 # ---------------------------------------------------------------------------
+
 
 def _build_pdf_scorecard(
     peptide: str,
@@ -182,26 +207,43 @@ def _build_pdf_scorecard(
 
     buf = io.BytesIO()
     with PdfPages(buf) as pdf:
-        fig, axes = plt.subplots(2, 1, figsize=(8.5, 11),
-                                 gridspec_kw={"height_ratios": [1, 3]})
+        fig, axes = plt.subplots(2, 1, figsize=(8.5, 11), gridspec_kw={"height_ratios": [1, 3]})
 
         # --- Header panel ---
         ax_hdr = axes[0]
         ax_hdr.axis("off")
-        ax_hdr.text(0.0, 0.95, "SESTRAV 2.0 - Immunogenicity Scorecard",
-                    fontsize=15, fontweight="bold", va="top")
-        ax_hdr.text(0.0, 0.72, f"Peptide:   {peptide}", fontsize=11, va="top",
-                    family="monospace")
+        ax_hdr.text(
+            0.0,
+            0.95,
+            "SESTRAV 2.0 - Immunogenicity Scorecard",
+            fontsize=15,
+            fontweight="bold",
+            va="top",
+        )
+        ax_hdr.text(0.0, 0.72, f"Peptide:   {peptide}", fontsize=11, va="top", family="monospace")
         ax_hdr.text(0.0, 0.55, f"Allele:    {allele}", fontsize=11, va="top")
-        score_color = "#c0392b" if rank == "HIGH" else ("#f39c12" if rank == "MEDIUM" else "#27ae60")
-        ax_hdr.text(0.0, 0.38,
-                    f"Immunogenicity Score: {imm_score:.3f}   [{rank}]",
-                    fontsize=12, va="top", color=score_color, fontweight="bold")
+        score_color = (
+            "#c0392b" if rank == "HIGH" else ("#f39c12" if rank == "MEDIUM" else "#27ae60")
+        )
+        ax_hdr.text(
+            0.0,
+            0.38,
+            f"Immunogenicity Score: {imm_score:.3f}   [{rank}]",
+            fontsize=12,
+            va="top",
+            color=score_color,
+            fontweight="bold",
+        )
         bind_txt = f"{bind_score:.3f}" if bind_score is not None else "N/A (MHCflurry unavailable)"
         ax_hdr.text(0.0, 0.20, f"Binding Score:  {bind_txt}", fontsize=10, va="top")
-        ax_hdr.text(0.0, 0.04,
-                    "⚠ Research use only - not for clinical decision-making.",
-                    fontsize=8, va="top", color="#777777")
+        ax_hdr.text(
+            0.0,
+            0.04,
+            "⚠ Research use only - not for clinical decision-making.",
+            fontsize=8,
+            va="top",
+            color="#777777",
+        )
 
         # --- SHAP waterfall panel ---
         ax_shap = axes[1]
@@ -228,15 +270,23 @@ def _build_pdf_scorecard(
 # ---------------------------------------------------------------------------
 
 ALLELE_OPTIONS = [
-    "HLA-A*01:01", "HLA-A*02:01", "HLA-A*03:01", "HLA-A*11:01",
-    "HLA-A*24:02", "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05",
-    "HLA-B*35:01", "HLA-B*44:02",
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
 
 # ---------------------------------------------------------------------------
 # UI
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     # Header
@@ -275,6 +325,7 @@ def main() -> None:
 
     # Input validation
     import re
+
     sequence = sequence.strip().upper()
     if not re.fullmatch(r"[ACDEFGHIKLMNPQRSTVWY]{8,11}", sequence):
         st.error(
@@ -307,12 +358,14 @@ def main() -> None:
         # SHAP
         try:
             explainer = _load_explainer(model)
-            shap_raw  = explainer.shap_values(feat_vec)
+            shap_raw = explainer.shap_values(feat_vec)
             # RF returns list of 2 arrays [class0, class1]
             shap_vals = shap_raw[1][0] if isinstance(shap_raw, list) else shap_raw[0]
-            base_val  = float(explainer.expected_value[1]) if isinstance(
-                explainer.expected_value, (list, np.ndarray)
-            ) else float(explainer.expected_value)
+            base_val = (
+                float(explainer.expected_value[1])
+                if isinstance(explainer.expected_value, (list, np.ndarray))
+                else float(explainer.expected_value)
+            )
             shap_ok = True
         except Exception as exc:
             st.warning(f"SHAP computation unavailable: {exc}")
@@ -345,16 +398,12 @@ def main() -> None:
             "Positive (green) bars push the prediction toward *immunogenic*; "
             "negative (red) bars push toward *non-immunogenic*."
         )
-        shap_fig = _shap_waterfall_figure(
-            shap_vals, feat_cols, feat_vec[0], base_val, sequence
-        )
+        shap_fig = _shap_waterfall_figure(shap_vals, feat_cols, feat_vec[0], base_val, sequence)
         st.pyplot(shap_fig, clear_figure=True)
 
         # PDF download
         st.markdown("---")
-        pdf_bytes = _build_pdf_scorecard(
-            sequence, allele, imm_score, bind_score, rank, shap_fig
-        )
+        pdf_bytes = _build_pdf_scorecard(sequence, allele, imm_score, bind_score, rank, shap_fig)
         st.download_button(
             label="⬇ Download PDF scorecard",
             data=pdf_bytes,

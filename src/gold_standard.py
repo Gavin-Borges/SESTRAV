@@ -23,21 +23,21 @@ import pandas as pd
 from src.naming import proteome_id_candidates
 
 GOLD_STANDARD = [
-    {'peptide': 'CLGGLLTMV',   'protein': 'LMP2A',    'allele': 'HLA-A*02:01', 'virus': 'EBV'},
-    {'peptide': 'GLCTLVAML',   'protein': 'BMLF1',    'allele': 'HLA-A*02:01', 'virus': 'EBV'},
-    {'peptide': 'FLRGRAYGI',   'protein': 'EBNA3A',   'allele': 'HLA-B*08:01', 'virus': 'EBV'},
-    {'peptide': 'RAKFKQLL',    'protein': 'BZLF1',    'allele': 'HLA-B*08:01', 'virus': 'EBV'},
-    {'peptide': 'IVTDFSVIK',   'protein': 'EBNA3B',   'allele': 'HLA-A*11:01', 'virus': 'EBV'},
-    {'peptide': 'RPPIFIRRL',   'protein': 'EBNA3A',   'allele': 'HLA-B*27:05', 'virus': 'EBV'},
-    {'peptide': 'HPVGEADYFEY', 'protein': 'EBNA1',    'allele': 'HLA-B*35:01', 'virus': 'EBV'},
-    {'peptide': 'TYSAGIVQI',   'protein': 'EBNA3B',   'allele': 'HLA-A*24:02', 'virus': 'EBV'},
-    {'peptide': 'AVFDRKSDAK',  'protein': 'EBNA3B',   'allele': 'HLA-A*11:01', 'virus': 'EBV'},
-    {'peptide': 'YVLDHLIVV',   'protein': 'BRLF1',    'allele': 'HLA-A*02:01', 'virus': 'EBV'},
-    {'peptide': 'YMLDLQPET',   'protein': 'HPV16_E7', 'allele': 'HLA-A*02:01', 'virus': 'HPV'},
-    {'peptide': 'RAHYNIVTF',   'protein': 'HPV16_E7', 'allele': 'HLA-B*35:01', 'virus': 'HPV'},
-    {'peptide': 'LLMGTLGIV',   'protein': 'HPV16_E7', 'allele': 'HLA-A*02:01', 'virus': 'HPV'},
-    {'peptide': 'KLPQLCTEL',   'protein': 'HPV16_E6', 'allele': 'HLA-A*02:01', 'virus': 'HPV'},
-    {'peptide': 'TIHDIILECV',  'protein': 'HPV16_E6', 'allele': 'HLA-A*02:01', 'virus': 'HPV'},
+    {"peptide": "CLGGLLTMV", "protein": "LMP2A", "allele": "HLA-A*02:01", "virus": "EBV"},
+    {"peptide": "GLCTLVAML", "protein": "BMLF1", "allele": "HLA-A*02:01", "virus": "EBV"},
+    {"peptide": "FLRGRAYGI", "protein": "EBNA3A", "allele": "HLA-B*08:01", "virus": "EBV"},
+    {"peptide": "RAKFKQLL", "protein": "BZLF1", "allele": "HLA-B*08:01", "virus": "EBV"},
+    {"peptide": "IVTDFSVIK", "protein": "EBNA3B", "allele": "HLA-A*11:01", "virus": "EBV"},
+    {"peptide": "RPPIFIRRL", "protein": "EBNA3A", "allele": "HLA-B*27:05", "virus": "EBV"},
+    {"peptide": "HPVGEADYFEY", "protein": "EBNA1", "allele": "HLA-B*35:01", "virus": "EBV"},
+    {"peptide": "TYSAGIVQI", "protein": "EBNA3B", "allele": "HLA-A*24:02", "virus": "EBV"},
+    {"peptide": "AVFDRKSDAK", "protein": "EBNA3B", "allele": "HLA-A*11:01", "virus": "EBV"},
+    {"peptide": "YVLDHLIVV", "protein": "BRLF1", "allele": "HLA-A*02:01", "virus": "EBV"},
+    {"peptide": "YMLDLQPET", "protein": "HPV16_E7", "allele": "HLA-A*02:01", "virus": "HPV"},
+    {"peptide": "RAHYNIVTF", "protein": "HPV16_E7", "allele": "HLA-B*35:01", "virus": "HPV"},
+    {"peptide": "LLMGTLGIV", "protein": "HPV16_E7", "allele": "HLA-A*02:01", "virus": "HPV"},
+    {"peptide": "KLPQLCTEL", "protein": "HPV16_E6", "allele": "HLA-A*02:01", "virus": "HPV"},
+    {"peptide": "TIHDIILECV", "protein": "HPV16_E6", "allele": "HLA-A*02:01", "virus": "HPV"},
 ]
 
 
@@ -49,39 +49,39 @@ GOLD_STANDARD_NEGATIVES = [
     #
     # --- Original set (10): curated from v1 analysis ---
     # EBV negatives (5) - sorted by predicted binding affinity
-    {'peptide': 'LIPETVPYI',  'allele': 'HLA-A*02:01', 'virus': 'EBV',   'affinity_nM': 25.8},
-    {'peptide': 'LPQGQLTAY',  'allele': 'HLA-B*35:01', 'virus': 'EBV',   'affinity_nM': 26.1},
-    {'peptide': 'MLLLIVAGI',  'allele': 'HLA-A*02:01', 'virus': 'EBV',   'affinity_nM': 26.3},
-    {'peptide': 'FTYPVLEEM',  'allele': 'HLA-A*02:01', 'virus': 'EBV',   'affinity_nM': 35.4},
-    {'peptide': 'SYVKQPLCL',  'allele': 'HLA-A*24:02', 'virus': 'EBV',   'affinity_nM': 41.1},
+    {"peptide": "LIPETVPYI", "allele": "HLA-A*02:01", "virus": "EBV", "affinity_nM": 25.8},
+    {"peptide": "LPQGQLTAY", "allele": "HLA-B*35:01", "virus": "EBV", "affinity_nM": 26.1},
+    {"peptide": "MLLLIVAGI", "allele": "HLA-A*02:01", "virus": "EBV", "affinity_nM": 26.3},
+    {"peptide": "FTYPVLEEM", "allele": "HLA-A*02:01", "virus": "EBV", "affinity_nM": 35.4},
+    {"peptide": "SYVKQPLCL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": 41.1},
     # HPV16 negatives (5) - sorted by presentation score
-    {'peptide': 'CLLIRPLLL',  'allele': 'HLA-B*08:01', 'virus': 'HPV',   'affinity_nM': 75.9},
-    {'peptide': 'IVYRDGNPY',  'allele': 'HLA-B*35:01', 'virus': 'HPV',   'affinity_nM': 64.1},
-    {'peptide': 'RLCVQSTHV',  'allele': 'HLA-A*02:01', 'virus': 'HPV',   'affinity_nM': 38.9},
-    {'peptide': 'DKKQRFHNI',  'allele': 'HLA-B*08:01', 'virus': 'HPV',   'affinity_nM': 172.0},
-    {'peptide': 'AMFQDPQER',  'allele': 'HLA-A*11:01', 'virus': 'HPV',   'affinity_nM': 101.1},
+    {"peptide": "CLLIRPLLL", "allele": "HLA-B*08:01", "virus": "HPV", "affinity_nM": 75.9},
+    {"peptide": "IVYRDGNPY", "allele": "HLA-B*35:01", "virus": "HPV", "affinity_nM": 64.1},
+    {"peptide": "RLCVQSTHV", "allele": "HLA-A*02:01", "virus": "HPV", "affinity_nM": 38.9},
+    {"peptide": "DKKQRFHNI", "allele": "HLA-B*08:01", "virus": "HPV", "affinity_nM": 172.0},
+    {"peptide": "AMFQDPQER", "allele": "HLA-A*11:01", "virus": "HPV", "affinity_nM": 101.1},
     #
     # --- Expansion set (15): v2 high-presentation-score negatives ---
     # Selected from v2 training dataset negatives with highest MHC
     # presentation scores.  All are IEDB T-cell negative and absent from
     # the 201 cross-label conflict set.
     # EBV expansion (10) - sorted by presentation score
-    {'peptide': 'HYQTLCTNF',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'DYMAIHRSL',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'AYAEATSSL',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'LTEWGSGNRTY', 'allele': 'HLA-A*01:01', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'FYISLIQGL',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'FYMTHGLGTL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'FYPLATYPL',   'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'GIDPHLPTL',   'allele': 'HLA-A*02:01', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'NYNPGTLSSL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'affinity_nM': None},
-    {'peptide': 'IVTDLSIIK',   'allele': 'HLA-A*11:01', 'virus': 'EBV', 'affinity_nM': None},
+    {"peptide": "HYQTLCTNF", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "DYMAIHRSL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "AYAEATSSL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "LTEWGSGNRTY", "allele": "HLA-A*01:01", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "FYISLIQGL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "FYMTHGLGTL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "FYPLATYPL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "GIDPHLPTL", "allele": "HLA-A*02:01", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "NYNPGTLSSL", "allele": "HLA-A*24:02", "virus": "EBV", "affinity_nM": None},
+    {"peptide": "IVTDLSIIK", "allele": "HLA-A*11:01", "virus": "EBV", "affinity_nM": None},
     # HPV16 expansion (5) - sorted by presentation score
-    {'peptide': 'CYSVYGTTL',   'allele': 'HLA-A*24:02', 'virus': 'HPV', 'affinity_nM': None},
-    {'peptide': 'VYLTAPTGCI',  'allele': 'HLA-A*24:02', 'virus': 'HPV', 'affinity_nM': None},
-    {'peptide': 'QPETTDLYCY',  'allele': 'HLA-B*35:01', 'virus': 'HPV', 'affinity_nM': None},
-    {'peptide': 'LRLCVQSTH',   'allele': 'HLA-B*27:05', 'virus': 'HPV', 'affinity_nM': None},
-    {'peptide': 'IVYIIFVYI',   'allele': 'HLA-A*02:01', 'virus': 'HPV', 'affinity_nM': None},
+    {"peptide": "CYSVYGTTL", "allele": "HLA-A*24:02", "virus": "HPV", "affinity_nM": None},
+    {"peptide": "VYLTAPTGCI", "allele": "HLA-A*24:02", "virus": "HPV", "affinity_nM": None},
+    {"peptide": "QPETTDLYCY", "allele": "HLA-B*35:01", "virus": "HPV", "affinity_nM": None},
+    {"peptide": "LRLCVQSTH", "allele": "HLA-B*27:05", "virus": "HPV", "affinity_nM": None},
+    {"peptide": "IVYIIFVYI", "allele": "HLA-A*02:01", "virus": "HPV", "affinity_nM": None},
 ]
 
 GOLD_STANDARD_NEGATIVES_EXPANDED = [
@@ -89,28 +89,33 @@ GOLD_STANDARD_NEGATIVES_EXPANDED = [
     # GOLD_STANDARD_NEGATIVES above. The list below mirrors the expansion
     # entries with their original presentation_score metadata.
     # EBV expansion (10) - sorted by presentation score
-    {'peptide': 'HYQTLCTNF',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.964},
-    {'peptide': 'DYMAIHRSL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.960},
-    {'peptide': 'AYAEATSSL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.957},
-    {'peptide': 'LTEWGSGNRTY', 'allele': 'HLA-A*01:01', 'virus': 'EBV', 'presentation_score': 0.945},
-    {'peptide': 'FYISLIQGL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.940},
-    {'peptide': 'FYMTHGLGTL', 'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.937},
-    {'peptide': 'FYPLATYPL',  'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.923},
-    {'peptide': 'GIDPHLPTL',  'allele': 'HLA-A*02:01', 'virus': 'EBV', 'presentation_score': 0.918},
-    {'peptide': 'NYNPGTLSSL', 'allele': 'HLA-A*24:02', 'virus': 'EBV', 'presentation_score': 0.905},
-    {'peptide': 'IVTDLSIIK',  'allele': 'HLA-A*11:01', 'virus': 'EBV', 'presentation_score': 0.902},
+    {"peptide": "HYQTLCTNF", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.964},
+    {"peptide": "DYMAIHRSL", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.960},
+    {"peptide": "AYAEATSSL", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.957},
+    {
+        "peptide": "LTEWGSGNRTY",
+        "allele": "HLA-A*01:01",
+        "virus": "EBV",
+        "presentation_score": 0.945,
+    },
+    {"peptide": "FYISLIQGL", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.940},
+    {"peptide": "FYMTHGLGTL", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.937},
+    {"peptide": "FYPLATYPL", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.923},
+    {"peptide": "GIDPHLPTL", "allele": "HLA-A*02:01", "virus": "EBV", "presentation_score": 0.918},
+    {"peptide": "NYNPGTLSSL", "allele": "HLA-A*24:02", "virus": "EBV", "presentation_score": 0.905},
+    {"peptide": "IVTDLSIIK", "allele": "HLA-A*11:01", "virus": "EBV", "presentation_score": 0.902},
     # HPV16 expansion (5) - sorted by presentation score
-    {'peptide': 'CYSVYGTTL',  'allele': 'HLA-A*24:02', 'virus': 'HPV', 'presentation_score': 0.842},
-    {'peptide': 'VYLTAPTGCI', 'allele': 'HLA-A*24:02', 'virus': 'HPV', 'presentation_score': 0.580},
-    {'peptide': 'QPETTDLYCY', 'allele': 'HLA-B*35:01', 'virus': 'HPV', 'presentation_score': 0.520},
-    {'peptide': 'LRLCVQSTH',  'allele': 'HLA-B*27:05', 'virus': 'HPV', 'presentation_score': 0.333},
-    {'peptide': 'IVYIIFVYI',  'allele': 'HLA-A*02:01', 'virus': 'HPV', 'presentation_score': 0.330},
+    {"peptide": "CYSVYGTTL", "allele": "HLA-A*24:02", "virus": "HPV", "presentation_score": 0.842},
+    {"peptide": "VYLTAPTGCI", "allele": "HLA-A*24:02", "virus": "HPV", "presentation_score": 0.580},
+    {"peptide": "QPETTDLYCY", "allele": "HLA-B*35:01", "virus": "HPV", "presentation_score": 0.520},
+    {"peptide": "LRLCVQSTH", "allele": "HLA-B*27:05", "virus": "HPV", "presentation_score": 0.333},
+    {"peptide": "IVYIIFVYI", "allele": "HLA-A*02:01", "virus": "HPV", "presentation_score": 0.330},
 ]
 
 
 VIRUS_FILE_MAP = {
-    'EBV': 'EBV_B95_8_panel8',
-    'HPV': 'HPV16_18_panel8',
+    "EBV": "EBV_B95_8_panel8",
+    "HPV": "HPV16_18_panel8",
 }
 
 
@@ -146,19 +151,16 @@ def _filter_gs(virus):
     """Return gold-standard entries for a specific virus, or all if None."""
     if virus is None:
         return GOLD_STANDARD
-    return [gs for gs in GOLD_STANDARD if gs['virus'] == virus]
+    return [gs for gs in GOLD_STANDARD if gs["virus"] == virus]
 
 
 def validate_stage1(peptides_csv, virus=None):
     """Check which gold-standard peptides appear in sliding-window output."""
     df = pd.read_csv(peptides_csv)
-    peptides_generated = set(df['peptide'].unique())
+    peptides_generated = set(df["peptide"].unique())
     results = []
     for gs in _filter_gs(virus):
-        results.append({
-            **gs,
-            'stage1_found': gs['peptide'] in peptides_generated
-        })
+        results.append({**gs, "stage1_found": gs["peptide"] in peptides_generated})
     return pd.DataFrame(results)
 
 
@@ -167,23 +169,19 @@ def validate_stage2(binding_csv, virus=None, ic50_threshold=500):
     df = pd.read_csv(binding_csv)
     results = []
     for gs in _filter_gs(virus):
-        match = df[df['peptide'] == gs['peptide']]
+        match = df[df["peptide"] == gs["peptide"]]
         found = len(match) > 0
         strong_binder = False
-        if found and 'affinity' in df.columns:
-            strong_binder = bool(match['affinity'].min() < ic50_threshold)
-        results.append({
-            **gs,
-            'stage2_found': found,
-            'stage2_strong_binder': strong_binder
-        })
+        if found and "affinity" in df.columns:
+            strong_binder = bool(match["affinity"].min() < ic50_threshold)
+        results.append({**gs, "stage2_found": found, "stage2_strong_binder": strong_binder})
     return pd.DataFrame(results)
 
 
 def validate_stage4(ranked_csv, virus=None, top_pct=25, require_score_column=False):
     """Check which gold-standard peptides rank in the top N% of predictions."""
     df = pd.read_csv(ranked_csv)
-    if 'immunogenicity_score' not in df.columns:
+    if "immunogenicity_score" not in df.columns:
         if require_score_column:
             raise RuntimeError(
                 f"Stage 4 ranked file '{ranked_csv}' is missing 'immunogenicity_score'."
@@ -193,19 +191,16 @@ def validate_stage4(ranked_csv, virus=None, top_pct=25, require_score_column=Fal
     threshold_rank = len(df) * top_pct / 100
     results = []
     for gs in _filter_gs(virus):
-        match = df[df['peptide'] == gs['peptide']]
+        match = df[df["peptide"] == gs["peptide"]]
         found = len(match) > 0
         in_top = False
         best_rank = None
-        if found and 'rank' in df.columns:
-            best_rank = match['rank'].min()
+        if found and "rank" in df.columns:
+            best_rank = match["rank"].min()
             in_top = best_rank <= threshold_rank
-        results.append({
-            **gs,
-            'stage4_found': found,
-            'rank': best_rank,
-            f'in_top_{top_pct}pct': in_top
-        })
+        results.append(
+            {**gs, "stage4_found": found, "rank": best_rank, f"in_top_{top_pct}pct": in_top}
+        )
     return pd.DataFrame(results), top_pct
 
 
@@ -270,41 +265,46 @@ def full_validation_report(results_dir, top_pct=25, strict_stems=False, require_
         report["stage2_found"] = report["stage2_found"].fillna(False)
         report["stage2_strong_binder"] = report["stage2_strong_binder"].fillna(False)
 
-    top_col = f'in_top_{top_pct}pct'
+    top_col = f"in_top_{top_pct}pct"
     if not s4.empty and top_col in s4.columns:
         report = report.merge(
-            s4[['peptide', 'stage4_found', 'rank', top_col]],
-            on='peptide', how='left'
+            s4[["peptide", "stage4_found", "rank", top_col]], on="peptide", how="left"
         )
 
     print("=" * 70)
     print("SESTRAV GOLD-STANDARD VALIDATION REPORT")
     print("=" * 70)
 
-    for virus in ['EBV', 'HPV']:
-        v_mask = report['virus'] == virus
+    for virus in ["EBV", "HPV"]:
+        v_mask = report["virus"] == virus
         n_v = int(v_mask.sum())
         if n_v == 0:
             continue
-        s1_n = int(report.loc[v_mask, 'stage1_found'].sum())
-        s2_n = int(report.loc[v_mask, 'stage2_found'].sum()) if 'stage2_found' in report else 0
-        sb_n = int(report.loc[v_mask, 'stage2_strong_binder'].sum()) if 'stage2_strong_binder' in report else 0
+        s1_n = int(report.loc[v_mask, "stage1_found"].sum())
+        s2_n = int(report.loc[v_mask, "stage2_found"].sum()) if "stage2_found" in report else 0
+        sb_n = (
+            int(report.loc[v_mask, "stage2_strong_binder"].sum())
+            if "stage2_strong_binder" in report
+            else 0
+        )
         print(f"\n  {virus} ({n_v} epitopes):")
         print(f"    Stage 1 (Peptide Generation): {s1_n}/{n_v}")
         print(f"    Stage 2 (MHC Binding):        {s2_n}/{n_v} found, {sb_n}/{n_v} strong binders")
         if not s4.empty and top_col in report.columns:
-            s4_found = int(report.loc[v_mask, 'stage4_found'].sum())
+            s4_found = int(report.loc[v_mask, "stage4_found"].sum())
             s4_top = int(report.loc[v_mask, top_col].sum())
-            print(f"    Stage 4 (Ranking):            {s4_found}/{n_v} found, {s4_top}/{n_v} in top {top_pct}%")
+            print(
+                f"    Stage 4 (Ranking):            {s4_found}/{n_v} found, {s4_top}/{n_v} in top {top_pct}%"
+            )
 
-    s1_total = int(report['stage1_found'].sum())
-    s2_total = int(report['stage2_found'].sum()) if 'stage2_found' in report else 0
-    sb_total = int(report['stage2_strong_binder'].sum()) if 'stage2_strong_binder' in report else 0
+    s1_total = int(report["stage1_found"].sum())
+    s2_total = int(report["stage2_found"].sum()) if "stage2_found" in report else 0
+    sb_total = int(report["stage2_strong_binder"].sum()) if "stage2_strong_binder" in report else 0
     print(f"\n  COMBINED ({n_total} epitopes):")
     print(f"    Stage 1: {s1_total}/{n_total}")
     print(f"    Stage 2: {s2_total}/{n_total} found, {sb_total}/{n_total} strong binders")
     if not s4.empty and top_col in report.columns:
-        s4_total = int(report['stage4_found'].sum())
+        s4_total = int(report["stage4_found"].sum())
         top_total = int(report[top_col].sum())
         print(f"    Stage 4: {s4_total}/{n_total} found, {top_total}/{n_total} in top {top_pct}%")
 
@@ -339,21 +339,21 @@ def validate_negative_discrimination(results_dir, top_pct=25, strict_stems=False
         binding_df = pd.read_csv(binding_path)
         n_total = len(ranked_df)
 
-        binding_ranked = binding_df.sort_values(
-            'presentation_score', ascending=False
-        ).reset_index(drop=True)
-        binding_ranked['bind_rank'] = range(1, len(binding_ranked) + 1)
+        binding_ranked = binding_df.sort_values("presentation_score", ascending=False).reset_index(
+            drop=True
+        )
+        binding_ranked["bind_rank"] = range(1, len(binding_ranked) + 1)
 
         for gs in GOLD_STANDARD_NEGATIVES:
-            if gs['virus'] != virus:
+            if gs["virus"] != virus:
                 continue
-            pep = gs['peptide']
+            pep = gs["peptide"]
 
-            integ_match = ranked_df[ranked_df['peptide'] == pep]
-            bind_match = binding_ranked[binding_ranked['peptide'] == pep]
+            integ_match = ranked_df[ranked_df["peptide"] == pep]
+            bind_match = binding_ranked[binding_ranked["peptide"] == pep]
 
-            integ_rank = int(integ_match['rank'].min()) if len(integ_match) > 0 else None
-            bind_rank = int(bind_match['bind_rank'].min()) if len(bind_match) > 0 else None
+            integ_rank = int(integ_match["rank"].min()) if len(integ_match) > 0 else None
+            bind_rank = int(bind_match["bind_rank"].min()) if len(bind_match) > 0 else None
 
             integ_pct = (integ_rank / n_total * 100) if integ_rank else None
             bind_pct = (bind_rank / len(binding_ranked) * 100) if bind_rank else None
@@ -362,17 +362,19 @@ def validate_negative_discrimination(results_dir, top_pct=25, strict_stems=False
             if integ_pct is not None and bind_pct is not None:
                 pushed_down = integ_pct > bind_pct
 
-            results.append({
-                'peptide': pep,
-                'virus': gs['virus'],
-                'allele': gs['allele'],
-                'affinity_nM': gs['affinity_nM'],
-                'integrated_rank': integ_rank,
-                'integrated_rank_pct': round(integ_pct, 2) if integ_pct else None,
-                'binding_rank': bind_rank,
-                'binding_rank_pct': round(bind_pct, 2) if bind_pct else None,
-                'model_pushes_down': pushed_down,
-            })
+            results.append(
+                {
+                    "peptide": pep,
+                    "virus": gs["virus"],
+                    "allele": gs["allele"],
+                    "affinity_nM": gs["affinity_nM"],
+                    "integrated_rank": integ_rank,
+                    "integrated_rank_pct": round(integ_pct, 2) if integ_pct else None,
+                    "binding_rank": bind_rank,
+                    "binding_rank_pct": round(bind_pct, 2) if bind_pct else None,
+                    "model_pushes_down": pushed_down,
+                }
+            )
 
     report = pd.DataFrame(results)
 
@@ -380,18 +382,20 @@ def validate_negative_discrimination(results_dir, top_pct=25, strict_stems=False
         print("[GS Neg] No gold-standard negatives found in pipeline output")
         return report
 
-    n_found = report['integrated_rank'].notna().sum()
-    n_pushed = report['model_pushes_down'].sum() if 'model_pushes_down' in report else 0
+    n_found = report["integrated_rank"].notna().sum()
+    n_pushed = report["model_pushes_down"].sum() if "model_pushes_down" in report else 0
     print("=" * 70)
     print("GOLD-STANDARD NEGATIVE DISCRIMINATION REPORT")
     print("=" * 70)
     print(f"  Negatives evaluated: {n_found}/{len(GOLD_STANDARD_NEGATIVES)}")
     print(f"  Model pushes down (vs binding): {n_pushed}/{n_found}")
     for _, row in report.iterrows():
-        tag = "PUSHED DOWN" if row.get('model_pushes_down') else "NOT pushed down"
-        print(f"    {row['peptide']} ({row['virus']}): "
-              f"integrated={row['integrated_rank_pct']}% "
-              f"vs binding={row['binding_rank_pct']}% -- {tag}")
+        tag = "PUSHED DOWN" if row.get("model_pushes_down") else "NOT pushed down"
+        print(
+            f"    {row['peptide']} ({row['virus']}): "
+            f"integrated={row['integrated_rank_pct']}% "
+            f"vs binding={row['binding_rank_pct']}% -- {tag}"
+        )
     print("=" * 70)
     return report
 
@@ -417,21 +421,21 @@ def validate_expanded_negative_discrimination(results_dir, top_pct=25, strict_st
         binding_df = pd.read_csv(binding_path)
         n_total = len(ranked_df)
 
-        binding_ranked = binding_df.sort_values(
-            'presentation_score', ascending=False
-        ).reset_index(drop=True)
-        binding_ranked['bind_rank'] = range(1, len(binding_ranked) + 1)
+        binding_ranked = binding_df.sort_values("presentation_score", ascending=False).reset_index(
+            drop=True
+        )
+        binding_ranked["bind_rank"] = range(1, len(binding_ranked) + 1)
 
         for gs in GOLD_STANDARD_NEGATIVES_EXPANDED:
-            if gs['virus'] != virus:
+            if gs["virus"] != virus:
                 continue
-            pep = gs['peptide']
+            pep = gs["peptide"]
 
-            integ_match = ranked_df[ranked_df['peptide'] == pep]
-            bind_match = binding_ranked[binding_ranked['peptide'] == pep]
+            integ_match = ranked_df[ranked_df["peptide"] == pep]
+            bind_match = binding_ranked[binding_ranked["peptide"] == pep]
 
-            integ_rank = int(integ_match['rank'].min()) if len(integ_match) > 0 else None
-            bind_rank = int(bind_match['bind_rank'].min()) if len(bind_match) > 0 else None
+            integ_rank = int(integ_match["rank"].min()) if len(integ_match) > 0 else None
+            bind_rank = int(bind_match["bind_rank"].min()) if len(bind_match) > 0 else None
 
             integ_pct = (integ_rank / n_total * 100) if integ_rank else None
             bind_pct = (bind_rank / len(binding_ranked) * 100) if bind_rank else None
@@ -440,18 +444,20 @@ def validate_expanded_negative_discrimination(results_dir, top_pct=25, strict_st
             if integ_pct is not None and bind_pct is not None:
                 pushed_down = integ_pct > bind_pct
 
-            results.append({
-                'peptide': pep,
-                'virus': gs['virus'],
-                'allele': gs['allele'],
-                'presentation_score': gs['presentation_score'],
-                'set': 'expanded',
-                'integrated_rank': integ_rank,
-                'integrated_rank_pct': round(integ_pct, 2) if integ_pct else None,
-                'binding_rank': bind_rank,
-                'binding_rank_pct': round(bind_pct, 2) if bind_pct else None,
-                'model_pushes_down': pushed_down,
-            })
+            results.append(
+                {
+                    "peptide": pep,
+                    "virus": gs["virus"],
+                    "allele": gs["allele"],
+                    "presentation_score": gs["presentation_score"],
+                    "set": "expanded",
+                    "integrated_rank": integ_rank,
+                    "integrated_rank_pct": round(integ_pct, 2) if integ_pct else None,
+                    "binding_rank": bind_rank,
+                    "binding_rank_pct": round(bind_pct, 2) if bind_pct else None,
+                    "model_pushes_down": pushed_down,
+                }
+            )
 
     report = pd.DataFrame(results)
 
@@ -459,17 +465,19 @@ def validate_expanded_negative_discrimination(results_dir, top_pct=25, strict_st
         print("[GS Neg Expanded] No expanded negatives found in pipeline output")
         return report
 
-    n_found = report['integrated_rank'].notna().sum()
-    n_pushed = int(report['model_pushes_down'].sum()) if 'model_pushes_down' in report else 0
+    n_found = report["integrated_rank"].notna().sum()
+    n_pushed = int(report["model_pushes_down"].sum()) if "model_pushes_down" in report else 0
     print("=" * 70)
     print("EXPANDED GOLD-STANDARD NEGATIVE DISCRIMINATION REPORT")
     print("=" * 70)
     print(f"  Candidates evaluated: {n_found}/{len(GOLD_STANDARD_NEGATIVES_EXPANDED)}")
     print(f"  Model pushes down (vs binding): {n_pushed}/{n_found}")
     for _, row in report.iterrows():
-        tag = "PUSHED DOWN" if row.get('model_pushes_down') else "NOT pushed down"
-        print(f"    {row['peptide']} ({row['virus']}): "
-              f"integrated={row['integrated_rank_pct']}% "
-              f"vs binding={row['binding_rank_pct']}% -- {tag}")
+        tag = "PUSHED DOWN" if row.get("model_pushes_down") else "NOT pushed down"
+        print(
+            f"    {row['peptide']} ({row['virus']}): "
+            f"integrated={row['integrated_rank_pct']}% "
+            f"vs binding={row['binding_rank_pct']}% -- {tag}"
+        )
     print("=" * 70)
     return report

@@ -22,9 +22,12 @@ class ModelRegistry:
     def validate_signature(self, model_path: Path, expected_features: int) -> bool:
         """Validate if a model's expected features match our configuration."""
         import joblib
+
         if model_path.suffix == ".joblib":
             try:
-                model = joblib.load(model_path)  # nosemgrep: sestrav-require-verified-joblib-load - intentional metadata probe, not a trust-load; checksum enforced at .load()
+                model = joblib.load(
+                    model_path
+                )  # nosemgrep: sestrav-require-verified-joblib-load - intentional metadata probe, not a trust-load; checksum enforced at .load()
                 n_features = getattr(model, "n_features_in_", None)
                 if n_features is not None and n_features != expected_features:
                     return False
@@ -50,14 +53,18 @@ class ModelRegistry:
             return load_verified_joblib(path, required_checksum=True)
         elif path.suffix in [".pt", ".pth"]:
             import torch
+
             try:
                 import numpy as np
                 import torch.serialization
-                torch.serialization.add_safe_globals([
-                    getattr(getattr(getattr(np, "_core"), "multiarray"), "scalar"),
-                    np.dtype,
-                ])
-                return torch.load(path, map_location='cpu', weights_only=True)
+
+                torch.serialization.add_safe_globals(
+                    [
+                        getattr(getattr(getattr(np, "_core"), "multiarray"), "scalar"),
+                        np.dtype,
+                    ]
+                )
+                return torch.load(path, map_location="cpu", weights_only=True)
             except Exception as e:
                 raise RuntimeError(f"Failed to load torch model: {e}") from e
         else:

@@ -9,6 +9,7 @@ Complements the filename-helper tests in tests/test_coverage_units.py
 (``_label_from_filename`` / ``_virus_from_filename``); those are not repeated
 here.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -415,17 +416,13 @@ def test_load_and_clean_tcell_derives_virus_from_organism(tmp_path):
 
 
 def test_load_and_clean_excludes_hpv11_by_default(tmp_path):
-    (tmp_path / "HPV11_T-cell_positive.csv").write_text(
-        "c0,c1,Name\nx,y,SLLMWITQV\n"
-    )
+    (tmp_path / "HPV11_T-cell_positive.csv").write_text("c0,c1,Name\nx,y,SLLMWITQV\n")
     df = load_and_clean_iedb(str(tmp_path))
     assert df.empty
 
 
 def test_load_and_clean_includes_hpv11_when_requested(tmp_path):
-    (tmp_path / "HPV11_T-cell_positive.csv").write_text(
-        "c0,c1,Name\nx,y,SLLMWITQV\n"
-    )
+    (tmp_path / "HPV11_T-cell_positive.csv").write_text("c0,c1,Name\nx,y,SLLMWITQV\n")
     df = load_and_clean_iedb(str(tmp_path), include_hpv11=True)
     assert list(df["peptide"]) == ["SLLMWITQV"]
     assert (df["virus"] == "HPV11").all()

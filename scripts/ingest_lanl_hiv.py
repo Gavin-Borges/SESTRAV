@@ -361,9 +361,7 @@ def filter_rows(
             "peptide": df["_peptide"],
             "hla": df["_hla_norm"],
             "pmid": (
-                df[pmid_col].fillna("").astype(str).str.strip()
-                if pmid_col is not None
-                else ""
+                df[pmid_col].fillna("").astype(str).str.strip() if pmid_col is not None else ""
             ),
         }
     )
@@ -404,22 +402,16 @@ def build_output(
     out["peptide"] = df["_peptide"]
     out["label"] = df["_label"]
     out["virus"] = "HIV-1"
-    out["protein"] = (
-        df[protein_col].fillna("").str.strip() if protein_col else ""
-    )
+    out["protein"] = df[protein_col].fillna("").str.strip() if protein_col else ""
     # Use subtype as the strain field (HIV-1 A/B/C/D, etc.)
-    out["strain"] = (
-        df[subtype_col].fillna("").str.strip() if subtype_col else None
-    )
+    out["strain"] = df[subtype_col].fillna("").str.strip() if subtype_col else None
     out["hla_allele"] = df["_hla_norm"]
     out["source_type"] = "Virus"
     out["database_source"] = "LANL-HIV"
     out["tcr_alpha_cdr3"] = None
     out["tcr_beta_cdr3"] = None
     out["virus_family"] = "Retroviridae"
-    out["negative_origin"] = df["_label"].map(
-        {0: "tested_negative", 1: "iedb_positive"}
-    )
+    out["negative_origin"] = df["_label"].map({0: "tested_negative", 1: "iedb_positive"})
 
     if assay_col is not None:
         assay_series = df[assay_col].fillna("").str.strip()
@@ -500,24 +492,46 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     # Column override arguments
-    parser.add_argument("--col-epitope", default=None, metavar="COL",
-                        help="Column name for the peptide/epitope sequence.")
-    parser.add_argument("--col-hla", default=None, metavar="COL",
-                        help="Column name for the MHC/HLA restriction.")
-    parser.add_argument("--col-assay-result", default=None, metavar="COL",
-                        help="Column name for the assay qualitative result.")
-    parser.add_argument("--col-pmid", default=None, metavar="COL",
-                        help="Column name for the PubMed ID / reference.")
-    parser.add_argument("--col-protein", default=None, metavar="COL",
-                        help="Column name for the viral protein/gene name.")
-    parser.add_argument("--col-assay-type", default=None, metavar="COL",
-                        help="Column name for the assay type/group.")
-    parser.add_argument("--col-subtype", default=None, metavar="COL",
-                        help="Column name for the HIV-1 subtype/clade.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print filter stats without writing output.")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Enable DEBUG-level logging.")
+    parser.add_argument(
+        "--col-epitope",
+        default=None,
+        metavar="COL",
+        help="Column name for the peptide/epitope sequence.",
+    )
+    parser.add_argument(
+        "--col-hla", default=None, metavar="COL", help="Column name for the MHC/HLA restriction."
+    )
+    parser.add_argument(
+        "--col-assay-result",
+        default=None,
+        metavar="COL",
+        help="Column name for the assay qualitative result.",
+    )
+    parser.add_argument(
+        "--col-pmid", default=None, metavar="COL", help="Column name for the PubMed ID / reference."
+    )
+    parser.add_argument(
+        "--col-protein",
+        default=None,
+        metavar="COL",
+        help="Column name for the viral protein/gene name.",
+    )
+    parser.add_argument(
+        "--col-assay-type",
+        default=None,
+        metavar="COL",
+        help="Column name for the assay type/group.",
+    )
+    parser.add_argument(
+        "--col-subtype",
+        default=None,
+        metavar="COL",
+        help="Column name for the HIV-1 subtype/clade.",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print filter stats without writing output."
+    )
+    parser.add_argument("--verbose", action="store_true", help="Enable DEBUG-level logging.")
     return parser.parse_args(argv)
 
 

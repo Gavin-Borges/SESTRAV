@@ -229,7 +229,7 @@ def panel_coverage(haplotype_freqs: list[float]) -> float:
         List of per-allele haplotype frequencies for a single population.
     """
     complement_product = math.prod(1.0 - h for h in haplotype_freqs)
-    return 1.0 - complement_product ** 2
+    return 1.0 - complement_product**2
 
 
 def compute_all_coverage(
@@ -287,9 +287,7 @@ def _n_above_threshold(
     threshold: float = 0.05,
 ) -> int:
     """Count alleles with phenotype_freq > threshold in a given population."""
-    return sum(
-        1 for pf in per_allele_cov.values() if pf[pop] > threshold
-    )
+    return sum(1 for pf in per_allele_cov.values() if pf[pop] > threshold)
 
 
 def print_markdown_table(
@@ -316,12 +314,7 @@ def print_markdown_table(
         n_above = _n_above_threshold(pop, per_allele_cov, threshold=0.05)
         best_a, best_pf = _best_allele(pop, per_allele_cov)
         best_pct = best_pf * 100.0
-        print(
-            f"| {label} ({pop}) "
-            f"| {cov_pct:.1f} "
-            f"| {n_above}/10 "
-            f"| {best_a} ({best_pct:.1f}%) |"
-        )
+        print(f"| {label} ({pop}) | {cov_pct:.1f} | {n_above}/10 | {best_a} ({best_pct:.1f}%) |")
 
     global_pct = global_mean * 100.0
     print(f"| **Global mean** | **{global_pct:.1f}** | - | - |")

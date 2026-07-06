@@ -164,9 +164,7 @@ def filter_rows(
         df["hla_allele"] = norm_alleles[mask_hla]
         stats["after_hla_filter"] = len(df)
     else:
-        logger.warning(
-            "No hla_allele column and no --hla-allele provided; hla_allele will be null"
-        )
+        logger.warning("No hla_allele column and no --hla-allele provided; hla_allele will be null")
         df["hla_allele"] = None
 
     stats["final_rows"] = len(df)
@@ -211,9 +209,7 @@ def build_output(
     out["tcr_beta_cdr3"] = None
     out["virus_family"] = None  # assigned downstream by build_dataset_v5.py
     # label=0 rows are tested negatives; label=1 rows have no origin tag.
-    out["negative_origin"] = df["label"].apply(
-        lambda x: "tested_negative" if int(x) == 0 else None
-    )
+    out["negative_origin"] = df["label"].apply(lambda x: "tested_negative" if int(x) == 0 else None)
     out["assay_type"] = assay_type
     out["assay_quality_tier"] = assay_quality_tier
     out["assay_quality_weight"] = TIER_WEIGHT[assay_quality_tier]
@@ -349,9 +345,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         metavar="PATH",
-        help=(
-            "Output CSV path. Default: data/published_panel_{virus}_{pmid}_v5.csv"
-        ),
+        help=("Output CSV path. Default: data/published_panel_{virus}_{pmid}_v5.csv"),
     )
     parser.add_argument(
         "--dry-run",
@@ -380,15 +374,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # Resolve "null" string to Python None for enum-valued args.
-    assay_context = (
-        None if args.assay_context in (None, "null") else args.assay_context
-    )
-    infection_phase = (
-        None if args.infection_phase in (None, "null") else args.infection_phase
-    )
-    latency_program = (
-        None if args.latency_program in (None, "null") else args.latency_program
-    )
+    assay_context = None if args.assay_context in (None, "null") else args.assay_context
+    infection_phase = None if args.infection_phase in (None, "null") else args.infection_phase
+    latency_program = None if args.latency_program in (None, "null") else args.latency_program
 
     raw_df = load_panel_csv(args.input, logger)
     filtered_df, stats = filter_rows(raw_df, args.hla_allele, logger)
