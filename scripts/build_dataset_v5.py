@@ -57,6 +57,7 @@ VIRUS_FAMILY_MAP: dict[str, str] = {
     "YFV": "Flaviviridae",
     "ZIKV": "Flaviviridae",
     "IAV": "Orthomyxoviridae",
+    "IBV": "Orthomyxoviridae",
     "Influenza A virus": "Orthomyxoviridae",
     "Influenza B virus": "Orthomyxoviridae",
     "HIV-1": "Retroviridae",
