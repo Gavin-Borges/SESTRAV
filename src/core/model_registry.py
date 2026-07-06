@@ -25,9 +25,9 @@ class ModelRegistry:
 
         if model_path.suffix == ".joblib":
             try:
-                model = joblib.load(
+                model = joblib.load(  # nosemgrep: sestrav-require-verified-joblib-load - intentional metadata probe, not a trust-load; checksum enforced at .load()
                     model_path
-                )  # nosemgrep: sestrav-require-verified-joblib-load - intentional metadata probe, not a trust-load; checksum enforced at .load()
+                )
                 n_features = getattr(model, "n_features_in_", None)
                 if n_features is not None and n_features != expected_features:
                     return False
