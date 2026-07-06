@@ -1,4 +1,5 @@
 """Tests for scripts/ingest_tsnadb.py - TSNAdb ingestion logic."""
+
 import os
 import sys
 
@@ -65,9 +66,7 @@ def test_ingest_tsnadb_normalizes_lowercase(tmp_path):
 def test_ingest_tsnadb_drops_invalid_peptides(tmp_path):
     tsv = tmp_path / "tsna.tsv"
     tsv.write_text(
-        "Peptide\tHLA\n"
-        "SIINFEKL\tHLA-A*02:01\n"
-        "SII2FEKL\tHLA-A*02:01\n"  # digit → dropped
+        "Peptide\tHLA\nSIINFEKL\tHLA-A*02:01\nSII2FEKL\tHLA-A*02:01\n"  # digit → dropped
     )
     out_csv = tmp_path / "out.csv"
     ingest_tsnadb(str(tsv), str(out_csv), SCHEMA_PATH)
@@ -80,5 +79,3 @@ def test_ingest_tsnadb_missing_columns_raises(tmp_path):
     bad.write_text("col1,col2\nfoo,bar\n")
     with pytest.raises(ValueError):
         ingest_tsnadb(str(bad), str(tmp_path / "out.csv"), SCHEMA_PATH)
-
-

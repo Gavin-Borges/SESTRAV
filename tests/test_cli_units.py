@@ -4,6 +4,7 @@ Covers _read_config (with existing config.yaml), _require_file (missing/present)
 and cmd_benchmark end-to-end with a minimal predictions CSV - exercising
 auto-detect score column, gold-standard label building, and report writing.
 """
+
 import argparse
 import os
 import pytest
@@ -15,6 +16,7 @@ from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 # ---------------------------------------------------------------------------
 # _read_config
 # ---------------------------------------------------------------------------
+
 
 def test_read_config_returns_dict():
     cfg = _read_config()
@@ -32,6 +34,7 @@ def test_read_config_contains_known_keys():
 # _require_file
 # ---------------------------------------------------------------------------
 
+
 def test_require_file_raises_on_missing(tmp_path):
     parser = argparse.ArgumentParser()
     with pytest.raises(SystemExit):
@@ -48,6 +51,7 @@ def test_require_file_passes_when_file_exists(tmp_path):
 # ---------------------------------------------------------------------------
 # cmd_benchmark - helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_predictions(tmp_path, n_gs=5, n_neg=5, score_col="immunogenicity_score"):
     """Write a minimal predictions CSV with gold standard and non-GS peptides."""

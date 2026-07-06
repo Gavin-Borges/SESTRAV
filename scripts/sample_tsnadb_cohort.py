@@ -27,8 +27,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _dataset_utils import normalize_peptides, validate_against_schema, write_provenance
 
 CANONICAL_10 = [
-    "HLA-A*01:01", "HLA-A*02:01", "HLA-A*03:01", "HLA-A*11:01", "HLA-A*24:02",
-    "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05", "HLA-B*35:01", "HLA-B*44:02",
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
 DEEP_IMM_MIN = 0.5
@@ -58,20 +66,24 @@ def build_cohort(raw_path: str, sample_n: int = SAMPLE_N, seed: int = SEED) -> p
     # Filter 2+3: confidence thresholds
     conf_mask = (df["Deep_imm"] >= DEEP_IMM_MIN) & (df["MHCf_rank (%)"] <= MHCF_RANK_MAX)
     df = df[conf_mask].copy()
-    print(f"After confidence filter (Deep_imm>={DEEP_IMM_MIN}, MHCf_rank<={MHCF_RANK_MAX}%): "
-          f"{len(df):,} rows")
+    print(
+        f"After confidence filter (Deep_imm>={DEEP_IMM_MIN}, MHCf_rank<={MHCF_RANK_MAX}%): "
+        f"{len(df):,} rows"
+    )
 
     # Build v4 schema, then normalize_peptides enforces length + amino acid validity
-    df_v4 = pd.DataFrame({
-        "peptide":         df["Peptide"].astype(str).str.strip().str.upper(),
-        "label":           1,
-        "virus":           "None",
-        "protein":         df["Mutation"].fillna("Unknown"),
-        "strain":          df["Tissue"].fillna("Unknown"),
-        "hla_allele":      df["HLA_norm"],
-        "source_type":     "Tumor",
-        "database_source": "TSNAdb",
-    })
+    df_v4 = pd.DataFrame(
+        {
+            "peptide": df["Peptide"].astype(str).str.strip().str.upper(),
+            "label": 1,
+            "virus": "None",
+            "protein": df["Mutation"].fillna("Unknown"),
+            "strain": df["Tissue"].fillna("Unknown"),
+            "hla_allele": df["HLA_norm"],
+            "source_type": "Tumor",
+            "database_source": "TSNAdb",
+        }
+    )
     df_v4 = normalize_peptides(df_v4)
     df_v4 = df_v4.drop_duplicates(subset=["peptide", "hla_allele"])
     # Deterministic sort before sampling so seed=42 gives the same result on any OS
@@ -89,12 +101,13 @@ def build_cohort(raw_path: str, sample_n: int = SAMPLE_N, seed: int = SEED) -> p
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sample TSNAdb cross-domain cohort")
-    parser.add_argument("--input",  default="data/SNV-derived.txt",
-                        help="Raw TSNAdb SNV-derived file (TSV)")
+    parser.add_argument(
+        "--input", default="data/SNV-derived.txt", help="Raw TSNAdb SNV-derived file (TSV)"
+    )
     parser.add_argument("--output", default="data/tsnadb_crossdomain_cohort.csv")
     parser.add_argument("--schema", default="data/immunogenicity_dataset_v4_schema.json")
-    parser.add_argument("--n",      type=int, default=SAMPLE_N, help="Sample size")
-    parser.add_argument("--seed",   type=int, default=SEED)
+    parser.add_argument("--n", type=int, default=SAMPLE_N, help="Sample size")
+    parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args()
 
     df = build_cohort(args.input, sample_n=args.n, seed=args.seed)

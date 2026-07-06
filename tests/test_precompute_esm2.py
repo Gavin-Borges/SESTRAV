@@ -3,6 +3,7 @@
 Covers the ESM_MODEL_DIMS registry, auto-output-path naming, and the
 unknown-model validation guard - without running actual ESM-2 inference.
 """
+
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from scripts.precompute_esm2_embeddings import ESM_MODEL_DIMS
 # ---------------------------------------------------------------------------
 # Registry completeness
 # ---------------------------------------------------------------------------
+
 
 def test_registry_contains_t6():
     assert "facebook/esm2_t6_8M_UR50D" in ESM_MODEL_DIMS
@@ -52,6 +54,7 @@ def test_all_dims_are_positive_ints():
 # Auto output-path naming (simulated via the same logic as __main__)
 # ---------------------------------------------------------------------------
 
+
 def _auto_output_path(model_name: str) -> str:
     variant = model_name.split("/")[-1].lower().replace("_ur50d", "")
     return f"data/esm2_embeddings_{variant}.pt"
@@ -76,9 +79,13 @@ def test_auto_path_t30():
 # Unknown model guard
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_model_raises_value_error(tmp_path):
     from scripts.precompute_esm2_embeddings import precompute_esm2
+
     with pytest.raises(ValueError, match="Unknown model"):
-        precompute_esm2("data/immunogenicity_dataset_v4.csv",
-                        str(tmp_path / "out.pt"),
-                        model_name="facebook/esm2_t99_FAKE")
+        precompute_esm2(
+            "data/immunogenicity_dataset_v4.csv",
+            str(tmp_path / "out.pt"),
+            model_name="facebook/esm2_t99_FAKE",
+        )

@@ -3,6 +3,7 @@
 Gates 1, 2, 4, 5 are pure DataFrame operations with no model-file dependency.
 Gate 3 (latency) requires real model checkpoints and is integration-only.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -22,16 +23,19 @@ from src.verify.promote_gnn import (
 def _oof_df(n_pos=50, n_neg=50, pos_score_mean=0.8, neg_score_mean=0.2, seed=0):
     rng = np.random.default_rng(seed)
     labels = np.array([1] * n_pos + [0] * n_neg)
-    scores = np.concatenate([
-        rng.normal(pos_score_mean, 0.05, n_pos).clip(0, 1),
-        rng.normal(neg_score_mean, 0.05, n_neg).clip(0, 1),
-    ])
+    scores = np.concatenate(
+        [
+            rng.normal(pos_score_mean, 0.05, n_pos).clip(0, 1),
+            rng.normal(neg_score_mean, 0.05, n_neg).clip(0, 1),
+        ]
+    )
     return pd.DataFrame({"label": labels, "gnn_oof_score": scores})
 
 
 # ---------------------------------------------------------------------------
 # Gate 1 - Generalization (AUC-PR)
 # ---------------------------------------------------------------------------
+
 
 def test_gate1_passes_on_good_predictions():
     df = _oof_df(pos_score_mean=0.9, neg_score_mean=0.1)
@@ -44,10 +48,12 @@ def test_gate1_passes_on_good_predictions():
 def test_gate1_fails_on_random_predictions():
     rng = np.random.default_rng(1)
     n = 100
-    df = pd.DataFrame({
-        "label": rng.integers(0, 2, n),
-        "gnn_oof_score": rng.uniform(0, 1, n),
-    })
+    df = pd.DataFrame(
+        {
+            "label": rng.integers(0, 2, n),
+            "gnn_oof_score": rng.uniform(0, 1, n),
+        }
+    )
     r = gate1_generalization(df)
     # AUC-PR near chance (≈0.5) should fail the ≥0.85 threshold
     assert not r.passed
@@ -56,6 +62,7 @@ def test_gate1_fails_on_random_predictions():
 # ---------------------------------------------------------------------------
 # Gate 2 - Stability (cross-fold AUC-PR std)
 # ---------------------------------------------------------------------------
+
 
 def test_gate2_passes_with_stable_folds():
     rng = np.random.default_rng(2)
@@ -74,7 +81,11 @@ def test_gate2_passes_with_stable_folds():
 def test_gate2_uses_jackknife_without_fold_column():
     df = _oof_df(n_pos=30, n_neg=30, pos_score_mean=0.9, neg_score_mean=0.1)
     r = gate2_stability(df)
-    assert "jackknife" in r.name.lower() or "jackknife" in str(r.value).lower() or isinstance(r.value, float)
+    assert (
+        "jackknife" in r.name.lower()
+        or "jackknife" in str(r.value).lower()
+        or isinstance(r.value, float)
+    )
 
 
 def test_gate2_fails_with_high_variance_folds():
@@ -100,6 +111,7 @@ def test_gate2_fails_with_high_variance_folds():
 # Gate 4 - Calibration (ECE)
 # ---------------------------------------------------------------------------
 
+
 def test_gate4_passes_on_well_calibrated_scores():
     # Construct perfectly calibrated data: within each of the 15 equal-width
     # bins the empirical positive rate matches the bin's centre probability,
@@ -121,10 +133,12 @@ def test_gate4_passes_on_well_calibrated_scores():
 def test_gate4_fails_on_overconfident_scores():
     n = 100
     # Model always predicts 0.99 but half are actually negative
-    df = pd.DataFrame({
-        "label": np.array([1] * 50 + [0] * 50),
-        "gnn_oof_score": np.full(n, 0.99),
-    })
+    df = pd.DataFrame(
+        {
+            "label": np.array([1] * 50 + [0] * 50),
+            "gnn_oof_score": np.full(n, 0.99),
+        }
+    )
     r = gate4_calibration(df)
     assert not r.passed
     assert r.value >= GATE4_ECE_MAX
@@ -133,6 +147,7 @@ def test_gate4_fails_on_overconfident_scores():
 # ---------------------------------------------------------------------------
 # Gate 5 - Escape Sensitivity
 # ---------------------------------------------------------------------------
+
 
 def test_gate5_passes_when_positives_above_median_negative():
     df = _oof_df(pos_score_mean=0.9, neg_score_mean=0.2)
@@ -143,23 +158,29 @@ def test_gate5_passes_when_positives_above_median_negative():
 
 def test_gate5_fails_when_positives_below_median_negative():
     rng = np.random.default_rng(5)
-    df = pd.DataFrame({
-        "label": np.array([1] * 50 + [0] * 50),
-        # positives have low score, negatives have high score (reversed)
-        "gnn_oof_score": np.concatenate([
-            rng.normal(0.1, 0.05, 50).clip(0, 1),
-            rng.normal(0.9, 0.05, 50).clip(0, 1),
-        ]),
-    })
+    df = pd.DataFrame(
+        {
+            "label": np.array([1] * 50 + [0] * 50),
+            # positives have low score, negatives have high score (reversed)
+            "gnn_oof_score": np.concatenate(
+                [
+                    rng.normal(0.1, 0.05, 50).clip(0, 1),
+                    rng.normal(0.9, 0.05, 50).clip(0, 1),
+                ]
+            ),
+        }
+    )
     r = gate5_escape_sensitivity(df)
     assert not r.passed
 
 
 def test_gate5_returns_failure_on_single_class():
-    df = pd.DataFrame({
-        "label": np.ones(50),
-        "gnn_oof_score": np.linspace(0.5, 0.9, 50),
-    })
+    df = pd.DataFrame(
+        {
+            "label": np.ones(50),
+            "gnn_oof_score": np.linspace(0.5, 0.9, 50),
+        }
+    )
     r = gate5_escape_sensitivity(df)
     assert not r.passed
     assert "Insufficient" in str(r.value)
@@ -168,6 +189,7 @@ def test_gate5_returns_failure_on_single_class():
 # ---------------------------------------------------------------------------
 # SHA-256 helper
 # ---------------------------------------------------------------------------
+
 
 def test_sha256_file_is_deterministic(tmp_path):
     p = tmp_path / "data.bin"

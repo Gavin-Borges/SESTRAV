@@ -137,6 +137,7 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+secrets.*
 .venv
 env/
 venv/
@@ -247,6 +248,10 @@ results/*
 !results/tsnadb_crossdomain_benchmark.json
 !results/loo_cross_virus_v4.json
 !results/loo_cross_virus_v4.csv
+!results/loo_cross_virus_v5.json
+!results/loo_cross_virus_v5.csv
+!results/loo_cross_virus_v5_clean.json
+!results/loo_cross_virus_v5_clean.csv
 !results/shap_values_rf.csv
 !results/calibration_metrics.csv
 !results/gold_standard_negative_validation.csv
@@ -267,6 +272,7 @@ results/*
 !results/external_benchmark_score_distributions.png
 !results/external_benchmark_rank_scatter.png
 !results/external_tool_metrics_by_virus.csv
+!results/table3_tier_a_metrics.csv
 !results/external_validation_cross_virus.csv
 # Shareout presentation assets (PNGs + summary files)
 !results/shareout_20260426/
@@ -296,6 +302,9 @@ models/*.joblib
 models/*.pkl
 models/*.pt
 models/*.pth
+*.h5
+*.hdf5
+*.onnx
 
 # Large reference FASTA databases - download independently, do not commit
 data/proteomes/uniprot_sprot.fasta

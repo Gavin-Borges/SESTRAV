@@ -206,7 +206,7 @@ def test_load_iedb_export_two_row_header_assay_id_first_col(tmp_path: Path) -> N
     lines = [
         '"Assay ID",Reference,Reference,Epitope,Host,Assay,"MHC Restriction"',
         '"IEDB IRI","Reference PubMed ID",Type,"Epitope Name","Host Organism Name","Qualitative Measure","Allele Name"',
-        f'http://www.iedb.org/assay/1,12345,Literature,{PEP_A},Homo sapiens,Negative,HLA-A*02:01',
+        f"http://www.iedb.org/assay/1,12345,Literature,{PEP_A},Homo sapiens,Negative,HLA-A*02:01",
     ]
     csv_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -330,9 +330,7 @@ def _write_existing(tmp_path: Path, peptide: str = "AAAAAAAAA") -> Path:
 
 def test_main_dry_run(tmp_path: Path) -> None:
     input_path = tmp_path / "iedb.csv"
-    _make_iedb_df([_iedb_row(PEP_A), _iedb_row(PEP_B)]).to_csv(
-        input_path, index=False
-    )
+    _make_iedb_df([_iedb_row(PEP_A), _iedb_row(PEP_B)]).to_csv(input_path, index=False)
     existing = _write_existing(tmp_path)
     output = tmp_path / "out.csv"
 
@@ -353,9 +351,7 @@ def test_main_dry_run(tmp_path: Path) -> None:
 
 def test_main_full_write_and_sidecar(tmp_path: Path) -> None:
     input_path = tmp_path / "iedb.csv"
-    _make_iedb_df([_iedb_row(PEP_A), _iedb_row(PEP_B)]).to_csv(
-        input_path, index=False
-    )
+    _make_iedb_df([_iedb_row(PEP_A), _iedb_row(PEP_B)]).to_csv(input_path, index=False)
     existing = _write_existing(tmp_path)
     output = tmp_path / "iedb_negatives_v5.csv"
 
@@ -391,9 +387,7 @@ def test_main_full_write_and_sidecar(tmp_path: Path) -> None:
 def test_main_cross_dedup_drops_existing(tmp_path: Path) -> None:
     # The existing dataset already contains PEP_A on the same allele/virus.
     input_path = tmp_path / "iedb.csv"
-    _make_iedb_df([_iedb_row(PEP_A), _iedb_row(PEP_B)]).to_csv(
-        input_path, index=False
-    )
+    _make_iedb_df([_iedb_row(PEP_A), _iedb_row(PEP_B)]).to_csv(input_path, index=False)
     existing = _write_existing(tmp_path, peptide=PEP_A)
     output = tmp_path / "out.csv"
 

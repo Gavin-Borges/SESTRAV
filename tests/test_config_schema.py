@@ -3,6 +3,7 @@ from pathlib import Path
 from pydantic import ValidationError
 from src.core.config import SestravConfig
 
+
 def test_config_loads_valid_yaml(tmp_path):
     # Minimal valid config
     valid_yaml = """

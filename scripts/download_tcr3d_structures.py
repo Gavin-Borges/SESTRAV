@@ -200,7 +200,7 @@ def print_allele_summary(entries: list[tuple[str, str]]) -> None:
     allele_counts: Counter[str] = Counter(canonical for _, canonical in entries)
     print("\nStructures per allele:")
     print(f"  {'Allele':<20}  {'N':>6}")
-    print(f"  {'-'*20}  {'------':>6}")
+    print(f"  {'-' * 20}  {'------':>6}")
     for allele in sorted(allele_counts):
         print(f"  {allele:<20}  {allele_counts[allele]:>6}")
     print(f"  {'TOTAL':<20}  {len(entries):>6}")
@@ -253,9 +253,7 @@ def download_pdb(pdb_id: str, dest: Path) -> bool:
             return True
         except urllib.error.URLError as exc:
             if attempt < MAX_ATTEMPTS:
-                print(
-                    f"  WARNING: {pdb_id} attempt {attempt} failed ({exc}); retrying..."
-                )
+                print(f"  WARNING: {pdb_id} attempt {attempt} failed ({exc}); retrying...")
                 time.sleep(1)
             else:
                 print(

@@ -171,9 +171,7 @@ def run_recovery(
 
     for virus_key, gs in gs_map.items():
         pool = meta[meta["virus"] == virus_key]
-        recovery_rows.extend(
-            recovery_table(pool, gs, methods, scope=f"tierB_{virus_key}")
-        )
+        recovery_rows.extend(recovery_table(pool, gs, methods, scope=f"tierB_{virus_key}"))
 
     recovery_rows.extend(
         recovery_table(meta, set().union(*gs_map.values()), methods, scope="tierB_combined")

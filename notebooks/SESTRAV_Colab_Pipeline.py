@@ -67,11 +67,11 @@ df = pd.read_csv(DATA_PATH)
 print(f"Loaded {len(df)} records from {DATA_PATH}")
 print(f"Columns: {list(df.columns)}")
 print("\nClass distribution:")
-print(df['label'].value_counts())
+print(df["label"].value_counts())
 print(f"\nPositive rate: {df['label'].mean():.1%}")
 
 # Hold out gold-standard epitopes
-gs_mask = df['peptide'].isin(GOLD_STANDARD_EPITOPES)
+gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
 train_pool = df[~gs_mask].copy()
 print(f"\nHeld out {gs_mask.sum()} gold-standard epitope records")
 print(f"Training pool: {len(train_pool)} records")
@@ -81,7 +81,8 @@ print(f"Training pool: {len(train_pool)} records")
 # =============================================================================
 
 from src.features import (
-    PHYSICO_COLUMNS, BINDING_ALLELE_COLUMNS,
+    PHYSICO_COLUMNS,
+    BINDING_ALLELE_COLUMNS,
 )
 from src.train_classifier import prepare_features, prepare_features_30
 
@@ -93,8 +94,8 @@ print(f"21-feature matrix: {X_21.shape}")
 X_30 = prepare_features_30(train_pool, BINDING_MATRIX_PATH)
 print(f"30-feature matrix: {X_30.shape}")
 
-y = train_pool['label'].values
-virus = train_pool['virus'].values if 'virus' in train_pool.columns else np.zeros(len(train_pool))
+y = train_pool["label"].values
+virus = train_pool["virus"].values if "virus" in train_pool.columns else np.zeros(len(train_pool))
 strat_key = np.array([f"{l}_{v}" for l, v in zip(y, virus)])
 
 print(f"\nClass balance: {np.mean(y):.2%} positive, {1 - np.mean(y):.2%} negative")
@@ -112,7 +113,7 @@ print("=" * 70)
 # 30-feature canonical track
 rf_model, xgb_model, rf_avg, xgb_avg = train_models(
     DATA_PATH,
-    model_dir='models',
+    model_dir="models",
     feature_mode=30,
     binding_matrix_path=BINDING_MATRIX_PATH,
 )
@@ -132,10 +133,10 @@ print("=" * 70)
 
 ann_model, ann_scaler, ann_avg, ann_std = train_ann(
     DATA_PATH,
-    model_dir='models',
+    model_dir="models",
     feature_mode=30,
     binding_matrix_path=BINDING_MATRIX_PATH,
-    architecture='256-128-64',
+    architecture="256-128-64",
 )
 
 print(f"\nANN 30f AUC-PR: {ann_avg['auc_pr']:.4f} +/- {ann_std['auc_pr']:.4f}")
@@ -171,12 +172,14 @@ try:
     print("GNN BENCHMARKS (GCN + GAT)")
     print("=" * 70)
 
-    peptides = train_pool['peptide'].values
+    peptides = train_pool["peptide"].values
     n_pos = int(y.sum())
     pos_weight = (len(y) - n_pos) / max(1, n_pos)
 
     seq_results = run_gnn_benchmark(
-        peptides, y, strat_key,
+        peptides,
+        y,
+        strat_key,
         pos_weight=pos_weight,
     )
     print("\nSequence GNN Results:")
@@ -191,7 +194,10 @@ try:
     X_binding = X_30[BINDING_ALLELE_COLUMNS].values
 
     bi_results = run_bipartite_gnn_benchmark(
-        X_physico, X_binding, y, strat_key,
+        X_physico,
+        X_binding,
+        y,
+        strat_key,
         pos_weight=pos_weight,
     )
     print("\nBipartite GNN Results:")
@@ -214,11 +220,15 @@ print("=" * 70)
 ablation_results = run_ablation(
     DATA_PATH,
     BINDING_MATRIX_PATH,
-    output_dir='models',
+    output_dir="models",
 )
 
 print("\nAblation Results Summary:")
-print(ablation_results[['feature_set', 'n_features', 'auc_pr_mean', 'auc_roc_mean']].to_string(index=False))
+print(
+    ablation_results[["feature_set", "n_features", "auc_pr_mean", "auc_roc_mean"]].to_string(
+        index=False
+    )
+)
 
 # =============================================================================
 # Cell 10: Model Comparison Summary
@@ -228,11 +238,17 @@ print("\n" + "=" * 70)
 print("MODEL COMPARISON SUMMARY")
 print("=" * 70)
 
-summary = pd.DataFrame([
-    {"Model": "RF (30f)", "AUC-PR": rf_avg['auc_pr'], "AUC-ROC": rf_avg['auc_roc']},
-    {"Model": "XGBoost (30f)", "AUC-PR": xgb_avg['auc_pr'], "AUC-ROC": xgb_avg['auc_roc']},
-    {"Model": "ANN 256-128-64 (30f)", "AUC-PR": ann_avg['auc_pr'], "AUC-ROC": ann_avg['auc_roc']},
-])
+summary = pd.DataFrame(
+    [
+        {"Model": "RF (30f)", "AUC-PR": rf_avg["auc_pr"], "AUC-ROC": rf_avg["auc_roc"]},
+        {"Model": "XGBoost (30f)", "AUC-PR": xgb_avg["auc_pr"], "AUC-ROC": xgb_avg["auc_roc"]},
+        {
+            "Model": "ANN 256-128-64 (30f)",
+            "AUC-PR": ann_avg["auc_pr"],
+            "AUC-ROC": ann_avg["auc_roc"],
+        },
+    ]
+)
 print(summary.to_string(index=False))
 print("\n(Higher AUC-PR = better; primary metric for imbalanced data)")
 

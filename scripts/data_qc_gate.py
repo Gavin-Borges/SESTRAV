@@ -30,7 +30,7 @@ import numpy as np
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("data_qc_gate")
 
@@ -44,7 +44,7 @@ def load_config(config_path: str) -> dict:
         "max_conflict_ratio": 0.15,
         "max_null_allele_fraction": 0.50,
         "class_ratio_bounds": [1.5, 4.0],
-        "freeze_mode": False
+        "freeze_mode": False,
     }
     if not os.path.exists(config_path):
         logger.warning(f"Config file not found at {config_path}. Using standard defaults.")
@@ -55,23 +55,33 @@ def load_config(config_path: str) -> dict:
             config = yaml.safe_load(f) or {}
             gov = config.get("dataset_governance", {})
             thresholds = gov.get("qc_thresholds", {})
-            
+
             # Extract values with safe fallbacks
             return {
-                "min_peptide_yield": thresholds.get("min_peptide_yield", defaults["min_peptide_yield"]),
-                "max_conflict_ratio": thresholds.get("max_conflict_ratio", defaults["max_conflict_ratio"]),
-                "max_null_allele_fraction": thresholds.get("max_null_allele_fraction", defaults["max_null_allele_fraction"]),
-                "class_ratio_bounds": thresholds.get("class_ratio_bounds", defaults["class_ratio_bounds"]),
+                "min_peptide_yield": thresholds.get(
+                    "min_peptide_yield", defaults["min_peptide_yield"]
+                ),
+                "max_conflict_ratio": thresholds.get(
+                    "max_conflict_ratio", defaults["max_conflict_ratio"]
+                ),
+                "max_null_allele_fraction": thresholds.get(
+                    "max_null_allele_fraction", defaults["max_null_allele_fraction"]
+                ),
+                "class_ratio_bounds": thresholds.get(
+                    "class_ratio_bounds", defaults["class_ratio_bounds"]
+                ),
                 "freeze_mode": config.get("freeze_mode", defaults["freeze_mode"]),
                 "expected_checksum": gov.get("provenance", {}).get("checksum", "pending"),
-                "require_checksum": gov.get("require_checksum_match_in_freeze_mode", False)
+                "require_checksum": gov.get("require_checksum_match_in_freeze_mode", False),
             }
     except Exception as e:
         logger.error(f"Failed to parse config: {e}. Using defaults.")
         return defaults
 
 
-def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str | None = None) -> bool:
+def check_dataset_qc(
+    dataset_path: str, config_path: str, quarantine_path: str | None = None
+) -> bool:
     """
     Load dataset and execute all QC checks.
     Quarantined rows are written to quarantine_path if provided.
@@ -100,7 +110,9 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
     if cfg["freeze_mode"] and cfg.get("require_checksum", False):
         expected = cfg.get("expected_checksum", "pending")
         if expected != "pending" and expected != checksum:
-            logger.error(f"Freeze mode violation! Dataset checksum {checksum} does not match expected {expected}.")
+            logger.error(
+                f"Freeze mode violation! Dataset checksum {checksum} does not match expected {expected}."
+            )
             return False
 
     try:
@@ -110,7 +122,7 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         return False
 
     logger.info(f"Initial row count: {len(df)}")
-    
+
     # fuzzy search and normalize columns
     col_map = {}
     for col in df.columns:
@@ -123,7 +135,9 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
             col_map.setdefault("allele", col)
 
     if "peptide" not in col_map or "label" not in col_map:
-        logger.error(f"Required columns (Peptide and Label/Qualitative Measure) not found. Columns: {list(df.columns)}")
+        logger.error(
+            f"Required columns (Peptide and Label/Qualitative Measure) not found. Columns: {list(df.columns)}"
+        )
         return False
 
     pep_col = col_map["peptide"]
@@ -133,7 +147,7 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
 
     # Keep track of quarantined rows with reasons
     quarantined_rows = []
-    
+
     def add_to_quarantine(idx, row, reason):
         row_dict = row.to_dict()
         row_dict["qc_failure_reason"] = reason
@@ -155,7 +169,7 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
             continue
 
         pep_str = str(pep).strip().upper()
-        
+
         # 2. Check canonical amino acids
         if not all(c in STANDARD_AA for c in pep_str):
             add_to_quarantine(idx, row, "Non-canonical amino acids present in sequence")
@@ -164,13 +178,15 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
 
         # 3. Check peptide length window (8-11mer)
         if not (8 <= len(pep_str) <= 11):
-            add_to_quarantine(idx, row, f"Peptide length {len(pep_str)} outside valid 8-11mer window")
+            add_to_quarantine(
+                idx, row, f"Peptide length {len(pep_str)} outside valid 8-11mer window"
+            )
             indices_to_drop.add(idx)
             continue
 
     # Create clean dataset subset
     df_clean = df.drop(index=list(indices_to_drop)).copy()
-    
+
     # Rename columns to standard ones
     df_clean = df_clean.rename(columns={pep_col: "peptide", lbl_col: "label"})
     if allele_col:
@@ -188,7 +204,7 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         return np.nan
 
     df_clean["label"] = df_clean["label"].apply(parse_binary_label)
-    
+
     # Drop rows where labels couldn't be parsed
     unparseable_labels = df_clean[df_clean["label"].isna()]
     for idx, row in unparseable_labels.iterrows():
@@ -205,13 +221,17 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
     group_cols = ["peptide", "allele"] if "allele" in df_clean.columns else ["peptide"]
     label_counts = df_clean.groupby(group_cols)["label"].nunique()
     conflicting_mask = label_counts > 1
-    
+
     total_unique_groups = len(label_counts)
     conflicting_groups = conflicting_mask.sum()
     conflict_ratio = conflicting_groups / total_unique_groups if total_unique_groups > 0 else 0.0
-    
-    logger.info(f"Deduplication Groups: {total_unique_groups} | Conflicting Groups: {conflicting_groups}")
-    logger.info(f"Conflict Ratio: {conflict_ratio:.4f} (Max threshold: {cfg['max_conflict_ratio']})")
+
+    logger.info(
+        f"Deduplication Groups: {total_unique_groups} | Conflicting Groups: {conflicting_groups}"
+    )
+    logger.info(
+        f"Conflict Ratio: {conflict_ratio:.4f} (Max threshold: {cfg['max_conflict_ratio']})"
+    )
 
     # Quarantine conflicting rows
     if conflicting_groups > 0:
@@ -219,10 +239,12 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         conflicting_keys = label_counts[conflicting_mask].index
         if "allele" in df_clean.columns:
             conflict_set = set(conflicting_keys)
+
             def is_conflict(r):
                 return (r["peptide"], r["allele"]) in conflict_set
         else:
             conflict_set = set(conflicting_keys)
+
             def is_conflict(r):
                 return r["peptide"] in conflict_set
 
@@ -242,7 +264,9 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         null_allele_fraction = 1.0
         logger.warning("No 'allele' column present in clean dataset. Null allele fraction is 100%.")
 
-    logger.info(f"Null Allele Fraction: {null_allele_fraction:.4f} (Max threshold: {cfg['max_null_allele_fraction']})")
+    logger.info(
+        f"Null Allele Fraction: {null_allele_fraction:.4f} (Max threshold: {cfg['max_null_allele_fraction']})"
+    )
 
     # 6. Class ratio check
     positives = (df_clean["label"] == 1).sum()
@@ -253,7 +277,9 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
 
     # 7. Minimum yield check
     unique_peptides = df_clean["peptide"].nunique()
-    logger.info(f"Unique peptide yield: {unique_peptides} (Min yield expected: {cfg['min_peptide_yield']})")
+    logger.info(
+        f"Unique peptide yield: {unique_peptides} (Min yield expected: {cfg['min_peptide_yield']})"
+    )
 
     # Write quarantine output if path is provided
     if quarantine_path and quarantined_rows:
@@ -268,18 +294,20 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         "length_and_composition_valid": len(indices_to_drop) == 0,
         "conflict_ratio_passed": conflict_ratio <= cfg["max_conflict_ratio"],
         "null_allele_fraction_passed": null_allele_fraction <= cfg["max_null_allele_fraction"],
-        "class_ratio_passed": cfg["class_ratio_bounds"][0] <= class_ratio <= cfg["class_ratio_bounds"][1],
-        "peptide_yield_passed": unique_peptides >= cfg["min_peptide_yield"]
+        "class_ratio_passed": cfg["class_ratio_bounds"][0]
+        <= class_ratio
+        <= cfg["class_ratio_bounds"][1],
+        "peptide_yield_passed": unique_peptides >= cfg["min_peptide_yield"],
     }
 
     # Log results summary
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("       DATASET QC ADMISSIBILITY REPORT")
-    print("="*50)
+    print("=" * 50)
     for check_name, status in checks.items():
         symbol = "PASS" if status else "FAIL"
         print(f"  {check_name:32s} : {symbol}")
-    print("="*50 + "\n")
+    print("=" * 50 + "\n")
 
     # Fail gate if any strict check fails
     success = all(checks.values())
@@ -287,7 +315,7 @@ def check_dataset_qc(dataset_path: str, config_path: str, quarantine_path: str |
         logger.info("All dataset QC gates passed successfully.")
     else:
         logger.error("Dataset QC gate FAILED on one or more admissibility checks.")
-    
+
     return success
 
 
@@ -296,25 +324,16 @@ def main():
         description="SESTRAV automated dataset admissibility QC checker."
     )
     parser.add_argument(
-        "--dataset",
-        required=True,
-        help="Path to the immunogenicity CSV dataset to check."
+        "--dataset", required=True, help="Path to the immunogenicity CSV dataset to check."
     )
     parser.add_argument(
-        "--config",
-        default="config.yaml",
-        help="Path to the config.yaml parameters file."
+        "--config", default="config.yaml", help="Path to the config.yaml parameters file."
     )
-    parser.add_argument(
-        "--quarantine",
-        help="Optional path to output quarantined invalid records."
-    )
+    parser.add_argument("--quarantine", help="Optional path to output quarantined invalid records.")
     args = parser.parse_args()
 
     success = check_dataset_qc(
-        dataset_path=args.dataset,
-        config_path=args.config,
-        quarantine_path=args.quarantine
+        dataset_path=args.dataset, config_path=args.config, quarantine_path=args.quarantine
     )
 
     if not success:

@@ -66,9 +66,7 @@ def test_ensure_v5_columns_adds_new_with_defaults() -> None:
 
 
 def test_ensure_v5_columns_preserves_existing() -> None:
-    df = pd.DataFrame(
-        {"peptide": ["GILGFVFTL"], "label": [0], "iedb_assay_id": ["AS-1"]}
-    )
+    df = pd.DataFrame({"peptide": ["GILGFVFTL"], "label": [0], "iedb_assay_id": ["AS-1"]})
     out = ensure_v5_columns(df)
     assert out.iloc[0]["iedb_assay_id"] == "AS-1"
 
@@ -113,12 +111,8 @@ def test_assign_virus_family() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _virus_block(
-    virus: str, n_rows: int, n_real_neg: int
-) -> pd.DataFrame:
-    origins = ["tested_negative"] * n_real_neg + ["self_proteome_decoy"] * (
-        n_rows - n_real_neg
-    )
+def _virus_block(virus: str, n_rows: int, n_real_neg: int) -> pd.DataFrame:
+    origins = ["tested_negative"] * n_real_neg + ["self_proteome_decoy"] * (n_rows - n_real_neg)
     return pd.DataFrame(
         {
             "virus": [virus] * n_rows,
@@ -373,9 +367,7 @@ def test_assign_virus_family_new_entries() -> None:
 def _virus_block_with_family(
     virus: str, n_rows: int, n_real_neg: int, family: str | None
 ) -> pd.DataFrame:
-    origins = ["tested_negative"] * n_real_neg + ["self_proteome_decoy"] * (
-        n_rows - n_real_neg
-    )
+    origins = ["tested_negative"] * n_real_neg + ["self_proteome_decoy"] * (n_rows - n_real_neg)
     return pd.DataFrame(
         {
             "virus": [virus] * n_rows,
@@ -435,11 +427,16 @@ def test_main_dedup_drops_cross_source_same_label_duplicates(tmp_path: Path) -> 
 
     rc = main(
         [
-            "--base-dataset", str(base),
-            "--iedb-negatives", str(iedb),
-            "--output", str(out),
-            "--schema", str(SCHEMA_PATH),
-            "--conflict-audit-path", str(conflicts),
+            "--base-dataset",
+            str(base),
+            "--iedb-negatives",
+            str(iedb),
+            "--output",
+            str(out),
+            "--schema",
+            str(SCHEMA_PATH),
+            "--conflict-audit-path",
+            str(conflicts),
         ]
     )
     assert rc == 0
@@ -486,12 +483,18 @@ def test_main_warns_on_panel_iedb_label_conflict(
     with caplog.at_level(logging.WARNING):
         rc = main(
             [
-                "--base-dataset", str(base),
-                "--iedb-negatives", str(iedb),
-                "--published-panels", str(panel),
-                "--output", str(out),
-                "--schema", str(SCHEMA_PATH),
-                "--conflict-audit-path", str(conflicts),
+                "--base-dataset",
+                str(base),
+                "--iedb-negatives",
+                str(iedb),
+                "--published-panels",
+                str(panel),
+                "--output",
+                str(out),
+                "--schema",
+                str(SCHEMA_PATH),
+                "--conflict-audit-path",
+                str(conflicts),
             ]
         )
 

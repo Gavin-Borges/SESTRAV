@@ -6,6 +6,7 @@ Targets:
   - compute_weisfeiler_lehman_features  (NetworkX WL kernel)
   - get_esm_cls_token         (ESM-2 success path via mocked transformers)
 """
+
 import sys
 import numpy as np
 import pandas as pd
@@ -25,6 +26,7 @@ from src.features import (
 # ---------------------------------------------------------------------------
 # compute_sample_weights
 # ---------------------------------------------------------------------------
+
 
 class TestComputeSampleWeights:
     def _df(self, viruses, peptides=None):
@@ -73,10 +75,12 @@ class TestComputeSampleWeights:
         np.testing.assert_allclose(w.mean(), 1.0, atol=1e-9)
 
     def test_custom_length_col(self):
-        df = pd.DataFrame({
-            "virus": ["EBV"] * 4,
-            "seq": ["CLGGLLTMV"] * 2 + ["TIHDIILECV"] * 2,
-        })
+        df = pd.DataFrame(
+            {
+                "virus": ["EBV"] * 4,
+                "seq": ["CLGGLLTMV"] * 2 + ["TIHDIILECV"] * 2,
+            }
+        )
         w = compute_sample_weights(df, length_col="seq")
         assert w.shape == (4,)
         np.testing.assert_allclose(w.mean(), 1.0, atol=1e-9)
@@ -91,6 +95,7 @@ class TestComputeSampleWeights:
 # compute_features_for_dataset
 # ---------------------------------------------------------------------------
 
+
 class TestComputeFeaturesForDataset:
     def _df(self, peptides, scores=None):
         rows = {"peptide": peptides}
@@ -102,8 +107,14 @@ class TestComputeFeaturesForDataset:
         pep = "CLGGLLTMV"
         df_out = compute_features_for_dataset(self._df([pep]))
         scalar = compute_features(pep)
-        for col in ("p4_hydrophobicity", "p5_hydrophobicity", "p7_hydrophobicity",
-                    "p4_charge", "p7_charge", "peptide_length"):
+        for col in (
+            "p4_hydrophobicity",
+            "p5_hydrophobicity",
+            "p7_hydrophobicity",
+            "p4_charge",
+            "p7_charge",
+            "peptide_length",
+        ):
             assert df_out[col].iloc[0] == pytest.approx(scalar[col], abs=1e-9)
 
     def test_8mer_zero_imputes_p7_p8(self):
@@ -112,9 +123,7 @@ class TestComputeFeaturesForDataset:
         assert df_out["p8_hydrophobicity"].iloc[0] == 0.0
 
     def test_binding_score_passthrough(self):
-        df_out = compute_features_for_dataset(
-            self._df(["CLGGLLTMV"], scores=[0.75])
-        )
+        df_out = compute_features_for_dataset(self._df(["CLGGLLTMV"], scores=[0.75]))
         assert df_out["binding_score"].iloc[0] == pytest.approx(0.75)
 
     def test_missing_binding_col_defaults_zero(self):
@@ -122,9 +131,7 @@ class TestComputeFeaturesForDataset:
         assert df_out["binding_score"].iloc[0] == 0.0
 
     def test_nan_binding_score_imputed_zero(self):
-        df_out = compute_features_for_dataset(
-            self._df(["CLGGLLTMV"], scores=[float("nan")])
-        )
+        df_out = compute_features_for_dataset(self._df(["CLGGLLTMV"], scores=[float("nan")]))
         assert df_out["binding_score"].iloc[0] == 0.0
 
     def test_mixed_length_peptides(self):
@@ -151,21 +158,19 @@ class TestComputeFeaturesForDataset:
     def test_10mer_p7_p8_populated(self):
         df_out = compute_features_for_dataset(self._df(["TIHDIILECV"]))
         scalar = compute_features("TIHDIILECV")
-        assert df_out["p7_hydrophobicity"].iloc[0] == pytest.approx(
-            scalar["p7_hydrophobicity"]
-        )
-        assert df_out["p8_hydrophobicity"].iloc[0] == pytest.approx(
-            scalar["p8_hydrophobicity"]
-        )
+        assert df_out["p7_hydrophobicity"].iloc[0] == pytest.approx(scalar["p7_hydrophobicity"])
+        assert df_out["p8_hydrophobicity"].iloc[0] == pytest.approx(scalar["p8_hydrophobicity"])
 
 
 # ---------------------------------------------------------------------------
 # compute_weisfeiler_lehman_features
 # ---------------------------------------------------------------------------
 
+
 class TestComputeWeisfeilerLehmanFeatures:
     def _graph(self, n_nodes=4):
         import networkx as nx
+
         G = nx.path_graph(n_nodes)
         for node in G.nodes():
             G.nodes[node]["x"] = str(node % 3)
@@ -183,6 +188,7 @@ class TestComputeWeisfeilerLehmanFeatures:
 
     def test_single_node_graph(self):
         import networkx as nx
+
         G = nx.Graph()
         G.add_node(0)
         G.nodes[0]["x"] = "A"
@@ -197,6 +203,7 @@ class TestComputeWeisfeilerLehmanFeatures:
 
     def test_different_graphs_differ(self):
         import networkx as nx
+
         G1 = nx.path_graph(5)
         G2 = nx.complete_graph(5)
         for G in (G1, G2):
@@ -210,6 +217,7 @@ class TestComputeWeisfeilerLehmanFeatures:
 # ---------------------------------------------------------------------------
 # get_esm_cls_token - ESM-2 success path via mocked transformers
 # ---------------------------------------------------------------------------
+
 
 class TestGetEsmClsToken:
     def _mock_transformers(self):
@@ -246,6 +254,7 @@ class TestGetEsmClsToken:
     def test_esm_cls_token_success_path(self, monkeypatch):
         """Covers lines 524-535: ESM-2 transformers path runs when model not cached."""
         import src.features as f
+
         # Reset the module-level cache so the load path runs.
         monkeypatch.setattr(f, "_esm_model", None)
         monkeypatch.setattr(f, "_esm_tokenizer", None)
@@ -257,6 +266,7 @@ class TestGetEsmClsToken:
     def test_esm_cls_token_reuses_cached_model(self, monkeypatch):
         """When the model is already cached, the load block (524-527) is skipped."""
         import src.features as f
+
         mock_transformers = self._mock_transformers()
 
         cls_vector = np.ones(320, dtype=np.float32)
@@ -281,6 +291,7 @@ class TestGetEsmClsToken:
     def test_esm_cls_token_fallback_on_error(self, monkeypatch):
         """When the model raises, the except path returns a deterministic mock vector."""
         import src.features as f
+
         monkeypatch.setattr(f, "_esm_model", None)
         monkeypatch.setattr(f, "_esm_tokenizer", None)
         # Inject a broken transformers module that raises on import.

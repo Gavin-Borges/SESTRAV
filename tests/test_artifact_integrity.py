@@ -191,15 +191,17 @@ def test_verify_artifact_checksum_cross_drive_fallback(tmp_path):
     subdir_b.mkdir()
     manifest_path = subdir_b / MODEL_CHECKSUM_MANIFEST
     manifest_path.write_text(
-        _json.dumps({
-            "generated_utc": "2026-01-01T00:00:00Z",
-            "artifacts": {
-                artifact.name: {  # basename key - what the fallback uses
-                    "sha256": sha256_file(artifact),
-                    "size_bytes": artifact.stat().st_size,
-                }
-            },
-        }),
+        _json.dumps(
+            {
+                "generated_utc": "2026-01-01T00:00:00Z",
+                "artifacts": {
+                    artifact.name: {  # basename key - what the fallback uses
+                        "sha256": sha256_file(artifact),
+                        "size_bytes": artifact.stat().st_size,
+                    }
+                },
+            }
+        ),
         encoding="utf-8",
     )
 

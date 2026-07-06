@@ -28,7 +28,10 @@ def main() -> None:
     parser.add_argument("--repo-root", default=".")
     parser.add_argument(
         "--image",
-        default=os.environ.get("SESTRAV_PREDIG_IMAGE", "bsceapm/predig@sha256:4a0c8b6b23a968600c4363290dc778a4b6e51cc24032d16ebfdb3119846b0a79"),
+        default=os.environ.get(
+            "SESTRAV_PREDIG_IMAGE",
+            "bsceapm/predig@sha256:4a0c8b6b23a968600c4363290dc778a4b6e51cc24032d16ebfdb3119846b0a79",
+        ),
         help="PredIG Docker image reference (prefer a digest-pinned ref in production)",
     )
     args = parser.parse_args()
@@ -54,8 +57,8 @@ def main() -> None:
     n_batches = (len(df) + args.batch_size - 1) // args.batch_size
     for i in range(n_batches):
         chunk = df.iloc[i * args.batch_size : (i + 1) * args.batch_size]
-        in_name = f"predig_batch_{i+1}_input.csv"
-        out_name = f"predig_batch_{i+1}_output.csv"
+        in_name = f"predig_batch_{i + 1}_input.csv"
+        out_name = f"predig_batch_{i + 1}_output.csv"
         in_path = os.path.join("results", "external_tool_outputs", "predig_batches", in_name)
         out_path = os.path.join("results", "external_tool_outputs", "predig_batches", out_name)
         chunk.to_csv(in_path, index=False)
@@ -79,7 +82,7 @@ def main() -> None:
             "--type",
             "recombinant",
         ]
-        print(f"[predig-batch] Running batch {i+1}/{n_batches} ({len(chunk)} rows)")
+        print(f"[predig-batch] Running batch {i + 1}/{n_batches} ({len(chunk)} rows)")
         subprocess.run(cmd, check=True)  # nosec B603  # nosemgrep
         parts.append(pd.read_csv(out_path))
 

@@ -21,7 +21,8 @@ import argparse
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import shap
 
@@ -32,37 +33,37 @@ from src.naming import proteome_id_candidates, resolve_model_path
 
 
 FEATURE_DISPLAY_NAMES = {
-    'peptide_length': 'Peptide length',
-    'p4_hydrophobicity': 'p4 hydrophobicity',
-    'p5_hydrophobicity': 'p5 hydrophobicity',
-    'p6_hydrophobicity': 'p6 hydrophobicity',
-    'p7_hydrophobicity': 'p7 hydrophobicity',
-    'p8_hydrophobicity': 'p8 hydrophobicity',
-    'p4_aromaticity': 'p4 aromaticity',
-    'p5_aromaticity': 'p5 aromaticity',
-    'p6_aromaticity': 'p6 aromaticity',
-    'p7_aromaticity': 'p7 aromaticity',
-    'p8_aromaticity': 'p8 aromaticity',
-    'p4_vdw_volume': 'p4 VdW volume',
-    'p5_vdw_volume': 'p5 VdW volume',
-    'p6_vdw_volume': 'p6 VdW volume',
-    'p7_vdw_volume': 'p7 VdW volume',
-    'p8_vdw_volume': 'p8 VdW volume',
-    'p4_charge': 'p4 charge',
-    'p5_charge': 'p5 charge',
-    'p6_charge': 'p6 charge',
-    'p7_charge': 'p7 charge',
-    'p8_charge': 'p8 charge',
-    'bind_A0101': 'Bind HLA-A*01:01',
-    'bind_A0201': 'Bind HLA-A*02:01',
-    'bind_A0301': 'Bind HLA-A*03:01',
-    'bind_A1101': 'Bind HLA-A*11:01',
-    'bind_A2402': 'Bind HLA-A*24:02',
-    'bind_B0702': 'Bind HLA-B*07:02',
-    'bind_B0801': 'Bind HLA-B*08:01',
-    'bind_B2705': 'Bind HLA-B*27:05',
-    'bind_B3501': 'Bind HLA-B*35:01',
-    'bind_B4402': 'Bind HLA-B*44:02',
+    "peptide_length": "Peptide length",
+    "p4_hydrophobicity": "p4 hydrophobicity",
+    "p5_hydrophobicity": "p5 hydrophobicity",
+    "p6_hydrophobicity": "p6 hydrophobicity",
+    "p7_hydrophobicity": "p7 hydrophobicity",
+    "p8_hydrophobicity": "p8 hydrophobicity",
+    "p4_aromaticity": "p4 aromaticity",
+    "p5_aromaticity": "p5 aromaticity",
+    "p6_aromaticity": "p6 aromaticity",
+    "p7_aromaticity": "p7 aromaticity",
+    "p8_aromaticity": "p8 aromaticity",
+    "p4_vdw_volume": "p4 VdW volume",
+    "p5_vdw_volume": "p5 VdW volume",
+    "p6_vdw_volume": "p6 VdW volume",
+    "p7_vdw_volume": "p7 VdW volume",
+    "p8_vdw_volume": "p8 VdW volume",
+    "p4_charge": "p4 charge",
+    "p5_charge": "p5 charge",
+    "p6_charge": "p6 charge",
+    "p7_charge": "p7 charge",
+    "p8_charge": "p8 charge",
+    "bind_A0101": "Bind HLA-A*01:01",
+    "bind_A0201": "Bind HLA-A*02:01",
+    "bind_A0301": "Bind HLA-A*03:01",
+    "bind_A1101": "Bind HLA-A*11:01",
+    "bind_A2402": "Bind HLA-A*24:02",
+    "bind_B0702": "Bind HLA-B*07:02",
+    "bind_B0801": "Bind HLA-B*08:01",
+    "bind_B2705": "Bind HLA-B*27:05",
+    "bind_B3501": "Bind HLA-B*35:01",
+    "bind_B4402": "Bind HLA-B*44:02",
 }
 
 
@@ -82,7 +83,7 @@ def _load_features(results_dir, max_samples=2000):
                 break
         if path and os.path.isfile(path):
             df = pd.read_csv(path)
-            df['virus'] = virus
+            df["virus"] = virus
             frames.append(df)
 
     if not frames:
@@ -94,8 +95,7 @@ def _load_features(results_dir, max_samples=2000):
     return combined
 
 
-def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
-                      feature_mode=21):
+def run_shap_analysis(results_dir, model_dir="models", output_dir="results", feature_mode=21):
     """Compute SHAP values and generate all plots.
 
     Args:
@@ -105,12 +105,12 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
     os.makedirs(output_dir, exist_ok=True)
 
     if feature_mode == 30:
-        rf_path = os.path.join(model_dir, 'rf_30feature_integrated.joblib')
-        xgb_path = os.path.join(model_dir, 'xgb_30feature_integrated.joblib')
+        rf_path = os.path.join(model_dir, "rf_30feature_integrated.joblib")
+        xgb_path = os.path.join(model_dir, "xgb_30feature_integrated.joblib")
         feature_cols = FEATURE_COLUMNS_30
     else:
-        rf_path = os.path.join(model_dir, 'rf_21feature_legacy.joblib')
-        xgb_path = os.path.join(model_dir, 'xgb_21feature_legacy.joblib')
+        rf_path = os.path.join(model_dir, "rf_21feature_legacy.joblib")
+        xgb_path = os.path.join(model_dir, "xgb_21feature_legacy.joblib")
         feature_cols = TRAIN_FEATURE_COLUMNS
 
     rf_model = load_verified_joblib(resolve_model_path(rf_path), required_checksum=True)
@@ -125,8 +125,8 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
     X_display.columns = display_names
 
     for model, name, tag in [
-        (rf_model, 'RandomForest', 'rf'),
-        (xgb_model, 'XGBoost', 'xgb'),
+        (rf_model, "RandomForest", "rf"),
+        (xgb_model, "XGBoost", "xgb"),
     ]:
         print(f"\n[SHAP] Computing TreeExplainer for {name}...")
         try:
@@ -147,7 +147,7 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
             shap_vals = shap_values
 
         shap_df = pd.DataFrame(shap_vals, columns=cols)
-        shap_df.to_csv(os.path.join(output_dir, f'shap_values_{tag}.csv'), index=False)
+        shap_df.to_csv(os.path.join(output_dir, f"shap_values_{tag}.csv"), index=False)
         print(f"  SHAP values saved ({shap_vals.shape[0]} samples x {shap_vals.shape[1]} features)")
 
         # Beeswarm summary plot
@@ -158,9 +158,11 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
             show=False,
             plot_size=(10, 8),
         )
-        plt.title(f'{name} - SHAP Feature Importance', fontsize=14, pad=20)
+        plt.title(f"{name} - SHAP Feature Importance", fontsize=14, pad=20)
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'shap_summary_{tag}.png'), dpi=150, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(output_dir, f"shap_summary_{tag}.png"), dpi=150, bbox_inches="tight"
+        )
         plt.close()
         print("  Summary beeswarm plot saved")
 
@@ -169,31 +171,29 @@ def run_shap_analysis(results_dir, model_dir='models', output_dir='results',
         shap.summary_plot(
             shap_vals,
             X_display,
-            plot_type='bar',
+            plot_type="bar",
             show=False,
             plot_size=(10, 8),
         )
-        plt.title(f'{name} - Mean |SHAP| Feature Importance', fontsize=14, pad=20)
+        plt.title(f"{name} - Mean |SHAP| Feature Importance", fontsize=14, pad=20)
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'shap_bar_{tag}.png'), dpi=150, bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, f"shap_bar_{tag}.png"), dpi=150, bbox_inches="tight")
         plt.close()
         print("  Mean |SHAP| bar plot saved")
 
-    _shap_gold_standard_waterfall(rf_model, results_dir, output_dir,
-                                   feature_cols=feature_cols)
+    _shap_gold_standard_waterfall(rf_model, results_dir, output_dir, feature_cols=feature_cols)
 
     print(f"\n[SHAP] All outputs saved to {output_dir}/")
 
 
-def _shap_gold_standard_waterfall(model, results_dir, output_dir,
-                                   feature_cols=None):
+def _shap_gold_standard_waterfall(model, results_dir, output_dir, feature_cols=None):
     """Generate a waterfall plot for the highest-ranked gold-standard epitope."""
     if feature_cols is None:
         feature_cols = TRAIN_FEATURE_COLUMNS
-    gs_peptides = {gs['peptide'] for gs in GOLD_STANDARD}
+    gs_peptides = {gs["peptide"] for gs in GOLD_STANDARD}
 
     best_peptide = None
-    best_rank = float('inf')
+    best_rank = float("inf")
     best_row = None
 
     for virus, prefix in VIRUS_FILE_MAP.items():
@@ -206,13 +206,13 @@ def _shap_gold_standard_waterfall(model, results_dir, output_dir,
         if ranked_path is None:
             continue
         df = pd.read_csv(ranked_path)
-        gs_rows = df[df['peptide'].isin(gs_peptides)]
+        gs_rows = df[df["peptide"].isin(gs_peptides)]
         if gs_rows.empty:
             continue
-        top = gs_rows.loc[gs_rows['rank'].idxmin()]
-        if top['rank'] < best_rank:
-            best_rank = top['rank']
-            best_peptide = top['peptide']
+        top = gs_rows.loc[gs_rows["rank"].idxmin()]
+        if top["rank"] < best_rank:
+            best_rank = top["rank"]
+            best_peptide = top["peptide"]
             best_row = top
 
     if best_peptide is None:
@@ -255,24 +255,31 @@ def _shap_gold_standard_waterfall(model, results_dir, output_dir,
 
     plt.figure(figsize=(10, 8))
     shap.plots.waterfall(sv, show=False)
-    plt.title(f'SHAP Waterfall - {best_peptide} (rank {int(best_rank)})', fontsize=13, pad=15)
+    plt.title(f"SHAP Waterfall - {best_peptide} (rank {int(best_rank)})", fontsize=13, pad=15)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'shap_waterfall_top_gs.png'), dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, "shap_waterfall_top_gs.png"), dpi=150, bbox_inches="tight")
     plt.close()
     print(f"  Waterfall plot saved for {best_peptide} (rank {int(best_rank)})")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='SESTRAV SHAP explainability analysis')
-    parser.add_argument('--results-dir', default='results',
-                        help='Directory containing pipeline feature CSVs')
-    parser.add_argument('--model-dir', default='models',
-                        help='Directory containing .joblib model files')
-    parser.add_argument('--output-dir', default='results',
-                        help='Directory for SHAP output files')
-    parser.add_argument('--feature-mode', type=int, default=21, choices=[21, 30],
-                        help='Feature mode: 21 (sequence-only) or 30 (integrated)')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SESTRAV SHAP explainability analysis")
+    parser.add_argument(
+        "--results-dir", default="results", help="Directory containing pipeline feature CSVs"
+    )
+    parser.add_argument(
+        "--model-dir", default="models", help="Directory containing .joblib model files"
+    )
+    parser.add_argument("--output-dir", default="results", help="Directory for SHAP output files")
+    parser.add_argument(
+        "--feature-mode",
+        type=int,
+        default=21,
+        choices=[21, 30],
+        help="Feature mode: 21 (sequence-only) or 30 (integrated)",
+    )
     args = parser.parse_args()
 
-    run_shap_analysis(args.results_dir, args.model_dir, args.output_dir,
-                      feature_mode=args.feature_mode)
+    run_shap_analysis(
+        args.results_dir, args.model_dir, args.output_dir, feature_mode=args.feature_mode
+    )

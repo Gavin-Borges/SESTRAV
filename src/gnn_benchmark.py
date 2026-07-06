@@ -43,6 +43,7 @@ from sklearn.preprocessing import StandardScaler
 try:
     from torch_geometric.data import Data, Batch
     from torch_geometric.nn import GCNConv, GATConv, global_mean_pool
+
     HAS_PYG = True
 except ImportError:
     HAS_PYG = False
@@ -56,6 +57,7 @@ from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 # ---------------------------------------------------------------------------
 # Graph Construction
 # ---------------------------------------------------------------------------
+
 
 def peptide_to_graph(peptide):
     """Convert a peptide string to a PyTorch Geometric Data object.
@@ -98,6 +100,7 @@ def build_graph_dataset(peptides, labels):
 # ---------------------------------------------------------------------------
 # GNN Architectures
 # ---------------------------------------------------------------------------
+
 
 def _kaiming_init_gnn(module):
     """Apply Kaiming (He) initialization to all Linear layers in a GNN."""
@@ -143,13 +146,10 @@ class PeptideGAT(nn.Module):
     to immunogenicity.
     """
 
-    def __init__(self, in_channels=4, hidden=64, out_hidden=32,
-                 dropout=0.3, heads=4):
+    def __init__(self, in_channels=4, hidden=64, out_hidden=32, dropout=0.3, heads=4):
         super().__init__()
-        self.conv1 = GATConv(in_channels, hidden // heads, heads=heads,
-                             dropout=dropout)
-        self.conv2 = GATConv(hidden, out_hidden, heads=1, concat=False,
-                             dropout=dropout)
+        self.conv1 = GATConv(in_channels, hidden // heads, heads=heads, dropout=dropout)
+        self.conv2 = GATConv(hidden, out_hidden, heads=1, concat=False, dropout=dropout)
         self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(out_hidden, 1)
         _kaiming_init_gnn(self)
@@ -209,6 +209,7 @@ class BipartitePeptideAlleleGNN(nn.Module):
 # Numerics
 # ---------------------------------------------------------------------------
 
+
 def _sigmoid(x):
     return 1.0 / (1.0 + np.exp(-np.clip(x, -500, 500)))
 
@@ -217,9 +218,18 @@ def _sigmoid(x):
 # Training Loops
 # ---------------------------------------------------------------------------
 
-def train_gnn_one_fold(model, train_graphs, val_graphs, pos_weight,
-                       max_epochs=150, patience=10, lr=LEARNING_RATE,
-                       batch_size=64, device=None):
+
+def train_gnn_one_fold(
+    model,
+    train_graphs,
+    val_graphs,
+    pos_weight,
+    max_epochs=150,
+    patience=10,
+    lr=LEARNING_RATE,
+    batch_size=64,
+    device=None,
+):
     """Train a GNN model on one fold with early stopping on AUC-PR."""
     if device is None:
         device = get_device()
@@ -227,45 +237,47 @@ def train_gnn_one_fold(model, train_graphs, val_graphs, pos_weight,
 
     pw = torch.tensor([pos_weight], dtype=torch.float32).to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pw)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr,
-                                 weight_decay=WEIGHT_DECAY)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=WEIGHT_DECAY)
 
     best_auc_pr = -1.0
     best_state = None
     wait = 0
 
     import time
+
     for epoch in range(max_epochs):
         model.train()
         np.random.shuffle(train_graphs)
-        
+
         prof_construction = 0.0
         prof_forward = 0.0
         prof_backward = 0.0
 
         for i in range(0, len(train_graphs), batch_size):
             t0 = time.perf_counter()
-            batch_graphs = train_graphs[i:i + batch_size]
+            batch_graphs = train_graphs[i : i + batch_size]
             batch = Batch.from_data_list(batch_graphs).to(device)
             labels = batch.y.to(device)
             t1 = time.perf_counter()
-            prof_construction += (t1 - t0)
+            prof_construction += t1 - t0
 
             optimizer.zero_grad()
             t_fwd0 = time.perf_counter()
             logits = model(batch)
             loss = criterion(logits, labels)
             t_fwd1 = time.perf_counter()
-            prof_forward += (t_fwd1 - t_fwd0)
-            
+            prof_forward += t_fwd1 - t_fwd0
+
             t_bwd0 = time.perf_counter()
             loss.backward()
             optimizer.step()
             t_bwd1 = time.perf_counter()
-            prof_backward += (t_bwd1 - t_bwd0)
-            
+            prof_backward += t_bwd1 - t_bwd0
+
         if epoch == 0 or epoch == max_epochs - 1:
-            print(f"      [Profile Epoch {epoch}] Data: {prof_construction:.4f}s | Fwd/Encode: {prof_forward:.4f}s | Bwd: {prof_backward:.4f}s")
+            print(
+                f"      [Profile Epoch {epoch}] Data: {prof_construction:.4f}s | Fwd/Encode: {prof_forward:.4f}s | Bwd: {prof_backward:.4f}s"
+            )
 
         model.eval()
         with torch.no_grad():
@@ -281,8 +293,7 @@ def train_gnn_one_fold(model, train_graphs, val_graphs, pos_weight,
 
         if auc_pr > best_auc_pr:
             best_auc_pr = auc_pr
-            best_state = {k: v.cpu().clone()
-                          for k, v in model.state_dict().items()}
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             wait = 0
         else:
             wait += 1
@@ -302,10 +313,20 @@ def train_gnn_one_fold(model, train_graphs, val_graphs, pos_weight,
     return evaluate(val_labels, val_probs)
 
 
-def _train_bipartite_one_fold(model, Xp_train, Xb_train, y_train,
-                              Xp_val, Xb_val, y_val, pos_weight,
-                              max_epochs=120, patience=10, batch_size=64,
-                              device=None):
+def _train_bipartite_one_fold(
+    model,
+    Xp_train,
+    Xb_train,
+    y_train,
+    Xp_val,
+    Xb_val,
+    y_val,
+    pos_weight,
+    max_epochs=120,
+    patience=10,
+    batch_size=64,
+    device=None,
+):
     """Train a bipartite GNN on one fold."""
     if device is None:
         device = get_device()
@@ -327,7 +348,7 @@ def _train_bipartite_one_fold(model, Xp_train, Xb_train, y_train,
         model.train()
         idx = np.random.permutation(n_train)
         for start in range(0, n_train, batch_size):
-            b = idx[start:start + batch_size]
+            b = idx[start : start + batch_size]
             optimizer.zero_grad()
             logits = model(xpt[b], xbt[b])
             loss = criterion(logits, yt[b])
@@ -362,8 +383,10 @@ def _train_bipartite_one_fold(model, Xp_train, Xb_train, y_train,
 # CV Runners
 # ---------------------------------------------------------------------------
 
-def run_gnn_cv(peptides, labels, strat_key, model_type="gcn",
-               n_folds=N_FOLDS, pos_weight=None, device=None):
+
+def run_gnn_cv(
+    peptides, labels, strat_key, model_type="gcn", n_folds=N_FOLDS, pos_weight=None, device=None
+):
     """Run full k-fold stratified CV for a GNN architecture.
 
     Args:
@@ -413,27 +436,30 @@ def run_gnn_cv(peptides, labels, strat_key, model_type="gcn",
             g.x = torch.tensor(node_scaler.transform(g.x.numpy()), dtype=torch.float32)
 
         if model_type == "gat":
-            model = PeptideGAT(in_channels=4, hidden=64, out_hidden=32,
-                               dropout=0.3, heads=4)
+            model = PeptideGAT(in_channels=4, hidden=64, out_hidden=32, dropout=0.3, heads=4)
         else:
-            model = PeptideGCN(in_channels=4, hidden=64, out_hidden=32,
-                               dropout=0.3)
+            model = PeptideGCN(in_channels=4, hidden=64, out_hidden=32, dropout=0.3)
 
         metrics = train_gnn_one_fold(
-            model, train_graphs, val_graphs, pos_weight, device=device,
+            model,
+            train_graphs,
+            val_graphs,
+            pos_weight,
+            device=device,
         )
         fold_metrics.append(metrics)
-        print(f"    Fold {fold_idx}: AUC-ROC={metrics['auc_roc']:.4f}  "
-              f"AUC-PR={metrics['auc_pr']:.4f}  "
-              f"ISSR@10={metrics['issr_10']:.4f}  "
-              f"ISSR@25={metrics['issr_25']:.4f}")
+        print(
+            f"    Fold {fold_idx}: AUC-ROC={metrics['auc_roc']:.4f}  "
+            f"AUC-PR={metrics['auc_pr']:.4f}  "
+            f"ISSR@10={metrics['issr_10']:.4f}  "
+            f"ISSR@25={metrics['issr_25']:.4f}"
+        )
 
     avg, std = summarize_fold_metrics(fold_metrics)
     return fold_metrics, avg, std
 
 
-def run_gnn_benchmark(peptides, labels, strat_key, pos_weight=None,
-                      device=None):
+def run_gnn_benchmark(peptides, labels, strat_key, pos_weight=None, device=None):
     """Run both GCN and GAT benchmarks and return comparison DataFrame.
 
     Returns:
@@ -442,28 +468,31 @@ def run_gnn_benchmark(peptides, labels, strat_key, pos_weight=None,
     """
     results = []
 
-    for model_type, model_name in [("gcn", "GCN (2-layer)"),
-                                    ("gat", "GAT (2-layer, 4-head)")]:
+    for model_type, model_name in [("gcn", "GCN (2-layer)"), ("gat", "GAT (2-layer, 4-head)")]:
         print(f"\n{'=' * 60}")
         print(f"GNN Benchmark: {model_name}")
         print(f"{'=' * 60}")
 
         fold_metrics, avg, std = run_gnn_cv(
-            peptides, labels, strat_key,
+            peptides,
+            labels,
+            strat_key,
             model_type=model_type,
             pos_weight=pos_weight,
             device=device,
         )
 
-        results.append({
-            "model": model_name,
-            "auc_roc_mean": avg["auc_roc"],
-            "auc_roc_std": std["auc_roc"],
-            "auc_pr_mean": avg["auc_pr"],
-            "auc_pr_std": std["auc_pr"],
-            "issr_10_mean": avg["issr_10"],
-            "issr_25_mean": avg["issr_25"],
-        })
+        results.append(
+            {
+                "model": model_name,
+                "auc_roc_mean": avg["auc_roc"],
+                "auc_roc_std": std["auc_roc"],
+                "auc_pr_mean": avg["auc_pr"],
+                "auc_pr_std": std["auc_pr"],
+                "issr_10_mean": avg["issr_10"],
+                "issr_25_mean": avg["issr_25"],
+            }
+        )
 
         print(f"  Mean AUC-ROC: {avg['auc_roc']:.4f} +/- {std['auc_roc']:.4f}")
         print(f"  Mean AUC-PR:  {avg['auc_pr']:.4f} +/- {std['auc_pr']:.4f}")
@@ -472,13 +501,16 @@ def run_gnn_benchmark(peptides, labels, strat_key, pos_weight=None,
 
     df_results = pd.DataFrame(results)
     best = df_results.sort_values("auc_pr_mean", ascending=False).iloc[0]
-    print(f"\n  Best GNN by AUC-PR: {best['model']} "
-          f"(AUC-PR={best['auc_pr_mean']:.4f}, AUC-ROC={best['auc_roc_mean']:.4f})")
+    print(
+        f"\n  Best GNN by AUC-PR: {best['model']} "
+        f"(AUC-PR={best['auc_pr_mean']:.4f}, AUC-ROC={best['auc_roc_mean']:.4f})"
+    )
     return df_results
 
 
-def run_bipartite_gnn_benchmark(X_physico, X_binding, labels, strat_key,
-                                pos_weight=None, n_folds=N_FOLDS, device=None):
+def run_bipartite_gnn_benchmark(
+    X_physico, X_binding, labels, strat_key, pos_weight=None, n_folds=N_FOLDS, device=None
+):
     """Run exploratory bipartite peptide-allele GNN benchmark.
 
     Args:
@@ -524,9 +556,14 @@ def run_bipartite_gnn_benchmark(X_physico, X_binding, labels, strat_key,
         )
         metrics = _train_bipartite_one_fold(
             model,
-            Xp_tr, Xb_tr, labels[train_idx],
-            Xp_val, Xb_val, labels[val_idx],
-            pos_weight=pos_weight, device=device,
+            Xp_tr,
+            Xb_tr,
+            labels[train_idx],
+            Xp_val,
+            Xb_val,
+            labels[val_idx],
+            pos_weight=pos_weight,
+            device=device,
         )
         fold_metrics.append(metrics)
         print(
@@ -536,34 +573,41 @@ def run_bipartite_gnn_benchmark(X_physico, X_binding, labels, strat_key,
         )
 
     avg, std = summarize_fold_metrics(fold_metrics)
-    return pd.DataFrame([{
-        "model": "Bipartite Peptide-Allele GNN (lightweight)",
-        "auc_roc_mean": avg["auc_roc"],
-        "auc_roc_std": std["auc_roc"],
-        "auc_pr_mean": avg["auc_pr"],
-        "auc_pr_std": std["auc_pr"],
-        "issr_10_mean": avg["issr_10"],
-        "issr_25_mean": avg["issr_25"],
-    }])
+    return pd.DataFrame(
+        [
+            {
+                "model": "Bipartite Peptide-Allele GNN (lightweight)",
+                "auc_roc_mean": avg["auc_roc"],
+                "auc_roc_std": std["auc_roc"],
+                "auc_pr_mean": avg["auc_pr"],
+                "auc_pr_std": std["auc_pr"],
+                "issr_10_mean": avg["issr_10"],
+                "issr_25_mean": avg["issr_25"],
+            }
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
 # CLI Entry Point
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description='SESTRAV GNN Benchmark - Graph Neural Network comparison'
+        description="SESTRAV GNN Benchmark - Graph Neural Network comparison"
     )
-    parser.add_argument('--data', required=True,
-                        help='Path to immunogenicity_dataset.csv')
-    parser.add_argument('--binding-matrix', default='models/peptide_binding_matrix.csv',
-                        help='Path to peptide_binding_matrix.csv (for bipartite GNN)')
-    parser.add_argument('--cv-folds', type=int, default=5)
-    parser.add_argument('--output-dir', default='models',
-                        help='Directory for result CSVs')
-    parser.add_argument('--skip-bipartite', action='store_true',
-                        help='Skip the bipartite peptide-allele GNN')
+    parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
+    parser.add_argument(
+        "--binding-matrix",
+        default="models/peptide_binding_matrix.csv",
+        help="Path to peptide_binding_matrix.csv (for bipartite GNN)",
+    )
+    parser.add_argument("--cv-folds", type=int, default=5)
+    parser.add_argument("--output-dir", default="models", help="Directory for result CSVs")
+    parser.add_argument(
+        "--skip-bipartite", action="store_true", help="Skip the bipartite peptide-allele GNN"
+    )
     args = parser.parse_args()
 
     if not HAS_PYG:
@@ -576,14 +620,14 @@ def main():
     print(f"Device: {device}")
 
     df = pd.read_csv(args.data)
-    gs_mask = df['peptide'].isin(GOLD_STANDARD_EPITOPES)
+    gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     pool = df[~gs_mask].copy()
     print(f"Loaded {len(df)} records, held out {gs_mask.sum()} gold-standard")
     print(f"Training pool: {len(pool)} records")
 
-    peptides = pool['peptide'].values
-    labels = pool['label'].values
-    virus = pool['virus'].values if 'virus' in pool.columns else np.zeros(len(pool))
+    peptides = pool["peptide"].values
+    labels = pool["label"].values
+    virus = pool["virus"].values if "virus" in pool.columns else np.zeros(len(pool))
     strat_key = np.array([f"{l}_{v}" for l, v in zip(labels, virus)])
 
     n_pos = int(labels.sum())
@@ -594,12 +638,15 @@ def main():
     print("SEQUENCE-GRAPH GNN BENCHMARKS (GCN + GAT)")
     print("=" * 70)
     seq_results = run_gnn_benchmark(
-        peptides, labels, strat_key,
-        pos_weight=pos_weight, device=device,
+        peptides,
+        labels,
+        strat_key,
+        pos_weight=pos_weight,
+        device=device,
     )
 
     os.makedirs(args.output_dir, exist_ok=True)
-    seq_path = os.path.join(args.output_dir, 'gnn_sequence_benchmark.csv')
+    seq_path = os.path.join(args.output_dir, "gnn_sequence_benchmark.csv")
     seq_results.to_csv(seq_path, index=False)
     print(f"\nSequence GNN results saved to {seq_path}")
 
@@ -617,11 +664,16 @@ def main():
         X_binding = X_30[BINDING_ALLELE_COLUMNS].values
 
         bi_results = run_bipartite_gnn_benchmark(
-            X_physico, X_binding, labels, strat_key,
-            pos_weight=pos_weight, n_folds=args.cv_folds, device=device,
+            X_physico,
+            X_binding,
+            labels,
+            strat_key,
+            pos_weight=pos_weight,
+            n_folds=args.cv_folds,
+            device=device,
         )
 
-        bi_path = os.path.join(args.output_dir, 'gnn_bipartite_benchmark.csv')
+        bi_path = os.path.join(args.output_dir, "gnn_bipartite_benchmark.csv")
         bi_results.to_csv(bi_path, index=False)
         print(f"\nBipartite GNN results saved to {bi_path}")
     elif args.skip_bipartite:
@@ -630,5 +682,5 @@ def main():
         print(f"\nSkipped bipartite GNN (binding matrix not found: {args.binding_matrix})")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

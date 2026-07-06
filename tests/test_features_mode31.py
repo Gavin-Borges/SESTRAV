@@ -22,7 +22,7 @@ def test_feature_columns_31_is_superset_of_30():
 
 def test_feature_columns_31_adds_peptide_length():
     extra = [c for c in FEATURE_COLUMNS_31 if c not in FEATURE_COLUMNS_30]
-    assert extra == ['peptide_length']
+    assert extra == ["peptide_length"]
 
 
 def test_feature_columns_31_no_duplicates():
@@ -38,21 +38,31 @@ def test_feature_columns_31_physico_and_binding_present():
 
 def _make_minimal_train_df():
     """Minimal dataset with required columns for prepare_features_31."""
-    peptides = ['AAAAAAAA', 'ACDEFGHIK', 'LMVKQSRTY', 'NPQRSTVWY']
-    return pd.DataFrame({
-        'peptide': peptides,
-        'label': [1, 0, 1, 0],
-        'virus': ['EBV', 'HPV', 'EBV', 'HPV'],
-    })
+    peptides = ["AAAAAAAA", "ACDEFGHIK", "LMVKQSRTY", "NPQRSTVWY"]
+    return pd.DataFrame(
+        {
+            "peptide": peptides,
+            "label": [1, 0, 1, 0],
+            "virus": ["EBV", "HPV", "EBV", "HPV"],
+        }
+    )
 
 
 def _make_mock_binding_matrix(peptides):
     """Minimal binding matrix with required 10 allele columns."""
     allele_cols = [
-        'bind_A0101', 'bind_A0201', 'bind_A0301', 'bind_A1101', 'bind_A2402',
-        'bind_B0702', 'bind_B0801', 'bind_B2705', 'bind_B3501', 'bind_B4402',
+        "bind_A0101",
+        "bind_A0201",
+        "bind_A0301",
+        "bind_A1101",
+        "bind_A2402",
+        "bind_B0702",
+        "bind_B0801",
+        "bind_B2705",
+        "bind_B3501",
+        "bind_B4402",
     ]
-    rows = [{'peptide': p, **{c: 0.5 for c in allele_cols}} for p in peptides]
+    rows = [{"peptide": p, **{c: 0.5 for c in allele_cols}} for p in peptides]
     return pd.DataFrame(rows)
 
 
@@ -61,7 +71,7 @@ def test_prepare_features_31_shape(tmp_path):
     from src.train_classifier import prepare_features_31
 
     df = _make_minimal_train_df()
-    bm = _make_mock_binding_matrix(df['peptide'].tolist())
+    bm = _make_mock_binding_matrix(df["peptide"].tolist())
     bm_path = tmp_path / "binding_matrix.csv"
     bm.to_csv(bm_path, index=False)
 
@@ -75,13 +85,13 @@ def test_prepare_features_31_peptide_length_values(tmp_path):
     from src.train_classifier import prepare_features_31
 
     df = _make_minimal_train_df()
-    bm = _make_mock_binding_matrix(df['peptide'].tolist())
+    bm = _make_mock_binding_matrix(df["peptide"].tolist())
     bm_path = tmp_path / "binding_matrix.csv"
     bm.to_csv(bm_path, index=False)
 
     X = prepare_features_31(df, str(bm_path))
-    expected_lengths = df['peptide'].str.len().values
-    np.testing.assert_array_equal(X['peptide_length'].values, expected_lengths)
+    expected_lengths = df["peptide"].str.len().values
+    np.testing.assert_array_equal(X["peptide_length"].values, expected_lengths)
 
 
 def test_prepare_features_31_no_nans(tmp_path):
@@ -89,7 +99,7 @@ def test_prepare_features_31_no_nans(tmp_path):
     from src.train_classifier import prepare_features_31
 
     df = _make_minimal_train_df()
-    bm = _make_mock_binding_matrix(df['peptide'].tolist())
+    bm = _make_mock_binding_matrix(df["peptide"].tolist())
     bm_path = tmp_path / "binding_matrix.csv"
     bm.to_csv(bm_path, index=False)
 
@@ -103,10 +113,11 @@ def test_prepare_features_31_missing_binding_matrix_raises():
 
     df = _make_minimal_train_df()
     # Binding matrix with only 5 allele columns (insufficient)
-    incomplete_bm = pd.DataFrame([{'peptide': p, 'bind_A0101': 0.5} for p in df['peptide']])
+    incomplete_bm = pd.DataFrame([{"peptide": p, "bind_A0101": 0.5} for p in df["peptide"]])
     import tempfile
     import os
-    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, mode='w') as f:
+
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as f:
         incomplete_bm.to_csv(f, index=False)
         tmp_path = f.name
     try:
@@ -120,9 +131,11 @@ def test_train_classifier_argparse_accepts_mode_31():
     """train_classifier.py argparse does not reject --feature-mode 31."""
     import subprocess
     import sys
+
     result = subprocess.run(
-        [sys.executable, '-m', 'src.train_classifier', '--help'],
-        capture_output=True, text=True,
-        cwd='.'
+        [sys.executable, "-m", "src.train_classifier", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=".",
     )
-    assert '31' in result.stdout, "--feature-mode choices should include '31'"
+    assert "31" in result.stdout, "--feature-mode choices should include '31'"

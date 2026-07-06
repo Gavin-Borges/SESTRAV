@@ -1,4 +1,5 @@
 """Tests for src/consensus_ensemble.run_consensus() - the CSV-level orchestrator."""
+
 import pandas as pd
 import pytest
 
@@ -33,7 +34,9 @@ def test_run_consensus_with_weights(tmp_path):
     out = tmp_path / "out.csv"
     _write_merged(merged)
     df = run_consensus(
-        str(merged), str(out), ["sestrav_score", "prime_score"],
+        str(merged),
+        str(out),
+        ["sestrav_score", "prime_score"],
         weights={"sestrav_score": 2.0, "prime_score": 1.0},
     )
     assert "TCR_Recognition_Propensity_Score" in df.columns

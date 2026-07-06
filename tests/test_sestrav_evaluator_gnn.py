@@ -11,6 +11,7 @@ The structural GNN derives node/edge features deterministically from sequence
 (no ESM model, no network), so these run cheaply on CPU. The whole module is
 skipped if torch_geometric is unavailable.
 """
+
 import json
 
 import pandas as pd
@@ -35,9 +36,7 @@ def _cohort(n=8):
     """Small mixed-label cohort with the columns the dataset requires."""
     peps = ["SLLMWITQ" + _AAS[i % 20] for i in range(n)]  # distinct valid 9-mers
     labels = ([1, 0] * (n // 2 + 1))[:n]
-    return pd.DataFrame(
-        {"peptide": peps, "allele": ["HLA-A*02:01"] * n, "label": labels}
-    )
+    return pd.DataFrame({"peptide": peps, "allele": ["HLA-A*02:01"] * n, "label": labels})
 
 
 # ---------------------------------------------------------------------------
@@ -95,8 +94,10 @@ def test_run_evaluation_pipeline_loads_wrapped_checkpoint(tmp_path):
     torch.save({"model_state_dict": StructuralGNN().state_dict()}, ckpt)  # nosec B614
 
     report = run_evaluation_pipeline(
-        targets, model_checkpoint_path=ckpt,
-        results_dir=tmp_path / "results", use_mock=False,
+        targets,
+        model_checkpoint_path=ckpt,
+        results_dir=tmp_path / "results",
+        use_mock=False,
     )
     assert report["metadata"]["use_mock_fallback"] is False
     assert "EBV" in report["viral_families"]
@@ -111,7 +112,9 @@ def test_run_evaluation_pipeline_loads_bare_state_dict(tmp_path):
     torch.save(StructuralGNN().state_dict(), ckpt)  # bare state_dict branch  # nosec B614
 
     report = run_evaluation_pipeline(
-        targets, model_checkpoint_path=ckpt,
-        results_dir=tmp_path / "results", use_mock=False,
+        targets,
+        model_checkpoint_path=ckpt,
+        results_dir=tmp_path / "results",
+        use_mock=False,
     )
     assert "EBV" in report["viral_families"]

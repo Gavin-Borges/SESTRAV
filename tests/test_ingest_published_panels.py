@@ -106,10 +106,10 @@ def test_filter_rows_drops_invalid_peptides() -> None:
     df = pd.DataFrame(
         {
             "peptide": [
-                "GILGFVFTL",   # valid 9mer
-                "SHORT",        # too short (5)
+                "GILGFVFTL",  # valid 9mer
+                "SHORT",  # too short (5)
                 "TOOLONGPEPTIDESEQ",  # too long
-                "XILGFVFTL",   # invalid AA
+                "XILGFVFTL",  # invalid AA
             ],
             "label": [1, 0, 0, 1],
         }
@@ -167,12 +167,8 @@ def test_filter_rows_invalid_hla_override_exits() -> None:
 
 
 def _base_df(n_pos: int = 1, n_neg: int = 1) -> pd.DataFrame:
-    rows_pos = [
-        {"peptide": "GILGFVFTL", "label": 1, "hla_allele": "HLA-A*02:01"}
-    ] * n_pos
-    rows_neg = [
-        {"peptide": "NLVPMVATV", "label": 0, "hla_allele": "HLA-A*02:01"}
-    ] * n_neg
+    rows_pos = [{"peptide": "GILGFVFTL", "label": 1, "hla_allele": "HLA-A*02:01"}] * n_pos
+    rows_neg = [{"peptide": "NLVPMVATV", "label": 0, "hla_allele": "HLA-A*02:01"}] * n_neg
     return pd.DataFrame(rows_pos + rows_neg).reset_index(drop=True)
 
 
@@ -235,8 +231,13 @@ def test_build_output_biology_context_null_when_not_provided() -> None:
         cross_reactivity_tested=None,
         virus_taxon_id=None,
     )
-    for col in ("assay_context", "infection_phase", "antigen_latency_program",
-                "cross_reactivity_tested", "virus_taxon_id"):
+    for col in (
+        "assay_context",
+        "infection_phase",
+        "antigen_latency_program",
+        "cross_reactivity_tested",
+        "virus_taxon_id",
+    ):
         assert out[col].isna().all(), f"{col} should be null"
 
 
@@ -315,12 +316,18 @@ def test_main_dry_run(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--input", str(panel),
-            "--virus", "HBV",
-            "--pmid", "12520014",
-            "--assay-context", "natural_infection",
-            "--infection-phase", "chronic",
-            "--output", str(out),
+            "--input",
+            str(panel),
+            "--virus",
+            "HBV",
+            "--pmid",
+            "12520014",
+            "--assay-context",
+            "natural_infection",
+            "--infection-phase",
+            "chronic",
+            "--output",
+            str(out),
             "--dry-run",
         ]
     )
@@ -335,14 +342,22 @@ def test_main_full_write(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--input", str(panel),
-            "--virus", "HCV",
-            "--pmid", "12682213",
-            "--assay-context", "natural_infection",
-            "--infection-phase", "chronic",
-            "--assay-type", "T cell IFN-gamma ELISpot",
-            "--virus-taxon-id", "11103",
-            "--output", str(out),
+            "--input",
+            str(panel),
+            "--virus",
+            "HCV",
+            "--pmid",
+            "12682213",
+            "--assay-context",
+            "natural_infection",
+            "--infection-phase",
+            "chronic",
+            "--assay-type",
+            "T cell IFN-gamma ELISpot",
+            "--virus-taxon-id",
+            "11103",
+            "--output",
+            str(out),
         ]
     )
     assert rc == 0
@@ -351,8 +366,16 @@ def test_main_full_write(tmp_path: Path) -> None:
     df = pd.read_csv(out)
     # All expected v5 columns present.
     expected = [
-        "peptide", "label", "virus", "hla_allele", "source_type", "database_source",
-        "negative_origin", "assay_context", "infection_phase", "reference_pmid",
+        "peptide",
+        "label",
+        "virus",
+        "hla_allele",
+        "source_type",
+        "database_source",
+        "negative_origin",
+        "assay_context",
+        "infection_phase",
+        "reference_pmid",
         "is_quarantined",
     ]
     for col in expected:
@@ -397,12 +420,17 @@ def test_main_cross_reactivity_flag(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--input", str(panel),
-            "--virus", "HPV",
-            "--pmid", "22222",
-            "--assay-context", "vaccine_induced",
+            "--input",
+            str(panel),
+            "--virus",
+            "HPV",
+            "--pmid",
+            "22222",
+            "--assay-context",
+            "vaccine_induced",
             "--cross-reactivity-tested",
-            "--output", str(out),
+            "--output",
+            str(out),
         ]
     )
     assert rc == 0
@@ -417,11 +445,15 @@ def test_main_no_cross_reactivity_flag(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--input", str(panel),
-            "--virus", "HPV",
-            "--pmid", "22222",
+            "--input",
+            str(panel),
+            "--virus",
+            "HPV",
+            "--pmid",
+            "22222",
             "--no-cross-reactivity-tested",
-            "--output", str(out),
+            "--output",
+            str(out),
         ]
     )
     assert rc == 0
@@ -433,10 +465,14 @@ def test_main_no_cross_reactivity_flag(tmp_path: Path) -> None:
 def test_main_missing_input_returns_1(tmp_path: Path) -> None:
     rc = main(
         [
-            "--input", str(tmp_path / "nonexistent.csv"),
-            "--virus", "HBV",
-            "--pmid", "99",
-            "--output", str(tmp_path / "out.csv"),
+            "--input",
+            str(tmp_path / "nonexistent.csv"),
+            "--virus",
+            "HBV",
+            "--pmid",
+            "99",
+            "--output",
+            str(tmp_path / "out.csv"),
         ]
     )
     assert rc == 1
@@ -457,10 +493,14 @@ def test_main_empty_csv_live_run_returns_1(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--input", str(panel),
-            "--virus", "HPV",
-            "--pmid", "7538538",
-            "--output", str(out),
+            "--input",
+            str(panel),
+            "--virus",
+            "HPV",
+            "--pmid",
+            "7538538",
+            "--output",
+            str(out),
         ]
     )
     assert rc == 1
@@ -469,15 +509,18 @@ def test_main_empty_csv_live_run_returns_1(tmp_path: Path) -> None:
 
 def test_main_empty_csv_dry_run_returns_0(tmp_path: Path) -> None:
     panel = tmp_path / "panel.csv"
-    pd.DataFrame(
-        [{"peptide": "XXXXXXXXX", "label": 1, "hla_allele": "HLA-A*02:01"}]
-    ).to_csv(panel, index=False)
+    pd.DataFrame([{"peptide": "XXXXXXXXX", "label": 1, "hla_allele": "HLA-A*02:01"}]).to_csv(
+        panel, index=False
+    )
 
     rc = main(
         [
-            "--input", str(panel),
-            "--virus", "HPV",
-            "--pmid", "7538538",
+            "--input",
+            str(panel),
+            "--virus",
+            "HPV",
+            "--pmid",
+            "7538538",
             "--dry-run",
         ]
     )
