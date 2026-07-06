@@ -46,12 +46,14 @@ class _FakeEstimator:
 def test_validate_signature_accepts_matching_feature_count(tmp_path):
     model_path = tmp_path / "model.joblib"
     joblib.dump(_FakeEstimator(30), model_path)
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
     assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is True
 
 
 def test_validate_signature_rejects_mismatched_feature_count(tmp_path):
     model_path = tmp_path / "model.joblib"
     joblib.dump(_FakeEstimator(21), model_path)
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
     assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
 
 
@@ -92,6 +94,7 @@ def test_validate_signature_model_without_feature_attr(tmp_path):
     # Estimator lacking n_features_in_ -> getattr returns None -> treated valid.
     model_path = tmp_path / "model.joblib"
     joblib.dump(object(), model_path)
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
     assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is True
 
 

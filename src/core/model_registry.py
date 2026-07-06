@@ -21,17 +21,13 @@ class ModelRegistry:
 
     def validate_signature(self, model_path: Path, expected_features: int) -> bool:
         """Validate if a model's expected features match our configuration."""
-        import joblib
-
         if model_path.suffix == ".joblib":
             try:
-                model = joblib.load(  # nosemgrep: sestrav-require-verified-joblib-load - intentional metadata probe, not a trust-load; checksum enforced at .load()
-                    model_path
-                )
+                model = load_verified_joblib(model_path, required_checksum=True)
                 n_features = getattr(model, "n_features_in_", None)
                 if n_features is not None and n_features != expected_features:
                     return False
-            except Exception:  # nosec B110 - intentional probe; load failure means unverifiable, not invalid
+            except Exception:  # nosec B110 - load/checksum failure means unverifiable, not invalid
                 pass
         return True
 
