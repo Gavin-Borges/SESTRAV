@@ -20,7 +20,7 @@ shap==0.51.0
 
 # Test tooling
 pytest==9.1.1
-hypothesis==6.155.7
+hypothesis==6.156.1
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
@@ -28,8 +28,8 @@ torch==2.12.0
 torch-geometric==2.7.0
 
 # API scaffolding
-fastapi==0.138.2
-uvicorn==0.49.0
+fastapi==0.139.0
+uvicorn==0.50.2
 pydantic==2.13.4
 
 # Security: minimum version pins to close known CVEs
