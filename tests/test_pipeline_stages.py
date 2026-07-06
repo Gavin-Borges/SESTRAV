@@ -99,9 +99,7 @@ class _FakePredictor:
 
 def test_predict_binding_pivots_and_picks_best_allele(in_tmp_results, monkeypatch):
     monkeypatch.setattr(s2, "Class1PresentationPredictor", _FakePredictor)
-    peptides_df = pd.DataFrame(
-        {"peptide": ["ACDEFGHIK", "LMNPQRSTV"], "protein_id": ["p1", "p2"]}
-    )
+    peptides_df = pd.DataFrame({"peptide": ["ACDEFGHIK", "LMNPQRSTV"], "protein_id": ["p1", "p2"]})
     out = s2.predict_binding(peptides_df, "panel", alleles=["HLA-A*02:01", "HLA-B*07:02"])
     # One row per unique peptide.
     assert set(out["peptide"]) == {"ACDEFGHIK", "LMNPQRSTV"}

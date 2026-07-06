@@ -11,11 +11,13 @@ from src.external_predictors import (
     get_predictor_dataframe,
 )
 
+
 def test_generate_fasta():
     peptides = ["GLFYTRTGL", "AAYSDQWAL"]
     fasta = generate_fasta(peptides)
     expected = ">pep_0\nGLFYTRTGL\n>pep_1\nAAYSDQWAL"
     assert fasta == expected
+
 
 def test_parse_netchop_html():
     # Simulated NetChop text response
@@ -37,13 +39,14 @@ def test_parse_netchop_html():
     """
     peptides = ["GLF", "AAY"]
     results = parse_netchop_html(mock_html, peptides)
-    
+
     assert "GLF" in results
     assert "AAY" in results
     assert results["GLF"]["scores"] == [0.12345, 0.08234, 0.72312]
     assert results["GLF"]["cleavages"] == [".", ".", "S"]
     assert results["AAY"]["scores"] == [0.04123, 0.10342, 0.81234]
     assert results["AAY"]["cleavages"] == [".", ".", "S"]
+
 
 def test_parse_tapreg_html():
     # Simulated TAPreg text responses (both table and space formats)
@@ -52,7 +55,7 @@ def test_parse_tapreg_html():
     scores = parse_tapreg_html(mock_text, peptides)
     assert scores["GLFYTRTGL"] == 1.2345
     assert scores["AAYSDQWAL"] == 0.9876
-    
+
     mock_html = """
     <table>
       <tr><td>GLFYTRTGL</td><td>1.2345</td></tr>
@@ -63,34 +66,37 @@ def test_parse_tapreg_html():
     assert scores_html["GLFYTRTGL"] == 1.2345
     assert scores_html["AAYSDQWAL"] == 0.9876
 
+
 def test_mock_fallbacks():
     peptides = ["GLFYTRTGL", "AAYSDQWAL"]
-    
+
     netchop_mock = query_netchop(peptides, mock_fallback=True)
     assert len(netchop_mock) == 2
     assert "GLFYTRTGL" in netchop_mock
     assert len(netchop_mock["GLFYTRTGL"]["scores"]) == len("GLFYTRTGL")
     assert all(0.0 <= val <= 1.0 for val in netchop_mock["GLFYTRTGL"]["scores"])
-    
+
     tapreg_mock = query_tapreg(peptides, mock_fallback=True)
     assert len(tapreg_mock) == 2
     assert "GLFYTRTGL" in tapreg_mock
     assert isinstance(tapreg_mock["GLFYTRTGL"], float)
 
+
 def test_get_predictor_dataframe():
     peptides = ["GLFYTRTGL", "AAYSDQWAL"]
     df = get_predictor_dataframe(peptides, mock_fallback=True)
-    
+
     assert isinstance(df, pd.DataFrame)
     assert list(df.index) == peptides
     assert "netchop_cterm_score" in df.columns
     assert "netchop_all_scores" in df.columns
     assert "tap_score" in df.columns
-    
+
     # Check that C-term score matches last item in all scores
     row0 = df.loc["GLFYTRTGL"]
     assert row0["netchop_cterm_score"] == row0["netchop_all_scores"][-1]
     assert isinstance(row0["tap_score"], float)
+
 
 def test_live_query_smoke():
     # Smoke test with 2-3 sample peptides using standard remote queries
@@ -108,6 +114,7 @@ def test_live_query_smoke():
 # Edge-case and error-branch coverage (issue #77)
 # All tests below mock the requests boundary; no live network calls.
 # ---------------------------------------------------------------------------
+
 
 def test_query_netchop_empty_list():
     assert query_netchop([]) == {}
@@ -127,10 +134,11 @@ def test_get_predictor_dataframe_empty_list():
 def test_query_netchop_request_exception_falls_back_to_mock():
     """Connection error on POST → all-mock fallback scores returned."""
     peptides = ["GLFYTRTGL"]
-    with patch("src.external_predictors.requests.post",
-               side_effect=requests.exceptions.ConnectionError("no network")):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1,
-                                initial_backoff=0)
+    with patch(
+        "src.external_predictors.requests.post",
+        side_effect=requests.exceptions.ConnectionError("no network"),
+    ):
+        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
     assert "GLFYTRTGL" in results
     assert len(results["GLFYTRTGL"]["scores"]) == len("GLFYTRTGL")
 
@@ -142,8 +150,7 @@ def test_query_netchop_no_job_id_in_response_falls_back_to_mock():
     mock_resp.raise_for_status.return_value = None
     mock_resp.text = "<html>No useful content here</html>"
     with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1,
-                                initial_backoff=0)
+        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
     assert "GLFYTRTGL" in results
     assert isinstance(results["GLFYTRTGL"]["scores"], list)
 
@@ -153,16 +160,17 @@ def test_query_netchop_polling_empty_result_falls_back_to_mock():
     peptides = ["GLFYTRTGL"]
     submit_resp = MagicMock()
     submit_resp.raise_for_status.return_value = None
-    submit_resp.text = 'jobid=abc123'
+    submit_resp.text = "jobid=abc123"
 
     poll_resp = MagicMock()
     poll_resp.raise_for_status.return_value = None
     poll_resp.text = "<html>done</html>"  # no tabular rows → empty parse
 
-    with patch("src.external_predictors.requests.post", return_value=submit_resp), \
-         patch("src.external_predictors.requests.get", return_value=poll_resp):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1,
-                                initial_backoff=0)
+    with (
+        patch("src.external_predictors.requests.post", return_value=submit_resp),
+        patch("src.external_predictors.requests.get", return_value=poll_resp),
+    ):
+        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
     assert "GLFYTRTGL" in results
 
 
@@ -171,23 +179,27 @@ def test_query_netchop_polling_request_exception_falls_back_to_mock():
     peptides = ["GLFYTRTGL"]
     submit_resp = MagicMock()
     submit_resp.raise_for_status.return_value = None
-    submit_resp.text = 'jobid=abc123'
+    submit_resp.text = "jobid=abc123"
 
-    with patch("src.external_predictors.requests.post", return_value=submit_resp), \
-         patch("src.external_predictors.requests.get",
-               side_effect=requests.exceptions.Timeout("timed out")):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1,
-                                initial_backoff=0)
+    with (
+        patch("src.external_predictors.requests.post", return_value=submit_resp),
+        patch(
+            "src.external_predictors.requests.get",
+            side_effect=requests.exceptions.Timeout("timed out"),
+        ),
+    ):
+        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
     assert "GLFYTRTGL" in results
 
 
 def test_query_tapreg_request_exception_falls_back_to_mock():
     """Connection error → automatic mock fallback for TAPreg."""
     peptides = ["GLFYTRTGL"]
-    with patch("src.external_predictors.requests.post",
-               side_effect=requests.exceptions.ConnectionError("no network")):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1,
-                               initial_backoff=0)
+    with patch(
+        "src.external_predictors.requests.post",
+        side_effect=requests.exceptions.ConnectionError("no network"),
+    ):
+        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
     assert "GLFYTRTGL" in results
     assert isinstance(results["GLFYTRTGL"], float)
 
@@ -199,8 +211,7 @@ def test_query_tapreg_vpn_restriction_falls_back_to_mock():
     mock_resp.raise_for_status.return_value = None
     mock_resp.text = "acceso restringido - please use UCM VPN"
     with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1,
-                               initial_backoff=0)
+        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
     assert "GLFYTRTGL" in results
     assert isinstance(results["GLFYTRTGL"], float)
 
@@ -208,6 +219,7 @@ def test_query_tapreg_vpn_restriction_falls_back_to_mock():
 def test_parse_netchop_html_warns_on_unparseable_content(caplog):
     """Non-empty content that matches no tabular rows triggers a logger.warning."""
     import logging
+
     with caplog.at_level(logging.WARNING, logger="src.external_predictors"):
         result = parse_netchop_html("<html>unrelated content</html>", ["GLFYTRTGL"])
     assert "GLFYTRTGL" in result
@@ -225,9 +237,11 @@ def test_parse_tapreg_html_no_match_returns_empty():
 # Each test is annotated with the line(s) it covers in external_predictors.py
 # ---------------------------------------------------------------------------
 
+
 # line 66 - _generate_mock_netchop_scores proline (P) branch
 def test_mock_netchop_scores_proline_branch():
     from src.external_predictors import _generate_mock_netchop_scores
+
     result = _generate_mock_netchop_scores("AKPYL")
     assert len(result["scores"]) == 5
     assert all(0.0 <= s <= 1.0 for s in result["scores"])
@@ -238,6 +252,7 @@ def test_mock_netchop_scores_proline_branch():
 # line 87 - _generate_mock_tapreg_score empty-peptide early return
 def test_mock_tapreg_score_empty_peptide():
     from src.external_predictors import _generate_mock_tapreg_score
+
     score = _generate_mock_tapreg_score("", "blosum")
     assert isinstance(score, float)
 
@@ -247,6 +262,7 @@ def test_mock_tapreg_score_empty_peptide():
 # branch 95→99 (False) - c_term not in any penalty/bonus set (fall-through to N-term check)
 def test_mock_tapreg_score_cterminal_branches():
     from src.external_predictors import _generate_mock_tapreg_score
+
     # PDE branch (lines 95-96)
     for aa in "PDE":
         assert isinstance(_generate_mock_tapreg_score(f"GLFYTRTG{aa}", "blosum"), float)
@@ -260,6 +276,7 @@ def test_mock_tapreg_score_cterminal_branches():
 # line 101 - _generate_mock_tapreg_score N-terminal RKYFW branch
 def test_mock_tapreg_score_nterminal_rkyfw():
     from src.external_predictors import _generate_mock_tapreg_score
+
     for aa in "RKYFW":
         score = _generate_mock_tapreg_score(f"{aa}LFYTRTGL", "blosum")
         assert isinstance(score, float)
@@ -268,6 +285,7 @@ def test_mock_tapreg_score_nterminal_rkyfw():
 # branch 104→107 (False) - non-blosum model skips the -0.05 adjustment
 def test_mock_tapreg_score_sparse_model_skips_blosum_adjustment():
     from src.external_predictors import _generate_mock_tapreg_score
+
     blosum_score = _generate_mock_tapreg_score("GLFYTRTGL", "blosum")
     sparse_score = _generate_mock_tapreg_score("GLFYTRTGL", "sparse")
     # blosum reduces score by 0.05; sparse does not
@@ -301,16 +319,13 @@ def test_query_netchop_polling_success_returns_parsed_scores():
     # Minimal NetChop-style tabular text that parse_netchop_html can parse
     poll_resp = MagicMock()
     poll_resp.raise_for_status.return_value = None
-    poll_resp.text = (
-        "  1 G .  0.12345  pep_0\n"
-        "  2 L .  0.08234  pep_0\n"
-        "  3 F S  0.72312  pep_0\n"
-    )
+    poll_resp.text = "  1 G .  0.12345  pep_0\n  2 L .  0.08234  pep_0\n  3 F S  0.72312  pep_0\n"
 
-    with patch("src.external_predictors.requests.post", return_value=submit_resp), \
-         patch("src.external_predictors.requests.get", return_value=poll_resp):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1,
-                                initial_backoff=0)
+    with (
+        patch("src.external_predictors.requests.post", return_value=submit_resp),
+        patch("src.external_predictors.requests.get", return_value=poll_resp),
+    ):
+        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
     assert "GLF" in results
     assert results["GLF"]["scores"] == [0.12345, 0.08234, 0.72312]
@@ -331,8 +346,9 @@ def test_parse_tapreg_html_html_table_fallback():
         real_re.IGNORECASE,
     )
 
-    with patch("src.external_predictors.re.compile",
-               side_effect=[no_match_mock, html_pattern_real]):
+    with patch(
+        "src.external_predictors.re.compile", side_effect=[no_match_mock, html_pattern_real]
+    ):
         result = parse_tapreg_html(html, ["GLFYTRTGL"])
 
     assert result == {"GLFYTRTGL": 1.2345}
@@ -345,10 +361,8 @@ def test_query_tapreg_threshold_populates_payload():
     mock_resp.raise_for_status.return_value = None
     mock_resp.text = "VPN"  # triggers break → mock fallback; POST still fires
 
-    with patch("src.external_predictors.requests.post",
-               return_value=mock_resp) as mock_post:
-        query_tapreg(peptides, threshold=0.5, mock_fallback=False,
-                     max_retries=1, initial_backoff=0)
+    with patch("src.external_predictors.requests.post", return_value=mock_resp) as mock_post:
+        query_tapreg(peptides, threshold=0.5, mock_fallback=False, max_retries=1, initial_backoff=0)
 
     sent_data = mock_post.call_args[1]["data"]
     assert sent_data["threshold"] == "0.5"
@@ -367,10 +381,11 @@ def test_query_netchop_polling_job_running_falls_back_after_exhaustion():
     running_resp.raise_for_status.return_value = None
     running_resp.text = "Job is running. Please wait."
 
-    with patch("src.external_predictors.requests.post", return_value=submit_resp), \
-         patch("src.external_predictors.requests.get", return_value=running_resp):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1,
-                                initial_backoff=0)
+    with (
+        patch("src.external_predictors.requests.post", return_value=submit_resp),
+        patch("src.external_predictors.requests.get", return_value=running_resp),
+    ):
+        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
     assert "GLF" in results  # mock fallback fires after polling exhausted
 
@@ -384,8 +399,7 @@ def test_query_tapreg_empty_parse_logs_warning_and_falls_back():
     mock_resp.text = "no scores here at all"  # parse_tapreg_html returns {}
 
     with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1,
-                               initial_backoff=0)
+        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
     assert "GLFYTRTGL" in results
     assert isinstance(results["GLFYTRTGL"], float)
@@ -400,8 +414,7 @@ def test_query_tapreg_successful_parse_returns_scores():
     mock_resp.text = "GLFYTRTGL some result 1.2345"
 
     with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1,
-                               initial_backoff=0)
+        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
     assert "GLFYTRTGL" in results
     assert results["GLFYTRTGL"] == pytest.approx(1.2345)

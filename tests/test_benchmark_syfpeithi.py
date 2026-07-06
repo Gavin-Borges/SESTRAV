@@ -30,13 +30,18 @@ from scripts.benchmark_syfpeithi import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_oof_df(peptides: list[str], scores: list[float], labels: list[int] | None = None) -> pd.DataFrame:
+
+def _make_oof_df(
+    peptides: list[str], scores: list[float], labels: list[int] | None = None
+) -> pd.DataFrame:
     n = len(peptides)
-    return pd.DataFrame({
-        "peptide": peptides,
-        "score": scores,
-        "label": labels if labels is not None else [1] * n,
-    })
+    return pd.DataFrame(
+        {
+            "peptide": peptides,
+            "score": scores,
+            "label": labels if labels is not None else [1] * n,
+        }
+    )
 
 
 def _background(n: int, base: float = 0.0, step: float = 0.04) -> list[tuple[str, float]]:
@@ -55,7 +60,9 @@ def _build_oof_csv(
         {"peptide": p, "score": s, "label": lab, "feature_mode": feature_mode}
         for p, s, lab in canonical_entries
     ]
-    rows += [{"peptide": p, "score": s, "label": 0, "feature_mode": feature_mode} for p, s in background]
+    rows += [
+        {"peptide": p, "score": s, "label": 0, "feature_mode": feature_mode} for p, s in background
+    ]
     path = tmp_path / "oof.csv"
     pd.DataFrame(rows).to_csv(path, index=False)
     return path
@@ -64,6 +71,7 @@ def _build_oof_csv(
 # ---------------------------------------------------------------------------
 # Structural / metadata
 # ---------------------------------------------------------------------------
+
 
 def test_canonical_set_size():
     assert len(SYFPEITHI_CANONICAL) == 10
@@ -107,6 +115,7 @@ def test_training_variants_values_in_canonical():
 # _hamming1
 # ---------------------------------------------------------------------------
 
+
 def test_hamming1_identical_is_false():
     assert _hamming1("FLYALALLL", "FLYALALLL") is False
 
@@ -143,6 +152,7 @@ def test_hamming1_length_one_false():
 # ---------------------------------------------------------------------------
 # _lookup_in_oof
 # ---------------------------------------------------------------------------
+
 
 def test_lookup_exact_match():
     df = _make_oof_df(["FLYALALLL", "AAAAAAAAA"], [0.9, 0.1])
@@ -207,6 +217,7 @@ def test_lookup_uses_label_column():
 #   ranks 4-20 → background, all below 0.8
 #
 # Expected: recall@5%=1/3, recall@10%=2/3, recall@25%=3/3.
+
 
 def _three_canonical_oof(tmp_path: Path) -> Path:
     """OOF with FLYALALLL/FAFRDLCIV/RAHYNIVTF at ranks 1/2/3 out of 20."""
@@ -274,6 +285,7 @@ def test_run_benchmark_n_in_top_k(tmp_path):
 # run_benchmark - all-not-in-oof edge case
 # ---------------------------------------------------------------------------
 
+
 def test_run_benchmark_all_not_in_oof(tmp_path):
     path = _build_oof_csv(tmp_path, [], _background(20))
     result = run_benchmark(path, None)
@@ -286,6 +298,7 @@ def test_run_benchmark_all_not_in_oof(tmp_path):
 # ---------------------------------------------------------------------------
 # run_benchmark - hamming1 matching in full flow
 # ---------------------------------------------------------------------------
+
 
 def test_run_benchmark_hamming1_scored(tmp_path):
     # CLGGLLYMV is Hamming1 of CLGGLLTMV; should appear as hamming1 match
@@ -300,6 +313,7 @@ def test_run_benchmark_hamming1_scored(tmp_path):
 # ---------------------------------------------------------------------------
 # run_benchmark - output file I/O
 # ---------------------------------------------------------------------------
+
 
 def test_run_benchmark_writes_valid_json(tmp_path):
     path = _three_canonical_oof(tmp_path)
@@ -330,9 +344,12 @@ def test_run_benchmark_creates_output_dir(tmp_path):
 # run_benchmark - column detection
 # ---------------------------------------------------------------------------
 
+
 def test_run_benchmark_immunogenicity_score_column(tmp_path):
     rows = [{"peptide": "FLYALALLL", "immunogenicity_score": 0.9, "label": 1}]
-    rows += [{"peptide": f"BG{i:03d}AAAA", "immunogenicity_score": 0.1, "label": 0} for i in range(9)]
+    rows += [
+        {"peptide": f"BG{i:03d}AAAA", "immunogenicity_score": 0.1, "label": 0} for i in range(9)
+    ]
     path = tmp_path / "oof_alt.csv"
     pd.DataFrame(rows).to_csv(path, index=False)
     result = run_benchmark(path, None)
@@ -358,6 +375,7 @@ def test_run_benchmark_feature_mode_unknown_when_absent(tmp_path):
 # run_benchmark - per_epitope structure
 # ---------------------------------------------------------------------------
 
+
 def test_run_benchmark_per_epitope_count(tmp_path):
     result = run_benchmark(_three_canonical_oof(tmp_path), None)
     assert len(result["per_epitope"]) == 10
@@ -365,8 +383,18 @@ def test_run_benchmark_per_epitope_count(tmp_path):
 
 def test_run_benchmark_per_epitope_required_keys(tmp_path):
     result = run_benchmark(_three_canonical_oof(tmp_path), None)
-    required = {"peptide", "protein", "virus", "hla", "syfpeithi_score", "source",
-                "match_type", "sestrav_score", "sestrav_label", "rank_percentile"}
+    required = {
+        "peptide",
+        "protein",
+        "virus",
+        "hla",
+        "syfpeithi_score",
+        "source",
+        "match_type",
+        "sestrav_score",
+        "sestrav_label",
+        "rank_percentile",
+    }
     for entry in result["per_epitope"]:
         assert required.issubset(entry.keys()), f"Missing keys in {entry}"
 
@@ -387,6 +415,7 @@ def test_run_benchmark_rank_percentile_set_for_matches(tmp_path):
 # ---------------------------------------------------------------------------
 # main() CLI
 # ---------------------------------------------------------------------------
+
 
 def test_main_dry_run(capsys):
     ret = main(["--dry-run"])

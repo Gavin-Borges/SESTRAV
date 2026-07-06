@@ -20,6 +20,7 @@ Performance
 - Singleton pattern ensures the RF model is deserialized exactly once.
 - Feature extraction is vectorised through src.features.compute_features.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,18 +40,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 # Paths (relative to project root; mount the repo root as the working dir)
 # ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_MODEL_PATH   = _PROJECT_ROOT / "models" / "rf_31feature_integrated.joblib"
+_MODEL_PATH = _PROJECT_ROOT / "models" / "rf_31feature_integrated.joblib"
 _CHECKSUM_FILE = _PROJECT_ROOT / "models" / "model_artifact_checksums.json"
-_CONFIG_PATH   = _PROJECT_ROOT / "config.yaml"
-_ZENODO_DOI    = "10.5281/zenodo.PLACEHOLDER"   # update when Zenodo record is minted
+_CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
+_ZENODO_DOI = "10.5281/zenodo.PLACEHOLDER"  # update when Zenodo record is minted
 
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas
 # ---------------------------------------------------------------------------
 
-_IUPAC_PATTERN  = r"^[ACDEFGHIKLMNPQRSTVWY]{8,11}$"
+_IUPAC_PATTERN = r"^[ACDEFGHIKLMNPQRSTVWY]{8,11}$"
 _ALLELE_PATTERN = r"^HLA-[AB]\*\d{2}:\d{2}$"
+
 
 class PeptideInput(BaseModel):
     sequence: str = Field(
@@ -71,7 +73,9 @@ class ScoreResponse(BaseModel):
     sequence: str
     allele: str
     immunogenicity_score: float = Field(
-        ..., ge=0.0, le=1.0,
+        ...,
+        ge=0.0,
+        le=1.0,
         description="SESTRAV immunogenicity probability [0, 1].",
     )
     binding_score: float | None = Field(
@@ -104,6 +108,7 @@ class ProvenanceInfo(BaseModel):
 from src.core.config import SestravConfig
 from src.core.model_registry import ModelRegistry
 
+
 class ModelManager:
     """Loads and holds the RF model and feature config exactly once."""
 
@@ -120,6 +125,7 @@ class ModelManager:
         if self._loaded:
             return
         import sys
+
         # Ensure the project root is importable as a package source
         project_root = str(_PROJECT_ROOT)
         if project_root not in sys.path:
@@ -153,14 +159,15 @@ class ModelManager:
 _manager = ModelManager()
 
 
-
 # ---------------------------------------------------------------------------
 # Helper: compute features and score
 # ---------------------------------------------------------------------------
 
+
 def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
     """Returns (immunogenicity_score, binding_score | None)."""
     import sys
+
     project_root = str(_PROJECT_ROOT)
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
@@ -171,6 +178,7 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
     binding_score: float | None = None
     try:
         from mhcflurry import Class1PresentationPredictor
+
         predictor = Class1PresentationPredictor.load()
         result = predictor.predict(
             peptides=[sequence],
@@ -206,6 +214,7 @@ def _rank_label(score: float) -> str:
 # ---------------------------------------------------------------------------
 # App lifespan (startup / shutdown)
 # ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -305,6 +314,7 @@ def provenance() -> ProvenanceInfo:
     dataset_path = _PROJECT_ROOT / "immunogenicity_dataset.csv"
     if dataset_path.exists():
         from src.artifact_integrity import sha256_file
+
         dataset_sha = sha256_file(dataset_path)
 
     return ProvenanceInfo(
@@ -316,4 +326,5 @@ def provenance() -> ProvenanceInfo:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("api.main:app", host="127.0.0.1", port=8000, reload=False)

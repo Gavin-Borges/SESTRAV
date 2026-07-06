@@ -98,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
         help=f"Destination FASTA path (default: {DEFAULT_OUTPUT})",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Re-download even if the file already exists",
     )
     args = parser.parse_args(argv)

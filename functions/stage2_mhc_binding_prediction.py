@@ -13,20 +13,27 @@ from mhcflurry import Class1PresentationPredictor
 import pandas as pd
 
 DEFAULT_ALLELES = [
-    "HLA-A*02:01", "HLA-A*01:01", "HLA-A*03:01", "HLA-A*24:02",
-    "HLA-A*11:01", "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05",
-    "HLA-B*35:01", "HLA-B*44:02"
+    "HLA-A*02:01",
+    "HLA-A*01:01",
+    "HLA-A*03:01",
+    "HLA-A*24:02",
+    "HLA-A*11:01",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
 
 def _allele_to_col(allele):
     """Convert 'HLA-A*02:01' to 'bind_A0201'."""
-    return 'bind_' + re.sub(r'[^A-Za-z0-9]', '', allele.replace('HLA-', ''))
+    return "bind_" + re.sub(r"[^A-Za-z0-9]", "", allele.replace("HLA-", ""))
 
 
 def _sanitize_name(name):
     """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
+    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def predict_binding(peptides_df, proteome_id, alleles=None):
@@ -53,44 +60,36 @@ def predict_binding(peptides_df, proteome_id, alleles=None):
     predictor = Class1PresentationPredictor.load()
     unique_peptides = peptides_df["peptide"].unique().tolist()
 
-    print(f"[Stage 2] Running MHCflurry on {len(unique_peptides)} peptides × "
-          f"{len(alleles)} alleles = {len(unique_peptides) * len(alleles)} predictions")
+    print(
+        f"[Stage 2] Running MHCflurry on {len(unique_peptides)} peptides × "
+        f"{len(alleles)} alleles = {len(unique_peptides) * len(alleles)} predictions"
+    )
 
     # Class1PresentationPredictor.predict() treats an allele list as a genotype
     # and enforces a maximum of 6 alleles.  To support a 10-allele panel we
     # predict one allele at a time and concatenate the results.
     per_allele_frames = []
     for allele in alleles:
-        pred_df = predictor.predict(
-            peptides=unique_peptides,
-            alleles=[allele],
-            verbose=0
-        )
+        pred_df = predictor.predict(peptides=unique_peptides, alleles=[allele], verbose=0)
         # Some MHCflurry outputs omit the allele column when a single allele
         # is passed; restore it so downstream pivoting is stable.
-        if 'allele' not in pred_df.columns:
-            pred_df['allele'] = allele
+        if "allele" not in pred_df.columns:
+            pred_df["allele"] = allele
         per_allele_frames.append(pred_df)
         print(f"  [Stage 2]  {allele}: {len(pred_df)} predictions done")
 
     all_predictions = pd.concat(per_allele_frames, ignore_index=True)
 
     # Build per-allele wide-format columns (bind_A0101 ... bind_B4402)
-    per_allele_wide = (
-        all_predictions[['peptide', 'allele', 'presentation_score']]
-        .copy()
-    )
-    per_allele_wide['bind_col'] = per_allele_wide['allele'].map(_allele_to_col)
+    per_allele_wide = all_predictions[["peptide", "allele", "presentation_score"]].copy()
+    per_allele_wide["bind_col"] = per_allele_wide["allele"].map(_allele_to_col)
     per_allele_pivot = per_allele_wide.pivot_table(
-        index='peptide', columns='bind_col',
-        values='presentation_score', aggfunc='first'
+        index="peptide", columns="bind_col", values="presentation_score", aggfunc="first"
     ).reset_index()
 
     # Best-allele selection (legacy single binding_score behaviour)
-    all_predictions = all_predictions.sort_values(
-        'presentation_score', ascending=False
-    )
-    predictions = all_predictions.drop_duplicates('peptide', keep='first')
+    all_predictions = all_predictions.sort_values("presentation_score", ascending=False)
+    predictions = all_predictions.drop_duplicates("peptide", keep="first")
     predictions = predictions.reset_index(drop=True)
 
     if "protein_id" in peptides_df.columns:
@@ -111,10 +110,12 @@ def predict_binding(peptides_df, proteome_id, alleles=None):
         predictions = predictions.merge(protein_map, on="peptide", how="left")
 
     # Merge per-allele columns onto the best-allele result
-    predictions = predictions.merge(per_allele_pivot, on='peptide', how='left')
+    predictions = predictions.merge(per_allele_pivot, on="peptide", how="left")
 
     output_path = f"results/{proteome_id}_binding.csv"
     predictions.to_csv(output_path, index=False)
-    print(f"[Stage 2] Retained best allele for {len(predictions)} peptides "
-          f"(+ {len(alleles)} per-allele columns)")
+    print(
+        f"[Stage 2] Retained best allele for {len(predictions)} peptides "
+        f"(+ {len(alleles)} per-allele columns)"
+    )
     return predictions

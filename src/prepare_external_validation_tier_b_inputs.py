@@ -148,9 +148,7 @@ def main() -> None:
 
         manifest["viruses"][virus_key] = {
             "features_file": feat_file,
-            "unique_peptides_in_proteome": int(
-                pd.read_csv(feat_path)["peptide"].nunique()
-            ),
+            "unique_peptides_in_proteome": int(pd.read_csv(feat_path)["peptide"].nunique()),
             "tier_b_pool_size": len(pool),
             "top_n_requested": args.top_n,
             "binding_max_at_rank_n": cutoff,
@@ -197,9 +195,14 @@ def main() -> None:
     print(f"[tier-b-prep] PredIG pairs: {pairs_path} ({len(pairs)} rows)")
     print(f"[tier-b-prep] Manifest: {manifest_path}")
     if missing_any:
-        print("[tier-b-prep] WARNING: some gold-standard epitopes missing from pool", file=__import__("sys").stderr)
+        print(
+            "[tier-b-prep] WARNING: some gold-standard epitopes missing from pool",
+            file=__import__("sys").stderr,
+        )
     else:
-        print("[tier-b-prep] Gold-standard audit: 15/15 epitopes in Tier B pools (per virus subset)")
+        print(
+            "[tier-b-prep] Gold-standard audit: 15/15 epitopes in Tier B pools (per virus subset)"
+        )
 
 
 if __name__ == "__main__":

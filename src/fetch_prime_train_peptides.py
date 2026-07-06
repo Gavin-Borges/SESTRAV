@@ -118,7 +118,11 @@ def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
             col = _find_col(df, "epitope") or _find_col(df, "peptide") or df.columns[0]
             peps = sorted(set(df[col].astype(str).str.upper()))
             return pd.DataFrame(
-                {"epitope": peps, "source": f"prime_install:{rel}", "note": "Extracted from local PRIME install"}
+                {
+                    "epitope": peps,
+                    "source": f"prime_install:{rel}",
+                    "note": "Extracted from local PRIME install",
+                }
             )
         except (pd.errors.ParserError, ValueError, KeyError, FileNotFoundError, IndexError):
             continue

@@ -34,13 +34,13 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from src.train_classifier import (          # noqa: E402
+from src.train_classifier import (  # noqa: E402
     _filter_quarantined,
     prepare_features_31,
     _cross_validate,
 )
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES  # noqa: E402
-from evaluate_per_virus import (            # noqa: E402
+from evaluate_per_virus import (  # noqa: E402
     evaluate_all_viruses,
     check_exit_criterion,
     format_table,
@@ -89,20 +89,27 @@ def run_cv(df: pd.DataFrame, label: str, n_bootstrap: int) -> pd.DataFrame:
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     n_pos = int(train_pool["label"].sum())
     n_neg = len(train_pool) - n_pos
-    print(f"  [{label}] pool={len(train_pool)} rows  pos={n_pos}  neg={n_neg}  "
-          f"({train_pool['label'].mean():.2%} positive)")
+    print(
+        f"  [{label}] pool={len(train_pool)} rows  pos={n_pos}  neg={n_neg}  "
+        f"({train_pool['label'].mean():.2%} positive)"
+    )
 
     X = prepare_features_31(train_pool, str(BINDING_MATRIX))
     y = train_pool["label"].values
 
-    meta_cols = [c for c in
-                 ["peptide", "virus", "strain", "protein", "negative_origin", "hla_allele"]
-                 if c in train_pool.columns]
+    meta_cols = [
+        c
+        for c in ["peptide", "virus", "strain", "protein", "negative_origin", "hla_allele"]
+        if c in train_pool.columns
+    ]
     metadata = train_pool[meta_cols].copy().reset_index(drop=True)
 
     _, _, _, oof_df = _cross_validate(
-        X, y, metadata,
-        RandomForestClassifier, RF_KWARGS,
+        X,
+        y,
+        metadata,
+        RandomForestClassifier,
+        RF_KWARGS,
         n_splits=N_FOLDS,
         random_state=RANDOM_STATE,
         subgroup_columns=[c for c in ["virus", "strain"] if c in metadata.columns],
@@ -152,8 +159,12 @@ def print_delta_table(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--n-bootstrap", type=int, default=500,
-                   help="Bootstrap resamples for per-virus CIs (default: 500)")
+    p.add_argument(
+        "--n-bootstrap",
+        type=int,
+        default=500,
+        help="Bootstrap resamples for per-virus CIs (default: 500)",
+    )
     p.add_argument("--verbose", action="store_true")
     return p.parse_args(argv)
 

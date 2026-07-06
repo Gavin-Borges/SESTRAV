@@ -29,28 +29,34 @@ from src.train_classifier import prepare_features, prepare_features_30
 def _safe_evaluate(y_true, y_scores):
     """Evaluate with NaN fallback for degenerate slices."""
     if len(np.unique(y_true)) < 2:
-        return {k: np.nan for k in ('auc_roc', 'auc_pr', 'issr_10', 'issr_25')}
+        return {k: np.nan for k in ("auc_roc", "auc_pr", "issr_10", "issr_25")}
     return evaluate(y_true, y_scores)
 
 
-def run_ablation(data_path, output_dir='results', n_cv_folds=5, random_state=42,
-                 feature_mode=21, binding_matrix_path=None):
+def run_ablation(
+    data_path,
+    output_dir="results",
+    n_cv_folds=5,
+    random_state=42,
+    feature_mode=21,
+    binding_matrix_path=None,
+):
     """Run virus-specific vs pooled ablation study."""
     os.makedirs(output_dir, exist_ok=True)
 
     df = pd.read_csv(data_path)
-    df = df[~df['peptide'].isin(GOLD_STANDARD_EPITOPES)].copy()
+    df = df[~df["peptide"].isin(GOLD_STANDARD_EPITOPES)].copy()
     print(f"Training pool (gold-standard excluded): {len(df)} records")
 
-    if 'virus' not in df.columns:
+    if "virus" not in df.columns:
         raise ValueError("Dataset must have a 'virus' column for ablation study")
 
-    viruses = sorted(df['virus'].dropna().unique())
+    viruses = sorted(df["virus"].dropna().unique())
     print(f"Viruses found: {viruses}")
 
     rf_kwargs = dict(
         n_estimators=200,
-        class_weight='balanced',
+        class_weight="balanced",
         random_state=random_state,
         n_jobs=1,
     )
@@ -58,9 +64,9 @@ def run_ablation(data_path, output_dir='results', n_cv_folds=5, random_state=42,
     all_results = []
 
     for virus in viruses:
-        virus_df = df[df['virus'] == virus].copy()
-        n_pos = int((virus_df['label'] == 1).sum())
-        n_neg = int((virus_df['label'] == 0).sum())
+        virus_df = df[df["virus"] == virus].copy()
+        n_pos = int((virus_df["label"] == 1).sum())
+        n_neg = int((virus_df["label"] == 0).sum())
         print(f"\n{'=' * 60}")
         print(f"{virus}: {len(virus_df)} peptides ({n_pos} pos, {n_neg} neg)")
         print(f"{'=' * 60}")
@@ -73,7 +79,7 @@ def run_ablation(data_path, output_dir='results', n_cv_folds=5, random_state=42,
             X_virus = prepare_features_30(virus_df, binding_matrix_path)
         else:
             X_virus = prepare_features(virus_df, include_binding=False)
-        y_virus = virus_df['label'].values
+        y_virus = virus_df["label"].values
 
         # --- Virus-specific model ---
         skf = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=random_state)
@@ -87,21 +93,25 @@ def run_ablation(data_path, output_dir='results', n_cv_folds=5, random_state=42,
             scores = model.predict_proba(X_val)[:, 1]
             m = _safe_evaluate(y_val, scores)
             virus_fold_metrics.append(m)
-            print(f"  [{virus}-specific] Fold {fold_idx}: AUC-ROC={m['auc_roc']:.4f}  "
-                  f"AUC-PR={m['auc_pr']:.4f}")
+            print(
+                f"  [{virus}-specific] Fold {fold_idx}: AUC-ROC={m['auc_roc']:.4f}  "
+                f"AUC-PR={m['auc_pr']:.4f}"
+            )
 
-        virus_avg = {k: np.nanmean([fm[k] for fm in virus_fold_metrics])
-                     for k in virus_fold_metrics[0]}
-        virus_std = {k: np.nanstd([fm[k] for fm in virus_fold_metrics])
-                     for k in virus_fold_metrics[0]}
+        virus_avg = {
+            k: np.nanmean([fm[k] for fm in virus_fold_metrics]) for k in virus_fold_metrics[0]
+        }
+        virus_std = {
+            k: np.nanstd([fm[k] for fm in virus_fold_metrics]) for k in virus_fold_metrics[0]
+        }
 
         # --- Pooled model evaluated on this virus only ---
         if feature_mode == 30:
             X_all = prepare_features_30(df, binding_matrix_path)
         else:
             X_all = prepare_features(df, include_binding=False)
-        y_all = df['label'].values
-        virus_mask_all = (df['virus'] == virus).values
+        y_all = df["label"].values
+        virus_mask_all = (df["virus"] == virus).values
 
         pooled_fold_metrics = []
         skf_pooled = StratifiedKFold(n_splits=n_cv_folds, shuffle=True, random_state=random_state)
@@ -119,35 +129,41 @@ def run_ablation(data_path, output_dir='results', n_cv_folds=5, random_state=42,
             y_virus_val = y_val[virus_val_mask]
             m = _safe_evaluate(y_virus_val, scores_virus)
             pooled_fold_metrics.append(m)
-            print(f"  [Pooled->{virus}] Fold {fold_idx}: AUC-ROC={m['auc_roc']:.4f}  "
-                  f"AUC-PR={m['auc_pr']:.4f}")
+            print(
+                f"  [Pooled->{virus}] Fold {fold_idx}: AUC-ROC={m['auc_roc']:.4f}  "
+                f"AUC-PR={m['auc_pr']:.4f}"
+            )
 
-        pooled_avg = {k: np.nanmean([fm[k] for fm in pooled_fold_metrics])
-                      for k in pooled_fold_metrics[0]}
-        pooled_std = {k: np.nanstd([fm[k] for fm in pooled_fold_metrics])
-                      for k in pooled_fold_metrics[0]}
+        pooled_avg = {
+            k: np.nanmean([fm[k] for fm in pooled_fold_metrics]) for k in pooled_fold_metrics[0]
+        }
+        pooled_std = {
+            k: np.nanstd([fm[k] for fm in pooled_fold_metrics]) for k in pooled_fold_metrics[0]
+        }
 
         for metric in virus_avg:
-            all_results.append({
-                'virus': virus,
-                'metric': metric,
-                'virus_specific_mean': virus_avg[metric],
-                'virus_specific_std': virus_std[metric],
-                'pooled_mean': pooled_avg[metric],
-                'pooled_std': pooled_std[metric],
-                'delta': virus_avg[metric] - pooled_avg[metric],
-                'n_virus_samples': len(virus_df),
-                'n_pooled_samples': len(df),
-            })
+            all_results.append(
+                {
+                    "virus": virus,
+                    "metric": metric,
+                    "virus_specific_mean": virus_avg[metric],
+                    "virus_specific_std": virus_std[metric],
+                    "pooled_mean": pooled_avg[metric],
+                    "pooled_std": pooled_std[metric],
+                    "delta": virus_avg[metric] - pooled_avg[metric],
+                    "n_virus_samples": len(virus_df),
+                    "n_pooled_samples": len(df),
+                }
+            )
 
     results_df = pd.DataFrame(all_results)
-    output_path = os.path.join(output_dir, 'virus_specific_ablation.csv')
+    output_path = os.path.join(output_dir, "virus_specific_ablation.csv")
     results_df.to_csv(output_path, index=False)
     print(f"\n{'=' * 60}")
     print(f"Ablation results saved to {output_path}")
     print(f"{'=' * 60}")
 
-    md_path = os.path.join(output_dir, 'virus_specific_ablation.md')
+    md_path = os.path.join(output_dir, "virus_specific_ablation.md")
     _write_ablation_report(results_df, md_path, feature_mode)
     print(f"Ablation report saved to {md_path}")
 
@@ -165,9 +181,9 @@ def _write_ablation_report(results_df, output_path, feature_mode):
         "",
     ]
 
-    for virus in sorted(results_df['virus'].unique()):
-        vdf = results_df[results_df['virus'] == virus]
-        n = int(vdf['n_virus_samples'].iloc[0])
+    for virus in sorted(results_df["virus"].unique()):
+        vdf = results_df[results_df["virus"] == virus]
+        n = int(vdf["n_virus_samples"].iloc[0])
         lines.append(f"## {virus} (n={n})")
         lines.append("")
         lines.append("| Metric | Virus-Specific | Pooled | Delta |")
@@ -181,18 +197,26 @@ def _write_ablation_report(results_df, output_path, feature_mode):
             )
         lines.append("")
 
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(lines))
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='SESTRAV virus-specific ablation study')
-    parser.add_argument('--data', required=True, help='Path to immunogenicity_dataset.csv')
-    parser.add_argument('--output-dir', default='results', help='Output directory')
-    parser.add_argument('--cv-folds', type=int, default=5, help='Number of CV folds')
-    parser.add_argument('--feature-mode', type=int, default=21, choices=[21, 30])
-    parser.add_argument('--binding-matrix', default=None,
-                        help='Path to peptide_binding_matrix.csv (required for --feature-mode 30)')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SESTRAV virus-specific ablation study")
+    parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
+    parser.add_argument("--output-dir", default="results", help="Output directory")
+    parser.add_argument("--cv-folds", type=int, default=5, help="Number of CV folds")
+    parser.add_argument("--feature-mode", type=int, default=21, choices=[21, 30])
+    parser.add_argument(
+        "--binding-matrix",
+        default=None,
+        help="Path to peptide_binding_matrix.csv (required for --feature-mode 30)",
+    )
     args = parser.parse_args()
-    run_ablation(args.data, args.output_dir, n_cv_folds=args.cv_folds,
-                 feature_mode=args.feature_mode, binding_matrix_path=args.binding_matrix)
+    run_ablation(
+        args.data,
+        args.output_dir,
+        n_cv_folds=args.cv_folds,
+        feature_mode=args.feature_mode,
+        binding_matrix_path=args.binding_matrix,
+    )

@@ -47,20 +47,45 @@ BATCH_SIZE = 64
 # Architecture Search Space (14 configs from Project 2)
 # ---------------------------------------------------------------------------
 ARCH_CONFIGS = [
-    {"name": "64-32 ReLU d0.3",        "hidden": [64, 32],          "activation": "relu",  "dropout": 0.3},
-    {"name": "128-64 ReLU d0.3",       "hidden": [128, 64],         "activation": "relu",  "dropout": 0.3},
-    {"name": "128-64-32 ReLU d0.3",    "hidden": [128, 64, 32],     "activation": "relu",  "dropout": 0.3},
-    {"name": "256-128-64 ReLU d0.3",   "hidden": [256, 128, 64],    "activation": "relu",  "dropout": 0.3},
-    {"name": "128-64-32-16 ReLU d0.3", "hidden": [128, 64, 32, 16], "activation": "relu",  "dropout": 0.3},
-    {"name": "64-32 GELU d0.3",        "hidden": [64, 32],          "activation": "gelu",  "dropout": 0.3},
-    {"name": "128-64-32 GELU d0.3",    "hidden": [128, 64, 32],     "activation": "gelu",  "dropout": 0.3},
-    {"name": "256-128-64 GELU d0.3",   "hidden": [256, 128, 64],    "activation": "gelu",  "dropout": 0.3},
-    {"name": "128-64-32 Leaky d0.3",   "hidden": [128, 64, 32],     "activation": "leaky", "dropout": 0.3},
-    {"name": "128-64-32 ReLU d0.2",    "hidden": [128, 64, 32],     "activation": "relu",  "dropout": 0.2},
-    {"name": "128-64-32 ReLU d0.4",    "hidden": [128, 64, 32],     "activation": "relu",  "dropout": 0.4},
-    {"name": "64-32 ReLU d0.2",        "hidden": [64, 32],          "activation": "relu",  "dropout": 0.2},
-    {"name": "256-128-64 ReLU d0.2",   "hidden": [256, 128, 64],    "activation": "relu",  "dropout": 0.2},
-    {"name": "128-64 GELU d0.2",       "hidden": [128, 64],         "activation": "gelu",  "dropout": 0.2},
+    {"name": "64-32 ReLU d0.3", "hidden": [64, 32], "activation": "relu", "dropout": 0.3},
+    {"name": "128-64 ReLU d0.3", "hidden": [128, 64], "activation": "relu", "dropout": 0.3},
+    {"name": "128-64-32 ReLU d0.3", "hidden": [128, 64, 32], "activation": "relu", "dropout": 0.3},
+    {
+        "name": "256-128-64 ReLU d0.3",
+        "hidden": [256, 128, 64],
+        "activation": "relu",
+        "dropout": 0.3,
+    },
+    {
+        "name": "128-64-32-16 ReLU d0.3",
+        "hidden": [128, 64, 32, 16],
+        "activation": "relu",
+        "dropout": 0.3,
+    },
+    {"name": "64-32 GELU d0.3", "hidden": [64, 32], "activation": "gelu", "dropout": 0.3},
+    {"name": "128-64-32 GELU d0.3", "hidden": [128, 64, 32], "activation": "gelu", "dropout": 0.3},
+    {
+        "name": "256-128-64 GELU d0.3",
+        "hidden": [256, 128, 64],
+        "activation": "gelu",
+        "dropout": 0.3,
+    },
+    {
+        "name": "128-64-32 Leaky d0.3",
+        "hidden": [128, 64, 32],
+        "activation": "leaky",
+        "dropout": 0.3,
+    },
+    {"name": "128-64-32 ReLU d0.2", "hidden": [128, 64, 32], "activation": "relu", "dropout": 0.2},
+    {"name": "128-64-32 ReLU d0.4", "hidden": [128, 64, 32], "activation": "relu", "dropout": 0.4},
+    {"name": "64-32 ReLU d0.2", "hidden": [64, 32], "activation": "relu", "dropout": 0.2},
+    {
+        "name": "256-128-64 ReLU d0.2",
+        "hidden": [256, 128, 64],
+        "activation": "relu",
+        "dropout": 0.2,
+    },
+    {"name": "128-64 GELU d0.2", "hidden": [128, 64], "activation": "gelu", "dropout": 0.2},
 ]
 
 
@@ -103,8 +128,7 @@ class FlexibleMLP(nn.Module):
         super().__init__()
         if activation not in self.ACTIVATIONS:
             raise ValueError(
-                f"Unknown activation '{activation}'. "
-                f"Options: {list(self.ACTIVATIONS.keys())}"
+                f"Unknown activation '{activation}'. Options: {list(self.ACTIVATIONS.keys())}"
             )
         act_fn = self.ACTIVATIONS[activation]
 
@@ -151,9 +175,19 @@ def _sigmoid(x):
     return 1.0 / (1.0 + np.exp(-np.clip(x, -500, 500)))
 
 
-def train_one_fold(model, X_train, y_train, X_val, y_val, pos_weight,
-                   max_epochs=MAX_EPOCHS, patience=PATIENCE, lr=LEARNING_RATE,
-                   batch_size=BATCH_SIZE, device=None):
+def train_one_fold(
+    model,
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    pos_weight,
+    max_epochs=MAX_EPOCHS,
+    patience=PATIENCE,
+    lr=LEARNING_RATE,
+    batch_size=BATCH_SIZE,
+    device=None,
+):
     """Train a model on one fold with early stopping on AUC-PR.
 
     Args:
@@ -185,14 +219,22 @@ def train_one_fold(model, X_train, y_train, X_val, y_val, pos_weight,
     X_val_t = torch.tensor(X_val_s, dtype=torch.float32).to(device)
 
     train_ds = TensorDataset(X_tr_t, y_tr_t)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  # nosemgrep
-                              drop_last=False)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,  # nosemgrep
+        drop_last=False,
+    )
 
     pw = torch.tensor([pos_weight], dtype=torch.float32).to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pw)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-6,
+        optimizer,
+        mode="max",
+        factor=0.5,
+        patience=5,
+        min_lr=1e-6,
     )
 
     best_auc_pr = -1.0
@@ -271,17 +313,22 @@ def run_cv(X, y, strat_key, config, pos_weight, n_folds=N_FOLDS, device=None):
         ).to(device)
 
         metrics, _ = train_one_fold(
-            model, X[train_idx], y[train_idx],
-            X[val_idx], y[val_idx],
-            pos_weight, device=device,
+            model,
+            X[train_idx],
+            y[train_idx],
+            X[val_idx],
+            y[val_idx],
+            pos_weight,
+            device=device,
         )
         fold_metrics.append(metrics)
 
     return fold_metrics
 
 
-def train_final_model(X_train, y_train, X_val, y_val, config, pos_weight,
-                      max_epochs=200, patience=15, device=None):
+def train_final_model(
+    X_train, y_train, X_val, y_val, config, pos_weight, max_epochs=200, patience=15, device=None
+):
     """Train a final model on a large training set for SHAP/export.
 
     Returns:
@@ -299,7 +346,14 @@ def train_final_model(X_train, y_train, X_val, y_val, config, pos_weight,
     ).to(device)
 
     _, scaler = train_one_fold(
-        model, X_train, y_train, X_val, y_val, pos_weight,
-        max_epochs=max_epochs, patience=patience, device=device,
+        model,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        pos_weight,
+        max_epochs=max_epochs,
+        patience=patience,
+        device=device,
     )
     return model, scaler

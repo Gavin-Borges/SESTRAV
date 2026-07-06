@@ -189,9 +189,7 @@ def evaluate_virus(
     n_neg_total = int((y_true == 0).sum())
 
     if origin_col in df.columns:
-        real_neg_mask = (y_true == 0) & (
-            df[origin_col].fillna("").eq(REAL_NEG_ORIGIN).to_numpy()
-        )
+        real_neg_mask = (y_true == 0) & (df[origin_col].fillna("").eq(REAL_NEG_ORIGIN).to_numpy())
         n_neg_real = int(real_neg_mask.sum())
         n_neg_decoy = n_neg_total - n_neg_real
     else:
@@ -275,9 +273,7 @@ def evaluate_all_viruses(
     results: dict[str, dict] = {}
     for virus, group in df.groupby(virus_col):
         if len(group) < min_virus_size:
-            log.warning(
-                "Skipping %s: %d rows < min %d", virus, len(group), min_virus_size
-            )
+            log.warning("Skipping %s: %d rows < min %d", virus, len(group), min_virus_size)
             continue
         log.info("Evaluating %s  (%d rows)", virus, len(group))
         results[str(virus)] = evaluate_virus(
@@ -462,36 +458,56 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Second model OOF CSV for paired comparison (same row order).",
     )
     parser.add_argument(
-        "--score-col", default="score", metavar="COL",
+        "--score-col",
+        default="score",
+        metavar="COL",
         help="Score column in --predictions (default: score).",
     )
     parser.add_argument(
-        "--compare-score-col", default="score", metavar="COL",
+        "--compare-score-col",
+        default="score",
+        metavar="COL",
         help="Score column in --compare file (default: score).",
     )
     parser.add_argument(
-        "--label-col", default="label", metavar="COL",
+        "--label-col",
+        default="label",
+        metavar="COL",
     )
     parser.add_argument(
-        "--virus-col", default="virus", metavar="COL",
+        "--virus-col",
+        default="virus",
+        metavar="COL",
     )
     parser.add_argument(
-        "--origin-col", default="negative_origin", metavar="COL",
+        "--origin-col",
+        default="negative_origin",
+        metavar="COL",
     )
     parser.add_argument(
-        "--output-json", type=Path, default=None, metavar="PATH",
+        "--output-json",
+        type=Path,
+        default=None,
+        metavar="PATH",
         help="Write full results to JSON (optional).",
     )
     parser.add_argument(
-        "--output-csv", type=Path, default=None, metavar="PATH",
+        "--output-csv",
+        type=Path,
+        default=None,
+        metavar="PATH",
         help="Write per-virus metrics table to CSV (optional).",
     )
     parser.add_argument(
-        "--n-bootstrap", type=int, default=DEFAULT_N_BOOTSTRAP,
+        "--n-bootstrap",
+        type=int,
+        default=DEFAULT_N_BOOTSTRAP,
         help=f"Bootstrap resamples (default: {DEFAULT_N_BOOTSTRAP}).",
     )
     parser.add_argument(
-        "--min-virus-size", type=int, default=MIN_SAMPLES_DEFAULT,
+        "--min-virus-size",
+        type=int,
+        default=MIN_SAMPLES_DEFAULT,
         help=f"Skip viruses with fewer rows (default: {MIN_SAMPLES_DEFAULT}).",
     )
     parser.add_argument("--verbose", action="store_true")
@@ -513,9 +529,7 @@ def main(argv: list[str] | None = None) -> int:
     df = pd.read_csv(args.predictions)
 
     if args.score_col not in df.columns:
-        logger.error(
-            "Score column %r not found. Available: %s", args.score_col, list(df.columns)
-        )
+        logger.error("Score column %r not found. Available: %s", args.score_col, list(df.columns))
         return 1
     if args.label_col not in df.columns:
         logger.error("Label column %r not found.", args.label_col)
@@ -552,7 +566,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         df_b = pd.read_csv(args.compare)
         comparisons = compare_predictions(
-            df, df_b,
+            df,
+            df_b,
             score_col_a=args.score_col,
             score_col_b=args.compare_score_col,
             label_col=args.label_col,

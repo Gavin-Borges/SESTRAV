@@ -11,15 +11,24 @@ from sample_tsnadb_cohort import DEEP_IMM_MIN, MHCF_RANK_MAX, build_cohort
 
 SCHEMA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
-    "data", "immunogenicity_dataset_v4_schema.json",
+    "data",
+    "immunogenicity_dataset_v4_schema.json",
 )
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 _TSV_COLS = [
-    "Type", "Tissue", "Mutation", "HLA", "Peptide",
-    "Deep_bind", "Deep_imm", "MHCf_rank (%)", "Net4_aff (nM)", "Net4_rank (%)",
+    "Type",
+    "Tissue",
+    "Mutation",
+    "HLA",
+    "Peptide",
+    "Deep_bind",
+    "Deep_imm",
+    "MHCf_rank (%)",
+    "Net4_aff (nM)",
+    "Net4_rank (%)",
 ]
 
 
@@ -111,10 +120,26 @@ def test_hla_asterisk_normalised(tmp_path):
 # Determinism test
 # ---------------------------------------------------------------------------
 _UNIQUE_9MERS = [
-    "ACDEFGHIK", "ACDEFGHIL", "ACDEFGHIM", "ACDEFGHIN", "ACDEFGHIP",
-    "ACDEFGHIQ", "ACDEFGHIR", "ACDEFGHIS", "ACDEFGHIT", "ACDEFGHIV",
-    "ACDEFGHIW", "ACDEFGHIY", "CDEFGHIKL", "CDEFGHILM", "CDEFGHIMN",
-    "CDEFGHINP", "CDEFGHIPQ", "CDEFGHIQR", "CDEFGHIRS", "CDEFGHIST",
+    "ACDEFGHIK",
+    "ACDEFGHIL",
+    "ACDEFGHIM",
+    "ACDEFGHIN",
+    "ACDEFGHIP",
+    "ACDEFGHIQ",
+    "ACDEFGHIR",
+    "ACDEFGHIS",
+    "ACDEFGHIT",
+    "ACDEFGHIV",
+    "ACDEFGHIW",
+    "ACDEFGHIY",
+    "CDEFGHIKL",
+    "CDEFGHILM",
+    "CDEFGHIMN",
+    "CDEFGHINP",
+    "CDEFGHIPQ",
+    "CDEFGHIQR",
+    "CDEFGHIRS",
+    "CDEFGHIST",
 ]
 
 
@@ -123,9 +148,7 @@ def test_sample_deterministic(tmp_path):
     raw = _make_raw(tmp_path, rows)
     df1 = build_cohort(raw, sample_n=10, seed=42)
     df2 = build_cohort(raw, sample_n=10, seed=42)
-    pd.testing.assert_frame_equal(
-        df1.reset_index(drop=True), df2.reset_index(drop=True)
-    )
+    pd.testing.assert_frame_equal(df1.reset_index(drop=True), df2.reset_index(drop=True))
 
 
 def test_different_seeds_differ(tmp_path):

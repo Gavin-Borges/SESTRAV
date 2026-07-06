@@ -31,7 +31,9 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def default_manifest_path_for(path: str | Path, manifest_name: str = MODEL_CHECKSUM_MANIFEST) -> Path:
+def default_manifest_path_for(
+    path: str | Path, manifest_name: str = MODEL_CHECKSUM_MANIFEST
+) -> Path:
     """Return the default checksum manifest path for an artifact."""
     artifact = Path(path)
     return artifact.parent / manifest_name

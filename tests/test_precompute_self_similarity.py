@@ -17,10 +17,11 @@ from precompute_self_similarity import (
 # Fixtures: in-memory k-mer sets so no FASTA file is needed
 # ---------------------------------------------------------------------------
 
-HUMAN_PEPTIDE_9 = "GILGFVFTL"   # canonical flu 9-mer (in influenza NP, also in human data)
-HUMAN_PEPTIDE_8 = "ACDEFGHI"    # 8-mer present in the kmer_sets_simple fixture
-DECOY_9         = "QQQQQQQQQ"   # Q-repeat; not in any real proteome
-DECOY_8         = "QQQQQQQQ"
+HUMAN_PEPTIDE_9 = "GILGFVFTL"  # canonical flu 9-mer (in influenza NP, also in human data)
+HUMAN_PEPTIDE_8 = "ACDEFGHI"  # 8-mer present in the kmer_sets_simple fixture
+DECOY_9 = "QQQQQQQQQ"  # Q-repeat; not in any real proteome
+DECOY_8 = "QQQQQQQQ"
+
 
 @pytest.fixture()
 def kmer_sets_simple():
@@ -30,9 +31,11 @@ def kmer_sets_simple():
         9: {HUMAN_PEPTIDE_9, "ACDEFGHIK", "LMNPQRSTVW"[:9]},
     }
 
+
 # ---------------------------------------------------------------------------
 # compute_self_similarity
 # ---------------------------------------------------------------------------
+
 
 class TestComputeSelfSimilarity:
     def test_9mer_exact_match(self, kmer_sets_simple):
@@ -107,6 +110,7 @@ class TestComputeSelfSimilarity:
 # process_peptides
 # ---------------------------------------------------------------------------
 
+
 class TestProcessPeptides:
     def test_returns_dataframe(self, kmer_sets_simple):
         df = process_peptides([HUMAN_PEPTIDE_9, DECOY_9], kmer_sets_simple)
@@ -155,6 +159,7 @@ class TestProcessPeptides:
 # ---------------------------------------------------------------------------
 # build_kmer_sets - integration test using an in-memory FASTA
 # ---------------------------------------------------------------------------
+
 
 class TestBuildKmerSets:
     def test_single_protein_9mers(self, tmp_path):

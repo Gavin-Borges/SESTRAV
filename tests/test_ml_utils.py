@@ -24,9 +24,7 @@ def _base_series(n: int = 100) -> tuple[pd.Series, pd.Series, pd.Series, pd.Seri
     rng = np.random.default_rng(0)
     labels = pd.Series([1] * (n // 2) + [0] * (n - n // 2))
     origins = pd.Series(
-        ["tested_negative"] * (n // 4)
-        + ["self_proteome_decoy"] * (n // 4)
-        + [None] * (n - n // 2)
+        ["tested_negative"] * (n // 4) + ["self_proteome_decoy"] * (n // 4) + [None] * (n - n // 2)
     )
     alleles = pd.Series(["HLA-A*02:01"] * (n // 2) + ["HLA-B*07:02"] * (n - n // 2))
     peptides = pd.Series(["GILGFVFTL"] * (n // 2) + ["GILGFVFTLA"] * (n - n // 2))

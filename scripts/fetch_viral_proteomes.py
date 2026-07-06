@@ -38,17 +38,17 @@ UNIPROT_FASTA_URL = "https://rest.uniprot.org/uniprotkb/{accession}.fasta"
 # ---------------------------------------------------------------------------
 
 HBV_AWY_PANEL4 = [
-    ("P03147", "HBcAg"),      # Core antigen (capsid), genotype A ayw
-    ("P03165", "HBx"),        # X protein (transcriptional transactivator), genotype D subtype ayw
-    ("P03138", "HBsAg_S"),    # Small surface antigen (a-determinant bearer)
-    ("P03157", "HBpol"),      # Polymerase / reverse transcriptase
+    ("P03147", "HBcAg"),  # Core antigen (capsid), genotype A ayw
+    ("P03165", "HBx"),  # X protein (transcriptional transactivator), genotype D subtype ayw
+    ("P03138", "HBsAg_S"),  # Small surface antigen (a-determinant bearer)
+    ("P03157", "HBpol"),  # Polymerase / reverse transcriptase
 ]
 
 HCV_1A_PANEL4 = [
-    ("P26664", "Core"),       # Genome polyprotein, genotype 1a (H77); Core/NS regions are contiguous
-    ("O92972", "NS3"),        # Genome polyprotein, genotype 1b (HC-J4); best-reviewed NS3 source
-    ("O92975", "NS5A"),       # Genome polyprotein fragment, Hepacivirus hominis; NS5A region
-    ("O92976", "NS5B"),       # Genome polyprotein fragment, Hepacivirus hominis; NS5B/polymerase region
+    ("P26664", "Core"),  # Genome polyprotein, genotype 1a (H77); Core/NS regions are contiguous
+    ("O92972", "NS3"),  # Genome polyprotein, genotype 1b (HC-J4); best-reviewed NS3 source
+    ("O92975", "NS5A"),  # Genome polyprotein fragment, Hepacivirus hominis; NS5A region
+    ("O92976", "NS5B"),  # Genome polyprotein fragment, Hepacivirus hominis; NS5B/polymerase region
 ]
 
 
@@ -58,10 +58,10 @@ HCV_1A_PANEL4 = [
 # South Asia) shows ~10 % amino-acid divergence - predictions carry additional uncertainty
 # when applied to non-clade-B populations. See antigen_accessions.md §5 for full caveats.
 HIV1_HXB2_PANEL4 = [
-    ("P04591", "Gag"),    # Gag polyprotein (MA, CA, p24, NC) - dominant CD8 target
-    ("P04585", "Pol"),    # Pol polyprotein (PR, RT, RNase H, IN)
-    ("P04601", "Nef"),    # Negative factor - accessory protein, strong CD8 target
-    ("P04578", "Env"),    # Envelope glycoprotein gp160 (gp120 + gp41)
+    ("P04591", "Gag"),  # Gag polyprotein (MA, CA, p24, NC) - dominant CD8 target
+    ("P04585", "Pol"),  # Pol polyprotein (PR, RT, RNase H, IN)
+    ("P04601", "Nef"),  # Negative factor - accessory protein, strong CD8 target
+    ("P04578", "Env"),  # Envelope glycoprotein gp160 (gp120 + gp41)
 ]
 
 # SARS-CoV-2 Wuhan-1 reference (Hu-1; GenBank MN908947).
@@ -70,8 +70,8 @@ HIV1_HXB2_PANEL4 = [
 # Wuhan-1-derived predictions. See antigen_accessions.md §6.
 SARSCOV2_WUHAN1_PANEL4 = [
     ("P0DTC2", "Spike"),  # Surface glycoprotein (S / ORF2) - 1273 AA
-    ("P0DTC9", "N"),      # Nucleocapsid phosphoprotein (N / ORF9) - highly conserved
-    ("P0DTC5", "M"),      # Membrane glycoprotein (M / ORF5) - conserved CD8 target
+    ("P0DTC9", "N"),  # Nucleocapsid phosphoprotein (N / ORF9) - highly conserved
+    ("P0DTC5", "M"),  # Membrane glycoprotein (M / ORF5) - conserved CD8 target
     ("P0DTC3", "ORF3a"),  # Accessory protein 3a - pore-forming, immunogenic
 ]
 
@@ -81,10 +81,10 @@ SARSCOV2_WUHAN1_PANEL4 = [
 # PB1-F2 is 90 AA (PR8); produces few peptides but is a well-documented CD8 target
 # associated with viral pathogenicity. See antigen_accessions.md §7.
 IAV_PR8_PANEL4 = [
-    ("P03466", "NP"),     # Nucleoprotein - dominant, cross-strain conserved CD8 target
-    ("P03485", "M1"),     # Matrix protein 1 - highly conserved CD8 target
-    ("P03437", "HA"),     # Hemagglutinin - strain-specific (H1N1 subtype only)
-    ("P0C0U1", "PB1F2"), # PB1-F2 - pathogenicity factor; 90 AA in PR8 strain
+    ("P03466", "NP"),  # Nucleoprotein - dominant, cross-strain conserved CD8 target
+    ("P03485", "M1"),  # Matrix protein 1 - highly conserved CD8 target
+    ("P03437", "HA"),  # Hemagglutinin - strain-specific (H1N1 subtype only)
+    ("P0C0U1", "PB1F2"),  # PB1-F2 - pathogenicity factor; 90 AA in PR8 strain
 ]
 
 # Human cytomegalovirus (HCMV) strain AD169.
@@ -93,19 +93,33 @@ IAV_PR8_PANEL4 = [
 # IE1 (UL123) is the dominant target early in infection (lytic phase).
 # See antigen_accessions.md §8.
 CMV_AD169_PANEL4 = [
-    ("P06725", "pp65"),   # UL83 lower matrix phosphoprotein - immunodominant CD8 target
-    ("P13202", "IE1"),    # UL123 immediate-early antigen 1 - dominant lytic target
-    ("P16785", "pp50"),   # UL44 DNA polymerase processivity factor
-    ("P06473", "gB"),     # UL55 envelope glycoprotein B - CD8 target in primary infection
+    ("P06725", "pp65"),  # UL83 lower matrix phosphoprotein - immunodominant CD8 target
+    ("P13202", "IE1"),  # UL123 immediate-early antigen 1 - dominant lytic target
+    ("P16785", "pp50"),  # UL44 DNA polymerase processivity factor
+    ("P06473", "gB"),  # UL55 envelope glycoprotein B - CD8 target in primary infection
+]
+
+# Dengue virus serotype 2 New Guinea C (DENV-2 NGC) reference strain.
+# NGC is the most-sequenced DENV-2 strain in the T-cell literature; polyprotein
+# P29991 encodes all structural (C/prM/E) and non-structural (NS1-NS5) proteins.
+# DENV-2 and DENV-3 share ~70% amino-acid identity; NS3/NS5 are most conserved
+# across serotypes. Per-serotype divergence (~30%) means predictions carry
+# additional uncertainty when applied to DENV-1/3/4 epitopes.
+DENV2_NGC_PANEL1 = [
+    (
+        "P29991",
+        "Polyprotein",
+    ),  # Full DENV-2 NGC polyprotein (C/prM/E/NS1/NS2A/NS2B/NS3/NS4A/NS4B/NS5)
 ]
 
 PANELS = {
-    "HBV_ayw_panel4":         HBV_AWY_PANEL4,
-    "HCV_1a_panel4":          HCV_1A_PANEL4,
-    "HIV1_HXB2_panel4":       HIV1_HXB2_PANEL4,
+    "HBV_ayw_panel4": HBV_AWY_PANEL4,
+    "HCV_1a_panel4": HCV_1A_PANEL4,
+    "HIV1_HXB2_panel4": HIV1_HXB2_PANEL4,
     "SARSCOV2_wuhan1_panel4": SARSCOV2_WUHAN1_PANEL4,
-    "IAV_PR8_panel4":         IAV_PR8_PANEL4,
-    "CMV_AD169_panel4":       CMV_AD169_PANEL4,
+    "IAV_PR8_panel4": IAV_PR8_PANEL4,
+    "CMV_AD169_panel4": CMV_AD169_PANEL4,
+    "DENV2_NGC_panel1": DENV2_NGC_PANEL1,
 }
 
 

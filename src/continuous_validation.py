@@ -16,6 +16,7 @@ Importing this module is dependency-light: heavy scoring imports (scikit-learn,
 joblib, the feature pipeline) are deferred into ``score_iedb_export`` so that the
 pure comparison logic can be exercised without a model present.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -43,6 +44,7 @@ BASELINE_KEY = "iedb_ebv_hpv16_tcell"
 # Baseline I/O
 # ---------------------------------------------------------------------------
 
+
 def load_baseline(path: str = DEFAULT_BASELINE_PATH) -> dict:
     """Load the stored validation baselines, or ``{}`` if the file is absent."""
     if path and os.path.exists(path):
@@ -69,6 +71,7 @@ def baseline_auc_pr(baselines: dict, key: str = BASELINE_KEY) -> Optional[float]
 # ---------------------------------------------------------------------------
 # Regression logic (the unit-testable core)
 # ---------------------------------------------------------------------------
+
 
 def compute_regression(
     auc_pr: float,
@@ -116,6 +119,7 @@ def regression_message(result: dict, key: str = BASELINE_KEY) -> str:
 # Scoring (deferred heavy imports)
 # ---------------------------------------------------------------------------
 
+
 def load_inputs(paths: Sequence[str]):
     """Concatenate one or more IEDB export CSVs into a clean scoring frame.
 
@@ -140,12 +144,12 @@ def load_inputs(paths: Sequence[str]):
 
 def score_iedb_export(df, model_path: str, binding_matrix_path: str) -> dict:
     """Score a labeled peptide frame with the production model; return metrics."""
-    from joblib import load
     from sklearn.metrics import average_precision_score
 
+    from src.artifact_integrity import load_verified_joblib
     from src.train_classifier import prepare_features_31
 
-    clf = load(model_path)
+    clf = load_verified_joblib(model_path, required_checksum=True)
     X = prepare_features_31(df, binding_matrix_path)
     proba = clf.predict_proba(X)[:, 1]
     auc_pr = float(average_precision_score(df["label"].values, proba))
@@ -159,6 +163,7 @@ def score_iedb_export(df, model_path: str, binding_matrix_path: str) -> dict:
 # ---------------------------------------------------------------------------
 # Path resolution from config.yaml
 # ---------------------------------------------------------------------------
+
 
 def _resolve_paths(model_path: Optional[str], binding_matrix: Optional[str]) -> tuple:
     """Resolve model + binding-matrix paths, falling back to config.yaml."""
@@ -191,6 +196,7 @@ def _resolve_paths(model_path: Optional[str], binding_matrix: Optional[str]) -> 
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
+
 
 def run(
     inputs: Sequence[str],

@@ -66,12 +66,16 @@ def main() -> None:
     df = pd.read_csv(dataset_path)
     peptides = df["peptide"].unique().tolist()
     print(f"Loaded {len(df)} rows, {len(peptides)} unique peptides from {dataset_path.name}")
-    print(f"Length distribution: {dict(pd.Series([len(p) for p in peptides]).value_counts().sort_index())}")
+    print(
+        f"Length distribution: {dict(pd.Series([len(p) for p in peptides]).value_counts().sort_index())}"
+    )
 
     allele_cols = list(ALLELE_MAP.keys())
     alleles = list(ALLELE_MAP.values())
 
-    print(f"\nRunning MHCflurry Class1PresentationPredictor on {len(peptides)} peptides x {len(alleles)} alleles...")
+    print(
+        f"\nRunning MHCflurry Class1PresentationPredictor on {len(peptides)} peptides x {len(alleles)} alleles..."
+    )
     from mhcflurry import Class1PresentationPredictor
 
     predictor = Class1PresentationPredictor.load()

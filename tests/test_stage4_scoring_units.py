@@ -58,9 +58,7 @@ def test_apply_thresholds_falls_back_to_f1_threshold_key(tmp_path):
 def test_apply_thresholds_prefers_calibrated_score_column(tmp_path):
     (tmp_path / "optimal_thresholds.json").write_text(json.dumps({"threshold": 0.5}))
     # Raw score would flip the call; calibrated_score must take precedence.
-    df = pd.DataFrame(
-        {"immunogenicity_score": [0.9], "calibrated_score": [0.1]}
-    )
+    df = pd.DataFrame({"immunogenicity_score": [0.9], "calibrated_score": [0.1]})
     _apply_thresholds(df, str(tmp_path))
     assert df["immunogenic"].tolist() == [0]
 

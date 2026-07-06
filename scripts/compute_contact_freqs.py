@@ -44,21 +44,21 @@ except ImportError:
 PEPTIDE_MIN_LEN = 8
 PEPTIDE_MAX_LEN = 11
 DEFAULT_CUTOFF = 8.0
-POSITIONS = ['p4', 'p5', 'p6', 'p7', 'p8']
+POSITIONS = ["p4", "p5", "p6", "p7", "p8"]
 
 
 def _cb_coord(residue):
     """Return Cb coordinate; falls back to Ca for Gly (no Cb)."""
-    if residue.get_resname() == 'GLY':
-        atom = residue.get('CA')
+    if residue.get_resname() == "GLY":
+        atom = residue.get("CA")
     else:
-        atom = residue.get('CB')
+        atom = residue.get("CB")
     return atom.get_vector() if atom is not None else None
 
 
 def _tcr_position_index(pep_len: int, pos: str) -> int:
     """Map p4/p5/p6/p7/p8 to 0-based peptide index (mirrors src/features.py)."""
-    mapping = {'p4': 3, 'p5': 4, 'p6': 5, 'p7': pep_len - 3, 'p8': pep_len - 2}
+    mapping = {"p4": 3, "p5": 4, "p6": 5, "p7": pep_len - 3, "p8": pep_len - 2}
     return mapping.get(pos, -1)
 
 
@@ -137,11 +137,11 @@ def _contacts_for_pdb(pdb_path: pathlib.Path, cutoff: float) -> dict | None:
 def _allele_from_remark(pdb_path: pathlib.Path) -> str | None:
     """Extract HLA allele from REMARK 950 (STCRDab format) or return None."""
     try:
-        with open(pdb_path, encoding='ascii', errors='ignore') as fh:
+        with open(pdb_path, encoding="ascii", errors="ignore") as fh:
             for line in fh:
-                if line.startswith('REMARK 950') and 'HLA' in line:
+                if line.startswith("REMARK 950") and "HLA" in line:
                     for token in line.split():
-                        if token.startswith('HLA-'):
+                        if token.startswith("HLA-"):
                             return token.strip()
     except OSError:
         pass
@@ -152,29 +152,34 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument('--pdb-dir', required=True,
-                    help='Directory of .pdb or .ent structure files')
-    ap.add_argument('--allele-map',
-                    help='CSV with columns pdb_id,hla_allele for explicit allele assignment')
-    ap.add_argument('--cutoff', type=float, default=DEFAULT_CUTOFF,
-                    help=f'Cb-Cb contact cutoff in Angstroms (default {DEFAULT_CUTOFF})')
-    ap.add_argument('--output', default='data/contact_freqs/per_allele_contact_freq.csv',
-                    help='Output CSV path')
+    ap.add_argument("--pdb-dir", required=True, help="Directory of .pdb or .ent structure files")
+    ap.add_argument(
+        "--allele-map", help="CSV with columns pdb_id,hla_allele for explicit allele assignment"
+    )
+    ap.add_argument(
+        "--cutoff",
+        type=float,
+        default=DEFAULT_CUTOFF,
+        help=f"Cb-Cb contact cutoff in Angstroms (default {DEFAULT_CUTOFF})",
+    )
+    ap.add_argument(
+        "--output", default="data/contact_freqs/per_allele_contact_freq.csv", help="Output CSV path"
+    )
     args = ap.parse_args()
 
     pdb_dir = pathlib.Path(args.pdb_dir)
     if not pdb_dir.is_dir():
         sys.exit(f"PDB directory not found: {pdb_dir}")
 
-    pdb_files = sorted(pdb_dir.glob('*.pdb')) + sorted(pdb_dir.glob('*.ent'))
+    pdb_files = sorted(pdb_dir.glob("*.pdb")) + sorted(pdb_dir.glob("*.ent"))
     if not pdb_files:
         sys.exit(f"No .pdb or .ent files found in {pdb_dir}")
 
     allele_map: dict[str, str] = {}
     if args.allele_map:
-        with open(args.allele_map, newline='') as fh:
+        with open(args.allele_map, newline="") as fh:
             for row in csv.DictReader(fh):
-                allele_map[row['pdb_id'].lower()] = row['hla_allele']
+                allele_map[row["pdb_id"].lower()] = row["hla_allele"]
 
     # contact_counts[allele][pos] = [n_contacts, n_total]
     contact_counts: dict[str, dict[str, list]] = defaultdict(
@@ -212,16 +217,18 @@ def main() -> None:
     for allele in sorted(contact_counts):
         for pos in POSITIONS:
             n_con, n_tot = contact_counts[allele][pos]
-            rows.append({
-                'allele': allele,
-                'position': pos,
-                'contact_freq': round(n_con / n_tot, 4) if n_tot else 0.0,
-                'n_contacts': n_con,
-                'n_structures': n_tot,
-            })
+            rows.append(
+                {
+                    "allele": allele,
+                    "position": pos,
+                    "contact_freq": round(n_con / n_tot, 4) if n_tot else 0.0,
+                    "n_contacts": n_con,
+                    "n_structures": n_tot,
+                }
+            )
 
-    fieldnames = ['allele', 'position', 'contact_freq', 'n_contacts', 'n_structures']
-    with open(out_path, 'w', newline='') as fh:
+    fieldnames = ["allele", "position", "contact_freq", "n_contacts", "n_structures"]
+    with open(out_path, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
@@ -230,5 +237,5 @@ def main() -> None:
     print(f"Alleles: {sorted(contact_counts)}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

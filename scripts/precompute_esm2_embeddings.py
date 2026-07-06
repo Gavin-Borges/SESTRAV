@@ -11,6 +11,7 @@ Usage - larger model (t12, 480-dim, v2.2):
         --model facebook/esm2_t12_35M_UR50D \
         --output data/esm2_embeddings_t12.pt
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -26,8 +27,8 @@ MAX_LEN = 11
 
 # ESM-2 model registry: name → embedding dimension
 ESM_MODEL_DIMS: dict[str, int] = {
-    "facebook/esm2_t6_8M_UR50D":    320,
-    "facebook/esm2_t12_35M_UR50D":  480,
+    "facebook/esm2_t6_8M_UR50D": 320,
+    "facebook/esm2_t12_35M_UR50D": 480,
     "facebook/esm2_t30_150M_UR50D": 640,
     "facebook/esm2_t33_650M_UR50D": 1280,
 }
@@ -41,11 +42,10 @@ def precompute_esm2(
     incremental: bool = False,
 ) -> None:
     if model_name not in ESM_MODEL_DIMS:
-        raise ValueError(
-            f"Unknown model '{model_name}'. Known models: {list(ESM_MODEL_DIMS)}"
-        )
+        raise ValueError(f"Unknown model '{model_name}'. Known models: {list(ESM_MODEL_DIMS)}")
 
     from transformers import EsmModel, EsmTokenizer
+
     esm_dim = ESM_MODEL_DIMS[model_name]
 
     print(f"Loading {model_name} (dim={esm_dim}) ...")
@@ -100,17 +100,30 @@ def precompute_esm2(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pre-compute ESM-2 peptide embeddings")
-    parser.add_argument("--data", default="data/immunogenicity_dataset_v4.csv",
-                        help="Path to immunogenicity dataset CSV")
-    parser.add_argument("--model", default="facebook/esm2_t6_8M_UR50D",
-                        choices=list(ESM_MODEL_DIMS),
-                        help="ESM-2 model variant to use")
-    parser.add_argument("--output", default=None,
-                        help="Output .pt path (default: data/esm2_embeddings_<variant>.pt)")
-    parser.add_argument("--batch-size", type=int, default=64,
-                        help="Peptides per ESM-2 forward pass")
-    parser.add_argument("--incremental", action="store_true",
-                        help="Skip peptides already present in an existing output cache")
+    parser.add_argument(
+        "--data",
+        default="data/immunogenicity_dataset_v4.csv",
+        help="Path to immunogenicity dataset CSV",
+    )
+    parser.add_argument(
+        "--model",
+        default="facebook/esm2_t6_8M_UR50D",
+        choices=list(ESM_MODEL_DIMS),
+        help="ESM-2 model variant to use",
+    )
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Output .pt path (default: data/esm2_embeddings_<variant>.pt)",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=64, help="Peptides per ESM-2 forward pass"
+    )
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Skip peptides already present in an existing output cache",
+    )
     args = parser.parse_args()
 
     if args.output is None:
@@ -118,7 +131,8 @@ if __name__ == "__main__":
         args.output = f"data/esm2_embeddings_{variant}.pt"
 
     precompute_esm2(
-        args.data, args.output,
+        args.data,
+        args.output,
         model_name=args.model,
         batch_size=args.batch_size,
         incremental=args.incremental,

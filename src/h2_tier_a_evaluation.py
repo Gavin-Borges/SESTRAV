@@ -100,8 +100,7 @@ def _build_features(
     if model_n_features == 50:
         return prepare_features_50(df, binding_matrix_path)
     raise ValueError(
-        f"Unsupported model feature count: {model_n_features}. "
-        "Expected 21, 30, or 50."
+        f"Unsupported model feature count: {model_n_features}. Expected 21, 30, or 50."
     )
 
 
@@ -110,9 +109,7 @@ def _attach_binding_max(df: pd.DataFrame, binding_matrix_path: str) -> pd.Series
     binding_df = pd.read_csv(binding_matrix_path)
     missing_cols = [c for c in BINDING_ALLELE_COLUMNS if c not in binding_df.columns]
     if missing_cols:
-        raise ValueError(
-            "Binding matrix is missing required columns: " + ", ".join(missing_cols)
-        )
+        raise ValueError("Binding matrix is missing required columns: " + ", ".join(missing_cols))
 
     binding_max = (
         binding_df[["peptide"] + BINDING_ALLELE_COLUMNS]
@@ -132,11 +129,7 @@ def _aggregate(metrics_rows: List[Dict]) -> pd.DataFrame:
     if "subgroup_key" in fold_df.columns:
         fold_df = fold_df[fold_df["subgroup_key"].fillna("overall") == "overall"]
     numeric_cols = ["auc_roc", "auc_pr", "issr_10", "issr_25"]
-    agg = (
-        fold_df.groupby("method")[numeric_cols]
-        .agg(["mean", "std"])
-        .reset_index()
-    )
+    agg = fold_df.groupby("method")[numeric_cols].agg(["mean", "std"]).reset_index()
     agg.columns = [
         "method",
         "auc_roc_mean",
@@ -168,32 +161,30 @@ def run_h2_tier_a(
 
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df.loc[~gs_mask].copy().reset_index(drop=True)
-    
+
     # EXACT/SUBSTRING OVERLAP CHECK: Remove train pool items that are exact/substrings of Gold Standard
     gs_peptides = set(GOLD_STANDARD_EPITOPES)
     overlap_mask = train_pool["peptide"].apply(
         lambda p: p in gs_peptides or any(p in gs or gs in p for gs in gs_peptides)
     )
     if overlap_mask.any():
-        print(f"Removed {overlap_mask.sum()} peptides from train pool due to exact/substring overlap with Gold Standard.")
+        print(
+            f"Removed {overlap_mask.sum()} peptides from train pool due to exact/substring overlap with Gold Standard."
+        )
     train_pool = train_pool.loc[~overlap_mask].copy().reset_index(drop=True)
-    
+
     y = train_pool["label"].to_numpy()
     subgroup_columns = [c for c in ["virus", "strain"] if c in train_pool.columns]
 
     template_model = load_verified_joblib(model_path, required_checksum=True)
     model_n_features = getattr(template_model, "n_features_in_", None)
     if model_n_features is None:
-        raise ValueError(
-            f"Model at {model_path} does not expose n_features_in_."
-        )
+        raise ValueError(f"Model at {model_path} does not expose n_features_in_.")
 
     X = _build_features(train_pool, model_n_features, binding_matrix_path)
     binding_scores = _attach_binding_max(train_pool, binding_matrix_path).to_numpy()
 
-    skf = StratifiedKFold(
-        n_splits=n_splits, shuffle=True, random_state=random_state
-    )
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     rng = np.random.default_rng(random_state)
 
     rows: List[Dict] = []
@@ -274,7 +265,7 @@ def run_h2_tier_a(
     ratio_10 = float(int_row["issr_10_mean"] / denom_10) if denom_10 > 0 else np.nan
     ratio_25 = float(int_row["issr_25_mean"] / denom_25) if denom_25 > 0 else np.nan
     fold_delta_p = _paired_sign_flip_pvalue(np.asarray(fold_issr10_delta, dtype=float))
-    
+
     # FDR Correction (Benjamini-Hochberg) on the single p-value, or multiple if extended
     fdr_corrected_p = float(false_discovery_control([fold_delta_p])[0])
 
@@ -351,9 +342,7 @@ def run_h2_tier_a(
     fold_df.to_csv(fold_csv, index=False)
     full_summary_df.to_csv(summary_csv, index=False)
 
-    decision_line = (
-        "SUPPORTED" if h2_supported else "NOT SUPPORTED"
-    )
+    decision_line = "SUPPORTED" if h2_supported else "NOT SUPPORTED"
     stability_line = (
         "stable" if stable_ratio else "potentially unstable (low binding ISSR@10 denominator)"
     )

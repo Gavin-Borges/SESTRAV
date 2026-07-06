@@ -29,7 +29,9 @@ def _sets() -> Dict[str, Set[str]]:
     }
 
 
-def _evaluate_set_on_ranked(ranked_df: pd.DataFrame, peptides: Iterable[str], top_k: float) -> Dict[str, float]:
+def _evaluate_set_on_ranked(
+    ranked_df: pd.DataFrame, peptides: Iterable[str], top_k: float
+) -> Dict[str, float]:
     ranked = ranked_df.copy()
     ranked["rank"] = ranked["immunogenicity_score"].rank(ascending=False, method="min")
     target = ranked[ranked["peptide"].isin(set(peptides))]
@@ -51,7 +53,9 @@ def _evaluate_set_on_ranked(ranked_df: pd.DataFrame, peptides: Iterable[str], to
     }
 
 
-def run_gold_standard_sensitivity(results_dir: str, output_csv: str, output_md: str) -> pd.DataFrame:
+def run_gold_standard_sensitivity(
+    results_dir: str, output_csv: str, output_md: str
+) -> pd.DataFrame:
     """Run the 3-way sensitivity analysis and write CSV + markdown report."""
     rows: List[Dict] = []
     gs_sets = _sets()
@@ -83,7 +87,9 @@ def run_gold_standard_sensitivity(results_dir: str, output_csv: str, output_md: 
     if df.empty:
         df.to_csv(output_csv, index=False)
         with open(output_md, "w", encoding="utf-8") as f:
-            f.write("# Gold Standard Sensitivity\n\nNo ranked files found for sensitivity analysis.\n")
+            f.write(
+                "# Gold Standard Sensitivity\n\nNo ranked files found for sensitivity analysis.\n"
+            )
         return df
 
     base = df[df["set_name"] == "current_standard"].set_index("virus")

@@ -6,6 +6,7 @@ monthly GitHub Actions job into ``src.continuous_validation`` - including the
 orchestration that writes the ``REGRESSION_DETECTED`` marker the workflow uses to
 open a GitHub Issue. Scoring is injected so no trained model is required.
 """
+
 import json
 
 import pandas as pd
@@ -17,6 +18,7 @@ from src import continuous_validation as cv
 # ---------------------------------------------------------------------------
 # compute_regression - the core threshold logic
 # ---------------------------------------------------------------------------
+
 
 def test_no_baseline_is_not_a_regression():
     result = cv.compute_regression(0.50, None)
@@ -65,6 +67,7 @@ def test_custom_threshold_is_honoured():
 # baseline I/O
 # ---------------------------------------------------------------------------
 
+
 def test_load_baseline_missing_file_returns_empty(tmp_path):
     assert cv.load_baseline(str(tmp_path / "nope.json")) == {}
 
@@ -95,6 +98,7 @@ def test_regression_message_is_formatted():
 # load_inputs
 # ---------------------------------------------------------------------------
 
+
 def test_load_inputs_missing_files_returns_none(tmp_path):
     assert cv.load_inputs([str(tmp_path / "a.csv"), str(tmp_path / "b.csv")]) is None
 
@@ -113,6 +117,7 @@ def test_load_inputs_concats_dedups_and_casts_label(tmp_path):
 # ---------------------------------------------------------------------------
 # run() orchestration - regression marker + results persistence
 # ---------------------------------------------------------------------------
+
 
 def _write_inputs(tmp_path):
     p = tmp_path / "iedb.csv"

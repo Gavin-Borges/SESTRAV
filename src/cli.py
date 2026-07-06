@@ -18,6 +18,7 @@ import sys
 # helpers
 # ---------------------------------------------------------------------------
 
+
 def _require_file(path: str, parser: argparse.ArgumentParser, label: str) -> None:
     if not os.path.isfile(path):
         parser.error(f"{label} not found: '{path}'")
@@ -26,6 +27,7 @@ def _require_file(path: str, parser: argparse.ArgumentParser, label: str) -> Non
 def _read_config() -> dict:
     try:
         import yaml
+
         cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
         if os.path.isfile(cfg_path):
             with open(cfg_path, encoding="utf-8") as f:
@@ -38,6 +40,7 @@ def _read_config() -> dict:
 # ---------------------------------------------------------------------------
 # sestrav info
 # ---------------------------------------------------------------------------
+
 
 def cmd_info(args: argparse.Namespace) -> int:
     """Print installed versions, active config, and model provenance."""
@@ -57,6 +60,7 @@ def cmd_info(args: argparse.Namespace) -> int:
     # MHCflurry version
     try:
         import mhcflurry
+
         print(f"  mhcflurry       : {mhcflurry.__version__}")
     except ImportError:
         print("  mhcflurry       : not installed")
@@ -64,6 +68,7 @@ def cmd_info(args: argparse.Namespace) -> int:
     # PyTorch version
     try:
         import torch
+
         print(f"  torch           : {torch.__version__}")
         cuda = "available" if torch.cuda.is_available() else "not available"
         print(f"  CUDA            : {cuda}")
@@ -78,7 +83,9 @@ def cmd_info(args: argparse.Namespace) -> int:
         mhcflurry_pin = cfg.get("mhcflurry_model_version", "not set")
         print(f"  mhcflurry_pin   : {mhcflurry_pin}")
         alleles = cfg.get("alleles", [])
-        print(f"  allele panel    : {len(alleles)} alleles ({', '.join(alleles[:3])}{'...' if len(alleles) > 3 else ''})")
+        print(
+            f"  allele panel    : {len(alleles)} alleles ({', '.join(alleles[:3])}{'...' if len(alleles) > 3 else ''})"
+        )
         viruses = cfg.get("antigens", [])
         print(f"  viruses/panels  : {', '.join(viruses)}")
     else:
@@ -89,6 +96,7 @@ def cmd_info(args: argparse.Namespace) -> int:
         pinned = cfg.get("mhcflurry_model_version")
         try:
             import mhcflurry
+
             installed = mhcflurry.__version__
             if pinned and installed != pinned:
                 print("\n  [WARNING] MHCflurry version mismatch:")
@@ -105,6 +113,7 @@ def cmd_info(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # sestrav predict
 # ---------------------------------------------------------------------------
+
 
 def cmd_predict(args: argparse.Namespace) -> int:
     """Score all peptides from a FASTA proteome and output ranked CSV."""
@@ -127,26 +136,31 @@ def cmd_predict(args: argparse.Namespace) -> int:
     # Stage 1 - peptide generation
     print("[Stage 1] Generating peptides...")
     from functions.stage1_peptide_generation import generate_peptides
+
     peptides_df = generate_peptides(args.fasta, proteome_id, peptide_lengths=lengths)
     print(f"          {len(peptides_df)} peptides generated")
 
     # Stage 2 - MHC binding prediction
     print("[Stage 2] Predicting MHC binding...")
     from functions.stage2_mhc_binding_prediction import predict_binding
+
     binding_df = predict_binding(peptides_df, proteome_id, alleles=alleles)
     print(f"          {len(binding_df)} binding predictions")
 
     # Stage 3 - TCR feature extraction
     print("[Stage 3] Extracting TCR features...")
     from functions.stage3_tcr_feature_extraction import extract_tcr_features
+
     features_df = extract_tcr_features(binding_df, proteome_id)
     print(f"          {features_df.shape[1]} features per peptide")
 
     # Stage 4 - immunogenicity scoring
     print("[Stage 4] Scoring immunogenicity...")
     from functions.stage4_immunogenicity_scoring import score_immunogenicity
+
     ranked_df, _ = score_immunogenicity(
-        features_df, proteome_id,
+        features_df,
+        proteome_id,
         model_path=args.model,
         freeze_mode=False,
     )
@@ -158,7 +172,11 @@ def cmd_predict(args: argparse.Namespace) -> int:
     print(f"[sestrav predict] Ranked output -> {out_path}")
 
     # Top 10 preview
-    score_col = "immunogenicity_score" if "immunogenicity_score" in ranked_df.columns else ranked_df.columns[-1]
+    score_col = (
+        "immunogenicity_score"
+        if "immunogenicity_score" in ranked_df.columns
+        else ranked_df.columns[-1]
+    )
     print(f"\nTop 10 candidates (by {score_col}):")
     preview_cols = [c for c in ["peptide", "protein_id", score_col] if c in ranked_df.columns]
     print(ranked_df[preview_cols].head(10).to_string(index=False))
@@ -168,6 +186,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # sestrav validate
 # ---------------------------------------------------------------------------
+
 
 def cmd_validate(args: argparse.Namespace) -> int:
     """Cross-validate a model configuration on a labeled dataset."""
@@ -185,6 +204,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     print(f"[sestrav validate] CV folds    : {args.folds}")
 
     from src.train_classifier import train_models
+
     rf_final, xgb_final, rf_avg, xgb_avg = train_models(
         data_path=args.dataset,
         model_dir=args.model_dir,
@@ -198,10 +218,16 @@ def cmd_validate(args: argparse.Namespace) -> int:
         "dataset": args.dataset,
         "feature_mode": feature_mode,
         "cv_folds": args.folds,
-        "rf": {"auc_pr": rf_avg.get("auc_pr"), "auc_roc": rf_avg.get("auc_roc"),
-               "issr_10": rf_avg.get("issr_10")},
-        "xgb": {"auc_pr": xgb_avg.get("auc_pr"), "auc_roc": xgb_avg.get("auc_roc"),
-                "issr_10": xgb_avg.get("issr_10")},
+        "rf": {
+            "auc_pr": rf_avg.get("auc_pr"),
+            "auc_roc": rf_avg.get("auc_roc"),
+            "issr_10": rf_avg.get("issr_10"),
+        },
+        "xgb": {
+            "auc_pr": xgb_avg.get("auc_pr"),
+            "auc_roc": xgb_avg.get("auc_roc"),
+            "issr_10": xgb_avg.get("issr_10"),
+        },
     }
 
     if args.report:
@@ -214,8 +240,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
             f.write("## Results\n\n")
             f.write("| Model | AUC-PR | AUC-ROC | ISSR@10 |\n")
             f.write("|-------|--------|---------|--------|\n")
-            f.write(f"| RF    | {report['rf']['auc_pr']:.4f} | {report['rf']['auc_roc']:.4f} | {report['rf']['issr_10']:.4f} |\n")
-            f.write(f"| XGB   | {report['xgb']['auc_pr']:.4f} | {report['xgb']['auc_roc']:.4f} | {report['xgb']['issr_10']:.4f} |\n")
+            f.write(
+                f"| RF    | {report['rf']['auc_pr']:.4f} | {report['rf']['auc_roc']:.4f} | {report['rf']['issr_10']:.4f} |\n"
+            )
+            f.write(
+                f"| XGB   | {report['xgb']['auc_pr']:.4f} | {report['xgb']['auc_roc']:.4f} | {report['xgb']['issr_10']:.4f} |\n"
+            )
         print(f"[sestrav validate] Report -> {args.report}")
 
     return 0
@@ -224,6 +254,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # sestrav benchmark
 # ---------------------------------------------------------------------------
+
 
 def cmd_benchmark(args: argparse.Namespace) -> int:
     """Compare SESTRAV predictions to gold-standard immunogenicity labels."""
@@ -253,7 +284,9 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
 
     positives = int(pred_df["_gs_label"].sum())
     print(f"[sestrav benchmark] Predictions : {len(pred_df)} peptides")
-    print(f"[sestrav benchmark] Gold std    : {positives} positives ({positives/len(pred_df):.1%})")
+    print(
+        f"[sestrav benchmark] Gold std    : {positives} positives ({positives / len(pred_df):.1%})"
+    )
     print(f"[sestrav benchmark] Score column: {score_col}")
 
     scores = pred_df[score_col].values
@@ -286,25 +319,45 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
 # Argument parsers
 # ---------------------------------------------------------------------------
 
+
 def _build_predict_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(add_help=False)
     p.add_argument("--fasta", required=True, help="Path to viral proteome FASTA file")
     p.add_argument("--model", required=True, help="Path to trained .joblib model file")
-    p.add_argument("--output", default="results/cli_predict/", help="Output directory (default: results/cli_predict/)")
-    p.add_argument("--alleles", nargs="+", default=None, help="HLA alleles (default: 10-allele canonical panel)")
-    p.add_argument("--lengths", type=int, nargs="+", default=None, help="Peptide lengths (default: 8 9 10 11)")
-    p.add_argument("--feature-mode", type=str, default=None, help="Feature mode (default: from config.yaml)")
+    p.add_argument(
+        "--output",
+        default="results/cli_predict/",
+        help="Output directory (default: results/cli_predict/)",
+    )
+    p.add_argument(
+        "--alleles",
+        nargs="+",
+        default=None,
+        help="HLA alleles (default: 10-allele canonical panel)",
+    )
+    p.add_argument(
+        "--lengths", type=int, nargs="+", default=None, help="Peptide lengths (default: 8 9 10 11)"
+    )
+    p.add_argument(
+        "--feature-mode", type=str, default=None, help="Feature mode (default: from config.yaml)"
+    )
     return p
 
 
 def _build_validate_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(add_help=False)
     p.add_argument("--dataset", required=True, help="Path to labeled immunogenicity CSV")
-    p.add_argument("--binding-matrix", default=None, help="Path to peptide binding matrix CSV (required for mode 30+)")
+    p.add_argument(
+        "--binding-matrix",
+        default=None,
+        help="Path to peptide binding matrix CSV (required for mode 30+)",
+    )
     p.add_argument("--model-dir", default="models", help="Directory to write trained models")
     p.add_argument("--folds", type=int, default=5, help="CV folds (default: 5)")
     p.add_argument("--feature-mode", type=str, default=None, help="Feature mode override")
-    p.add_argument("--sample-weights", action="store_true", help="Apply bias-correction sample weights")
+    p.add_argument(
+        "--sample-weights", action="store_true", help="Apply bias-correction sample weights"
+    )
     p.add_argument("--report", default=None, help="Path to write markdown validation report")
     return p
 
@@ -312,7 +365,11 @@ def _build_validate_parser() -> argparse.ArgumentParser:
 def _build_benchmark_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(add_help=False)
     p.add_argument("--predictions", required=True, help="Path to ranked predictions CSV")
-    p.add_argument("--score-column", default=None, help="Column name for prediction scores (auto-detected if omitted)")
+    p.add_argument(
+        "--score-column",
+        default=None,
+        help="Column name for prediction scores (auto-detected if omitted)",
+    )
     p.add_argument("--output", default=None, help="Path to write markdown benchmark report")
     return p
 
@@ -324,6 +381,7 @@ def _build_info_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -351,29 +409,56 @@ Examples:
     p_predict.add_argument("--fasta", required=True, help="Path to viral proteome FASTA file")
     p_predict.add_argument("--model", required=True, help="Path to trained .joblib model file")
     p_predict.add_argument("--output", default="results/cli_predict/", help="Output directory")
-    p_predict.add_argument("--alleles", nargs="+", default=None, metavar="ALLELE",
-                           help="HLA alleles (default: 10-allele canonical panel from config.yaml)")
-    p_predict.add_argument("--lengths", type=int, nargs="+", default=None, metavar="N",
-                           help="Peptide lengths to generate (default: 8 9 10 11)")
-    p_predict.add_argument("--feature-mode", type=str, default=None,
-                           help="Feature mode override (default: from config.yaml)")
+    p_predict.add_argument(
+        "--alleles",
+        nargs="+",
+        default=None,
+        metavar="ALLELE",
+        help="HLA alleles (default: 10-allele canonical panel from config.yaml)",
+    )
+    p_predict.add_argument(
+        "--lengths",
+        type=int,
+        nargs="+",
+        default=None,
+        metavar="N",
+        help="Peptide lengths to generate (default: 8 9 10 11)",
+    )
+    p_predict.add_argument(
+        "--feature-mode",
+        type=str,
+        default=None,
+        help="Feature mode override (default: from config.yaml)",
+    )
 
     # validate
     p_validate = subparsers.add_parser("validate", help="Cross-validate on a labeled dataset")
     p_validate.add_argument("--dataset", required=True, help="Path to labeled immunogenicity CSV")
-    p_validate.add_argument("--binding-matrix", default=None, help="Binding matrix CSV (required for mode 30+)")
-    p_validate.add_argument("--model-dir", default="models", help="Output directory for trained models")
+    p_validate.add_argument(
+        "--binding-matrix", default=None, help="Binding matrix CSV (required for mode 30+)"
+    )
+    p_validate.add_argument(
+        "--model-dir", default="models", help="Output directory for trained models"
+    )
     p_validate.add_argument("--folds", type=int, default=5, help="Number of CV folds (default: 5)")
     p_validate.add_argument("--feature-mode", type=str, default=None, help="Feature mode override")
-    p_validate.add_argument("--sample-weights", action="store_true",
-                            help="Apply EBV/HPV16 and 9-mer bias-correction weights")
-    p_validate.add_argument("--report", default=None, help="Path to write markdown validation report")
+    p_validate.add_argument(
+        "--sample-weights",
+        action="store_true",
+        help="Apply EBV/HPV16 and 9-mer bias-correction weights",
+    )
+    p_validate.add_argument(
+        "--report", default=None, help="Path to write markdown validation report"
+    )
 
     # benchmark
-    p_benchmark = subparsers.add_parser("benchmark", help="Benchmark predictions against gold standard")
+    p_benchmark = subparsers.add_parser(
+        "benchmark", help="Benchmark predictions against gold standard"
+    )
     p_benchmark.add_argument("--predictions", required=True, help="Path to ranked predictions CSV")
-    p_benchmark.add_argument("--score-column", default=None,
-                             help="Score column name (auto-detected if omitted)")
+    p_benchmark.add_argument(
+        "--score-column", default=None, help="Score column name (auto-detected if omitted)"
+    )
     p_benchmark.add_argument("--output", default=None, help="Path to write markdown report")
 
     # info

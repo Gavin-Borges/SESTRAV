@@ -1,4 +1,5 @@
 """Tests for scripts/ingest_vdjdb.py - VDJdb ingestion logic."""
+
 import csv
 import os
 import sys
@@ -27,12 +28,24 @@ def _write_vdjdb_tsv(path, rows):
 
 
 _ROWS = [
-    {"Epitope": "GILGFVFTL", "MHC A": "HLA-A*02:01",
-     "Epitope species": "Influenza A", "Epitope gene": "M"},
-    {"Epitope": "NLVPMVATV", "MHC A": "HLA-A*02:01",
-     "Epitope species": "CMV", "Epitope gene": "pp65"},
-    {"Epitope": "KLGGALQAK", "MHC A": "HLA-A*03:01",
-     "Epitope species": "CMV", "Epitope gene": "IE1"},
+    {
+        "Epitope": "GILGFVFTL",
+        "MHC A": "HLA-A*02:01",
+        "Epitope species": "Influenza A",
+        "Epitope gene": "M",
+    },
+    {
+        "Epitope": "NLVPMVATV",
+        "MHC A": "HLA-A*02:01",
+        "Epitope species": "CMV",
+        "Epitope gene": "pp65",
+    },
+    {
+        "Epitope": "KLGGALQAK",
+        "MHC A": "HLA-A*03:01",
+        "Epitope species": "CMV",
+        "Epitope gene": "IE1",
+    },
 ]
 
 
@@ -53,10 +66,18 @@ def test_ingest_vdjdb_happy_path(tmp_path):
 
 def test_ingest_vdjdb_drops_low_resolution_alleles(tmp_path):
     rows = [
-        {"Epitope": "GILGFVFTL", "MHC A": "HLA-A*02:01",
-         "Epitope species": "Flu", "Epitope gene": "M"},
-        {"Epitope": "NLVPMVATV", "MHC A": "HLA-A02",   # low-res → dropped
-         "Epitope species": "CMV", "Epitope gene": "pp65"},
+        {
+            "Epitope": "GILGFVFTL",
+            "MHC A": "HLA-A*02:01",
+            "Epitope species": "Flu",
+            "Epitope gene": "M",
+        },
+        {
+            "Epitope": "NLVPMVATV",
+            "MHC A": "HLA-A02",  # low-res → dropped
+            "Epitope species": "CMV",
+            "Epitope gene": "pp65",
+        },
     ]
     tsv = tmp_path / "vdjdb.txt"
     _write_vdjdb_tsv(tsv, rows)
@@ -69,8 +90,12 @@ def test_ingest_vdjdb_drops_low_resolution_alleles(tmp_path):
 
 def test_ingest_vdjdb_deduplicates(tmp_path):
     rows = _ROWS + [
-        {"Epitope": "GILGFVFTL", "MHC A": "HLA-A*02:01",
-         "Epitope species": "Flu", "Epitope gene": "M"},
+        {
+            "Epitope": "GILGFVFTL",
+            "MHC A": "HLA-A*02:01",
+            "Epitope species": "Flu",
+            "Epitope gene": "M",
+        },
     ]
     tsv = tmp_path / "vdjdb.txt"
     _write_vdjdb_tsv(tsv, rows)
@@ -99,10 +124,18 @@ def test_ingest_vdjdb_missing_file_raises(tmp_path):
 
 def test_ingest_vdjdb_drops_non_hla_alleles(tmp_path):
     rows = [
-        {"Epitope": "GILGFVFTL", "MHC A": "HLA-A*02:01",
-         "Epitope species": "Flu", "Epitope gene": "M"},
-        {"Epitope": "NLVPMVATV", "MHC A": "H-2Kb",   # non-HLA → filtered
-         "Epitope species": "CMV", "Epitope gene": "pp65"},
+        {
+            "Epitope": "GILGFVFTL",
+            "MHC A": "HLA-A*02:01",
+            "Epitope species": "Flu",
+            "Epitope gene": "M",
+        },
+        {
+            "Epitope": "NLVPMVATV",
+            "MHC A": "H-2Kb",  # non-HLA → filtered
+            "Epitope species": "CMV",
+            "Epitope gene": "pp65",
+        },
     ]
     tsv = tmp_path / "vdjdb.txt"
     _write_vdjdb_tsv(tsv, rows)

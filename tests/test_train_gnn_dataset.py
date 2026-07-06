@@ -9,6 +9,7 @@ and a pre-computed physicochemical feature matrix. Tests exercise:
   - use_spatial fallback when cache file is absent
   - set_seed determinism
 """
+
 import numpy as np
 import pandas as pd
 import torch
@@ -21,8 +22,10 @@ from src.train_gnn import GraphPeptideDataset, set_seed
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_dataset(peptides, n_features=21, labels=None, max_len=11,
-                  cache_dir=None, use_spatial=False):
+
+def _make_dataset(
+    peptides, n_features=21, labels=None, max_len=11, cache_dir=None, use_spatial=False
+):
     df = pd.DataFrame({"peptide": peptides})
     n = len(peptides)
     feat_matrix = pd.DataFrame(
@@ -31,14 +34,15 @@ def _make_dataset(peptides, n_features=21, labels=None, max_len=11,
     )
     if labels is None:
         labels = np.zeros(n)
-    return GraphPeptideDataset(df, feat_matrix, labels,
-                               max_len=max_len, cache_dir=cache_dir,
-                               use_spatial=use_spatial)
+    return GraphPeptideDataset(
+        df, feat_matrix, labels, max_len=max_len, cache_dir=cache_dir, use_spatial=use_spatial
+    )
 
 
 # ---------------------------------------------------------------------------
 # Construction + __len__
 # ---------------------------------------------------------------------------
+
 
 def test_len_single():
     ds = _make_dataset(["CLGGLLTMV"])
@@ -53,6 +57,7 @@ def test_len_batch():
 # ---------------------------------------------------------------------------
 # __getitem__ with labels
 # ---------------------------------------------------------------------------
+
 
 def test_getitem_returns_four_tensors():
     ds = _make_dataset(["CLGGLLTMV"], labels=np.array([1.0]))
@@ -95,6 +100,7 @@ def test_label_value_preserved():
 # __getitem__ without labels
 # ---------------------------------------------------------------------------
 
+
 def test_getitem_no_labels_returns_three_tensors():
     df = pd.DataFrame({"peptide": ["CLGGLLTMV"]})
     feat = pd.DataFrame(np.zeros((1, 21)), columns=[f"f{i}" for i in range(21)])
@@ -106,6 +112,7 @@ def test_getitem_no_labels_returns_three_tensors():
 # ---------------------------------------------------------------------------
 # Sequence padding (peptide shorter than max_len)
 # ---------------------------------------------------------------------------
+
 
 def test_short_sequence_zero_pads():
     ds = _make_dataset(["ACDE"], max_len=11)  # 4 AAs, padded to 11
@@ -128,9 +135,9 @@ def test_9mer_node_features_populated():
 # use_spatial fallback: missing cache → chain adj
 # ---------------------------------------------------------------------------
 
+
 def test_use_spatial_missing_cache_falls_back(tmp_path):
-    ds = _make_dataset(["CLGGLLTMV"], max_len=11,
-                       cache_dir=str(tmp_path), use_spatial=True)
+    ds = _make_dataset(["CLGGLLTMV"], max_len=11, cache_dir=str(tmp_path), use_spatial=True)
     node_feats, physico, adj_spatial, label = ds[0]
 
     ds_chain = _make_dataset(["CLGGLLTMV"], max_len=11, use_spatial=False)
@@ -142,6 +149,7 @@ def test_use_spatial_missing_cache_falls_back(tmp_path):
 # ---------------------------------------------------------------------------
 # Adjacency matrix properties
 # ---------------------------------------------------------------------------
+
 
 def test_adj_symmetric():
     ds = _make_dataset(["CLGGLLTMV"], max_len=11)
@@ -158,6 +166,7 @@ def test_adj_nonnegative():
 # ---------------------------------------------------------------------------
 # set_seed determinism
 # ---------------------------------------------------------------------------
+
 
 def test_set_seed_torch_deterministic():
     set_seed(123)

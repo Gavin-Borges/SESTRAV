@@ -68,25 +68,52 @@ NEGATIVE_MEASURES = {"negative", "neg", "no response", "non-responder"}
 # Candidate column name variants tried in order (case-insensitive).
 # Add additional variants from --inspect output if the default set misses.
 CANDIDATE_EPITOPE = (
-    "Sequence", "Epitope", "Epitope Name", "Peptide", "peptide", "sequence",
+    "Sequence",
+    "Epitope",
+    "Epitope Name",
+    "Peptide",
+    "peptide",
+    "sequence",
 )
 CANDIDATE_HLA = (
-    "MHC Restriction", "HLA", "MHC", "Restriction", "Allele",
-    "mhc restriction", "hla allele",
+    "MHC Restriction",
+    "HLA",
+    "MHC",
+    "Restriction",
+    "Allele",
+    "mhc restriction",
+    "hla allele",
 )
 CANDIDATE_RESULT = (
-    "Qualitative Measure", "Assay Response", "Response", "Result",
-    "assay response", "qualitative measure", "result",
+    "Qualitative Measure",
+    "Assay Response",
+    "Response",
+    "Result",
+    "assay response",
+    "qualitative measure",
+    "result",
 )
 CANDIDATE_PMID = (
-    "PMID", "PubMed ID", "Reference PMID", "Ref PMID", "pmid",
-    "pubmed id", "reference",
+    "PMID",
+    "PubMed ID",
+    "Reference PMID",
+    "Ref PMID",
+    "pmid",
+    "pubmed id",
+    "reference",
 )
 CANDIDATE_PROTEIN = (
-    "Protein", "Antigen", "protein", "antigen",
+    "Protein",
+    "Antigen",
+    "protein",
+    "antigen",
 )
 CANDIDATE_ASSAY = (
-    "Assay", "Assay Type", "Assay Group", "assay", "assay type",
+    "Assay",
+    "Assay Type",
+    "Assay Group",
+    "assay",
+    "assay type",
 )
 
 
@@ -248,9 +275,7 @@ def filter_rows(
         {
             "peptide": df["_peptide"],
             "hla": df["_hla_norm"],
-            "pmid": df[pmid_col].fillna("").astype(str).str.strip()
-            if pmid_col is not None
-            else "",
+            "pmid": df[pmid_col].fillna("").astype(str).str.strip() if pmid_col is not None else "",
         }
     )
     before_dedup = len(df)
@@ -289,9 +314,7 @@ def build_output(
     out["peptide"] = df["_peptide"]
     out["label"] = 0
     out["virus"] = "HCV"
-    out["protein"] = (
-        df[protein_col].fillna("").str.strip() if protein_col else ""
-    )
+    out["protein"] = df[protein_col].fillna("").str.strip() if protein_col else ""
     out["strain"] = None
     out["hla_allele"] = df["_hla_norm"]
     out["source_type"] = "Virus"
@@ -367,22 +390,37 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     # Column override arguments
-    parser.add_argument("--col-epitope", default=None, metavar="COL",
-                        help="Column name for the peptide/epitope sequence.")
-    parser.add_argument("--col-hla", default=None, metavar="COL",
-                        help="Column name for the MHC/HLA restriction.")
-    parser.add_argument("--col-assay-result", default=None, metavar="COL",
-                        help="Column name for the assay qualitative result (positive/negative).")
-    parser.add_argument("--col-pmid", default=None, metavar="COL",
-                        help="Column name for the PubMed ID / reference.")
-    parser.add_argument("--col-protein", default=None, metavar="COL",
-                        help="Column name for the viral protein name.")
-    parser.add_argument("--col-assay-type", default=None, metavar="COL",
-                        help="Column name for the assay type/group.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print filter stats without writing output.")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Enable DEBUG-level logging.")
+    parser.add_argument(
+        "--col-epitope",
+        default=None,
+        metavar="COL",
+        help="Column name for the peptide/epitope sequence.",
+    )
+    parser.add_argument(
+        "--col-hla", default=None, metavar="COL", help="Column name for the MHC/HLA restriction."
+    )
+    parser.add_argument(
+        "--col-assay-result",
+        default=None,
+        metavar="COL",
+        help="Column name for the assay qualitative result (positive/negative).",
+    )
+    parser.add_argument(
+        "--col-pmid", default=None, metavar="COL", help="Column name for the PubMed ID / reference."
+    )
+    parser.add_argument(
+        "--col-protein", default=None, metavar="COL", help="Column name for the viral protein name."
+    )
+    parser.add_argument(
+        "--col-assay-type",
+        default=None,
+        metavar="COL",
+        help="Column name for the assay type/group.",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print filter stats without writing output."
+    )
+    parser.add_argument("--verbose", action="store_true", help="Enable DEBUG-level logging.")
     return parser.parse_args(argv)
 
 

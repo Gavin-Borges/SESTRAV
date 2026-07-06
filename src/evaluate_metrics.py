@@ -72,7 +72,7 @@ def ndcg_at_k(y_true, y_scores, k):
     y_true = np.asarray(y_true)
     y_scores = np.asarray(y_scores)
     if len(y_true) < 2:
-        return float('nan')
+        return float("nan")
     y_true = y_true.reshape(1, -1)
     y_scores = y_scores.reshape(1, -1)
     n_items = y_true.shape[1]
@@ -101,23 +101,23 @@ def evaluate(y_true, y_scores):
 
     unique_classes = np.unique(y_true)
     if len(unique_classes) < 2:
-        auc_roc = float('nan')
-        auc_pr = float('nan')
+        auc_roc = float("nan")
+        auc_pr = float("nan")
     else:
         auc_roc = roc_auc_score(y_true, y_scores)
         auc_pr = average_precision_score(y_true, y_scores)
 
     return {
-        'auc_roc':      auc_roc,
-        'auc_pr':       auc_pr,
-        'issr_10':      issr_at_k(y_true, y_scores, 10),
-        'issr_25':      issr_at_k(y_true, y_scores, 25),
-        'precision_10': precision_at_k(y_true, y_scores, 10),
-        'recall_10':    recall_at_k(y_true, y_scores, 10),
-        'ndcg_10':      ndcg_at_k(y_true, y_scores, 10),
-        'precision_25': precision_at_k(y_true, y_scores, 25),
-        'recall_25':    recall_at_k(y_true, y_scores, 25),
-        'ndcg_25':      ndcg_at_k(y_true, y_scores, 25),
+        "auc_roc": auc_roc,
+        "auc_pr": auc_pr,
+        "issr_10": issr_at_k(y_true, y_scores, 10),
+        "issr_25": issr_at_k(y_true, y_scores, 25),
+        "precision_10": precision_at_k(y_true, y_scores, 10),
+        "recall_10": recall_at_k(y_true, y_scores, 10),
+        "ndcg_10": ndcg_at_k(y_true, y_scores, 10),
+        "precision_25": precision_at_k(y_true, y_scores, 25),
+        "recall_25": recall_at_k(y_true, y_scores, 25),
+        "ndcg_25": ndcg_at_k(y_true, y_scores, 25),
     }
 
 

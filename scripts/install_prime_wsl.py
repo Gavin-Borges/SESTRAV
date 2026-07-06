@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Install PRIME 2.1 and MixMHCpred in WSL/Linux for SESTRAV external validation."""
+
 from __future__ import annotations
 
 import io
@@ -10,7 +11,9 @@ import zipfile
 import hashlib
 from pathlib import Path
 
-INSTALL_DIR = Path(os.environ.get("SESTRAV_TOOL_ROOT", Path.home() / "tools" / "sestrav_external")).resolve()
+INSTALL_DIR = Path(
+    os.environ.get("SESTRAV_TOOL_ROOT", Path.home() / "tools" / "sestrav_external")
+).resolve()
 PRIME_URL = "https://github.com/GfellerLab/PRIME/archive/refs/heads/master.zip"
 MIX_URL = "https://github.com/GfellerLab/MixMHCpred/archive/refs/heads/master.zip"
 PRIME_SHA_ENV = "SESTRAV_PRIME_ZIP_SHA256"
@@ -40,7 +43,9 @@ def _safe_extract_zip(zf: zipfile.ZipFile, dest_dir: Path) -> None:
     zf.extractall(dest_dir)
 
 
-def download_zip(url: str, dest_dir: Path, rename_to: str, expected_sha256: str | None = None) -> Path:
+def download_zip(
+    url: str, dest_dir: Path, rename_to: str, expected_sha256: str | None = None
+) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     target = dest_dir / rename_to
     if target.exists():
@@ -88,21 +93,22 @@ def compile_prime(prime_dir: Path) -> Path:
 
 
 def main() -> None:
-    prime_sha = os.environ.get(PRIME_SHA_ENV, "da5e65fd4b142857f42167b15495600b3a6416641c73854a8a2cbc00d67ee6a8")
-    mix_sha = os.environ.get(MIX_SHA_ENV, "9b3d96813368df42622ce13a96eed09b447133699d8eaf5a4793da8561981c9b")
+    prime_sha = os.environ.get(
+        PRIME_SHA_ENV, "da5e65fd4b142857f42167b15495600b3a6416641c73854a8a2cbc00d67ee6a8"
+    )
+    mix_sha = os.environ.get(
+        MIX_SHA_ENV, "9b3d96813368df42622ce13a96eed09b447133699d8eaf5a4793da8561981c9b"
+    )
     prime_dir = download_zip(PRIME_URL, INSTALL_DIR, "PRIME2.1", expected_sha256=prime_sha)
     download_zip(MIX_URL, INSTALL_DIR, "MixMHCpred", expected_sha256=mix_sha)
     prime_bin = compile_prime(prime_dir)
-    path_line = (
-        f'export PATH="{prime_dir}:{INSTALL_DIR / "MixMHCpred"}:$PATH"'
-    )
+    path_line = f'export PATH="{prime_dir}:{INSTALL_DIR / "MixMHCpred"}:$PATH"'
     bashrc = Path.home() / ".bashrc"
     text = bashrc.read_text(encoding="utf-8") if bashrc.exists() else ""
     if "sestrav_external" not in text:
         bashrc.write_text(text + "\n" + path_line + "\n", encoding="utf-8")
     print(f"[install-prime] PRIME binary: {prime_bin}")
     print(path_line)
-
 
 
 if __name__ == "__main__":

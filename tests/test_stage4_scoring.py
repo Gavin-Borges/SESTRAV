@@ -38,6 +38,7 @@ def _run_in_results_dir(monkeypatch, tmp_path):
 
 # --- prototype RandomForest fallback -------------------------------------------------
 
+
 def test_prototype_path_with_binding_score(monkeypatch, tmp_path):
     _run_in_results_dir(monkeypatch, tmp_path)
     df = _feature_frame(FEATURE_COLUMNS)  # FEATURE_COLUMNS includes binding_score
@@ -82,6 +83,7 @@ def test_freeze_mode_without_model_raises(monkeypatch, tmp_path):
 
 
 # --- joblib model branch (heavy loader mocked) ---------------------------------------
+
 
 class _FakeSklearnModel:
     def __init__(self, n_features):
@@ -132,7 +134,8 @@ def test_model_path_alias_resolution(monkeypatch, tmp_path):
     (tmp_path / "platt_calibrator.joblib").write_bytes(b"stub")
     monkeypatch.setattr(s4, "resolve_model_path", lambda p: str(real_path))
     monkeypatch.setattr(
-        s4, "load_verified_joblib",
+        s4,
+        "load_verified_joblib",
         lambda p, required_checksum=True: _FakeSklearnModel(len(TRAIN_FEATURE_COLUMNS)),
     )
     df = _feature_frame(TRAIN_FEATURE_COLUMNS)
@@ -142,6 +145,7 @@ def test_model_path_alias_resolution(monkeypatch, tmp_path):
 
 
 # --- calibration with a calibrator present -------------------------------------------
+
 
 class _FakeCalibrator:
     def predict_proba(self, logits):
@@ -162,6 +166,7 @@ def test_apply_calibration_with_calibrator(monkeypatch, tmp_path):
 
 
 # --- PyTorch .pt branch (real lightweight checkpoint) --------------------------------
+
 
 def _save_ann_checkpoint(path, n_features):
     torch = pytest.importorskip("torch")
@@ -214,9 +219,7 @@ def test_pytorch_branch_mc_dropout(monkeypatch, tmp_path):
     pt_path = tmp_path / "ann.pt"
     _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30))
     df = _feature_frame(FEATURE_COLUMNS_30)
-    ranked, _ = s4.score_immunogenicity(
-        df, "HPV16", model_path=str(pt_path), mc_dropout=True
-    )
+    ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path), mc_dropout=True)
     assert "mc_score" in ranked.columns
     assert "uncertainty_std" in ranked.columns
     assert (ranked["uncertainty_std"] >= 0).all()
@@ -234,6 +237,7 @@ def test_pytorch_freeze_mode_missing_features_raises(monkeypatch, tmp_path):
 
 
 # --- plotting ------------------------------------------------------------------------
+
 
 def test_plot_immunogenicity_scores(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
@@ -281,11 +285,12 @@ def test_pytorch_missing_features_warns_non_freeze(monkeypatch, tmp_path, capsys
     df = _feature_frame(FEATURE_COLUMNS_30[:-1])
     # Mock _load_pytorch_model so the shape mismatch after the warning doesn't propagate.
     import torch.nn as nn
+
     class _TrivialModel(nn.Module):
         def forward(self, x):
             return x[:, 0]
-    monkeypatch.setattr(s4, "_load_pytorch_model",
-                        lambda *_: (np.zeros(len(df)), _TrivialModel()))
+
+    monkeypatch.setattr(s4, "_load_pytorch_model", lambda *_: (np.zeros(len(df)), _TrivialModel()))
     ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path), freeze_mode=False)
     assert "immunogenicity_score" in ranked.columns
     assert "WARNING" in capsys.readouterr().out
@@ -297,13 +302,12 @@ def test_score_immunogenicity_no_calibrate(monkeypatch, tmp_path):
     model_path = tmp_path / "model.joblib"
     model_path.write_bytes(b"stub")
     monkeypatch.setattr(
-        s4, "load_verified_joblib",
+        s4,
+        "load_verified_joblib",
         lambda p, required_checksum=True: _FakeSklearnModel(len(FEATURE_COLUMNS_30)),
     )
     df = _feature_frame(FEATURE_COLUMNS_30)
-    ranked, _ = s4.score_immunogenicity(
-        df, "HPV16", model_path=str(model_path), calibrate=False
-    )
+    ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(model_path), calibrate=False)
     assert "immunogenicity_score" in ranked.columns
     assert "calibrated_score" not in ranked.columns
 
@@ -331,7 +335,8 @@ def test_joblib_branch_legacy_else_fallback(monkeypatch, tmp_path):
     # Use a feature count that matches none of the 50/30/21 sets (e.g. 15)
     _LEGACY_COLS = FEATURE_COLUMNS[:15]
     monkeypatch.setattr(
-        s4, "load_verified_joblib",
+        s4,
+        "load_verified_joblib",
         lambda p, required_checksum=True: _FakeSklearnModel(15),
     )
     df = _feature_frame(_LEGACY_COLS)

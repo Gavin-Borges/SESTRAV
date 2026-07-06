@@ -32,6 +32,7 @@ HLA_FAMILY_SUPERTYPE_MAP = {
     r"^HLA-B\*58:\d+$": "B58",
 }
 
+
 def get_hla_supertype(allele: str) -> str:
     """
     Normalize HLA allele string and resolve its corresponding supertype.
@@ -41,9 +42,9 @@ def get_hla_supertype(allele: str) -> str:
     # Ensure format HLA-X*XX:XX
     if clean_allele in HLA_SUPERTYPE_MAP:
         return HLA_SUPERTYPE_MAP[clean_allele]
-        
+
     for pattern, supertype in HLA_FAMILY_SUPERTYPE_MAP.items():
         if re.match(pattern, clean_allele):
             return supertype
-            
+
     raise ValueError(f"Unknown or unmapped HLA allele sequence: {allele}")

@@ -6,6 +6,7 @@ Targets the uncovered paths:
   - None-result branch in the accumulator loop
   - main() CLI entry point
 """
+
 import json
 from unittest.mock import patch
 
@@ -22,17 +23,22 @@ from src.statistical_bootstrap import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _df(n_pos: int = 30, n_neg: int = 30, seed: int = 0) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     labels = np.array([1] * n_pos + [0] * n_neg)
-    ref = np.concatenate([
-        rng.normal(0.8, 0.05, n_pos).clip(0, 1),
-        rng.normal(0.2, 0.05, n_neg).clip(0, 1),
-    ])
-    comp = np.concatenate([
-        rng.normal(0.6, 0.1, n_pos).clip(0, 1),
-        rng.normal(0.4, 0.1, n_neg).clip(0, 1),
-    ])
+    ref = np.concatenate(
+        [
+            rng.normal(0.8, 0.05, n_pos).clip(0, 1),
+            rng.normal(0.2, 0.05, n_neg).clip(0, 1),
+        ]
+    )
+    comp = np.concatenate(
+        [
+            rng.normal(0.6, 0.1, n_pos).clip(0, 1),
+            rng.normal(0.4, 0.1, n_neg).clip(0, 1),
+        ]
+    )
     return pd.DataFrame({"label": labels, "ref": ref, "comp": comp})
 
 
@@ -40,11 +46,14 @@ def _df(n_pos: int = 30, n_neg: int = 30, seed: int = 0) -> pd.DataFrame:
 # _bootstrap_iter - direct (covers lines 23-34)
 # ---------------------------------------------------------------------------
 
+
 class TestBootstrapIter:
     def _arrays(self, n_pos=20, n_neg=20, seed=1):
         rng = np.random.default_rng(seed)
         y = np.array([1] * n_pos + [0] * n_neg)
-        ref = np.concatenate([rng.normal(0.8, 0.05, n_pos), rng.normal(0.2, 0.05, n_neg)]).clip(0, 1)
+        ref = np.concatenate([rng.normal(0.8, 0.05, n_pos), rng.normal(0.2, 0.05, n_neg)]).clip(
+            0, 1
+        )
         comp = np.concatenate([rng.normal(0.6, 0.1, n_pos), rng.normal(0.4, 0.1, n_neg)]).clip(0, 1)
         return y, ref, comp
 
@@ -74,12 +83,15 @@ class TestBootstrapIter:
 # paired_bootstrap_comparison - early-return path (line 55)
 # ---------------------------------------------------------------------------
 
+
 def test_paired_bootstrap_too_few_clean_samples():
-    df = pd.DataFrame({
-        "label": [1, 0, 1],
-        "ref":   [0.9, 0.1, 0.8],
-        "comp":  [0.7, 0.3, 0.6],
-    })
+    df = pd.DataFrame(
+        {
+            "label": [1, 0, 1],
+            "ref": [0.9, 0.1, 0.8],
+            "comp": [0.7, 0.3, 0.6],
+        }
+    )
     result = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=10)
     assert "error" in result
     assert "Too few" in result["error"]
@@ -91,13 +103,16 @@ def test_paired_bootstrap_too_few_clean_samples():
 # branch is explicitly exercised in the same process as coverage.
 # ---------------------------------------------------------------------------
 
+
 def _inline_parallel(*args, **kwargs):
     """Replace joblib.Parallel with a synchronous in-process executor."""
+
     def _run(generator):
         results = []
         for fn, fn_args, fn_kwargs in generator:
             results.append(fn(*fn_args, **fn_kwargs))
         return results
+
     return _run
 
 
@@ -125,6 +140,7 @@ def test_paired_bootstrap_none_result_handled():
 # (ensures _bootstrap_iter body is covered in the same process)
 # ---------------------------------------------------------------------------
 
+
 def test_paired_bootstrap_inline_happy_path():
     df = _df(n_pos=30, n_neg=30)
     with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
@@ -151,6 +167,7 @@ def test_paired_bootstrap_ref_superior_to_comp():
 # main() CLI entry point (lines 117-148, 151)
 # ---------------------------------------------------------------------------
 
+
 def test_main_writes_json(tmp_path):
     from src.statistical_bootstrap import main
 
@@ -160,15 +177,24 @@ def test_main_writes_json(tmp_path):
     out_json = tmp_path / "stats.json"
 
     with (
-        patch("sys.argv", [
-            "statistical_bootstrap.py",
-            "--merged-csv", str(csv_path),
-            "--ref-col", "rf_oof_score",
-            "--comp-cols", "gnn_score",
-            "--label-col", "label",
-            "--n-resamples", "20",
-            "--output-json", str(out_json),
-        ]),
+        patch(
+            "sys.argv",
+            [
+                "statistical_bootstrap.py",
+                "--merged-csv",
+                str(csv_path),
+                "--ref-col",
+                "rf_oof_score",
+                "--comp-cols",
+                "gnn_score",
+                "--label-col",
+                "label",
+                "--n-resamples",
+                "20",
+                "--output-json",
+                str(out_json),
+            ],
+        ),
         patch("src.statistical_bootstrap.Parallel", _inline_parallel),
     ):
         main()
@@ -187,13 +213,20 @@ def test_main_skips_missing_column(tmp_path):
     out_json = tmp_path / "stats.json"
 
     with (
-        patch("sys.argv", [
-            "statistical_bootstrap.py",
-            "--merged-csv", str(csv_path),
-            "--ref-col", "rf_oof_score",
-            "--comp-cols", "nonexistent_col",
-            "--output-json", str(out_json),
-        ]),
+        patch(
+            "sys.argv",
+            [
+                "statistical_bootstrap.py",
+                "--merged-csv",
+                str(csv_path),
+                "--ref-col",
+                "rf_oof_score",
+                "--comp-cols",
+                "nonexistent_col",
+                "--output-json",
+                str(out_json),
+            ],
+        ),
         patch("src.statistical_bootstrap.Parallel", _inline_parallel),
     ):
         main()

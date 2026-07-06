@@ -42,9 +42,7 @@ def test_evaluate_subgroups_overall_only():
 
 def test_evaluate_subgroups_with_groups():
     df = _frame(n=60)
-    rows = se.evaluate_subgroups(
-        df, score_col="score", group_columns=["virus"], min_group_size=5
-    )
+    rows = se.evaluate_subgroups(df, score_col="score", group_columns=["virus"], min_group_size=5)
     keys = {r["subgroup_key"] for r in rows}
     assert keys == {"overall", "virus"}
     virus_rows = [r for r in rows if r["subgroup_key"] == "virus"]
@@ -55,27 +53,21 @@ def test_evaluate_subgroups_small_group_gets_nan():
     df = _frame(n=40)
     # Force a tiny subgroup that falls below min_group_size.
     df.loc[df.index[:3], "virus"] = "RARE"
-    rows = se.evaluate_subgroups(
-        df, score_col="score", group_columns=["virus"], min_group_size=15
-    )
+    rows = se.evaluate_subgroups(df, score_col="score", group_columns=["virus"], min_group_size=15)
     rare = next(r for r in rows if r.get("subgroup_value") == "RARE")
     assert np.isnan(rare["auc_pr"])
 
 
 def test_evaluate_subgroups_missing_column_skipped():
     df = _frame()
-    rows = se.evaluate_subgroups(
-        df, score_col="score", group_columns=["does_not_exist"]
-    )
+    rows = se.evaluate_subgroups(df, score_col="score", group_columns=["does_not_exist"])
     assert len(rows) == 1  # only the overall row
 
 
 def test_evaluate_subgroups_nan_group_value_labelled_missing():
     df = _frame(n=40)
     df.loc[df.index[:20], "virus"] = np.nan
-    rows = se.evaluate_subgroups(
-        df, score_col="score", group_columns=["virus"], min_group_size=5
-    )
+    rows = se.evaluate_subgroups(df, score_col="score", group_columns=["virus"], min_group_size=5)
     assert any(r.get("subgroup_value") == "missing" for r in rows)
 
 

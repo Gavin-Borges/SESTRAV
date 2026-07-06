@@ -128,11 +128,7 @@ def pick_operating_threshold(
                 p_g = (gdf[score_col].to_numpy() >= thr).astype(int)
                 prec_g = precision_score(y_g, p_g, zero_division=0)
                 rec_g = recall_score(y_g, p_g, zero_division=0)
-                f1_g = (
-                    2 * prec_g * rec_g / (prec_g + rec_g)
-                    if (prec_g + rec_g) > 0
-                    else 0.0
-                )
+                f1_g = 2 * prec_g * rec_g / (prec_g + rec_g) if (prec_g + rec_g) > 0 else 0.0
                 subgroup_f1s.append(float(f1_g))
         min_subgroup_f1 = float(min(subgroup_f1s)) if subgroup_f1s else overall_f1
 

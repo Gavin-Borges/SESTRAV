@@ -65,11 +65,17 @@ OPTIONAL_TOOL_COLUMNS = {
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def get_git_commit_hash() -> str:
     """Retrieve the current Git commit hash of the repository."""
     import subprocess
+
     try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL).decode("ascii").strip()
+        return (
+            subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
+            .decode("ascii")
+            .strip()
+        )
     except Exception:
         return "unknown"
 
@@ -80,6 +86,7 @@ def get_model_checkpoint_name() -> str:
     if config_path.exists():
         try:
             import yaml
+
             with open(config_path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
                 model_path = config.get("model_path")
@@ -88,6 +95,7 @@ def get_model_checkpoint_name() -> str:
         except Exception:
             pass
     return "unknown"
+
 
 def load_freeze_status() -> dict:
     """Load and return freeze_status.json. Abort if not valid."""
@@ -109,7 +117,14 @@ def load_merged_scores(tier: str) -> pd.DataFrame:
         sys.exit(1)
 
     df = pd.read_csv(MERGED_SCORES_PATH)
-    required = {"peptide", "label", "virus", "rf_oof_score", "binding_max", "tier_a_baseline_complete"}
+    required = {
+        "peptide",
+        "label",
+        "virus",
+        "rf_oof_score",
+        "binding_max",
+        "tier_a_baseline_complete",
+    }
     missing = required - set(df.columns)
     if missing:
         print(f"[ERROR] merged_scores.csv missing columns: {missing}")
@@ -215,7 +230,9 @@ def compute_contamination(eval_df: pd.DataFrame, training_path: Path) -> dict:
     }
 
 
-def compute_metrics_for_tool(df: pd.DataFrame, score_col: str, label_col: str = "label") -> dict | None:
+def compute_metrics_for_tool(
+    df: pd.DataFrame, score_col: str, label_col: str = "label"
+) -> dict | None:
     """
     Compute all 10 SESTRAV metrics plus scikit-learn metrics (including Brier Score) for a given score column.
     Returns None if the column doesn't exist or has no valid scores.
@@ -240,6 +257,7 @@ def compute_metrics_for_tool(df: pd.DataFrame, score_col: str, label_col: str = 
 
     # Calculate additional metrics using scikit-learn explicitly
     from sklearn.metrics import roc_auc_score, average_precision_score, brier_score_loss
+
     metrics["auc_roc"] = float(roc_auc_score(y_true, y_scores))
     metrics["auc_pr"] = float(average_precision_score(y_true, y_scores))
     metrics["brier_score"] = float(brier_score_loss(y_true, y_scores))
@@ -268,6 +286,7 @@ def compute_length_stratified(df: pd.DataFrame, score_col: str, label_col: str =
             results[label] = {"n": int(len(subset)), "auc_pr": float("nan")}
         else:
             from sklearn.metrics import average_precision_score
+
             auc_pr = average_precision_score(subset[label_col].values, subset[score_col].values)
             results[label] = {"n": int(len(subset)), "auc_pr": round(float(auc_pr), 4)}
 
@@ -299,17 +318,20 @@ def build_clean_subset(df: pd.DataFrame, training_path: Path) -> pd.DataFrame:
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("  SESTRAV Benchmark Runner")
     print(f"  Tier: {tier}  |  Run ID: {run_id}")
     print(f"  {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # ── 1. Freeze check ──────────────────────────────────────────────────────
     if not skip_freeze_check:
         freeze = load_freeze_status()
-        print(f"[OK] Freeze status valid. Dataset version: {freeze.get('dataset_version', 'unknown')}")
+        print(
+            f"[OK] Freeze status valid. Dataset version: {freeze.get('dataset_version', 'unknown')}"
+        )
     else:
         print("[WARN] Freeze check skipped (--skip-freeze-check flag).")
         freeze = {}
@@ -329,13 +351,17 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
     contamination = compute_contamination(df, TRAINING_DATA_PATH)
     print(f"    Eval set:        {contamination['total_eval']} peptides")
     if contamination["overlap_rate"] != "N/A":
-        print(f"    Training overlap: {contamination['overlap_count']} peptides "
-              f"({contamination['overlap_rate']*100:.1f}%)")
+        print(
+            f"    Training overlap: {contamination['overlap_count']} peptides "
+            f"({contamination['overlap_rate'] * 100:.1f}%)"
+        )
         if contamination["gate_pass"]:
-            print(f"    Gate: PASS (≤ {CONTAMINATION_CAP*100:.0f}% cap)")
+            print(f"    Gate: PASS (≤ {CONTAMINATION_CAP * 100:.0f}% cap)")
         else:
-            print(f"    Gate: FAIL (> {CONTAMINATION_CAP*100:.0f}% cap - "
-                  "results are valid but flagged)")
+            print(
+                f"    Gate: FAIL (> {CONTAMINATION_CAP * 100:.0f}% cap - "
+                "results are valid but flagged)"
+            )
     else:
         print(f"    {contamination.get('note', '')}")
 
@@ -347,16 +373,20 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
     for tool_name, score_col in all_tools.items():
         metrics = compute_metrics_for_tool(df, score_col)
         if metrics is None:
-            print(f"    {tool_name:10s}: [SKIP] column '{score_col}' not found or insufficient data")
+            print(
+                f"    {tool_name:10s}: [SKIP] column '{score_col}' not found or insufficient data"
+            )
             continue
 
         row = {"tool": tool_name, "score_column": score_col, **metrics}
         metrics_rows.append(row)
-        print(f"    {tool_name:10s}: AUC-PR={metrics['auc_pr']:.4f}  "
-              f"AUC-ROC={metrics['auc_roc']:.4f}  "
-              f"ISSR@10={metrics['issr_10']:.4f}  "
-              f"ISSR@25={metrics['issr_25']:.4f}  "
-              f"N={metrics['n_samples']}")
+        print(
+            f"    {tool_name:10s}: AUC-PR={metrics['auc_pr']:.4f}  "
+            f"AUC-ROC={metrics['auc_roc']:.4f}  "
+            f"ISSR@10={metrics['issr_10']:.4f}  "
+            f"ISSR@25={metrics['issr_25']:.4f}  "
+            f"N={metrics['n_samples']}"
+        )
 
     # -- 6. Clean subset metrics (contamination-excluded) ----------------------
     df_clean = build_clean_subset(df, TRAINING_DATA_PATH)
@@ -369,8 +399,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
             continue
         row = {"tool": tool_name, "score_column": score_col, "subset": "clean_holdout", **metrics}
         clean_metrics_rows.append(row)
-        print(f"    {tool_name:10s}: AUC-PR={metrics['auc_pr']:.4f}  "
-              f"N={metrics['n_samples']}")
+        print(f"    {tool_name:10s}: AUC-PR={metrics['auc_pr']:.4f}  N={metrics['n_samples']}")
 
     # -- 7. Length-stratified metrics ------------------------------------------
     print("\n-- Length-Stratified Metrics ----------------------------------")
@@ -380,11 +409,13 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
             continue
         strat = compute_length_stratified(df, score_col)
         for length_group, values in strat.items():
-            length_rows.append({
-                "tool": tool_name,
-                "length_group": length_group,
-                **values,
-            })
+            length_rows.append(
+                {
+                    "tool": tool_name,
+                    "length_group": length_group,
+                    **values,
+                }
+            )
             auc_str = f"{values['auc_pr']:.4f}" if values.get("auc_pr") else "N/A"
             print(f"    {tool_name:10s} {length_group:9s}: AUC-PR={auc_str}  N={values['n']}")
 
@@ -398,10 +429,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
 
     # metrics_summary.csv
     if metrics_rows or clean_metrics_rows:
-        all_rows = (
-            [{"subset": "all", **r} for r in metrics_rows] +
-            clean_metrics_rows
-        )
+        all_rows = [{"subset": "all", **r} for r in metrics_rows] + clean_metrics_rows
         metrics_df = pd.DataFrame(all_rows)
         metrics_out = out_dir / "metrics_summary.csv"
         metrics_df.to_csv(metrics_out, index=False)
@@ -443,6 +471,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def main():
     parser = argparse.ArgumentParser(

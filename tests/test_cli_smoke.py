@@ -4,6 +4,7 @@ Verifies the dependency-light entry points run and produce parseable output
 without requiring a model, FASTA, or heavy stage modules: ``info``, the no-arg
 help banner, and ``--help`` for the program and each subcommand.
 """
+
 import pytest
 
 from src.cli import main
