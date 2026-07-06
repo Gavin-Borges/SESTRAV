@@ -46,103 +46,216 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 KD_HYDRO = {
-    'A':  1.8, 'R': -4.5, 'N': -3.5, 'D': -3.5, 'C':  2.5,
-    'E': -3.5, 'Q': -3.5, 'G': -0.4, 'H': -3.2, 'I':  4.5,
-    'L':  3.8, 'K': -3.9, 'M':  1.9, 'F':  2.8, 'P': -1.6,
-    'S': -0.8, 'T': -0.7, 'W': -0.9, 'Y': -1.3, 'V':  4.2
+    "A": 1.8,
+    "R": -4.5,
+    "N": -3.5,
+    "D": -3.5,
+    "C": 2.5,
+    "E": -3.5,
+    "Q": -3.5,
+    "G": -0.4,
+    "H": -3.2,
+    "I": 4.5,
+    "L": 3.8,
+    "K": -3.9,
+    "M": 1.9,
+    "F": 2.8,
+    "P": -1.6,
+    "S": -0.8,
+    "T": -0.7,
+    "W": -0.9,
+    "Y": -1.3,
+    "V": 4.2,
 }
 
 VDW_VOL = {
-    'A':  67, 'R': 148, 'N':  96, 'D':  91, 'C':  86,
-    'E': 109, 'Q': 114, 'G':  48, 'H': 118, 'I': 124,
-    'L': 124, 'K': 135, 'M': 124, 'F': 135, 'P':  90,
-    'S':  73, 'T':  93, 'W': 163, 'Y': 141, 'V': 105
+    "A": 67,
+    "R": 148,
+    "N": 96,
+    "D": 91,
+    "C": 86,
+    "E": 109,
+    "Q": 114,
+    "G": 48,
+    "H": 118,
+    "I": 124,
+    "L": 124,
+    "K": 135,
+    "M": 124,
+    "F": 135,
+    "P": 90,
+    "S": 73,
+    "T": 93,
+    "W": 163,
+    "Y": 141,
+    "V": 105,
 }
 
-AROMATIC = {
-    'F': 1, 'W': 1, 'Y': 1, 'H': 1
-}
+AROMATIC = {"F": 1, "W": 1, "Y": 1, "H": 1}
 
-CHARGE = {
-    'K':  1, 'R':  1, 'D': -1, 'E': -1
-}
+CHARGE = {"K": 1, "R": 1, "D": -1, "E": -1}
 
 # Vihinen et al. 1994 Flexibility Scale
 FLEXIBILITY = {
-    'A': 0.984, 'C': 0.906, 'D': 1.068, 'E': 1.094, 'F': 0.915,
-    'G': 1.031, 'H': 0.950, 'I': 0.927, 'K': 1.102, 'L': 0.935,
-    'M': 0.952, 'N': 1.048, 'P': 1.049, 'Q': 1.037, 'R': 1.008,
-    'S': 1.046, 'T': 0.997, 'V': 0.931, 'W': 0.904, 'Y': 0.929
+    "A": 0.984,
+    "C": 0.906,
+    "D": 1.068,
+    "E": 1.094,
+    "F": 0.915,
+    "G": 1.031,
+    "H": 0.950,
+    "I": 0.927,
+    "K": 1.102,
+    "L": 0.935,
+    "M": 0.952,
+    "N": 1.048,
+    "P": 1.049,
+    "Q": 1.037,
+    "R": 1.008,
+    "S": 1.046,
+    "T": 0.997,
+    "V": 0.931,
+    "W": 0.904,
+    "Y": 0.929,
 }
 
 # Zimmerman et al. 1968 Bulkiness
 BULKINESS = {
-    'A': 11.5, 'C': 13.46, 'D': 11.68, 'E': 13.57, 'F': 19.8,
-    'G': 3.4,  'H': 13.69, 'I': 21.4,  'K': 15.71, 'L': 21.4,
-    'M': 16.25, 'N': 12.82, 'P': 17.43, 'Q': 14.45, 'R': 14.28,
-    'S': 9.47,  'T': 15.77, 'V': 21.57, 'W': 21.67, 'Y': 18.03
+    "A": 11.5,
+    "C": 13.46,
+    "D": 11.68,
+    "E": 13.57,
+    "F": 19.8,
+    "G": 3.4,
+    "H": 13.69,
+    "I": 21.4,
+    "K": 15.71,
+    "L": 21.4,
+    "M": 16.25,
+    "N": 12.82,
+    "P": 17.43,
+    "Q": 14.45,
+    "R": 14.28,
+    "S": 9.47,
+    "T": 15.77,
+    "V": 21.57,
+    "W": 21.67,
+    "Y": 18.03,
 }
 
 # Hopp & Woods 1981 Hydrophilicity
 HYDROPHILICITY = {
-    'A': -0.5, 'C': -1.0, 'D': 3.0, 'E': 3.0, 'F': -2.5,
-    'G': 0.0,  'H': -0.5, 'I': -1.8, 'K': 3.0, 'L': -1.8,
-    'M': -1.3, 'N': 0.2,  'P': 0.0,  'Q': 0.2, 'R': 3.0,
-    'S': 0.3,  'T': -0.4, 'V': -1.5, 'W': -3.4, 'Y': -2.3
+    "A": -0.5,
+    "C": -1.0,
+    "D": 3.0,
+    "E": 3.0,
+    "F": -2.5,
+    "G": 0.0,
+    "H": -0.5,
+    "I": -1.8,
+    "K": 3.0,
+    "L": -1.8,
+    "M": -1.3,
+    "N": 0.2,
+    "P": 0.0,
+    "Q": 0.2,
+    "R": 3.0,
+    "S": 0.3,
+    "T": -0.4,
+    "V": -1.5,
+    "W": -3.4,
+    "Y": -2.3,
 }
 
 # TCR Contact Upward-Facing Probabilities (proxy metric based on peptide length and position)
 # Estimates the likelihood that a residue is prominently exposed to the TCR (derived from structural alignments)
 UPWARD_PROBABILITY = {
-    8:  {'p4': 0.8, 'p5': 0.9, 'p6': 0.8, 'p7': 0.0, 'p8': 0.0},
-    9:  {'p4': 0.6, 'p5': 0.9, 'p6': 0.9, 'p7': 0.7, 'p8': 0.6},
-    10: {'p4': 0.5, 'p5': 0.8, 'p6': 0.9, 'p7': 0.8, 'p8': 0.5},
-    11: {'p4': 0.4, 'p5': 0.7, 'p6': 0.8, 'p7': 0.8, 'p8': 0.4},
+    8: {"p4": 0.8, "p5": 0.9, "p6": 0.8, "p7": 0.0, "p8": 0.0},
+    9: {"p4": 0.6, "p5": 0.9, "p6": 0.9, "p7": 0.7, "p8": 0.6},
+    10: {"p4": 0.5, "p5": 0.8, "p6": 0.9, "p7": 0.8, "p8": 0.5},
+    11: {"p4": 0.4, "p5": 0.7, "p6": 0.8, "p7": 0.8, "p8": 0.4},
 }
 
 FEATURE_COLUMNS = [
-    'p4_hydrophobicity', 'p5_hydrophobicity', 'p6_hydrophobicity',
-    'p7_hydrophobicity', 'p8_hydrophobicity',
-    'p4_aromaticity', 'p5_aromaticity', 'p6_aromaticity',
-    'p7_aromaticity', 'p8_aromaticity',
-    'p4_vdw_volume', 'p5_vdw_volume', 'p6_vdw_volume',
-    'p7_vdw_volume', 'p8_vdw_volume',
-    'p4_charge', 'p5_charge', 'p6_charge',
-    'p7_charge', 'p8_charge',
-    'binding_score', 'peptide_length'
+    "p4_hydrophobicity",
+    "p5_hydrophobicity",
+    "p6_hydrophobicity",
+    "p7_hydrophobicity",
+    "p8_hydrophobicity",
+    "p4_aromaticity",
+    "p5_aromaticity",
+    "p6_aromaticity",
+    "p7_aromaticity",
+    "p8_aromaticity",
+    "p4_vdw_volume",
+    "p5_vdw_volume",
+    "p6_vdw_volume",
+    "p7_vdw_volume",
+    "p8_vdw_volume",
+    "p4_charge",
+    "p5_charge",
+    "p6_charge",
+    "p7_charge",
+    "p8_charge",
+    "binding_score",
+    "peptide_length",
 ]
 
 EXPANDED_FEATURE_COLUMNS = FEATURE_COLUMNS[:-2] + [
-    'p4_flexibility', 'p5_flexibility', 'p6_flexibility',
-    'p7_flexibility', 'p8_flexibility',
-    'p4_bulkiness', 'p5_bulkiness', 'p6_bulkiness',
-    'p7_bulkiness', 'p8_bulkiness',
-    'p4_hydrophilicity', 'p5_hydrophilicity', 'p6_hydrophilicity',
-    'p7_hydrophilicity', 'p8_hydrophilicity',
-    'p4_upward_prob', 'p5_upward_prob', 'p6_upward_prob',
-    'p7_upward_prob', 'p8_upward_prob',
-    'binding_score', 'peptide_length'
+    "p4_flexibility",
+    "p5_flexibility",
+    "p6_flexibility",
+    "p7_flexibility",
+    "p8_flexibility",
+    "p4_bulkiness",
+    "p5_bulkiness",
+    "p6_bulkiness",
+    "p7_bulkiness",
+    "p8_bulkiness",
+    "p4_hydrophilicity",
+    "p5_hydrophilicity",
+    "p6_hydrophilicity",
+    "p7_hydrophilicity",
+    "p8_hydrophilicity",
+    "p4_upward_prob",
+    "p5_upward_prob",
+    "p6_upward_prob",
+    "p7_upward_prob",
+    "p8_upward_prob",
+    "binding_score",
+    "peptide_length",
 ]
 
-TRAIN_FEATURE_COLUMNS = [c for c in FEATURE_COLUMNS if c != 'binding_score']
+TRAIN_FEATURE_COLUMNS = [c for c in FEATURE_COLUMNS if c != "binding_score"]
 
-PHYSICO_COLUMNS = [c for c in FEATURE_COLUMNS
-                   if c not in ('binding_score', 'peptide_length')]
+PHYSICO_COLUMNS = [c for c in FEATURE_COLUMNS if c not in ("binding_score", "peptide_length")]
 
-EXPANDED_PHYSICO_COLUMNS = [c for c in EXPANDED_FEATURE_COLUMNS
-                            if c not in ('binding_score', 'peptide_length')]
+EXPANDED_PHYSICO_COLUMNS = [
+    c for c in EXPANDED_FEATURE_COLUMNS if c not in ("binding_score", "peptide_length")
+]
 
 BINDING_ALLELE_COLUMNS = [
-    'bind_A0101', 'bind_A0201', 'bind_A0301', 'bind_A1101', 'bind_A2402',
-    'bind_B0702', 'bind_B0801', 'bind_B2705', 'bind_B3501', 'bind_B4402',
+    "bind_A0101",
+    "bind_A0201",
+    "bind_A0301",
+    "bind_A1101",
+    "bind_A2402",
+    "bind_B0702",
+    "bind_B0801",
+    "bind_B2705",
+    "bind_B3501",
+    "bind_B4402",
 ]
 
 FEATURE_COLUMNS_30 = PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
-FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ['peptide_length']
+FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ["peptide_length"]
 # 33-feature: canonical 31 + orthogonal antigen processing signals (NetChop 3.1, TAPreg)
-FEATURE_COLUMNS_33 = FEATURE_COLUMNS_31 + ['netchop_score', 'tap_score']
+FEATURE_COLUMNS_33 = FEATURE_COLUMNS_31 + ["netchop_score", "tap_score"]
 # 35-feature: extended 33 + human-proteome self-similarity (tolerance signal)
-FEATURE_COLUMNS_35 = FEATURE_COLUMNS_33 + ['self_similarity_max_identity', 'self_similarity_exact_match']
+FEATURE_COLUMNS_35 = FEATURE_COLUMNS_33 + [
+    "self_similarity_max_identity",
+    "self_similarity_exact_match",
+]
 
 FEATURE_COLUMNS_50 = EXPANDED_PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 
@@ -154,24 +267,27 @@ FEATURE_COLUMNS_50 = EXPANDED_PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 # 2012 J Immunol) and will be replaced by compute_contact_freqs.py output once
 # the ATLAS / STCRDab PDB corpus has been downloaded and parsed.
 ALLELE_CONTACT_WEIGHTS: dict[str, list[float]] = {
-    'HLA-A*01:01': [0.60, 0.48, 0.80, 0.48, 0.32],
-    'HLA-A*02:01': [0.65, 0.45, 0.82, 0.55, 0.35],
-    'HLA-A*03:01': [0.58, 0.52, 0.76, 0.50, 0.30],
-    'HLA-A*11:01': [0.58, 0.52, 0.76, 0.50, 0.30],  # A*03 supertype proxy
-    'HLA-A*24:02': [0.62, 0.47, 0.79, 0.49, 0.33],
-    'HLA-B*07:02': [0.58, 0.60, 0.75, 0.50, 0.40],
-    'HLA-B*08:01': [0.62, 0.50, 0.78, 0.52, 0.38],
-    'HLA-B*27:05': [0.55, 0.65, 0.70, 0.45, 0.35],
-    'HLA-B*35:01': [0.60, 0.55, 0.72, 0.48, 0.36],
-    'HLA-B*44:02': [0.61, 0.53, 0.76, 0.51, 0.37],
+    "HLA-A*01:01": [0.60, 0.48, 0.80, 0.48, 0.32],
+    "HLA-A*02:01": [0.65, 0.45, 0.82, 0.55, 0.35],
+    "HLA-A*03:01": [0.58, 0.52, 0.76, 0.50, 0.30],
+    "HLA-A*11:01": [0.58, 0.52, 0.76, 0.50, 0.30],  # A*03 supertype proxy
+    "HLA-A*24:02": [0.62, 0.47, 0.79, 0.49, 0.33],
+    "HLA-B*07:02": [0.58, 0.60, 0.75, 0.50, 0.40],
+    "HLA-B*08:01": [0.62, 0.50, 0.78, 0.52, 0.38],
+    "HLA-B*27:05": [0.55, 0.65, 0.70, 0.45, 0.35],
+    "HLA-B*35:01": [0.60, 0.55, 0.72, 0.48, 0.36],
+    "HLA-B*44:02": [0.61, 0.53, 0.76, 0.51, 0.37],
 }
 
 # Population-average fallback (allele absent or not in ALLELE_CONTACT_WEIGHTS)
 POPULATION_AVG_CONTACT_WEIGHTS: list[float] = [0.60, 0.53, 0.77, 0.50, 0.36]
 
 CONTACT_WEIGHT_COLUMNS: list[str] = [
-    'tcr_contact_weight_p4', 'tcr_contact_weight_p5', 'tcr_contact_weight_p6',
-    'tcr_contact_weight_p7', 'tcr_contact_weight_p8',
+    "tcr_contact_weight_p4",
+    "tcr_contact_weight_p5",
+    "tcr_contact_weight_p6",
+    "tcr_contact_weight_p7",
+    "tcr_contact_weight_p8",
 ]
 
 FEATURE_COLUMNS_51 = FEATURE_COLUMNS_50 + CONTACT_WEIGHT_COLUMNS
@@ -185,7 +301,7 @@ FEATURE_COLUMNS_51 = FEATURE_COLUMNS_50 + CONTACT_WEIGHT_COLUMNS
 HLA_PSEUDO_LEN = 34  # canonical pocket length per NetMHCpan
 
 HLA_PSEUDO_COLS = [
-    f"hla_p{i+1}_{prop}"
+    f"hla_p{i + 1}_{prop}"
     for i in range(HLA_PSEUDO_LEN)
     for prop in ("hydrophobicity", "aromaticity", "vdw_volume", "charge")
 ]
@@ -198,8 +314,10 @@ FEATURE_COLUMNS_ALLELE = FEATURE_COLUMNS_30 + HLA_PSEUDO_COLS
 # Sample weight helpers for bias correction
 # ---------------------------------------------------------------------------
 
-def compute_sample_weights(df, virus_col='virus', length_col=None,
-                            virus_weight=0.5, length_weight=0.5):
+
+def compute_sample_weights(
+    df, virus_col="virus", length_col=None, virus_weight=0.5, length_weight=0.5
+):
     """Compute per-sample training weights to correct EBV/HPV16 and 9-mer bias.
 
     Strategy:
@@ -218,6 +336,7 @@ def compute_sample_weights(df, virus_col='virus', length_col=None,
         np.ndarray of per-sample weights, shape (len(df),).
     """
     import numpy as np
+
     n = len(df)
     weights = np.ones(n, dtype=float)
 
@@ -226,20 +345,21 @@ def compute_sample_weights(df, virus_col='virus', length_col=None,
         virus_vals = df[virus_col].values
         # Dynamically extract all unique viruses
         import pandas as pd
+
         unique_viruses = pd.Series(virus_vals).dropna().unique().tolist()
         if len(unique_viruses) > 1:
             target_freq = 1.0 / len(unique_viruses)  # Equal weight for all taxa
             for virus in unique_viruses:
-                mask = (virus_vals == virus)
+                mask = virus_vals == virus
                 actual_freq = mask.sum() / n
                 correction = target_freq / max(actual_freq, 1e-6)
                 weights[mask] *= (1.0 - virus_weight) + virus_weight * correction
 
     # Length correction
-    pep_col = length_col if length_col and length_col in df.columns else 'peptide'
+    pep_col = length_col if length_col and length_col in df.columns else "peptide"
     if pep_col in df.columns:
         lengths = df[pep_col].str.len().values
-        is_9mer = (lengths == 9)
+        is_9mer = lengths == 9
         freq_9mer = is_9mer.mean()
         freq_non9 = 1.0 - freq_9mer
         if freq_9mer > 0 and freq_non9 > 0:
@@ -253,16 +373,17 @@ def compute_sample_weights(df, virus_col='virus', length_col=None,
     weights = weights / weights.mean()
     return weights
 
-ALL_POSITION_LABELS = ('p4', 'p5', 'p6', 'p7', 'p8')
+
+ALL_POSITION_LABELS = ("p4", "p5", "p6", "p7", "p8")
 
 PROPERTY_TABLES = {
-    'hydrophobicity': (KD_HYDRO, 0.0),
-    'aromaticity':    (AROMATIC, 0),
-    'vdw_volume':     (VDW_VOL, 0.0),
-    'charge':         (CHARGE, 0),
-    'flexibility':    (FLEXIBILITY, 0.0),
-    'bulkiness':      (BULKINESS, 0.0),
-    'hydrophilicity': (HYDROPHILICITY, 0.0),
+    "hydrophobicity": (KD_HYDRO, 0.0),
+    "aromaticity": (AROMATIC, 0),
+    "vdw_volume": (VDW_VOL, 0.0),
+    "charge": (CHARGE, 0),
+    "flexibility": (FLEXIBILITY, 0.0),
+    "bulkiness": (BULKINESS, 0.0),
+    "hydrophilicity": (HYDROPHILICITY, 0.0),
 }
 
 
@@ -280,9 +401,9 @@ def get_tcr_positions(length):
     zero-impute them.
     """
     fixed = [
-        ('p4', 3 if length > 3 else None),
-        ('p5', 4 if length > 4 else None),
-        ('p6', 5 if length > 5 else None),
+        ("p4", 3 if length > 3 else None),
+        ("p5", 4 if length > 4 else None),
+        ("p6", 5 if length > 5 else None),
     ]
     p7_idx = length - 3
     p8_idx = length - 2
@@ -291,10 +412,9 @@ def get_tcr_positions(length):
     p8_valid = p7_valid and p8_idx > p7_idx and p8_idx < length - 1
 
     return fixed + [
-        ('p7', p7_idx if p7_valid else None),
-        ('p8', p8_idx if p8_valid else None),
+        ("p7", p7_idx if p7_valid else None),
+        ("p8", p8_idx if p8_valid else None),
     ]
-
 
 
 def compute_features(peptide, binding_score=0.0):
@@ -305,42 +425,42 @@ def compute_features(peptide, binding_score=0.0):
     """
     features = {}
     length = len(peptide)
-    features['peptide_length'] = length
-    features['binding_score'] = binding_score
+    features["peptide_length"] = length
+    features["binding_score"] = binding_score
 
     positions = get_tcr_positions(length)
 
     for pos_label, idx in positions:
         # structural proxy probability based on length and pos_label
         upward_prob = UPWARD_PROBABILITY.get(length, UPWARD_PROBABILITY[9]).get(pos_label, 0.0)
-        
+
         if idx is not None:
             aa = peptide[idx]
-            features[f'{pos_label}_hydrophobicity'] = KD_HYDRO.get(aa, 0.0)
-            features[f'{pos_label}_aromaticity'] = AROMATIC.get(aa, 0)
-            features[f'{pos_label}_vdw_volume'] = VDW_VOL.get(aa, 0.0)
-            features[f'{pos_label}_charge'] = CHARGE.get(aa, 0)
-            features[f'{pos_label}_flexibility'] = FLEXIBILITY.get(aa, 0.0)
-            features[f'{pos_label}_bulkiness'] = BULKINESS.get(aa, 0.0)
-            features[f'{pos_label}_hydrophilicity'] = HYDROPHILICITY.get(aa, 0.0)
-            features[f'{pos_label}_upward_prob'] = upward_prob
+            features[f"{pos_label}_hydrophobicity"] = KD_HYDRO.get(aa, 0.0)
+            features[f"{pos_label}_aromaticity"] = AROMATIC.get(aa, 0)
+            features[f"{pos_label}_vdw_volume"] = VDW_VOL.get(aa, 0.0)
+            features[f"{pos_label}_charge"] = CHARGE.get(aa, 0)
+            features[f"{pos_label}_flexibility"] = FLEXIBILITY.get(aa, 0.0)
+            features[f"{pos_label}_bulkiness"] = BULKINESS.get(aa, 0.0)
+            features[f"{pos_label}_hydrophilicity"] = HYDROPHILICITY.get(aa, 0.0)
+            features[f"{pos_label}_upward_prob"] = upward_prob
         else:
-            features[f'{pos_label}_hydrophobicity'] = 0.0
-            features[f'{pos_label}_aromaticity'] = 0
-            features[f'{pos_label}_vdw_volume'] = 0.0
-            features[f'{pos_label}_charge'] = 0
-            features[f'{pos_label}_flexibility'] = 0.0
-            features[f'{pos_label}_bulkiness'] = 0.0
-            features[f'{pos_label}_hydrophilicity'] = 0.0
-            features[f'{pos_label}_upward_prob'] = upward_prob
+            features[f"{pos_label}_hydrophobicity"] = 0.0
+            features[f"{pos_label}_aromaticity"] = 0
+            features[f"{pos_label}_vdw_volume"] = 0.0
+            features[f"{pos_label}_charge"] = 0
+            features[f"{pos_label}_flexibility"] = 0.0
+            features[f"{pos_label}_bulkiness"] = 0.0
+            features[f"{pos_label}_hydrophilicity"] = 0.0
+            features[f"{pos_label}_upward_prob"] = upward_prob
 
     return features
 
 
 def compute_features_for_dataset(
     df: pd.DataFrame,
-    peptide_col: str = 'peptide',
-    binding_col: str = 'presentation_score',
+    peptide_col: str = "peptide",
+    binding_col: str = "presentation_score",
 ) -> pd.DataFrame:
     """Vectorized batch feature extraction for an entire DataFrame.
 
@@ -378,20 +498,20 @@ def compute_features_for_dataset(
     # Property tables keyed by feature suffix
     # ------------------------------------------------------------------
     prop_tables: dict[str, tuple[dict, object]] = {
-        'hydrophobicity': (KD_HYDRO,    0.0),
-        'aromaticity':    (AROMATIC,    0),
-        'vdw_volume':     (VDW_VOL,     0.0),
-        'charge':         (CHARGE,      0),
-        'flexibility':    (FLEXIBILITY, 0.0),
-        'bulkiness':      (BULKINESS,   0.0),
-        'hydrophilicity': (HYDROPHILICITY, 0.0),
+        "hydrophobicity": (KD_HYDRO, 0.0),
+        "aromaticity": (AROMATIC, 0),
+        "vdw_volume": (VDW_VOL, 0.0),
+        "charge": (CHARGE, 0),
+        "flexibility": (FLEXIBILITY, 0.0),
+        "bulkiness": (BULKINESS, 0.0),
+        "hydrophilicity": (HYDROPHILICITY, 0.0),
     }
 
     # ------------------------------------------------------------------
     # TCR position indices vary by length - compute once per-row as arrays
     # ------------------------------------------------------------------
     # Each of the 5 position labels maps to a nullable integer index.
-    pos_labels = ('p4', 'p5', 'p6', 'p7', 'p8')
+    pos_labels = ("p4", "p5", "p6", "p7", "p8")
 
     # Fixed N-terminal indices
     idx_p4 = np.where(lengths > 3, 3, -1).astype(object)
@@ -411,8 +531,11 @@ def compute_features_for_dataset(
 
     # -1 sentinel → None for clarity in column building
     pos_idx_arrays = {
-        'p4': idx_p4, 'p5': idx_p5, 'p6': idx_p6,
-        'p7': idx_p7, 'p8': idx_p8,
+        "p4": idx_p4,
+        "p5": idx_p5,
+        "p6": idx_p6,
+        "p7": idx_p7,
+        "p8": idx_p8,
     }
 
     # ------------------------------------------------------------------
@@ -449,17 +572,16 @@ def compute_features_for_dataset(
     # Upward probability (structural proxy) - lookup by (length, label)
     # ------------------------------------------------------------------
     for label in pos_labels:
-        up_vals = np.array([
-            UPWARD_PROBABILITY.get(l, UPWARD_PROBABILITY[9]).get(label, 0.0)
-            for l in len_arr
-        ])
+        up_vals = np.array(
+            [UPWARD_PROBABILITY.get(l, UPWARD_PROBABILITY[9]).get(label, 0.0) for l in len_arr]
+        )
         feat_cols[f"{label}_upward_prob"] = up_vals
 
     # ------------------------------------------------------------------
     # Scalar features
     # ------------------------------------------------------------------
-    feat_cols['binding_score']  = binding.values
-    feat_cols['peptide_length'] = len_arr
+    feat_cols["binding_score"] = binding.values
+    feat_cols["peptide_length"] = len_arr
 
     features_df = pd.DataFrame(feat_cols, index=df.index)
     return pd.concat([df, features_df], axis=1)
@@ -468,14 +590,14 @@ def compute_features_for_dataset(
 def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None) -> float:
     """
     Compute an ERAP1/2 N-terminal trimming likelihood score.
-    
+
     Parameters
     ----------
     peptide : str
         The mature peptide sequence.
     flanking_seq : str, optional
         Flanking residues upstream of the peptide's N-terminus.
-        
+
     Returns
     -------
     float
@@ -483,12 +605,12 @@ def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None
     """
     if not peptide:
         return 0.0
-        
+
     # Standardize inputs
     peptide = str(peptide).strip().upper()
     if flanking_seq is not None:
         flanking_seq = str(flanking_seq).strip().upper()
-        
+
     # Get N-terminal 3 residues of the precursor/mature sequence to analyze
     if flanking_seq:
         if len(flanking_seq) >= 3:
@@ -498,13 +620,13 @@ def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None
             seq = flanking_seq + peptide[:needed]
     else:
         seq = peptide[:3]
-        
+
     # Pad to length 3 if necessary
     if len(seq) < 3:
         seq = (seq + "XXX")[:3]
-        
+
     score = 5.0  # Baseline offset
-    
+
     # Position 1: ERAP1/2 favors hydrophobic or basic residues
     aa1 = seq[0]
     if aa1 in {"L", "F", "I", "V", "M", "W", "Y"}:
@@ -513,19 +635,19 @@ def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None
         score += 1.5
     elif aa1 == "P":
         score -= 2.0
-        
+
     # Position 2: ERAP1/2 strongly penalizes proline at P2 (stops trimming)
     aa2 = seq[1]
     if aa2 == "P":
         score -= 3.0
     elif aa2 in {"L", "F", "I", "V", "M", "W", "Y"}:
         score += 1.0
-        
+
     # Position 3: ERAP1 favors hydrophobic residue at P3
     aa3 = seq[2]
     if aa3 in {"L", "F", "I", "V", "M", "W", "Y"}:
         score += 0.5
-        
+
     return max(0.0, min(10.0, score))
 
 
@@ -547,20 +669,28 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
     Uses deterministic settings. Falls back to a deterministic mock vector if model fails to load.
     """
     import numpy as np
+
     try:
         global _esm_model, _esm_tokenizer
         if _esm_model is None or _esm_tokenizer is None:
             import torch
+
             torch.manual_seed(42)
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(42)
             torch.use_deterministic_algorithms(True, warn_only=True)
             from transformers import AutoTokenizer, EsmModel
-            _esm_tokenizer = AutoTokenizer.from_pretrained(_ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a")
-            _esm_model = EsmModel.from_pretrained(_ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a")
+
+            _esm_tokenizer = AutoTokenizer.from_pretrained(
+                _ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a"
+            )
+            _esm_model = EsmModel.from_pretrained(
+                _ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a"
+            )
             _esm_model.eval()
-            
+
         import torch
+
         seq = str(peptide).strip().upper()
         inputs = _esm_tokenizer(seq, return_tensors="pt")
         with torch.no_grad():
@@ -568,10 +698,13 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
             cls_repr = outputs.last_hidden_state[0, 0].numpy()
         return cls_repr
     except Exception as e:
-        print(f"[ESM Feature] WARNING: Failed to compute ESM-2 CLS token: {e}. Falling back to deterministic mock vector.")
+        print(
+            f"[ESM Feature] WARNING: Failed to compute ESM-2 CLS token: {e}. Falling back to deterministic mock vector."
+        )
         import hashlib
-        h = hashlib.sha256(peptide.encode('utf-8')).digest()
-        rng = np.random.default_rng(int.from_bytes(h[:4], 'big'))
+
+        h = hashlib.sha256(peptide.encode("utf-8")).digest()
+        rng = np.random.default_rng(int.from_bytes(h[:4], "big"))
         return rng.normal(0, 1, 320)
 
 
@@ -579,9 +712,9 @@ def compute_weisfeiler_lehman_features(G, n_iter=2) -> np.ndarray:
     """
     Compute Weisfeiler-Lehman (WL) graph kernel features for Weisfeiler-Lehman test.
     """
-    current_features = {node: str(G.nodes[node].get('x', '0')) for node in G.nodes()}
+    current_features = {node: str(G.nodes[node].get("x", "0")) for node in G.nodes()}
     all_colors = []
-    
+
     for _ in range(n_iter):
         new_features = {}
         for node in G.nodes():
@@ -590,13 +723,14 @@ def compute_weisfeiler_lehman_features(G, n_iter=2) -> np.ndarray:
             new_features[node] = str(hash(feat_str))
             all_colors.append(new_features[node])
         current_features = new_features
-        
+
     wl_vector = np.zeros(32)
     for color in all_colors:
         import hashlib
-        idx = int(hashlib.md5(color.encode('utf-8'), usedforsecurity=False).hexdigest(), 16) % 32
+
+        idx = int(hashlib.md5(color.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % 32
         wl_vector[idx] += 1.0
-        
+
     return wl_vector
 
 
@@ -612,7 +746,7 @@ def get_cb_cb_edges(length: int) -> list:
     # Residues separated by 1 position (i to i+2) contact in extended beta-like sheet conformations (distance ~ 5.5 A)
     for i in range(length - 2):
         edges.append((i, i + 2))
-        
+
     # Standard bulge contacts for 9-11mers in MHC grooved conformations:
     if length == 9:
         edges.append((3, 5))
@@ -624,7 +758,7 @@ def get_cb_cb_edges(length: int) -> list:
         edges.append((3, 7))
         edges.append((4, 8))
         edges.append((5, 9))
-        
+
     unique_edges = list(set((min(u, v), max(u, v)) for u, v in edges))
     return unique_edges
 
@@ -649,7 +783,7 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
         h_cat = "pos" if hydro > 1.0 else ("neg" if hydro < -1.0 else "neu")
         node_features[i] = f"{h_cat}_{chg}"
 
-    nx.set_node_attributes(G, node_features, name='init_feat')
+    nx.set_node_attributes(G, node_features, name="init_feat")
 
     current_features = node_features.copy()
     all_colors = []
@@ -668,7 +802,8 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
     wl_vector = np.zeros(32)
     for color in all_colors:
         import hashlib
-        idx = int(hashlib.md5(color.encode('utf-8'), usedforsecurity=False).hexdigest(), 16) % 32
+
+        idx = int(hashlib.md5(color.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % 32
         wl_vector[idx] += 1.0
 
     return wl_vector
@@ -677,6 +812,7 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
 # ---------------------------------------------------------------------------
 # Antigen processing cache loader (feature_mode=33)
 # ---------------------------------------------------------------------------
+
 
 def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
     """Join precomputed human-proteome self-similarity scores onto a peptide DataFrame.
@@ -695,22 +831,28 @@ def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFram
     """
     cache = pd.read_csv(
         cache_path,
-        usecols=['peptide', 'self_similarity_max_identity', 'self_similarity_exact_match'],
+        usecols=["peptide", "self_similarity_max_identity", "self_similarity_exact_match"],
     )
-    cache = cache.drop_duplicates(subset='peptide').set_index('peptide')
+    cache = cache.drop_duplicates(subset="peptide").set_index("peptide")
     result = df.copy()
-    result['self_similarity_max_identity'] = result['peptide'].map(
-        cache['self_similarity_max_identity']
-    ).fillna(0.0).astype(float)
+    result["self_similarity_max_identity"] = (
+        result["peptide"].map(cache["self_similarity_max_identity"]).fillna(0.0).astype(float)
+    )
     # Store as float (0.0 / 1.0) so the feature matrix stays homogeneous
-    result['self_similarity_exact_match'] = result['peptide'].map(
-        cache['self_similarity_exact_match']
-    ).fillna(0.0).astype(float)
-    missing = int((result['self_similarity_max_identity'] == 0.0).sum()
-                  - (cache['self_similarity_max_identity'] == 0.0).reindex(
-                        result['peptide']).fillna(True).sum())
+    result["self_similarity_exact_match"] = (
+        result["peptide"].map(cache["self_similarity_exact_match"]).fillna(0.0).astype(float)
+    )
+    missing = int(
+        (result["self_similarity_max_identity"] == 0.0).sum()
+        - (cache["self_similarity_max_identity"] == 0.0)
+        .reindex(result["peptide"])
+        .fillna(True)
+        .sum()
+    )
     if missing > 0:
-        print(f"[features] {missing} peptides not found in self-similarity cache - defaulting to 0.0")
+        print(
+            f"[features] {missing} peptides not found in self-similarity cache - defaulting to 0.0"
+        )
     return result
 
 
@@ -727,17 +869,19 @@ def load_antigen_processing_cache(cache_path: str, df: pd.DataFrame) -> pd.DataF
     Returns:
         df with 'netchop_score' and 'tap_score' columns appended.
     """
-    cache = pd.read_csv(cache_path, usecols=['peptide', 'netchop_score', 'tap_score'])
-    cache = cache.drop_duplicates(subset='peptide').set_index('peptide')
+    cache = pd.read_csv(cache_path, usecols=["peptide", "netchop_score", "tap_score"])
+    cache = cache.drop_duplicates(subset="peptide").set_index("peptide")
     result = df.copy()
-    result['netchop_score'] = result['peptide'].map(cache['netchop_score'])
-    result['tap_score'] = result['peptide'].map(cache['tap_score'])
-    missing = int(result['netchop_score'].isna().sum())
+    result["netchop_score"] = result["peptide"].map(cache["netchop_score"])
+    result["tap_score"] = result["peptide"].map(cache["tap_score"])
+    missing = int(result["netchop_score"].isna().sum())
     if missing:
-        netchop_median = float(cache['netchop_score'].median())
-        tap_median = float(cache['tap_score'].median())
-        result['netchop_score'] = result['netchop_score'].fillna(netchop_median)
-        result['tap_score'] = result['tap_score'].fillna(tap_median)
-        print(f"[features] Imputed {missing} missing antigen processing scores with cache medians "
-              f"(netchop={netchop_median:.4f}, tap={tap_median:.4f})")
+        netchop_median = float(cache["netchop_score"].median())
+        tap_median = float(cache["tap_score"].median())
+        result["netchop_score"] = result["netchop_score"].fillna(netchop_median)
+        result["tap_score"] = result["tap_score"].fillna(tap_median)
+        print(
+            f"[features] Imputed {missing} missing antigen processing scores with cache medians "
+            f"(netchop={netchop_median:.4f}, tap={tap_median:.4f})"
+        )
     return result

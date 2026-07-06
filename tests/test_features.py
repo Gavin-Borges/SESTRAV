@@ -20,7 +20,7 @@ Run from repo root:
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.features import compute_features, get_tcr_positions
 
@@ -34,32 +34,32 @@ def test_clgglltmv_9mer():
     """
     f = compute_features("CLGGLLTMV", binding_score=0.5)
 
-    assert f['peptide_length'] == 9
-    assert f['binding_score'] == 0.5
+    assert f["peptide_length"] == 9
+    assert f["binding_score"] == 0.5
 
-    assert f['p4_hydrophobicity'] == -0.4   # G
-    assert f['p5_hydrophobicity'] == 3.8    # L
-    assert f['p6_hydrophobicity'] == 3.8    # L
-    assert f['p7_hydrophobicity'] == -0.7   # T at idx 6
-    assert f['p8_hydrophobicity'] == 1.9    # M at idx 7
+    assert f["p4_hydrophobicity"] == -0.4  # G
+    assert f["p5_hydrophobicity"] == 3.8  # L
+    assert f["p6_hydrophobicity"] == 3.8  # L
+    assert f["p7_hydrophobicity"] == -0.7  # T at idx 6
+    assert f["p8_hydrophobicity"] == 1.9  # M at idx 7
 
-    assert f['p4_aromaticity'] == 0  # G
-    assert f['p5_aromaticity'] == 0  # L
-    assert f['p6_aromaticity'] == 0  # L
-    assert f['p7_aromaticity'] == 0  # T
-    assert f['p8_aromaticity'] == 0  # M
+    assert f["p4_aromaticity"] == 0  # G
+    assert f["p5_aromaticity"] == 0  # L
+    assert f["p6_aromaticity"] == 0  # L
+    assert f["p7_aromaticity"] == 0  # T
+    assert f["p8_aromaticity"] == 0  # M
 
-    assert f['p4_vdw_volume'] == 48    # G
-    assert f['p5_vdw_volume'] == 124   # L
-    assert f['p6_vdw_volume'] == 124   # L
-    assert f['p7_vdw_volume'] == 93    # T
-    assert f['p8_vdw_volume'] == 124   # M
+    assert f["p4_vdw_volume"] == 48  # G
+    assert f["p5_vdw_volume"] == 124  # L
+    assert f["p6_vdw_volume"] == 124  # L
+    assert f["p7_vdw_volume"] == 93  # T
+    assert f["p8_vdw_volume"] == 124  # M
 
-    assert f['p4_charge'] == 0  # G
-    assert f['p5_charge'] == 0  # L
-    assert f['p6_charge'] == 0  # L
-    assert f['p7_charge'] == 0  # T
-    assert f['p8_charge'] == 0  # M
+    assert f["p4_charge"] == 0  # G
+    assert f["p5_charge"] == 0  # L
+    assert f["p6_charge"] == 0  # L
+    assert f["p7_charge"] == 0  # T
+    assert f["p8_charge"] == 0  # M
 
 
 def test_rakfkqll_8mer():
@@ -72,22 +72,22 @@ def test_rakfkqll_8mer():
     """
     f = compute_features("RAKFKQLL", binding_score=0.0)
 
-    assert f['peptide_length'] == 8
+    assert f["peptide_length"] == 8
 
-    assert f['p4_hydrophobicity'] == 2.8    # F
-    assert f['p5_hydrophobicity'] == -3.9   # K
-    assert f['p6_hydrophobicity'] == -3.5   # Q
-    assert f['p7_hydrophobicity'] == 0.0    # zero-imputed
-    assert f['p8_hydrophobicity'] == 0.0    # zero-imputed
+    assert f["p4_hydrophobicity"] == 2.8  # F
+    assert f["p5_hydrophobicity"] == -3.9  # K
+    assert f["p6_hydrophobicity"] == -3.5  # Q
+    assert f["p7_hydrophobicity"] == 0.0  # zero-imputed
+    assert f["p8_hydrophobicity"] == 0.0  # zero-imputed
 
-    assert f['p4_aromaticity'] == 1   # F is aromatic
-    assert f['p5_aromaticity'] == 0   # K
-    assert f['p6_aromaticity'] == 0   # Q
-    assert f['p7_aromaticity'] == 0
-    assert f['p8_aromaticity'] == 0
+    assert f["p4_aromaticity"] == 1  # F is aromatic
+    assert f["p5_aromaticity"] == 0  # K
+    assert f["p6_aromaticity"] == 0  # Q
+    assert f["p7_aromaticity"] == 0
+    assert f["p8_aromaticity"] == 0
 
-    assert f['p5_charge'] == 1   # K = +1
-    assert f['p6_charge'] == 0   # Q = 0
+    assert f["p5_charge"] == 1  # K = +1
+    assert f["p6_charge"] == 0  # Q = 0
 
 
 def test_tihdiilecv_10mer():
@@ -100,24 +100,24 @@ def test_tihdiilecv_10mer():
     """
     f = compute_features("TIHDIILECV", binding_score=0.3)
 
-    assert f['peptide_length'] == 10
+    assert f["peptide_length"] == 10
 
-    assert f['p4_hydrophobicity'] == -3.5   # D
-    assert f['p5_hydrophobicity'] == 4.5    # I
-    assert f['p6_hydrophobicity'] == 4.5    # I
-    assert f['p7_hydrophobicity'] == -3.5   # E at idx 7 (not L at idx 6)
-    assert f['p8_hydrophobicity'] == 2.5    # C at idx 8 (not E at idx 7)
+    assert f["p4_hydrophobicity"] == -3.5  # D
+    assert f["p5_hydrophobicity"] == 4.5  # I
+    assert f["p6_hydrophobicity"] == 4.5  # I
+    assert f["p7_hydrophobicity"] == -3.5  # E at idx 7 (not L at idx 6)
+    assert f["p8_hydrophobicity"] == 2.5  # C at idx 8 (not E at idx 7)
 
-    assert f['p4_charge'] == -1  # D = -1
-    assert f['p7_charge'] == -1  # E = -1
-    assert f['p5_charge'] == 0   # I = 0
-    assert f['p8_charge'] == 0   # C = 0
+    assert f["p4_charge"] == -1  # D = -1
+    assert f["p7_charge"] == -1  # E = -1
+    assert f["p5_charge"] == 0  # I = 0
+    assert f["p8_charge"] == 0  # C = 0
 
-    assert f['p7_aromaticity'] == 0  # E
-    assert f['p8_aromaticity'] == 0  # C
+    assert f["p7_aromaticity"] == 0  # E
+    assert f["p8_aromaticity"] == 0  # C
 
-    assert f['p7_vdw_volume'] == 109  # E
-    assert f['p8_vdw_volume'] == 86   # C
+    assert f["p7_vdw_volume"] == 109  # E
+    assert f["p8_vdw_volume"] == 86  # C
 
 
 def test_hpvgeadyfey_11mer():
@@ -130,48 +130,49 @@ def test_hpvgeadyfey_11mer():
     """
     f = compute_features("HPVGEADYFEY", binding_score=0.7)
 
-    assert f['peptide_length'] == 11
+    assert f["peptide_length"] == 11
 
-    assert f['p4_hydrophobicity'] == -0.4   # G
-    assert f['p5_hydrophobicity'] == -3.5   # E
-    assert f['p6_hydrophobicity'] == 1.8    # A
-    assert f['p7_hydrophobicity'] == 2.8    # F at idx 8 (not D at idx 6)
-    assert f['p8_hydrophobicity'] == -3.5   # E at idx 9 (not Y at idx 7)
+    assert f["p4_hydrophobicity"] == -0.4  # G
+    assert f["p5_hydrophobicity"] == -3.5  # E
+    assert f["p6_hydrophobicity"] == 1.8  # A
+    assert f["p7_hydrophobicity"] == 2.8  # F at idx 8 (not D at idx 6)
+    assert f["p8_hydrophobicity"] == -3.5  # E at idx 9 (not Y at idx 7)
 
-    assert f['p4_aromaticity'] == 0   # G
-    assert f['p5_aromaticity'] == 0   # E
-    assert f['p6_aromaticity'] == 0   # A
-    assert f['p7_aromaticity'] == 1   # F is aromatic
-    assert f['p8_aromaticity'] == 0   # E
+    assert f["p4_aromaticity"] == 0  # G
+    assert f["p5_aromaticity"] == 0  # E
+    assert f["p6_aromaticity"] == 0  # A
+    assert f["p7_aromaticity"] == 1  # F is aromatic
+    assert f["p8_aromaticity"] == 0  # E
 
-    assert f['p4_charge'] == 0    # G
-    assert f['p5_charge'] == -1   # E = -1
-    assert f['p6_charge'] == 0    # A
-    assert f['p7_charge'] == 0    # F
-    assert f['p8_charge'] == -1   # E = -1
+    assert f["p4_charge"] == 0  # G
+    assert f["p5_charge"] == -1  # E = -1
+    assert f["p6_charge"] == 0  # A
+    assert f["p7_charge"] == 0  # F
+    assert f["p8_charge"] == -1  # E = -1
 
-    assert f['p7_vdw_volume'] == 135  # F
-    assert f['p8_vdw_volume'] == 109  # E
+    assert f["p7_vdw_volume"] == 135  # F
+    assert f["p8_vdw_volume"] == 109  # E
 
 
 def test_get_tcr_positions_length_relative():
     """Verify position indices are correct for each supported peptide length."""
     pos_8 = get_tcr_positions(8)
-    assert pos_8 == [('p4', 3), ('p5', 4), ('p6', 5), ('p7', None), ('p8', None)]
+    assert pos_8 == [("p4", 3), ("p5", 4), ("p6", 5), ("p7", None), ("p8", None)]
 
     pos_9 = get_tcr_positions(9)
-    assert pos_9 == [('p4', 3), ('p5', 4), ('p6', 5), ('p7', 6), ('p8', 7)]
+    assert pos_9 == [("p4", 3), ("p5", 4), ("p6", 5), ("p7", 6), ("p8", 7)]
 
     pos_10 = get_tcr_positions(10)
-    assert pos_10 == [('p4', 3), ('p5', 4), ('p6', 5), ('p7', 7), ('p8', 8)]
+    assert pos_10 == [("p4", 3), ("p5", 4), ("p6", 5), ("p7", 7), ("p8", 8)]
 
     pos_11 = get_tcr_positions(11)
-    assert pos_11 == [('p4', 3), ('p5', 4), ('p6', 5), ('p7', 8), ('p8', 9)]
+    assert pos_11 == [("p4", 3), ("p5", 4), ("p6", 5), ("p7", 8), ("p8", 9)]
 
 
 def test_feature_count():
     """Every call must return exactly 42 features (22 canonical + 20 expanded)."""
     from src.features import EXPANDED_FEATURE_COLUMNS
+
     for pep in ["CLGGLLTMV", "RAKFKQLL", "TIHDIILECV", "HPVGEADYFEY"]:
         f = compute_features(pep)
         assert len(f) == 42, f"{pep}: expected 42 features, got {len(f)}"
@@ -182,21 +183,21 @@ def test_feature_count():
 def test_esm_and_graph_features():
     """Verify that ESM-2 CLS and Graph WL descriptors yield expected shapes."""
     from src.features import get_esm_cls_token, get_cb_cb_edges, compute_wl_features
-    
+
     # Test 9-mer
     pep_9 = "CLGGLLTMV"
     esm_9 = get_esm_cls_token(pep_9)
     assert esm_9.shape == (320,), f"Expected shape (320,), got {esm_9.shape}"
-    
+
     edges_9 = get_cb_cb_edges(9)
     wl_9 = compute_wl_features(pep_9, edges_9)
     assert wl_9.shape == (32,), f"Expected shape (32,), got {wl_9.shape}"
-    
+
     # Test 11-mer
     pep_11 = "HPVGEADYFEY"
     esm_11 = get_esm_cls_token(pep_11)
     assert esm_11.shape == (320,), f"Expected shape (320,), got {esm_11.shape}"
-    
+
     edges_11 = get_cb_cb_edges(11)
     wl_11 = compute_wl_features(pep_11, edges_11)
     assert wl_11.shape == (32,), f"Expected shape (32,), got {wl_11.shape}"
@@ -205,12 +206,24 @@ def test_esm_and_graph_features():
 def test_mode_51_contact_weights():
     """ALLELE_CONTACT_WEIGHTS structure is correct; FEATURE_COLUMNS_51 has 55 columns."""
     from src.features import (
-        ALLELE_CONTACT_WEIGHTS, POPULATION_AVG_CONTACT_WEIGHTS,
-        CONTACT_WEIGHT_COLUMNS, FEATURE_COLUMNS_51, FEATURE_COLUMNS_50,
+        ALLELE_CONTACT_WEIGHTS,
+        POPULATION_AVG_CONTACT_WEIGHTS,
+        CONTACT_WEIGHT_COLUMNS,
+        FEATURE_COLUMNS_51,
+        FEATURE_COLUMNS_50,
     )
+
     canonical_alleles = {
-        'HLA-A*01:01', 'HLA-A*02:01', 'HLA-A*03:01', 'HLA-A*11:01', 'HLA-A*24:02',
-        'HLA-B*07:02', 'HLA-B*08:01', 'HLA-B*27:05', 'HLA-B*35:01', 'HLA-B*44:02',
+        "HLA-A*01:01",
+        "HLA-A*02:01",
+        "HLA-A*03:01",
+        "HLA-A*11:01",
+        "HLA-A*24:02",
+        "HLA-B*07:02",
+        "HLA-B*08:01",
+        "HLA-B*27:05",
+        "HLA-B*35:01",
+        "HLA-B*44:02",
     }
     assert set(ALLELE_CONTACT_WEIGHTS.keys()) == canonical_alleles, (
         f"Missing or extra alleles: {set(ALLELE_CONTACT_WEIGHTS.keys()) ^ canonical_alleles}"

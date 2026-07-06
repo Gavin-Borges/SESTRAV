@@ -27,11 +27,15 @@ import os
 import re
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.features import (
-    FEATURE_COLUMNS, TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30, FEATURE_COLUMNS_50,
+    FEATURE_COLUMNS,
+    TRAIN_FEATURE_COLUMNS,
+    FEATURE_COLUMNS_30,
+    FEATURE_COLUMNS_50,
 )
 from src.naming import resolve_model_path
 
@@ -39,6 +43,7 @@ try:
     from src.artifact_integrity import load_verified_joblib
 except ImportError:
     load_verified_joblib = None  # type: ignore[assignment]
+
 
 def _load_torch_checkpoint(model_path, required=True):
     """Load ANN checkpoints using the safe weights-only path only.
@@ -50,21 +55,26 @@ def _load_torch_checkpoint(model_path, required=True):
     checkpoints.
     """
     from src.artifact_integrity import verify_artifact_checksum
+
     verify_artifact_checksum(model_path, required=required)
     try:
         import numpy as np
         import torch.serialization
+
         # Allowlist numpy types used in scaler_mean/scaler_scale checkpoint arrays.
         # numpy._core is used (not deprecated numpy.core alias) to silence warnings.
         # Safe: checkpoints are generated only by SESTRAV's own training pipeline.
-        torch.serialization.add_safe_globals([
-            np._core.multiarray.scalar,  # serialised numpy scalar values
-            np.dtype,                    # serialised numpy dtype objects
-        ])
+        torch.serialization.add_safe_globals(
+            [
+                np._core.multiarray.scalar,  # serialised numpy scalar values
+                np.dtype,  # serialised numpy dtype objects
+            ]
+        )
     except Exception:  # nosec B110
         pass
     import torch
-    return torch.load(model_path, map_location='cpu', weights_only=True)  # nosec B614 nosemgrep
+
+    return torch.load(model_path, map_location="cpu", weights_only=True)  # nosec B614 nosemgrep
 
 
 def _load_pytorch_model(model_path, features_df, model_cols):
@@ -73,9 +83,9 @@ def _load_pytorch_model(model_path, features_df, model_cols):
     import torch.nn as nn
 
     checkpoint = _load_torch_checkpoint(model_path, required=True)
-    n_features = checkpoint['n_features']
-    scaler_mean = checkpoint['scaler_mean'].numpy()
-    scaler_scale = checkpoint['scaler_scale'].numpy()
+    n_features = checkpoint["n_features"]
+    scaler_mean = checkpoint["scaler_mean"].numpy()
+    scaler_scale = checkpoint["scaler_scale"].numpy()
 
     class FlexibleMLP(nn.Module):
         def __init__(self, input_dim, hidden_sizes=(64, 32), dropout=0.3):
@@ -92,7 +102,7 @@ def _load_pytorch_model(model_path, features_df, model_cols):
             return self.net(x).squeeze(-1)
 
     model = FlexibleMLP(input_dim=n_features)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
     X = features_df[model_cols].values.astype(np.float64)
@@ -107,6 +117,7 @@ def _load_pytorch_model(model_path, features_df, model_cols):
 def _mc_dropout_predict(pt_model, X_tensor, n_passes=50):
     """Run MC Dropout: N stochastic forward passes with dropout active."""
     import torch
+
     pt_model.train()
     preds = []
     with torch.no_grad():
@@ -119,7 +130,7 @@ def _mc_dropout_predict(pt_model, X_tensor, n_passes=50):
 
 def _apply_calibration(scores, model_dir):
     """Apply Platt calibrator if available; return calibrated scores or originals."""
-    cal_path = os.path.join(model_dir, 'platt_calibrator.joblib')
+    cal_path = os.path.join(model_dir, "platt_calibrator.joblib")
     if not os.path.isfile(cal_path) or load_verified_joblib is None:
         return scores, False
     calibrator = load_verified_joblib(cal_path, required_checksum=True)
@@ -131,24 +142,27 @@ def _apply_calibration(scores, model_dir):
 
 def _apply_thresholds(features_df, model_dir):
     """Add binary immunogenic column using exported optimal thresholds."""
-    thresh_path = os.path.join(model_dir, 'optimal_thresholds.json')
+    thresh_path = os.path.join(model_dir, "optimal_thresholds.json")
     if not os.path.isfile(thresh_path):
         return
     with open(thresh_path) as f:
         thresholds = json.load(f)
-    score_col = 'calibrated_score' if 'calibrated_score' in features_df.columns else 'immunogenicity_score'
-    f1_thresh = thresholds.get('threshold', thresholds.get('f1_threshold', 0.5))
-    features_df['immunogenic'] = (features_df[score_col] >= f1_thresh).astype(int)
+    score_col = (
+        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
+    )
+    f1_thresh = thresholds.get("threshold", thresholds.get("f1_threshold", 0.5))
+    features_df["immunogenic"] = (features_df[score_col] >= f1_thresh).astype(int)
     print(f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f}")
 
 
 def _sanitize_name(name):
     """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
+    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
-def score_immunogenicity(features_df, proteome_id, model_path=None,
-                         calibrate=True, mc_dropout=False, freeze_mode=False):
+def score_immunogenicity(
+    features_df, proteome_id, model_path=None, calibrate=True, mc_dropout=False, freeze_mode=False
+):
     """
     Score each peptide's immunogenicity.
 
@@ -173,15 +187,15 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
         if resolved_path != model_path:
             print(f"[Stage 4] Using alias model path '{resolved_path}' (from '{model_path}')")
         model_path = resolved_path
-    model_dir = os.path.dirname(model_path) if model_path else 'models'
+    model_dir = os.path.dirname(model_path) if model_path else "models"
 
     if model_path and os.path.isfile(model_path):
-        is_pytorch = model_path.endswith('.pt')
+        is_pytorch = model_path.endswith(".pt")
 
         if is_pytorch:
             checkpoint = _load_torch_checkpoint(model_path, required=False)
-            expected_n = checkpoint['n_features']
-            
+            expected_n = checkpoint["n_features"]
+
             if expected_n == len(FEATURE_COLUMNS_50):
                 model_cols = [c for c in FEATURE_COLUMNS_50 if c in features_df.columns]
                 expected_list = FEATURE_COLUMNS_50
@@ -203,20 +217,25 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
                     raise RuntimeError(msg)
                 print(f"[Stage 4] WARNING: {msg}")
             scores, model = _load_pytorch_model(model_path, features_df, model_cols)
-            features_df['immunogenicity_score'] = scores
+            features_df["immunogenicity_score"] = scores
             print(f"[Stage 4] Loaded PyTorch ANN from {model_path} ({len(model_cols)} features)")
 
             if mc_dropout:
                 import torch  # optional dependency; only needed for the MC-dropout path
+
                 checkpoint = _load_torch_checkpoint(model_path, required=True)
                 X = features_df[model_cols].values.astype(np.float64)
-                X_scaled = (X - checkpoint['scaler_mean'].numpy()) / (checkpoint['scaler_scale'].numpy() + 1e-10)
+                X_scaled = (X - checkpoint["scaler_mean"].numpy()) / (
+                    checkpoint["scaler_scale"].numpy() + 1e-10
+                )
                 X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
                 mc_mean, mc_std = _mc_dropout_predict(model, X_tensor)
-                features_df['mc_score'] = mc_mean
-                features_df['uncertainty_std'] = mc_std
-                print(f"[Stage 4] MC Dropout: {(mc_std < np.median(mc_std)).sum()} "
-                      f"high-confidence predictions")
+                features_df["mc_score"] = mc_mean
+                features_df["uncertainty_std"] = mc_std
+                print(
+                    f"[Stage 4] MC Dropout: {(mc_std < np.median(mc_std)).sum()} "
+                    f"high-confidence predictions"
+                )
 
         elif load_verified_joblib is not None:
             model = load_verified_joblib(model_path, required_checksum=True)
@@ -230,18 +249,20 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
                 print(f"[Stage 4] Using {len(model_cols)} features (30-feature multi-allele mode)")
             elif expected_n == len(TRAIN_FEATURE_COLUMNS):
                 model_cols = [c for c in TRAIN_FEATURE_COLUMNS if c in features_df.columns]
-                print(f"[Stage 4] Using {len(model_cols)} sequence-only features (binding_score excluded)")
+                print(
+                    f"[Stage 4] Using {len(model_cols)} sequence-only features (binding_score excluded)"
+                )
             else:
                 model_cols = [c for c in FEATURE_COLUMNS if c in features_df.columns]
                 print(f"[Stage 4] Using {len(model_cols)} features (full legacy set)")
 
             X = features_df[model_cols].copy()
-            features_df['immunogenicity_score'] = model.predict_proba(X)[:, 1]
+            features_df["immunogenicity_score"] = model.predict_proba(X)[:, 1]
             print(f"[Stage 4] Loaded trained model from {model_path}")
         else:
             print("[Stage 4] WARNING: joblib not available, cannot load .joblib model")
 
-    if 'immunogenicity_score' not in features_df.columns:
+    if "immunogenicity_score" not in features_df.columns:
         if freeze_mode:
             raise RuntimeError(
                 "[Stage 4] Freeze mode requires a trained model; prototype inline "
@@ -252,51 +273,56 @@ def score_immunogenicity(features_df, proteome_id, model_path=None,
         available_cols = [c for c in FEATURE_COLUMNS if c in features_df.columns]
         X = features_df[available_cols].copy()
 
-        if 'binding_score' in features_df.columns:
-            median_binding = features_df['binding_score'].median()
-            pseudo_labels = (features_df['binding_score'] >= median_binding).astype(int).values
-        elif 'presentation_score' in features_df.columns:
-            median_ps = features_df['presentation_score'].median()
-            pseudo_labels = (features_df['presentation_score'] >= median_ps).astype(int).values
+        if "binding_score" in features_df.columns:
+            median_binding = features_df["binding_score"].median()
+            pseudo_labels = (features_df["binding_score"] >= median_binding).astype(int).values
+        elif "presentation_score" in features_df.columns:
+            median_ps = features_df["presentation_score"].median()
+            pseudo_labels = (features_df["presentation_score"] >= median_ps).astype(int).values
         else:
             pseudo_labels = np.zeros(len(features_df), dtype=int)
 
         if np.unique(pseudo_labels).size < 2:
             # Single-class pseudo-labels → RandomForest would return shape (n,1)
             # and [:, 1] would raise IndexError. Assign a constant score instead.
-            features_df['immunogenicity_score'] = 0.0
-            print("[Stage 4] No score columns found - prototype degenerate case; "
-                  "all immunogenicity scores set to 0.0 (NOT scientifically valid)")
+            features_df["immunogenicity_score"] = 0.0
+            print(
+                "[Stage 4] No score columns found - prototype degenerate case; "
+                "all immunogenicity scores set to 0.0 (NOT scientifically valid)"
+            )
         else:
             model = RandomForestClassifier(
                 n_estimators=200,
-                class_weight='balanced',
+                class_weight="balanced",
                 random_state=42,
                 n_jobs=1,
             )
             model.fit(X, pseudo_labels)
-            features_df['immunogenicity_score'] = model.predict_proba(X)[:, 1]
-            print("[Stage 4] No trained model found - used prototype inline classifier "
-                  "(NOT scientifically valid)")
+            features_df["immunogenicity_score"] = model.predict_proba(X)[:, 1]
+            print(
+                "[Stage 4] No trained model found - used prototype inline classifier "
+                "(NOT scientifically valid)"
+            )
 
     if calibrate:
         cal_scores, was_calibrated = _apply_calibration(
-            features_df['immunogenicity_score'].values, model_dir
+            features_df["immunogenicity_score"].values, model_dir
         )
         if was_calibrated:
-            features_df['calibrated_score'] = cal_scores
+            features_df["calibrated_score"] = cal_scores
 
     _apply_thresholds(features_df, model_dir)
 
     # Use deterministic contiguous ranking (1..N) based on score ordering.
     # Prefer calibrated_score when available (Platt calibration is monotonic,
     # but boundary rounding can shift relative order for tied raw scores).
-    rank_col = 'calibrated_score' if 'calibrated_score' in features_df.columns else 'immunogenicity_score'
+    rank_col = (
+        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
+    )
     features_df = features_df.sort_values(
-        by=[rank_col, 'peptide'],
-        ascending=[False, True]
+        by=[rank_col, "peptide"], ascending=[False, True]
     ).reset_index(drop=True)
-    features_df['rank'] = features_df.index + 1
+    features_df["rank"] = features_df.index + 1
 
     output_path = f"results/{proteome_id}_ranked.csv"
     features_df.to_csv(output_path, index=False)
@@ -311,7 +337,7 @@ def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
 
     top_df = ranked_df.head(top_n)
     plt.figure(figsize=(10, 6))
-    plt.barh(top_df["peptide"], top_df["immunogenicity_score"], color='#4C72B0')
+    plt.barh(top_df["peptide"], top_df["immunogenicity_score"], color="#4C72B0")
     plt.xlabel("Immunogenicity Score")
     plt.ylabel("Peptide")
     plt.title(f"Top {top_n} Immunogenic Peptides - {proteome_id}")
@@ -321,7 +347,7 @@ def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
     plt.close()
 
     plt.figure(figsize=(8, 5))
-    plt.hist(ranked_df["immunogenicity_score"], bins=50, color='#DD8452', alpha=0.85)
+    plt.hist(ranked_df["immunogenicity_score"], bins=50, color="#DD8452", alpha=0.85)
     plt.xlabel("Immunogenicity Score")
     plt.ylabel("Number of Peptides")
     plt.title(f"Immunogenicity Score Distribution - {proteome_id}")

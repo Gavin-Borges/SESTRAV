@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 METRIC_DISPLAY = {
     "auc_roc": "AUC-ROC",
-    "auc_pr":  "AUC-PR",
+    "auc_pr": "AUC-PR",
     "issr_10": "ISSR@10",
     "issr_25": "ISSR@25",
 }
@@ -39,17 +39,17 @@ def load_training_results(path):
     if "rf_cv_mean" in df.columns:
         models["RandomForest (RF-30)"] = {
             "mean": df["rf_cv_mean"].to_dict(),
-            "std":  df["rf_cv_std"].to_dict(),
+            "std": df["rf_cv_std"].to_dict(),
         }
     if "xgb_cv_mean" in df.columns:
         models["XGBoost (XGB-30)"] = {
             "mean": df["xgb_cv_mean"].to_dict(),
-            "std":  df["xgb_cv_std"].to_dict(),
+            "std": df["xgb_cv_std"].to_dict(),
         }
     if "ann_cv_mean" in df.columns:
         models["ANN 256-128-64 (30-feat)"] = {
             "mean": df["ann_cv_mean"].to_dict(),
-            "std":  df["ann_cv_std"].to_dict(),
+            "std": df["ann_cv_std"].to_dict(),
         }
     return models
 
@@ -66,13 +66,13 @@ def load_gnn_results(models_dir):
             models[name] = {
                 "mean": {
                     "auc_roc": row["auc_roc_mean"],
-                    "auc_pr":  row["auc_pr_mean"],
+                    "auc_pr": row["auc_pr_mean"],
                     "issr_10": row["issr_10_mean"],
                     "issr_25": row["issr_25_mean"],
                 },
                 "std": {
                     "auc_roc": row["auc_roc_std"],
-                    "auc_pr":  row["auc_pr_std"],
+                    "auc_pr": row["auc_pr_std"],
                     "issr_10": 0.0,
                     "issr_25": 0.0,
                 },
@@ -86,13 +86,13 @@ def load_gnn_results(models_dir):
             models[name] = {
                 "mean": {
                     "auc_roc": row["auc_roc_mean"],
-                    "auc_pr":  row["auc_pr_mean"],
+                    "auc_pr": row["auc_pr_mean"],
                     "issr_10": row["issr_10_mean"],
                     "issr_25": row["issr_25_mean"],
                 },
                 "std": {
                     "auc_roc": row["auc_roc_std"],
-                    "auc_pr":  row["auc_pr_std"],
+                    "auc_pr": row["auc_pr_std"],
                     "issr_10": 0.0,
                     "issr_25": 0.0,
                 },
@@ -110,7 +110,7 @@ def build_comparison_table(all_models, metrics=None):
         row = {"Model": model_name}
         for m in metrics:
             mean_val = data["mean"].get(m, float("nan"))
-            std_val  = data["std"].get(m, float("nan"))
+            std_val = data["std"].get(m, float("nan"))
             row[METRIC_DISPLAY.get(m, m)] = (
                 f"{mean_val:.4f} +/- {std_val:.4f}"
                 if not (np.isnan(mean_val) or np.isnan(std_val))
@@ -129,7 +129,9 @@ def main():
     parser.add_argument("--output", default="results/baseline_comparison_report.csv")
     args = parser.parse_args()
 
-    os.makedirs(os.path.dirname(args.output) if os.path.dirname(args.output) else ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(args.output) if os.path.dirname(args.output) else ".", exist_ok=True
+    )
 
     print("\nSESTRAV 5-Model Baseline Comparison Report")
     print(f"{'=' * 70}")
@@ -151,7 +153,9 @@ def main():
         print(f"Loaded {len(gnn_models)} GNN model(s) from: {args.models_dir}/gnn_*.csv")
     else:
         print(f"Note: No GNN benchmark results found in {args.models_dir}/")
-        print("      Run 'python -m src.gnn_benchmark --data immunogenicity_dataset.csv' to generate them.")
+        print(
+            "      Run 'python -m src.gnn_benchmark --data immunogenicity_dataset.csv' to generate them."
+        )
 
     if not all_models:
         print("ERROR: No model results found. Run training and benchmarks first.")
@@ -178,7 +182,9 @@ def main():
     print("LEGACY BASELINE FROZEN:")
     print(f"  Best model: {best_row['Model']}")
     print(f"  Best AUC-PR: {best_row['AUC-PR_mean']:.4f}")
-    print(f"  RF (primary) AUC-PR: {all_models.get('RandomForest (RF-30)', {}).get('mean', {}).get('auc_pr', float('nan')):.4f}")
+    print(
+        f"  RF (primary) AUC-PR: {all_models.get('RandomForest (RF-30)', {}).get('mean', {}).get('auc_pr', float('nan')):.4f}"
+    )
     print("\nThis baseline is now frozen for comparison with allele-aware models.")
     print(f"{'=' * 70}")
 

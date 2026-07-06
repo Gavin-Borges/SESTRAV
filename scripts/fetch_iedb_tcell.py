@@ -64,33 +64,33 @@ REQUEST_DELAY = 1.0  # seconds between paginated requests
 # HPV16="Human papillomavirus 16", HBV="Hepatitis B virus",
 # HIV="Human immunodeficiency virus 1", CMV="Human herpesvirus 5" (not "cytomegalovirus").
 ORGANISM_MAP: dict[str, str] = {
-    "EBV":      "gammaherpesvirus 4",
-    "HPV16":    "papillomavirus 16",
-    "HPV18":    "papillomavirus 18",
-    "HPV":      "papillomavirus",
-    "HBV":      "hepatitis B virus",
-    "HCV":      "hepatitis C",
-    "HIV":      "immunodeficiency virus 1",
+    "EBV": "gammaherpesvirus 4",
+    "HPV16": "papillomavirus 16",
+    "HPV18": "papillomavirus 18",
+    "HPV": "papillomavirus",
+    "HBV": "hepatitis B virus",
+    "HCV": "hepatitis C",
+    "HIV": "immunodeficiency virus 1",
     "SARSCOV2": "respiratory syndrome coronavirus 2",
-    "IAV":      "influenza A",
-    "CMV":      "herpesvirus 5",       # IEDB taxon name: "Human herpesvirus 5"
-    "DENV":     "dengue virus",
-    "RSV":      "respiratory syncytial virus",
+    "IAV": "influenza A",
+    "CMV": "herpesvirus 5",  # IEDB taxon name: "Human herpesvirus 5"
+    "DENV": "dengue virus",
+    "RSV": "respiratory syncytial virus",
 }
 
 VIRUS_DISPLAY: dict[str, str] = {
-    "EBV":      "EBV",
-    "HPV16":    "HPV16",
-    "HPV18":    "HPV18",
-    "HPV":      "HPV",
-    "HBV":      "HBV",
-    "HCV":      "HCV",
-    "HIV":      "HIV-1",
+    "EBV": "EBV",
+    "HPV16": "HPV16",
+    "HPV18": "HPV18",
+    "HPV": "HPV",
+    "HBV": "HBV",
+    "HCV": "HCV",
+    "HIV": "HIV-1",
     "SARSCOV2": "SARS-CoV-2",
-    "IAV":      "IAV",
-    "CMV":      "CMV",
-    "DENV":     "DENV",
-    "RSV":      "RSV",
+    "IAV": "IAV",
+    "CMV": "CMV",
+    "DENV": "DENV",
+    "RSV": "RSV",
 }
 
 # Assay response quality weights. Higher = more direct/reliable cytotoxic T-cell signal.
@@ -99,44 +99,47 @@ VIRUS_DISPLAY: dict[str, str] = {
 # Proliferation / activation are Tier 3: less specific.
 # Binding assays are Tier 4: structural but not functional immunogenicity.
 ASSAY_QUALITY_MAP: dict[str, float] = {
-    "cytotoxicity":             1.0,
-    "degranulation":            1.0,
-    "granzyme b release":       1.0,
-    "perforin release":         1.0,
-    "ifng release":             1.0,
-    "tnfa release":             0.9,
-    "il-2 release":             0.9,
-    "gm-csf release":           0.9,
-    "ccl4/mip-1b release":      0.8,
-    "granulysin release":       0.8,
-    "il-10 release":            0.7,
-    "proliferation":            0.7,
-    "activation":               0.7,
-    "t cell-apc binding":       0.6,
-    "qualitative binding":      0.5,
+    "cytotoxicity": 1.0,
+    "degranulation": 1.0,
+    "granzyme b release": 1.0,
+    "perforin release": 1.0,
+    "ifng release": 1.0,
+    "tnfa release": 0.9,
+    "il-2 release": 0.9,
+    "gm-csf release": 0.9,
+    "ccl4/mip-1b release": 0.8,
+    "granulysin release": 0.8,
+    "il-10 release": 0.7,
+    "proliferation": 0.7,
+    "activation": 0.7,
+    "t cell-apc binding": 0.6,
+    "qualitative binding": 0.5,
     "dissociation constant kd": 0.4,
-    "on rate":                  0.4,
-    "off rate":                 0.4,
-    "3d structure":             0.3,
+    "on rate": 0.4,
+    "off rate": 0.4,
+    "3d structure": 0.3,
 }
 _DEFAULT_QUALITY = 0.5
 
 _VALID_AA = frozenset("ACDEFGHIKLMNPQRSTVWY")
 
 # Fields requested from the API (reduces payload size).
-_SELECT_FIELDS = ",".join([
-    "epitope__name",
-    "epitope__source_molecule",
-    "epitope__source_organism",
-    "mhc_restriction__name",
-    "assay__response_measured",
-    "assay__qualitative_measurement",
-    "reference__pmid",
-])
+_SELECT_FIELDS = ",".join(
+    [
+        "epitope__name",
+        "epitope__source_molecule",
+        "epitope__source_organism",
+        "mhc_restriction__name",
+        "assay__response_measured",
+        "assay__qualitative_measurement",
+        "reference__pmid",
+    ]
+)
 
 # ---------------------------------------------------------------------------
 # URL / HTTP helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_url(organism_pattern: str, offset: int) -> str:
     """Return a paginated IEDB tcell_export URL for one organism pattern."""
@@ -171,7 +174,7 @@ def _fetch_page(url: str, *, max_retries: int = 4) -> list[dict]:
                 return []
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 503) and attempt < max_retries - 1:
-                delay = 2 ** attempt
+                delay = 2**attempt
                 print(
                     f"  Rate-limited (HTTP {exc.code}), retrying in {delay}s "
                     f"(attempt {attempt + 1}/{max_retries})...",
@@ -186,9 +189,11 @@ def _fetch_page(url: str, *, max_retries: int = 4) -> list[dict]:
             return []
     return []
 
+
 # ---------------------------------------------------------------------------
 # Label / quality / allele normalization - pure functions, fully testable
 # ---------------------------------------------------------------------------
+
 
 def _normalize_allele(raw: str | None) -> str:
     """Normalize IEDB allele strings to HLA-X*GG:PP format where possible.
@@ -236,9 +241,11 @@ def _assay_quality(response_measured: str | None) -> float:
     key = response_measured.strip().lower()
     return ASSAY_QUALITY_MAP.get(key, _DEFAULT_QUALITY)
 
+
 # ---------------------------------------------------------------------------
 # Record processing
 # ---------------------------------------------------------------------------
+
 
 def _process_records(raw_records: list[dict], virus_display: str) -> list[dict]:
     """Convert raw IEDB API records to v4-compatible dicts.
@@ -274,31 +281,37 @@ def _process_records(raw_records: list[dict], virus_display: str) -> list[dict]:
             continue
 
         response = rec.get("assay__response_measured") or ""
-        processed.append({
-            "peptide":              peptide,
-            "label":                label,
-            "virus":                virus_display,
-            "protein":              rec.get("epitope__source_molecule") or "",
-            "strain":               rec.get("epitope__source_organism") or "",
-            "hla_allele":           _normalize_allele(rec.get("mhc_restriction__name")),
-            "source_type":          "Virus",
-            "database_source":      "IEDB",
-            "assay_type":           response,
-            "assay_quality_weight": _assay_quality(response),
-            "reference_pmid":       str(rec.get("reference__pmid") or ""),
-        })
+        processed.append(
+            {
+                "peptide": peptide,
+                "label": label,
+                "virus": virus_display,
+                "protein": rec.get("epitope__source_molecule") or "",
+                "strain": rec.get("epitope__source_organism") or "",
+                "hla_allele": _normalize_allele(rec.get("mhc_restriction__name")),
+                "source_type": "Virus",
+                "database_source": "IEDB",
+                "assay_type": response,
+                "assay_quality_weight": _assay_quality(response),
+                "reference_pmid": str(rec.get("reference__pmid") or ""),
+            }
+        )
 
     n = len(processed)
     pos = sum(1 for r in processed if r["label"] == 1)
     neg = n - pos
     print(f"  Retained {n} records ({pos} positive, {neg} negative)")
-    print(f"  Skipped: {skipped_length} wrong length | {skipped_aa} invalid AA | "
-          f"{skipped_label} no label")
+    print(
+        f"  Skipped: {skipped_length} wrong length | {skipped_aa} invalid AA | "
+        f"{skipped_label} no label"
+    )
     return processed
+
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def fetch_iedb_tcell(virus_key: str) -> list[dict]:
     """Fetch all MHC Class I T-cell records for a virus from the IEDB API.
@@ -307,7 +320,7 @@ def fetch_iedb_tcell(virus_key: str) -> list[dict]:
         virus_key: One of the keys in ORGANISM_MAP (case-insensitive).
 
     Returns:
-        List of v4-compatible dicts (peptide, label, assay_type, …).
+        List of v4-compatible dicts (peptide, label, assay_type, ...).
     """
     key = virus_key.upper()
     if key not in ORGANISM_MAP:
@@ -325,8 +338,7 @@ def fetch_iedb_tcell(virus_key: str) -> list[dict]:
         if not page:
             break
         raw.extend(page)
-        print(f"  Page {offset // PAGE_SIZE + 1}: {len(page)} records "
-              f"(total so far: {len(raw)})")
+        print(f"  Page {offset // PAGE_SIZE + 1}: {len(page)} records (total so far: {len(raw)})")
         if len(page) < PAGE_SIZE:
             break
         offset += PAGE_SIZE
@@ -336,8 +348,9 @@ def fetch_iedb_tcell(virus_key: str) -> list[dict]:
     return _process_records(raw, display)
 
 
-def fetch_and_save(virus_key: str, output_path: str,
-                   schema_path: str | None = None) -> pd.DataFrame:
+def fetch_and_save(
+    virus_key: str, output_path: str, schema_path: str | None = None
+) -> pd.DataFrame:
     """Fetch, process, deduplicate, and save a v4-compatible CSV for one virus.
 
     Deduplication is on (peptide, hla_allele, assay_type): multiple assays for
@@ -384,9 +397,11 @@ def fetch_and_save(virus_key: str, output_path: str,
     )
     return df
 
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
@@ -396,28 +411,34 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     mode = p.add_mutually_exclusive_group(required=True)
     mode.add_argument(
-        "--virus", metavar="KEY",
+        "--virus",
+        metavar="KEY",
         help=f"Virus key to fetch. Choices: {', '.join(sorted(ORGANISM_MAP))}",
     )
     mode.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Fetch all supported viruses.",
     )
     mode.add_argument(
-        "--list-viruses", action="store_true",
+        "--list-viruses",
+        action="store_true",
         help="Print supported virus keys and IEDB organism patterns, then exit.",
     )
     p.add_argument(
-        "--output", metavar="FILE",
-        help="Output CSV path (single-virus mode). "
-             "Default: data/iedb/<VIRUS>_tcell.csv",
+        "--output",
+        metavar="FILE",
+        help="Output CSV path (single-virus mode). Default: data/iedb/<VIRUS>_tcell.csv",
     )
     p.add_argument(
-        "--output-dir", metavar="DIR", default="data/iedb",
+        "--output-dir",
+        metavar="DIR",
+        default="data/iedb",
         help="Output directory (--all mode). Default: data/iedb/",
     )
     p.add_argument(
-        "--schema", metavar="FILE",
+        "--schema",
+        metavar="FILE",
         default="data/immunogenicity_dataset_v4_schema.json",
         help="v4 schema JSON for post-fetch validation.",
     )

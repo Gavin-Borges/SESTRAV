@@ -309,10 +309,14 @@ def test_main_provenance_sidecar(tmp_path: Path) -> None:
 
 
 def test_main_missing_input_returns_1(tmp_path: Path) -> None:
-    rc = main([
-        "--input", str(tmp_path / "missing.tsv"),
-        "--output", str(tmp_path / "out.csv"),
-    ])
+    rc = main(
+        [
+            "--input",
+            str(tmp_path / "missing.tsv"),
+            "--output",
+            str(tmp_path / "out.csv"),
+        ]
+    )
     assert rc == 1
 
 
@@ -322,13 +326,20 @@ def test_main_column_override(tmp_path: Path) -> None:
     tsv = tmp_path / "export.tsv"
     pd.DataFrame(rows).to_csv(tsv, index=False, sep="\t")
     out_path = tmp_path / "out.csv"
-    rc = main([
-        "--input", str(tsv),
-        "--output", str(out_path),
-        "--col-epitope", "Pep",
-        "--col-hla", "Allele",
-        "--col-assay-result", "Outcome",
-    ])
+    rc = main(
+        [
+            "--input",
+            str(tsv),
+            "--output",
+            str(out_path),
+            "--col-epitope",
+            "Pep",
+            "--col-hla",
+            "Allele",
+            "--col-assay-result",
+            "Outcome",
+        ]
+    )
     assert rc == 0
     df = pd.read_csv(out_path)
     assert len(df) == 1

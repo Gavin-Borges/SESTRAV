@@ -2,6 +2,7 @@
 early-stopping params, binding_matrix_path wiring, num_continuous_features
 propagation, variable-length graph correctness, and promote_gnn gate3 config-reading path.
 """
+
 import json
 import sys
 from pathlib import Path
@@ -19,20 +20,24 @@ torch = pytest.importorskip("torch")
 # GraphPredictorV2 node_dim propagation
 # ---------------------------------------------------------------------------
 
+
 def test_predictor_v2_default_node_dim():
     from src.gnn.models import GraphPredictorV2
+
     model = GraphPredictorV2(num_continuous_features=10)
     assert model.encoder.conv1.nn[0].in_features == 320
 
 
 def test_predictor_v2_custom_node_dim_480():
     from src.gnn.models import GraphPredictorV2
+
     model = GraphPredictorV2(num_continuous_features=10, node_dim=480)
     assert model.encoder.conv1.nn[0].in_features == 480
 
 
 def test_predictor_v2_custom_node_dim_640():
     from src.gnn.models import GraphPredictorV2
+
     model = GraphPredictorV2(num_continuous_features=10, node_dim=640)
     assert model.encoder.conv1.nn[0].in_features == 640
 
@@ -41,9 +46,11 @@ def test_predictor_v2_custom_node_dim_640():
 # train_gnn_v2 signature accepts new v2.2 params
 # ---------------------------------------------------------------------------
 
+
 def test_train_gnn_v2_accepts_node_dim_param():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert "node_dim" in sig.parameters
 
@@ -51,6 +58,7 @@ def test_train_gnn_v2_accepts_node_dim_param():
 def test_train_gnn_v2_accepts_esm2_model_name_param():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert "esm2_model_name" in sig.parameters
 
@@ -58,6 +66,7 @@ def test_train_gnn_v2_accepts_esm2_model_name_param():
 def test_train_gnn_v2_accepts_early_stopping_patience_param():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert "early_stopping_patience" in sig.parameters
 
@@ -65,6 +74,7 @@ def test_train_gnn_v2_accepts_early_stopping_patience_param():
 def test_train_gnn_v2_default_epochs_is_50():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert sig.parameters["epochs"].default == 50
 
@@ -72,6 +82,7 @@ def test_train_gnn_v2_default_epochs_is_50():
 def test_train_gnn_v2_default_patience_is_10():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert sig.parameters["early_stopping_patience"].default == 10
 
@@ -79,6 +90,7 @@ def test_train_gnn_v2_default_patience_is_10():
 def test_train_gnn_v2_accepts_binding_matrix_path_param():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert "binding_matrix_path" in sig.parameters
 
@@ -86,6 +98,7 @@ def test_train_gnn_v2_accepts_binding_matrix_path_param():
 def test_train_gnn_v2_binding_matrix_path_defaults_none():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert sig.parameters["binding_matrix_path"].default is None
 
@@ -93,6 +106,7 @@ def test_train_gnn_v2_binding_matrix_path_defaults_none():
 # ---------------------------------------------------------------------------
 # promote_gnn gate3 reads node_dim and num_continuous_features from gnn_config.json
 # ---------------------------------------------------------------------------
+
 
 def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
     """gate3_latency should use node_dim from gnn_config.json if present."""
@@ -106,6 +120,7 @@ def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
 
     # Read node_dim using the same logic as gate3_latency
     import json as _json
+
     node_dim = 320
     if pg.GNN_CONFIG.exists():
         with pg.GNN_CONFIG.open() as fh:
@@ -121,6 +136,7 @@ def test_gate3_defaults_node_dim_320_when_config_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(pg, "GNN_CONFIG", tmp_path / "nonexistent.json")
 
     import json as _json
+
     node_dim = 320
     if pg.GNN_CONFIG.exists():
         with pg.GNN_CONFIG.open() as fh:
@@ -146,6 +162,7 @@ def test_gate3_reads_num_continuous_features_from_config(tmp_path, monkeypatch):
 
     import json as _json
     from src.features import TRAIN_FEATURE_COLUMNS
+
     num_features = len(TRAIN_FEATURE_COLUMNS)
     if pg.GNN_CONFIG.exists():
         with pg.GNN_CONFIG.open() as fh:
@@ -163,6 +180,7 @@ def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatc
     monkeypatch.setattr(pg, "GNN_CONFIG", tmp_path / "nonexistent.json")
 
     import json as _json
+
     num_features = len(TRAIN_FEATURE_COLUMNS)
     if pg.GNN_CONFIG.exists():
         with pg.GNN_CONFIG.open() as fh:
@@ -175,6 +193,7 @@ def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatc
 # ---------------------------------------------------------------------------
 # v2.3: variable-length graph correctness - no zero-padding nodes in graphs
 # ---------------------------------------------------------------------------
+
 
 def test_dataset_v2_node_count_equals_peptide_length():
     """Each Data item must have exactly L nodes, not max_len (11)."""
@@ -217,7 +236,7 @@ def test_dataset_v2_edge_index_within_node_range():
         item = ds[i]
         L = len(seq)
         assert item.edge_index.max().item() == L - 1, (
-            f"Edge index references node > {L-1} for {seq}"
+            f"Edge index references node > {L - 1} for {seq}"
         )
 
 
@@ -245,9 +264,11 @@ def test_dataset_v2_pyg_batch_node_count():
 # v2.4 attention pooling (backward-compatible; default remains mean pool)
 # ---------------------------------------------------------------------------
 
+
 def test_predictor_v2_default_pooling_is_mean():
     """Default readout must stay mean pool so existing v2.1-v2.3 checkpoints load."""
     from src.gnn.models import GraphPredictorV2
+
     model = GraphPredictorV2(num_continuous_features=10)
     assert model.encoder.pooling == "mean"
     assert not hasattr(model.encoder, "att_pool")
@@ -255,6 +276,7 @@ def test_predictor_v2_default_pooling_is_mean():
 
 def test_predictor_v2_attention_pooling_adds_gate():
     from src.gnn.models import GraphPredictorV2
+
     model = GraphPredictorV2(num_continuous_features=10, pooling="attention")
     assert model.encoder.pooling == "attention"
     assert hasattr(model.encoder, "att_pool")
@@ -262,6 +284,7 @@ def test_predictor_v2_attention_pooling_adds_gate():
 
 def test_predictor_v2_invalid_pooling_raises():
     from src.gnn.models import GraphPredictorV2
+
     with pytest.raises(ValueError):
         GraphPredictorV2(num_continuous_features=10, pooling="maxpool")
 
@@ -288,6 +311,7 @@ def _build_v2_batch(node_dim=320, n_feats=21):
 def test_predictor_v2_attention_forward_shape():
     """Attention-pooled forward must return one logit per graph on a real PyG batch."""
     from src.gnn.models import GraphPredictorV2
+
     batch = _build_v2_batch()
     model = GraphPredictorV2(num_continuous_features=21, node_dim=320, pooling="attention")
     model.eval()
@@ -299,6 +323,7 @@ def test_predictor_v2_attention_forward_shape():
 def test_predictor_v2_mean_forward_still_works():
     """Backward-compat: default mean pooling forward unchanged."""
     from src.gnn.models import GraphPredictorV2
+
     batch = _build_v2_batch()
     model = GraphPredictorV2(num_continuous_features=21, node_dim=320)
     model.eval()
@@ -310,6 +335,7 @@ def test_predictor_v2_mean_forward_still_works():
 def test_train_gnn_v2_accepts_pooling_param():
     import inspect
     from src.train_gnn import train_gnn_v2
+
     sig = inspect.signature(train_gnn_v2)
     assert "pooling" in sig.parameters
     assert sig.parameters["pooling"].default == "mean"

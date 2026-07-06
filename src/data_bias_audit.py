@@ -44,7 +44,7 @@ def _collect_raw_records(data_dir: str, include_hpv11: bool = False) -> pd.DataF
                 continue
             epitope_records = _load_epitope_table(filepath, has_subheader)
             for rec in epitope_records:
-                seq = rec['peptide']
+                seq = rec["peptide"]
                 if seq is None or not is_valid_peptide(seq):
                     continue
                 records.append(
@@ -52,8 +52,8 @@ def _collect_raw_records(data_dir: str, include_hpv11: bool = False) -> pd.DataF
                         "peptide": seq,
                         "label": int(label),
                         "virus": virus,
-                        "protein": _infer_protein_gene(rec.get('antigen_name'), virus),
-                        "strain": _infer_strain(rec.get('organism_name'), virus),
+                        "protein": _infer_protein_gene(rec.get("antigen_name"), virus),
+                        "strain": _infer_strain(rec.get("organism_name"), virus),
                         "source_file": filename,
                         "source_format": "epitope_table",
                         "label_source": "filename",
@@ -65,14 +65,18 @@ def _collect_raw_records(data_dir: str, include_hpv11: bool = False) -> pd.DataF
             label_col = None
             for col in df.columns:
                 cl = str(col).lower().strip()
-                if peptide_col is None and (cl == "description" or ("epitope" in cl and "linear" in cl)):
+                if peptide_col is None and (
+                    cl == "description" or ("epitope" in cl and "linear" in cl)
+                ):
                     peptide_col = col
                 if label_col is None and "qualitative" in cl:
                     label_col = col
             if peptide_col is None or label_col is None:
                 continue
             for _, row in df.iterrows():
-                peptide = str(row[peptide_col]).strip().upper() if pd.notna(row[peptide_col]) else None
+                peptide = (
+                    str(row[peptide_col]).strip().upper() if pd.notna(row[peptide_col]) else None
+                )
                 row_label = map_label(row[label_col])
                 if peptide is None or row_label is None:
                     continue
@@ -104,7 +108,9 @@ def refresh_dataset(
     refreshed.to_csv(output_csv, index=False)
 
     if raw_records.empty:
-        provenance = pd.DataFrame(columns=["source_file", "source_format", "label_source", "virus", "label", "n_records"])
+        provenance = pd.DataFrame(
+            columns=["source_file", "source_format", "label_source", "virus", "label", "n_records"]
+        )
     else:
         provenance = (
             raw_records.groupby(["source_file", "source_format", "label_source", "virus", "label"])
@@ -124,14 +130,26 @@ def audit_dataset(df: pd.DataFrame, raw_records: pd.DataFrame) -> Dict:
     summary["n_negative"] = int((df["label"] == 0).sum())
     summary["positive_rate"] = float(np.mean(df["label"] == 1)) if len(df) else np.nan
     summary["n_unique_peptides"] = int(df["peptide"].nunique()) if "peptide" in df.columns else 0
-    summary["missing_virus"] = int(df["virus"].isna().sum()) if "virus" in df.columns else int(len(df))
-    summary["missing_strain"] = int(df["strain"].isna().sum()) if "strain" in df.columns else int(len(df))
-    summary["missing_allele"] = int(df["allele"].isna().sum()) if "allele" in df.columns else int(len(df))
-    summary["missing_protein"] = int(df["protein"].isna().sum()) if "protein" in df.columns else int(len(df))
-    peptide_lengths = df["peptide"].astype(str).str.len() if "peptide" in df.columns else pd.Series(dtype=int)
+    summary["missing_virus"] = (
+        int(df["virus"].isna().sum()) if "virus" in df.columns else int(len(df))
+    )
+    summary["missing_strain"] = (
+        int(df["strain"].isna().sum()) if "strain" in df.columns else int(len(df))
+    )
+    summary["missing_allele"] = (
+        int(df["allele"].isna().sum()) if "allele" in df.columns else int(len(df))
+    )
+    summary["missing_protein"] = (
+        int(df["protein"].isna().sum()) if "protein" in df.columns else int(len(df))
+    )
+    peptide_lengths = (
+        df["peptide"].astype(str).str.len() if "peptide" in df.columns else pd.Series(dtype=int)
+    )
     summary["peptide_len_min"] = int(peptide_lengths.min()) if not peptide_lengths.empty else np.nan
     summary["peptide_len_max"] = int(peptide_lengths.max()) if not peptide_lengths.empty else np.nan
-    summary["peptide_len_mean"] = float(peptide_lengths.mean()) if not peptide_lengths.empty else np.nan
+    summary["peptide_len_mean"] = (
+        float(peptide_lengths.mean()) if not peptide_lengths.empty else np.nan
+    )
 
     if raw_records.empty:
         summary["raw_n_records"] = 0
@@ -200,7 +218,9 @@ def write_audit_reports(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Refresh and audit SESTRAV training dataset")
-    parser.add_argument("--source-data-dir", required=True, help="Directory with raw IEDB source xlsx/csv files")
+    parser.add_argument(
+        "--source-data-dir", required=True, help="Directory with raw IEDB source xlsx/csv files"
+    )
     parser.add_argument("--output-csv", default="data/immunogenicity_dataset_v4.csv")
     parser.add_argument("--provenance-csv", default="results/immunogenicity_provenance.csv")
     parser.add_argument("--audit-csv", default="results/data_bias_audit_summary.csv")

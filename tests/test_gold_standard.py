@@ -45,9 +45,7 @@ def test_validate_stage1_found_flag(tmp_path):
 
 
 def test_validate_stage2_strong_binder(tmp_path):
-    df = pd.DataFrame(
-        {"peptide": ["CLGGLLTMV", "GLCTLVAML"], "affinity": [50.0, 9000.0]}
-    )
+    df = pd.DataFrame({"peptide": ["CLGGLLTMV", "GLCTLVAML"], "affinity": [50.0, 9000.0]})
     path = _csv(tmp_path / "b.csv", df)
     out = gs.validate_stage2(path, virus="EBV", ic50_threshold=500).set_index("peptide")
     assert out.loc["CLGGLLTMV", "stage2_found"]
@@ -207,6 +205,7 @@ def test_validate_expanded_negative_discrimination_missing_files_raises(tmp_path
 # Edge cases: empty s4_df, n_v==0, ranked_path None, pushed_down None
 # --------------------------------------------------------------------------- #
 
+
 def test_full_report_s4df_empty_skips_append(tmp_path):
     """Covers the s4_df.empty branch: ranked file exists but has no
     immunogenicity_score column → validate_stage4 returns an empty df → the
@@ -257,10 +256,11 @@ def test_negative_discrimination_pushed_down_none(tmp_path):
     for virus, prefix in gs.VIRUS_FILE_MAP.items():
         # Ranked and binding files exist but contain only FILLER, not the
         # actual negative peptides, so integ_rank / bind_rank are both None.
-        _csv(tmp_path / f"{prefix}_ranked.csv",
-             pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
-        _csv(tmp_path / f"{prefix}_binding.csv",
-             pd.DataFrame({"peptide": ["FILLER"], "presentation_score": [0.1]}))
+        _csv(tmp_path / f"{prefix}_ranked.csv", pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
+        _csv(
+            tmp_path / f"{prefix}_binding.csv",
+            pd.DataFrame({"peptide": ["FILLER"], "presentation_score": [0.1]}),
+        )
 
     report = gs.validate_negative_discrimination(str(tmp_path))
     assert not report.empty
@@ -286,10 +286,11 @@ def test_expanded_negative_discrimination_pushed_down_none(tmp_path):
     """Covers lines 440->443 (expanded): negative peptide absent from ranked
     gives pushed_down=None."""
     for virus, prefix in gs.VIRUS_FILE_MAP.items():
-        _csv(tmp_path / f"{prefix}_ranked.csv",
-             pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
-        _csv(tmp_path / f"{prefix}_binding.csv",
-             pd.DataFrame({"peptide": ["FILLER"], "presentation_score": [0.1]}))
+        _csv(tmp_path / f"{prefix}_ranked.csv", pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
+        _csv(
+            tmp_path / f"{prefix}_binding.csv",
+            pd.DataFrame({"peptide": ["FILLER"], "presentation_score": [0.1]}),
+        )
 
     report = gs.validate_expanded_negative_discrimination(str(tmp_path))
     assert not report.empty

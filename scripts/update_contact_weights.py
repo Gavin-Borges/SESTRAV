@@ -27,35 +27,35 @@ import shutil
 import sys
 
 
-POSITIONS = ['p4', 'p5', 'p6', 'p7', 'p8']
+POSITIONS = ["p4", "p5", "p6", "p7", "p8"]
 
 CANONICAL_ALLELES = [
-    'HLA-A*01:01',
-    'HLA-A*02:01',
-    'HLA-A*03:01',
-    'HLA-A*11:01',
-    'HLA-A*24:02',
-    'HLA-B*07:02',
-    'HLA-B*08:01',
-    'HLA-B*27:05',
-    'HLA-B*35:01',
-    'HLA-B*44:02',
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
-FEATURES_PY_DEFAULT = pathlib.Path('src/features.py')
-CONTACT_CSV_DEFAULT = pathlib.Path('data/contact_freqs/per_allele_contact_freq.csv')
+FEATURES_PY_DEFAULT = pathlib.Path("src/features.py")
+CONTACT_CSV_DEFAULT = pathlib.Path("data/contact_freqs/per_allele_contact_freq.csv")
 
 
 def _load_contact_csv(csv_path: pathlib.Path) -> dict[str, dict[str, tuple[float, int]]]:
     """Return {allele: {position: (contact_freq, n_structures)}} from the CSV."""
     data: dict[str, dict[str, tuple[float, int]]] = {}
-    with open(csv_path, newline='', encoding='utf-8') as fh:
+    with open(csv_path, newline="", encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
-            allele = row['allele'].strip()
-            pos = row['position'].strip()
+            allele = row["allele"].strip()
+            pos = row["position"].strip()
             try:
-                freq = float(row['contact_freq'])
-                n_struct = int(row['n_structures'])
+                freq = float(row["contact_freq"])
+                n_struct = int(row["n_structures"])
             except (ValueError, KeyError) as exc:
                 print(f"WARNING: skipping malformed row {row!r}: {exc}", file=sys.stderr)
                 continue
@@ -113,32 +113,30 @@ def _format_weights_block(
 ) -> str:
     """Return the Python source text for the updated ALLELE_CONTACT_WEIGHTS block."""
     lines = [
-        'ALLELE_CONTACT_WEIGHTS: dict[str, list[float]] = {',
+        "ALLELE_CONTACT_WEIGHTS: dict[str, list[float]] = {",
     ]
     for allele in CANONICAL_ALLELES:
         if allele in allele_weights:
             weights = allele_weights[allele]
-            tag = '  # structure-derived (TCR3d)'
+            tag = "  # structure-derived (TCR3d)"
         elif allele in existing_priors:
             weights = existing_priors[allele]
-            tag = '  # literature prior (insufficient structures)'
+            tag = "  # literature prior (insufficient structures)"
         else:
             continue
-        weights_repr = '[' + ', '.join(f'{w:.4f}' for w in weights) + ']'
+        weights_repr = "[" + ", ".join(f"{w:.4f}" for w in weights) + "]"
         lines.append(f"    '{allele}': {weights_repr},{tag}")
-    lines.append('}')
-    return '\n'.join(lines)
+    lines.append("}")
+    return "\n".join(lines)
 
 
 def _parse_existing_weights(source: str) -> dict[str, list[float]]:
     """Extract current ALLELE_CONTACT_WEIGHTS values from features.py source."""
-    pattern = re.compile(
-        r"'(HLA-[AB]\*\d{2}:\d{2})':\s*\[([0-9., ]+)\]"
-    )
+    pattern = re.compile(r"'(HLA-[AB]\*\d{2}:\d{2})':\s*\[([0-9., ]+)\]")
     result = {}
     for m in pattern.finditer(source):
         allele = m.group(1)
-        weights = [float(x.strip()) for x in m.group(2).split(',') if x.strip()]
+        weights = [float(x.strip()) for x in m.group(2).split(",") if x.strip()]
         result[allele] = weights
     return result
 
@@ -146,11 +144,11 @@ def _parse_existing_weights(source: str) -> dict[str, list[float]]:
 def _parse_existing_pop_avg(source: str) -> list[float]:
     """Extract current POPULATION_AVG_CONTACT_WEIGHTS from features.py source."""
     m = re.search(
-        r'POPULATION_AVG_CONTACT_WEIGHTS:\s*list\[float\]\s*=\s*\[([0-9., ]+)\]',
+        r"POPULATION_AVG_CONTACT_WEIGHTS:\s*list\[float\]\s*=\s*\[([0-9., ]+)\]",
         source,
     )
     if m:
-        return [float(x.strip()) for x in m.group(1).split(',') if x.strip()]
+        return [float(x.strip()) for x in m.group(1).split(",") if x.strip()]
     return []
 
 
@@ -170,11 +168,9 @@ def _replace_weights_in_source(
     source = allele_pattern.sub(new_allele_block, source)
 
     # Replace POPULATION_AVG_CONTACT_WEIGHTS list
-    pop_repr = '[' + ', '.join(f'{w:.4f}' for w in new_pop_avg) + ']'
-    pop_pattern = re.compile(
-        r"POPULATION_AVG_CONTACT_WEIGHTS:\s*list\[float\]\s*=\s*\[[0-9., ]+\]"
-    )
-    pop_replacement = f'POPULATION_AVG_CONTACT_WEIGHTS: list[float] = {pop_repr}'
+    pop_repr = "[" + ", ".join(f"{w:.4f}" for w in new_pop_avg) + "]"
+    pop_pattern = re.compile(r"POPULATION_AVG_CONTACT_WEIGHTS:\s*list\[float\]\s*=\s*\[[0-9., ]+\]")
+    pop_replacement = f"POPULATION_AVG_CONTACT_WEIGHTS: list[float] = {pop_repr}"
     if not pop_pattern.search(source):
         print("WARNING: POPULATION_AVG_CONTACT_WEIGHTS not found; skipping update", file=sys.stderr)
     else:
@@ -188,27 +184,27 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument(
-        '--contact-csv',
+        "--contact-csv",
         type=pathlib.Path,
         default=CONTACT_CSV_DEFAULT,
-        help=f'Contact frequency CSV from compute_contact_freqs.py (default: {CONTACT_CSV_DEFAULT})',
+        help=f"Contact frequency CSV from compute_contact_freqs.py (default: {CONTACT_CSV_DEFAULT})",
     )
     ap.add_argument(
-        '--features-py',
+        "--features-py",
         type=pathlib.Path,
         default=FEATURES_PY_DEFAULT,
-        help=f'Path to src/features.py (default: {FEATURES_PY_DEFAULT})',
+        help=f"Path to src/features.py (default: {FEATURES_PY_DEFAULT})",
     )
     ap.add_argument(
-        '--min-structures',
+        "--min-structures",
         type=int,
         default=3,
-        help='Minimum number of structures required to use empirical freq (default: 3)',
+        help="Minimum number of structures required to use empirical freq (default: 3)",
     )
     ap.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Print proposed changes without modifying features.py',
+        "--dry-run",
+        action="store_true",
+        help="Print proposed changes without modifying features.py",
     )
     args = ap.parse_args()
 
@@ -222,7 +218,7 @@ def main() -> None:
     print(f"Loaded contact data for {len(csv_data)} alleles: {sorted(csv_data)}")
 
     # Load existing source to parse current priors
-    source = args.features_py.read_text(encoding='utf-8')
+    source = args.features_py.read_text(encoding="utf-8")
     existing_priors = _parse_existing_weights(source)
     print(f"Found {len(existing_priors)} existing allele priors in features.py")
 
@@ -247,8 +243,10 @@ def main() -> None:
         return
 
     # Compute new population average from updated alleles + unchanged priors
-    combined = {**{a: existing_priors[a] for a in unchanged if a in existing_priors},
-                **allele_weights}
+    combined = {
+        **{a: existing_priors[a] for a in unchanged if a in existing_priors},
+        **allele_weights,
+    }
     pop_avg = _population_avg(combined)
     print(f"Population average (all alleles): {pop_avg}")
 
@@ -265,9 +263,9 @@ def main() -> None:
 
     # Apply changes to features.py
     new_source = _replace_weights_in_source(source, new_block, pop_avg)
-    backup_path = args.features_py.with_suffix('.py.bak')
+    backup_path = args.features_py.with_suffix(".py.bak")
     shutil.copy2(args.features_py, backup_path)
-    args.features_py.write_text(new_source, encoding='utf-8')
+    args.features_py.write_text(new_source, encoding="utf-8")
     print(f"Backup at: {backup_path}")
     print(
         f"\nUpdated {args.features_py}: "
@@ -277,5 +275,5 @@ def main() -> None:
     print("Run: python -m ruff check src/features.py && pytest tests/test_features.py -v")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

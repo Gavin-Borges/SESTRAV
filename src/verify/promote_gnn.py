@@ -17,10 +17,12 @@ Security hardening:
   - Checksum generation uses native Python hashlib (no shell injection risk).
   - No eval()/exec() used anywhere.
 """
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -40,24 +42,24 @@ logger = logging.getLogger("gnn-promote")
 # Canonical paths - relative to project root (cwd must be project root)
 # ---------------------------------------------------------------------------
 GNN_CHECKPOINT = Path("models/gnn/structural_gnn_v2.pth")
-GNN_SCALER    = Path("models/gnn/gnn_scaler.joblib")
-GNN_CONFIG    = Path("models/gnn/gnn_config.json")
-RF_MODEL_PATH  = Path("models/rf_31feature_integrated.joblib")
-OOF_PATH       = Path("models/gnn_oof_predictions.csv")
-CONFIG_PATH    = Path("config.yaml")
-CHECKSUM_FILE  = Path("models/model_artifact_checksums.json")
+GNN_SCALER = Path("models/gnn/gnn_scaler.joblib")
+GNN_CONFIG = Path("models/gnn/gnn_config.json")
+RF_MODEL_PATH = Path("models/rf_31feature_integrated.joblib")
+OOF_PATH = Path("models/gnn_oof_predictions.csv")
+CONFIG_PATH = Path("config.yaml")
+CHECKSUM_FILE = Path("models/model_artifact_checksums.json")
 
 # Gate thresholds (immutable constants - edit requires PR review)
-GATE1_AUC_PR_MIN:  float = 0.85
-GATE2_STD_MAX:     float = 0.02
-GATE3_LATENCY_FACTOR: float = 2.0   # GNN must be <= 2× RF latency
-GATE4_ECE_MAX:    float = 0.05
+GATE1_AUC_PR_MIN: float = 0.85
+GATE2_STD_MAX: float = 0.02
+GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2× RF latency
+GATE4_ECE_MAX: float = 0.05
 GATE5_SENSITIVITY_MIN: float = 0.80
 
 # Latency benchmark settings
-LATENCY_BATCH_SIZE: int  = 50
+LATENCY_BATCH_SIZE: int = 50
 LATENCY_WARMUP_REPS: int = 3
-LATENCY_TIMED_REPS: int  = 10
+LATENCY_TIMED_REPS: int = 10
 
 
 class GateResult(NamedTuple):
@@ -71,9 +73,11 @@ class GateResult(NamedTuple):
 # Security helpers
 # ---------------------------------------------------------------------------
 
+
 def _sha256_file(filepath: Path) -> str:
     """SHA-256 via native Python hashlib - no shell invocation."""
     import hashlib
+
     digest = hashlib.sha256()
     with filepath.open("rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
@@ -84,6 +88,7 @@ def _sha256_file(filepath: Path) -> str:
 # ---------------------------------------------------------------------------
 # Gate implementations
 # ---------------------------------------------------------------------------
+
 
 def _load_oof() -> pd.DataFrame:
     if not OOF_PATH.exists():
@@ -102,6 +107,7 @@ def _load_oof() -> pd.DataFrame:
 def gate1_generalization(df: pd.DataFrame) -> GateResult:
     """AUC-PR on OOF predictions >= GATE1_AUC_PR_MIN."""
     from sklearn.metrics import average_precision_score
+
     auc_pr = float(average_precision_score(df["label"], df["gnn_oof_score"]))
     passed = auc_pr >= GATE1_AUC_PR_MIN
     return GateResult(
@@ -121,8 +127,8 @@ def gate2_stability(df: pd.DataFrame) -> GateResult:
     """
     from sklearn.metrics import average_precision_score
 
-    labels  = df["label"].values
-    scores  = df["gnn_oof_score"].values
+    labels = df["label"].values
+    scores = df["gnn_oof_score"].values
 
     if "fold" in df.columns:
         fold_ids = df["fold"].values
@@ -132,9 +138,7 @@ def gate2_stability(df: pd.DataFrame) -> GateResult:
             mask = fold_ids == fid
             if labels[mask].sum() == 0:
                 continue  # skip folds with no positives
-            fold_auc_prs.append(
-                float(average_precision_score(labels[mask], scores[mask]))
-            )
+            fold_auc_prs.append(float(average_precision_score(labels[mask], scores[mask])))
         std = float(np.std(fold_auc_prs)) if len(fold_auc_prs) > 1 else 0.0
         method = "per-fold"
     else:
@@ -147,9 +151,7 @@ def gate2_stability(df: pd.DataFrame) -> GateResult:
             if labels[mask].sum() == 0:
                 continue
             try:
-                loo_auc_prs.append(
-                    float(average_precision_score(labels[mask], scores[mask]))
-                )
+                loo_auc_prs.append(float(average_precision_score(labels[mask], scores[mask])))
             except Exception:
                 pass
         std = float(np.std(loo_auc_prs)) if len(loo_auc_prs) > 1 else 0.0
@@ -167,6 +169,7 @@ def gate2_stability(df: pd.DataFrame) -> GateResult:
 def _time_model_ms(predict_fn, node_x, feat_x, warmup: int, reps: int) -> float:
     """Returns median wall-clock latency in milliseconds over *reps* timed calls."""
     import torch
+
     for _ in range(warmup):
         with torch.no_grad():
             predict_fn(node_x, feat_x)
@@ -182,6 +185,7 @@ def _time_model_ms(predict_fn, node_x, feat_x, warmup: int, reps: int) -> float:
 def _time_model_ms_v2(predict_fn, batch, warmup: int, reps: int) -> float:
     """Latency timer for v2 models that accept a PyG batch object."""
     import torch
+
     for _ in range(warmup):
         with torch.no_grad():
             predict_fn(batch)
@@ -245,6 +249,7 @@ def gate3_latency() -> GateResult:
     # Read node_dim and num_continuous_features from gnn_config.json so gate3 matches
     # whatever ESM-2 variant and feature mode the checkpoint was trained with.
     import json as _json
+
     node_dim = 320  # default (t6 ESM-2)
     num_features = len(TRAIN_FEATURE_COLUMNS)  # default: 21 physico-only
     pooling = "mean"  # default readout (v2.1-v2.3); v2.4 may use attention
@@ -255,7 +260,9 @@ def gate3_latency() -> GateResult:
             num_features = _cfg.get("num_continuous_features", num_features)
             pooling = _cfg.get("pooling", "mean")
 
-    gnn_model = GraphPredictorV2(num_continuous_features=num_features, node_dim=node_dim, pooling=pooling).to(device)
+    gnn_model = GraphPredictorV2(
+        num_continuous_features=num_features, node_dim=node_dim, pooling=pooling
+    ).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load
     state = torch.load(GNN_CHECKPOINT, map_location="cpu", weights_only=True)
     gnn_model.load_state_dict(state)
@@ -299,17 +306,17 @@ def gate4_calibration(df: pd.DataFrame) -> GateResult:
 
     Uses equal-width binning (15 bins) following Guo et al. 2017.
     """
-    probs  = df["gnn_oof_score"].values.astype(float)
+    probs = df["gnn_oof_score"].values.astype(float)
     labels = df["label"].values.astype(float)
     n_bins = 15
-    bins   = np.linspace(0.0, 1.0, n_bins + 1)
-    ece    = 0.0
-    n      = len(probs)
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+    ece = 0.0
+    n = len(probs)
     for lo, hi in zip(bins[:-1], bins[1:]):
         mask = (probs >= lo) & (probs < hi)
         if mask.sum() == 0:
             continue
-        acc  = labels[mask].mean()
+        acc = labels[mask].mean()
         conf = probs[mask].mean()
         ece += (mask.sum() / n) * abs(acc - conf)
     passed = ece < GATE4_ECE_MAX
@@ -340,7 +347,7 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
         )
 
     decoy_median = float(np.median(negatives))
-    sensitivity  = float((positives > decoy_median).mean())
+    sensitivity = float((positives > decoy_median).mean())
     passed = sensitivity >= GATE5_SENSITIVITY_MIN
     return GateResult(
         name="Gate 5 - Escape Sensitivity",
@@ -353,6 +360,7 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
 # ---------------------------------------------------------------------------
 # Scorecard runner
 # ---------------------------------------------------------------------------
+
 
 def check_promotion_gates() -> bool:
     logger.info("=" * 60)
@@ -375,12 +383,19 @@ def check_promotion_gates() -> bool:
     results: list[GateResult] = []
 
     # Gates 1, 2, 4, 5 depend only on OOF CSV
-    for gate_fn in (gate1_generalization, gate2_stability, gate4_calibration, gate5_escape_sensitivity):
+    for gate_fn in (
+        gate1_generalization,
+        gate2_stability,
+        gate4_calibration,
+        gate5_escape_sensitivity,
+    ):
         try:
             r = gate_fn(df)
         except Exception as exc:  # noqa: BLE001
             logger.error(f"{gate_fn.__name__} raised unexpectedly: {exc}")
-            results.append(GateResult(name=gate_fn.__name__, passed=False, value=str(exc), threshold="-"))
+            results.append(
+                GateResult(name=gate_fn.__name__, passed=False, value=str(exc), threshold="-")
+            )
             continue
         results.append(r)
 
@@ -394,15 +409,15 @@ def check_promotion_gates() -> bool:
 
     # Log full scorecard
     logger.info("")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     all_passed = True
     for r in sorted(results, key=lambda x: x.name):
-        status = "PASS ✓" if r.passed else "FAIL ✗"
+        status = "PASS" if r.passed else "FAIL"
         logger.info(f"  {r.name}")
         logger.info(f"    Value: {r.value}   Threshold: {r.threshold}   [{status}]")
         if not r.passed:
             all_passed = False
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     if all_passed:
         logger.info("SCORECARD RESULT: ALL GATES PASSED - ready for promotion.")
     else:
@@ -416,13 +431,14 @@ def check_promotion_gates() -> bool:
 # Promotion executor (only called when all gates pass)
 # ---------------------------------------------------------------------------
 
+
 def promote_model() -> None:
     """Mutates config.yaml and model_artifact_checksums.json iff all gates pass."""
     if not check_promotion_gates():
         logger.error("Model failed promotion gates. config.yaml will NOT be modified.")
         return
 
-    logger.info("Promoting Structural GNN to canonical pipeline …")
+    logger.info("Promoting Structural GNN to canonical pipeline...")
 
     # Secure SHA-256 (native Python; no shell=True, no subprocess)
     gnn_sha256 = _sha256_file(GNN_CHECKPOINT)
@@ -442,6 +458,7 @@ def promote_model() -> None:
     # --- Update model_artifact_checksums.json ---
     try:
         from src.artifact_integrity import update_checksum_manifest
+
         update_checksum_manifest(CHECKSUM_FILE, [GNN_CHECKPOINT])
         logger.info(f"Updated {CHECKSUM_FILE} using canonical schema.")
     except Exception as exc:

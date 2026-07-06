@@ -88,9 +88,7 @@ def _write_provenance(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Build v5 peptide binding matrix incrementally"
-    )
+    parser = argparse.ArgumentParser(description="Build v5 peptide binding matrix incrementally")
     parser.add_argument(
         "--dataset",
         default="data/immunogenicity_dataset_v5.csv",

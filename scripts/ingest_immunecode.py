@@ -62,8 +62,7 @@ from _dataset_utils import write_provenance  # noqa: E402
 # ---------------------------------------------------------------------------
 
 MIRA_DOWNLOAD_URL = (
-    "https://clients.adaptivebiotech.com/pub/covid-2020/"
-    "immuneCODE-MIRA-release002.1.zip"
+    "https://clients.adaptivebiotech.com/pub/covid-2020/immuneCODE-MIRA-release002.1.zip"
 )
 
 # Preferred CSV filenames inside the ZIP archive, tried in order.
@@ -86,37 +85,54 @@ _MAX_LEN: int = 11
 
 # Exactly 23 schema columns required by SESTRAV negatives pipeline.
 SCHEMA_COLUMNS: list[str] = [
-    "peptide", "label", "hla_allele", "virus", "protein", "strain",
-    "source_type", "database_source", "tcr_alpha_cdr3", "tcr_beta_cdr3",
-    "virus_family", "negative_origin", "assay_type", "assay_quality_tier",
-    "assay_quality_weight", "reference_pmid", "iedb_assay_id",
-    "infection_phase", "antigen_latency_program", "assay_context",
-    "cross_reactivity_tested", "virus_taxon_id", "is_quarantined",
+    "peptide",
+    "label",
+    "hla_allele",
+    "virus",
+    "protein",
+    "strain",
+    "source_type",
+    "database_source",
+    "tcr_alpha_cdr3",
+    "tcr_beta_cdr3",
+    "virus_family",
+    "negative_origin",
+    "assay_type",
+    "assay_quality_tier",
+    "assay_quality_weight",
+    "reference_pmid",
+    "iedb_assay_id",
+    "infection_phase",
+    "antigen_latency_program",
+    "assay_context",
+    "cross_reactivity_tested",
+    "virus_taxon_id",
+    "is_quarantined",
 ]
 
 # Fixed values applied to every output row.
 _FIXED_FIELDS: dict[str, object] = {
-    "label":                   0,
-    "virus":                   "SARS-CoV-2",
-    "protein":                 np.nan,
-    "strain":                  "SARS-CoV-2 (Wuhan-Hu-1)",
-    "source_type":             "Virus",
-    "database_source":         "ImmuneCODE",
-    "tcr_alpha_cdr3":          np.nan,
-    "tcr_beta_cdr3":           np.nan,
-    "virus_family":            "Coronaviridae",
-    "negative_origin":         "immunecode_mira",
-    "assay_type":              "MIRA_TCR_sequencing",
-    "assay_quality_tier":      1,
-    "assay_quality_weight":    0.9,
-    "reference_pmid":          _REFERENCE_PMID,
-    "iedb_assay_id":           np.nan,
-    "infection_phase":         np.nan,
+    "label": 0,
+    "virus": "SARS-CoV-2",
+    "protein": np.nan,
+    "strain": "SARS-CoV-2 (Wuhan-Hu-1)",
+    "source_type": "Virus",
+    "database_source": "ImmuneCODE",
+    "tcr_alpha_cdr3": np.nan,
+    "tcr_beta_cdr3": np.nan,
+    "virus_family": "Coronaviridae",
+    "negative_origin": "immunecode_mira",
+    "assay_type": "MIRA_TCR_sequencing",
+    "assay_quality_tier": 1,
+    "assay_quality_weight": 0.9,
+    "reference_pmid": _REFERENCE_PMID,
+    "iedb_assay_id": np.nan,
+    "infection_phase": np.nan,
     "antigen_latency_program": np.nan,
-    "assay_context":           np.nan,
+    "assay_context": np.nan,
     "cross_reactivity_tested": np.nan,
-    "virus_taxon_id":          _VIRUS_TAXON_ID,
-    "is_quarantined":          False,
+    "virus_taxon_id": _VIRUS_TAXON_ID,
+    "is_quarantined": False,
 }
 
 log = logging.getLogger(__name__)
@@ -170,9 +186,7 @@ def _download_mira(dest_dir: str) -> str:
             "Then pass it via --input PATH."
         ) from exc
     if not zipfile.is_zipfile(zip_path):
-        raise RuntimeError(
-            f"Downloaded file is not a valid ZIP archive: {zip_path}"
-        )
+        raise RuntimeError(f"Downloaded file is not a valid ZIP archive: {zip_path}")
     return zip_path
 
 
@@ -345,18 +359,12 @@ def _extract_negatives(df: pd.DataFrame) -> list[dict[str, object]]:
         return []
 
     # Boolean mask: True where a TCR template entry is present.
-    has_tcr: pd.Series = df[tcr_col].notna() & (
-        df[tcr_col].astype(str).str.strip() != ""
-    )
+    has_tcr: pd.Series = df[tcr_col].notna() & (df[tcr_col].astype(str).str.strip() != "")
     df = df.copy()
     df["_has_tcr"] = has_tcr.astype(int)
 
     # Aggregate TCR hit count per (raw peptide, raw allele) pair.
-    grp = (
-        df.groupby([pep_col, allele_col], sort=False)["_has_tcr"]
-        .sum()
-        .reset_index()
-    )
+    grp = df.groupby([pep_col, allele_col], sort=False)["_has_tcr"].sum().reset_index()
 
     n_total = len(grp)
     neg_mask = grp["_has_tcr"] == 0
@@ -483,10 +491,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output",
         metavar="PATH",
         default="data/immunecode_sars_negatives.csv",
-        help=(
-            "Output CSV path "
-            "(default: data/immunecode_sars_negatives.csv)."
-        ),
+        help=("Output CSV path (default: data/immunecode_sars_negatives.csv)."),
     )
     p.add_argument(
         "--dry-run",
@@ -566,14 +571,14 @@ def main(argv: list[str] | None = None) -> int:
         sources=[source_path],
         row_count=len(df_out),
         extra={
-            "database":            "ImmuneCODE MIRA",
-            "release":             "002.1",
-            "reference_pmid":      _REFERENCE_PMID,
-            "label":               0,
-            "virus":               "SARS-CoV-2",
-            "negative_origin":     "immunecode_mira",
-            "unique_peptides":     unique_peptides,
-            "unique_alleles":      unique_alleles,
+            "database": "ImmuneCODE MIRA",
+            "release": "002.1",
+            "reference_pmid": _REFERENCE_PMID,
+            "label": 0,
+            "virus": "SARS-CoV-2",
+            "negative_origin": "immunecode_mira",
+            "unique_peptides": unique_peptides,
+            "unique_alleles": unique_alleles,
             "allele_distribution": allele_counts.to_dict(),
         },
     )

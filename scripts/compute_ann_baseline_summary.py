@@ -39,8 +39,10 @@ def compute_fold_metrics(oof_df):
         m = evaluate(y_true, y_score)
         m["fold"] = fold
         fold_metrics.append(m)
-        print(f"  Fold {fold}: AUC-ROC={m['auc_roc']:.4f}  AUC-PR={m['auc_pr']:.4f}  "
-              f"ISSR@10={m['issr_10']:.4f}  ISSR@25={m['issr_25']:.4f}")
+        print(
+            f"  Fold {fold}: AUC-ROC={m['auc_roc']:.4f}  AUC-PR={m['auc_pr']:.4f}  "
+            f"ISSR@10={m['issr_10']:.4f}  ISSR@25={m['issr_25']:.4f}"
+        )
     return fold_metrics
 
 
@@ -87,19 +89,33 @@ def main():
     fold_metrics = compute_fold_metrics(oof_df)
     avg, std = summarize(fold_metrics)
 
-    print("\n  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in avg.items()
-                                      if k in ("auc_roc", "auc_pr", "issr_10", "issr_25")))
-    print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in std.items()
-                                      if k in ("auc_roc", "auc_pr", "issr_10", "issr_25")))
+    print(
+        "\n  Mean:  "
+        + "  ".join(
+            f"{k}={v:.4f}"
+            for k, v in avg.items()
+            if k in ("auc_roc", "auc_pr", "issr_10", "issr_25")
+        )
+    )
+    print(
+        "  Stdev: "
+        + "  ".join(
+            f"{k}={v:.4f}"
+            for k, v in std.items()
+            if k in ("auc_roc", "auc_pr", "issr_10", "issr_25")
+        )
+    )
 
     # Write standalone ANN summary
     summary_rows = []
     for key in avg:
-        summary_rows.append({
-            "metric": key,
-            "ann_cv_mean": avg[key],
-            "ann_cv_std": std[key],
-        })
+        summary_rows.append(
+            {
+                "metric": key,
+                "ann_cv_mean": avg[key],
+                "ann_cv_std": std[key],
+            }
+        )
     summary_df = pd.DataFrame(summary_rows)
     summary_df.to_csv(args.output_summary, index=False)
     print(f"\nANN CV summary written to: {args.output_summary}")

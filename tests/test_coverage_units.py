@@ -8,6 +8,7 @@ Modules targeted:
                                                          150-156, 161-184)
   - src/train_classifier.py  _cross_validate paths     (lines 280, 308-309, 321)
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -170,9 +171,7 @@ def test_prepare_features_50_missing_peptide_zeros(tmp_path):
 
 def test_prepare_features_50_raises_insufficient_alleles(tmp_path):
     csv_path = tmp_path / "bad_binding.csv"
-    pd.DataFrame({"peptide": [_PEPTIDES[0]], "bind_A0101": [0.5]}).to_csv(
-        csv_path, index=False
-    )
+    pd.DataFrame({"peptide": [_PEPTIDES[0]], "bind_A0101": [0.5]}).to_csv(csv_path, index=False)
     df = pd.DataFrame({"peptide": [_PEPTIDES[0]]})
     with pytest.raises(ValueError, match="only 1/10"):
         prepare_features_50(df, str(csv_path))
@@ -210,10 +209,13 @@ def _cv_fixture(n=40):
 def test_cross_validate_skf_path_returns_metrics():
     X, y, meta = _cv_fixture()
     avg, std, _, oof_df = _cross_validate(
-        X, y, meta,
+        X,
+        y,
+        meta,
         RandomForestClassifier,
         {"n_estimators": 5, "random_state": 0},
-        n_splits=3, use_lopo=False,
+        n_splits=3,
+        use_lopo=False,
     )
     assert "auc_pr" in avg
     assert len(oof_df) == len(X)
@@ -223,9 +225,13 @@ def test_cross_validate_sample_weights_path():
     X, y, meta = _cv_fixture()
     weights = np.ones(len(y))
     avg, _, _, _ = _cross_validate(
-        X, y, meta,
+        X,
+        y,
+        meta,
         RandomForestClassifier,
         {"n_estimators": 5, "random_state": 0},
-        n_splits=3, use_lopo=False, sample_weights=weights,
+        n_splits=3,
+        use_lopo=False,
+        sample_weights=weights,
     )
     assert "auc_pr" in avg

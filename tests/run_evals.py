@@ -6,6 +6,7 @@ import pytest
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 
+
 def test_data_leakage_contamination_gate():
     """Verify that training set peptides do not overlap with validation/evaluation sets."""
     # Look for immunogenicity dataset
@@ -13,7 +14,7 @@ def test_data_leakage_contamination_gate():
     if not os.path.exists(dataset_path):
         # Fallback to general immunogenicity_dataset.csv
         dataset_path = os.path.join(os.path.dirname(__file__), "..", "immunogenicity_dataset.csv")
-        
+
     if os.path.exists(dataset_path):
         df = pd.read_csv(dataset_path)
         # Mock split check - verify training/validation partition strategy
@@ -28,24 +29,29 @@ def test_data_leakage_contamination_gate():
     else:
         print("[EVAL WARNING] Immunogenicity dataset not found. Skipping contamination check.")
 
+
 def test_gnn_batch_dimension_safety():
     """Assert dimensions are preserved during mock batch operations on GNN layers."""
     import torch
+
     # GNN dimension invariance check
     input_dim = 128
     hidden_dim = 64
     output_dim = 1
-    
+
     # Simulating GNN message passing dimensions
-    x = torch.randn(20, input_dim) # 20 nodes
-    edge_index = torch.randint(0, 20, (2, 40), dtype=torch.long) # 40 edges
-    
+    x = torch.randn(20, input_dim)  # 20 nodes
+    edge_index = torch.randint(0, 20, (2, 40), dtype=torch.long)  # 40 edges
+
     # Verify linear projection constraints
     proj_weight = torch.randn(input_dim, hidden_dim)
     proj_out = torch.matmul(x, proj_weight)
-    
-    assert proj_out.shape == (20, hidden_dim), f"GNN dimension projection failed: expected (20, {hidden_dim}), got {proj_out.shape}"
+
+    assert proj_out.shape == (20, hidden_dim), (
+        f"GNN dimension projection failed: expected (20, {hidden_dim}), got {proj_out.shape}"
+    )
     print("[EVAL SUCCESS] GNN batch dimensions verified.")
+
 
 def test_evaluation_performance_thresholds():
     """Ensure baseline classifier performance meets defined accuracy thresholds."""
@@ -61,7 +67,10 @@ def test_evaluation_performance_thresholds():
             assert auc_pr >= 0.50, f"Model {model_name} degraded! AUC-PR: {auc_pr}"
         print("[EVAL SUCCESS] Model performance thresholds satisfied.")
     else:
-        print("[EVAL SKIP] evaluation_metrics.csv not found. Skipping performance threshold checks.")
+        print(
+            "[EVAL SKIP] evaluation_metrics.csv not found. Skipping performance threshold checks."
+        )
+
 
 if __name__ == "__main__":
     # Allow running directly via python tests/run_evals.py

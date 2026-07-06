@@ -83,6 +83,7 @@ _VALID_AA = frozenset("ACDEFGHIKLMNPQRSTVWY")
 # FASTA parsing
 # ---------------------------------------------------------------------------
 
+
 def _iter_sequences(fasta_path: str):
     """Yield (header, sequence) pairs from a FASTA file."""
     header = None
@@ -104,6 +105,7 @@ def _iter_sequences(fasta_path: str):
 # ---------------------------------------------------------------------------
 # K-mer index builder
 # ---------------------------------------------------------------------------
+
 
 def build_kmer_sets(fasta_path: str, kmer_lengths: tuple[int, ...] = (8, 9)) -> dict[int, set[str]]:
     """Build hash sets of all k-mers found in the human proteome.
@@ -133,7 +135,7 @@ def build_kmer_sets(fasta_path: str, kmer_lengths: tuple[int, ...] = (8, 9)) -> 
                     seq = "".join(chunks)
                     for k in kmer_lengths:
                         for i in range(len(seq) - k + 1):
-                            kmer = seq[i: i + k]
+                            kmer = seq[i : i + k]
                             if all(c in _VALID_AA for c in kmer):
                                 kmer_sets[k].add(kmer)
                                 n_kmers_total += 1
@@ -147,7 +149,7 @@ def build_kmer_sets(fasta_path: str, kmer_lengths: tuple[int, ...] = (8, 9)) -> 
             seq = "".join(chunks)
             for k in kmer_lengths:
                 for i in range(len(seq) - k + 1):
-                    kmer = seq[i: i + k]
+                    kmer = seq[i : i + k]
                     if all(c in _VALID_AA for c in kmer):
                         kmer_sets[k].add(kmer)
                         n_kmers_total += 1
@@ -164,7 +166,10 @@ def build_kmer_sets(fasta_path: str, kmer_lengths: tuple[int, ...] = (8, 9)) -> 
 # Self-similarity computation (pure, testable)
 # ---------------------------------------------------------------------------
 
-def compute_self_similarity(peptide: str, kmer_sets: dict[int, set[str]]) -> dict[str, float | bool]:
+
+def compute_self_similarity(
+    peptide: str, kmer_sets: dict[int, set[str]]
+) -> dict[str, float | bool]:
     """Compute self-similarity metrics for a single peptide.
 
     Strategy:
@@ -191,7 +196,7 @@ def compute_self_similarity(peptide: str, kmer_sets: dict[int, set[str]]) -> dic
     # For 9-11mers: slide 9-mer windows
     nine_set = kmer_sets.get(9, set())
     for i in range(n - 9 + 1):
-        window = peptide[i: i + 9]
+        window = peptide[i : i + 9]
         if window in nine_set:
             return {
                 "self_similarity_max_identity": 1.0,
@@ -204,6 +209,7 @@ def compute_self_similarity(peptide: str, kmer_sets: dict[int, set[str]]) -> dic
 # ---------------------------------------------------------------------------
 # Batch processing
 # ---------------------------------------------------------------------------
+
 
 def process_peptides(
     peptides: list[str],
@@ -222,8 +228,10 @@ def process_peptides(
         self_similarity_exact_match.
     """
     to_process = [p for p in peptides if p not in (existing or set())]
-    print(f"  Computing self-similarity for {len(to_process):,} peptides "
-          f"({len(peptides) - len(to_process):,} already cached)...")
+    print(
+        f"  Computing self-similarity for {len(to_process):,} peptides "
+        f"({len(peptides) - len(to_process):,} already cached)..."
+    )
 
     rows = []
     for p in to_process:
@@ -232,9 +240,11 @@ def process_peptides(
 
     return pd.DataFrame(rows)
 
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
@@ -289,13 +299,15 @@ def main(argv: list[str] | None = None) -> int:
         print("Error: peptide source CSV must have a 'peptide' column.", file=sys.stderr)
         return 1
 
-    peptides = sorted({
-        p.strip().upper()
-        for p in df_train["peptide"].dropna()
-        if isinstance(p, str)
-        and 8 <= len(p.strip()) <= 11
-        and all(c in _VALID_AA for c in p.strip().upper())
-    })
+    peptides = sorted(
+        {
+            p.strip().upper()
+            for p in df_train["peptide"].dropna()
+            if isinstance(p, str)
+            and 8 <= len(p.strip()) <= 11
+            and all(c in _VALID_AA for c in p.strip().upper())
+        }
+    )
     print(f"Unique valid 8-11mer peptides: {len(peptides):,}")
 
     if args.dry_run:

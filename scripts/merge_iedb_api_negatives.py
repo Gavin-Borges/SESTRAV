@@ -110,6 +110,7 @@ logger = logging.getLogger(__name__)
 # Quality tier mapping
 # ---------------------------------------------------------------------------
 
+
 def _quality_tier(weight: float) -> int:
     """Map assay_quality_weight float to integer quality tier (1=best, 3=weakest).
 
@@ -128,6 +129,7 @@ def _quality_tier(weight: float) -> int:
 # ---------------------------------------------------------------------------
 # Load and normalize API negatives
 # ---------------------------------------------------------------------------
+
 
 def _load_api_negatives(api_dir: Path) -> pd.DataFrame:
     """Read all *_tcell.csv in api_dir, return label=0 rows only."""
@@ -171,7 +173,9 @@ def _normalize_to_schema(raw: pd.DataFrame) -> pd.DataFrame:
     out["virus"] = raw.get("virus", pd.Series("", index=raw.index)).fillna("").astype(str)
     out["protein"] = raw.get("protein", pd.Series("", index=raw.index)).fillna("").astype(str)
     out["strain"] = raw.get("strain", pd.Series("", index=raw.index)).fillna("").astype(str)
-    out["source_type"] = raw.get("source_type", pd.Series("Virus", index=raw.index)).fillna("Virus").astype(str)
+    out["source_type"] = (
+        raw.get("source_type", pd.Series("Virus", index=raw.index)).fillna("Virus").astype(str)
+    )
     out["database_source"] = "IEDB"
     out["tcr_alpha_cdr3"] = np.nan
     out["tcr_beta_cdr3"] = np.nan
@@ -197,6 +201,7 @@ def _normalize_to_schema(raw: pd.DataFrame) -> pd.DataFrame:
 # Deduplication
 # ---------------------------------------------------------------------------
 
+
 def _dedup_within_api(df: pd.DataFrame) -> pd.DataFrame:
     """Deduplicate API negatives on (peptide, hla_allele).
 
@@ -208,7 +213,9 @@ def _dedup_within_api(df: pd.DataFrame) -> pd.DataFrame:
     df_deduped = df_sorted.drop_duplicates(subset=DEDUP_KEY, keep="first").reset_index(drop=True)
     n_dropped = n_before - len(df_deduped)
     if n_dropped > 0:
-        logger.info("  Within-API dedup: removed %d duplicate (peptide, hla_allele) pairs", n_dropped)
+        logger.info(
+            "  Within-API dedup: removed %d duplicate (peptide, hla_allele) pairs", n_dropped
+        )
     return df_deduped
 
 
@@ -244,6 +251,7 @@ def _dedup_against_existing(new: pd.DataFrame, existing: pd.DataFrame) -> pd.Dat
 # Summary reporting
 # ---------------------------------------------------------------------------
 
+
 def _summarize(df: pd.DataFrame, label: str) -> None:
     logger.info("--- %s: %d rows ---", label, len(df))
     if df.empty:
@@ -260,6 +268,7 @@ def _summarize(df: pd.DataFrame, label: str) -> None:
 # ---------------------------------------------------------------------------
 # Main merge logic
 # ---------------------------------------------------------------------------
+
 
 def merge(
     api_dir: Path,
@@ -309,10 +318,20 @@ def merge(
     logger.info("Net-new from API         : %d", len(merged) - len(existing))
     logger.info("Merged output total      : %d", len(merged))
     for virus in sorted(TARGET_VIRUSES):
-        old = int((existing["virus"].isin({virus, "HPV16", "HPV18"}) if virus == "HPV"
-                   else existing["virus"] == virus).sum())
-        new_total = int((merged["virus"].isin({"HPV", "HPV16", "HPV18"}) if virus == "HPV"
-                         else merged["virus"] == virus).sum())
+        old = int(
+            (
+                existing["virus"].isin({virus, "HPV16", "HPV18"})
+                if virus == "HPV"
+                else existing["virus"] == virus
+            ).sum()
+        )
+        new_total = int(
+            (
+                merged["virus"].isin({"HPV", "HPV16", "HPV18"})
+                if virus == "HPV"
+                else merged["virus"] == virus
+            ).sum()
+        )
         if old > 0 or new_total > 0:
             logger.info("  %-15s %4d -> %4d (net +%d)", virus, old, new_total, new_total - old)
 
@@ -345,6 +364,7 @@ def merge(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Merge IEDB API negatives (Pipeline A) into the iedb_negatives schema (Pipeline B).",
@@ -364,7 +384,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=Path("data/iedb_negatives_v5.csv"),
         metavar="FILE",
         help="Existing Pipeline B negatives CSV (ingest_iedb_negatives.py output). "
-             "Default: data/iedb_negatives_v5.csv",
+        "Default: data/iedb_negatives_v5.csv",
     )
     p.add_argument(
         "--output",

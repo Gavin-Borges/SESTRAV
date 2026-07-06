@@ -57,9 +57,11 @@ def test_graph_predictor_eval_mode_single_sample():
 # GNN v2.1 - GraphEncoderV2 + GraphPredictorV2 (GINEConv + ESM-2 node dim)
 # ---------------------------------------------------------------------------
 
+
 def _make_pyg_batch(batch_size: int, num_features: int, node_dim: int = 320):
     """Build a synthetic PyG batch compatible with GraphPredictorV2."""
     from torch_geometric.data import Data, Batch
+
     edge_index, edge_attr = GraphBuilder.build_pyg_chain_graph(MAX_LEN)
     data_list = [
         Data(

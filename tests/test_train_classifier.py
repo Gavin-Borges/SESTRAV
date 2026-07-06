@@ -1,6 +1,7 @@
 """
 Unit tests for parent protein mapping and LOPO (Leave-One-Protein-Out) cross validation.
 """
+
 import sys
 import os
 import json
@@ -8,13 +9,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.features import BINDING_ALLELE_COLUMNS, HLA_PSEUDO_COLS
 from src.train_classifier import (
-    load_all_proteins, _get_protein_name_from_header, _cross_validate,
-    prepare_features_30, prepare_features_31, prepare_features_33,
-    prepare_features_35, prepare_features_166, train_models,
+    load_all_proteins,
+    _get_protein_name_from_header,
+    _cross_validate,
+    prepare_features_30,
+    prepare_features_31,
+    prepare_features_33,
+    prepare_features_35,
+    prepare_features_166,
+    train_models,
     _filter_quarantined,
 )
 
@@ -58,6 +65,7 @@ def _training_csv(tmp_path, n=30, name="train.csv"):
     df.to_csv(path, index=False)
     return path, peps
 
+
 def test_get_protein_name_from_header():
     hdr1 = "sp|P03120|VE2_HPV16 Regulatory protein E2 OS=Human papillomavirus type 16 OX=333760 GN=E2 PE=1 SV=1"
     assert _get_protein_name_from_header(hdr1) == "VE2_HPV16"
@@ -68,10 +76,13 @@ def test_get_protein_name_from_header():
     hdr3 = "sp|P03211|EBNA1_EBVB9"
     assert _get_protein_name_from_header(hdr3) == "EBNA1_EBVB9"
 
+
 def test_load_all_proteins_mocked(tmp_path):
     # Create mock fastas
     fasta1 = tmp_path / "EBV_B95_8_panel8.fasta"
-    fasta1.write_text(">sp|P03211|EBNA1_EBVB9 Mock EBNA1\nMSDEGPGTGPG\n>sp|P13285|LMP2_EBVB9 Mock LMP2\nMGSLEMVPMG\n")
+    fasta1.write_text(
+        ">sp|P03211|EBNA1_EBVB9 Mock EBNA1\nMSDEGPGTGPG\n>sp|P13285|LMP2_EBVB9 Mock LMP2\nMGSLEMVPMG\n"
+    )
 
     fasta2 = tmp_path / "HPV16_18_panel8.fasta"
     fasta2.write_text(">sp|P03126|VE6_HPV16 Mock E6\nMHQKRTAMFQ\n")
@@ -79,8 +90,11 @@ def test_load_all_proteins_mocked(tmp_path):
     # Patch fasta paths in load_all_proteins or run load_all_proteins with custom paths
     # Since fasta_files is hardcoded in the function, we can temporarily patch it or test that our parsing logic matches
     import src.train_classifier
-    original_fasta_files = src.train_classifier.load_all_proteins.__globals__.get("fasta_files", None)
-    
+
+    original_fasta_files = src.train_classifier.load_all_proteins.__globals__.get(
+        "fasta_files", None
+    )
+
     # We can inspect the code of load_all_proteins or just mock the file system if needed.
     # Alternatively, since we can't easily change the local list in the function scope,
     # we can test the function by verifying it successfully returns the actual fastas of the workspace
@@ -89,38 +103,41 @@ def test_load_all_proteins_mocked(tmp_path):
     assert len(proteins) > 0
     assert "VE6_HPV16" in proteins or "VE2_HPV16" in proteins or "GP350_EBVB9" in proteins
 
+
 def test_lopo_cross_validate():
     # Setup mock features DataFrame
     np.random.seed(42)
     n_samples = 40
     X = pd.DataFrame(np.random.normal(size=(n_samples, 5)), columns=[f"f{i}" for i in range(5)])
     y = np.random.choice([0, 1], size=n_samples)
-    
+
     # We have 4 mock proteins, 10 samples each
     proteins = ["PROT_A"] * 10 + ["PROT_B"] * 10 + ["PROT_C"] * 10 + ["PROT_D"] * 10
-    metadata = pd.DataFrame({
-        "peptide": [f"PEPTIDE_{i}" for i in range(n_samples)],
-        "virus": ["EBV"] * 20 + ["HPV16"] * 20,
-        "protein": proteins
-    })
-    
+    metadata = pd.DataFrame(
+        {
+            "peptide": [f"PEPTIDE_{i}" for i in range(n_samples)],
+            "virus": ["EBV"] * 20 + ["HPV16"] * 20,
+            "protein": proteins,
+        }
+    )
+
     # Mock classifier class that conforms to sklearn api
     class DummyClassifier:
         def __init__(self, **kwargs):
             pass
+
         def fit(self, X, y, sample_weight=None):
             return self
+
         def predict_proba(self, X):
             # Return uniform random probabilities for 2 classes
-            return np.column_stack([np.ones(len(X))*0.5, np.ones(len(X))*0.5])
+            return np.column_stack([np.ones(len(X)) * 0.5, np.ones(len(X)) * 0.5])
 
     # Run _cross_validate with use_lopo=True
     avg, std, subgroup_df, oof_df = _cross_validate(
-        X, y, metadata, DummyClassifier, {},
-        use_lopo=True,
-        subgroup_columns=["virus", "protein"]
+        X, y, metadata, DummyClassifier, {}, use_lopo=True, subgroup_columns=["virus", "protein"]
     )
-    
+
     # LeaveOneGroupOut with 4 unique groups should yield exactly 4 folds
     assert len(oof_df["fold"].unique()) == 4
     assert "fold" in subgroup_df.columns
@@ -234,8 +251,11 @@ def test_train_models_mode31_writes_per_mode_artifacts(tmp_path):
     binding = _mock_binding_csv(tmp_path, peps)
     model_dir = tmp_path / "models31"
     train_models(
-        str(data_path), model_dir=str(model_dir), n_cv_folds=3,
-        feature_mode=31, binding_matrix_path=str(binding),
+        str(data_path),
+        model_dir=str(model_dir),
+        n_cv_folds=3,
+        feature_mode=31,
+        binding_matrix_path=str(binding),
         use_sample_weights=True,
     )
     assert (model_dir / "rf_31feature_integrated.joblib").exists()
@@ -250,9 +270,7 @@ def test_train_models_mode31_writes_per_mode_artifacts(tmp_path):
 def test_train_models_mode31_requires_binding_matrix(tmp_path):
     data_path, _ = _training_csv(tmp_path)
     with pytest.raises(ValueError, match="--binding-matrix is required"):
-        train_models(
-            str(data_path), model_dir=str(tmp_path / "m"), n_cv_folds=3, feature_mode=31
-        )
+        train_models(str(data_path), model_dir=str(tmp_path / "m"), n_cv_folds=3, feature_mode=31)
 
 
 # ---------------------------------------------------------------------------
@@ -261,31 +279,37 @@ def test_train_models_mode31_requires_binding_matrix(tmp_path):
 
 
 def test_filter_quarantined_drops_flagged_rows():
-    df = pd.DataFrame({
-        "peptide": _make_peptides(4),
-        "label": [0, 1, 0, 1],
-        "is_quarantined": [True, False, True, False],
-    })
+    df = pd.DataFrame(
+        {
+            "peptide": _make_peptides(4),
+            "label": [0, 1, 0, 1],
+            "is_quarantined": [True, False, True, False],
+        }
+    )
     result = _filter_quarantined(df)
     assert len(result) == 2
     assert result["is_quarantined"].tolist() == [False, False]
 
 
 def test_filter_quarantined_noop_without_column():
-    df = pd.DataFrame({
-        "peptide": _make_peptides(4),
-        "label": [0, 1, 0, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "peptide": _make_peptides(4),
+            "label": [0, 1, 0, 1],
+        }
+    )
     result = _filter_quarantined(df)
     assert len(result) == 4
 
 
 def test_filter_quarantined_handles_nan():
-    df = pd.DataFrame({
-        "peptide": _make_peptides(3),
-        "label": [0, 1, 0],
-        "is_quarantined": [True, False, None],
-    })
+    df = pd.DataFrame(
+        {
+            "peptide": _make_peptides(3),
+            "label": [0, 1, 0],
+            "is_quarantined": [True, False, None],
+        }
+    )
     result = _filter_quarantined(df)
     # True row dropped; False and NaN rows kept
     assert len(result) == 2

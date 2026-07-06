@@ -5,9 +5,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class FeatureStore:
     """Manages the lifecycle of SESTRAV datasets and features."""
-    
+
     def __init__(self, output_dir: Path):
         self.output_dir = output_dir
 
@@ -35,12 +36,12 @@ class FeatureStore:
         """Verify the SHA256 checksum of a dataset or feature file."""
         if not path.exists():
             return False
-            
+
         sha256 = hashlib.sha256()
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 sha256.update(chunk)
-                
+
         actual = sha256.hexdigest()
         return actual == expected_checksum
 
@@ -59,4 +60,3 @@ class FeatureStore:
         df.to_csv(cache_path, index=False)
         logger.info(f"Cached features written to {cache_path}")
         return cache_path
-

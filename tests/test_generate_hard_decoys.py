@@ -3,6 +3,7 @@
 The `generate_decoys()` entry point requires MHCflurry models (not available
 in CI), so only the FASTA parser and k-mer extractor are tested here.
 """
+
 import os
 import sys
 
@@ -13,6 +14,7 @@ from generate_hard_decoys import _extract_kmers, _load_fasta  # noqa: E402
 # ---------------------------------------------------------------------------
 # FASTA parser
 # ---------------------------------------------------------------------------
+
 
 def test_load_fasta_single_sequence(tmp_path):
     fa = tmp_path / "test.fasta"
@@ -48,6 +50,7 @@ def test_load_fasta_no_trailing_newline(tmp_path):
 # ---------------------------------------------------------------------------
 # k-mer extractor - new API: lengths=(k,) tuple instead of k= scalar
 # ---------------------------------------------------------------------------
+
 
 def test_extract_kmers_returns_valid_9mers():
     seqs = ["ACDEFGHIKLMNPQRSTVWY"]  # 20 AAs → 12 valid 9-mers
@@ -101,6 +104,7 @@ def test_extract_kmers_excludes_invalid_aa():
 # max_candidates pre-sampling (exercises the slice path in generate_decoys)
 # ---------------------------------------------------------------------------
 
+
 def test_extract_kmers_supports_max_candidates_truncation():
     """Simulate the max_candidates truncation: seeded shuffle then slice.
 
@@ -111,7 +115,8 @@ def test_extract_kmers_supports_max_candidates_truncation():
     Verify determinism and that the slice preserves all valid k-mers.
     """
     import random
-    seqs = ["ACDEFGHIKLMNPQRSTVWY" * 3]   # 60-mer → many 9-mers
+
+    seqs = ["ACDEFGHIKLMNPQRSTVWY" * 3]  # 60-mer → many 9-mers
     kmers = _extract_kmers(seqs, lengths=(9,))
     assert len(kmers) > 5, "need more than 5 k-mers for this test"
 

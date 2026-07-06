@@ -20,7 +20,9 @@ from scripts.build_binding_matrix_v5 import find_new_peptides, main, merge_matri
 # ---------------------------------------------------------------------------
 
 
-def _make_dataset(tmp_path: Path, peptides: list[str], quarantined: list[bool] | None = None) -> Path:
+def _make_dataset(
+    tmp_path: Path, peptides: list[str], quarantined: list[bool] | None = None
+) -> Path:
     data: dict[str, list] = {"peptide": peptides}
     if quarantined is not None:
         data["is_quarantined"] = quarantined
@@ -93,12 +95,8 @@ def test_find_new_peptides_empty_when_all_covered() -> None:
 
 
 def test_merge_matrices_concat_and_dedup() -> None:
-    existing = pd.DataFrame(
-        {"peptide": ["AAAAAAAAA", "BBBBBBBBB"], "bind_A0101": [0.1, 0.2]}
-    )
-    new_df = pd.DataFrame(
-        {"peptide": ["BBBBBBBBB", "CCCCCCCCC"], "bind_A0101": [0.9, 0.3]}
-    )
+    existing = pd.DataFrame({"peptide": ["AAAAAAAAA", "BBBBBBBBB"], "bind_A0101": [0.1, 0.2]})
+    new_df = pd.DataFrame({"peptide": ["BBBBBBBBB", "CCCCCCCCC"], "bind_A0101": [0.9, 0.3]})
     result = merge_matrices(existing, new_df)
 
     assert set(result["peptide"]) == {"AAAAAAAAA", "BBBBBBBBB", "CCCCCCCCC"}
@@ -113,9 +111,7 @@ def test_merge_matrices_concat_and_dedup() -> None:
 
 def test_merge_matrices_sort_by_peptide() -> None:
     existing = pd.DataFrame({"peptide": ["CCCCCCCCC"], "bind_A0101": [0.3]})
-    new_df = pd.DataFrame(
-        {"peptide": ["AAAAAAAAA", "BBBBBBBBB"], "bind_A0101": [0.1, 0.2]}
-    )
+    new_df = pd.DataFrame({"peptide": ["AAAAAAAAA", "BBBBBBBBB"], "bind_A0101": [0.1, 0.2]})
     result = merge_matrices(existing, new_df)
     assert list(result["peptide"]) == ["AAAAAAAAA", "BBBBBBBBB", "CCCCCCCCC"]
 
@@ -132,9 +128,12 @@ def test_main_dry_run_no_files_written(tmp_path: Path, mock_mhcflurry: None) -> 
 
     rc = main(
         [
-            "--dataset", str(dataset),
-            "--existing-matrix", str(matrix),
-            "--output", str(output),
+            "--dataset",
+            str(dataset),
+            "--existing-matrix",
+            str(matrix),
+            "--output",
+            str(output),
             "--dry-run",
         ]
     )
@@ -154,9 +153,12 @@ def test_main_missing_dataset_exits_1(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--dataset", str(tmp_path / "nonexistent_dataset.csv"),
-            "--existing-matrix", str(matrix),
-            "--output", str(output),
+            "--dataset",
+            str(tmp_path / "nonexistent_dataset.csv"),
+            "--existing-matrix",
+            str(matrix),
+            "--output",
+            str(output),
         ]
     )
 
@@ -174,9 +176,12 @@ def test_main_missing_existing_matrix_exits_1(tmp_path: Path) -> None:
 
     rc = main(
         [
-            "--dataset", str(dataset),
-            "--existing-matrix", str(tmp_path / "nonexistent_matrix.csv"),
-            "--output", str(output),
+            "--dataset",
+            str(dataset),
+            "--existing-matrix",
+            str(tmp_path / "nonexistent_matrix.csv"),
+            "--output",
+            str(output),
         ]
     )
 
@@ -196,9 +201,12 @@ def test_main_no_new_peptides_copies_existing(tmp_path: Path, mock_mhcflurry: No
 
     rc = main(
         [
-            "--dataset", str(dataset),
-            "--existing-matrix", str(matrix),
-            "--output", str(output),
+            "--dataset",
+            str(dataset),
+            "--existing-matrix",
+            str(matrix),
+            "--output",
+            str(output),
         ]
     )
 

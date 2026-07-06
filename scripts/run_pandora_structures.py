@@ -51,14 +51,22 @@ except ImportError:
     )
 
 CANONICAL_10_ALLELES = [
-    'HLA-A*01:01', 'HLA-A*02:01', 'HLA-A*03:01', 'HLA-A*11:01', 'HLA-A*24:02',
-    'HLA-B*07:02', 'HLA-B*08:01', 'HLA-B*27:05', 'HLA-B*35:01', 'HLA-B*44:02',
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
 
 def _allele_key(allele: str) -> str:
     """Convert 'HLA-A*02:01' -> 'A0201' for use in filenames."""
-    return allele.replace('HLA-', '').replace('*', '').replace(':', '')
+    return allele.replace("HLA-", "").replace("*", "").replace(":", "")
 
 
 def _cb_cb_distance_matrix(structure_path: pathlib.Path) -> torch.Tensor | None:
@@ -80,7 +88,7 @@ def _cb_cb_distance_matrix(structure_path: pathlib.Path) -> torch.Tensor | None:
 
     model = struct[0]
     # PANDORA names the peptide chain 'C' by convention
-    pep_chain = model.get('C')
+    pep_chain = model.get("C")
     if pep_chain is None:
         # Fallback: shortest chain of AA length 8-11
         candidates = [
@@ -98,17 +106,17 @@ def _cb_cb_distance_matrix(structure_path: pathlib.Path) -> torch.Tensor | None:
 
     coord_list: list[np.ndarray] = []
     for res in residues:
-        if res.get_resname() == 'GLY':
-            atom = res.get('CA')
+        if res.get_resname() == "GLY":
+            atom = res.get("CA")
         else:
-            atom = res.get('CB')
+            atom = res.get("CB")
         if atom is None:
-            atom = res.get('CA')
+            atom = res.get("CA")
         coord_list.append(atom.get_vector().get_array() if atom else np.zeros(3))
 
     coords: np.ndarray = np.array(coord_list, dtype=np.float32)  # (L, 3)
-    diff: np.ndarray = coords[:, None, :] - coords[None, :, :]   # (L, L, 3)
-    dist: np.ndarray = np.sqrt((diff ** 2).sum(axis=-1))         # (L, L)
+    diff: np.ndarray = coords[:, None, :] - coords[None, :, :]  # (L, L, 3)
+    dist: np.ndarray = np.sqrt((diff**2).sum(axis=-1))  # (L, L)
     return torch.from_numpy(dist)
 
 
@@ -127,7 +135,7 @@ def run_pandora_for_pair(peptide_seq: str, allele: str, out_dir: pathlib.Path) -
         pand = Pandora(p)
         pand.run()
         # PANDORA writes the top model as {peptide}.B99990001.pdb in the working dir
-        pdb_candidates = list(pathlib.Path('.').glob(f'*{peptide_seq}*.pdb'))
+        pdb_candidates = list(pathlib.Path(".").glob(f"*{peptide_seq}*.pdb"))
         if not pdb_candidates:
             return False
         pdb_path = pdb_candidates[0]
@@ -141,21 +149,19 @@ def run_pandora_for_pair(peptide_seq: str, allele: str, out_dir: pathlib.Path) -
         return False
 
 
-def select_representative_peptides(
-    dataset_path: pathlib.Path, n: int, seed: int
-) -> pd.DataFrame:
+def select_representative_peptides(dataset_path: pathlib.Path, n: int, seed: int) -> pd.DataFrame:
     """Sample n peptides from v5 dataset, stratified by length (8/9/10/11-mer)."""
     df = pd.read_csv(dataset_path, low_memory=False)
-    if 'is_quarantined' in df.columns:
-        df = df[df['is_quarantined'] == False]  # noqa: E712
-    df['pep_len'] = df['peptide'].str.len()
-    df = df[df['pep_len'].between(8, 11)].drop_duplicates(subset='peptide')
+    if "is_quarantined" in df.columns:
+        df = df[df["is_quarantined"] == False]  # noqa: E712
+    df["pep_len"] = df["peptide"].str.len()
+    df = df[df["pep_len"].between(8, 11)].drop_duplicates(subset="peptide")
 
     rng = np.random.default_rng(seed)
     per_len = max(1, n // 4)
     rows = []
     for length in [8, 9, 10, 11]:
-        pool = df[df['pep_len'] == length]
+        pool = df[df["pep_len"] == length]
         k = min(per_len, len(pool))
         rows.append(pool.sample(n=k, random_state=int(rng.integers(10**6))))
     return pd.concat(rows).head(n)
@@ -165,15 +171,29 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument('--input', default='data/immunogenicity_dataset_v5.csv',
-                    help='v5 dataset CSV (default: data/immunogenicity_dataset_v5.csv)')
-    ap.add_argument('--alleles', nargs='+', default=['HLA-A*02:01', 'HLA-B*07:02'],
-                    help='Alleles to model (default: HLA-A*02:01 HLA-B*07:02)')
-    ap.add_argument('--n-peptides', type=int, default=None,
-                    help='Limit to N peptides per allele (omit for full v5 run)')
-    ap.add_argument('--output-dir', default='data/structural_cache/',
-                    help='Output directory for .pt distance tensors')
-    ap.add_argument('--seed', type=int, default=42)
+    ap.add_argument(
+        "--input",
+        default="data/immunogenicity_dataset_v5.csv",
+        help="v5 dataset CSV (default: data/immunogenicity_dataset_v5.csv)",
+    )
+    ap.add_argument(
+        "--alleles",
+        nargs="+",
+        default=["HLA-A*02:01", "HLA-B*07:02"],
+        help="Alleles to model (default: HLA-A*02:01 HLA-B*07:02)",
+    )
+    ap.add_argument(
+        "--n-peptides",
+        type=int,
+        default=None,
+        help="Limit to N peptides per allele (omit for full v5 run)",
+    )
+    ap.add_argument(
+        "--output-dir",
+        default="data/structural_cache/",
+        help="Output directory for .pt distance tensors",
+    )
+    ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
     out_dir = pathlib.Path(args.output_dir)
@@ -185,18 +205,24 @@ def main() -> None:
 
     if args.n_peptides is not None:
         peptide_df = select_representative_peptides(dataset_path, args.n_peptides, args.seed)
-        peptides = peptide_df['peptide'].tolist()
-        print(f"Selected {len(peptides)} representative peptides "
-              f"(lengths: {peptide_df['pep_len'].value_counts().to_dict()})")
+        peptides = peptide_df["peptide"].tolist()
+        print(
+            f"Selected {len(peptides)} representative peptides "
+            f"(lengths: {peptide_df['pep_len'].value_counts().to_dict()})"
+        )
     else:
         df = pd.read_csv(dataset_path, low_memory=False)
-        if 'is_quarantined' in df.columns:
-            df = df[df['is_quarantined'] == False]  # noqa: E712
-        peptides = df['peptide'].drop_duplicates().tolist()
+        if "is_quarantined" in df.columns:
+            df = df[df["is_quarantined"] == False]  # noqa: E712
+        peptides = df["peptide"].drop_duplicates().tolist()
         print(f"Full v5 run: {len(peptides)} unique peptides")
 
-    summary: dict = {'n_peptides': len(peptides), 'alleles': args.alleles,
-                     'cutoff_ang': 8.0, 'pairs': {}}
+    summary: dict = {
+        "n_peptides": len(peptides),
+        "alleles": args.alleles,
+        "cutoff_ang": 8.0,
+        "pairs": {},
+    }
     total_wall = 0.0
 
     for allele in args.alleles:
@@ -216,39 +242,41 @@ def main() -> None:
 
         mean_t = float(np.mean(allele_times)) if allele_times else 0.0
         total_wall += mean_t * len(peptides)
-        summary['pairs'][allele_key] = {
-            'n_ok': n_ok, 'n_fail': n_fail,
-            'mean_sec_per_peptide': round(mean_t, 2),
+        summary["pairs"][allele_key] = {
+            "n_ok": n_ok,
+            "n_fail": n_fail,
+            "mean_sec_per_peptide": round(mean_t, 2),
         }
-        print(f"  {allele}: {n_ok} ok / {n_fail} fail, "
-              f"mean {mean_t:.1f}s/peptide")
+        print(f"  {allele}: {n_ok} ok / {n_fail} fail, mean {mean_t:.1f}s/peptide")
 
     full_v5_peptides = 25386
     extrap_total_sec = mean_t * full_v5_peptides * len(args.alleles) if allele_times else None
     if extrap_total_sec:
         extrap_days = extrap_total_sec / 86400
         extrap_cpu_h = extrap_total_sec / 3600
-        summary['extrapolation'] = {
-            'full_v5_peptides': full_v5_peptides,
-            'n_alleles': len(args.alleles),
-            'estimated_total_days_single_cpu': round(extrap_days, 1),
-            'estimated_cpu_hours': round(extrap_cpu_h, 1),
-            'feasible': extrap_days <= 500 and extrap_cpu_h <= 2100,
+        summary["extrapolation"] = {
+            "full_v5_peptides": full_v5_peptides,
+            "n_alleles": len(args.alleles),
+            "estimated_total_days_single_cpu": round(extrap_days, 1),
+            "estimated_cpu_hours": round(extrap_cpu_h, 1),
+            "feasible": extrap_days <= 500 and extrap_cpu_h <= 2100,
         }
-        print(f"\nExtrapolation to full v5 ({full_v5_peptides} peptides x {len(args.alleles)} alleles):")
+        print(
+            f"\nExtrapolation to full v5 ({full_v5_peptides} peptides x {len(args.alleles)} alleles):"
+        )
         print(f"  ~{extrap_days:.0f} calendar days single-CPU")
         print(f"  ~{extrap_cpu_h:.0f} CPU-hours")
-        if not summary['extrapolation']['feasible']:
+        if not summary["extrapolation"]["feasible"]:
             print("  STATUS: COMPUTE INFEASIBLE pre-paper (>500 days or >2100 CPU-hours)")
             print("  -> M11/M12 move to future work in paper Section 5")
         else:
             print("  STATUS: feasible - proceed with full v5 run")
 
-    run_summary_path = out_dir / 'run_summary.json'
-    with open(run_summary_path, 'w') as fh:
+    run_summary_path = out_dir / "run_summary.json"
+    with open(run_summary_path, "w") as fh:
         json.dump(summary, fh, indent=2)
     print(f"\nSummary written to {run_summary_path}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

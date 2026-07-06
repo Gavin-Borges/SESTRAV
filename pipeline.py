@@ -18,29 +18,28 @@ from src.core.model_registry import ModelRegistry
 # Configure structured logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("sestrav.log", encoding="utf-8")
-    ]
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("sestrav.log", encoding="utf-8")],
 )
 logger = logging.getLogger("sestrav")
 
 
 def _sanitize_name(name):
     """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
+    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, registry: ModelRegistry):
     raw_id = _sanitize_name(proteome_id)
     proteome_id = canonicalize_proteome_id(raw_id)
     if proteome_id != raw_id:
-        logger.info(f"[Naming] Using canonical proteome_id '{proteome_id}' (from legacy '{raw_id}')")
+        logger.info(
+            f"[Naming] Using canonical proteome_id '{proteome_id}' (from legacy '{raw_id}')"
+        )
 
     alleles = config.alleles
     lengths = config.peptide_lengths
-    
+
     # Use ModelRegistry to resolve the configured model
     model_path = registry.resolve_model(config.model_path.name)
     mc_dropout = config.mc_dropout
@@ -48,11 +47,14 @@ def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, regis
     peptides_df = generate_peptides(fasta_path, proteome_id, peptide_lengths=lengths)
     binding_df = predict_binding(peptides_df, proteome_id, alleles=alleles)
     features_df = extract_tcr_features(binding_df, proteome_id)
-    
+
     # Provide the resolved absolute model_path
     ranked_df, model = score_immunogenicity(
-        features_df, proteome_id, model_path=str(model_path),
-        calibrate=True, mc_dropout=mc_dropout,
+        features_df,
+        proteome_id,
+        model_path=str(model_path),
+        calibrate=True,
+        mc_dropout=mc_dropout,
     )
     plot_immunogenicity_scores(ranked_df, proteome_id)
 
@@ -63,12 +65,12 @@ if __name__ == "__main__":
     cfg = SestravConfig.load()
     store = FeatureStore(cfg.output_dir)
     registry = ModelRegistry(cfg)
-    
+
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     proteome_files = cfg.proteome_files
     antigens = cfg.antigens
-    
+
     if antigens:
         for configured_id in antigens:
             canonical_id = canonicalize_proteome_id(configured_id)

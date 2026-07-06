@@ -33,17 +33,25 @@ from src.train_classifier import prepare_features_31
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-TSNADB_COHORT      = os.path.join(PROJECT_ROOT, "data",    "tsnadb_crossdomain_cohort.csv")
-HARD_DECOYS        = os.path.join(PROJECT_ROOT, "data",    "hard_decoys.csv")
-BINDING_MATRIX_V4  = os.path.join(PROJECT_ROOT, "models",  "peptide_binding_matrix_v4.csv")
-BINDING_MATRIX_OUT = os.path.join(PROJECT_ROOT, "data",    "tsnadb_crossdomain_binding.csv")
-MODEL_PATH         = os.path.join(PROJECT_ROOT, "models",  "rf_31feature_integrated.joblib")
-OUTPUT_PATH        = os.path.join(PROJECT_ROOT, "results", "tsnadb_crossdomain_benchmark.json")
+TSNADB_COHORT = os.path.join(PROJECT_ROOT, "data", "tsnadb_crossdomain_cohort.csv")
+HARD_DECOYS = os.path.join(PROJECT_ROOT, "data", "hard_decoys.csv")
+BINDING_MATRIX_V4 = os.path.join(PROJECT_ROOT, "models", "peptide_binding_matrix_v4.csv")
+BINDING_MATRIX_OUT = os.path.join(PROJECT_ROOT, "data", "tsnadb_crossdomain_binding.csv")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "rf_31feature_integrated.joblib")
+OUTPUT_PATH = os.path.join(PROJECT_ROOT, "results", "tsnadb_crossdomain_benchmark.json")
 
 # Canonical-10 alleles - must match the binding matrix column order
 ALLELES = [
-    "HLA-A*01:01", "HLA-A*02:01", "HLA-A*03:01", "HLA-A*11:01", "HLA-A*24:02",
-    "HLA-B*07:02", "HLA-B*08:01", "HLA-B*27:05", "HLA-B*35:01", "HLA-B*44:02",
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02",
 ]
 
 
@@ -63,12 +71,13 @@ def predict_binding(peptides: list) -> pd.DataFrame:
     return pivoted
 
 
-def bootstrap_ci(y_true: np.ndarray, y_scores: np.ndarray, metric_fn,
-                 n_resamples: int = 2000) -> tuple:
+def bootstrap_ci(
+    y_true: np.ndarray, y_scores: np.ndarray, metric_fn, n_resamples: int = 2000
+) -> tuple:
     """95% bootstrap confidence interval for a scalar metric function."""
-    y_true   = np.asarray(y_true)
+    y_true = np.asarray(y_true)
     y_scores = np.asarray(y_scores)
-    n   = len(y_true)
+    n = len(y_true)
     rng = np.random.default_rng(42)
     vals = []
     for _ in range(n_resamples):
@@ -91,11 +100,11 @@ def build_pool(tsna_path: str, decoys_path: str) -> pd.DataFrame:
     If a peptide sequence appears in both arms (extremely unlikely but guarded
     against), it is excluded from the TSNAdb arm to preserve label integrity.
     """
-    tsna   = pd.read_csv(tsna_path)
+    tsna = pd.read_csv(tsna_path)
     decoys = pd.read_csv(decoys_path)
 
-    tsna_peps   = tsna.drop_duplicates(subset=["peptide"])[["peptide"]].assign(label=1)
-    decoy_peps  = decoys.drop_duplicates(subset=["peptide"])[["peptide"]].assign(label=0)
+    tsna_peps = tsna.drop_duplicates(subset=["peptide"])[["peptide"]].assign(label=1)
+    decoy_peps = decoys.drop_duplicates(subset=["peptide"])[["peptide"]].assign(label=0)
 
     overlap = set(tsna_peps["peptide"]) & set(decoy_peps["peptide"])
     if overlap:
@@ -119,11 +128,13 @@ def main() -> None:
 
     # 2. Build merged binding matrix
     print("\n[2] Building binding matrix...")
-    bm_v4   = pd.read_csv(BINDING_MATRIX_V4)
+    bm_v4 = pd.read_csv(BINDING_MATRIX_V4)
     bm_peps = set(bm_v4["peptide"])
     missing = [p for p in pool["peptide"] if p not in bm_peps]
-    print(f"    {len(missing):,} peptides need MHCflurry  "
-          f"({len(pool) - len(missing):,} already cached)")
+    print(
+        f"    {len(missing):,} peptides need MHCflurry  "
+        f"({len(pool) - len(missing):,} already cached)"
+    )
 
     if missing:
         new_rows = predict_binding(missing)
@@ -149,17 +160,17 @@ def main() -> None:
 
     # 4. Score
     print(f"\n[4] Scoring with {os.path.basename(MODEL_PATH)}...")
-    model    = load_verified_joblib(MODEL_PATH, required_checksum=True)
+    model = load_verified_joblib(MODEL_PATH, required_checksum=True)
     y_scores = model.predict_proba(X)[:, 1]
-    y_true   = pool["label"].values
+    y_true = pool["label"].values
 
     # 5. Metrics + bootstrap CIs
     print("\n[5] Computing metrics (2,000-resample bootstrap)...")
-    metrics    = evaluate(y_true, y_scores)
-    ci_roc     = bootstrap_ci(y_true, y_scores, roc_auc_score)
-    ci_pr      = bootstrap_ci(y_true, y_scores, average_precision_score)
-    ci_issr10  = bootstrap_ci(y_true, y_scores, lambda yt, ys: issr_at_k(yt, ys, 10))
-    ci_issr25  = bootstrap_ci(y_true, y_scores, lambda yt, ys: issr_at_k(yt, ys, 25))
+    metrics = evaluate(y_true, y_scores)
+    ci_roc = bootstrap_ci(y_true, y_scores, roc_auc_score)
+    ci_pr = bootstrap_ci(y_true, y_scores, average_precision_score)
+    ci_issr10 = bootstrap_ci(y_true, y_scores, lambda yt, ys: issr_at_k(yt, ys, 10))
+    ci_issr25 = bootstrap_ci(y_true, y_scores, lambda yt, ys: issr_at_k(yt, ys, 25))
 
     print(f"\n{'Metric':<12} {'Value':>8}   95% CI")
     print("-" * 38)
@@ -171,23 +182,35 @@ def main() -> None:
     print(f"{'Recall@25':<12} {metrics['recall_25']:>8.4f}")
 
     # 6. Write result JSON
-    pool["score"]    = y_scores
+    pool["score"] = y_scores
     pool["rank_pct"] = pool["score"].rank(ascending=False, pct=True).mul(100)
 
     result = {
-        "benchmark":      "tsnadb_crossdomain",
-        "generated_utc":  datetime.now(timezone.utc).isoformat(),
-        "model":          os.path.basename(MODEL_PATH),
-        "feature_mode":   31,
-        "n_pool":         int(len(pool)),
-        "n_positive":     int(n_pos),
-        "n_negative":     int(n_neg),
-        "prevalence":     float(y_true.mean()),
+        "benchmark": "tsnadb_crossdomain",
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "model": os.path.basename(MODEL_PATH),
+        "feature_mode": 31,
+        "n_pool": int(len(pool)),
+        "n_positive": int(n_pos),
+        "n_negative": int(n_neg),
+        "prevalence": float(y_true.mean()),
         "metrics": {
-            "auc_roc":   {"value": float(metrics["auc_roc"]),  "ci_95": [float(ci_roc[0]),    float(ci_roc[1])]},
-            "auc_pr":    {"value": float(metrics["auc_pr"]),   "ci_95": [float(ci_pr[0]),     float(ci_pr[1])]},
-            "issr_10":   {"value": float(metrics["issr_10"]),  "ci_95": [float(ci_issr10[0]), float(ci_issr10[1])]},
-            "issr_25":   {"value": float(metrics["issr_25"]),  "ci_95": [float(ci_issr25[0]), float(ci_issr25[1])]},
+            "auc_roc": {
+                "value": float(metrics["auc_roc"]),
+                "ci_95": [float(ci_roc[0]), float(ci_roc[1])],
+            },
+            "auc_pr": {
+                "value": float(metrics["auc_pr"]),
+                "ci_95": [float(ci_pr[0]), float(ci_pr[1])],
+            },
+            "issr_10": {
+                "value": float(metrics["issr_10"]),
+                "ci_95": [float(ci_issr10[0]), float(ci_issr10[1])],
+            },
+            "issr_25": {
+                "value": float(metrics["issr_25"]),
+                "ci_95": [float(ci_issr25[0]), float(ci_issr25[1])],
+            },
             "recall_10": float(metrics["recall_10"]),
             "recall_25": float(metrics["recall_25"]),
         },

@@ -183,7 +183,7 @@ jobs:
         # continue-on-error: some platform-specific wheels (CUDA, etc.) may be
         # absent on this runner; pip-licenses will report on what installed.
         continue-on-error: true
-        run: pip install --no-deps -r environments/requirements.lock
+        run: pip install --require-hashes --no-deps -r environments/requirements.lock
 
       - name: Generate Python SBOM
         run: |

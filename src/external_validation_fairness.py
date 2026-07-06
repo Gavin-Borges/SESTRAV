@@ -93,9 +93,7 @@ def evaluate_tools(
     return out[front + [c for c in out.columns if c not in front]]
 
 
-def virus_weighted_metrics(
-    df: pd.DataFrame, tool_columns: Dict[str, str]
-) -> pd.DataFrame:
+def virus_weighted_metrics(df: pd.DataFrame, tool_columns: Dict[str, str]) -> pd.DataFrame:
     rows = []
     viruses = sorted(df["virus"].dropna().unique()) if "virus" in df.columns else []
     for tool_name, score_col in tool_columns.items():
@@ -402,10 +400,16 @@ def run_fairness(
 
     tools_all = _tool_columns(merged)
 
-    rf_cols = {k: v for k, v in tools_all.items() if "RF" in k or "Binding" in k or "PredIG" in k or "PRIME" in k}
+    rf_cols = {
+        k: v
+        for k, v in tools_all.items()
+        if "RF" in k or "Binding" in k or "PredIG" in k or "PRIME" in k
+    }
     external_cols = {k: v for k, v in tools_all.items() if "RF" not in k}
 
-    intersection = merged.dropna(subset=["rf_oof_score"]) if "rf_oof_score" in merged.columns else merged
+    intersection = (
+        merged.dropna(subset=["rf_oof_score"]) if "rf_oof_score" in merged.columns else merged
+    )
     intersection_tools = {k: v for k, v in rf_cols.items() if v in intersection.columns}
 
     intersection_metrics = evaluate_tools(intersection, intersection_tools)
@@ -447,9 +451,7 @@ def run_fairness(
         pd.concat(overlap_subset_rows, ignore_index=True) if overlap_subset_rows else pd.DataFrame()
     )
     if not overlap_subset_df.empty:
-        overlap_subset_df.to_csv(
-            os.path.join(processed, "overlap_subset_metrics.csv"), index=False
-        )
+        overlap_subset_df.to_csv(os.path.join(processed, "overlap_subset_metrics.csv"), index=False)
 
     intersection_metrics.to_csv(
         os.path.join(processed, "fairness_metrics_intersection.csv"), index=False
@@ -457,17 +459,13 @@ def run_fairness(
     external_full_metrics.to_csv(
         os.path.join(processed, "fairness_metrics_external_full.csv"), index=False
     )
-    virus_weighted.to_csv(
-        os.path.join(processed, "virus_weighted_metrics.csv"), index=False
-    )
-    length_df.to_csv(
-        os.path.join(processed, "length_stratified_auc_pr.csv"), index=False
-    )
+    virus_weighted.to_csv(os.path.join(processed, "virus_weighted_metrics.csv"), index=False)
+    length_df.to_csv(os.path.join(processed, "length_stratified_auc_pr.csv"), index=False)
     holdout_df.to_csv(os.path.join(processed, "holdout_spotlight.csv"), index=False)
-    collapse_df.to_csv(
-        os.path.join(processed, "mean_collapse_sensitivity.csv"), index=False
-    )
-    with open(os.path.join(run_dir, "manifests", "training_overlap.json"), "w", encoding="utf-8") as f:
+    collapse_df.to_csv(os.path.join(processed, "mean_collapse_sensitivity.csv"), index=False)
+    with open(
+        os.path.join(run_dir, "manifests", "training_overlap.json"), "w", encoding="utf-8"
+    ) as f:
         json.dump(overlap_meta, f, indent=2)
 
     report_path = os.path.join(processed, "fairness_analysis.md")

@@ -23,12 +23,12 @@ from src.shap_analysis import run_shap_analysis
 def _load_config(config_path="config.yaml"):
     """Load config.yaml for feature mode and binding matrix defaults."""
     if os.path.isfile(config_path):
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             return yaml.safe_load(f) or {}
     return {}
 
 
-def main(results_dir='results', model_dir='models'):
+def main(results_dir="results", model_dir="models"):
     os.makedirs(results_dir, exist_ok=True)
     cfg = _load_config()
 
@@ -42,7 +42,7 @@ def main(results_dir='results', model_dir='models'):
     print("=" * 70)
 
     report = full_validation_report(results_dir)
-    gs_path = os.path.join(results_dir, 'gold_standard_validation.csv')
+    gs_path = os.path.join(results_dir, "gold_standard_validation.csv")
     report.to_csv(gs_path, index=False)
     print(f"\nSaved to {gs_path}")
 
@@ -52,7 +52,7 @@ def main(results_dir='results', model_dir='models'):
     print("=" * 70)
 
     comparison = compare_methods(results_dir, model_dir)
-    comp_path = os.path.join(results_dir, 'baseline_comparison.csv')
+    comp_path = os.path.join(results_dir, "baseline_comparison.csv")
     comparison.to_csv(comp_path, index=False)
     print_comparison(comparison)
     print(f"\nSaved to {comp_path}")
@@ -62,9 +62,8 @@ def main(results_dir='results', model_dir='models'):
     print("STEP 3: SHAP Explainability Analysis")
     print("=" * 70)
 
-    feature_mode = cfg.get('feature_mode', 30)
-    run_shap_analysis(results_dir, model_dir, results_dir,
-                      feature_mode=feature_mode)
+    feature_mode = cfg.get("feature_mode", 30)
+    run_shap_analysis(results_dir, model_dir, results_dir, feature_mode=feature_mode)
 
     # --- Summary ---
     print("\n" + "#" * 70)
@@ -77,10 +76,10 @@ def main(results_dir='results', model_dir='models'):
             print(f"  {f:<50s} {size:>10,d} bytes")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='SESTRAV post-pipeline analysis')
-    parser.add_argument('--results-dir', default='results')
-    parser.add_argument('--model-dir', default='models')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SESTRAV post-pipeline analysis")
+    parser.add_argument("--results-dir", default="results")
+    parser.add_argument("--model-dir", default="models")
     args = parser.parse_args()
 
     # Input validation

@@ -188,16 +188,10 @@ def main() -> None:
     if not os.path.isabs(results_dir):
         results_dir = os.path.join(root, results_dir)
 
-    pairs_path = args.pairs or os.path.join(
-        results_dir, "external_predig_peptide_allele_pairs.csv"
-    )
-    validation_path = args.meta or os.path.join(
-        results_dir, "external_validation_input.csv"
-    )
+    pairs_path = args.pairs or os.path.join(results_dir, "external_predig_peptide_allele_pairs.csv")
+    validation_path = args.meta or os.path.join(results_dir, "external_validation_input.csv")
     proteome_dir = os.path.join(root, "data", "proteomes")
-    output_path = args.output or os.path.join(
-        results_dir, "external_predig_input_recombinant.csv"
-    )
+    output_path = args.output or os.path.join(results_dir, "external_predig_input_recombinant.csv")
 
     for path in (pairs_path, validation_path):
         if not os.path.isfile(path):

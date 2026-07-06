@@ -4,15 +4,16 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
+
 def main():
     try:
         from mhcflurry import Class1PresentationPredictor
-        
+
         # Make sure our source tree is in path
         project_root = Path(__file__).resolve().parent.parent.parent
         if str(project_root) not in sys.path:
             sys.path.insert(0, str(project_root))
-            
+
         from src.core.config import SestravConfig
         from src.core.model_registry import ModelRegistry
 
@@ -22,7 +23,7 @@ def main():
         # Test Config loading
         config = SestravConfig.load(project_root / "config.yaml")
         registry = ModelRegistry(config)
-        
+
         # Test model loading
         model = registry.load(config.model_path.name)
         if model.n_features_in_ not in (21, 30, 50):
@@ -34,10 +35,11 @@ def main():
         print(f"  Antigens: {config.antigens}")
         print(f"  Alleles: {len(config.alleles)} alleles")
         print("  MHCflurry loaded OK")
-        
+
     except Exception as e:
         logging.error(f"FATAL: Dependency verification failed: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

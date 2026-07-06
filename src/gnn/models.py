@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class GCNLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super(GCNLayer, self).__init__()
@@ -13,27 +14,31 @@ class GCNLayer(nn.Module):
     def forward(self, x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
         # x: (batch, max_len, in_features)
         # adj: (max_len, max_len)
-        support = torch.matmul(x, self.weight) # (batch, max_len, out_features)
-        output = torch.matmul(adj, support)    # (batch, max_len, out_features)
+        support = torch.matmul(x, self.weight)  # (batch, max_len, out_features)
+        output = torch.matmul(adj, support)  # (batch, max_len, out_features)
         return output + self.bias
+
 
 class GraphEncoder(nn.Module):
     """Encodes the peptide graph using GCN layers."""
+
     def __init__(self, in_features: int = 20, hidden_dim1: int = 32, hidden_dim2: int = 64):
         super().__init__()
         self.gcn1 = GCNLayer(in_features, hidden_dim1)
         self.gcn2 = GCNLayer(hidden_dim1, hidden_dim2)
-        
+
     def forward(self, node_x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
         h = torch.relu(self.gcn1(node_x, adj))
-        h = torch.relu(self.gcn2(h, adj)) # (batch, max_len, 64)
+        h = torch.relu(self.gcn2(h, adj))  # (batch, max_len, 64)
         # Global mean pooling over nodes
-        return torch.mean(h, dim=1) # (batch, 64)
+        return torch.mean(h, dim=1)  # (batch, 64)
+
 
 class GraphPredictor(nn.Module):
     """
     Combines the GraphEncoder with an MLP head for predicting immunogenicity.
     """
+
     def __init__(self, num_continuous_features: int, dropout_rate: float = 0.3):
         super(GraphPredictor, self).__init__()
 
@@ -44,18 +49,17 @@ class GraphPredictor(nn.Module):
             nn.Linear(num_continuous_features, 32),
             nn.BatchNorm1d(32),
             nn.ReLU(),
-            nn.Dropout(dropout_rate)
+            nn.Dropout(dropout_rate),
         )
 
         # Fusion block
         self.fusion_block = nn.Sequential(
-            nn.Linear(64 + 32, 64),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(64, 1)
+            nn.Linear(64 + 32, 64), nn.ReLU(), nn.Dropout(dropout_rate), nn.Linear(64, 1)
         )
 
-    def forward(self, node_x: torch.Tensor, feat_x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, node_x: torch.Tensor, feat_x: torch.Tensor, adj: torch.Tensor
+    ) -> torch.Tensor:
         gnn_out = self.encoder(node_x, adj)
         physico_out = self.physico_block(feat_x)
 
@@ -69,16 +73,25 @@ class GraphPredictor(nn.Module):
 # GNN v2.1: GINEConv + ESM-2 node embeddings
 # ---------------------------------------------------------------------------
 
+
 class GraphEncoderV2(nn.Module):
     """GINEConv-based encoder consuming pre-computed ESM-2 per-residue embeddings.
 
     Expects PyG-format inputs: flat (total_nodes, node_dim) node tensor,
     edge_index with batch-offset node indices, and a batch vector.
     """
-    def __init__(self, node_dim: int = 320, hidden_dim: int = 256,
-                 out_dim: int = 128, edge_dim: int = 3, pooling: str = "mean"):
+
+    def __init__(
+        self,
+        node_dim: int = 320,
+        hidden_dim: int = 256,
+        out_dim: int = 128,
+        edge_dim: int = 3,
+        pooling: str = "mean",
+    ):
         super().__init__()
         from torch_geometric.nn import GINEConv, global_mean_pool
+
         self._global_mean_pool = global_mean_pool
 
         if pooling not in ("mean", "attention"):
@@ -91,6 +104,7 @@ class GraphEncoderV2(nn.Module):
             # rest of the peptide. Padding nodes are already excluded (v2.3), so the
             # attention operates only over real residues.
             from torch_geometric.nn import AttentionalAggregation
+
             gate_nn = nn.Linear(out_dim, 1)
             nn.init.xavier_uniform_(gate_nn.weight)
             nn.init.zeros_(gate_nn.bias)
@@ -120,8 +134,13 @@ class GraphEncoderV2(nn.Module):
                     nn.init.xavier_uniform_(m.weight)
                     nn.init.zeros_(m.bias)
 
-    def forward(self, x: torch.Tensor, edge_index: torch.Tensor,
-                edge_attr: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        batch: torch.Tensor,
+    ) -> torch.Tensor:
         h = F.relu(self.conv1(x, edge_index, edge_attr))
         h = F.relu(self.conv2(h, edge_index, edge_attr))
         if self.pooling == "attention":
@@ -138,8 +157,14 @@ class GraphPredictorV2(nn.Module):
     data.physico: (batch_size, num_continuous_features) - SESTRAV physicochemical features
     data.y: (batch_size,) - binary immunogenicity labels
     """
-    def __init__(self, num_continuous_features: int, node_dim: int = 320,
-                 dropout_rate: float = 0.3, pooling: str = "mean"):
+
+    def __init__(
+        self,
+        num_continuous_features: int,
+        node_dim: int = 320,
+        dropout_rate: float = 0.3,
+        pooling: str = "mean",
+    ):
         super().__init__()
         self.encoder = GraphEncoderV2(node_dim=node_dim, pooling=pooling)
 
@@ -170,4 +195,3 @@ class GraphPredictorV2(nn.Module):
         physico_out = self.physico_block(data.physico)
         fused = torch.cat((gnn_out, physico_out), dim=1)
         return self.fusion_block(fused).squeeze(1)
-
