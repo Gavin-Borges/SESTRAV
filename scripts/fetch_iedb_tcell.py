@@ -307,7 +307,7 @@ def fetch_iedb_tcell(virus_key: str) -> list[dict]:
         virus_key: One of the keys in ORGANISM_MAP (case-insensitive).
 
     Returns:
-        List of v4-compatible dicts (peptide, label, assay_type, …).
+        List of v4-compatible dicts (peptide, label, assay_type, ...).
     """
     key = virus_key.upper()
     if key not in ORGANISM_MAP:

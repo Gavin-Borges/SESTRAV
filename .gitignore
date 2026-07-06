@@ -137,6 +137,7 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+secrets.*
 .venv
 env/
 venv/
@@ -269,6 +270,7 @@ results/*
 !results/external_benchmark_score_distributions.png
 !results/external_benchmark_rank_scatter.png
 !results/external_tool_metrics_by_virus.csv
+!results/table3_tier_a_metrics.csv
 !results/external_validation_cross_virus.csv
 # Shareout presentation assets (PNGs + summary files)
 !results/shareout_20260426/
@@ -298,6 +300,9 @@ models/*.joblib
 models/*.pkl
 models/*.pt
 models/*.pth
+*.h5
+*.hdf5
+*.onnx
 
 # Large reference FASTA databases - download independently, do not commit
 data/proteomes/uniprot_sprot.fasta
