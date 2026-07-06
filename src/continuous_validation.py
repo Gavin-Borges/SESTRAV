@@ -140,12 +140,12 @@ def load_inputs(paths: Sequence[str]):
 
 def score_iedb_export(df, model_path: str, binding_matrix_path: str) -> dict:
     """Score a labeled peptide frame with the production model; return metrics."""
-    from joblib import load
     from sklearn.metrics import average_precision_score
 
+    from src.artifact_integrity import load_verified_joblib
     from src.train_classifier import prepare_features_31
 
-    clf = load(model_path)
+    clf = load_verified_joblib(model_path, required_checksum=True)
     X = prepare_features_31(df, binding_matrix_path)
     proba = clf.predict_proba(X)[:, 1]
     auc_pr = float(average_precision_score(df["label"].values, proba))
