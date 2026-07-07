@@ -231,7 +231,7 @@ def train_ann(
         train_epoch(model_final, full_loader, criterion_final, optimizer_final, device)
 
     # Save model and scaler
-    torch.save(model_final.state_dict(), os.path.join(model_dir, "ann_model.pth"))  # nosec B614
+    torch.save(model_final.state_dict(), os.path.join(model_dir, "ann_model.pth"))  # nosec B614 - saving own computed model state dict
     import joblib
 
     joblib.dump(scaler_full, os.path.join(model_dir, "ann_scaler.joblib"))

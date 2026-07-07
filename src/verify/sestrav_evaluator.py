@@ -299,7 +299,7 @@ def _load_torch_checkpoint(model_path, device):
                 np.dtype,
             ]
         )
-        return torch.load(model_path, map_location=device, weights_only=True)  # nosec B614
+        return torch.load(model_path, map_location=device, weights_only=True)  # nosec B614 - own model artifact; weights_only=True prevents arbitrary code execution
     except Exception as e:
         raise RuntimeError(
             f"Failed to load GNN checkpoint with weights_only=True: {e}. "

@@ -298,7 +298,7 @@ def train_gnn(
         train_epoch(model_final, full_loader, criterion_final, optimizer_final, device)
 
     # Save model and scaler
-    torch.save(model_final.state_dict(), os.path.join(model_dir, "structural_gnn_v2.pth"))  # nosec B614
+    torch.save(model_final.state_dict(), os.path.join(model_dir, "structural_gnn_v2.pth"))  # nosec B614 - saving own computed model state dict
     import joblib
 
     joblib.dump(scaler_full, os.path.join(model_dir, "gnn_scaler.joblib"))
@@ -436,7 +436,7 @@ def train_gnn_v2(
             "Run: python scripts/precompute_esm2_embeddings.py first."
         )
     print(f"Loading ESM-2 embeddings from {esm2_cache_path} ...")
-    esm2_cache = torch.load(esm2_cache_path, weights_only=True)  # nosec B614
+    esm2_cache = torch.load(esm2_cache_path, weights_only=True)  # nosec B614 - own precomputed ESM-2 cache; weights_only=True enforced
     print(f"Loaded {len(esm2_cache)} peptide embeddings")
 
     # Load data
@@ -642,10 +642,10 @@ def train_gnn_v2(
         scheduler_final.step()
 
     checkpoint_tagged = os.path.join(model_dir, f"structural_gnn_v2_{pooling}.pth")
-    torch.save(model_final.state_dict(), checkpoint_tagged)  # nosec B614
+    torch.save(model_final.state_dict(), checkpoint_tagged)  # nosec B614 - saving own computed model state dict
     joblib.dump(scaler_full, os.path.join(model_dir, f"gnn_scaler_{pooling}.joblib"))
     if _is_canonical:
-        torch.save(model_final.state_dict(), os.path.join(model_dir, "structural_gnn_v2.pth"))  # nosec B614
+        torch.save(model_final.state_dict(), os.path.join(model_dir, "structural_gnn_v2.pth"))  # nosec B614 - saving own computed model state dict
         joblib.dump(scaler_full, os.path.join(model_dir, "gnn_scaler.joblib"))
 
     # Save config so promote_gnn.py and inference code know the node dim without guessing

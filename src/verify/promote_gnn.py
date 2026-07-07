@@ -391,7 +391,7 @@ def check_promotion_gates() -> bool:
     ):
         try:
             r = gate_fn(df)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 - promotion gate loop; must catch all failures to log and continue
             logger.error(f"{gate_fn.__name__} raised unexpectedly: {exc}")
             results.append(
                 GateResult(name=gate_fn.__name__, passed=False, value=str(exc), threshold="-")
@@ -402,7 +402,7 @@ def check_promotion_gates() -> bool:
     # Gate 3 requires loading real models
     try:
         r3 = gate3_latency()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - top-level promotion gate; must catch all failures to log and exit non-zero
         logger.error(f"gate3_latency raised unexpectedly: {exc}")
         r3 = GateResult(name="Gate 3 - Latency", passed=False, value=str(exc), threshold="-")
     results.append(r3)

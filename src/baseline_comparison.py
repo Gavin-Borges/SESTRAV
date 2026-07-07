@@ -87,7 +87,7 @@ def _load_torch_checkpoint(model_path):
                 np.dtype,  # serialised numpy dtype objects
             ]
         )
-        return torch.load(model_path, map_location="cpu", weights_only=True)  # nosemgrep
+        return torch.load(model_path, map_location="cpu", weights_only=True)  # nosemgrep - torch checkpoint, not joblib; weights_only=True enforced
     except (FileNotFoundError, ValueError, KeyError) as exc:
         raise RuntimeError(
             f"[Baseline] Unable to load ANN checkpoint '{model_path}' with weights_only=True. "

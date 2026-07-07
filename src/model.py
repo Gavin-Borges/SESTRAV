@@ -222,7 +222,7 @@ def train_one_fold(
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
-        shuffle=True,  # nosemgrep
+        shuffle=True,  # nosemgrep - standard ML training shuffle; PyTorch internal PRNG
         drop_last=False,
     )
 

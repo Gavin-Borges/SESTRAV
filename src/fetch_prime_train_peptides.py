@@ -19,7 +19,7 @@ import argparse
 import os
 import re
 import shutil
-import subprocess  # nosec B404
+import subprocess  # nosec B404 - required to invoke WSL for PRIME tool access
 import sys
 from datetime import datetime, timezone
 
@@ -70,9 +70,9 @@ def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
 
     try:
         # Check command and run wsl find
-        out = subprocess.check_output(  # nosec B603
+        out = subprocess.check_output(  # nosec B603 - fixed WSL executable; no shell=True; no user-controlled input
             [
-                wsl_bin,  # nosec B607
+                wsl_bin,  # nosec B607 - WSL path resolved at call site; not user-provided
                 "find",
                 wsl_root,
                 "-maxdepth",
@@ -105,13 +105,13 @@ def search_wsl_prime_root(wsl_root: str) -> pd.DataFrame | None:
         if not is_safe_wsl_path(rel):
             continue
         try:
-            cat = subprocess.check_output([wsl_bin, "head", "-3", rel], text=True)  # nosec B603
+            cat = subprocess.check_output([wsl_bin, "head", "-3", rel], text=True)  # nosec B603 - fixed WSL path; args are internal constants
         except subprocess.SubprocessError:
             continue
         if not cat or ("\t" not in cat and "," not in cat):
             continue
         try:
-            full = subprocess.check_output([wsl_bin, "cat", rel], text=True)  # nosec B603
+            full = subprocess.check_output([wsl_bin, "cat", rel], text=True)  # nosec B603 - fixed WSL path; args are internal constants
             from io import StringIO
 
             df = pd.read_csv(StringIO(full), sep=None, engine="python")
