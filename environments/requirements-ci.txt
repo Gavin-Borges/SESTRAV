@@ -381,7 +381,7 @@ hypothesis==6.156.1 \
     --hash=sha256:eb093affaa2257f9fd2d6542b5e242f5b9512bc1009a4f563ade91e30c298e0c \
     --hash=sha256:f1e1fecee9c79956ac5e7c38cb1d1374bf22fd4066ff6a9664d45d13a09251b1 \
     --hash=sha256:f8385703ba1a03a09f2b2cbbf418344a82beef51b397101933a67535da7d0e19
-    # via -r requirements-ci.in
+    # via -r environments/requirements-ci.in
 idna==3.16 \
     --hash=sha256:cc246e3a3f89580c3a951b5ad298ca4638078b2cdd4f115654332b5c26daded5 \
     --hash=sha256:d7a6da03db833450fca25d2358ac9ff06cd624577a4aea3a596d5c0f77b8e03d
