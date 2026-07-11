@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **Per-virus within-CV metrics regenerated (session 70, 2026-07-10)**: The committed
+  `results/per_virus_eval_v5_mode31.{csv,json}` lagged the current 35,597-row v5 dataset and
+  were regenerated. New within-CV AUC-ROC: CMV 0.819, DENV 0.859, EBV 0.790, HBV 0.708,
+  HCV 0.575, HIV-1 0.894, HPV 0.561, IAV 0.856, SARS-CoV-2 0.699 (mean 0.751). HPV within-CV
+  (0.561) now falls below the 0.58 Amendment-6 threshold. Leave-one-virus-out (LOO) figures are
+  unchanged (mean 0.463; `results/loo_cross_virus_v5_clean.csv`). The earlier Amendment-6
+  within-CV values (HPV 0.598, EBV 0.667) recorded below remain the accurate record for the
+  b5ffe37 snapshot at which they were achieved.
+- **v5 feature ablation added** (`models/v5/ablation/`, `models/v5/training_results_ablation.csv`):
+  RF modes 21/31/33/35. Binding scores (mode 21->31) add +0.008 AUC-ROC / +0.015 AUC-PR; modes
+  33 and 35 add nothing measurable. Confirms mode-31 as the production configuration.
+
 ### Added
 - **v5 dataset (31,999 active rows / 46,386 total)**: Rebuilt from merged IEDB API negatives
   pipeline. Key numbers: 36,689 IEDB viral negatives, 4,219 net-new experimentally confirmed

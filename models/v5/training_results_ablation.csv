@@ -1,0 +1,5 @@
+model,feature_mode,n_features,features,auc_roc_mean,auc_roc_std,auc_pr_mean,auc_pr_std,source
+RF,21,21,physico + length (binding-free floor),0.9353,0.0025,0.8158,0.0071,models/v5/ablation/training_results_mode21.csv
+RF,31,31,+ 10 allele binding scores (production),0.9429,0.0036,0.8312,0.0084,models/v5/ablation/training_results_mode31.csv
+RF,33,33,+ antigen processing,0.9434,0.0034,0.8313,0.0079,models/v5/ablation/training_results_mode33.csv
+RF,35,35,+ self-similarity,0.9434,0.0037,0.8311,0.009,models/v5/ablation/training_results_mode35.csv

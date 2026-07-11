@@ -78,7 +78,7 @@ The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) p
 
 | Metric / Check | Result |
 | :--- | :--- |
-| H2 Tier A decision (R10 ≥ 2.0) | **Not supported** (R10 = 0.9494) |
+| H2 Tier A decision (R10 >= 2.0) | **Not supported** (R10 = 0.9494) |
 | Gold-standard positive recovery | 15/15 positives found; 7/15 in top 25% |
 | Binding-only baseline comparison | Baseline recovers 15/15 (expected for strong-binder set) |
 | Gold-standard negative discrimination | 9/10 negatives pushed down vs. binding-only |
@@ -121,18 +121,18 @@ Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely
 
 | Virus | LOO AUC-ROC | Within-CV AUC-ROC | n_test_pos | n_test_neg | Note |
 |-------|-------------|-------------------|------------|------------|------|
-| CMV | 0.633 | 0.747 | 740 | 272 | Modest transfer |
-| HBV | 0.557 | 0.699 | 325 | 229 | Modest transfer |
-| HCV | 0.528 | 0.559 | 333 | 320 | Marginal |
-| EBV | 0.496 | 0.667 | 316 | 80 | Near chance |
-| IAV | 0.488 | 0.685 | 342 | 119 | Near chance |
-| HPV | 0.468 | 0.598 | 186 | 137 | Near chance |
-| SARS-CoV-2 | 0.462 | 0.638 | 2473 | 980 | Near chance |
-| DENV | 0.373 | 0.625 | 806 | 12 | Unreliable (only 12 clean negatives) |
-| HIV-1 | 0.162 | 0.805 | 2516 | 60 | Anti-predictive (binding-feature reversal) |
-| **Mean** | **0.463** | 0.647 | | | 3/9 viruses above chance |
+| CMV | 0.633 | 0.819 | 740 | 272 | Modest transfer |
+| HBV | 0.557 | 0.708 | 325 | 229 | Modest transfer |
+| HCV | 0.528 | 0.575 | 333 | 320 | Marginal |
+| EBV | 0.496 | 0.790 | 316 | 80 | Near chance |
+| IAV | 0.488 | 0.856 | 342 | 119 | Near chance |
+| HPV | 0.468 | 0.561 | 186 | 137 | Near chance |
+| SARS-CoV-2 | 0.462 | 0.699 | 2473 | 980 | Near chance |
+| DENV | 0.373 | 0.859 | 806 | 12 | Unreliable (only 12 clean negatives) |
+| HIV-1 | 0.162 | 0.894 | 2516 | 60 | Anti-predictive (binding-feature reversal) |
+| **Mean** | **0.463** | 0.751 | | | 3/9 viruses above chance |
 
-> **Interpretation:** Mean LOO AUC-ROC 0.463 indicates that mode-31 binding-derived features do not transfer reliably across viral families when tested fairly. This is an expected finding given the model's design: SESTRAV is engineered for within-virus epitope prioritization (within-CV mean AUC-ROC 0.647) and self-proteome discrimination (Gate 1 AUC-PR 0.8897). The LOO analysis characterizes the boundary of current applicability and motivates the GNN research track, where structural embeddings (ESM-2 + GINEConv) may provide more transferable representations.
+> **Interpretation:** Mean LOO AUC-ROC 0.463 indicates that mode-31 binding-derived features do not transfer reliably across viral families when tested fairly. This is an expected finding given the model's design: SESTRAV is engineered for within-virus epitope prioritization (within-CV mean AUC-ROC 0.751) and self-proteome discrimination (Gate 1 AUC-PR 0.8897). The LOO analysis characterizes the boundary of current applicability and motivates the GNN research track, where structural embeddings (ESM-2 + GINEConv) may provide more transferable representations.
 
 ### Benchmark Overlap and Clean-Holdout Comparison
 

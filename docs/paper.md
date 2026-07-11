@@ -1,5 +1,15 @@
 # SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology
 
+> **SUPERSEDED - DIVERGENT PREPRINT DRAFT. DO NOT USE FOR NUMBER-CHECKING.**
+> This document is the older, full-length bioRxiv preprint draft. It reflects an
+> EARLIER v5 snapshot (31,999 active rows; ESM-2 cache 27,376 peptides; pre-Amendment-7
+> LOO framing, including the retracted inflated leave-one-virus-out AUC-ROC values and
+> the retracted DENV/EBV/IAV "family-transfer" narrative). For all submission numbers,
+> the canonical source is `_local/drafts/SESTRAV_manuscript_draft.md` (Bioinformatics
+> Original Article), whose figures match `results/loo_cross_virus_v5_clean.csv`. The
+> body numbers below are intentionally NOT updated here; consult the canonical
+> manuscript instead.
+
 **Manuscript draft - full version (intended for bioRxiv preprint). A condensed Bioinformatics *Application Note* will be derived from this version; the preprint carries the complete results and analysis.**
 *Status: Active draft. v5 RF complete (AUC-PR 0.7678, AUC-ROC 0.9368; 31,999 active rows; real IEDB viral negatives included; Tier A OOF 0.828; Gate 1 self-proteome evaluation 0.8897). GNN v5 retraining pending (ESM-2 cache complete at 27,376 peptides; GPU training pending). Pending: GNN v5 results (§3.6), Zenodo DOI v5 (§5).*
 *Authors: Gavin Borges¹, Abdelrahman Eljamal¹, Iris Schellenberg¹, Charles Jouaneh¹, Emine Byers¹*

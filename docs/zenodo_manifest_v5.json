@@ -1,0 +1,32 @@
+{
+  "dataset_version": "5.0.0",
+  "generated_date": "2026-07-10",
+  "license": "CC-BY-4.0",
+  "doi": "10.5281/zenodo.XXXXXXX",
+  "build_git_sha": "206904c",
+  "total_rows": 51185,
+  "active_rows": 35597,
+  "positive_rows": 8712,
+  "negative_rows": 42473,
+  "active_row_definition": "rows where is_quarantined == false",
+  "files": [
+    {
+      "path": "data/immunogenicity_dataset_v5.csv",
+      "role": "dataset",
+      "bytes": 7992169,
+      "sha256": "1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7"
+    },
+    {
+      "path": "data/immunogenicity_dataset_v5_schema.json",
+      "role": "schema",
+      "bytes": 8052,
+      "sha256": "92452c4342402df20e377f9ac6cf7fff798a4c51c0abb57a6f05fca5d0f5d023"
+    },
+    {
+      "path": "data/immunogenicity_dataset_v5_provenance.json",
+      "role": "provenance",
+      "bytes": 18409,
+      "sha256": "13ef427d32fb212128083dbb92fe8879505572bcf3c48388152338a2bf415f08"
+    }
+  ]
+}

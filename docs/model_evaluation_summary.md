@@ -2,8 +2,10 @@
 
 ## v5 Canonical Track: 31-Feature RF (Trained 2026-07-04)
 
-> **Status:** Current production model. Dataset: v5, 31,999 active rows (46,386 total),
-> 36,689 IEDB viral negatives, 5-fold stratified OOF. Commit b5ffe37.
+> **Status:** Current production model. Dataset: v5, 35,597 active rows (51,185 total),
+> 5-fold stratified OOF. Per-virus within-CV (below) regenerated session 70 (2026-07-10) on
+> the current dataset; the pooled within-virus metrics in the table below reflect the b5ffe37
+> build (2026-07-04) and are pending recomputation on the 35,597-row dataset.
 > Model: `models/rf_31feature_integrated.joblib` (retrained)
 > OOF predictions: `models/rf_oof_predictions.csv`, `models/rf_oof_predictions_mode31.csv`
 
@@ -12,12 +14,16 @@
 | Within-virus (same-pathogen discrimination) | **0.7678** | **0.9368** | Harder context: viral positives vs. real IEDB viral negatives from same pathogen |
 | Self-proteome Gate 1 | **0.8897** | - | Viral epitopes vs. self-peptide hard decoys; Gate 1 threshold protocol (>= 0.85 PASS) |
 
-**Per-virus results (Amendment 6 thresholds):**
+**Per-virus within-CV results (Amendment 6 thresholds; regenerated session 70, 2026-07-10, on the 35,597-row v5 dataset):**
 
 | Virus | AUC-ROC | Threshold | Status |
 |---|---|---|---|
-| HPV | 0.598 | >= 0.58 | PASS |
-| EBV | 0.667 | >= 0.57 | PASS (post B*27 conflict quarantine) |
+| HPV | 0.561 | >= 0.58 | FAIL |
+| EBV | 0.790 | >= 0.57 | PASS (post B*27 conflict quarantine) |
+
+> **Note:** HPV within-CV fell from 0.598 (b5ffe37 snapshot) to 0.561 on the current dataset and
+> now falls below the 0.58 Amendment-6 threshold, consistent with the manuscript's characterization
+> of HPV as an active generalization failure. EBV rose from 0.667 to 0.790.
 
 > **Note:** v3/v4 sections below are historical. The v5 31-feature RF is the canonical
 > production scorer. All public-facing comparisons should use v5 figures.
