@@ -244,6 +244,30 @@ def test_evaluate_virus_no_origin_column() -> None:
     assert r["auc_roc_real_neg_only"] is None
 
 
+def test_evaluate_virus_iedb_api_counts_as_real_neg() -> None:
+    # iedb_api negatives are genuine assay-confirmed negatives (aligns with
+    # build_dataset_v5._real_neg_origins); allele_matched_nonbinder is a decoy.
+    rng = np.random.default_rng(3)
+    n_pos, n_api, n_decoy = 20, 15, 20
+    df = pd.DataFrame(
+        {
+            "label": [1] * n_pos + [0] * (n_api + n_decoy),
+            "score": np.concatenate(
+                [rng.uniform(0.4, 1.0, n_pos), rng.uniform(0.0, 0.6, n_api + n_decoy)]
+            ),
+            "virus": "CMV",
+            "negative_origin": [None] * n_pos
+            + ["iedb_api"] * n_api
+            + ["allele_matched_nonbinder"] * n_decoy,
+            "peptide": ["GILGFVFTL"] * (n_pos + n_api + n_decoy),
+        }
+    )
+    r = evaluate_virus(df, "score", n_bootstrap=10)
+    assert r["n_neg_real"] == n_api
+    assert r["n_neg_decoy"] == n_decoy
+    assert r["auc_roc_real_neg_only"] is not None
+
+
 def test_evaluate_virus_single_class_nan() -> None:
     df = pd.DataFrame(
         {

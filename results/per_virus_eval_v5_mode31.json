@@ -1,12 +1,12 @@
 {
-  "predictions_file": "models\\v5\\ablation\\rf_oof_predictions_mode31.csv",
+  "predictions_file": "models\\v5\\rf_oof_predictions_mode31.csv",
   "n_bootstrap": 1000,
   "min_virus_size": 20,
   "per_virus": {
     "CMV": {
       "n_pos": 740,
-      "n_neg_real": 0,
-      "n_neg_decoy": 572,
+      "n_neg_real": 272,
+      "n_neg_decoy": 300,
       "n_total": 1312,
       "auc_roc": 0.8194115006615006,
       "auc_roc_lower": 0.7973933877405118,
@@ -18,7 +18,7 @@
       "ece": 0.11568987195635375,
       "auc_roc_9mer": 0.7951580737727338,
       "auc_roc_non9mer": 0.8670913940900733,
-      "auc_roc_real_neg_only": null
+      "auc_roc_real_neg_only": 0.7757278418124006
     },
     "CoxsackievirusB": {
       "n_pos": 2,
@@ -39,8 +39,8 @@
     },
     "DENV": {
       "n_pos": 806,
-      "n_neg_real": 0,
-      "n_neg_decoy": 1012,
+      "n_neg_real": 12,
+      "n_neg_decoy": 1000,
       "n_total": 1818,
       "auc_roc": 0.8587931178218695,
       "auc_roc_lower": 0.8428781444951209,
@@ -52,12 +52,12 @@
       "ece": 0.12473023115657575,
       "auc_roc_9mer": 0.865141271177523,
       "auc_roc_non9mer": 0.8494209457885453,
-      "auc_roc_real_neg_only": null
+      "auc_roc_real_neg_only": 0.49126344086021506
     },
     "EBV": {
       "n_pos": 287,
-      "n_neg_real": 12,
-      "n_neg_decoy": 360,
+      "n_neg_real": 72,
+      "n_neg_decoy": 300,
       "n_total": 659,
       "auc_roc": 0.7897324940991345,
       "auc_roc_lower": 0.7515127476885329,
@@ -69,12 +69,12 @@
       "ece": 0.05565650781714257,
       "auc_roc_9mer": 0.781128991702288,
       "auc_roc_non9mer": 0.7961174425342863,
-      "auc_roc_real_neg_only": 0.4169570267131243
+      "auc_roc_real_neg_only": 0.6574235385210995
     },
     "HBV": {
       "n_pos": 325,
-      "n_neg_real": 0,
-      "n_neg_decoy": 229,
+      "n_neg_real": 229,
+      "n_neg_decoy": 0,
       "n_total": 554,
       "auc_roc": 0.7076116896204232,
       "auc_roc_lower": 0.6647714798797494,
@@ -86,12 +86,12 @@
       "ece": 0.1198525603883718,
       "auc_roc_9mer": 0.7008583172147002,
       "auc_roc_non9mer": 0.7198110862540392,
-      "auc_roc_real_neg_only": null
+      "auc_roc_real_neg_only": 0.7076116896204232
     },
     "HCV": {
       "n_pos": 333,
-      "n_neg_real": 68,
-      "n_neg_decoy": 252,
+      "n_neg_real": 320,
+      "n_neg_decoy": 0,
       "n_total": 653,
       "auc_roc": 0.5754457582582583,
       "auc_roc_lower": 0.5336069442154939,
@@ -103,12 +103,12 @@
       "ece": 0.1512177757804169,
       "auc_roc_9mer": 0.5710590973748869,
       "auc_roc_non9mer": 0.5789581961816985,
-      "auc_roc_real_neg_only": 0.5525746334569864
+      "auc_roc_real_neg_only": 0.5754457582582583
     },
     "HIV-1": {
       "n_pos": 2516,
-      "n_neg_real": 11,
-      "n_neg_decoy": 742,
+      "n_neg_real": 60,
+      "n_neg_decoy": 693,
       "n_total": 3269,
       "auc_roc": 0.893648775327941,
       "auc_roc_lower": 0.8824206567320344,
@@ -120,12 +120,12 @@
       "ece": 0.12083541273956161,
       "auc_roc_9mer": 0.9019635312797015,
       "auc_roc_non9mer": 0.8825717676730214,
-      "auc_roc_real_neg_only": 0.8101784940020234
+      "auc_roc_real_neg_only": 0.7687930577636459
     },
     "HPV": {
       "n_pos": 181,
-      "n_neg_real": 64,
-      "n_neg_decoy": 73,
+      "n_neg_real": 137,
+      "n_neg_decoy": 0,
       "n_total": 318,
       "auc_roc": 0.5608742993104004,
       "auc_roc_lower": 0.5031329091770893,
@@ -137,7 +137,7 @@
       "ece": 0.1917220958154561,
       "auc_roc_9mer": 0.5684666666666667,
       "auc_roc_non9mer": 0.5441176470588236,
-      "auc_roc_real_neg_only": 0.48890711325966857
+      "auc_roc_real_neg_only": 0.5608742993104004
     },
     "Human betaherpesvirus 6B": {
       "n_pos": 0,
@@ -158,8 +158,8 @@
     },
     "IAV": {
       "n_pos": 342,
-      "n_neg_real": 93,
-      "n_neg_decoy": 471,
+      "n_neg_real": 119,
+      "n_neg_decoy": 445,
       "n_total": 906,
       "auc_roc": 0.8560382190701341,
       "auc_roc_lower": 0.8275800715515171,
@@ -171,7 +171,7 @@
       "ece": 0.07291708870476751,
       "auc_roc_9mer": 0.8347962221537829,
       "auc_roc_non9mer": 0.8802941629447096,
-      "auc_roc_real_neg_only": 0.6977299880525687
+      "auc_roc_real_neg_only": 0.7048503611971104
     },
     "LassaVirus": {
       "n_pos": 0,
@@ -209,8 +209,8 @@
     },
     "RSV": {
       "n_pos": 15,
-      "n_neg_real": 0,
-      "n_neg_decoy": 105,
+      "n_neg_real": 105,
+      "n_neg_decoy": 0,
       "n_total": 120,
       "auc_roc": 0.4434920634920635,
       "auc_roc_lower": 0.252807429510644,
@@ -222,12 +222,12 @@
       "ece": 0.26292611311104563,
       "auc_roc_9mer": null,
       "auc_roc_non9mer": 0.6633663366336633,
-      "auc_roc_real_neg_only": null
+      "auc_roc_real_neg_only": 0.4434920634920635
     },
     "SARS-CoV-2": {
       "n_pos": 2473,
-      "n_neg_real": 102,
-      "n_neg_decoy": 1252,
+      "n_neg_real": 980,
+      "n_neg_decoy": 374,
       "n_total": 3827,
       "auc_roc": 0.6992671517081676,
       "auc_roc_lower": 0.6830901992056556,
@@ -239,7 +239,7 @@
       "ece": 0.17962550643041886,
       "auc_roc_9mer": 0.6943601205862585,
       "auc_roc_non9mer": 0.6806022473394531,
-      "auc_roc_real_neg_only": 0.6737767893247067
+      "auc_roc_real_neg_only": 0.6470033504707988
     },
     "YFV": {
       "n_pos": 1,

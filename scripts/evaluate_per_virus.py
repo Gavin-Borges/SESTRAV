@@ -57,7 +57,12 @@ from src.statistical_bootstrap import paired_bootstrap_comparison
 
 DEFAULT_N_BOOTSTRAP: int = 1000
 CI_LEVEL: float = 0.95
-REAL_NEG_ORIGIN: str = "tested_negative"
+# Origins that represent genuine experimentally-confirmed negatives. Both the
+# bulk-export path ("tested_negative") and the IEDB REST/API-bridge path
+# ("iedb_api") are real assay-confirmed negatives; this matches the real-negative
+# definition in build_dataset_v5.py (_real_neg_origins). Synthetic decoys
+# (allele_matched_nonbinder, self_proteome_decoy) are NOT real negatives.
+REAL_NEG_ORIGINS: frozenset[str] = frozenset({"tested_negative", "iedb_api"})
 MIN_SAMPLES_DEFAULT: int = 20
 
 # Amendment 6 exit criterion thresholds.
@@ -189,7 +194,7 @@ def evaluate_virus(
     n_neg_total = int((y_true == 0).sum())
 
     if origin_col in df.columns:
-        real_neg_mask = (y_true == 0) & (df[origin_col].fillna("").eq(REAL_NEG_ORIGIN).to_numpy())
+        real_neg_mask = (y_true == 0) & (df[origin_col].fillna("").isin(REAL_NEG_ORIGINS).to_numpy())
         n_neg_real = int(real_neg_mask.sum())
         n_neg_decoy = n_neg_total - n_neg_real
     else:
