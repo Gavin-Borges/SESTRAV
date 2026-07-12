@@ -4,15 +4,25 @@
 
 > **Status:** Current production model. Dataset: v5, 35,597 active rows (51,185 total),
 > 5-fold stratified OOF. Per-virus within-CV (below) regenerated session 70 (2026-07-10) on
-> the current dataset; the pooled within-virus metrics in the table below reflect the b5ffe37
-> build (2026-07-04) and are pending recomputation on the 35,597-row dataset.
+> the current dataset. Recomputation is DONE (2026-07-11): the fragile pooled "same-pathogen
+> AUC-ROC 0.9368" headline from the b5ffe37 build (2026-07-04) has been RETIRED. The canonical
+> same-pathogen discrimination metric is now the reproducible per-virus within-CV table (mean
+> AUC-ROC 0.751; `results/per_virus_eval_v5_mode31.csv`).
 > Model: `models/rf_31feature_integrated.joblib` (retrained)
 > OOF predictions: `models/rf_oof_predictions.csv`, `models/rf_oof_predictions_mode31.csv`
 
 | Evaluation context | AUC-PR | AUC-ROC | Notes |
 |---|---|---|---|
-| Within-virus (same-pathogen discrimination) | **0.7678** | **0.9368** | Harder context: viral positives vs. real IEDB viral negatives from same pathogen |
+| Within-virus (same-pathogen discrimination) | see per-virus table | **0.751** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses (`results/per_virus_eval_v5_mode31.csv`) |
 | Self-proteome Gate 1 | **0.8897** | - | Viral epitopes vs. self-peptide hard decoys; Gate 1 threshold protocol (>= 0.85 PASS) |
+
+[^retracted]: The previously reported pooled same-pathogen AUC-ROC 0.9368 was decoy-inflated
+(it only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel, are
+mixed in as if they were same-pathogen negatives) and is RETRACTED (2026-07-11). The honest
+pooled same-pathogen ROC on real IEDB negatives (origin in {tested_negative, iedb_api}) is
+0.712. The pooled same-pathogen AUC-PR is a base-rate artifact (8003 positive vs 1851 negative,
+about 81% positive) and is NOT reported as a headline. The canonical, reproducible same-pathogen
+metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `scripts/evaluate_per_virus.py`.
 
 **Per-virus within-CV results (Amendment 6 thresholds; regenerated session 70, 2026-07-10, on the 35,597-row v5 dataset):**
 

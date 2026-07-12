@@ -3,8 +3,10 @@
 > **SUPERSEDED - DIVERGENT PREPRINT DRAFT. DO NOT USE FOR NUMBER-CHECKING.**
 > This document is the older, full-length bioRxiv preprint draft. It reflects an
 > EARLIER v5 snapshot (31,999 active rows; ESM-2 cache 27,376 peptides; pre-Amendment-7
-> LOO framing, including the retracted inflated leave-one-virus-out AUC-ROC values and
-> the retracted DENV/EBV/IAV "family-transfer" narrative). For all submission numbers,
+> LOO framing, including the retracted inflated leave-one-virus-out AUC-ROC values,
+> the retracted DENV/EBV/IAV "family-transfer" narrative, and the retracted pooled
+> same-pathogen / within-virus AUC-ROC 0.9368 (decoy-inflated; same-pathogen discrimination
+> is now reported per-virus, within-CV mean AUC-ROC 0.751)). For all submission numbers,
 > the canonical source is `_local/drafts/SESTRAV_manuscript_draft.md` (Bioinformatics
 > Original Article), whose figures match `results/loo_cross_virus_v5_clean.csv`. The
 > body numbers below are intentionally NOT updated here; consult the canonical

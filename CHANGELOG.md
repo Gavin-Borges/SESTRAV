@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Changed
+- **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
+  "same-pathogen AUC-ROC 0.9368" reported for the b5ffe37 build was decoy-inflated - it only
+  reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
+  if they were same-pathogen negatives - and is RETRACTED. Same-pathogen discrimination is now
+  reported per-virus (within-CV mean AUC-ROC 0.751; `results/per_virus_eval_v5_mode31.csv`).
+  The honest pooled same-pathogen ROC on real IEDB negatives is 0.712 (pooled AUC-PR is
+  base-rate-inflated and not a headline). Self-proteome Gate 1 AUC-PR 0.8897 is unaffected.
+  The historical b5ffe37 entry below is left intact as the record of what was reported then;
+  see `docs/claims_register.md` D12.
 - **Per-virus within-CV metrics regenerated (session 70, 2026-07-10)**: The committed
   `results/per_virus_eval_v5_mode31.{csv,json}` lagged the current 35,597-row v5 dataset and
   were regenerated. New within-CV AUC-ROC: CMV 0.819, DENV 0.859, EBV 0.790, HBV 0.708,
