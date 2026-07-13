@@ -57,7 +57,7 @@ mhcflurry_model_version: "2.2.1"
 
 # Feature mode: 21 (legacy sequence-only) | 30 (physico + binding, legacy) | 31 (canonical) | 33 (+ antigen processing)
 # Canonical production model: feature_mode=31 (full_31: physico_20 + binding_10 + peptide_length)
-# Actual OOF CV (v3, with sample weights): RF AUC-PR 0.8276 ± 0.027; XGB AUC-PR 0.8205 ± 0.010
+# Actual OOF CV (v3, with sample weights): RF AUC-PR 0.8276 +/- 0.027; XGB AUC-PR 0.8205 +/- 0.010
 # Ablation planning estimate was 0.864 (unweighted run); actual weighted result is 0.8276.
 # See docs/model_evaluation_summary.md and docs/feature_glossary.md for full details.
 feature_mode: 31
