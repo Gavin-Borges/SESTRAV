@@ -165,6 +165,57 @@ def test_apply_calibration_with_calibrator(monkeypatch, tmp_path):
     assert np.all((out >= 0) & (out <= 1))
 
 
+def test_apply_calibration_isotonic_branch(monkeypatch, tmp_path):
+    """Isotonic calibrator (real sklearn) is detected via .predict and applied.
+
+    Verifies the isotonic dispatch (raw-score .predict, not logit
+    .predict_proba), that outputs stay in [0, 1], and that the mapping is
+    monotonic non-decreasing in the input score.
+    """
+    from sklearn.isotonic import IsotonicRegression
+
+    # Fit a simple monotonic calibrator on synthetic (score, label) data.
+    rng = np.random.default_rng(0)
+    x = rng.uniform(0, 1, size=500)
+    y = (rng.uniform(0, 1, size=500) < x).astype(int)
+    iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(x, y)
+    assert not hasattr(iso, "predict_proba")  # isotonic exposes only .predict
+
+    (tmp_path / "isotonic_calibrator.joblib").write_bytes(b"stub")
+    monkeypatch.setattr(s4, "load_verified_joblib", lambda p, required_checksum=True: iso)
+
+    scores = np.linspace(0.0, 1.0, 21)
+    out, applied = s4._apply_calibration(scores, str(tmp_path))
+
+    assert applied is True
+    assert out.shape == scores.shape
+    assert np.all((out >= 0.0) & (out <= 1.0))
+    # Calibrated output is monotonic non-decreasing in the raw score.
+    assert np.all(np.diff(out) >= -1e-9)
+
+
+def test_apply_calibration_isotonic_preferred_over_platt(monkeypatch, tmp_path):
+    """When both artifacts exist the isotonic one is resolved first."""
+    (tmp_path / "isotonic_calibrator.joblib").write_bytes(b"stub")
+    (tmp_path / "platt_calibrator.joblib").write_bytes(b"stub")
+    resolved = s4._resolve_calibrator_path(str(tmp_path))
+    assert resolved.endswith("isotonic_calibrator.joblib")
+
+
+def test_apply_calibration_explicit_path(monkeypatch, tmp_path):
+    """An explicit calibration_path takes precedence over model-dir search."""
+    from sklearn.isotonic import IsotonicRegression
+
+    iso = IsotonicRegression(out_of_bounds="clip").fit([0.0, 1.0], [0.0, 1.0])
+    explicit = tmp_path / "custom_cal.joblib"
+    explicit.write_bytes(b"stub")
+    monkeypatch.setattr(s4, "load_verified_joblib", lambda p, required_checksum=True: iso)
+    scores = np.array([0.1, 0.5, 0.9])
+    out, applied = s4._apply_calibration(scores, str(tmp_path), calibration_path=str(explicit))
+    assert applied is True
+    assert np.all((out >= 0.0) & (out <= 1.0))
+
+
 # --- PyTorch .pt branch (real lightweight checkpoint) --------------------------------
 
 
