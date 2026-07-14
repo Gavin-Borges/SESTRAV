@@ -84,3 +84,13 @@ def test_write_provenance_writes_sidecar(tmp_path):
     assert prov["sources"] == ["s1", "s2"]
     assert prov["seed"] == 42
     assert "generated_utc" in prov and "git_sha" in prov
+
+
+def test_write_provenance_records_sha256_when_artifact_exists(tmp_path):
+    import hashlib
+
+    out_csv = tmp_path / "y.csv"
+    out_csv.write_bytes(b"a,b\n1,2\n")
+    write_provenance(str(out_csv), sources=["s"], row_count=1)
+    prov = json.loads((tmp_path / "y_provenance.json").read_text())
+    assert prov["sha256"] == hashlib.sha256(out_csv.read_bytes()).hexdigest()
