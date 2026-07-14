@@ -6,6 +6,7 @@ the v4 schema, and provenance sidecars written alongside every output file.
 Underscore-prefixed so it is not itself treated as an ingest script.
 """
 
+import hashlib
 import json
 import os
 import subprocess
@@ -247,6 +248,15 @@ def write_provenance(output_path, sources, row_count, extra=None):
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha(),
     }
+    # Record a content hash so the integrity harness can detect silent drift of the
+    # artifact. Hash only when the output file exists (it does in real ingest usage,
+    # where the artifact is written before its sidecar).
+    if os.path.isfile(output_path):
+        h = hashlib.sha256()
+        with open(output_path, "rb") as af:
+            for chunk in iter(lambda: af.read(65536), b""):
+                h.update(chunk)
+        prov["sha256"] = h.hexdigest()
     if extra:
         prov.update(extra)
     prov_path = os.path.splitext(output_path)[0] + "_provenance.json"
