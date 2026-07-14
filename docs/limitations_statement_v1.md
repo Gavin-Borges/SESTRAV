@@ -1,5 +1,7 @@
 # SESTRAV: Scientific Limitations & Clinical Disclaimer (v1)
 
+> **Scope note (2026-07-14):** The current canonical v5 dataset covers **9 viral pathogens** (CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2) with **35,597 active rows**. The "12 pathogens / 31,999 active rows" figures and the Section 2.2 taxonomic composition below reflect an earlier v5 snapshot (commit b5ffe37) taken before three singleton viruses (RSV, Coxsackievirus B, YFV) were quarantined and the negative set was expanded; those per-virus percentages have not been recomputed for the current build. For canonical scope and metrics see README.md and `results/per_virus_eval_v5_mode31.csv`.
+
 ## Clinical Disclaimer
 
 > [!WARNING]

@@ -13,7 +13,7 @@
 > manuscript instead.
 
 **Manuscript draft - full version (intended for bioRxiv preprint). A condensed Bioinformatics *Application Note* will be derived from this version; the preprint carries the complete results and analysis.**
-*Status: Active draft. v5 RF complete (AUC-PR 0.7678, AUC-ROC 0.9368; 31,999 active rows; real IEDB viral negatives included; Tier A OOF 0.828; Gate 1 self-proteome evaluation 0.8897). GNN v5 retraining pending (ESM-2 cache complete at 27,376 peptides; GPU training pending). Pending: GNN v5 results (§3.6), Zenodo DOI v5 (§5).*
+*Status: Active draft. [SUPERSEDED LINE - do not cite; see the DIVERGENT PREPRINT banner above. Canonical current scope: 9 viruses / 35,597 active rows; the pooled AUC-ROC 0.9368 is RETRACTED as decoy-inflated; the canonical same-pathogen metric is the per-virus within-CV mean 0.751.] v5 RF complete (AUC-PR 0.7678, AUC-ROC 0.9368; 31,999 active rows; real IEDB viral negatives included; Tier A OOF 0.828; Gate 1 self-proteome evaluation 0.8897). GNN v5 retraining pending (ESM-2 cache complete at 27,376 peptides; GPU training pending). Pending: GNN v5 results (§3.6), Zenodo DOI v5 (§5).*
 *Authors: Gavin Borges¹, Abdelrahman Eljamal¹, Iris Schellenberg¹, Charles Jouaneh¹, Emine Byers¹*
 *¹University of Rhode Island*
 *Corresponding author: Gavin Borges - ORCID: 0009-0001-2404-5217*
