@@ -128,15 +128,57 @@ def _mc_dropout_predict(pt_model, X_tensor, n_passes=50):
     return preds.mean(axis=0), preds.std(axis=0)
 
 
-def _apply_calibration(scores, model_dir):
-    """Apply Platt calibrator if available; return calibrated scores or originals."""
-    cal_path = os.path.join(model_dir, "platt_calibrator.joblib")
-    if not os.path.isfile(cal_path) or load_verified_joblib is None:
+def _resolve_calibrator_path(model_dir, calibration_path=None):
+    """Return an existing calibrator path, or None if none is available.
+
+    Preference order:
+      1. an explicit ``calibration_path`` (from config), if it exists;
+      2. an isotonic calibrator alongside the model (isotonic_calibrator.joblib);
+      3. the legacy Platt calibrator (platt_calibrator.joblib).
+    """
+    if calibration_path and os.path.isfile(calibration_path):
+        return calibration_path
+    for name in ("isotonic_calibrator.joblib", "platt_calibrator.joblib"):
+        candidate = os.path.join(model_dir, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def _apply_calibration(scores, model_dir, calibration_path=None):
+    """Apply an available calibrator; return (calibrated_scores, applied_bool).
+
+    Supports two calibrator types and dispatches on the loaded object:
+      - isotonic (sklearn IsotonicRegression): exposes ``.predict`` and maps the
+        raw score in [0, 1] directly to a calibrated probability;
+      - Platt (exposes ``.predict_proba``): maps logits of the score.
+
+    The raw scores are returned unchanged when no calibrator is present or the
+    verified-loader is unavailable. Output is clipped to [0, 1] and NaNs are
+    replaced with the corresponding raw score as a safety guard.
+    """
+    cal_path = _resolve_calibrator_path(model_dir, calibration_path)
+    if cal_path is None or load_verified_joblib is None:
         return scores, False
+
     calibrator = load_verified_joblib(cal_path, required_checksum=True)
-    logits = np.log((scores + 1e-10) / (1 - scores + 1e-10)).reshape(-1, 1)
-    calibrated = calibrator.predict_proba(logits)[:, 1]
-    print("[Stage 4] Applied Platt calibration")
+    raw = np.asarray(scores, dtype=np.float64)
+
+    if hasattr(calibrator, "predict_proba"):
+        logits = np.log((raw + 1e-10) / (1 - raw + 1e-10)).reshape(-1, 1)
+        calibrated = np.asarray(calibrator.predict_proba(logits))[:, 1]
+        label = "Platt"
+    else:
+        # Isotonic (or any calibrator exposing only .predict) operates on the
+        # raw probability score directly, not on logits.
+        calibrated = np.asarray(calibrator.predict(raw), dtype=np.float64)
+        label = "isotonic"
+
+    # Guard against NaN / out-of-range outputs: fall back to the raw score for
+    # any non-finite entry, then clip into the valid probability range.
+    calibrated = np.where(np.isfinite(calibrated), calibrated, raw)
+    calibrated = np.clip(calibrated, 0.0, 1.0)
+    print(f"[Stage 4] Applied {label} calibration")
     return calibrated, True
 
 
@@ -161,7 +203,13 @@ def _sanitize_name(name):
 
 
 def score_immunogenicity(
-    features_df, proteome_id, model_path=None, calibrate=True, mc_dropout=False, freeze_mode=False
+    features_df,
+    proteome_id,
+    model_path=None,
+    calibrate=True,
+    mc_dropout=False,
+    freeze_mode=False,
+    calibration_path=None,
 ):
     """
     Score each peptide's immunogenicity.
@@ -173,9 +221,12 @@ def score_immunogenicity(
         features_df: DataFrame with feature columns from Stage 3
         proteome_id: label used in output filename (sanitized for filesystem safety)
         model_path:  path to a serialized model (optional)
-        calibrate:   apply Platt calibration if calibrator file exists
+        calibrate:   apply calibration if a calibrator artifact exists
+                     (isotonic or Platt)
         mc_dropout:  run MC Dropout uncertainty (PyTorch models only)
         freeze_mode: raise on any missing artifact or model incompatibility
+        calibration_path: explicit calibrator path (from config); when unset,
+                     the model directory is searched for a calibrator artifact
 
     Returns:
         (ranked_df, model) tuple.
@@ -306,7 +357,7 @@ def score_immunogenicity(
 
     if calibrate:
         cal_scores, was_calibrated = _apply_calibration(
-            features_df["immunogenicity_score"].values, model_dir
+            features_df["immunogenicity_score"].values, model_dir, calibration_path
         )
         if was_calibrated:
             features_df["calibrated_score"] = cal_scores

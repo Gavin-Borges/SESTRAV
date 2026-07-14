@@ -78,7 +78,10 @@ freeze_mode: true
 
 # Calibration and thresholds (used by Stage 4 when present)
 # RF models use built-in predict_proba; GNN uses gnn_platt_scaler.joblib per pooling type.
-calibration_path: null
+# The RF mode-31 model uses a global isotonic calibrator fit on OOF predictions
+# (reproduce with scripts/fit_calibrator.py). Stage 4 dispatches on calibrator
+# type: isotonic uses .predict on the raw score, Platt uses .predict_proba on logits.
+calibration_path: models/isotonic_calibrator.joblib
 thresholds_path: models/optimal_thresholds.json
 
 # Binding matrix for 31-feature training (v5 canonical)
