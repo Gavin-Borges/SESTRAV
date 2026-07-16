@@ -27,9 +27,9 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 | Pan-allele training | v5 active | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support | 9 viruses (v5 active): CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
-| AUC-PR on labeled benchmark (Tier A) | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | not benchmarked | not benchmarked | N/A | N/A |
+| AUC-PR on labeled benchmark (Tier A) | **0.828 (OOF, `full_31`/`mode_31`)** | not benchmarked | not benchmarked | N/A | N/A |
 
-*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated strictly out-of-fold (conservative); external tools are fully scored on the same peptides. The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` scores self-proteome Gate 1 AUC-PR 0.8897 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see Paradigm 2 below). `full_33` is the best Tier A result; `full_31`/`mode_31` is the canonical track. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
+*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated strictly out-of-fold (conservative); external tools are fully scored on the same peptides. The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` scores self-proteome Gate 1 AUC-PR 0.8897 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see Paradigm 2 below). `full_31`/`mode_31` (0.828) is the canonical track and the certified Tier-A head-to-head result; the extended `full_33` antigen-processing configuration is reported separately under Release Tracks and is not part of this certified field. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
 
 ---
 
@@ -48,7 +48,7 @@ This approach combines structural insights with multi-allele binding predictions
 ## Release Tracks and Policy
 
 * **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length). Tier A AUC-PR 0.828 (weighted OOF) / v5 self-proteome Gate 1 AUC-PR 0.8897. Within-virus (same-pathogen) discrimination is reported per-virus (mean within-CV AUC-ROC 0.751; see Paradigm 2); the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted. This is the maintained release path and the production scorer.
-* **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). AUC-PR 0.886 (unweighted) / 0.840 (weighted) - best v3 result; +0.022 over canonical. Requires antigen processing cache; see `scripts/precompute_antigen_processing.py`.
+* **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). AUC-PR 0.886 (unweighted) / 0.840 (weighted) - v3 extended-track result (antigen-processing features); not part of the certified v5 Tier-A head-to-head. Requires antigen processing cache; see `scripts/precompute_antigen_processing.py`.
 * **Legacy comparator track:** 30-feature (without peptide length) and 21-feature (sequence-only) configurations retained for historical reproducibility.
 
 **Source of Truth:** SESTRAV v2 designates this repository (main branch) as the single authoritative source. For release-grade reproducibility, enable `freeze_mode: true` in `config.yaml`. Freeze mode enforces strict guardrails: no Stage 4 prototype fallback, no mixed legacy/canonical output stems, and atomic artifact updates.
@@ -94,14 +94,13 @@ SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A label
 
 | Tool | AUC-PR | ISSR@10 | Evaluation |
 |------|--------|---------|------------|
-| **SESTRAV RF (`full_33`)** | **0.840** | 0.916 | OOF 5-fold (conservative) |
-| SESTRAV RF (`full_31`, canonical) | 0.828 | 0.843 | OOF 5-fold |
+| **SESTRAV RF (`full_31`/`mode_31`, canonical)** | **0.828** | 0.843 | OOF 5-fold (conservative) |
 | BigMHC | 0.822 | **0.917** | Fully trained |
 | MixMHCpred 2.2 | 0.795 | 0.847 | Fully scored |
 | Binding-only (MHCflurry) | 0.800 | 0.861 | Fully scored |
 | DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) |
 
-> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's `full_33` (0.840) leads the field. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper §3.3.
+> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's canonical `full_31`/`mode_31` (0.828) leads this certified field. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper section 3.3.
 
 ### Paradigm 2 - v5 within-virus CV (N=35,597 active; 9 viruses + IEDB viral negatives + central-tolerance decoys)
 
