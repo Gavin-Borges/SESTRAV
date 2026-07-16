@@ -162,7 +162,11 @@ the scoring stage so the pipeline does not retrain at runtime.
 Evaluation uses two complementary paradigms, both reported in the README and paper:
 
 - **Tier A labeled benchmark** (head-to-head against the field): canonical `full_31`
-  AUC-PR 0.828 (OOF); `full_33` 0.840, leading the compared tools.
+  AUC-PR 0.828 (OOF), a near-tie with the best fully-trained external tool (BigMHC 0.822,
+  which edges SESTRAV on top-decile recall). The extended `full_33` configuration (0.840)
+  is reported separately under Release Tracks and is not part of the certified Tier-A
+  field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
+  not reproducible from a certified results file and is not reported.
 - **Hard-decoy generalization set** (v4, 14,699 peptides, central-tolerance self-binder
   negatives): canonical `mode_31` AUC-PR 0.7635 (5-fold OOF). This number is lower by
   design because the hard decoys remove the binding-equals-immunogenic shortcut; it is

@@ -39,7 +39,7 @@
 | ISSR@25 | 0.8367 ± 0.022 | |
 
 - **Unweighted ablation AUC-PR:** 0.864 - used for ablation comparisons in Table 1 of the paper.
-- **External benchmark context:** PredIG-Path (0.727) and PRIME 2.1 (0.777) are evaluated as fully-trained models on a test set with 36.9% confirmed training overlap (optimistic). SESTRAV OOF is conservative by design; the advantage is larger than raw numbers suggest.
+- **External benchmark context:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained on undisclosed data, edges SESTRAV on top-decile recall). SESTRAV OOF is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
 - **Cross-virus transfer:** EBV→HPV16 AUC-PR 0.742; HPV16→EBV 0.711.
 - **SYFPEITHI recall:** 1/6 evaluable epitopes in top 5%; 2/6 in top 25% (3.3× and 1.3× enrichment). See `results/syfpeithi_benchmark.json`.
 - **Feature importance note:** All 10 MHCflurry binding features (`bind_A0101`-`bind_B4402`) register RF importance = 0.0 in v3. Root cause: physico features at p5-p8 capture anchor-residue binding variance; v3 negative selection confound suppresses binding variance. This is a scientific finding, not a bug. Hard decoys (v4) will restore binding feature utility.
