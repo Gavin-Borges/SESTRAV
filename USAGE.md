@@ -5,14 +5,16 @@ Quick-start reference for the `sestrav` command-line interface.
 ## Installation
 
 ```bash
-# Core install (RF/XGBoost pipeline)
-pip install sestrav
+# Core install from source (not yet published to PyPI)
+git clone https://github.com/Gavin-Borges/SESTRAV.git
+cd SESTRAV
+pip install .
 
 # With GNN structural scorer
-pip install "sestrav[gnn]"
+pip install ".[gnn]"
 
 # With Snakemake pipeline runner
-pip install "sestrav[pipeline]"
+pip install ".[pipeline]"
 
 # With Streamlit demo app (Week 6)
 pip install "sestrav[demo]"
@@ -165,10 +167,12 @@ python scripts/benchmark_runner.py --tier A --run-id reproduce_v3 --skip-freeze-
 See `docs/external_testing/External_Validation_Sign_Off.md` for the contamination
 analysis and `docs/model_evaluation_summary.md` for all benchmark results.
 
-> **Evaluation note:** SESTRAV RF is evaluated strictly out-of-fold (conservative estimate).
-> PredIG-Path and PRIME 2.1 were evaluated as fully-trained models on a test set with
-> 36.9% confirmed training overlap (optimistic estimate). The SESTRAV advantage is larger
-> than raw numbers suggest when corrected for this asymmetry.
+> **Evaluation note:** SESTRAV RF is evaluated strictly out-of-fold (conservative estimate),
+> while external tools are fully scored on the same peptides. On the certified Tier A
+> head-to-head (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) leads BigMHC
+> (0.822), the MHCflurry binding-only baseline (0.800), MixMHCpred 2.2 (0.795), and
+> DeepImmuno (0.698). Because SESTRAV is scored out-of-fold while the external tools score
+> every peptide directly, the comparison is conservative by construction for SESTRAV.
 
 ---
 

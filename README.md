@@ -27,9 +27,9 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 | Pan-allele training | v5 active | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support | 9 viruses (v5 active): CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
-| AUC-PR on labeled benchmark (Tier A) | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | 0.727 | 0.777 | N/A | N/A |
+| AUC-PR on labeled benchmark (Tier A) | **0.840 (OOF, `full_33`)** · 0.828 (`full_31`) | not benchmarked | not benchmarked | N/A | N/A |
 
-*Tier A 704-peptide labeled benchmark. SESTRAV RF evaluated out-of-fold (conservative); external tools fully-trained on a test set with 36.9% confirmed training overlap (optimistic). The closest external tool is BigMHC (0.822); full field (incl. MixMHCpred, DeepImmuno) in External Benchmark Results below. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` scores self-proteome Gate 1 AUC-PR 0.8897 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see Paradigm 2 below). `full_33` is the best Tier A result; `full_31`/`mode_31` is the canonical track. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
+*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated strictly out-of-fold (conservative); external tools are fully scored on the same peptides. The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` scores self-proteome Gate 1 AUC-PR 0.8897 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see Paradigm 2 below). `full_33` is the best Tier A result; `full_31`/`mode_31` is the canonical track. Methodology: `docs/external_testing/External_Validation_Sign_Off.md`.*
 
 ---
 
@@ -99,8 +99,6 @@ SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A label
 | BigMHC | 0.822 | **0.917** | Fully trained |
 | MixMHCpred 2.2 | 0.795 | 0.847 | Fully scored |
 | Binding-only (MHCflurry) | 0.800 | 0.861 | Fully scored |
-| PRIME 2.1 | 0.777 | 0.871 | Fully trained |
-| PredIG-Path | 0.727 | 0.786 | Fully trained |
 | DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) |
 
 > **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's `full_33` (0.840) leads the field. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper §3.3.
@@ -146,17 +144,6 @@ Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely
 | **Mean** | **0.463** | 0.751 | | | 3/9 viruses above chance |
 
 > **Interpretation:** Mean LOO AUC-ROC 0.463 indicates that mode-31 binding-derived features do not transfer reliably across viral families when tested fairly. This is an expected finding given the model's design: SESTRAV is engineered for within-virus epitope prioritization (within-CV mean AUC-ROC 0.751) and self-proteome discrimination (Gate 1 AUC-PR 0.8897). The LOO analysis characterizes the boundary of current applicability and motivates the GNN research track, where structural embeddings (ESM-2 + GINEConv) may provide more transferable representations.
-
-### Benchmark Overlap and Clean-Holdout Comparison
-
-Because SESTRAV and the comparator tools all draw on IEDB-derived data, a systematic overlap analysis was run to keep the comparison fair. Using exact + substring matching against an IEDB-proxy peptide reference, an estimated **36.9% of the evaluation set overlaps that proxy reference** - i.e. peptides that any IEDB-trained model could plausibly have seen during training. To remove this ambiguity, results are also reported on the overlap-excluded clean holdout:
-
-| Tool | AUC-PR (clean holdout, N=451) | Δ vs. intersection set |
-|------|-------------------------------|------------------------|
-| **RF (SESTRAV 2.0)** | **0.822** | −0.006 |
-| PRIME 2.1 | 0.720 | −0.057 |
-
-The clean holdout is the appropriate rigorous comparator: it removes evaluation peptides that any IEDB-trained tool could have encountered during training, so the comparison does not hinge on the unknown composition of external tools' training sets. Overlap is estimated against an IEDB-proxy reference (the authoritative training sets for the external tools are not publicly released), so these figures should be read as approximate and not as a claim about any specific tool's training data.
 
 ### SHAP Feature Attribution
 
@@ -293,14 +280,16 @@ mhcflurry-downloads fetch models_class1_presentation
 ### 2. Install and Train Models
 
 ```bash
-# Core install (RF/XGBoost pipeline)
-pip install sestrav
+# Core install from source (not yet published to PyPI)
+git clone https://github.com/Gavin-Borges/SESTRAV.git
+cd SESTRAV
+pip install .
 
 # With GNN structural scorer
-pip install "sestrav[gnn]"
+pip install ".[gnn]"
 
 # With Snakemake pipeline runner
-pip install "sestrav[pipeline]"
+pip install ".[pipeline]"
 
 # Developer install (ruff, mypy, pytest)
 pip install -e ".[dev]"
