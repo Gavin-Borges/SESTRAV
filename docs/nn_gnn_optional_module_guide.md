@@ -76,9 +76,9 @@ These are different workflows and should not be mixed in release claims.
 ## Required Claim Language
 
 - Allowed:
-  - “ANN/GNN are optional benchmark modules backported from Project 2.”
-  - “Canonical publish gate remains RF/XGBoost Stage 1-4 outputs.”
-  - “Project 2 exact values are documented with source file lineage.”
+  - "ANN/GNN are optional benchmark modules backported from Project 2."
+  - "Canonical publish gate remains RF/XGBoost Stage 1-4 outputs."
+  - "Project 2 exact values are documented with source file lineage."
 - Not allowed:
-  - “ANN/GNN are part of canonical release validation gates.”
-  - “Thresholds are universally interchangeable across RF and ANN.”
+  - "ANN/GNN are part of canonical release validation gates."
+  - "Thresholds are universally interchangeable across RF and ANN."
