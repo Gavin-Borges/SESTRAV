@@ -1,3 +1,8 @@
+> **SUPERSEDED HISTORICAL SNAPSHOT (shareout dated 2026-04-26). DO NOT CITE.**
+> The numbers below (including R10 0.9836 and the 30-feature integrated model) are a
+> stale historical snapshot and must NOT be read as current results. For the current
+> H2 Tier A figures see the canonical file `results/h2_tier_a_summary.md`.
+
 # H2 Tier A Evaluation Summary
 
 ## Inputs

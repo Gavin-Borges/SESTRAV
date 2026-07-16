@@ -1,3 +1,8 @@
+> **SUPERSEDED HISTORICAL SNAPSHOT (shareout dated 2026-04-26). DO NOT CITE.**
+> The numbers below (including R10 0.9836 and the 30-feature/ISSR framing) are a
+> stale historical snapshot and must NOT be read as current results. For the
+> current validation figures see the canonical file `results/final_validation_report.md`.
+
 # SESTRAV Final Validation Report
 
 ## Core Outputs
