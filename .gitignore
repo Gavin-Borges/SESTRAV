@@ -306,6 +306,13 @@ models/*.pth
 *.hdf5
 *.onnx
 
+# Raw third-party benchmark data - download independently, do not commit
+data/ImmuneCODE-MIRA-Release002.1/
+
+# Local ablation training outputs (OOF prediction CSVs, per-mode results, checksums)
+# Regenerable via the training pipeline; not source-of-truth artifacts
+models/v5/ablation/
+
 # Large reference FASTA databases - download independently, do not commit
 data/proteomes/uniprot_sprot.fasta
 data/proteomes/uniprot_sprot.fasta.gz

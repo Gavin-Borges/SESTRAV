@@ -13,8 +13,12 @@
 > manuscript instead.
 > For current figures, use the repository README and the certified files under
 > `results/` (e.g. `results/table3_tier_a_metrics.csv`, `results/final_validation_report.md`).
-> Every AUC / AUC-PR / dataset-size / virus-count value in the body below is a
-> stale or retracted historical snapshot and must NOT be read as a current claim.
+> Every AUC / AUC-PR / dataset-size / virus-count value - and every comparative or
+> leadership claim (e.g. "leads all tools on AUC-PR") - in the body below is a stale
+> or retracted historical snapshot and must NOT be read as a current claim. In
+> particular: the certified Tier-A headline is the canonical `full_31` AUC-PR 0.828
+> (a near-tie with BigMHC 0.822); the `full_33` 0.840 figure is a separate
+> extended-track (antigen-processing) result, not a certified or leading headline.
 
 **Manuscript draft - full version (intended for bioRxiv preprint). A condensed Bioinformatics *Application Note* will be derived from this version; the preprint carries the complete results and analysis.**
 *Status: Active draft. [SUPERSEDED LINE - do not cite; see the DIVERGENT PREPRINT banner above. Canonical current scope: 9 viruses / 35,597 active rows; the pooled AUC-ROC 0.9368 is RETRACTED as decoy-inflated; the canonical same-pathogen metric is the per-virus within-CV mean 0.751.] v5 RF complete (AUC-PR 0.7678, AUC-ROC 0.9368; 31,999 active rows; real IEDB viral negatives included; Tier A OOF 0.828; Gate 1 self-proteome evaluation 0.8897). GNN v5 retraining pending (ESM-2 cache complete at 27,376 peptides; GPU training pending). Pending: GNN v5 results (§3.6), Zenodo DOI v5 (§5).*
