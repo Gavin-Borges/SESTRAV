@@ -1,3 +1,9 @@
+> **SUPERSEDED HISTORICAL SNAPSHOT (dated 2026-04-25, v1/v2 stability run). DO NOT CITE.**
+> The numbers below (including R10 0.9836, the "9/15" top-25% framing, the 720-peptide
+> and 30-feature figures) are a stale historical snapshot and must NOT be read as current
+> results. For the current validation and Tier A figures see the canonical files
+> `results/final_validation_report.md` and `results/h2_tier_a_summary.md`.
+
 # SESTRAV Multi-Run Stability Report
 
 **Generated:** 2026-04-25 | **Environment:** sestrav (Python 3.11.15, sklearn 1.6.1)
