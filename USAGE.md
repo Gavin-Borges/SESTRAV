@@ -17,7 +17,7 @@ pip install ".[gnn]"
 pip install ".[pipeline]"
 
 # With Streamlit demo app (Week 6)
-pip install "sestrav[demo]"
+pip install ".[demo]"
 
 # Developer install (includes ruff, mypy, pytest)
 pip install -e ".[dev]"
