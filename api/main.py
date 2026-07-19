@@ -125,6 +125,7 @@ class ModelManager:
     """Loads and holds the RF model and feature config exactly once."""
 
     _instance: "ModelManager | None" = None
+    _loaded: bool = False
 
     def __new__(cls) -> "ModelManager":
         if cls._instance is None:
