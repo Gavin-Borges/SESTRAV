@@ -58,8 +58,8 @@ feature engineering rather than relearning it.
 flowchart TB
     subgraph data [Data and governance substrate]
         IEDB[IEDB + curated literature]
-        DS[immunogenicity_dataset_v4.csv\nquarantine + freeze controls]
-        BM[peptide_binding_matrix_v4.csv]
+        DS[immunogenicity_dataset_v5.csv\nquarantine + freeze controls]
+        BM[peptide_binding_matrix_v5.csv]
     end
 
     subgraph feat [Shared feature engineering]
@@ -104,7 +104,7 @@ SESTRAV proceeds through six computational stages under a reproducible Snakemake
 
 ```mermaid
 graph LR
-    A("Viral Proteome FASTA<br/>HPV / EBV / HBV / HCV") -->|S1| B("Peptide Generation<br/>8-11mer window")
+    A("Viral Proteome FASTA<br/>9 viruses: HPV, EBV, HBV, HCV, CMV,<br/>HIV-1, IAV, DENV, SARS-CoV-2") -->|S1| B("Peptide Generation<br/>8-11mer window")
     B -->|S2| C("MHC Binding<br/>MHCflurry, 10-allele panel")
     C -->|S3| D("Feature Extraction<br/>20 physico + 10 binding + length")
     D -->|S4| E("Immunogenicity Scoring<br/>RF / XGBoost ensemble")
@@ -167,18 +167,20 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
-- **Hard-decoy generalization set** (v4, 14,699 peptides, central-tolerance self-binder
-  negatives): canonical `mode_31` AUC-PR 0.7635 (5-fold OOF). This number is lower by
-  design because the hard decoys remove the binding-equals-immunogenic shortcut; it is
-  the model shipped for production scoring.
+- **Within-virus generalization set** (v5, 35,597 active rows / 51,185 total; central-tolerance
+  self-binder plus IEDB viral negatives): canonical `mode_31` per-virus within-CV mean AUC-ROC
+  0.751 over nine viruses (`results/per_virus_eval_v5_mode31.csv`). This same-pathogen number is
+  lower by design because the hard decoys remove the binding-equals-immunogenic shortcut; the
+  pooled AUC-PR is a base-rate artifact and is not reported as a headline. This is the model
+  shipped for production scoring.
 
 Interpretability is built in: SHAP attribution (roughly 60% MHC binding, 40% TCR-contact
 features) is committed alongside the model, confirming that the physicochemical features
 carry independent signal beyond binding.
 
-> Numbers in this document intentionally track the committed v4 results that the paper
-> and `docs/claims_register.md` cite. A v5 dataset rebuild and its number reconciliation
-> are sequenced as separate, gated milestones and are not yet reflected here.
+> Numbers in this document are the certified v5 figures (35,597-active-row dataset) that the
+> README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite. Earlier v3/v4
+> results are retained elsewhere only where explicitly labeled as historical.
 
 ---
 
@@ -246,10 +248,10 @@ forward work rather than shipped capability.
 
 ## 7. Data architecture and governance
 
-- **Training data:** `data/immunogenicity_dataset_v4.csv` (14,699 rows), derived from
-  curated IEDB-linked immunogenicity evidence plus hard, self-proteome central-tolerance
-  decoy negatives. Provenance is documented in `docs/data_registry.md`.
-- **Binding matrix:** `models/peptide_binding_matrix_v4.csv` provides per-allele MHCflurry
+- **Training data:** `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total),
+  derived from curated IEDB-linked immunogenicity evidence plus hard, self-proteome
+  central-tolerance decoy negatives. Provenance is documented in `docs/data_registry.md`.
+- **Binding matrix:** `models/peptide_binding_matrix_v5.csv` provides per-allele MHCflurry
   scores for the 10-allele panel.
 - **Quarantine mechanism:** rows with intra-supertype label conflicts that the
   population-average binding features cannot resolve are flagged `is_quarantined` and
@@ -302,7 +304,11 @@ Practices **Passing** badge ([project 13191](https://www.bestpractices.dev/proje
 Sigstore-signed releases, published threat model); the open Silver gap is the multi-person
 criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`) that require a
 second maintainer. Gold coverage thresholds are already cleared on the library scope
-(>= 90% statement, >= 80% branch); the open Gold gaps are the same multi-person criteria
+(currently ~99% statement / ~98% branch, against the >= 90% / >= 80% targets); whole-repository
+coverage including the pipeline/CLI research scripts is gated separately at a lower ~35% floor in
+`pyproject.toml`, since those executable scripts are validated by the integration and
+data/benchmark CI gates rather than by unit coverage (see `.coveragerc.library`). The open Gold
+gaps are the same multi-person criteria
 plus per-file SPDX/copyright headers (`license_per_file`), deferred until a second
 contributor lands. Progress is tracked in `ROADMAP.md`; full criteria mapping is in
 `docs/openssf_best_practices_readiness.md`.

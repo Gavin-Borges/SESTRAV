@@ -73,8 +73,8 @@ demo = [
 sestrav = "src.cli:main"
 
 [project.urls]
-"Homepage" = "https://github.com/gavin-borges/sestrav"
-"Bug Tracker" = "https://github.com/gavin-borges/sestrav/issues"
+"Homepage" = "https://github.com/Gavin-Borges/SESTRAV"
+"Bug Tracker" = "https://github.com/Gavin-Borges/SESTRAV/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

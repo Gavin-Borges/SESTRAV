@@ -62,7 +62,8 @@ mhcflurry_model_version: "2.2.1"
 # See docs/model_evaluation_summary.md and docs/feature_glossary.md for full details.
 feature_mode: 31
 
-# Model path - canonical 31-feature RF retrained 2026-07-04 on v5 dataset (31,999 active rows; commit b5ffe37).
+# Model path - canonical 31-feature RF on the v5 dataset (35,597 active rows / 51,185 total;
+# per-virus within-CV regenerated 2026-07-10). See docs/model_evaluation_summary.md.
 # Alternatives:
 #   models/rf_30feature_integrated.joblib    (30-feature RF, legacy)
 #   models/rf_21feature_legacy.joblib        (21-feature legacy RF)

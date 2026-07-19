@@ -17,7 +17,7 @@ pip install ".[gnn]"
 pip install ".[pipeline]"
 
 # With Streamlit demo app (Week 6)
-pip install "sestrav[demo]"
+pip install ".[demo]"
 
 # Developer install (includes ruff, mypy, pytest)
 pip install -e ".[dev]"
@@ -81,14 +81,17 @@ sestrav predict \
 
 ```bash
 sestrav validate \
-  --dataset data/immunogenicity_dataset_v4.csv \
+  --dataset data/immunogenicity_dataset_v5.csv \
   --feature-mode 31 \
-  --binding-matrix models/peptide_binding_matrix_v4.csv \
+  --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights \
-  --report results/validation_report_v4.md
+  --report results/validation_report_v5.md
 ```
 
-Expected AUC-PR ≈ 0.7635 (mode-31 OOF baseline on v4 data, 14,699 rows with hard decoys).
+Expected per-virus within-CV mean AUC-ROC ~ 0.751 on the v5 dataset (35,597 active rows /
+51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`).
+The pooled AUC-PR is a base-rate artifact and is not reported as a headline; see
+`docs/model_evaluation_summary.md`.
 
 ### 4. Benchmark against gold standard
 
