@@ -54,7 +54,7 @@ st.set_page_config(
 def _load_model():
     from src.artifact_integrity import load_verified_joblib
 
-    model_path = _ROOT / "models" / "rf_30feature_integrated.joblib"
+    model_path = _ROOT / "models" / "rf_31feature_integrated.joblib"
     if not model_path.exists():
         raise FileNotFoundError(
             f"RF model not found at {model_path}. Run the SESTRAV training pipeline first."
@@ -92,14 +92,15 @@ def _get_binding_score(sequence: str, allele: str) -> float | None:
 def _build_feature_vector(
     sequence: str, binding_score: float, allele: str = ""
 ) -> tuple[np.ndarray, list[str]]:
-    """Build a 30-feature vector matching rf_30feature_integrated.joblib.
+    """Build a 31-feature vector matching rf_31feature_integrated.joblib.
 
-    FEATURE_COLUMNS_30 = 20 physicochemical (p4-p8 × 4 properties) +
-                          10 per-allele binding scores (bind_A0101 ... bind_B4402).
+    FEATURE_COLUMNS_31 = 20 physicochemical (p4-p8 x 4 properties) +
+                          10 per-allele binding scores (bind_A0101 ... bind_B4402) +
+                          peptide_length.
     When MHCflurry is unavailable, binding columns stay at 0.0 except for the
     queried allele's column which receives the provided binding_score.
     """
-    from src.features import compute_features, FEATURE_COLUMNS_30, BINDING_ALLELE_COLUMNS
+    from src.features import compute_features, FEATURE_COLUMNS_31, BINDING_ALLELE_COLUMNS
 
     feat_dict = compute_features(sequence, binding_score=0.0)
 
@@ -114,7 +115,7 @@ def _build_feature_vector(
         else:
             feat_dict[col] = 0.0
 
-    cols = FEATURE_COLUMNS_30
+    cols = FEATURE_COLUMNS_31
     vec = np.array([feat_dict.get(c, 0.0) for c in cols], dtype=np.float64).reshape(1, -1)
     return vec, cols
 
@@ -347,7 +348,7 @@ def main() -> None:
         if bind_score is None:
             st.warning("MHCflurry is not available - scoring without binding features.")
 
-        # Feature vector (30-feature aligned to rf_30feature_integrated)
+        # Feature vector (31-feature aligned to rf_31feature_integrated)
         feat_vec, feat_cols = _build_feature_vector(sequence, bind_score or 0.0, allele=allele)
 
         # Predict

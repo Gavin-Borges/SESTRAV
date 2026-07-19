@@ -23,7 +23,7 @@ abstract: >-
   Version 2 integrates a neural network architecture search (FlexibleMLP with
   14 configurations), graph neural network benchmarks (GCN, GAT, bipartite
   peptide-allele), feature group ablation analysis, and calibration/uncertainty
-  quantification from CMB 523 Project 2 coursework.
+  quantification.
 keywords:
   - immunoinformatics
   - epitope prediction

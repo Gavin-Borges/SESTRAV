@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +44,18 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _MODEL_PATH = _PROJECT_ROOT / "models" / "rf_31feature_integrated.joblib"
 _CHECKSUM_FILE = _PROJECT_ROOT / "models" / "model_artifact_checksums.json"
 _CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
-_ZENODO_DOI = "10.5281/zenodo.PLACEHOLDER"  # update when Zenodo record is minted
+
+# No archival DOI has been minted yet; the API reports null rather than a fake
+# placeholder. Set this to the real DOI (e.g. "10.5281/zenodo.NNNNNNN") once the
+# Zenodo record exists.
+_ZENODO_DOI: str | None = None
+
+# Single source of truth for the served version: the installed package metadata
+# (pyproject [project].version), with a fallback for uninstalled/source runs.
+try:
+    _APP_VERSION = version("sestrav")
+except PackageNotFoundError:  # pragma: no cover - only when run from an uninstalled tree
+    _APP_VERSION = "2.0.3"
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +109,7 @@ class ModelCard(BaseModel):
 
 class ProvenanceInfo(BaseModel):
     dataset_sha256: str | None
-    zenodo_doi: str
+    zenodo_doi: str | None
     checksum_manifest: dict[str, Any]
 
 
@@ -136,8 +148,8 @@ class ModelManager:
         self.registry = ModelRegistry(self.config)
 
         logger.info("Loading RF model ...")
-        # Load verified model from registry
-        # Usually it's rf_30feature_integrated.joblib, but registry can resolve config's model_path
+        # Load verified model from registry - the canonical model_path from config.yaml
+        # (rf_31feature_integrated.joblib for the v5 production scorer).
         self.rf_model = self.registry.load(self.config.model_path.name)
         logger.info("RF model loaded successfully.")
 
@@ -192,7 +204,7 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
     feat_dict = compute_features(sequence, binding_score=binding_score or 0.0)
 
     # rf_31feature_integrated.joblib expects FEATURE_COLUMNS_31:
-    # 20 physicochemical (p4-p8 × 4 properties) + 10 per-allele binding columns + peptide_length.
+    # 20 physicochemical (p4-p8 x 4 properties) + 10 per-allele binding columns + peptide_length.
     # When MHCflurry is unavailable, binding columns default to 0.0.
     feature_vector = np.array(
         [feat_dict.get(col, 0.0) for col in FEATURE_COLUMNS_31],
@@ -228,7 +240,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SESTRAV 2.0 Immunogenicity Scoring API",
-    version="2.0.0",
+    version=_APP_VERSION,
     description=(
         "T-cell epitope immunogenicity prediction pipeline. "
         "**Research use only - not for clinical decision-making.** "
@@ -283,9 +295,9 @@ def score_peptide(body: PeptideInput) -> ScoreResponse:
 def model_card() -> ModelCard:
     return ModelCard(
         name="SESTRAV Random Forest",
-        version="2.0.3",
+        version=_APP_VERSION,
         feature_mode="31-feature integrated (20 physicochemical + 10 per-allele MHCflurry + peptide_length)",
-        training_dataset="immunogenicity_dataset_v4.csv (IEDB + VDJdb + hard decoys, 14,699 rows, 45.5% pos)",
+        training_dataset="immunogenicity_dataset_v5.csv (IEDB + VDJdb + central-tolerance hard decoys, 35,597 active rows / 51,185 total)",
         cv_folds=5,
         contamination_disclosure=(
             "SESTRAV is evaluated on a held-out independent validation cohort "

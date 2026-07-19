@@ -56,5 +56,4 @@ A complete Colab-ready script that runs the SESTRAV model training and evaluatio
 - Project 2 Colab evidence uses its own package stack (see Project 2 `run_metadata.json`); local SESTRAV-Dev runs can differ slightly by environment while preserving pipeline semantics
 
 See:
-- `docs/nn_gnn_project2_sync_matrix.md`
 - `docs/nn_gnn_optional_module_guide.md`
