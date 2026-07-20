@@ -15,12 +15,12 @@ mhcflurry==2.2.1
 setuptools==80.9.0
 
 # Plotting and explainability
-matplotlib==3.11.0
+matplotlib==3.11.1
 shap==0.51.0
 
 # Test tooling
 pytest==9.1.1
-hypothesis==6.156.6
+hypothesis==6.157.1
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
@@ -28,7 +28,7 @@ torch==2.12.0
 torch-geometric==2.7.0
 
 # API scaffolding
-fastapi==0.139.0
+fastapi==0.139.2
 uvicorn==0.51.0
 pydantic==2.13.4
 
