@@ -18,3 +18,6 @@ msgpack>=1.2.1
 pydantic-settings>=2.14.2
 # pyjwt: PYSEC-2026-175/176/177/178/179 (algorithm confusion attacks)
 pyjwt>=2.13.0
+# setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
+# Unicode NFC/NFD normalization collision on macOS APFS/HFS+)
+setuptools>=83.0.0
