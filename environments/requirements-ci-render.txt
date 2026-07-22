@@ -56,9 +56,9 @@ pexpect==4.9.0 \
     --hash=sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523
 ptyprocess==0.7.0 \
     --hash=sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35
-platformdirs==4.10.1 \
-    --hash=sha256:0e4eff26be2d75293977f7cddc153fd9b8eaa7fb0c7b64ffe4076cb443117443 \
-    --hash=sha256:ceab4084426fe6319ce18e86deada8ab1b7487c7aee7040c55e277c9ae793695
+platformdirs==4.11.0 \
+    --hash=sha256:0555d18370482847566ffabcaa53ad7c6c1c29f195989ae1ed634a05f76ea1e0 \
+    --hash=sha256:360ccded2b7fce0af0ff80cc8f5942a1c5d99b0e856033acb030bfc634709e74
 prompt_toolkit==3.0.52 \
     --hash=sha256:9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955
 psutil==7.2.2 \
