@@ -119,4 +119,6 @@ jobs:
       - name: Smoke-test installation from PyPI
         run: |
           pip install --no-deps "sestrav==${GITHUB_REF_NAME#v}" --index-url https://pypi.org/simple/
-          python -c "import sestrav; print('sestrav import OK')" || python -c "from src import features; print('import OK')"
+          python -c "import sestrav; print('sestrav import OK')"
+          python -c "import functions.stage1_peptide_generation; print('functions import OK')"
+          sestrav --help
