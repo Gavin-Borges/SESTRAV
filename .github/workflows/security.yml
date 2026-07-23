@@ -148,6 +148,37 @@ jobs:
             # ^ CVE-2025-3000 (torch.jit.script) - no upstream patch; torch.jit.script
             #   is never called in SESTRAV. Risk-accepted, see SECURITY.md register.
 
+      - name: Assert pip-audit tooling actually ran (fail on TOOLING error only)
+        # The advisory audit above is continue-on-error so real CVE findings do not
+        # block merges. That also masks a TOOLING failure (crash, unparseable
+        # lockfile, network error) as a clean pass. This guard re-runs pip-audit in
+        # JSON mode and fails the JOB only when no parseable report is produced -
+        # findings themselves are ignored here (they are routed to the run summary
+        # and the Security tab). Distinguishes "scan clean" from "scan never ran".
+        run: |
+          set -o pipefail
+          pip-audit \
+            -r environments/requirements.lock \
+            --no-deps \
+            --format json \
+            --ignore-vuln PYSEC-2025-194 \
+            --ignore-vuln GHSA-rrmf-rvhw-rf47 \
+            --output pip-audit-report.json || true
+          python - <<'PY'
+          import json, sys
+          try:
+              with open("pip-audit-report.json") as fh:
+                  data = json.load(fh)
+          except (OSError, ValueError) as exc:
+              print(f"::error::pip-audit produced no parseable report: {exc}")
+              sys.exit(1)
+          deps = data.get("dependencies")
+          if not isinstance(deps, list) or not deps:
+              print("::error::pip-audit report has no dependencies - tooling failure, not a clean scan")
+              sys.exit(1)
+          print(f"pip-audit tooling OK: audited {len(deps)} pinned dependencies")
+          PY
+
       - name: Write triage digest to run summary
         if: always()
         continue-on-error: true
