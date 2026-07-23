@@ -1,0 +1,16 @@
+antigens:
+  - SMOKE
+proteome_files:
+  SMOKE: tests/fixtures/dag_smoke/SMOKE.fasta
+peptide_lengths: [9]
+alleles:
+  - HLA-A*02:01
+model_path: tests/fixtures/dag_smoke/rf_stub.joblib
+binding_matrix_path: tests/fixtures/dag_smoke/binding_matrix_stub.csv
+training_dataset: tests/fixtures/dag_smoke/dataset_stub.csv
+reference_proteome: tests/fixtures/dag_smoke/SMOKE.fasta
+dataset_mode: smoke
+dataset_version: 0.0.0
+mock_ingestion: true
+mock_evaluation: true
+gnn_checkpoint: ""

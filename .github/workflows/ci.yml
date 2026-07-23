@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+          cache: 'pip'
 
       - name: Install Ruff
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
@@ -55,6 +56,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -77,6 +79,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
       - name: Install CPU PyTorch
         run: |
@@ -143,16 +146,20 @@ jobs:
       - name: Run Contamination and Benchmark Evaluation Gate
         run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
 
-      - name: Validate Snakemake pipeline wiring
-        # The full DAG requires gitignored ML artefacts (v4 dataset, rf joblib) that
-        # are researcher-local; dry-run wiring is validated locally. Skip in CI when
-        # the dataset is absent, matching the QC-gate step above.
+      - name: Install Snakemake
+        # Pipeline runner needed only for the DAG dry-run smoke check below.
+        run: pip install "snakemake>=8.0.0"
+
+      - name: Validate Snakemake pipeline wiring (DAG dry-run)
+        # Runs UNCONDITIONALLY against a committed synthetic fixture so a renamed
+        # rule output or a broken `include:` fails the PR. A dry-run only needs the
+        # DAG's root input files to EXIST (not to be valid), so a 1-antigen fixture
+        # + stub CSVs/joblib is enough to resolve the full 12-job DAG. Verified:
+        # clean wiring -> exit 0; renamed target -> exit 1.
         run: |
-          if [ -f data/immunogenicity_dataset_v4.csv ]; then
-            snakemake --snakefile pipeline.smk --dry-run --cores 1
-          else
-            echo "v4 dataset not present (gitignored); Snakemake dry-run skipped in CI."
-          fi
+          snakemake --snakefile pipeline.smk \
+            --configfile tests/fixtures/dag_smoke/config.smoke.yaml \
+            --dry-run --cores 1
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
