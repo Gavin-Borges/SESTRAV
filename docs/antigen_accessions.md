@@ -153,7 +153,7 @@ These accessions are consolidated into default FASTA inputs used in the Snakemak
 *   **HBV Proteome Panel (4 proteins):** [HBV_ayw_panel4.fasta](../data/proteomes/HBV_ayw_panel4.fasta)
 *   **HCV Proteome Panel (4 proteins):** [HCV_1a_panel4.fasta](../data/proteomes/HCV_1a_panel4.fasta)
 
-*Week 6 expansion panels (FASTAs generated after running `scripts/fetch_viral_proteomes.py --panels HIV1_HXB2_panel4 SARSCOV2_wuhan1_panel4 IAV_PR8_panel4 CMV_AD169_panel4`):*
+*Optional expansion panels (FASTAs generated after running `scripts/fetch_viral_proteomes.py --panels HIV1_HXB2_panel4 SARSCOV2_wuhan1_panel4 IAV_PR8_panel4 CMV_AD169_panel4`):*
 *   **HIV-1 HXB2 Panel (4 proteins):** [HIV1_HXB2_panel4.fasta](../data/proteomes/HIV1_HXB2_panel4.fasta)
 *   **SARS-CoV-2 Wuhan-1 Panel (4 proteins):** [SARSCOV2_wuhan1_panel4.fasta](../data/proteomes/SARSCOV2_wuhan1_panel4.fasta)
 *   **IAV PR8 Panel (4 proteins):** [IAV_PR8_panel4.fasta](../data/proteomes/IAV_PR8_panel4.fasta)

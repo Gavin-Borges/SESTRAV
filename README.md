@@ -107,7 +107,7 @@ SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A label
 | Binding-only (MHCflurry) | 0.800 | 0.861 | Fully scored |
 | DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) |
 
-> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's canonical `full_31`/`mode_31` (0.828) leads this certified field. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper section 3.3.
+> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's canonical `full_31`/`mode_31` (0.828) posts the highest point AUC-PR in this certified field - a statistical near-tie with BigMHC. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper section 3.3.
 
 ### Paradigm 2 - v5 within-virus CV (N=35,597 active; 9 viruses + IEDB viral negatives + central-tolerance decoys)
 
@@ -139,13 +139,13 @@ Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely
 | Virus | LOO AUC-ROC | Within-CV AUC-ROC | n_test_pos | n_test_neg | Note |
 |-------|-------------|-------------------|------------|------------|------|
 | CMV | 0.633 | 0.819 | 740 | 272 | Modest transfer |
-| HBV | 0.557 | 0.708 | 325 | 229 | Modest transfer |
+| HBV | 0.556 | 0.708 | 325 | 229 | Modest transfer |
 | HCV | 0.528 | 0.575 | 333 | 320 | Marginal |
 | EBV | 0.496 | 0.790 | 316 | 80 | Near chance |
 | IAV | 0.488 | 0.856 | 342 | 119 | Near chance |
 | HPV | 0.468 | 0.561 | 186 | 137 | Near chance |
 | SARS-CoV-2 | 0.462 | 0.699 | 2473 | 980 | Near chance |
-| DENV | 0.373 | 0.859 | 806 | 12 | Unreliable (only 12 clean negatives) |
+| DENV | 0.372 | 0.859 | 806 | 12 | Unreliable (only 12 clean negatives) |
 | HIV-1 | 0.162 | 0.894 | 2516 | 60 | Anti-predictive (binding-feature reversal) |
 | **Mean** | **0.463** | 0.751 | | | 3/9 viruses above chance |
 
@@ -521,4 +521,4 @@ MIT License. See `LICENSE` for details.
 * Charles Jouaneh: Vaccine Strategy & Bioinformatic Pipeline Development
 * Emine Byers: Structural Immunology & Data Curation
 
-*Academic affiliations: BPS 542 / CMB 522 / CSC 522 / STA 522: Bioinformatics I | CMB 523: Bioinformatics II*
+*Developed by Gavin Borges. Academic acknowledgements: bioinformatics coursework at NC State (BPS 542 / CMB 522 / CSC 522 / STA 522; CMB 523) provided foundational grounding; SESTRAV is an independently maintained research tool.*

@@ -34,6 +34,6 @@ within-virus performance (AUC-ROC = 0.894) collapses to anti-predictive
 performance under LOO (AUC-ROC = 0.162), i.e. below chance.
 
 Per-pathogen values plotted (within-virus CV / LOO AUC-ROC):
-CMV 0.819 / 0.633; HBV 0.708 / 0.557; HCV 0.575 / 0.528; EBV 0.790 / 0.496;
+CMV 0.819 / 0.633; HBV 0.708 / 0.556; HCV 0.575 / 0.528; EBV 0.790 / 0.496;
 IAV 0.856 / 0.488; HPV 0.561 / 0.468; SARS-CoV-2 0.699 / 0.462;
-DENV 0.859 / 0.373; HIV-1 0.894 / 0.162.
+DENV 0.859 / 0.372; HIV-1 0.894 / 0.162.

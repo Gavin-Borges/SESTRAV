@@ -64,7 +64,7 @@ proceeding.
 
 | File | Description |
 |------|-------------|
-| `immunogenicity_dataset_v1_archived.csv` | v1 dataset (5.58:1 class ratio; BPS 542/CMB 522 original) |
+| `immunogenicity_dataset_v1_archived.csv` | v1 dataset (5.58:1 class ratio; original v1 assembly) |
 | `immunogenicity_dataset_v2.csv` | v2 intermediate dataset (superseded by v3) |
 
 ---
