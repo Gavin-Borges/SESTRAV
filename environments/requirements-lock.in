@@ -19,5 +19,14 @@ pydantic-settings>=2.14.2
 # pyjwt: PYSEC-2026-175/176/177/178/179 (algorithm confusion attacks)
 pyjwt>=2.13.0
 # setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
-# Unicode NFC/NFD normalization collision on macOS APFS/HFS+)
+# Unicode NFC/NFD normalization collision on macOS APFS/HFS+).
+# DELIBERATE OVERRIDE vs torch's metadata cap `setuptools<82`: this pin makes the
+# lockfile unsatisfiable for a *resolving* installer (ResolutionImpossible). It is
+# runtime-safe because (1) torch's cap is a build/metadata declaration, not a
+# runtime import guard - torch 2.12 imports and runs fine against setuptools 83 -
+# and (2) every install path pins by hash (`pip install --require-hashes`), which
+# installs the exact resolved set without re-resolving, so the cap is never
+# enforced. EXIT CONDITION: drop this floor (revert to the transitive setuptools
+# pulled by torch) once torch raises its `setuptools<82` cap upstream, then
+# re-run the pip-compile command at the top of this file and re-verify hashes.
 setuptools>=83.0.0

@@ -126,36 +126,88 @@ jobs:
         #   pip-compile --generate-hashes environments/requirements-pip-audit.in
         run: pip install --require-hashes -r environments/requirements-pip-audit.txt
 
-      # Advisory gate (OpenSSF tier: non-blocking). Audits the fully-pinned
-      # lockfile (--no-deps: trust the resolved set, do not re-resolve). Dependabot
-      # already tracks these in the Security tab; this surfaces them inline in CI
-      # and on the run summary so they are visible without leaving the PR.
+      # Advisory gate (OpenSSF tier: non-blocking). Audits the INSTALLED,
+      # hash-pinned production set. We install the lock first and audit the
+      # resulting environment rather than `pip-audit -r environments/requirements.lock`:
+      # that form re-resolves the lock in a throwaway venv and dies with
+      # ResolutionImpossible, because the lock deliberately floors setuptools>=83
+      # over torch's `setuptools<82` metadata cap (see environments/requirements-lock.in).
+      # `pip install --require-hashes --no-deps` installs the exact pinned set with
+      # no resolution step - the same path runtime uses - so setuptools 83 and torch
+      # coexist and the audit covers the real dependency set. Dependabot also tracks
+      # these in the Security tab; this surfaces them inline in CI and on the run
+      # summary so they are visible without leaving the PR.
       #
       # Risk-accepted advisories are suppressed here with verified IDs and logged
       # in SECURITY.md's Risk-Acceptance Register. To accept a new one, add its
       # ID below with a comment and a matching register entry - never suppress
       # without one. PYSEC ids are matched by pip-audit's PyPI source; GHSA ids
       # are kept alongside for traceability with Dependabot/Security-tab reports.
-      - name: Audit pinned lockfile
+      - name: Install the pinned lockfile (resolver-free) for auditing
+        # continue-on-error mirrors the SBOM job below: a heavy or platform-specific
+        # wheel may not install on this runner. The guard two steps down asserts the
+        # real production set was audited, so a partial install is caught, not masked.
+        continue-on-error: true
+        run: pip install --require-hashes --no-deps -r environments/requirements.lock
+
+      - name: Audit installed dependency set
         continue-on-error: true
         run: |
           pip-audit \
-            -r environments/requirements.lock \
-            --no-deps \
             --desc \
             --ignore-vuln PYSEC-2025-194 \
             --ignore-vuln GHSA-rrmf-rvhw-rf47
             # ^ CVE-2025-3000 (torch.jit.script) - no upstream patch; torch.jit.script
             #   is never called in SESTRAV. Risk-accepted, see SECURITY.md register.
 
+      - name: Assert pip-audit tooling actually ran (fail on TOOLING error only)
+        # The advisory audit above is continue-on-error so real CVE findings do not
+        # block merges. That also masks a TOOLING failure (crash, unparseable output,
+        # incomplete install) as a clean pass. This guard re-runs pip-audit in JSON
+        # mode over the installed environment and fails the JOB only when the
+        # production set was not actually audited - findings themselves are ignored
+        # here (they are routed to the run summary and the Security tab). It requires
+        # a parseable report AND a core production dependency present, so an empty or
+        # tooling-only environment cannot pass as a clean scan.
+        run: |
+          set -o pipefail
+          pip-audit \
+            --format json \
+            --ignore-vuln PYSEC-2025-194 \
+            --ignore-vuln GHSA-rrmf-rvhw-rf47 \
+            --output pip-audit-report.json || true
+          python - <<'PY'
+          import json, sys
+          try:
+              with open("pip-audit-report.json") as fh:
+                  data = json.load(fh)
+          except (OSError, ValueError) as exc:
+              print(f"::error::pip-audit produced no parseable report: {exc}")
+              sys.exit(1)
+          deps = data.get("dependencies")
+          if not isinstance(deps, list) or not deps:
+              print("::error::pip-audit report has no dependencies - tooling failure, not a clean scan")
+              sys.exit(1)
+          names = {str(d.get("name", "")).lower() for d in deps}
+          # Sentinel: core production deps that always ship a manylinux wheel. Their
+          # absence means the lockfile did not install, so pip-audit only saw its own
+          # tooling env - not the production set. Fail loudly rather than pass empty.
+          sentinels = {"scikit-learn", "numpy", "pandas"}
+          if not (names & sentinels):
+              print(f"::error::audit did not cover the production set (none of "
+                    f"{sorted(sentinels)} among {len(deps)} packages) - lockfile install failed")
+              sys.exit(1)
+          print(f"pip-audit tooling OK: audited {len(deps)} installed packages")
+          PY
+
       - name: Write triage digest to run summary
         if: always()
         continue-on-error: true
         run: |
           {
-            echo "## pip-audit - environments/requirements.lock"
+            echo "## pip-audit - installed production dependency set"
             echo ""
-            pip-audit -r environments/requirements.lock --no-deps --format markdown \
+            pip-audit --format markdown \
               --ignore-vuln PYSEC-2025-194 --ignore-vuln GHSA-rrmf-rvhw-rf47 || true
           } >> "$GITHUB_STEP_SUMMARY"
 
