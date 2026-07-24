@@ -128,7 +128,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/tools/coverage_subprocess
           COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc.library
         run: >-
-          python -m pytest tests/ -v
+          python -m pytest tests/ -n auto
           --cov=src --cov=functions
           --cov-config=.coveragerc.library
           --cov-report=term-missing --cov-report=xml
