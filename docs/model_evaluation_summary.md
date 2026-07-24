@@ -85,7 +85,7 @@ metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `script
 The canonical evaluation track uses 20 physicochemical features (p4-p8 × 4 properties) plus 10 per-allele MHC binding features. All results are 5-fold stratified cross-validation with gold-standard epitopes held out.
 
 Release-scope boundary: The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate. The canonical publish gate is based on the RF-configured Stage 1-4 workflow and frozen validation artifacts.
-ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev docs.
+ANN/GNN values are sourced from the ANN/GNN benchmark study and mirrored in SESTRAV-Dev docs.
 
 ### Cross-Validation Results (5-fold stratified)
 
@@ -103,9 +103,9 @@ ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev d
 > **Provenance note:** The canonical optional ANN/GNN evidence source for the
 > latest Project 2 sync is documented in `docs/nn_gnn_project2_sync_matrix.md`.
 
-### ANN Architecture Search (14 Configurations, Project 2)
+### ANN Architecture Search (14 Configurations)
 
-The architecture search evaluates depth, width, activation function, and dropout rate. The best configuration (256-128-64 ReLU dropout 0.2) was identified from the CMB 523 Project 2 systematic search.
+The architecture search evaluates depth, width, activation function, and dropout rate. The best configuration (256-128-64 ReLU dropout 0.2) was identified from the systematic architecture search.
 
 Saved to: `models/ann_architecture_search.csv` (generated locally via `--search`
 flag). Project 2 run metadata and benchmark lineage are documented in

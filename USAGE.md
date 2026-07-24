@@ -16,7 +16,7 @@ pip install ".[gnn]"
 # With Snakemake pipeline runner
 pip install ".[pipeline]"
 
-# With Streamlit demo app (Week 6)
+# With Streamlit demo app (optional expansion panels)
 pip install ".[demo]"
 
 # Developer install (includes ruff, mypy, pytest)
@@ -172,7 +172,7 @@ analysis and `docs/model_evaluation_summary.md` for all benchmark results.
 
 > **Evaluation note:** SESTRAV RF is evaluated strictly out-of-fold (conservative estimate),
 > while external tools are fully scored on the same peptides. On the certified Tier A
-> head-to-head (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) leads BigMHC
+> head-to-head (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) posts the highest point AUC-PR - a statistical near-tie with BigMHC
 > (0.822), the MHCflurry binding-only baseline (0.800), MixMHCpred 2.2 (0.795), and
 > DeepImmuno (0.698). Because SESTRAV is scored out-of-fold while the external tools score
 > every peptide directly, the comparison is conservative by construction for SESTRAV.

@@ -27,7 +27,7 @@ A complete Colab-ready script that runs the SESTRAV model training and evaluatio
 4. **Feature Extraction** - Computes both 21-feature (legacy) and 30-feature (canonical) matrices
 5. **RF/XGBoost Training** - Trains production tree classifiers with 5-fold CV
 6. **ANN Training** - Trains the FlexibleMLP (256-128-64 ReLU d0.2)
-7. **Architecture Search** - (Optional) evaluates all 14 Project 2 configurations
+7. **Architecture Search** - (Optional) evaluates all 14 benchmark configurations
 8. **GNN Benchmarks** - (Optional) runs GCN, GAT, and Bipartite GNN (requires `torch-geometric`)
 9. **Ablation Study** - Evaluates feature group contributions
 10. **Model Comparison** - Side-by-side summary of all classifiers
