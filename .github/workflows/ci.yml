@@ -146,16 +146,15 @@ jobs:
       - name: Run Contamination and Benchmark Evaluation Gate
         run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
 
-      - name: Install Snakemake
-        # Pipeline runner needed only for the DAG dry-run smoke check below.
-        run: pip install "snakemake>=8.0.0"
-
       - name: Validate Snakemake pipeline wiring (DAG dry-run)
         # Runs UNCONDITIONALLY against a committed synthetic fixture so a renamed
         # rule output or a broken `include:` fails the PR. A dry-run only needs the
         # DAG's root input files to EXIST (not to be valid), so a 1-antigen fixture
         # + stub CSVs/joblib is enough to resolve the full 12-job DAG. Verified:
-        # clean wiring -> exit 0; renamed target -> exit 1.
+        # clean wiring -> exit 0; renamed target -> exit 1. Snakemake itself is
+        # already installed hash-pinned via environments/requirements-ci.txt in the
+        # "Install dependencies" step above; no separate unpinned install is needed
+        # (keeps OpenSSF Scorecard Pinned-Dependencies clean).
         run: |
           snakemake --snakefile pipeline.smk \
             --configfile tests/fixtures/dag_smoke/config.smoke.yaml \
