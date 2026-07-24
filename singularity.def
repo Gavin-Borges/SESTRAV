@@ -1,4 +1,10 @@
 Bootstrap: docker
+# Pinned to Python 3.11 to match environments/requirements.lock, which is
+# pip-compiled under 3.11 and installed below with --require-hashes. Keep this image
+# in lockstep with that lock: bumping it (e.g. to 3.13, which the Dockerfile uses)
+# requires regenerating requirements.lock under the same Python version first. The
+# Dockerfile can target 3.13 independently because it installs from pyproject, not
+# this hash-pinned lock.
 From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083137e0e98ccf227236fcc438
 
 %labels
