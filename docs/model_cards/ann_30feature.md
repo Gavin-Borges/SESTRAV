@@ -3,7 +3,7 @@
 ## Model Details
 - **Model Type:** Feed-Forward Multilayer Perceptron (PyTorch)
 - **Architecture:** 64-32 ReLU hidden layers with Dropout (0.3).
-- **Version:** SESTRAV v2.0 (CMB 523 Project 2 aligned)
+- **Version:** SESTRAV v2.0 (ANN benchmark module)
 - **Primary Use:** Scoring the relative immunogenicity of peptide candidates presented by MHC Class I molecules.
 - **Input Features (30):** 20 TCR-facing physicochemical features + 10 multi-allele MHCflurry presentation scores.
 - **Output:** A continuous probability score [0.0 - 1.0].

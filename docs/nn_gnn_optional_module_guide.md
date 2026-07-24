@@ -10,7 +10,7 @@ canonical release gate.
 
 - Canonical release gate: Stage 1-4 workflow + `full_validation_report` outputs.
 - The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate.
-- ANN/GNN values are sourced from Project 2 evidence and mirrored in SESTRAV-Dev docs.
+- ANN/GNN values are sourced from the benchmark study and mirrored in SESTRAV-Dev docs.
 - Optional track scope: ANN architecture search, GNN benchmarks, ablation, Colab
   experimentation.
 - Promotion to core track is governed by the project's ANN/GNN promotion criteria.
@@ -76,7 +76,7 @@ These are different workflows and should not be mixed in release claims.
 ## Required Claim Language
 
 - Allowed:
-  - "ANN/GNN are optional benchmark modules backported from Project 2."
+  - "ANN/GNN are optional benchmark modules from the ANN/GNN benchmark study."
   - "Canonical publish gate remains RF/XGBoost Stage 1-4 outputs."
   - "Project 2 exact values are documented with source file lineage."
 - Not allowed:
