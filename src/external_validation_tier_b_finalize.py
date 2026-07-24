@@ -13,7 +13,7 @@ import json
 import os
 import platform
 from datetime import datetime, timezone
-from typing import List
+from typing import Any, Dict, List
 
 import pandas as pd
 
@@ -22,7 +22,7 @@ from src.external_validation_finalize import build_artifact_manifest, sha256_fil
 
 def build_tier_b_provenance(run_dir: str, repo_root: str) -> dict:
     prefilter = os.path.join(repo_root, "results", "external_tier_b_prefilter_manifest.json")
-    meta = {
+    meta: Dict[str, Any] = {
         "run_id": os.path.basename(run_dir.rstrip("/\\")),
         "scope": "tierB",
         "finalized_utc": datetime.now(timezone.utc).isoformat(),

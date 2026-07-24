@@ -24,7 +24,7 @@ import os
 import platform
 import sys
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -101,12 +101,12 @@ def bootstrap_metric_diff_with_p(
         diffs.append(metric_fn(y_b, scores_a[idx]) - metric_fn(y_b, scores_b[idx]))
     if not diffs:
         return np.nan, np.nan, np.nan, np.nan
-    diffs = np.array(diffs)
-    p = min(float(np.mean(diffs <= 0)), float(np.mean(diffs >= 0))) * 2
+    diffs_arr = np.array(diffs)
+    p = min(float(np.mean(diffs_arr <= 0)), float(np.mean(diffs_arr >= 0))) * 2
     return (
-        float(np.mean(diffs)),
-        float(np.percentile(diffs, 2.5)),
-        float(np.percentile(diffs, 97.5)),
+        float(np.mean(diffs_arr)),
+        float(np.percentile(diffs_arr, 2.5)),
+        float(np.percentile(diffs_arr, 97.5)),
         p,
     )
 
@@ -169,7 +169,7 @@ def flag_overlap_columns(
     prime_train: Optional[str],
 ) -> Tuple[pd.DataFrame, dict]:
     eval_peps = set(merged["peptide"].astype(str))
-    overlap_meta = {
+    overlap_meta: Dict[str, Any] = {
         "predig": quantify_overlap_robust(eval_peps, predig_train, train_col="Epitope"),
         "prime": quantify_overlap_robust(eval_peps, prime_train, train_col="epitope"),
         "generated_utc": datetime.now(timezone.utc).isoformat(),
@@ -222,7 +222,7 @@ def subset_metrics(
     return m
 
 
-def coverage_summary(merged: pd.DataFrame) -> dict:
+def coverage_summary(merged: pd.DataFrame) -> Tuple[dict, list]:
     n_total = len(merged)
     tools = {
         "rf_oof_score": "SESTRAV RF",
@@ -230,7 +230,7 @@ def coverage_summary(merged: pd.DataFrame) -> dict:
         "predig_max_score": "PredIG-Path",
         "prime_score": "PRIME 2.1",
     }
-    summary = {"n_total_peptides": n_total, "tools": {}}
+    summary: Dict[str, Any] = {"n_total_peptides": n_total, "tools": {}}
     missing_rows = []
     for col, name in tools.items():
         if col not in merged.columns:
@@ -612,9 +612,11 @@ def run_finalize(
         os.path.join(results_dir, "external_validation_cross_virus.csv")
     ):
         try:
-            from src.external_validation_cross_virus import run_cross_virus
+            from src.external_validation_cross_virus import (
+                run_cross_virus as _run_cross_virus,
+            )
 
-            run_cross_virus(
+            _run_cross_virus(
                 "data/immunogenicity_dataset_v4.csv",
                 "models/peptide_binding_matrix_v4.csv",
                 os.path.join(results_dir, "external_validation_cross_virus.csv"),

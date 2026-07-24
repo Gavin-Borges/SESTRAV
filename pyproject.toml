@@ -129,7 +129,6 @@ strict = false
 # Exclude generated/vendored paths and Snakemake entry points that use magic globals.
 exclude = [
     "scripts/stage.*\\.py$",
-    "src/external_validation.*\\.py$",
 ]
 
 # ---------------------------------------------------------------------------

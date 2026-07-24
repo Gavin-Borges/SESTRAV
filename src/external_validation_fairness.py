@@ -24,7 +24,7 @@ import argparse
 import json
 import os
 from datetime import datetime, timezone
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 
@@ -420,7 +420,7 @@ def run_fairness(
     holdout_df = holdout_spotlight(merged)
     collapse_df = pd.DataFrame(collapse_rows)
 
-    overlap_meta = {
+    overlap_meta: Dict[str, Any] = {
         "predig": quantify_overlap_robust(eval_peptides, predig_train, train_col="Epitope"),
         "prime": quantify_overlap_robust(eval_peptides, prime_train, train_col="epitope"),
         "generated_utc": datetime.now(timezone.utc).isoformat(),
@@ -430,7 +430,7 @@ def run_fairness(
     overlap_subset_rows = []
     if "rf_oof_score" in merged.columns:
         inter = merged.dropna(subset=["rf_oof_score", "predig_max_score", "prime_score"])
-        flagged = set()
+        flagged: set[str] = set()
         for key in ("predig", "prime"):
             peps = overlap_meta[key].get("total_overlap_peptides")
             if peps:
