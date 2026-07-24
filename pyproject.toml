@@ -78,7 +78,7 @@ sestrav = "src.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["sestrav*", "src*", "functions*"]
 
 # ---------------------------------------------------------------------------
 # Coding standards (OpenSSF Silver: coding_standards / coding_standards_enforced)
