@@ -13,7 +13,7 @@ contact:
 abstract: >-
   SESTRAV is an open-source pipeline engineered to overcome the computational
   specificity bottleneck in therapeutic vaccine development for oncogenic viruses
-  such as Human Papillomavirus (HPV) and Epstein-Barr Virus (EBV). The four-stage
+  such as Human Papillomavirus (HPV) and Epstein-Barr Virus (EBV). The six-stage
   reproducible workflow couples multi-allele MHC binding predictions with a
   structurally informed immunogenicity classifier that extracts per-position
   physicochemical features (hydrophobicity, aromaticity, steric bulk, and charge)
