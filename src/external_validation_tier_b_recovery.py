@@ -46,8 +46,8 @@ def _gs_by_virus() -> Dict[str, Set[str]]:
 def _negatives_by_virus() -> Dict[str, Set[str]]:
     out: Dict[str, Set[str]] = {"EBV": set(), "HPV16": set()}
     for g in GOLD_STANDARD_NEGATIVES[:25]:
-        v = "HPV16" if g["virus"] in ("HPV", "HPV16") else "EBV"
-        out[v].add(g["peptide"])
+        v = "HPV16" if g["virus"] in ("HPV", "HPV16") else "EBV"  # type: ignore[index]
+        out[v].add(g["peptide"])  # type: ignore[index]
     return out
 
 
