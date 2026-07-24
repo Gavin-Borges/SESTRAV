@@ -11,7 +11,7 @@ of AUC.
 Defined in `src/model.py`.
 - **Architecture**: Dynamically constructed Multi-Layer Perceptron (MLP).
 - **Activations**: Supports ReLU, GELU, and LeakyReLU with Kaiming He initialization.
-- **Project 2 Best Configuration**: 256-128-64 ReLU with Dropout 0.2.
+- **Best Benchmark Configuration**: 256-128-64 ReLU with Dropout 0.2.
 - **Optimization**: Adam optimizer, `ReduceLROnPlateau` scheduler (mode="max" tracking AUC-PR).
 - **Features**: Consumes continuous tabular representations (30 or 50 features depending on configuration).
 
