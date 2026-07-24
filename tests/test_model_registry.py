@@ -84,10 +84,19 @@ def test_load_joblib_roundtrip(tmp_path, monkeypatch):
 
 
 def test_validate_signature_handles_unreadable_joblib(tmp_path):
-    # A .joblib that can't be deserialized hits the except branch -> treated valid.
+    # A .joblib that can't be deserialized hits the except branch -> fail-closed (invalid).
     model_path = tmp_path / "corrupt.joblib"
     model_path.write_bytes(b"not a real joblib payload")
-    assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is True
+    assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
+
+
+def test_validate_signature_rejects_tampered_checksum(tmp_path):
+    # Model bytes no longer match the recorded sha256 -> mismatch -> fail-closed (invalid).
+    model_path = tmp_path / "model.joblib"
+    joblib.dump(_FakeEstimator(30), model_path)
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
+    model_path.write_bytes(b"tampered bytes that do not match the recorded checksum")
+    assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
 
 
 def test_validate_signature_model_without_feature_attr(tmp_path):

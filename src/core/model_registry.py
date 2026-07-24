@@ -20,15 +20,21 @@ class ModelRegistry:
         return p
 
     def validate_signature(self, model_path: Path, expected_features: int) -> bool:
-        """Validate if a model's expected features match our configuration."""
+        """Validate a model's checksum and that its feature count matches configuration.
+
+        Fail-closed: a checksum mismatch or an unreadable/corrupt artifact is treated as
+        INVALID (returns False), never silently accepted. A missing checksum manifest entry
+        is tolerated (an unsigned but readable model is still validated on feature count),
+        so this does not reject legitimately unsigned artifacts.
+        """
         if model_path.suffix == ".joblib":
             try:
-                model = load_verified_joblib(model_path, required_checksum=True)
-                n_features = getattr(model, "n_features_in_", None)
-                if n_features is not None and n_features != expected_features:
-                    return False
-            except Exception:  # nosec B110 - load/checksum failure means unverifiable, not invalid
-                pass
+                model = load_verified_joblib(model_path, required_checksum=False)
+            except Exception:  # checksum mismatch or unreadable artifact -> invalid
+                return False
+            n_features = getattr(model, "n_features_in_", None)
+            if n_features is not None and n_features != expected_features:
+                return False
         return True
 
     def artifact_checksum(self, path: Path) -> str:
