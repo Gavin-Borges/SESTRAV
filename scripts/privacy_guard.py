@@ -14,7 +14,7 @@ from pathlib import Path
 
 # Sensitive & Workstation Path Regexes
 PATH_PATTERNS = [
-    (r"[a-zA-Z]:[/\\]Users[/\\][a-zA-Z0-9_\-]+", "Hardcoded Windows Workstation Path (e.g. C:\\Users\\username)"),
+    (r"[a-zA-Z]:[/\\]Users[/\\][a-zA-Z0-9_\-]+", "Hardcoded Windows workstation path under a per-user profile directory"),
     (r"/home/(?!sestrav_user|runner|ubuntu|vscode|node|appuser|app/)[a-zA-Z0-9_\-]+", "Hardcoded Linux User Path"),
 ]
 
