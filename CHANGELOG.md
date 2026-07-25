@@ -102,6 +102,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   when PyTorch releases a fix.
 - **Dependabot #35 (torch CVE-2025-3000)**: Dismissed `tolerable_risk` - same
   rationale as alert #15.
+- **Dependabot #99-#103 (5x HIGH - GitPython URL/config injection and env-var
+  expansion, secret exfiltration on fetch)**: Fixed - `gitpython` bumped 3.1.52
+  -> 3.1.54 (PR #157, clears GHSA-r9mr-m37c-5fr3 / GHSA-6p8h-3wgx-97gf /
+  GHSA-fjr4-x663-mwxc / GHSA-3rp5-jjmw-4wv2) -> 3.1.55 (PR #158/#159, clears
+  GHSA-94p4-4cq8-9g67) in both hash-pinned lockfiles (`environments/requirements-ci.txt`,
+  `environments/requirements.lock`). CI-only transitive dependency (`# via snakemake`);
+  not on the runtime peptide-scoring path.
 
 ## [2.0.3] - 2026-06-17
 
