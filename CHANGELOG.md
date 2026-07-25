@@ -82,6 +82,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   UniProt accession table, strain notes, and provenance file references.
 
 ### Fixed
+- **`train_one_fold` device-placement bug** (`src/model.py`): `train_one_fold` never
+  guaranteed the model was on the resolved device itself - it silently relied on the
+  caller. `run_cv` and `train_final_model` already place the model via `.to(device)`
+  at construction, so they were unaffected, but any caller constructing a model
+  without pre-placement and passing an explicit `device=` argument would hit a
+  CPU/GPU tensor mismatch. Found during Windows/Blackwell (RTX 5070 Ti, sm_120) GPU
+  bring-up; fixed with `model = model.to(device)` immediately after device
+  resolution. Full suite: 1213 passed / 2 skipped / 0 failed.
 - **`external_predictors.py` coverage 88% → 100%** (issue #77): 13 targeted tests
   covering proline/PDE/RKYFW mock-score paths, OOB index in `parse_netchop_html`,
   poll-success return, TAPreg threshold kwarg, and parse success/empty-parse branches.
