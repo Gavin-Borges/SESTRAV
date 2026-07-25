@@ -210,6 +210,8 @@ def train_one_fold(
     if device is None:
         device = get_device()
 
+    model = model.to(device)
+
     scaler = StandardScaler()
     X_tr_s = scaler.fit_transform(X_train)
     X_val_s = scaler.transform(X_val)
