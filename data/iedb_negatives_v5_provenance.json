@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-06-26T03:06:00.085360+00:00",
-  "git_sha": "c6f2e4c",
+  "git_sha": "317b5d4",
   "input_file": "data\\iedb_tcell_export_2026-06-26.csv\\tcell_full_v3.csv",
   "input_sha256": "9c3b7c30dcf44b5308a2194dcf7cd947dbc2237b6b9ff69b2181af94e6b2636a",
   "existing_dataset": "data\\immunogenicity_dataset_v4.csv",

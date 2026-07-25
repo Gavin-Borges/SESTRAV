@@ -1,0 +1,54 @@
+#!/bin/bash
+# SESTRAV DCO sign-off automation.
+#
+# Appends the Developer Certificate of Origin trailer to every commit message
+# so that .github/workflows/dco.yml (check_dco) passes on the first push.
+#
+# Why this exists: sign-offs were previously backfilled onto already-published
+# commits with `git rebase --signoff`. That rewrote every SHA in the rebased
+# range and silently orphaned the commit hashes cited across tracked docs
+# (17 dead citations, repaired 2026-07-24). Signing at commit time removes the
+# reason to ever backfill, which removes the rewrite, which removes the
+# orphaned-citation defect class at its source.
+#
+# Never edits history and never blocks a commit: if identity is unset the hook
+# warns and exits 0 so the commit still succeeds (CI remains the hard gate).
+
+set -euo pipefail
+
+commit_msg_file="$1"
+commit_source="${2-}"
+
+# Merge commits are exempt: dco.yml walks history with --no-merges, and the
+# merge message is generated rather than authored.
+if [ "$commit_source" = "merge" ]; then
+    exit 0
+fi
+
+name="$(git config user.name || true)"
+email="$(git config user.email || true)"
+
+if [ -z "$name" ] || [ -z "$email" ]; then
+    echo "prepare-commit-msg: git user.name/user.email unset - no Signed-off-by added." >&2
+    echo "  Set them, or commit with 'git commit -s', or CI will reject the push." >&2
+    exit 0
+fi
+
+signoff="Signed-off-by: ${name} <${email}>"
+
+# Already signed off by this identity (covers --amend and rebase replays).
+if grep -qxF "$signoff" "$commit_msg_file"; then
+    exit 0
+fi
+
+# Strip trailing blank lines, then append the trailer separated by one blank
+# line. Comment lines are left alone; git removes them when the message is
+# finalized, leaving the trailer as the last line of the real message.
+tmp_file="${commit_msg_file}.sestrav.tmp"
+awk 'BEGIN { blanks = 0 }
+     /^[[:space:]]*$/ { blanks++; next }
+     { while (blanks > 0) { print ""; blanks-- } print }' \
+    "$commit_msg_file" > "$tmp_file"
+
+printf '\n%s\n' "$signoff" >> "$tmp_file"
+mv "$tmp_file" "$commit_msg_file"

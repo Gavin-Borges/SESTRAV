@@ -14,7 +14,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 git config core.hooksPath scripts/hooks
 
-for hook in pre-commit commit-msg pre-push; do
+for hook in pre-commit prepare-commit-msg commit-msg pre-push; do
     chmod +x "${REPO_ROOT}/scripts/hooks/${hook}"
 done
 
