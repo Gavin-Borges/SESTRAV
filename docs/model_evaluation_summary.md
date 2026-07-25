@@ -5,7 +5,7 @@
 > **Status:** Current production model. Dataset: v5, 35,597 active rows (51,185 total),
 > 5-fold stratified OOF. Per-virus within-CV (below) regenerated session 70 (2026-07-10) on
 > the current dataset. Recomputation is DONE (2026-07-11): the fragile pooled "same-pathogen
-> AUC-ROC 0.9368" headline from the b5ffe37 build (2026-07-04) has been RETIRED. The canonical
+> AUC-ROC 0.9368" headline from the e6aafe2 build (2026-07-04) has been RETIRED. The canonical
 > same-pathogen discrimination metric is now the reproducible per-virus within-CV table (mean
 > AUC-ROC 0.751; `results/per_virus_eval_v5_mode31.csv`).
 > Model: `models/rf_31feature_integrated.joblib` (retrained)
@@ -31,7 +31,7 @@ metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `script
 | HPV | 0.561 | >= 0.58 | FAIL |
 | EBV | 0.790 | >= 0.57 | PASS (post B*27 conflict quarantine) |
 
-> **Note:** HPV within-CV fell from 0.598 (b5ffe37 snapshot) to 0.561 on the current dataset and
+> **Note:** HPV within-CV fell from 0.598 (e6aafe2 snapshot) to 0.561 on the current dataset and
 > now falls below the 0.58 Amendment-6 threshold, consistent with the manuscript's characterization
 > of HPV as an active generalization failure. EBV rose from 0.667 to 0.790.
 

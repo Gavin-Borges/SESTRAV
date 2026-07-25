@@ -85,7 +85,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 ### 4.2 Automated Test Suite
 *   **Requirement:** The project MUST possess an automated test suite.
 *   **SESTRAV Status:** ✅ **PASSING**
-*   **Evidence:** Features 1214 unit and integration tests (verified via `pytest --collect-only`) under the [tests/](../tests) folder, covering feature extraction, pipeline stages, consensus ensemble scoring, API schema validations, dataset build pipeline, and security hardening paths.
+*   **Evidence:** Features more than 1,200 unit and integration tests under the [tests/](../tests) folder, covering feature extraction, pipeline stages, consensus ensemble scoring, API schema validations, dataset build pipeline, and security hardening paths. The exact current count is reader-reproducible from a checkout with `pytest --collect-only -q`.
 
 ### 4.3 Automated Testing in CI
 *   **Requirement:** The test suite MUST run automatically on new commits (CI).

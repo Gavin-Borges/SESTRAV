@@ -66,7 +66,7 @@ EOF
 > assay_type, assay_quality_weight/tier, reference_pmid, iedb_assay_id, virus_taxon_id) and
 > per-virus biology context (infection_phase, antigen_latency_program, assay_context,
 > cross_reactivity_tested). Schema and full build provenance (source files, generating commit,
-> counts) are included. Built 2026-07-05 from repository commit 206904c.
+> counts) are included. Built 2026-07-05 from repository commit be3e260.
 
 ## 3. Post-publish checklist
 

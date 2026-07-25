@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-07-05T04:31:30.286865+00:00",
-  "git_sha": "206904c",
+  "git_sha": "be3e260",
   "source_counts": {
     "v4_positives": 6687,
     "v4_hard_decoys": 5000,
