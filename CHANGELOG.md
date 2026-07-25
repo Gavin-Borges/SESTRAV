@@ -98,6 +98,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `except (ValueError, IndexError)` with `# pragma: no cover`.
 
 ### Security
+- **Orphaned doc-cited commit SHAs (17 dead citations across 12 files)**: Fixed at
+  the root cause - a prior `git rebase --signoff` backfill rewrote every SHA in
+  the rebased range, silently breaking commit citations in tracked docs and
+  provenance sidecars. Added a `prepare-commit-msg` hook that appends the DCO
+  `Signed-off-by` trailer at commit time (removing the reason to ever backfill),
+  and a CI gate (`.github/workflows/doc_commit_refs.yml`,
+  `scripts/check_doc_commit_refs.py`) that fails a PR if any cited commit SHA is
+  dead or unreachable from the base branch. Repointed the 7 live successor SHAs
+  (`data/iedb_negatives_v5_provenance.json`, `lanl_hiv_v5`, `vdjdb_v5`,
+  `viral_decoys_{denv,ebv,hiv1,iav}_provenance.json`) by tree-identity match;
+  `models/peptide_binding_matrix_v3.provenance.json`'s `git_sha` was set to
+  `null` (object unrecoverable) with a note pointing to the verifiable
+  commit that added the file instead of a guessed SHA.
 - **Alert #51 (HIGH - Token-Permissions)**: Fixed - `dco.yml` top-level
   `permissions: contents: read / pull-requests: read` added (commit `eef10c7`).
 - **Alert #52 (MEDIUM - Pinned-Dependencies)**: Dismissed false positive - pip
