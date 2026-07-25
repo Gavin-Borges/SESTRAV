@@ -169,7 +169,7 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside
   `torch.jit.script`.
   - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
-  - **Scope:** `torch==2.11.0` in `environments/requirements.lock`, and the CI
+  - **Scope:** `torch==2.12.0` in `environments/requirements.lock`, and the CI
     pins `environments/requirements-ci.txt` / `requirements-ci-torch-cpu.txt`.
   - **Severity:** Low (per GitHub advisory). No upstream patch is available.
   - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler
@@ -199,6 +199,23 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     inline markers.
   - **Re-review trigger:** if any wrapper begins accepting subprocess arguments from
     untrusted/remote input, or switches to `shell=True`.
+
+- **MCP SDK transport vulnerabilities (session hijacking / origin validation):**
+  Risk-accepted. The `mcp` package is pulled in transitively as a dev/CI dependency of
+  `semgrep`; it is not an application dependency and no MCP server transport is ever
+  invoked by SESTRAV.
+  - **Identifiers:** `GHSA-vj7q-gjh5-988w` · `GHSA-jpw9-pfvf-9f58` · `GHSA-hvrp-rf83-w775`.
+  - **Scope:** `mcp` (transitive, via `semgrep`) in the CI/dev dependency closure.
+  - **Severity:** High (per GitHub advisory). All three are server-transport
+    vulnerabilities (session-ID authentication bypass, WebSocket origin validation);
+    SESTRAV never starts an MCP server, so the vulnerable code path is unreachable.
+  - **Mitigation:** Not used. SESTRAV imports `mcp` only as a side effect of installing
+    `semgrep` for CI static analysis; no `mcp.server.*` transport is constructed or run
+    anywhere in the codebase or CI.
+  - **Suppression:** Dependabot alerts dismissed as `not_used`. This entry is the
+    authoritative record; the dismissal comment on each alert points back here.
+  - **Re-review trigger:** if `mcp` ever becomes a direct/runtime dependency, or an MCP
+    server transport is added to the codebase.
 
 - **Strict Warning Enforcement (`-W error` bypass) for PyTorch Ecosystem:**
   Risk-accepted. OpenSSF Silver requires strict compiler/linter warnings to be enabled and addressed.
