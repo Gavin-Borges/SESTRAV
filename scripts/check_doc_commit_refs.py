@@ -14,11 +14,16 @@ Nothing in CI could see that. This script closes the gap.
 What counts as a failure
 ------------------------
 DEAD      the token looks like a cited commit but no such object exists.
-ORPHANED  the object exists but is not reachable from the base ref, so a
+ORPHANED  the object exists but is not reachable from the target ref, so a
           fresh clone cannot resolve it.
 
 Both mean a reader cannot verify the citation, which is the property that
 matters.
+
+Reachability is measured from HEAD, not from the base branch. In a pull
+request HEAD is the merge commit, so it models the post-merge state: a doc
+may legitimately cite an earlier commit of the same PR, while a genuinely
+orphaned commit (reachable from no ref at all) is still caught.
 
 Deliberate exclusions
 ---------------------
@@ -34,7 +39,7 @@ colour codes or dataset identifiers would produce false failures.
 
 Usage
 -----
-    python scripts/check_doc_commit_refs.py [--base-ref origin/main]
+    python scripts/check_doc_commit_refs.py [--reachable-from HEAD]
 
 Exit codes: 0 clean, 1 findings, 2 invocation/environment error.
 """
@@ -121,16 +126,23 @@ def is_ancestor(sha: str, base_ref: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--base-ref",
-        default="origin/main",
-        help="Ref that cited commits must be reachable from (default: origin/main)",
+        "--reachable-from",
+        default="HEAD",
+        help=(
+            "Ref that cited commits must be reachable from (default: HEAD). "
+            "HEAD is correct for pull requests: it models the post-merge state, "
+            "so a doc may cite an earlier commit of the same PR without failing, "
+            "while genuinely orphaned commits are still caught."
+        ),
     )
     args = parser.parse_args()
 
-    code, _ = run_git(["rev-parse", "--verify", "--quiet", args.base_ref])
+    code, _ = run_git(["rev-parse", "--verify", "--quiet", args.reachable_from])
     if code != 0:
-        print(f"error: base ref '{args.base_ref}' does not resolve.", file=sys.stderr)
-        print("hint: run 'git fetch origin main' first.", file=sys.stderr)
+        print(
+            f"error: ref '{args.reachable_from}' does not resolve.", file=sys.stderr
+        )
+        print("hint: fetch full history (fetch-depth: 0) first.", file=sys.stderr)
         return 2
 
     findings: list[str] = []
@@ -172,10 +184,10 @@ def main() -> int:
                     continue
 
                 checked += 1
-                if not is_ancestor(full, args.base_ref):
+                if not is_ancestor(full, args.reachable_from):
                     findings.append(
                         f"{path}:{lineno}: ORPHANED - commit '{token}' exists but is "
-                        f"not reachable from {args.base_ref} (a fresh clone cannot "
+                        f"not reachable from {args.reachable_from} (a fresh clone cannot "
                         f"resolve it)"
                     )
 
