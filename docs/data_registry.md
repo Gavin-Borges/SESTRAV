@@ -37,7 +37,7 @@ accompanied by a `_provenance.json` sidecar next to the output artifact.
 
 | Date | Git SHA | Total rows | Positives | Negatives | Pos rate | Notes |
 |---|---|---|---|---|---|---|
-| Superseded | - | - | - | - | - | v4 was never built standalone; v5 (commit b5ffe37, 2026-07-04) is the active dataset |
+| Superseded | - | - | - | - | - | v4 was never built standalone; v5 (commit e6aafe2, 2026-07-04) is the active dataset |
 
 ### Component artifact row counts (fill in after build)
 
@@ -102,7 +102,7 @@ SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
 
 ## v5 Schema (Active)
 
-- **Status**: Active. Built and deployed 2026-07-04 (commit b5ffe37).
+- **Status**: Active. Built and deployed 2026-07-04 (commit e6aafe2).
 - **Schema File**: `data/immunogenicity_dataset_v5_schema.json`
 - **v4 frozen**: Do NOT modify `data/immunogenicity_dataset_v4.csv`. v5 is a separate file.
 
@@ -150,7 +150,7 @@ SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
 
 | Date | Git SHA | Total rows | Active rows | IEDB negatives | Quarantined viruses | Notes |
 |---|---|---|---|---|---|---|
-| 2026-07-04 | b5ffe37 | 46,386 | 31,999 | 36,689 | 17 singletons (< 50 rows or < 10 real negatives) | Merged 4,219 net-new IEDB API negatives via `scripts/merge_iedb_api_negatives.py`; B*27 EBV conflict quarantine (3 rows: FRKAQIQGL x2, RRARSLSAERY); RF v5 AUC-PR 0.7678 within-virus / 0.8897 Gate 1 / AUC-ROC 0.9368; sidecar: `data/immunogenicity_dataset_v5_provenance.json`. NOTE (2026-07-11): the pooled same-pathogen AUC-ROC 0.9368 (and AUC-PR 0.7678) later retracted as decoy-inflated; see claims_register.md (D12) and per_virus_eval_v5_mode31.csv (per-virus within-CV mean 0.751; honest pooled ROC 0.712). |
+| 2026-07-04 | e6aafe2 | 46,386 | 31,999 | 36,689 | 17 singletons (< 50 rows or < 10 real negatives) | Merged 4,219 net-new IEDB API negatives via `scripts/merge_iedb_api_negatives.py`; B*27 EBV conflict quarantine (3 rows: FRKAQIQGL x2, RRARSLSAERY); RF v5 AUC-PR 0.7678 within-virus / 0.8897 Gate 1 / AUC-ROC 0.9368; sidecar: `data/immunogenicity_dataset_v5_provenance.json`. NOTE (2026-07-11): the pooled same-pathogen AUC-ROC 0.9368 (and AUC-PR 0.7678) later retracted as decoy-inflated; see claims_register.md (D12) and per_virus_eval_v5_mode31.csv (per-virus within-CV mean 0.751; honest pooled ROC 0.712). |
 
 ---
 

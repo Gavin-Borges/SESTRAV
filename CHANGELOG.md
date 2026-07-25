@@ -10,13 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
-  "same-pathogen AUC-ROC 0.9368" reported for the b5ffe37 build was decoy-inflated - it only
+  "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
   if they were same-pathogen negatives - and is RETRACTED. Same-pathogen discrimination is now
   reported per-virus (within-CV mean AUC-ROC 0.751; `results/per_virus_eval_v5_mode31.csv`).
   The honest pooled same-pathogen ROC on real IEDB negatives is 0.712 (pooled AUC-PR is
   base-rate-inflated and not a headline). Self-proteome Gate 1 AUC-PR 0.8897 is unaffected.
-  The historical b5ffe37 entry below is left intact as the record of what was reported then;
+  The historical e6aafe2 entry below is left intact as the record of what was reported then;
   see `docs/claims_register.md` D12.
 - **Per-virus within-CV metrics regenerated (session 70, 2026-07-10)**: The committed
   `results/per_virus_eval_v5_mode31.{csv,json}` lagged the current 35,597-row v5 dataset and
@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   (0.561) now falls below the 0.58 Amendment-6 threshold. Leave-one-virus-out (LOO) figures are
   unchanged (mean 0.463; `results/loo_cross_virus_v5_clean.csv`). The earlier Amendment-6
   within-CV values (HPV 0.598, EBV 0.667) recorded below remain the accurate record for the
-  b5ffe37 snapshot at which they were achieved.
+  e6aafe2 snapshot at which they were achieved.
 - **v5 feature ablation added** (`models/v5/ablation/`, `models/v5/training_results_ablation.csv`):
   RF modes 21/31/33/35. Binding scores (mode 21->31) add +0.008 AUC-ROC / +0.015 AUC-PR; modes
   33 and 35 add nothing measurable. Confirms mode-31 as the production configuration.
@@ -99,7 +99,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Security
 - **Alert #51 (HIGH - Token-Permissions)**: Fixed - `dco.yml` top-level
-  `permissions: contents: read / pull-requests: read` added (commit `f99ae34`).
+  `permissions: contents: read / pull-requests: read` added (commit `eef10c7`).
 - **Alert #52 (MEDIUM - Pinned-Dependencies)**: Dismissed false positive - pip
   smoke-test install cannot be hash-pinned by design.
 - **Alert #50 (HIGH - Token-Permissions)**: Dismissed won't-fix - `contents: write`
