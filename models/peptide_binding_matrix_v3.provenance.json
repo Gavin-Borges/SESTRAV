@@ -16,6 +16,6 @@
   "peptide_count": 1004,
   "non_zero_values": 10040,
   "generated_at": "2026-06-18T22:23:29.061330Z",
-  "git_sha": "d855e30",
-  "note": "Regenerated from all-zeros placeholder (commit f360b90). Uses presentation_score from Class1PresentationPredictor."
+  "git_sha": null,
+  "note": "Regenerated from all-zeros placeholder (commit f360b90). Uses presentation_score from Class1PresentationPredictor. git_sha recorded the short HEAD at generation time; that object was destroyed when sign-offs were backfilled onto published history, and no copy of it survives in this repository, so the field is null rather than a guess. The verifiable pointer is the commit that added this matrix and sidecar: 37d1d67."
 }
