@@ -3,8 +3,8 @@
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights)
 - **Version:** SESTRAV v2.0.3 - **Current canonical production model.**
-- **Model file:** `models/rf_31feature_integrated.joblib`
-- **Provenance:** `models/rf_31feature_integrated_provenance.json`
+- **Model file:** `models/rf_31feature_integrated.joblib` - **not distributed with this repository.** `models/*.joblib` is gitignored (`.gitignore:301`), so a fresh clone contains no model binary; a reader obtains it by training locally with the command under [Provenance](#provenance) (see README, "Reproducibility and Data Provenance").
+- **Provenance:** `models/model_artifact_checksums.json` - records the SHA-256 digest and byte size of `rf_31feature_integrated.joblib`, so a locally trained binary can be compared against the reference build. See [Provenance](#provenance) below for the full record.
 - **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides for T-cell vaccine candidate triage.
 - **Input Features (31):**
   - 20 physicochemical features at TCR contact positions p4-p8 (hydrophobicity, aromaticity, Van der Waals volume, formal charge, flexibility, bulkiness, hydrophilicity, structural upward-facing probability proxy - 8 scales × 5 positions; zero-imputed at p7/p8 for 8-mers)
@@ -63,5 +63,6 @@
 - MHCflurry version: 2.2.1 (pinned in `config.yaml`)
 - Feature schema: `feature_mode=31`, `FEATURE_COLUMNS_31` in `src/features.py`
 - Training script: `src/train_classifier.py --data data/immunogenicity_dataset_v4.csv --binding-matrix models/peptide_binding_matrix_v4.csv --feature-mode 31` (unweighted; reproduces the canonical v4 OOF AUC-PR 0.7635 ± 0.0093). The v3 weighted production figure (0.828) used `--sample-weights`.
-- Dataset checksum: see `models/rf_31feature_integrated_provenance.json`
+- Artifact checksum: `models/model_artifact_checksums.json` (SHA-256 + byte size for `rf_31feature_integrated.joblib`; helpers in `src/artifact_integrity.py`)
+- Dataset checksum: none ships for v4. `data/immunogenicity_dataset_v4.csv` and `data/immunogenicity_dataset_v4_provenance.json` are both gitignored (`.gitignore:412-413`), so the v4 training corpus and its provenance sidecar are not distributed with this repository. What a reader can verify from a clone instead: the v4 schema (`data/immunogenicity_dataset_v4_schema.json`), the binding matrix and its sidecar (`models/peptide_binding_matrix_v4.csv`, `models/peptide_binding_matrix_v4.provenance.json`), and the committed v4 mode-31 metrics (`models/training_results_mode31.csv`, `models/rf_oof_predictions_mode31.csv`).
 - OpenSSF Passing badge: https://www.bestpractices.dev/en/projects/13191
