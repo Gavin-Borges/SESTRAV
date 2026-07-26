@@ -12,6 +12,7 @@
 .pytest_cache
 .pytest_tmp
 .pytest_tmp_new
+.pytest_tmp2
 tmp_pytest
 tests/
 .hypothesis/
