@@ -112,7 +112,7 @@ Full feature glossary and migration table: `docs/feature_glossary.md`.
 
 ### 2.3 Model architectures
 
-**Random Forest (canonical production track).** Scikit-learn `RandomForestClassifier` with 500 estimators, `max_features='sqrt'`, balanced class weights. Trained on `feature_mode=31` canonical feature matrix. Cross-validation: stratified 5-fold by virus and peptide length. Model provenance written to `models/rf_31feature_integrated_provenance.json`.
+**Random Forest (canonical production track).** Scikit-learn `RandomForestClassifier` with 500 estimators, `max_features='sqrt'`, balanced class weights. Trained on `feature_mode=31` canonical feature matrix. Cross-validation: stratified 5-fold by virus and peptide length. Each training run records the SHA-256 digest and byte size of the fitted `rf_31feature_integrated.joblib` artifact in `models/model_artifact_checksums.json` (written by `src/train_classifier.py` via `src/artifact_integrity.py`); the training corpus itself is pinned by the build-time sidecar `data/immunogenicity_dataset_v5_provenance.json`.
 
 **XGBoost (supplementary track).** `XGBClassifier` with `scale_pos_weight` set to inverse class ratio. Not the production scoring model; used for ensemble diversity in ablation comparisons.
 
