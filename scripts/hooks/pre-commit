@@ -85,7 +85,15 @@ CRED_PATTERNS=(
   'sk-ant-api[0-9A-Za-z_-]{20,}'   # Anthropic API key
   'sk-[a-zA-Z0-9]{48}'             # OpenAI API key
   'AIza[0-9A-Za-z_-]{35}'          # Google AI / Firebase key
-  'AKIA[0-9A-Z]{16}'               # AWS access key ID
+  # Boundary-anchored: protein FASTA uses the 20-letter amino-acid alphabet, a
+  # subset of [A-Z], so a bare 'PREFIX[0-9A-Z]{n}' rule collides with sequence
+  # data (the tracked corpus holds ~28.5k distinct 4-letter AA prefixes followed
+  # by 16+ uppercase chars). Requiring a non-alphanumeric neighbour on both sides
+  # keeps real 20-char key IDs while ignoring keys-shaped runs inside sequences.
+  # Pure POSIX ERE - no GNU \b, no lookaround - because this is grep -E.
+  # Anchoring is also what makes adding ASIA safe: unanchored it false-positives
+  # on DENV2_NGC_panel1.fasta:31 ("...FTDPASIAARGYISTRVEMGEAAGIF...").
+  '(^|[^0-9A-Za-z])(AKIA|ASIA)[0-9A-Z]{16}([^0-9A-Za-z]|$)'  # AWS access key ID / temp cred
   'ghp_[a-zA-Z0-9]{36}'            # GitHub personal access token
   'ghs_[a-zA-Z0-9]{36}'            # GitHub Actions token
   'xox[baprs]-[0-9A-Za-z-]{10,}'   # Slack token
