@@ -7,7 +7,7 @@
 # Why this exists: sign-offs were previously backfilled onto already-published
 # commits with `git rebase --signoff`. That rewrote every SHA in the rebased
 # range and silently orphaned the commit hashes cited across tracked docs
-# (17 dead citations, repaired 2026-07-24). Signing at commit time removes the
+# (20 dead citations, repaired 2026-07-24). Signing at commit time removes the
 # reason to ever backfill, which removes the rewrite, which removes the
 # orphaned-citation defect class at its source.
 #

@@ -98,7 +98,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `except (ValueError, IndexError)` with `# pragma: no cover`.
 
 ### Security
-- **Orphaned doc-cited commit SHAs (17 dead citations across 12 files)**: Fixed at
+- **Orphaned doc-cited commit SHAs (20 dead citations across 12 files)**: Fixed at
   the root cause - a prior `git rebase --signoff` backfill rewrote every SHA in
   the rebased range, silently breaking commit citations in tracked docs and
   provenance sidecars. Added a `prepare-commit-msg` hook that appends the DCO

@@ -6,7 +6,7 @@ Why this exists
 Sign-offs were once backfilled onto already-published commits with
 ``git rebase --signoff``. Every SHA in the rebased range changed, and the
 commit hashes cited across tracked documentation silently stopped resolving:
-17 dead citations across 12 files, undetected until 2026-07-24. A reader
+20 dead citations across 12 files, undetected until 2026-07-24. A reader
 auditing ``docs/paper.md`` got a hash that pointed at nothing.
 
 Nothing in CI could see that. This script closes the gap.
@@ -78,9 +78,35 @@ COMMIT_CONTEXT_RE = re.compile(
 # one. Docs legitimately record the pinned SHA of an upstream GitHub Action
 # (for example "Upgraded ossf/scorecard-action ... SHA pinned: <sha>"); those
 # objects do not exist here and must not be reported.
+#
+# Every alternative here suppresses an ENTIRE LINE before any SHA is examined,
+# so an over-broad alternative is a silent false negative in the one gate whose
+# job is catching dead citations. Each must therefore be anchored or qualified:
+#
+#   "action"    was unanchored, so it matched "interaction", "extraction",
+#               "fraction" and "reaction" - words that saturate an immunology
+#               repo. It suppressed 63 tracked doc lines; "\bactions?\b"
+#               suppresses 23 and still matches "actions/checkout" and
+#               "ossf/scorecard-action" ("-" is a word boundary).
+#   "pinned"    was word-anchored but is ordinary English here ("version-pinned
+#               dependencies", "MHCflurry 2.2.1 (pinned)"), suppressing 37
+#               lines. Requiring a sha/digest/commit/version/tag qualifier - or
+#               "pinned to/at/by" - drops that to 4 while still excluding
+#               docs/SCORECARD_REMEDIATION.md:102 ("SHA pinned: <sha>"), the
+#               only tracked line in the repo that depends on this rule.
+#   "upstream"  is not a substring of any other English word; the leading \b is
+#               belt-and-braces and changes nothing (15 lines either way).
 EXTERNAL_CONTEXT_RE = re.compile(
-    r"(uses:|action|upstream|third[- ]party|\bpinn?ed\b|[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@)",
-    re.IGNORECASE,
+    r"""(
+      uses:                                          # workflow step calling an action
+    | \bactions?\b                                   # actions/checkout, scorecard-action
+    | \bupstream                                     # upstream / upstreams / upstreamed
+    | third[- ]party
+    | \b(?:sha|digest|commit|version|tag)[- ]?pinn?ed\b
+    | \bpinn?ed\s+(?:to|at|by)\b
+    | [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@               # org/repo@<sha>
+    )""",
+    re.IGNORECASE | re.VERBOSE,
 )
 
 # Explicit per-line opt-out for anything the heuristics cannot classify.
