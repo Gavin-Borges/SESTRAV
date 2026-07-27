@@ -4,6 +4,7 @@
 # Gate 1 -- blocks staged files whose paths match sensitive categories
 # Gate 2 -- scans staged file content for known credential patterns
 # Gate 3 -- rejects em-dashes (U+2014) in staged file content
+# Gate 4 -- rejects hardcoded workstation absolute paths in staged content
 #
 # All gates read from the git index (staged content), not the working tree,
 # so they cannot be tricked by unstaged modifications to a file.
@@ -38,6 +39,9 @@ BLOCKED_PATTERNS=(
   '^\.antigravityrules'      # Antigravity rules file
   '^STATE\.md$'              # Session state file
   '^_local/'                 # Local workspace (entire subtree)
+  '^scratch/'                # Scratch workspace (gitignored; blocks `git add -f`)
+  '^dry-runs/'               # Throwaway pipeline runs (NOT gitignored - hook is the only gate)
+  '^results/trials/'         # Private/in-progress trial outputs, unlike published results/
   'SESSION_.*\.md$'          # Session note files
   '^NOTES\.md$'              # Personal notes
   '^SCRATCH'                 # Scratch files
@@ -57,7 +61,7 @@ gate1_failed=0
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   for pat in "${BLOCKED_PATTERNS[@]}"; do
-    if printf '%s' "$file" | grep -qE "$pat" 2>/dev/null; then
+    if printf '%s' "$file" | grep -qE -- "$pat" 2>/dev/null; then
       block "Staged file '$file' matches blocked pattern: $pat"
       block "  Correct action: move to _local/ then: git reset HEAD '$file'"
       gate1_failed=1
@@ -81,7 +85,15 @@ CRED_PATTERNS=(
   'sk-ant-api[0-9A-Za-z_-]{20,}'   # Anthropic API key
   'sk-[a-zA-Z0-9]{48}'             # OpenAI API key
   'AIza[0-9A-Za-z_-]{35}'          # Google AI / Firebase key
-  'AKIA[0-9A-Z]{16}'               # AWS access key ID
+  # Boundary-anchored: protein FASTA uses the 20-letter amino-acid alphabet, a
+  # subset of [A-Z], so a bare 'PREFIX[0-9A-Z]{n}' rule collides with sequence
+  # data (the tracked corpus holds ~28.5k distinct 4-letter AA prefixes followed
+  # by 16+ uppercase chars). Requiring a non-alphanumeric neighbour on both sides
+  # keeps real 20-char key IDs while ignoring keys-shaped runs inside sequences.
+  # Pure POSIX ERE - no GNU \b, no lookaround - because this is grep -E.
+  # Anchoring is also what makes adding ASIA safe: unanchored it false-positives
+  # on DENV2_NGC_panel1.fasta:31 ("...FTDPASIAARGYISTRVEMGEAAGIF...").
+  '(^|[^0-9A-Za-z])(AKIA|ASIA)[0-9A-Z]{16}([^0-9A-Za-z]|$)'  # AWS access key ID / temp cred
   'ghp_[a-zA-Z0-9]{36}'            # GitHub personal access token
   'ghs_[a-zA-Z0-9]{36}'            # GitHub Actions token
   'xox[baprs]-[0-9A-Za-z-]{10,}'   # Slack token
@@ -97,7 +109,10 @@ while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   staged_content=$(git show ":${file}" 2>/dev/null) || continue
   for pat in "${CRED_PATTERNS[@]}"; do
-    if printf '%s' "$staged_content" | grep -qE "$pat" 2>/dev/null; then
+    # '--' is REQUIRED: the PEM pattern begins with '-----', which grep would
+    # otherwise parse as an option bundle, exit 2, and (with stderr suppressed)
+    # silently never match - letting private keys through this gate entirely.
+    if printf '%s' "$staged_content" | grep -qE -- "$pat" 2>/dev/null; then
       block "Credential pattern '$pat' detected in staged '$file'"
       block "  Remove the secret, then re-stage: git add '$file'"
       gate2_failed=1
@@ -147,6 +162,85 @@ if [[ $gate3_failed -ne 0 ]]; then
   printf '\n' >&2
   printf '%s\n' "  Em-dashes (U+2014) are banned from this repository." >&2
   printf '%s\n' "  Use ASCII hyphens ('-') or spaced hyphens (' - ') throughout." >&2
+  exit 1
+fi
+
+# ---- Gate 4: Hardcoded workstation path scan --------------------------------
+# Blocks machine-specific absolute paths (a privacy leak: they publish the
+# maintainer's username and directory layout). Reads staged content from the
+# index, like Gates 2 and 3.
+#
+# Covers all four workstation path forms (see the patterns below):
+#   1. Windows drive-letter profile root, with either separator
+#   2. WSL drive mount under /mnt/<drive>
+#   3. macOS / bare POSIX profile root
+#   4. Linux home root, minus the CI/container accounts allowlisted below
+#
+# Two deliberate spelling choices keep this file clean under its own gates:
+#   - the profile-root directory name is written as "[U]sers", so these patterns
+#     never match their own source text and no self-exemption (a blind spot) is
+#     needed here;
+#   - the comments above avoid spelling out literal example paths, which the
+#     CI gate in .github/workflows/pii_scan.yml would flag on sight.
+#
+# CI, container, and devcontainer accounts are legitimate in Dockerfiles and
+# workflows, so /home/<those> is allowed.
+
+WORKSTATION_PATTERNS=(
+  '[A-Za-z]:[/\]+[U]sers[/\]+[A-Za-z0-9_.-]+'      # drive-letter, either separator
+  '/mnt/[a-z]/[U]sers/[A-Za-z0-9_.-]+'             # WSL mount
+  '(^|[^A-Za-z0-9_.-])/[U]sers/[A-Za-z0-9_.-]+'    # macOS / bare POSIX
+)
+HOME_PATTERN='/home/[A-Za-z0-9_.-]+'
+HOME_ALLOWLIST='/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])'
+
+# Exact repo-relative paths where an example workstation path is legitimately
+# quoted. Matched with string equality, never as a substring, so a file merely
+# containing one of these names (e.g. "docs/notes_CHANGELOG.md") cannot inherit
+# the exemption.
+PATH_SCAN_EXEMPT=(
+  'CHANGELOG.md'             # documents the historical path-cleanup, quoting an example
+)
+
+gate4_failed=0
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+
+  exempt=0
+  for allowed in "${PATH_SCAN_EXEMPT[@]}"; do
+    if [[ "$file" == "$allowed" ]]; then
+      exempt=1
+      break
+    fi
+  done
+  [[ $exempt -eq 1 ]] && continue
+
+  staged_content=$(git show ":${file}" 2>/dev/null) || continue
+
+  for pat in "${WORKSTATION_PATTERNS[@]}"; do
+    if printf '%s' "$staged_content" | grep -qE -- "$pat" 2>/dev/null; then
+      block "Hardcoded workstation path detected in staged '$file'"
+      block "  Matched pattern: $pat"
+      gate4_failed=1
+      break
+    fi
+  done
+
+  # Linux home paths: flag any /home/<user> that is not a known CI/container account.
+  if printf '%s' "$staged_content" | grep -E -- "$HOME_PATTERN" 2>/dev/null \
+      | grep -qvE -- "$HOME_ALLOWLIST" 2>/dev/null; then
+    block "Hardcoded Linux home path detected in staged '$file'"
+    gate4_failed=1
+  fi
+done <<< "$STAGED"
+
+if [[ $gate4_failed -ne 0 ]]; then
+  printf '\n' >&2
+  printf '%s\n' "  Machine-specific absolute paths must not be committed: they leak the" >&2
+  printf '%s\n' "  maintainer's username and local directory layout, and they break on" >&2
+  printf '%s\n' "  other hosts. Use a relative path, pathlib, or a configurable root:" >&2
+  printf '%s\n' "    Path(__file__).resolve().parents[1] / 'data'" >&2
+  printf '%s\n' "    p.relative_to(repo_root).as_posix()" >&2
   exit 1
 fi
 
