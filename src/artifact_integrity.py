@@ -108,17 +108,28 @@ def verify_artifact_checksum(
             )
         return False
 
-    keys = []
+    # An artifact is only ever matched against its canonical manifest-relative key.
+    # Basenames are not unique across the repo (models/, models/v5/ and
+    # models/allele_aware/ all carry files with identical names but different
+    # contents), so any bare-filename fallback would let one artifact be checked
+    # against another artifact's digest. There is no safe fallback: fail closed.
+    key: str | None
     try:
-        keys.append(_manifest_key(artifact, manifest))
+        key = _manifest_key(artifact, manifest)
     except ValueError:
-        pass
-    keys.append(artifact.name)
-    entry = next((artifacts[key] for key in keys if key in artifacts), None)
+        key = None
+
+    entry = artifacts.get(key) if key is not None else None
     if entry is None:
         if required:
+            if key is None:
+                raise ArtifactIntegrityError(
+                    f"Artifact '{artifact}' lies outside the directory of manifest "
+                    f"'{manifest}', so no entry in it can describe this artifact."
+                )
             raise ArtifactIntegrityError(
-                f"No checksum entry found for '{artifact}' in manifest '{manifest}'."
+                f"No checksum entry found for '{artifact}' in manifest '{manifest}' "
+                f"(expected key '{key}')."
             )
         return False
 
