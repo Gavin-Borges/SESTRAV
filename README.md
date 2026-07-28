@@ -307,6 +307,7 @@ Models must be trained before production pipeline execution:
 # Canonical 31-feature track (recommended)
 python -m src.train_classifier \
   --data data/immunogenicity_dataset_v5.csv \
+  --model-dir models/local \
   --feature-mode 31 \
   --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights
@@ -314,11 +315,21 @@ python -m src.train_classifier \
 # CLI equivalent
 sestrav validate \
   --dataset data/immunogenicity_dataset_v5.csv \
+  --model-dir models/local \
   --feature-mode 31 \
   --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights \
   --report results/validation_report_v5.md
 ```
+
+`--model-dir` is required and has no default for both `src.train_classifier` and
+`sestrav validate` (which retrains, so it writes the same artifact set). A run
+aborts before training if it would replace artifacts that already exist in the
+target directory; add `--allow-overwrite` when replacing them is the intent. This
+is what keeps a local retrain from rewriting the published metric files under
+`models/` (see `docs/model_cards/rf_31feature_integrated.md` for the incident that
+motivated it). `models/local/` is gitignored. Point `model_path` in `config.yaml`
+at your local build to run the pipeline against it.
 
 *Note:* Without trained models, the pipeline falls back to a prototype mode using binding-derived pseudo-labels (for testing only; not scientifically valid).
 
@@ -382,6 +393,7 @@ The Docker image does **not** include trained models. Build and then train:
 docker build -t sestrav:latest .
 docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
   -m src.train_classifier --data data/immunogenicity_dataset_v5.csv \
+  --model-dir models/local \
   --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 

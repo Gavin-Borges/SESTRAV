@@ -18,9 +18,14 @@ Evaluation uses stratified 5-fold cross-validation on the full training pool
 for reliable metric estimates, then retrains on the full pool for the final
 serialized model.
 
+--model-dir is required and existing artifacts there are never replaced unless
+--allow-overwrite is given, so a run cannot silently rewrite published metrics.
+
 Usage:
-    python -m src.train_classifier --data immunogenicity_dataset.csv
     python -m src.train_classifier --data immunogenicity_dataset.csv \\
+        --model-dir models/scratch/mode21
+    python -m src.train_classifier --data immunogenicity_dataset.csv \\
+        --model-dir models/scratch/mode30 \\
         --feature-mode 30 --binding-matrix models/peptide_binding_matrix.csv
 """
 
@@ -437,9 +442,55 @@ def _filter_quarantined(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _artifact_stems(feature_mode: int | str) -> tuple[str, str]:
+    """Return the (rf, xgb) filename stems written for a feature mode."""
+    if feature_mode == 21:
+        return "rf_21feature_legacy", "xgb_21feature_legacy"
+    if feature_mode == 166:
+        return "rf_166feature_allele_aware", "xgb_166feature_allele_aware"
+    return f"rf_{feature_mode}feature_integrated", f"xgb_{feature_mode}feature_integrated"
+
+
+def planned_artifact_paths(model_dir: str, feature_mode: int | str) -> list[str]:
+    """Every path a train_models run writes wholesale into model_dir.
+
+    Excludes the checksum manifest, which is upserted rather than replaced.
+    """
+    rf_stem, xgb_stem = _artifact_stems(feature_mode)
+    names = [
+        f"{rf_stem}.joblib",
+        f"{xgb_stem}.joblib",
+        "training_results.csv",
+        f"training_results_mode{feature_mode}.csv",
+        "training_subgroup_metrics.csv",
+        "feature_importances.csv",
+        "rf_oof_predictions.csv",
+        f"rf_oof_predictions_mode{feature_mode}.csv",
+        "optimal_thresholds.json",
+    ]
+    return [os.path.join(model_dir, name) for name in names]
+
+
+def _guard_output_dir(model_dir: str, feature_mode: int | str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [p for p in planned_artifact_paths(model_dir, feature_mode) if os.path.isfile(p)]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{model_dir}':\n  "
+        f"{listing}\n"
+        "These may be published results. Point --model-dir at a fresh directory "
+        "(for example models/scratch/<run-name>), or pass --allow-overwrite "
+        "(train_models(..., allow_overwrite=True)) to replace them deliberately."
+    )
+
+
 def train_models(
     data_path,
-    model_dir="models",
+    model_dir: str,
     n_cv_folds=5,
     random_state=42,
     feature_mode=21,
@@ -448,6 +499,7 @@ def train_models(
     self_similarity_cache_path=None,
     use_sample_weights=False,
     use_lopo=False,
+    allow_overwrite: bool = False,
 ):
     """
     Full training pipeline:
@@ -459,7 +511,17 @@ def train_models(
        (optionally with EBV/HPV16 and 9-mer/non-9-mer sample weights)
     6. Retrain on full pool with class-imbalance handling
     7. Serialize final models
+
+    model_dir has no default: the destination of a training run must be a
+    deliberate choice. Existing artifacts there are never replaced unless
+    allow_overwrite is True.
     """
+    try:
+        feature_mode = int(feature_mode)
+    except (ValueError, TypeError):
+        pass
+
+    _guard_output_dir(model_dir, feature_mode, allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
 
     df = pd.read_csv(data_path)
@@ -494,11 +556,6 @@ def train_models(
     train_pool = df[~gs_mask].copy()
     print(f"Held out {len(gold_standard_df)} gold-standard epitope records")
     print(f"Training pool: {len(train_pool)} records")
-
-    try:
-        feature_mode = int(feature_mode)
-    except (ValueError, TypeError):
-        pass
 
     if feature_mode == 166:
         if binding_matrix_path is None:
@@ -665,15 +722,7 @@ def train_models(
     print("Retraining final models on full training pool...")
     print(f"{'=' * 60}")
 
-    if feature_mode == 21:
-        rf_stem = "rf_21feature_legacy"
-        xgb_stem = "xgb_21feature_legacy"
-    elif feature_mode == 166:
-        rf_stem = "rf_166feature_allele_aware"
-        xgb_stem = "xgb_166feature_allele_aware"
-    else:
-        rf_stem = f"rf_{feature_mode}feature_integrated"
-        xgb_stem = f"xgb_{feature_mode}feature_integrated"
+    rf_stem, xgb_stem = _artifact_stems(feature_mode)
 
     rf_final = RandomForestClassifier(**rf_kwargs)
     rf_final.fit(X, y)
@@ -740,7 +789,7 @@ def train_models(
         rf_oof_out.to_csv(
             os.path.join(model_dir, f"rf_oof_predictions_mode{feature_mode}.csv"), index=False
         )
-        threshold_payload = pick_operating_threshold(
+        threshold_payload: dict = pick_operating_threshold(
             rf_oof_out,
             score_col="score",
             label_col="label",
@@ -779,7 +828,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train SESTRAV immunogenicity classifiers")
     parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
     parser.add_argument(
-        "--model-dir", default="models", help="Output directory for serialized models"
+        "--model-dir",
+        required=True,
+        help="Output directory for serialized models and metrics. No default: pass "
+        "models/ only when you intend to replace the published artifacts, otherwise "
+        "use a scratch directory",
     )
     parser.add_argument("--cv-folds", type=int, default=5, help="Number of CV folds (default: 5)")
     parser.add_argument(
@@ -820,6 +873,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Perform Leave-One-Protein-Out (LOPO) cross-validation instead of StratifiedKFold",
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace training artifacts that already exist in --model-dir "
+        "(without this the run aborts before training)",
+    )
     args = parser.parse_args()
 
     # Input validation
@@ -842,4 +901,5 @@ if __name__ == "__main__":
         self_similarity_cache_path=args.self_similarity_cache,
         use_sample_weights=args.sample_weights,
         use_lopo=args.lopo,
+        allow_overwrite=args.allow_overwrite,
     )

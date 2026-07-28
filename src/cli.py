@@ -212,6 +212,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         feature_mode=int(feature_mode) if feature_mode.isdigit() else feature_mode,
         binding_matrix_path=binding_matrix,
         use_sample_weights=args.sample_weights,
+        allow_overwrite=args.allow_overwrite,
     )
 
     report = {
@@ -352,11 +353,22 @@ def _build_validate_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to peptide binding matrix CSV (required for mode 30+)",
     )
-    p.add_argument("--model-dir", default="models", help="Directory to write trained models")
+    p.add_argument(
+        "--model-dir",
+        required=True,
+        help="Directory to write trained models and metrics. No default: pass "
+        "models/ only when you intend to replace the published artifacts, otherwise "
+        "use a scratch directory such as models/local",
+    )
     p.add_argument("--folds", type=int, default=5, help="CV folds (default: 5)")
     p.add_argument("--feature-mode", type=str, default=None, help="Feature mode override")
     p.add_argument(
         "--sample-weights", action="store_true", help="Apply bias-correction sample weights"
+    )
+    p.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace training artifacts that already exist in --model-dir",
     )
     p.add_argument("--report", default=None, help="Path to write markdown validation report")
     return p
@@ -398,7 +410,7 @@ Subcommands:
 Examples:
   sestrav info
   sestrav predict --fasta data/proteomes/EBV_B95_8_panel8.fasta --model models/rf_31feature_integrated.joblib --output results/ebv_run/
-  sestrav validate --dataset data/immunogenicity_dataset_v4.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v4.csv
+  sestrav validate --dataset data/immunogenicity_dataset_v5.csv --model-dir models/local --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
   sestrav benchmark --predictions results/ebv_run/EBV_B95_8_panel8_ranked.csv
 """,
     )
@@ -438,7 +450,11 @@ Examples:
         "--binding-matrix", default=None, help="Binding matrix CSV (required for mode 30+)"
     )
     p_validate.add_argument(
-        "--model-dir", default="models", help="Output directory for trained models"
+        "--model-dir",
+        required=True,
+        help="Output directory for trained models and metrics. No default: pass "
+        "models/ only when you intend to replace the published artifacts, otherwise "
+        "use a scratch directory such as models/local",
     )
     p_validate.add_argument("--folds", type=int, default=5, help="Number of CV folds (default: 5)")
     p_validate.add_argument("--feature-mode", type=str, default=None, help="Feature mode override")
@@ -446,6 +462,11 @@ Examples:
         "--sample-weights",
         action="store_true",
         help="Apply EBV/HPV16 and 9-mer bias-correction weights",
+    )
+    p_validate.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace training artifacts that already exist in --model-dir",
     )
     p_validate.add_argument(
         "--report", default=None, help="Path to write markdown validation report"

@@ -9,6 +9,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Changed
+- **Training runs can no longer silently overwrite published artifacts** (breaking CLI change):
+  `src/train_classifier.py` defaulted `--model-dir` (and `train_models(model_dir=...)`) to the
+  production `models/` directory, which is how the v5 retrain overwrote
+  `models/training_results_mode31.csv` and `models/rf_oof_predictions_mode31.csv` in place and
+  left v4 metrics quoted against v5 files. `--model-dir` is now required with no default on
+  `python -m src.train_classifier`, `sestrav validate`, and `python -m
+  src.bias_skew_finalization` (all three retrain and write the same tracked release-artifact set
+  through `train_models`), and `train_models` aborts before training (`FileExistsError`, listing
+  the offending paths) if any artifact it would write already exists, unless
+  `--allow-overwrite` / `allow_overwrite=True` is passed. The checksum manifest is exempt from
+  the guard because it is upserted, not replaced. Callers that used to train into `models/` now
+  target their own directories: `scripts/regenerate_shareout_pngs.py` retrains into
+  `models/shareout_20260426_retrain/`, and `notebooks/SESTRAV_Colab_Pipeline.py` trains into
+  `models/scratch/colab_v3_mode30/` (a Colab run clones this repository, so the tracked mode-30
+  artifacts are already on disk and the old `models/` target would now abort on the guard; the
+  notebook's `train_ann` and `run_ablation` cells were retargeted alongside it so they keep
+  writing into the same scratch directory rather than back into `models/`). The `sestrav --help`
+  usage example and every documented invocation of these three commands now include
+  `--model-dir`. Per-mode artifact filenames and all training math are unchanged.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
