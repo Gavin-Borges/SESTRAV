@@ -134,7 +134,7 @@ Notes:
     with `pip download` + `pip hash` and are deliberately not managed here.
 
 Known blocker: the 'runtime' and 'lock' specs do not resolve today. They floor
-setuptools>=83 for GHSA-h35f-9h28-mq5c while torch 2.12.0 declares
+setuptools==83.0.0 for GHSA-h35f-9h28-mq5c while torch 2.12.0 declares
 setuptools<82, so any resolver returns ResolutionImpossible. Those two files are
 currently hand-maintained. Resolve the conflict (see
 environments/requirements-lock.in) before relying on --all.

@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Dependency-update tooling** (`tools/update_dependencies.py`): CLI wrapper around
   `uv pip compile` that encodes the per-lockfile conventions (interpreter version,
   `--generate-hashes`, `--no-emit-index-url`, pip-compile's unsafe-package handling)
-  for all 10 `.in`-sourced manifests. Always resolves for `--python-platform linux`
+  for all 10 `.in`-sourced manifests. Defaults to `--python-platform linux`
   so a lockfile compiled on a Windows workstation matches the Ubuntu CI runners.
   Supports `--target <pkg>` (single-package bump), `--ci-env <name>` and `--all`.
 - **Hash-pin CI gate** (`tools/check_hash_pins.py`, wired into the `lint` job): fails the
