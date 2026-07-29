@@ -21,7 +21,8 @@ try:
     import torch
 except ImportError as _e:
     raise ImportError(
-        "torch is required for sestrav_evaluator. Install with: pip install -r requirements-gnn.txt"
+        "torch is required for sestrav_evaluator. It is pinned in requirements.txt; "
+        "install with: pip install --no-deps --require-hashes -r requirements.txt"
     ) from _e
 
 # Setup logging

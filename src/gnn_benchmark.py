@@ -23,7 +23,7 @@ Note: GNNs underperform the tabular RF (AUC-PR=0.8102) and ANN
 (AUC-PR=0.8252) on this dataset.  Included as an exploratory benchmark
 to characterize the representation space, not as a production classifier.
 
-Requires: pip install -r requirements-gnn.txt
+Requires: pip install ".[gnn]"
 
 Usage:
     python -m src.gnn_benchmark --data immunogenicity_dataset.csv
@@ -404,7 +404,7 @@ def run_gnn_cv(
     if not HAS_PYG:
         raise ImportError(
             "torch_geometric is required for GNN benchmark. "
-            "Install with: pip install -r requirements-gnn.txt"
+            'Install with: pip install ".[gnn]"'
         )
 
     if device is None:
@@ -612,7 +612,7 @@ def main():
 
     if not HAS_PYG:
         print("ERROR: torch_geometric not installed.")
-        print("Install with: pip install -r requirements-gnn.txt")
+        print('Install with: pip install ".[gnn]"')
         return
 
     set_seeds(SEED)

@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Removed
+- **`requirements-ann.txt` and `requirements-gnn.txt` retired** - both were broken installs and
+  almost entirely redundant. Each began with `-r requirements.txt`, which is fully hash-pinned,
+  and then added unhashed pins; pip turns on `--require-hashes` automatically as soon as any
+  requirement carries a hash, so `pip install -r requirements-ann.txt` failed with "Hashes are
+  required in --require-hashes mode" - the same defect class as the README install command
+  repaired in #177. The pins they added were redundant anyway: `torch==2.12.0` and
+  `torch-geometric==2.7.0` are already pinned and hashed in `requirements.txt`, leaving only
+  `transformers`, which `pyproject.toml`'s existing `[gnn]` extra already declares. Callers now
+  point at the two paths that work: the base install for `src/ann_benchmark.py` and
+  `src/verify/sestrav_evaluator.py` (which need only what `requirements.txt` already pins -
+  note the evaluator's non-mock scoring path also uses `torch_geometric`, which the base
+  install supplies), and `pip install ".[gnn]"` for
+  `src/gnn_benchmark.py` (which needs `torch_geometric`) - the command README already
+  recommended for the GNN track. Updated `README.md`, `docs/nn_gnn_optional_module_guide.md`,
+  3 messages in `src/gnn_benchmark.py`, and 1 in `src/verify/sestrav_evaluator.py`.
+
 ### Changed
 - **Training runs can no longer silently overwrite published artifacts** (breaking CLI change):
   `src/train_classifier.py` defaulted `--model-dir` (and `train_models(model_dir=...)`) to the
