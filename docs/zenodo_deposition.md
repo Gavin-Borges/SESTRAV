@@ -1,12 +1,17 @@
 # Zenodo Dataset Deposition - SESTRAV Immunogenicity Dataset v5
 
 This is a ready-to-use record for minting the dataset DOI referenced in the manuscript
-(§5 Availability). The dataset CSV is intentionally **not** tracked in Git, so the DOI is a
+(Data Availability section). The dataset CSV is intentionally **not** tracked in Git, so the DOI is a
 **standalone Zenodo dataset deposition** (manual upload), not a GitHub-release archive.
 
 **What remains manual (lead maintainer):** create the Zenodo deposition under the project
 account, upload the three files below, paste the metadata, confirm the license, and publish.
-Then replace the DOI placeholder in `docs/paper.md` §5 and this file's header.
+Then replace the DOI placeholder in `docs/paper.md` Data Availability section and this file's header.
+
+*Note (2026-07-28): `docs/paper.md` was fully replaced with the Bioinformatics-format
+manuscript. Its DOI placeholder now reads `[PLACEHOLDER - reserve and paste before
+submission]` inside the Data Availability section (previously a bare `10.5281/zenodo.XXXXXXX`
+in a numbered `## 5. Availability` section) - same open item, new location and wording.*
 
 > **DOI:** `10.5281/zenodo.XXXXXXX` *(to be minted on publication)*
 
@@ -70,7 +75,8 @@ EOF
 
 ## 3. Post-publish checklist
 
-- [ ] DOI minted; replace `10.5281/zenodo.XXXXXXX` in this file and `docs/paper.md` §5.
+- [ ] DOI minted; replace `10.5281/zenodo.XXXXXXX` in this file and the `[PLACEHOLDER - reserve
+      and paste before submission]` in `docs/paper.md` Data Availability section.
 - [ ] Add the DOI badge to `README.md`.
 - [ ] Add `cff-version` `identifiers:` entry (DOI) to `CITATION.cff`.
 - [ ] If using a Zenodo *concept* DOI, cite the concept DOI in the paper (resolves to latest version).
