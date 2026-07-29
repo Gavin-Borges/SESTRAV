@@ -278,7 +278,7 @@ mhcflurry-downloads fetch models_class1_presentation
 ```bash
 python -m venv .venv
 source .venv/bin/activate      # Linux/macOS
-pip install -r requirements.txt
+pip install --no-deps --require-hashes -r requirements.txt
 pip install snakemake
 mhcflurry-downloads fetch models_class1_presentation
 ```
