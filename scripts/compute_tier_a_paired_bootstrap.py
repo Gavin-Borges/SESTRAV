@@ -9,8 +9,14 @@ Two comparisons are reported:
   rf_vs_binding_only  SESTRAV RF - MHCflurry base  (significant; CI excludes 0)
 
 Metric is average precision (AUC-PR), matching results/table3_tier_a_metrics.csv.
-The bootstrap is seeded (seed=20260719) so the CI/p-value are reproducible. Full-set
-sanity AP must reproduce table3 (RF 0.8278, BigMHC 0.8218).
+The bootstrap is seeded (seed=20260719) so the CI/p-value are reproducible. RF's AP
+on this paired subset reproduces table3's full-set value exactly (0.8278) since RF
+has no missing scores. BigMHC's AP on this subset does NOT reproduce its table3
+full-set value: pairing to RF's out-of-fold scores drops 16 label=1 peptides where
+rf_oof_score is NaN in results/external_validation_merged_scores.csv, shifting
+BigMHC's own AP from table3's 0.8218 (n=720, full set) down to 0.8100 (n=704, the
+paired subset used here). This is a real subset-size effect, not rounding noise;
+the delta/p-value below are computed correctly on the matched n=704 pairs.
 
 Inputs (committed):
   results/external_validation_merged_scores.csv  (peptide,label,rf_oof_score,binding_max)
