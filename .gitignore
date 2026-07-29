@@ -281,6 +281,9 @@ results/*
 !results/per_virus_eval_v5_mode31.csv
 # v5 HLA population coverage (M16 deliverable)
 !results/population_coverage_v5.json
+# H0 statistic promotion (session 85/86 manuscript stats, harness-bound session 2026-07-28)
+!results/loo_binding_confound_decomposition.csv
+!results/tier_a_paired_bootstrap.csv
 release_artifacts/
 *.pyc
 __pycache__/
