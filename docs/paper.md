@@ -15,10 +15,13 @@ is necessary but not sufficient for T-cell activation, yet no published
 immunogenicity predictor has reported a systematic leave-one-pathogen-out (LOO)
 benchmark evaluating cross-virus transfer on assay-confirmed test negatives
 exclusively. SESTRAV trains a Random Forest on 35,597 quality-filtered
-peptide-HLA pairs from nine human-pathogenic viruses, combining 20
-physicochemical descriptors at predicted TCR-contact positions (p4-p8) with
-allele-stratified MHCflurry 2.0 presentation scores; an edge-conditioned graph
-convolutional network with ESM-2 embeddings is a research component. We identify
+peptide-HLA pairs - 13,358 from nine human-pathogenic target viruses plus 22,239
+real IEDB-confirmed negative-background pairs from additional non-target species,
+dominated by Orthopoxvirus vaccinia (21,432 pairs, 60.2% of the active pool) -
+combining 20 physicochemical descriptors at predicted TCR-contact positions
+(p4-p8) with allele-stratified MHCflurry 2.0 presentation scores; an
+edge-conditioned graph convolutional network with ESM-2 embeddings is a research
+component. We identify
 and correct a systematic LOO test partition flaw in which allelotype-matched
 non-binding proteome decoys inflate AUC-ROC by 0.25-0.50 points for affected
 viruses, and report results restricted to real IEDB-confirmed negatives. Under
@@ -83,9 +86,11 @@ evaluated solely on that pathogen's labelled data.
 
 Here we present SESTRAV (Structural Epitope Scoring via TCR Recognition and
 Vaccinology), a computational workflow for MHC class I CD8+ T-cell immunogenicity
-prediction. SESTRAV was trained on labelled data for nine human-pathogenic viruses
-drawn from the Immune Epitope Database (IEDB; [1]), VDJdb, and the Los
-Alamos National Laboratory HIV molecular immunology database. The production model
+prediction. SESTRAV was trained on labelled data for nine human-pathogenic target
+viruses, augmented with a real IEDB-confirmed negative background from additional
+non-target species quantified in Section 2.1, drawn from the Immune Epitope
+Database (IEDB; [1]), VDJdb, and the Los Alamos National Laboratory HIV molecular
+immunology database. The production model
 integrates physicochemical descriptors at TCR-contacting residue positions with
 allele-stratified MHC presentation scores from MHCflurry 2.0 [7];
 a custom edge-conditioned graph convolutional network incorporating ESM-2 per-residue
@@ -150,7 +155,11 @@ human papillomavirus (HPV; serotypes HPV16 and HPV18 normalised to a single HPV 
 with strain annotation), influenza A virus (IAV), and SARS-CoV-2. Coverage was
 restricted to ten HLA class I alleles representing common population-level supertypes:
 HLA-A*01:01, HLA-A*02:01, HLA-A*03:01, HLA-A*11:01, HLA-A*24:02, HLA-B*07:02,
-HLA-B*08:01, HLA-B*27:05, HLA-B*35:01, and HLA-B*44:02.
+HLA-B*08:01, HLA-B*27:05, HLA-B*35:01, and HLA-B*44:02. These nine viruses are the
+target pathogens curated for positive evidence and evaluated in the within-virus
+and leave-one-virus-out benchmarks (Sections 3.2-3.4); the active training pool
+additionally includes real IEDB-confirmed negative-background records from
+non-target species, quantified below.
 
 Confirmed negatives were sourced from IEDB T-cell assay records with a negative
 qualitative measurement outcome. To address class imbalance for viruses with a
@@ -184,6 +193,19 @@ fewer than 10 confirmed-negative assay records from model training, preventing p
 supported species from biasing learned representations. The resulting v5 dataset
 comprised 51,185 total rows, of which 35,597 remained active after quarantine
 filtering, with a canonical allele rate of 96.8%.
+
+Of these 35,597 active rows, 13,358 (37.5%) are peptide-HLA pairs from the nine
+target viruses listed above; the remaining 22,239 (62.5%) are real IEDB-confirmed
+records from additional, non-target species retained as negative-class background
+rather than as evaluated pathogens. This background is dominated by Orthopoxvirus
+vaccinia (21,432 rows, 60.2% of the active pool; entirely tested-negative assay
+records, not synthetic decoys), with smaller contributions from six further species
+(human betaherpesvirus 6B, yellow fever virus, respiratory syncytial virus, Lassa
+virus, coxsackievirus B, and Zika virus; 807 rows combined, 2.3% of the active pool,
+overwhelmingly negative-labelled with 18 positive-labelled exceptions across three
+of the six). None of these non-target species is included in the leave-one-virus-out
+evaluation (Section 2.5) or the per-virus tables in Section 3; they contribute only
+to the pooled within-CV background reported in Section 3.2.
 
 Population coverage of the ten-allele panel was estimated from allele frequencies
 in the Allele Frequency Net Database (AFND; [24]) across the five WHO super-populations
