@@ -50,6 +50,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   33 and 35 add nothing measurable. Confirms mode-31 as the production configuration.
 
 ### Added
+- **Dependency-update tooling** (`tools/update_dependencies.py`): CLI wrapper around
+  `uv pip compile` that encodes the per-lockfile conventions (interpreter version,
+  `--generate-hashes`, `--no-emit-index-url`, pip-compile's unsafe-package handling)
+  for all 10 `.in`-sourced manifests. Defaults to `--python-platform linux`
+  so a lockfile compiled on a Windows workstation matches the Ubuntu CI runners.
+  Supports `--target <pkg>` (single-package bump), `--ci-env <name>` and `--all`.
+- **Hash-pin CI gate** (`tools/check_hash_pins.py`, wired into the `lint` job): fails the
+  build if any requirement in `requirements.txt` or `environments/requirements-ci-*.txt`
+  is missing a `--hash=`, instead of waiting for a `pip --require-hashes` install to
+  discover it. Skips comments, `-r`/`-c` includes and option lines, and joins backslash
+  continuations so multi-line pip-compile entries are evaluated as one requirement.
 - **v5 dataset (31,999 active rows / 46,386 total)**: Rebuilt from merged IEDB API negatives
   pipeline. Key numbers: 36,689 IEDB viral negatives, 4,219 net-new experimentally confirmed
   non-immunogenic peptides added via `scripts/merge_iedb_api_negatives.py` (bridges Pipeline A
