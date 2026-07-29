@@ -22,6 +22,14 @@ jobs:
           python-version: "3.13"
           cache: 'pip'
 
+      - name: Verify every requirement is hash-pinned
+        # Guards the OpenSSF Scorecard Pinned-Dependencies contract. Every install
+        # path uses `pip install --require-hashes`, which fails at install time if a
+        # single requirement lacks a hash; this stdlib-only check catches it up front
+        # and covers manifests no job happens to install. Regenerate lockfiles with
+        # tools/update_dependencies.py.
+        run: python tools/check_hash_pins.py
+
       - name: Install Ruff
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
         #   pip-compile --generate-hashes environments/requirements-ci-ruff.in \

@@ -64,11 +64,12 @@ def _gate_status(
 
 def run_bias_skew_finalization(
     source_data_dir: str,
+    model_dir: str,
     data_csv: str = "data/immunogenicity_dataset_v4.csv",
-    model_dir: str = "models",
     results_dir: str = "results",
     feature_mode: int = 30,
     binding_matrix_path: str = "models/peptide_binding_matrix_v4.csv",
+    allow_overwrite: bool = False,
 ) -> str:
     """Execute the full finalization pipeline and return release summary path."""
     os.makedirs(model_dir, exist_ok=True)
@@ -98,6 +99,7 @@ def run_bias_skew_finalization(
         random_state=42,
         feature_mode=feature_mode,
         binding_matrix_path=binding_matrix_path if feature_mode == 30 else None,
+        allow_overwrite=allow_overwrite,
     )
     train_ann(
         data_path=data_csv,
@@ -177,10 +179,21 @@ if __name__ == "__main__":
         help="Path to raw IEDB source files used for refresh",
     )
     parser.add_argument("--data-csv", default="data/immunogenicity_dataset_v4.csv")
-    parser.add_argument("--model-dir", default="models")
+    parser.add_argument(
+        "--model-dir",
+        required=True,
+        help="Directory to write trained models and metrics. No default: this "
+        "pipeline writes the same tracked release-artifact set as train_classifier.py "
+        "and sestrav validate, so it refuses to guess a destination.",
+    )
     parser.add_argument("--results-dir", default="results")
     parser.add_argument("--feature-mode", type=int, default=30, choices=[21, 30])
     parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace training artifacts that already exist in --model-dir",
+    )
     args = parser.parse_args()
 
     out = run_bias_skew_finalization(
@@ -190,5 +203,6 @@ if __name__ == "__main__":
         results_dir=args.results_dir,
         feature_mode=args.feature_mode,
         binding_matrix_path=args.binding_matrix,
+        allow_overwrite=args.allow_overwrite,
     )
     print(f"Release summary written to: {out}")

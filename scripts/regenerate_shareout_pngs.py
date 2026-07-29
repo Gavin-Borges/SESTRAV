@@ -23,6 +23,9 @@ sys.path.insert(0, os.getcwd())
 SHAREOUT_DIR = os.path.join("results", "shareout_20260426")
 RESULTS_DIR = "results"
 MODEL_DIR = "models"
+# The step-1 fallback retrain is v3 / mode-30 and must never land on the published
+# artifacts in models/, which carry the current release metrics.
+RETRAIN_MODEL_DIR = os.path.join("models", "shareout_20260426_retrain")
 DATA_PATH = "data/immunogenicity_dataset_v3.csv"
 BINDING_MATRIX = os.path.join(MODEL_DIR, "peptide_binding_matrix_v3.csv")
 
@@ -39,10 +42,10 @@ def step1_retrain_models():
         print("[Step 1] Models already exist, skipping retrain")
         return
 
-    print("[Step 1] Retraining RF + XGB (30-feature integrated)...")
+    print(f"[Step 1] Retraining RF + XGB (30-feature integrated) into {RETRAIN_MODEL_DIR}...")
     train_models(
         DATA_PATH,
-        MODEL_DIR,
+        RETRAIN_MODEL_DIR,
         n_cv_folds=5,
         random_state=42,
         feature_mode=30,
@@ -84,11 +87,19 @@ def step3_training_plots():
     print("[Step 3] Done\n")
 
 
+def _shap_model_dir() -> str:
+    """Published models win; the step-1 retrain output is the fallback."""
+    if os.path.isfile(os.path.join(MODEL_DIR, "rf_30feature_integrated.joblib")):
+        return MODEL_DIR
+    return RETRAIN_MODEL_DIR
+
+
 def step4_shap_plots():
     """Generate SHAP beeswarm, bar, and waterfall PNGs."""
     from src.shap_analysis import run_shap_analysis
 
-    rf_path = os.path.join(MODEL_DIR, "rf_30feature_integrated.joblib")
+    model_dir = _shap_model_dir()
+    rf_path = os.path.join(model_dir, "rf_30feature_integrated.joblib")
     if not os.path.isfile(rf_path):
         print("[Step 4] WARNING: RF model not found, skipping SHAP")
         return
@@ -96,7 +107,7 @@ def step4_shap_plots():
     print("[Step 4] Generating SHAP plots (30-feature)...")
     run_shap_analysis(
         results_dir=RESULTS_DIR,
-        model_dir=MODEL_DIR,
+        model_dir=model_dir,
         output_dir=RESULTS_DIR,
         feature_mode=30,
     )
