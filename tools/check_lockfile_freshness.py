@@ -16,8 +16,10 @@ against its compiled ``requirements*.txt`` / ``.lock`` output and fails if:
 3. Any package entry in a compiled output has no ``--hash=sha256:`` pin
    (the ``--require-hashes`` install path this repo uses everywhere treats
    an unhashed entry as a supply-chain gap).
-4. A ``requirements*.in`` file exists in the repo with no mapping in
-   LOCKFILE_PAIRS below (fail closed rather than silently skip a new file).
+4. A ``requirements*.in`` file is git-tracked in the repo with no mapping
+   in LOCKFILE_PAIRS below (fail closed rather than silently skip a new
+   file). Discovery is tracked-file scoped, not a filesystem walk - see
+   _git_tracked_in_files for why.
 
 This performs no network access and does not invoke pip-compile: it is a
 static diff between declared intent (``.in``) and committed output
@@ -39,6 +41,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -236,17 +239,66 @@ def check_pair(in_path: Path, out_path: Path) -> list[str]:
     return problems
 
 
+def _git_tracked_in_files() -> list[str] | None:
+    """Tracked requirements*.in paths per git, or None if git cannot answer.
+
+    Discovery is scoped to *tracked* files because that is what this gate is
+    about: a lockfile pair can only drift in a commit, and an untracked or
+    gitignored file can never appear in a PR diff. Walking the filesystem
+    instead picks up gitignored working copies of the repo - agent worktrees
+    under .claude/, build dirs, unpacked sdists - and reports each nested
+    copy's .in files as unmapped, which is a false positive that grows with
+    whatever happens to be on the developer's disk.
+
+    Two pathspecs are needed: git's default wildmatch anchors at the start of
+    the path, so "requirements*.in" alone matches only the repo-root file.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(REPO_ROOT),
+                "ls-files",
+                "-z",
+                "--",
+                "requirements*.in",
+                "*/requirements*.in",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return [line for line in result.stdout.split("\0") if line]
+
+
 def discover_unmapped_in_files(mapped: set[str]) -> list[str]:
     """Fail closed: any requirements*.in file not in LOCKFILE_PAIRS is a gap."""
-    unmapped: list[str] = []
-    skip_dirs = {".git", ".venv", ".ci_test_venv", "node_modules", "_local", "results"}
-    for path in REPO_ROOT.rglob("requirements*.in"):
-        if any(part in skip_dirs for part in path.parts):
-            continue
-        rel = path.relative_to(REPO_ROOT).as_posix()
-        if rel not in mapped:
-            unmapped.append(rel)
-    return sorted(unmapped)
+    candidates = _git_tracked_in_files()
+    if candidates is None:
+        # Fallback for a non-git context (unpacked sdist, vendored copy).
+        # Denylist-based, so it is best-effort by construction - see
+        # _git_tracked_in_files for why the git path is preferred.
+        skip_dirs = {
+            ".git",
+            ".venv",
+            ".ci_test_venv",
+            "node_modules",
+            "_local",
+            "results",
+            ".claude",
+        }
+        candidates = [
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in REPO_ROOT.rglob("requirements*.in")
+            if not any(part in skip_dirs for part in path.parts)
+        ]
+    return sorted(rel for rel in candidates if rel not in mapped)
 
 
 def _annotate(message: str) -> str:
