@@ -113,8 +113,49 @@ def test_no_shell_metacharacter_joining():
 # ---------------------------------------------------------------------------
 
 
-def test_ci_env_choices_match_ci_prefixed_specs():
-    assert set(update_dependencies.ci_env_choices()) == {"build", "mypy", "pytest-cov", "ruff"}
+def test_ci_env_choices_cover_every_tool_environment():
+    # All 8 CI tool environments must be individually selectable. 4 of them
+    # (ci, pip-audit, security, semgrep) are not `ci-` prefixed and were once
+    # reachable only via --all. The two application lockfiles are excluded.
+    assert set(update_dependencies.ci_env_choices()) == {
+        "build",
+        "mypy",
+        "pytest-cov",
+        "ruff",
+        "ci",
+        "pip-audit",
+        "security",
+        "semgrep",
+    }
+
+
+@pytest.mark.parametrize("choice", update_dependencies.ci_env_choices())
+def test_every_ci_env_choice_selects_exactly_one_spec(choice):
+    selected = update_dependencies.select_specs(ci_env=choice)
+    assert len(selected) == 1, f"{choice} selected {[s.name for s in selected]}"
+
+
+def test_ci_env_cannot_select_the_application_lockfiles():
+    for name in update_dependencies.RUNTIME_SPEC_NAMES:
+        assert update_dependencies.select_specs(ci_env=name) == []
+
+
+def test_runtime_lockfiles_compile_with_the_uv_override():
+    # requirements.in / requirements-lock.in floor setuptools against torch's
+    # `setuptools<82` cap; without --overrides uv returns ResolutionImpossible.
+    for name in update_dependencies.RUNTIME_SPEC_NAMES:
+        spec = next(s for s in LOCK_SPECS if s.name == name)
+        command = build_command(spec)
+        assert "--overrides" in command
+        assert command[command.index("--overrides") + 1] == update_dependencies.OVERRIDES_FILE
+
+
+def test_override_file_exists_and_is_only_used_where_needed():
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
+    assert (root / update_dependencies.OVERRIDES_FILE).is_file()
+    for spec in LOCK_SPECS:
+        if spec.name not in update_dependencies.RUNTIME_SPEC_NAMES:
+            assert "--overrides" not in build_command(spec), spec.name
 
 
 def test_select_specs_defaults_to_everything():
@@ -127,10 +168,17 @@ def test_select_specs_narrows_to_one_ci_env():
 
 
 def test_ci_env_source_naming_convention():
+    # Tool environments come in two naming shapes: the `ci-` prefixed ones
+    # (`--ci-env mypy` -> requirements-ci-mypy.in) and the standalone ones
+    # (`--ci-env semgrep` -> requirements-semgrep.in). Both must map to a real
+    # .in/.txt pair under environments/ with matching stems.
     for name in update_dependencies.ci_env_choices():
         spec = update_dependencies.select_specs(name)[0]
-        assert spec.source == f"environments/requirements-ci-{name}.in"
-        assert spec.output == f"environments/requirements-ci-{name}.txt"
+        assert spec.source in (
+            f"environments/requirements-ci-{name}.in",
+            f"environments/requirements-{name}.in",
+        ), f"{name} -> {spec.source}"
+        assert spec.output == spec.source.removesuffix(".in") + ".txt"
 
 
 def test_dry_run_prints_commands_without_invoking_uv(capsys, monkeypatch):
