@@ -82,11 +82,18 @@ sestrav predict \
 ```bash
 sestrav validate \
   --dataset data/immunogenicity_dataset_v5.csv \
+  --model-dir models/local \
   --feature-mode 31 \
   --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights \
   --report results/validation_report_v5.md
 ```
+
+`--model-dir` is required and has no default: `sestrav validate` retrains, so it writes
+the same artifact set as `python -m src.train_classifier` and needs the same deliberate
+destination. `models/local/` is gitignored. A run aborts before training if it would
+replace artifacts already present in the target directory; add `--allow-overwrite` when
+replacing them is the intent.
 
 Expected per-virus within-CV mean AUC-ROC ~ 0.751 on the v5 dataset (35,597 active rows /
 51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`).
@@ -143,7 +150,8 @@ No arguments required. Prints environment summary and warns on version mismatche
 | `--feature-mode` | No | Feature mode override |
 | `--sample-weights` | No | Apply EBV/HPV16 bias-correction weights |
 | `--report` | No | Path to write markdown report |
-| `--model-dir` | No | Directory to write trained models (default: `models/`) |
+| `--model-dir` | Yes | Directory to write trained models and metrics. No default: use a scratch directory such as `models/local`, and pass `models` only when replacing the published artifacts |
+| `--allow-overwrite` | No | Replace training artifacts already present in `--model-dir` (without it the run aborts before training) |
 
 ### `sestrav benchmark`
 
