@@ -9,10 +9,14 @@ of the repo's own requirements*.in/.txt files.
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 import textwrap
 
 import pytest
 
+from tools import check_lockfile_freshness as freshness
 from tools.check_lockfile_freshness import (
     check_pair,
     discover_unmapped_in_files,
@@ -165,29 +169,86 @@ def test_discover_unmapped_in_files_is_empty_for_real_repo():
     assert unmapped == [], f"unmapped requirements*.in files: {unmapped}"
 
 
-@pytest.mark.smoke
-def test_current_repo_hash_completeness_for_known_clean_pairs():
-    """The pairs known not to be affected by the pre-existing staleness on
-    main (see _local/notes session log) must report zero problems. This
-    pins the true-negative behavior of the checker against real repo data,
-    independent of the separately-tracked matplotlib/hypothesis/fastapi/etc.
-    drift in requirements.txt and environments/requirements.lock.
-    """
-    from tools.check_lockfile_freshness import REPO_ROOT
+def _init_repo_with_ignored_copy(root):
+    """Build a temp git repo whose .gitignore hides a nested repo copy.
 
-    clean_pairs = [
-        ("environments/requirements-ci.in", "environments/requirements-ci.txt"),
-        ("environments/requirements-ci-build.in", "environments/requirements-ci-build.txt"),
-        ("environments/requirements-ci-mypy.in", "environments/requirements-ci-mypy.txt"),
-        (
-            "environments/requirements-ci-pytest-cov.in",
-            "environments/requirements-ci-pytest-cov.txt",
-        ),
-        ("environments/requirements-ci-ruff.in", "environments/requirements-ci-ruff.txt"),
-        ("environments/requirements-pip-audit.in", "environments/requirements-pip-audit.txt"),
-        ("environments/requirements-security.in", "environments/requirements-security.txt"),
-        ("environments/requirements-semgrep.in", "environments/requirements-semgrep.txt"),
-    ]
-    for in_rel, out_rel in clean_pairs:
+    Mirrors the real layout that broke this check: gitignored full copies of
+    the repo (agent worktrees under .claude/) leave their requirements*.in
+    files visible to a filesystem walk.
+
+    The copy is planted under vendor/ rather than .claude/ on purpose. .claude
+    is in the fallback walk's denylist, so a .claude fixture would be filtered
+    out by *either* code path and the test would still pass if the git path
+    silently stopped working. vendor/ is unknown to the denylist, so only real
+    gitignore awareness can satisfy the assertion.
+    """
+    _write(root / ".gitignore", "vendor/\n")
+    _write(root / "requirements.in", "biopython==1.87\n")
+    (root / "environments").mkdir()
+    _write(root / "environments" / "requirements-ci.in", "ruff==0.16.0\n")
+
+    ignored = root / "vendor" / "nested-copy" / "environments"
+    ignored.mkdir(parents=True)
+    _write(ignored / "requirements-ci.in", "ruff==0.16.0\n")
+    _write(ignored.parent / "requirements.in", "biopython==1.87\n")
+
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": str(root / "gitconfig"), "GIT_CONFIG_SYSTEM": ""}
+    for command in (["git", "init", "-q"], ["git", "add", "-A"]):
+        subprocess.run(command, cwd=root, env=env, check=True, capture_output=True)
+
+
+def test_discover_ignores_gitignored_nested_repo_copy(tmp_path, monkeypatch):
+    """A gitignored copy of the repo must not produce unmapped-file errors.
+
+    Regression: discovery used to rglob the filesystem with a hand-maintained
+    directory denylist that omitted .claude/, so each agent worktree on a
+    developer's disk contributed ~10 phantom failures and exit 1, while CI
+    passed because a clean checkout has no such copies.
+
+    The fixture hides the copy under vendor/, which the fallback walk's
+    denylist does not know about, so this fails if the git path stops working
+    rather than passing on the fallback by coincidence.
+    """
+    if shutil.which("git") is None:
+        pytest.skip("git not available")
+    _init_repo_with_ignored_copy(tmp_path)
+    monkeypatch.setattr(freshness, "REPO_ROOT", tmp_path)
+
+    assert freshness._git_tracked_in_files() is not None, "git path must be live"
+
+    unmapped = discover_unmapped_in_files({"requirements.in"})
+
+    assert unmapped == ["environments/requirements-ci.in"]
+    assert not [rel for rel in unmapped if "vendor" in rel]
+
+
+def test_discover_falls_back_to_filesystem_walk_without_git(tmp_path, monkeypatch):
+    """Without git the walk still runs, and still skips the known copy dirs."""
+    _write(tmp_path / "requirements.in", "biopython==1.87\n")
+    ignored = tmp_path / ".claude" / "worktrees" / "agent-deadbeef"
+    ignored.mkdir(parents=True)
+    _write(ignored / "requirements.in", "biopython==1.87\n")
+
+    monkeypatch.setattr(freshness, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(freshness, "_git_tracked_in_files", lambda: None)
+
+    assert discover_unmapped_in_files(set()) == ["requirements.in"]
+
+
+@pytest.mark.smoke
+def test_current_repo_hash_completeness_for_all_pairs():
+    """Every mapped pair in this repo must report zero problems.
+
+    This pins the true-negative behavior of the checker against real repo
+    data. requirements.txt and environments/requirements.lock used to be
+    excluded here because they carried accumulated drift from several
+    Dependabot .in bumps; PR #177's relock cleared it, so the exclusion is
+    retired and all 10 pairs are covered. Driving this off LOCKFILE_PAIRS
+    rather than a hand-copied list means a newly mapped pair is covered
+    automatically instead of silently escaping the check.
+    """
+    from tools.check_lockfile_freshness import LOCKFILE_PAIRS, REPO_ROOT
+
+    for in_rel, out_rel in LOCKFILE_PAIRS:
         problems = check_pair(REPO_ROOT / in_rel, REPO_ROOT / out_rel)
         assert problems == [], f"{in_rel} -> {out_rel}: {problems}"

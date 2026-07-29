@@ -112,6 +112,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   UniProt accession table, strain notes, and provenance file references.
 
 ### Fixed
+- **Lockfile freshness gate reported phantom failures on developer machines**
+  (`tools/check_lockfile_freshness.py`): `discover_unmapped_in_files` walked the filesystem
+  with a hand-maintained directory denylist that omitted `.claude/`, so every gitignored
+  agent worktree - each a full copy of the repo - contributed its 10 `requirements*.in`
+  files as unmapped-file errors. Locally this meant 30 phantom errors and exit 1 on a clean
+  tree, while CI passed because a fresh checkout has no such copies, so a fail-closed gate
+  was green in the one place it ran and unusable everywhere else. Discovery is now scoped to
+  git-tracked files (`git ls-files`), matching what the gate is actually about: a lockfile
+  pair can only drift in a commit, and an untracked file can never appear in a PR diff. The
+  filesystem walk is retained as a fallback for non-git contexts (unpacked sdist) with
+  `.claude` added to its denylist. `tests/test_check_lockfile_freshness.py::test_discover_unmapped_in_files_is_empty_for_real_repo`
+  was failing on any working copy with worktrees present; 2 regression tests added. The
+  repo-data test now drives off `LOCKFILE_PAIRS` and covers all 10 pairs
+  (`test_current_repo_hash_completeness_for_all_pairs`): it previously hand-listed 8, excluding
+  `requirements.txt` and `environments/requirements.lock` because of accumulated Dependabot
+  drift that PR #177's relock has since cleared.
 - **`train_one_fold` device-placement bug** (`src/model.py`): `train_one_fold` never
   guaranteed the model was on the resolved device itself - it silently relied on the
   caller. `run_cv` and `train_final_model` already place the model via `.to(device)`
