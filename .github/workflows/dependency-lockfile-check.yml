@@ -1,0 +1,52 @@
+name: Dependency Lockfile Freshness
+
+# Read-only, fail-closed gate: fails a dependency-bump PR when a hash-pinned
+# lockfile (requirements*.txt / environments/requirements.lock) has drifted
+# from its .in source, or contains an entry with no --hash pin.
+#
+# Deliberately a plain `pull_request` trigger with no write permission - see
+# _local/notes/dependabot-relock-design-review-2026-07-27.md for why the
+# alternative (auto-regenerate and push the lockfile onto the PR branch) was
+# rejected: it needs pull_request_target/workflow_run to get a write token,
+# which regresses OpenSSF Scorecard's Dangerous-Workflow check, and a
+# GITHUB_TOKEN-authored push does not re-trigger this repo's required status
+# checks, so an unreviewed, untested commit could merge. This workflow only
+# ever reads the checked-out PR branch and reports; the maintainer
+# regenerates and pushes the lockfile themselves, as a signed, DCO-compliant
+# commit that re-triggers every required check.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'requirements*.in'
+      - 'requirements*.txt'
+      - 'environments/requirements*.in'
+      - 'environments/requirements*.txt'
+      - 'environments/requirements*.lock'
+      - 'tools/check_lockfile_freshness.py'
+      - '.github/workflows/dependency-lockfile-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile-freshness:
+    name: Check lockfile freshness and hash pinning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Check lockfiles are fresh and fully hashed
+        # Stdlib-only, no network access, no pip-compile invocation: a static
+        # diff between each requirements*.in source and its compiled
+        # requirements*.txt / .lock output. Fails on missing/mismatched
+        # direct pins, CVE-floor violations, or any unhashed entry. See
+        # tools/check_lockfile_freshness.py for the exact rules.
+        run: python tools/check_lockfile_freshness.py --check
