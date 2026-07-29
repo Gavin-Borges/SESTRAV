@@ -22,6 +22,7 @@ from src.train_classifier import (
     prepare_features_35,
     prepare_features_166,
     train_models,
+    planned_artifact_paths,
     _filter_quarantined,
 )
 
@@ -271,6 +272,112 @@ def test_train_models_mode31_requires_binding_matrix(tmp_path):
     data_path, _ = _training_csv(tmp_path)
     with pytest.raises(ValueError, match="--binding-matrix is required"):
         train_models(str(data_path), model_dir=str(tmp_path / "m"), n_cv_folds=3, feature_mode=31)
+
+
+# ---------------------------------------------------------------------------
+# Output-directory contamination guard
+# ---------------------------------------------------------------------------
+
+
+def test_train_models_requires_explicit_model_dir(tmp_path):
+    """No default destination: omitting model_dir is a TypeError, not a write to models/."""
+    data_path, _ = _training_csv(tmp_path)
+    with pytest.raises(TypeError):
+        train_models(str(data_path))
+
+
+def test_planned_artifact_paths_covers_per_mode_files():
+    paths = [os.path.basename(p) for p in planned_artifact_paths("models", 31)]
+    assert "training_results_mode31.csv" in paths
+    assert "rf_oof_predictions_mode31.csv" in paths
+    assert "rf_31feature_integrated.joblib" in paths
+    assert "training_results.csv" in paths
+    legacy = [os.path.basename(p) for p in planned_artifact_paths("models", 21)]
+    assert "rf_21feature_legacy.joblib" in legacy
+
+
+def test_train_models_refuses_to_overwrite_existing_artifacts(tmp_path):
+    data_path, _ = _training_csv(tmp_path)
+    model_dir = tmp_path / "published"
+    model_dir.mkdir()
+    sentinel = model_dir / "training_results_mode21.csv"
+    sentinel.write_text("metric,rf_cv_mean\nauc_pr,0.9999\n")
+
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        train_models(str(data_path), model_dir=str(model_dir), n_cv_folds=3, feature_mode=21)
+
+    assert "0.9999" in sentinel.read_text()
+    assert not (model_dir / "rf_21feature_legacy.joblib").exists()
+
+
+def test_train_models_guard_names_the_blocking_files(tmp_path):
+    data_path, _ = _training_csv(tmp_path)
+    model_dir = tmp_path / "published2"
+    model_dir.mkdir()
+    (model_dir / "rf_21feature_legacy.joblib").write_bytes(b"stale")
+
+    with pytest.raises(FileExistsError) as excinfo:
+        train_models(str(data_path), model_dir=str(model_dir), n_cv_folds=3, feature_mode=21)
+
+    message = str(excinfo.value)
+    assert "rf_21feature_legacy.joblib" in message
+    assert "--allow-overwrite" in message
+
+
+def test_train_models_allow_overwrite_replaces_artifacts(tmp_path):
+    data_path, _ = _training_csv(tmp_path)
+    model_dir = tmp_path / "rerun"
+    model_dir.mkdir()
+    sentinel = model_dir / "training_results_mode21.csv"
+    sentinel.write_text("metric,rf_cv_mean\nauc_pr,0.9999\n")
+
+    train_models(
+        str(data_path),
+        model_dir=str(model_dir),
+        n_cv_folds=3,
+        feature_mode=21,
+        allow_overwrite=True,
+    )
+
+    assert "0.9999" not in sentinel.read_text()
+    assert (model_dir / "rf_21feature_legacy.joblib").exists()
+
+
+def test_train_models_ignores_unrelated_files_in_model_dir(tmp_path):
+    data_path, _ = _training_csv(tmp_path)
+    model_dir = tmp_path / "mixed"
+    model_dir.mkdir()
+    (model_dir / "notes.txt").write_text("unrelated")
+
+    train_models(str(data_path), model_dir=str(model_dir), n_cv_folds=3, feature_mode=21)
+
+    assert (model_dir / "training_results_mode21.csv").exists()
+
+
+def test_train_classifier_cli_requires_model_dir():
+    """The module entry point cannot fall back to the production models/ directory."""
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.train_classifier", "--data", "does_not_matter.csv"],
+        capture_output=True,
+        text=True,
+        cwd=".",
+    )
+    assert result.returncode != 0
+    assert "--model-dir" in result.stderr
+
+
+def test_train_classifier_cli_exposes_allow_overwrite():
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.train_classifier", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=".",
+    )
+    assert "--allow-overwrite" in result.stdout
 
 
 # ---------------------------------------------------------------------------
