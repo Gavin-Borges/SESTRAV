@@ -62,6 +62,12 @@ from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 # Load the immunogenicity dataset
 DATA_PATH = "data/immunogenicity_dataset_v3.csv"
 BINDING_MATRIX_PATH = "models/peptide_binding_matrix_v3.csv"
+# This notebook retrains v3 / mode-30 models. A Colab run clones the repo, so the
+# tracked release artifacts at the root of models/ are already present; training
+# into models/ would abort on the train_models overwrite guard (and, before that
+# guard existed, would have replaced published metrics). Everything trained here
+# goes to a gitignored scratch directory instead.
+MODEL_OUT_DIR = "models/scratch/colab_v3_mode30"
 
 df = pd.read_csv(DATA_PATH)
 print(f"Loaded {len(df)} records from {DATA_PATH}")
@@ -113,7 +119,7 @@ print("=" * 70)
 # 30-feature canonical track
 rf_model, xgb_model, rf_avg, xgb_avg = train_models(
     DATA_PATH,
-    model_dir="models",
+    model_dir=MODEL_OUT_DIR,
     feature_mode=30,
     binding_matrix_path=BINDING_MATRIX_PATH,
 )
@@ -133,7 +139,7 @@ print("=" * 70)
 
 ann_model, ann_scaler, ann_avg, ann_std = train_ann(
     DATA_PATH,
-    model_dir="models",
+    model_dir=MODEL_OUT_DIR,
     feature_mode=30,
     binding_matrix_path=BINDING_MATRIX_PATH,
     architecture="256-128-64",
@@ -151,14 +157,14 @@ print(f"\nANN 30f AUC-PR: {ann_avg['auc_pr']:.4f} +/- {ann_std['auc_pr']:.4f}")
 #
 # ann_model_search, _, search_avg, search_std = train_ann(
 #     DATA_PATH,
-#     model_dir='models',
+#     model_dir=MODEL_OUT_DIR,
 #     feature_mode=30,
 #     binding_matrix_path=BINDING_MATRIX_PATH,
 #     search=True,
 # )
 #
-# # Results saved to models/ann_architecture_search.csv
-# search_results = pd.read_csv('models/ann_architecture_search.csv')
+# # Results saved to <MODEL_OUT_DIR>/ann_architecture_search.csv
+# search_results = pd.read_csv(f'{MODEL_OUT_DIR}/ann_architecture_search.csv')
 # print(search_results[['config', 'auc_pr_mean', 'auc_roc_mean']].to_string())
 
 # =============================================================================
@@ -220,7 +226,7 @@ print("=" * 70)
 ablation_results = run_ablation(
     DATA_PATH,
     BINDING_MATRIX_PATH,
-    output_dir="models",
+    output_dir=MODEL_OUT_DIR,
 )
 
 print("\nAblation Results Summary:")
@@ -265,9 +271,10 @@ print("\n(Higher AUC-PR = better; primary metric for imbalanced data)")
 # os.makedirs(DRIVE_DIR, exist_ok=True)
 #
 # import shutil
-# for f in ['models/training_results.csv', 'models/ann_architecture_search.csv',
-#           'models/ablation_study_results.csv', 'models/ann_30feature_integrated.pt',
-#           'models/rf_30feature_integrated.joblib', 'models/xgb_30feature_integrated.joblib']:
+# for name in ['training_results.csv', 'ann_architecture_search.csv',
+#              'ablation_study_results.csv', 'ann_30feature_integrated.pt',
+#              'rf_30feature_integrated.joblib', 'xgb_30feature_integrated.joblib']:
+#     f = os.path.join(MODEL_OUT_DIR, name)
 #     if os.path.isfile(f):
 #         shutil.copy2(f, DRIVE_DIR)
 #         print(f"Copied {f} -> {DRIVE_DIR}")
