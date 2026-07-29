@@ -35,8 +35,15 @@ We recommend using Conda to manage environment dependencies.
 5. **Train Canonical Local Models:**
    Models must be trained before the production pipeline can execute.
    ```bash
-   python -m src.train_classifier --data data/immunogenicity_dataset_v5.csv --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
+   python -m src.train_classifier --data data/immunogenicity_dataset_v5.csv --model-dir models/local --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
    ```
+   `--model-dir` is required and has no default, and existing artifacts in the
+   target directory are never replaced unless you add `--allow-overwrite`. A local
+   retrain therefore cannot silently rewrite the published metric files under
+   `models/`. Point `model_path` in `config.yaml` (or `sestrav predict --model`) at
+   `models/local/rf_31feature_integrated.joblib` to run the pipeline against your
+   local build; use `--model-dir models --allow-overwrite` only when you mean to
+   replace the published artifacts.
 
 ## Development Guidelines
 

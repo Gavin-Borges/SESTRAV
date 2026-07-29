@@ -37,3 +37,11 @@ def test_subcommand_help_exits_zero(sub):
     with pytest.raises(SystemExit) as exc:
         main([sub, "--help"])
     assert exc.value.code == 0
+
+
+def test_validate_requires_model_dir(capsys):
+    """validate retrains, so its destination is explicit - no fallback to models/."""
+    with pytest.raises(SystemExit) as exc:
+        main(["validate", "--dataset", "does_not_matter.csv"])
+    assert exc.value.code != 0
+    assert "--model-dir" in capsys.readouterr().err

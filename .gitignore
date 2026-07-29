@@ -313,6 +313,12 @@ data/ImmuneCODE-MIRA-Release002.1/
 # Regenerable via the training pipeline; not source-of-truth artifacts
 models/v5/ablation/
 
+# Local / scratch training destinations for src/train_classifier.py --model-dir.
+# Published metrics live at the root of models/; local retrains belong here.
+models/local/
+models/scratch/
+models/shareout_20260426_retrain/
+
 # Rendered figure outputs - regenerable from the tracked generators
 # (figures/make_figure*.py) + certified results/ CSVs; source (scripts + captions)
 # IS tracked. Render locally: python figures/make_figure1.py

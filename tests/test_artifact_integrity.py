@@ -172,39 +172,103 @@ def test_load_verified_joblib_mismatch_raises(tmp_path):
         load_verified_joblib(artifact, manifest_path, required_checksum=True)
 
 
-def test_verify_artifact_checksum_cross_drive_fallback(tmp_path):
-    """Covers lines 112-113: when _manifest_key raises ValueError (artifact not
-    relative to manifest directory), the fallback artifact.name key is used."""
-    import json as _json
-
-    # Write a real artifact under tmp_path/a/
-    subdir_a = tmp_path / "a"
-    subdir_a.mkdir()
-    artifact = subdir_a / "model.bin"
-    artifact.write_bytes(b"content")
-
-    # Write the manifest under tmp_path/b/ - different subtree, so _manifest_key
-    # would raise ValueError when computing the relative path.  Write the manifest
-    # directly (bypass update_checksum_manifest which has the same issue) with
-    # only the artifact's basename as the key - the fallback path the code uses.
-    subdir_b = tmp_path / "b"
-    subdir_b.mkdir()
-    manifest_path = subdir_b / MODEL_CHECKSUM_MANIFEST
+def _write_manifest(manifest_path: Path, entries: dict) -> Path:
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(
-        _json.dumps(
-            {
-                "generated_utc": "2026-01-01T00:00:00Z",
-                "artifacts": {
-                    artifact.name: {  # basename key - what the fallback uses
-                        "sha256": sha256_file(artifact),
-                        "size_bytes": artifact.stat().st_size,
-                    }
-                },
-            }
-        ),
+        json.dumps({"generated_utc": "2026-01-01T00:00:00Z", "artifacts": entries}),
         encoding="utf-8",
     )
+    return manifest_path
 
-    # verify_artifact_checksum must succeed via the .name fallback key,
-    # having swallowed the ValueError from _manifest_key at lines 111-113.
-    assert verify_artifact_checksum(artifact, manifest_path) is True
+
+def _entry(path: Path) -> dict:
+    return {"sha256": sha256_file(path), "size_bytes": path.stat().st_size}
+
+
+def _dual_manifest_layout(tmp_path: Path, name: str = "rf_31feature_integrated.joblib"):
+    """Mirror the real repo: models/<name> and models/v5/<name>, each with its own
+    sibling manifest, same basename, different bytes."""
+    root = tmp_path / "models"
+    v5 = root / "v5"
+    v5.mkdir(parents=True)
+
+    root_artifact = _write(root / name, b"root-model-bytes")
+    v5_artifact = _write(v5 / name, b"v5-model-bytes-different")
+
+    root_manifest = _write_manifest(
+        root / MODEL_CHECKSUM_MANIFEST, {name: _entry(root_artifact)}
+    )
+    v5_manifest = _write_manifest(v5 / MODEL_CHECKSUM_MANIFEST, {name: _entry(v5_artifact)})
+    return root_artifact, root_manifest, v5_artifact, v5_manifest
+
+
+def test_colliding_basenames_verify_against_their_own_manifests(tmp_path):
+    root_artifact, root_manifest, v5_artifact, v5_manifest = _dual_manifest_layout(tmp_path)
+
+    assert verify_artifact_checksum(root_artifact, root_manifest, required=True) is True
+    assert verify_artifact_checksum(v5_artifact, v5_manifest, required=True) is True
+
+
+def test_v5_artifact_not_matched_by_root_manifest_basename(tmp_path):
+    _, root_manifest, v5_artifact, _ = _dual_manifest_layout(tmp_path)
+
+    assert verify_artifact_checksum(v5_artifact, root_manifest) is False
+    with pytest.raises(ArtifactIntegrityError, match="No checksum entry"):
+        verify_artifact_checksum(v5_artifact, root_manifest, required=True)
+
+
+def test_root_artifact_not_matched_by_v5_manifest_basename(tmp_path):
+    root_artifact, _, _, v5_manifest = _dual_manifest_layout(tmp_path)
+
+    assert verify_artifact_checksum(root_artifact, v5_manifest) is False
+    with pytest.raises(ArtifactIntegrityError, match="lies outside the directory"):
+        verify_artifact_checksum(root_artifact, v5_manifest, required=True)
+
+
+def test_bare_name_entry_never_matches_out_of_tree_artifact(tmp_path):
+    """Even when the bare-name entry's digest happens to match the artifact bytes,
+    an entry that does not describe this path must not verify it."""
+    subdir_a = tmp_path / "a"
+    subdir_a.mkdir()
+    artifact = _write(subdir_a / "model.bin", b"content")
+
+    manifest_path = _write_manifest(
+        tmp_path / "b" / MODEL_CHECKSUM_MANIFEST, {artifact.name: _entry(artifact)}
+    )
+
+    assert verify_artifact_checksum(artifact, manifest_path) is False
+    with pytest.raises(ArtifactIntegrityError, match="lies outside the directory"):
+        verify_artifact_checksum(artifact, manifest_path, required=True)
+
+
+def test_nested_relative_key_still_verifies(tmp_path):
+    """update_checksum_manifest writes 'v5/<name>' for a subdirectory artifact
+    (as promote_gnn does for models/gnn/); that key must still resolve."""
+    root = tmp_path / "models"
+    v5 = root / "v5"
+    v5.mkdir(parents=True)
+    artifact = _write(v5 / "rf_31feature_integrated.joblib", b"v5-bytes")
+
+    manifest_path = root / MODEL_CHECKSUM_MANIFEST
+    update_checksum_manifest(manifest_path, [artifact])
+
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "v5/rf_31feature_integrated.joblib" in payload["artifacts"]
+    assert verify_artifact_checksum(artifact, manifest_path, required=True) is True
+
+
+def test_nested_key_does_not_leak_to_sibling_basename(tmp_path):
+    """A manifest holding only the nested key must not verify a same-named file
+    sitting directly beside the manifest."""
+    root = tmp_path / "models"
+    v5 = root / "v5"
+    v5.mkdir(parents=True)
+    nested = _write(v5 / "model.joblib", b"nested-bytes")
+    sibling = _write(root / "model.joblib", b"sibling-bytes")
+
+    manifest_path = root / MODEL_CHECKSUM_MANIFEST
+    update_checksum_manifest(manifest_path, [nested])
+
+    assert verify_artifact_checksum(sibling, manifest_path) is False
+    with pytest.raises(ArtifactIntegrityError, match="No checksum entry"):
+        verify_artifact_checksum(sibling, manifest_path, required=True)
