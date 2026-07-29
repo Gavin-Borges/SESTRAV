@@ -29,6 +29,16 @@ DEFAULT_PYTHON_PLATFORM = "linux"
 # must opt out explicitly or the recompile adds packages that were never there.
 UNSAFE_PACKAGES = ("pip", "setuptools", "wheel")
 
+# uv dependency-override file. Required by the two specs that floor
+# setuptools>=83.0.0 (GHSA-h35f-9h28-mq5c) against torch's declared
+# `setuptools<82` build-metadata cap; without it uv returns
+# ResolutionImpossible. See overrides.txt for the rationale and exit condition.
+OVERRIDES_FILE = "overrides.txt"
+
+# The two application lockfiles, as opposed to the CI tool environments.
+# --ci-env selects among the tool environments only.
+RUNTIME_SPEC_NAMES = ("runtime", "lock")
+
 
 @dataclass(frozen=True)
 class LockSpec:
@@ -39,16 +49,21 @@ class LockSpec:
     output: str
     python_version: str
     allow_unsafe: bool
+    # uv override file needed for this spec to resolve at all, or None.
+    # Only the two specs that carry the setuptools-83 floor need one; see
+    # overrides.txt for the rationale and its exit condition.
+    overrides: str | None = None
 
 
 LOCK_SPECS: tuple[LockSpec, ...] = (
-    LockSpec("runtime", "requirements.in", "requirements.txt", "3.11", True),
+    LockSpec("runtime", "requirements.in", "requirements.txt", "3.11", True, OVERRIDES_FILE),
     LockSpec(
         "lock",
         "environments/requirements-lock.in",
         "environments/requirements.lock",
         "3.11",
         True,
+        OVERRIDES_FILE,
     ),
     LockSpec(
         "ci",
@@ -133,17 +148,28 @@ Notes:
     requirements-ci-torch-cpu.txt, requirements-sbom.txt) are curated by hand
     with `pip download` + `pip hash` and are deliberately not managed here.
 
-Known blocker: the 'runtime' and 'lock' specs do not resolve today. They floor
-setuptools==83.0.0 for GHSA-h35f-9h28-mq5c while torch 2.12.0 declares
-setuptools<82, so any resolver returns ResolutionImpossible. Those two files are
-currently hand-maintained. Resolve the conflict (see
-environments/requirements-lock.in) before relying on --all.
+The 'runtime' and 'lock' specs constrain setuptools to 83.0.0 for
+GHSA-h35f-9h28-mq5c while torch 2.12.0 declares setuptools<82, which on its own
+makes any resolver return ResolutionImpossible. Both specs therefore compile
+with `--overrides overrides.txt`, which this tool passes automatically; that
+file carries the rationale, the runtime-safety argument and the exit condition
+for dropping it once torch raises its cap.
 """
 
 
 def ci_env_choices() -> list[str]:
-    """Return the --ci-env names, i.e. the <name> in requirements-ci-<name>.in."""
-    return [spec.name[len(CI_ENV_PREFIX) :] for spec in LOCK_SPECS if spec.name.startswith(CI_ENV_PREFIX)]
+    """Return the --ci-env names: every spec except the two runtime lockfiles.
+
+    Specs named `ci-<name>` are offered as `<name>`, the shorthand this flag has
+    always used. The remaining tool environments (ci, pip-audit, security,
+    semgrep) are not `ci-` prefixed and used to have no individual selector at
+    all, leaving 4 of the 8 reachable only via --all.
+    """
+    return [
+        spec.name[len(CI_ENV_PREFIX) :] if spec.name.startswith(CI_ENV_PREFIX) else spec.name
+        for spec in LOCK_SPECS
+        if spec.name not in RUNTIME_SPEC_NAMES
+    ]
 
 
 def build_command(
@@ -168,6 +194,8 @@ def build_command(
         "--python-platform",
         python_platform,
     ]
+    if spec.overrides:
+        command += ["--overrides", spec.overrides]
     if not spec.allow_unsafe:
         for package in UNSAFE_PACKAGES:
             command += ["--unsafe-package", package]
@@ -198,8 +226,10 @@ def select_specs(ci_env: str | None = None) -> list[LockSpec]:
     """Resolve the CLI selection to the lockfiles that should be recompiled."""
     if ci_env is None:
         return list(LOCK_SPECS)
-    wanted = CI_ENV_PREFIX + ci_env
-    return [spec for spec in LOCK_SPECS if spec.name == wanted]
+    # `--ci-env mypy` means spec `ci-mypy`; `--ci-env semgrep` means spec
+    # `semgrep`, which carries no prefix. Accept both spellings.
+    wanted = {CI_ENV_PREFIX + ci_env, ci_env}
+    return [spec for spec in LOCK_SPECS if spec.name in wanted and spec.name not in RUNTIME_SPEC_NAMES]
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:

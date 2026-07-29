@@ -274,9 +274,24 @@ trained model binaries or runtime caches; training must run before production sc
 - **Orchestration:** Snakemake (`pipeline.smk`) expands over antigens so each proteome
   flows through an identical DAG; `config.yaml` is the single source of run parameters
   (antigen list, alleles, k-mer lengths, freeze mode).
-- **Environments:** Conda (`environment.yml`), pip with hash-pinned lockfiles
-  (`requirements.txt` via `pip-compile --require-hashes`), and `pyproject.toml` for the
-  package. Optional extras: `sestrav[gnn]`, `sestrav[pipeline]`, `sestrav[dev]`.
+- **Environments:** Conda (`environment.yml`), pip with hash-pinned lockfiles, and
+  `pyproject.toml` for the package. Optional extras: `sestrav[gnn]`,
+  `sestrav[pipeline]`, `sestrav[dev]`, `sestrav[api]`, `sestrav[demo]`.
+- **Dependency tiers:** dependencies are declared in six tiers, not one manifest -
+  a compiled runtime pair (`requirements.in` -> `requirements.txt`), a CVE-floor
+  environment lock (`environments/requirements-lock.in` ->
+  `environments/requirements.lock`), 8 compiled CI tool environments, 3
+  hand-maintained hash-locked files that need a resolution context the compiler
+  cannot express (a CPU-only torch index, single-platform closures), the
+  `pyproject.toml` extras, and `environment.yml`. All compiled tiers are
+  regenerated through `tools/update_dependencies.py` (`uv pip compile
+  --generate-hashes`); the two application lockfiles additionally compile with
+  `--overrides overrides.txt`, which carries the setuptools/torch resolution
+  override and its exit condition. Every install path is
+  `--require-hashes`. Two CI gates hold this together: `tools/check_hash_pins.py`
+  (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
+  drifted from its compiled output, fail-closed on unmapped `.in` files). See
+  `CONTRIBUTING.md` "Dependency Tiers" for the per-tier rules.
 - **Containers:** `Dockerfile` and `singularity.def` give identical environments on
   laptops and HPC; the pipeline is HPC-agnostic once containerized. A two-service Docker
   Compose stack serves a FastAPI scoring endpoint and a Streamlit demo, both bound to
