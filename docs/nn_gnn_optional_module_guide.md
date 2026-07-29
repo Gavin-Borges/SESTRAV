@@ -53,8 +53,8 @@ Exact means:
 | Track | Entry Point | Dependencies | Output Pattern |
 |---|---|---|---|
 | Core canonical | `pipeline.smk`, `src/final_validation_report.py` | `requirements.txt` | `results/*` |
-| ANN optional | `src/ann_benchmark.py` | `requirements-ann.txt` | `models/ann_*.pt`, `models/ann_architecture_search.csv` |
-| GNN optional | `src/gnn_benchmark.py` | `requirements-gnn.txt` | `models/gnn_sequence_benchmark.csv`, `models/gnn_bipartite_benchmark.csv` |
+| ANN optional | `src/ann_benchmark.py` | `requirements.txt` (`torch` is pinned there) | `models/ann_*.pt`, `models/ann_architecture_search.csv` |
+| GNN optional | `src/gnn_benchmark.py` | `requirements.txt` plus the `gnn` extra (`pip install ".[gnn]"`) | `models/gnn_sequence_benchmark.csv`, `models/gnn_bipartite_benchmark.csv` |
 | Colab optional | `notebooks/SESTRAV_Colab_Pipeline.py` | Colab + optional installs in notebook | Colab runtime outputs / exported artifacts |
 
 ## Threshold and Calibration Lineage

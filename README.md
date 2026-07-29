@@ -376,7 +376,7 @@ See `scripts/README.md` for the external-validation utilities and workflow.
 
 ### 6. ANN / GNN Benchmarks (Optional)
 
-* **ANN:** `pip install -r requirements-ann.txt`, then `python -m src.ann_benchmark --help`.
+* **ANN:** no extra install step - `torch` is already pinned in `requirements.txt`. Run `python -m src.ann_benchmark --help`.
 Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
 * **GNN v2.3 (research track):** `pip install ".[gnn]"` (from source; not published to PyPI), then `python -m src.train_gnn --help`.
 Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. On v4 data it passes 4 of 5 promotion gates (mean-fold AUC-PR 0.7281); v5 retraining is in progress (ESM-2 cache complete at 27,376 peptides; GPU training pending). The GNN remains a research track pending v5 evaluation. Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
