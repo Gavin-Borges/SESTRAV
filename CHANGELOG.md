@@ -83,6 +83,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   passes `--allow-overwrite` explicitly, because that rule *is* the reproduction path for those
   published artifacts - regenerating them there is the intent, not an accident. Training math,
   architectures and artifact filenames are unchanged.
+- **`scripts/compute_ann_baseline_summary.py` and `src/ablation_study.py` close the last two
+  instances of the same trap** (breaking CLI change): `--output-summary` defaulted to the tracked
+  `models/ann_cv_summary.csv` and `--results-file` defaulted to the tracked
+  `models/training_results.csv` (merged into on every default run); `--output-dir` defaulted to
+  `models`, threatening `models/ablation_study_results.csv` (currently untracked, unlike the
+  other six instances in this line - see below). `--output-summary` and `--output-dir` are now
+  required with no default and gain `--allow-overwrite` plus a `FileExistsError` guard that runs
+  before any work. `--results-file` is different from every other flag in this family: it is a
+  merge target, not a fresh artifact, so it is NOT guarded with `FileExistsError` (same exemption
+  reasoning as `ann_benchmark.py`'s `training_results.csv`) - instead it simply lost its dangerous
+  default. It is now optional with no default at all: omitting it skips the merge outright, so a
+  bare invocation can no longer touch `models/training_results.csv` by accident. `run_ablation()`
+  also lost its `output_dir="models"` Python-API default, matching every other function in this
+  line (`train_ann`, `train_gnn`, `train_gnn_v2` all require it too) - the notebook and CLI
+  callers already passed an explicit path, so nothing breaks. Severity note: unlike the other six
+  entry points in this line, `models/ablation_study_results.csv` is not currently a tracked file,
+  so this specific instance could not have silently corrupted a published artifact the way the
+  other six could have - it is closed anyway for consistency of the defect class and because
+  nothing prevents the file from being tracked later.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
