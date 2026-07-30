@@ -10,7 +10,7 @@ Runs all analysis tasks on existing pipeline output (no MHCflurry needed):
 artifacts there unless --allow-overwrite is passed.
 
 Usage:
-    python run_analysis.py --results-dir results/scratch/analysis --model-dir models
+    python -m scripts.run_analysis --results-dir results/scratch/analysis --model-dir models
 """
 
 import os

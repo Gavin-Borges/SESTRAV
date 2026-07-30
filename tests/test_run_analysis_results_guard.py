@@ -98,7 +98,7 @@ def test_run_analysis_allow_overwrite_disarms_the_guard(tmp_path):
 def test_run_analysis_cli_requires_results_dir_explicitly():
     """No default destination: omitting --results-dir must fail argparse, not run."""
     result = subprocess.run(
-        [sys.executable, "run_analysis.py"],
+        [sys.executable, "-m", "scripts.run_analysis"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
@@ -109,7 +109,7 @@ def test_run_analysis_cli_requires_results_dir_explicitly():
 
 def test_run_analysis_cli_advertises_allow_overwrite():
     result = subprocess.run(
-        [sys.executable, "run_analysis.py", "--help"],
+        [sys.executable, "-m", "scripts.run_analysis", "--help"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
