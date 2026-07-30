@@ -84,7 +84,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   passes `--allow-overwrite` explicitly, because that rule *is* the reproduction path for those
   published artifacts - regenerating them there is the intent, not an accident. Training math,
   architectures and artifact filenames are unchanged.
-- **`scripts/compute_ann_baseline_summary.py` and `src/ablation_study.py` close the last two
+- **`scripts/compute_ann_baseline_summary.py` and `src/ablation_study.py` close two further
   instances of the same trap** (breaking CLI change): `--output-summary` defaulted to the tracked
   `models/ann_cv_summary.csv` and `--results-file` defaulted to the tracked
   `models/training_results.csv` (merged into on every default run); `--output-dir` defaulted to
@@ -172,8 +172,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `h2_tier_a_summary.csv` and `h2_tier_a_fold_metrics.csv` - the same certified R10 = 0.9494
   source this line cites above as its own justification, and so the most severe instance now
   known); `src/data_bias_audit.py` and `src/gold_standard_sensitivity.py`, whose own `__main__`
-  CLIs default 6 of the 8 filenames guarded above straight back into `results/`, leaving them
-  reachable unguarded through the siblings; `src/calibration_analysis.py`
+  CLIs default 7 of the 8 filenames guarded above straight back into `results/` (every one except
+  `release_readiness_summary.md`), leaving them reachable unguarded through the siblings; `src/calibration_analysis.py`
   (`results/calibration_metrics.csv`); `src/shap_analysis.py` (`shap_values_{tag}.csv`, i.e. the
   tracked `results/shap_values_rf.csv`); `scripts/compute_population_coverage.py`
   (`results/population_coverage_v5.json`); and `src/external_validation_cross_virus.py`
