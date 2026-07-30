@@ -124,10 +124,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   disabled the guard for all 10 of `run_final_validation`'s files. `allow_overwrite` now threads
   through normally, matching the existing `train_models`/`train_ann` pattern in the same
   function. **`run_bias_skew_finalization`'s own `--results-dir` is a further, larger instance
-  of this same defect (writes or delegates at least 9 more files: the dataset-provenance and
-  bias-audit trail, gold-standard-sensitivity outputs, and the release-readiness summary) and
-  remains open** - not fixed here, since each delegate needs the same enumerate-every-write
-  rigor this entry used before a guard can be built correctly; see
+  of this same defect (writes or delegates 8 more files: `immunogenicity_provenance.csv`,
+  `data_bias_audit_summary.csv`, `data_bias_audit.md`, `data_bias_audit_summary_virus_label_counts.csv`,
+  `gold_standard_sensitivity.csv`, `gold_standard_sensitivity.md`,
+  `gold_standard_sensitivity_deltas.csv`, `release_readiness_summary.md`) and remains open** -
+  not fixed here, since each delegate needs the same enumerate-every-write rigor this entry used
+  before a guard can be built correctly; see
   `_local/notes/results-dir-silent-overwrite-2026-07-30.md`.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
