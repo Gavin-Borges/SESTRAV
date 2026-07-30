@@ -127,10 +127,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   of this same defect (writes or delegates 8 more files: `immunogenicity_provenance.csv`,
   `data_bias_audit_summary.csv`, `data_bias_audit.md`, `data_bias_audit_summary_virus_label_counts.csv`,
   `gold_standard_sensitivity.csv`, `gold_standard_sensitivity.md`,
-  `gold_standard_sensitivity_deltas.csv`, `release_readiness_summary.md`) and remains open** -
-  not fixed here, since each delegate needs the same enumerate-every-write rigor this entry used
-  before a guard can be built correctly; see
-  `_local/notes/results-dir-silent-overwrite-2026-07-30.md`.
+  `gold_standard_sensitivity_deltas.csv`, `release_readiness_summary.md`) and was left open at
+  the time** - not fixed in this entry, since each delegate needed the same enumerate-every-write
+  rigor this entry used before a guard could be built correctly; see
+  `_local/notes/results-dir-silent-overwrite-2026-07-30.md`. Now closed - see the following entry.
+- **`run_bias_skew_finalization`'s own `--results-dir` closes the last disclosed instance of the
+  `results/` line** (breaking CLI change): flagged but deliberately not fixed in the entry above,
+  pending a per-delegate write enumeration. That enumeration is now done by reading
+  `src/data_bias_audit.py`'s `refresh_dataset`/`write_audit_reports` and
+  `src/gold_standard_sensitivity.py`'s `run_gold_standard_sensitivity` in full, and the originally
+  logged 8-file list is confirmed exactly correct, no 9th file and no false entry:
+  `immunogenicity_provenance.csv` (`refresh_dataset`), `data_bias_audit_summary.csv` and
+  `data_bias_audit.md` (`write_audit_reports`), the derived
+  `data_bias_audit_summary_virus_label_counts.csv` (`write_audit_reports`,
+  `output_csv.replace(".csv", "_virus_label_counts.csv")`), `gold_standard_sensitivity.csv` and
+  `gold_standard_sensitivity.md` (`run_gold_standard_sensitivity`), the derived
+  `gold_standard_sensitivity_deltas.csv` (`run_gold_standard_sensitivity`,
+  `output_csv.replace(".csv", "_deltas.csv")`), and `release_readiness_summary.md`, written
+  directly at the end of `run_bias_skew_finalization` itself. `--results-dir` is now required
+  with no default at both the CLI and `run_bias_skew_finalization(results_dir=...)` layers (moved
+  ahead of the already-defaulted `data_csv` parameter in the signature, since Python does not
+  allow a no-default parameter after a defaulted one; every existing caller already passed it by
+  keyword, so nothing breaks), gains `--allow-overwrite`, and a new `planned_bias_skew_paths()` +
+  `_guard_results_dir()` pair raises `FileExistsError` listing every colliding file before any
+  work starts - the guard call is the literal first statement of the function, ahead of even
+  `os.makedirs`. No write-before-guard collision was found this time (unlike the
+  `baseline_comparison.csv` case above): the guard is the first statement in the function, so
+  nothing in `run_bias_skew_finalization` writes any of these 8 files before the guard checks for
+  them, and none of the 8 filenames overlap with `run_final_validation`'s own, separately-guarded
+  10-file list. Tests in `tests/test_bias_skew_finalization_results_guard.py` cover planned-path
+  enumeration, guard-pass-on-empty-dir, guard-refuses-on-an-existing-file (one case per delegate),
+  allow-overwrite disarming the guard, a monkeypatched wiring test proving the guard is actually
+  called by the real `run_bias_skew_finalization` (not just defined), and a CLI-level check that
+  `--results-dir` has no default. No `pipeline.smk` rule invokes
+  `src.bias_skew_finalization` (checked directly), so no Snakemake rule needed an
+  `--allow-overwrite` addition.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as

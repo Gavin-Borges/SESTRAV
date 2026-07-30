@@ -61,16 +61,60 @@ def _gate_status(
     return gates
 
 
+def planned_bias_skew_paths(results_dir: str) -> list[str]:
+    """Every path run_bias_skew_finalization writes into results_dir directly
+    or via a delegate function, independent of the already-guarded
+    run_final_validation() call it also makes (see
+    final_validation_report.planned_validation_paths for that separate list,
+    which uses different filenames and is checked by its own guard).
+    """
+    names = [
+        "immunogenicity_provenance.csv",  # refresh_dataset()
+        "data_bias_audit_summary.csv",  # write_audit_reports()
+        "data_bias_audit.md",  # write_audit_reports()
+        "data_bias_audit_summary_virus_label_counts.csv",  # write_audit_reports(), derived name
+        "gold_standard_sensitivity.csv",  # run_gold_standard_sensitivity()
+        "gold_standard_sensitivity.md",  # run_gold_standard_sensitivity()
+        "gold_standard_sensitivity_deltas.csv",  # run_gold_standard_sensitivity(), derived name
+        "release_readiness_summary.md",  # direct, final write below
+    ]
+    return [os.path.join(results_dir, name) for name in names]
+
+
+def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [p for p in planned_bias_skew_paths(results_dir) if os.path.isfile(p)]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{results_dir}':\n  "
+        f"{listing}\n"
+        "These may be published results. Point --results-dir at a fresh directory, "
+        "or pass --allow-overwrite (run_bias_skew_finalization(..., allow_overwrite=True)) "
+        "to replace them deliberately."
+    )
+
+
 def run_bias_skew_finalization(
     source_data_dir: str,
     model_dir: str,
+    results_dir: str,
     data_csv: str = "data/immunogenicity_dataset_v4.csv",
-    results_dir: str = "results",
     feature_mode: int = 30,
     binding_matrix_path: str = "models/peptide_binding_matrix_v4.csv",
     allow_overwrite: bool = False,
 ) -> str:
-    """Execute the full finalization pipeline and return release summary path."""
+    """Execute the full finalization pipeline and return release summary path.
+
+    results_dir has no default: this entry point writes 8 artifacts directly
+    into it (independent of the already-guarded run_final_validation call it
+    also makes), including the provenance/audit trail that underpins the
+    dataset's own honesty claims, so it refuses to guess a destination.
+    """
+    _guard_results_dir(results_dir, allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(results_dir, exist_ok=True)
 
@@ -188,13 +232,20 @@ if __name__ == "__main__":
         "pipeline writes the same tracked release-artifact set as train_classifier.py "
         "and sestrav validate, so it refuses to guess a destination.",
     )
-    parser.add_argument("--results-dir", default="results")
+    parser.add_argument(
+        "--results-dir",
+        required=True,
+        help="Directory to write bias-audit, sensitivity, and release-readiness "
+        "artifacts. No default: this pipeline writes 8 files directly into it, "
+        "including the provenance/audit trail, so it refuses to guess a destination.",
+    )
     parser.add_argument("--feature-mode", type=int, default=30, choices=[21, 30])
     parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
     parser.add_argument(
         "--allow-overwrite",
         action="store_true",
-        help="Replace training artifacts that already exist in --model-dir",
+        help="Replace training and results artifacts that already exist in "
+        "--model-dir / --results-dir",
     )
     args = parser.parse_args()
 
