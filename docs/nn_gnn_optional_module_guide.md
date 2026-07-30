@@ -54,7 +54,8 @@ Exact means:
 |---|---|---|---|
 | Core canonical | `pipeline.smk`, `src/final_validation_report.py` | `requirements.txt` | `results/*` |
 | ANN optional | `src/ann_benchmark.py` | `requirements.txt` (`torch` is pinned there) | `<--model-dir>/ann_*.pt`, `<--model-dir>/ann_architecture_search.csv` (`--model-dir` is required and has no default) |
-| GNN optional | `src/gnn_benchmark.py` | `requirements.txt` plus the `gnn` extra (`pip install ".[gnn]"`) | `models/gnn_sequence_benchmark.csv`, `models/gnn_bipartite_benchmark.csv` |
+| GNN optional | `src/gnn_benchmark.py` | `requirements.txt` plus the `gnn` extra (`pip install ".[gnn]"`) | `<--output-dir>/gnn_sequence_benchmark.csv`, `<--output-dir>/gnn_bipartite_benchmark.csv` (`--output-dir` is required and has no default) |
+| GNN training | `src/train_gnn.py` | `requirements.txt` plus the `gnn` extra | `<--model-dir>/structural_gnn_v2*.pth`, `<--model-dir>/gnn_config*.json`, plus `gnn_oof_predictions*.csv` in the **parent** of `--model-dir` (`--model-dir` is required and has no default) |
 | Colab optional | `notebooks/SESTRAV_Colab_Pipeline.py` | Colab + optional installs in notebook | Colab runtime outputs / exported artifacts |
 
 ## Threshold and Calibration Lineage

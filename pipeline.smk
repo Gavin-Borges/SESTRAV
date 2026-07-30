@@ -143,7 +143,11 @@ rule train_gnn:
     conda:
         "environment.yml"
     shell:
-        "python -m src.train_gnn --data {input.data} --model-dir models/gnn --feature-mode {params.feature_mode} --binding-matrix {input.binding_matrix} > {log} 2>&1"
+        # --allow-overwrite is deliberate here: this rule IS the reproduction path for the
+        # published models/gnn artifacts (and the OOF predictions in models/), so regenerating
+        # them is the intent rather than an accident. src/train_gnn.py otherwise aborts on the
+        # tracked gnn_config.json. A one-off experiment should use a scratch --model-dir instead.
+        "python -m src.train_gnn --data {input.data} --model-dir models/gnn --allow-overwrite --feature-mode {params.feature_mode} --binding-matrix {input.binding_matrix} > {log} 2>&1"
 
 
 rule full_validation_report:
