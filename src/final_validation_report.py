@@ -7,6 +7,9 @@ Runs the core end-of-semester validation artifacts in one place:
   3) H2 Tier A labeled ISSR enrichment evaluation
 
 This intentionally excludes long-term or optional analyses.
+
+--results-dir is required and has no default. The publish step never replaces
+existing artifacts there unless --allow-overwrite is passed.
 """
 
 from __future__ import annotations
@@ -28,8 +31,56 @@ from src.h2_tier_a_evaluation import run_h2_tier_a
 from src.naming import canonical_output_filename, resolve_model_path
 
 
+def planned_validation_paths(
+    results_dir: str, dataset_mode: str, dataset_version: str
+) -> list[str]:
+    """Every path a run_final_validation publish step writes into results_dir.
+
+    Mirrors the real `publish_names` list built inside run_final_validation
+    exactly, including the three mode/version-tagged aliases - kept as a single
+    shared source of truth so the guard can never drift from what is actually
+    published.
+    """
+    names = [
+        "gold_standard_validation.csv",
+        "baseline_comparison.csv",
+        "h2_tier_a_fold_metrics.csv",
+        "h2_tier_a_summary.csv",
+        "h2_tier_a_summary.md",
+        "final_validation_report.md",
+        "freeze_status.json",
+        canonical_output_filename("gold_standard_validation", dataset_mode, dataset_version),
+        canonical_output_filename("baseline_comparison", dataset_mode, dataset_version),
+        canonical_output_filename("h2_tier_a_summary", dataset_mode, dataset_version),
+    ]
+    return [os.path.join(results_dir, name) for name in names]
+
+
+def _guard_results_dir(
+    results_dir: str, dataset_mode: str, dataset_version: str, allow_overwrite: bool
+) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [
+        p
+        for p in planned_validation_paths(results_dir, dataset_mode, dataset_version)
+        if os.path.isfile(p)
+    ]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{results_dir}':\n  "
+        f"{listing}\n"
+        "These may be published results. Point --results-dir at a fresh directory, "
+        "or pass --allow-overwrite (run_final_validation(..., allow_overwrite=True)) "
+        "to replace them deliberately."
+    )
+
+
 def run_final_validation(
-    results_dir: str = "results",
+    results_dir: str,
     model_dir: str = "models",
     data_path: str = "data/immunogenicity_dataset_v4.csv",
     binding_matrix_path: str = "models/peptide_binding_matrix_v4.csv",
@@ -37,8 +88,10 @@ def run_final_validation(
     dataset_mode: str = "expansion_v4",
     dataset_version: str = "4.0.0",
     freeze_mode: bool = False,
+    allow_overwrite: bool = False,
 ) -> Tuple[str, str, str]:
     """Generate all final validation artifacts and return key output paths."""
+    _guard_results_dir(results_dir, dataset_mode, dataset_version, allow_overwrite)
     model_path = resolve_model_path(model_path)
     os.makedirs(results_dir, exist_ok=True)
     run_started_at = datetime.now(timezone.utc).isoformat()
@@ -182,16 +235,11 @@ def run_final_validation(
                 indent=2,
             )
 
-        # 7) Publish atomically after full success.
+        # 7) Publish atomically after full success. Names come from the same
+        # planned_validation_paths the guard checked, so the two can never drift.
         publish_names = [
-            gs_filename,
-            baseline_filename,
-            "h2_tier_a_fold_metrics.csv",
-            h2_summary_csv_name,
-            h2_summary_md_name,
-            final_md_name,
-            freeze_status_name,
-            *tagged_names,
+            os.path.basename(p)
+            for p in planned_validation_paths(results_dir, dataset_mode, dataset_version)
         ]
         for name in publish_names:
             src = os.path.join(tmp_dir, name)
@@ -220,7 +268,13 @@ def run_final_validation(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV final validation bundle")
-    parser.add_argument("--results-dir", default="results")
+    parser.add_argument(
+        "--results-dir",
+        required=True,
+        help="Directory for validation outputs. No default: pass results/ only when "
+        "you intend to replace the published artifacts, otherwise use a scratch "
+        "directory. Must already exist (create it first).",
+    )
     parser.add_argument("--model-dir", default="models")
     parser.add_argument("--data", default="data/immunogenicity_dataset_v4.csv")
     parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
@@ -228,6 +282,11 @@ if __name__ == "__main__":
     parser.add_argument("--dataset-mode", default="expansion_v4")
     parser.add_argument("--dataset-version", default="4.0.0")
     parser.add_argument("--freeze-mode", action="store_true")
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace existing artifacts in --results-dir instead of aborting before any work",
+    )
     args = parser.parse_args()
 
     # Input validation
@@ -252,4 +311,5 @@ if __name__ == "__main__":
         dataset_mode=args.dataset_mode,
         dataset_version=args.dataset_version,
         freeze_mode=args.freeze_mode,
+        allow_overwrite=args.allow_overwrite,
     )

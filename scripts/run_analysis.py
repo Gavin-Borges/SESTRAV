@@ -6,8 +6,11 @@ Runs all analysis tasks on existing pipeline output (no MHCflurry needed):
   2. Baseline comparison (RF vs XGB vs binding-only)
   3. SHAP explainability (summary, bar, waterfall plots)
 
+--results-dir is required and has no default. A run never replaces existing
+artifacts there unless --allow-overwrite is passed.
+
 Usage:
-    python run_analysis.py [--results-dir results] [--model-dir models]
+    python -m scripts.run_analysis --results-dir results/scratch/analysis --model-dir models
 """
 
 import os
@@ -28,7 +31,41 @@ def _load_config(config_path="config.yaml"):
     return {}
 
 
-def main(results_dir="results", model_dir="models"):
+def planned_analysis_paths(results_dir: str) -> list[str]:
+    """Every path a run_analysis.py run writes into results_dir."""
+    names = [
+        "gold_standard_validation.csv",
+        "baseline_comparison.csv",
+        "shap_values_rf.csv",
+        "shap_values_xgb.csv",
+        "shap_summary_rf.png",
+        "shap_summary_xgb.png",
+        "shap_bar_rf.png",
+        "shap_bar_xgb.png",
+        "shap_waterfall_top_gs.png",
+    ]
+    return [os.path.join(results_dir, name) for name in names]
+
+
+def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [p for p in planned_analysis_paths(results_dir) if os.path.isfile(p)]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{results_dir}':\n  "
+        f"{listing}\n"
+        "These may be published results. Point --results-dir at a fresh directory, "
+        "or pass --allow-overwrite (main(..., allow_overwrite=True)) to replace them "
+        "deliberately."
+    )
+
+
+def main(results_dir: str, model_dir="models", allow_overwrite: bool = False):
+    _guard_results_dir(results_dir, allow_overwrite)
     os.makedirs(results_dir, exist_ok=True)
     cfg = _load_config()
 
@@ -78,8 +115,19 @@ def main(results_dir="results", model_dir="models"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SESTRAV post-pipeline analysis")
-    parser.add_argument("--results-dir", default="results")
+    parser.add_argument(
+        "--results-dir",
+        required=True,
+        help="Directory for analysis outputs. No default: pass results/ only when "
+        "you intend to replace the published artifacts, otherwise use a scratch "
+        "directory. Must already exist (create it first).",
+    )
     parser.add_argument("--model-dir", default="models")
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace existing artifacts in --results-dir instead of aborting before any work",
+    )
     args = parser.parse_args()
 
     # Input validation
@@ -88,4 +136,4 @@ if __name__ == "__main__":
     if not os.path.isdir(args.model_dir):
         parser.error(f"Models directory does not exist: '{args.model_dir}'")
 
-    main(args.results_dir, args.model_dir)
+    main(args.results_dir, args.model_dir, allow_overwrite=args.allow_overwrite)
