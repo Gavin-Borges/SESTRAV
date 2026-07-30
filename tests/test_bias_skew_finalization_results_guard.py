@@ -246,6 +246,16 @@ def test_run_bias_skew_finalization_requires_an_explicit_results_dir():
 
 
 def test_bias_skew_finalization_cli_requires_results_dir_explicitly():
+    """--results-dir must be rejected by argparse itself, before any work starts.
+
+    The assertion is anchored on argparse's required-arguments line rather than
+    searching all of stderr. --model-dir is supplied here, so a --results-dir
+    that quietly regained a default would parse cleanly, start the run, and hit
+    _guard_results_dir, whose own message reads "Point --results-dir at a fresh
+    directory". That puts the flag name in stderr and satisfies a bare substring
+    check while the regression is live, which is the opposite of what this test
+    is for.
+    """
     result = subprocess.run(
         [sys.executable, "-m", "src.bias_skew_finalization", "--model-dir", "models/scratch"],
         capture_output=True,
@@ -253,7 +263,16 @@ def test_bias_skew_finalization_cli_requires_results_dir_explicitly():
         cwd=REPO_ROOT,
     )
     assert result.returncode != 0
-    assert "--results-dir" in result.stderr
+    required_lines = [
+        ln for ln in result.stderr.splitlines() if "the following arguments are required:" in ln
+    ]
+    assert required_lines, (
+        f"expected argparse to reject the run outright, got: {result.stderr[:400]}"
+    )
+    assert "--results-dir" in required_lines[0], (
+        f"--results-dir was not named as required; it may have regained a default: "
+        f"{required_lines[0][:200]}"
+    )
 
 
 def test_bias_skew_finalization_cli_advertises_allow_overwrite():
