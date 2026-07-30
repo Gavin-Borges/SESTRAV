@@ -45,6 +45,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   writing into the same scratch directory rather than back into `models/`). The `sestrav --help`
   usage example and every documented invocation of these three commands now include
   `--model-dir`. Per-mode artifact filenames and all training math are unchanged.
+- **`src/ann_benchmark.py` closes the same silent-overwrite trap** (breaking CLI change): this
+  was the fourth entry point of the class above and was explicitly scoped out of that change.
+  `--model-dir` defaulted to `models`, so a run that omitted the flag rewrote the tracked
+  `models/training_results.csv` in place, adding `ann_cv_mean`/`ann_cv_std` columns
+  to a published release artifact. `--model-dir` is now required with no default, `train_ann`
+  takes `allow_overwrite`, and a run aborts with `FileExistsError` before any training work if it
+  would replace an artifact already on disk. Two files are deliberately exempt from the guard:
+  the checksum manifest (upserted) and `training_results.csv`, which this step *merges into*
+  rather than replaces - the `train_classifier` step of the same run writes it moments earlier,
+  so guarding it would make every legitimate RF-then-ANN run into one directory fail. The
+  required flag, not the guard, is what removes the accidental path to `models/`.
+  `src/bias_skew_finalization.py` now threads its `allow_overwrite` through to the ANN step, the
+  three usage examples in the module docstring carry `--model-dir`, and the two docs that named
+  `models/` as the ANN output destination (`docs/nn_gnn_optional_module_guide.md`,
+  `docs/model_evaluation_summary.md`) now describe the destination as whatever `--model-dir` is
+  pointed at. `src/train_ann.py` is a separate entry point and is correctly untouched: its
+  `models/ann` default contains no tracked artifacts. **This does not close the defect class.**
+  `src/train_gnn.py` remains open and is deliberately out of scope here: its `--model-dir`
+  defaults to `models/gnn`, which does hold tracked artifacts (`gnn_config.json`,
+  `gnn_config_mean.json`), and `src/gnn_benchmark.py`'s `--output-dir` defaults to `models`,
+  where it writes the tracked `gnn_sequence_benchmark.csv` and `gnn_bipartite_benchmark.csv`.
+  Both still need the required-flag-plus-guard treatment. Training math is unchanged.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
@@ -358,6 +380,15 @@ SESTRAV v2.0.0 finalizes the semester core pipeline and integrates advanced comp
 - H2 Tier A decision: **NOT SUPPORTED** ($R_{10} = 0.9494$, below standard threshold)
 
 ### Reproducibility Commands
+
+These are the commands as run for the 2.0.0 release, kept verbatim as a historical record.
+They no longer execute as written: `--model-dir` later became a required flag on
+`src.train_classifier`, so the two `train_classifier` lines now exit with an argparse error.
+The release wrote into `models/`, which today holds published artifacts that the overwrite
+guard refuses to replace without `--allow-overwrite`. To re-run this sequence now, pass
+`--model-dir models/local` on both `train_classifier` lines and repoint the
+`final_validation_report` line's `--model-dir` and `--model-path` at `models/local` to read
+back what those two lines just wrote.
 
 ```bash
 conda env create -f environment.yml

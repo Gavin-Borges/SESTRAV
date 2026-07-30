@@ -98,7 +98,7 @@ ANN/GNN values are sourced from the ANN/GNN benchmark study and mirrored in SEST
 
 **Best benchmark performer (30-feature track): ANN (256-128-64 ReLU dropout 0.2)** - highest AUC-PR and ISSR@10 in this comparison table.
 
-> **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `src/train_classifier.py` and `src/ann_benchmark.py` locally to reproduce.
+> **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `src/train_classifier.py` and `src/ann_benchmark.py` locally to reproduce; both require `--model-dir`, so point them at a scratch directory such as `models/local` rather than at the published artifacts in `models/`.
 
 > **Provenance note:** The canonical optional ANN/GNN evidence source for the
 > latest Project 2 sync is documented in `docs/nn_gnn_project2_sync_matrix.md`.
@@ -107,9 +107,11 @@ ANN/GNN values are sourced from the ANN/GNN benchmark study and mirrored in SEST
 
 The architecture search evaluates depth, width, activation function, and dropout rate. The best configuration (256-128-64 ReLU dropout 0.2) was identified from the systematic architecture search.
 
-Saved to: `models/ann_architecture_search.csv` (generated locally via `--search`
-flag). Project 2 run metadata and benchmark lineage are documented in
-`docs/nn_gnn_optional_module_guide.md`.
+Saved to `ann_architecture_search.csv` inside the `--model-dir` the run was
+pointed at (generated locally via the `--search` flag). `--model-dir` is
+required and has no default, so a search run writes wherever it is told rather
+than into `models/`. Project 2 run metadata and benchmark lineage are
+documented in `docs/nn_gnn_optional_module_guide.md`.
 
 ### GNN Benchmark Results (Exploratory)
 
