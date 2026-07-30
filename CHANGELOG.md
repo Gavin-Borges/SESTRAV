@@ -102,6 +102,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   so this specific instance could not have silently corrupted a published artifact the way the
   other six could have - it is closed anyway for consistency of the defect class and because
   nothing prevents the file from being tracked later.
+- **The same silent-overwrite trap also existed for `results/`, not just `models/`, and is now
+  closed for `scripts/run_analysis.py` and `src/final_validation_report.py`** (breaking CLI
+  change): `--results-dir` defaulted to `results` on both, with no guard. This is a
+  higher-severity instance than any single one in the `models/` line above:
+  `results/h2_tier_a_summary.md` is the certified R10=0.9494 binding source cited in
+  `docs/claims_register.md`, not just a training artifact. `--results-dir` is now required
+  with no default on both, and both gain `--allow-overwrite` plus a `FileExistsError` guard
+  that runs before any work. `run_analysis.py`'s guard covers all 9 files a run writes,
+  including the 7 delegated through `src/shap_analysis.py`'s `run_shap_analysis` (not just its
+  own 2 direct CSVs). `final_validation_report.py`'s guard covers all 10 atomically-published
+  files, including the 3 mode/version-tagged aliases `canonical_output_filename` produces - the
+  guard and the real publish step now draw from one shared `planned_validation_paths()` helper
+  so they cannot drift apart. `src/bias_skew_finalization.py` is fixed alongside them: it called
+  `run_final_validation()` but also, redundantly, computed and wrote `baseline_comparison.csv`
+  itself one step earlier - once `final_validation_report.py` gained a guard, that redundant
+  pre-write would have made even a first-ever run into an empty directory trip the guard, since
+  the file would always already exist by the time `run_final_validation`'s guard checked for it.
+  The redundant write is removed (nothing downstream depended on it existing early) rather than
+  forcing `allow_overwrite=True` unconditionally on that call site, which would have silently
+  disabled the guard for all 10 of `run_final_validation`'s files. `allow_overwrite` now threads
+  through normally, matching the existing `train_models`/`train_ann` pattern in the same
+  function. **`run_bias_skew_finalization`'s own `--results-dir` is a further, larger instance
+  of this same defect (writes or delegates at least 9 more files: the dataset-provenance and
+  bias-audit trail, gold-standard-sensitivity outputs, and the release-readiness summary) and
+  remains open** - not fixed here, since each delegate needs the same enumerate-every-write
+  rigor this entry used before a guard can be built correctly; see
+  `_local/notes/results-dir-silent-overwrite-2026-07-30.md`.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as

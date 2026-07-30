@@ -180,6 +180,11 @@ rule full_validation_report:
     conda:
         "environment.yml"
     shell:
+        # --allow-overwrite is deliberate here: this rule declares the 10 published
+        # results/ artifacts as its own Snakemake outputs, so it IS the reproduction
+        # path for them - a re-run (e.g. `snakemake -f`) is the intent, not an
+        # accident. src/final_validation_report.py otherwise aborts on the tracked
+        # h2_tier_a_summary.md. A one-off experiment should use a scratch --results-dir.
         "python -m src.final_validation_report "
         "--results-dir {params.results_dir} "
         "--model-dir {params.model_dir} "
@@ -188,6 +193,7 @@ rule full_validation_report:
         "--model-path {input.model} "
         "--dataset-mode {params.dataset_mode} "
         "--dataset-version {params.dataset_version} "
+        "--allow-overwrite "
         "{params.freeze_flag} "
         "> {log} 2>&1"
 

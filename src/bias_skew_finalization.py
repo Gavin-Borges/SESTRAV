@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 
 from src.ann_benchmark import train_ann
-from src.baseline_comparison import compare_methods
 from src.data_bias_audit import _collect_raw_records, refresh_dataset, write_audit_reports
 from src.final_validation_report import run_final_validation
 from src.gold_standard_sensitivity import run_gold_standard_sensitivity
@@ -109,19 +108,21 @@ def run_bias_skew_finalization(
         allow_overwrite=allow_overwrite,
     )
 
-    compare_df = compare_methods(results_dir=results_dir, model_dir=model_dir)
-    compare_df.to_csv(os.path.join(results_dir, "baseline_comparison.csv"), index=False)
-
     model_path = os.path.join(
         model_dir,
         "rf_30feature_integrated.joblib" if feature_mode == 30 else "rf_21feature_legacy.joblib",
     )
+    # run_final_validation computes and publishes baseline_comparison.csv itself
+    # (via the same compare_methods call), so no separate direct write is needed
+    # here - a redundant pre-write would also always collide with the guard
+    # run_final_validation now runs before its own publish step.
     run_final_validation(
         results_dir=results_dir,
         model_dir=model_dir,
         data_path=data_csv,
         binding_matrix_path=binding_matrix_path,
         model_path=model_path,
+        allow_overwrite=allow_overwrite,
     )
 
     gs_sens_csv = os.path.join(results_dir, "gold_standard_sensitivity.csv")

@@ -46,7 +46,21 @@ if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; the
 fi
 
 # Run fast tests: exclude heavy (model checkpoints) and slow (network) markers.
-cd "${REPO_ROOT}" && python -m pytest tests/ -q -m "not heavy and not slow"
+# tests/test_run_analysis_results_guard.py is also excluded here: it imports
+# scripts.run_analysis, which imports the `shap` library, which on at least one
+# Windows dev machine used on this project crashes the Python process with a
+# native Windows exception at import time (scipy.linalg.inv called from
+# shap/plots/colors/_colorconv.py) - not catchable by any Python-level marker
+# or try/except, since it kills the interpreter before pytest's own marker
+# filtering ever runs. Confirmed pre-existing and environment-specific, not
+# caused by any change in this repo (python -m src.shap_analysis --help
+# crashes identically, unmodified). CI (ubuntu-latest, see ci.yml) is
+# unaffected and is the authoritative check for that file; see
+# _local/notes/results-dir-silent-overwrite-2026-07-30.md for the full
+# writeup. Remove this --ignore if the underlying scipy/shap/MKL conflict is
+# ever fixed upstream or the dependency is replaced.
+cd "${REPO_ROOT}" && python -m pytest tests/ -q -m "not heavy and not slow" \
+    --ignore=tests/test_run_analysis_results_guard.py
 
 status=$?
 
