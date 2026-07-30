@@ -40,19 +40,25 @@ MODEL_DIR_REQUIRED_ENTRY_POINTS = [
     "src.train_gnn",
 ]
 
-# Same defect class, different flag name: gnn_benchmark writes its result CSVs
-# to --output-dir, which used to default to models/.
-OUTPUT_DIR_REQUIRED_ENTRY_POINTS = ["src.gnn_benchmark"]
+# Same defect class, different flag name: these write their result CSVs to
+# --output-dir, which used to default to models/.
+OUTPUT_DIR_REQUIRED_ENTRY_POINTS = ["src.gnn_benchmark", "src.ablation_study"]
+
+# Same defect class again, a third flag name: this one writes its CV summary
+# to --output-summary, which used to default to models/ann_cv_summary.csv.
+OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS = ["scripts.compute_ann_baseline_summary"]
 
 # (module, flag) pairs for the checks that do not care which name the flag has.
 REQUIRED_OUTPUT_FLAGS = [
     *((m, "--model-dir") for m in MODEL_DIR_REQUIRED_ENTRY_POINTS),
     *((m, "--output-dir") for m in OUTPUT_DIR_REQUIRED_ENTRY_POINTS),
+    *((m, "--output-summary") for m in OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS),
 ]
 
 ALL_ENTRY_POINTS = [
     *MODEL_DIR_REQUIRED_ENTRY_POINTS,
     *OUTPUT_DIR_REQUIRED_ENTRY_POINTS,
+    *OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS,
     "src.cli",
 ]
 
