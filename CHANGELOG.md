@@ -64,7 +64,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `models/ann` default contains no tracked artifacts. The two instances this entry previously
   listed as still open - `src/train_gnn.py` and `src/gnn_benchmark.py` - are now closed as well;
   see the following entry. Training math is unchanged.
-- **The GNN entry points close the same trap, completing the sweep** (breaking CLI change):
+- **The GNN entry points close the same trap for the two widest `models/` writers** (breaking
+  CLI change):
   `src/train_gnn.py` defaulted `--model-dir` to `models/gnn` and `src/gnn_benchmark.py` defaulted
   `--output-dir` to `models`, so a run that omitted the flag overwrote tracked release artifacts.
   This was the widest instance of the family: a default `python -m src.train_gnn` run (v2
@@ -106,8 +107,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   closed for `scripts/run_analysis.py` and `src/final_validation_report.py`** (breaking CLI
   change): `--results-dir` defaulted to `results` on both, with no guard. This is a
   higher-severity instance than any single one in the `models/` line above:
-  `results/h2_tier_a_summary.md` is the certified R10=0.9494 binding source cited in
-  `docs/claims_register.md`, not just a training artifact. `--results-dir` is now required
+  `results/h2_tier_a_summary.md` is the source behind the certified R10 = 0.9494 H2 Tier A null
+  result published in `README.md`, not just a training artifact. `--results-dir` is now required
   with no default on both, and both gain `--allow-overwrite` plus a `FileExistsError` guard
   that runs before any work. `run_analysis.py`'s guard covers all 9 files a run writes,
   including the 7 delegated through `src/shap_analysis.py`'s `run_shap_analysis` (not just its
@@ -129,8 +130,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `gold_standard_sensitivity.csv`, `gold_standard_sensitivity.md`,
   `gold_standard_sensitivity_deltas.csv`, `release_readiness_summary.md`) and was left open at
   the time** - not fixed in this entry, since each delegate needed the same enumerate-every-write
-  rigor this entry used before a guard could be built correctly; see
-  `_local/notes/results-dir-silent-overwrite-2026-07-30.md`. Now closed - see the following entry.
+  rigor this entry used before a guard could be built correctly. Now closed - see the following
+  entry.
 - **`run_bias_skew_finalization`'s own `--results-dir` closes the last disclosed instance of the
   `results/` line** (breaking CLI change): flagged but deliberately not fixed in the entry above,
   pending a per-delegate write enumeration. That enumeration is now done by reading
@@ -162,6 +163,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `--results-dir` has no default. No `pipeline.smk` rule invokes
   `src.bias_skew_finalization` (checked directly), so no Snakemake rule needed an
   `--allow-overwrite` addition.
+  **Scope note - this does not close the `results/` defect class.** It closes the last instance
+  *previously disclosed in this changelog*, which is a narrower claim than it may read as. An
+  independent sweep at this commit finds 36 further `default="results..."` call sites across 25
+  tracked `.py` files under `src/` and `scripts/`. At least six overwrite git-tracked artifacts on
+  a bare invocation, with no required flag, no `FileExistsError` guard and no `--allow-overwrite`:
+  `src/h2_tier_a_evaluation.py` (`--output-dir`, writing `h2_tier_a_summary.md`,
+  `h2_tier_a_summary.csv` and `h2_tier_a_fold_metrics.csv` - the same certified R10 = 0.9494
+  source this line cites above as its own justification, and so the most severe instance now
+  known); `src/data_bias_audit.py` and `src/gold_standard_sensitivity.py`, whose own `__main__`
+  CLIs default 6 of the 8 filenames guarded above straight back into `results/`, leaving them
+  reachable unguarded through the siblings; `src/calibration_analysis.py`
+  (`results/calibration_metrics.csv`); `src/shap_analysis.py` (`shap_values_{tag}.csv`, i.e. the
+  tracked `results/shap_values_rf.csv`); `scripts/compute_population_coverage.py`
+  (`results/population_coverage_v5.json`); and `src/external_validation_cross_virus.py`
+  (`results/external_validation_cross_virus.csv`). These are disclosed here, not fixed: each needs
+  the same per-file write enumeration this entry used before a guard can be built correctly, and
+  that list is not assumed exhaustive.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
