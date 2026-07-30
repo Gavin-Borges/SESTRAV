@@ -106,6 +106,7 @@ def run_bias_skew_finalization(
         model_dir=model_dir,
         n_cv_folds=5,
         random_state=42,
+        allow_overwrite=allow_overwrite,
     )
 
     compare_df = compare_methods(results_dir=results_dir, model_dir=model_dir)

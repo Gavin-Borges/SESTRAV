@@ -17,13 +17,20 @@ Project 2 best architecture (30-feature, 5-fold CV):
 
 Usage:
     # Single architecture (default: 256-128-64)
-    python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 30
+    python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 30 \\
+        --model-dir models/scratch/ann_mode30
 
     # Architecture search
-    python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 30 --search
+    python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 30 --search \\
+        --model-dir models/scratch/ann_search
 
     # Legacy 21-feature mode (backward compatible)
-    python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 21
+    python -m src.ann_benchmark --data immunogenicity_dataset.csv --feature-mode 21 \\
+        --model-dir models/scratch/ann_mode21
+
+--model-dir is required and has no default. Existing artifacts there are never
+replaced unless --allow-overwrite is passed, so a benchmark run cannot silently
+rewrite the published artifacts under models/.
 """
 
 import os
@@ -129,29 +136,79 @@ def run_architecture_search(
     return df, best_config
 
 
+def _ann_model_stem(feature_mode: int | str) -> str:
+    """Return the filename stem this feature mode serializes under."""
+    return "ann_30feature_integrated" if feature_mode == 30 else "ann_21feature_legacy"
+
+
+def planned_ann_artifact_paths(
+    model_dir: str, feature_mode: int | str, search: bool = False
+) -> list[str]:
+    """Every path a train_ann run writes wholesale into model_dir.
+
+    Excludes two files that are merged into rather than replaced:
+    the checksum manifest (upserted), and training_results.csv, which this
+    run adds ann_cv_mean/ann_cv_std columns to. That file is normally
+    produced by the train_classifier step of the same run, so guarding it
+    would make every legitimate RF-then-ANN run into one directory fail.
+    """
+    names = [f"{_ann_model_stem(feature_mode)}.pt"]
+    if search:
+        names.append("ann_architecture_search.csv")
+    return [os.path.join(model_dir, name) for name in names]
+
+
+def _guard_output_dir(
+    model_dir: str, feature_mode: int | str, search: bool, allow_overwrite: bool
+) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [
+        p for p in planned_ann_artifact_paths(model_dir, feature_mode, search) if os.path.isfile(p)
+    ]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{model_dir}':\n  "
+        f"{listing}\n"
+        "These may be published results. Point --model-dir at a fresh directory "
+        "(for example models/scratch/<run-name>), or pass --allow-overwrite "
+        "(train_ann(..., allow_overwrite=True)) to replace them deliberately."
+    )
+
+
 def train_ann(
     data_path,
-    model_dir="models",
+    model_dir: str,
     n_cv_folds=5,
     random_state=42,
     feature_mode=21,
     binding_matrix_path=None,
     architecture=None,
     search=False,
+    allow_overwrite: bool = False,
 ):
     """Full ANN training pipeline with CV and final model serialization.
 
     Args:
         data_path:           Path to immunogenicity_dataset.csv.
-        model_dir:           Output directory for model artifacts.
+        model_dir:           Output directory for model artifacts. No default:
+                             the destination of a training run must be a
+                             deliberate choice, because the repo's published
+                             artifacts live in models/.
         n_cv_folds:          Number of CV folds.
         random_state:        Random seed.
         feature_mode:        21 (legacy) or 30 (canonical).
         binding_matrix_path: Required for feature_mode=30.
         architecture:        Hidden layer sizes (list of ints or dash-separated string).
         search:              If True, run architecture search.
+        allow_overwrite:     Replace existing artifacts in model_dir instead of
+                             aborting before any training work is done.
     """
     set_seeds(random_state)
+    _guard_output_dir(model_dir, feature_mode, search, allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
     device = get_device()
     print(f"Device: {device}")
@@ -279,10 +336,7 @@ def train_ann(
     )
 
     # --- Save model ---
-    if feature_mode == 30:
-        model_stem = "ann_30feature_integrated"
-    else:
-        model_stem = "ann_21feature_legacy"
+    model_stem = _ann_model_stem(feature_mode)
 
     model_path = os.path.join(model_dir, f"{model_stem}.pt")
     torch.save(
@@ -339,7 +393,13 @@ def train_ann(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train SESTRAV ANN benchmark")
     parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
-    parser.add_argument("--model-dir", default="models")
+    parser.add_argument(
+        "--model-dir",
+        required=True,
+        help="Output directory for serialized models and metrics. No default: pass "
+        "models/ only when you intend to replace the published artifacts, otherwise "
+        "use a scratch directory",
+    )
     parser.add_argument("--cv-folds", type=int, default=5)
     parser.add_argument(
         "--feature-mode",
@@ -361,6 +421,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--search", action="store_true", help="Run architecture search over 14 configurations"
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace existing artifacts in --model-dir instead of aborting before training",
+    )
     args = parser.parse_args()
 
     train_ann(
@@ -371,4 +436,5 @@ if __name__ == "__main__":
         binding_matrix_path=args.binding_matrix,
         architecture=args.architecture,
         search=args.search,
+        allow_overwrite=args.allow_overwrite,
     )
