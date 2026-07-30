@@ -10,9 +10,10 @@ Two regressions motivate this file:
    user while every unit test still passes, because nothing else exercises
    argparse construction. That exact regression was caught by hand during the
    model-dir repair work and could silently return.
-2. `--model-dir` was made required on the entry points that write the tracked
-   release artifacts under `models/`. A default quietly reappearing would
-   restore the silent-overwrite trap, and no unit test would notice.
+2. The output-directory flag was made required on the entry points that write
+   the tracked release artifacts under `models/` and `results/`. A default
+   quietly reappearing would restore the silent-overwrite trap, and no unit
+   test would notice.
 
 These run the real CLI in a subprocess, so they cover argparse construction,
 module-level import side effects and the epilog together. `--help` neither
@@ -48,19 +49,38 @@ OUTPUT_DIR_REQUIRED_ENTRY_POINTS = ["src.gnn_benchmark", "src.ablation_study"]
 # to --output-summary, which used to default to models/ann_cv_summary.csv.
 OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS = ["scripts.compute_ann_baseline_summary"]
 
+# Same defect class, a fourth flag name, and the only one pointing at results/
+# rather than models/: this guards the 8 files run_bias_skew_finalization writes
+# into --results-dir. src.bias_skew_finalization is the one entry point carrying
+# two independently required output flags, so it appears both here and in
+# MODEL_DIR_REQUIRED_ENTRY_POINTS. The checks below are keyed on (module, flag)
+# pairs, so listing it twice checks each flag rather than double-checking one.
+RESULTS_DIR_REQUIRED_ENTRY_POINTS = ["src.bias_skew_finalization"]
+
 # (module, flag) pairs for the checks that do not care which name the flag has.
 REQUIRED_OUTPUT_FLAGS = [
     *((m, "--model-dir") for m in MODEL_DIR_REQUIRED_ENTRY_POINTS),
     *((m, "--output-dir") for m in OUTPUT_DIR_REQUIRED_ENTRY_POINTS),
     *((m, "--output-summary") for m in OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS),
+    *((m, "--results-dir") for m in RESULTS_DIR_REQUIRED_ENTRY_POINTS),
 ]
 
+# Deliberately does not splat RESULTS_DIR_REQUIRED_ENTRY_POINTS: its only member
+# already appears via MODEL_DIR_REQUIRED_ENTRY_POINTS, and the checks keyed on
+# this list are per-module, not per-flag.
 ALL_ENTRY_POINTS = [
     *MODEL_DIR_REQUIRED_ENTRY_POINTS,
     *OUTPUT_DIR_REQUIRED_ENTRY_POINTS,
     *OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS,
     "src.cli",
 ]
+
+# Per-module, so an entry point with two required flags is still checked once.
+ALLOW_OVERWRITE_ENTRY_POINTS = list(dict.fromkeys(m for m, _ in REQUIRED_OUTPUT_FLAGS))
+
+# argparse's wording for a missing required argument. Anchoring on this line
+# keeps the rejection check from being satisfied by the echoed usage line.
+REQUIRED_ARGS_MARKER = "the following arguments are required:"
 
 
 def _run_module(*args: str) -> subprocess.CompletedProcess[str]:
@@ -100,21 +120,35 @@ def test_output_dir_flag_is_advertised_as_required(module: str, flag: str) -> No
     assert flag in result.stdout, f"{module} does not expose {flag}"
     assert f"[{flag}" not in result.stdout, (
         f"{module} advertises {flag} as optional; it must stay required so a run "
-        "cannot silently overwrite the published artifacts under models/"
+        "cannot silently overwrite the published artifacts under models/ or results/"
     )
 
 
 @pytest.mark.parametrize(("module", "flag"), REQUIRED_OUTPUT_FLAGS)
 def test_missing_output_dir_flag_is_rejected(module: str, flag: str) -> None:
-    """Omitting the output-directory flag must fail fast, before any work starts."""
+    """Omitting the output-directory flag must fail fast, before any work starts.
+
+    The flag has to be named on argparse's "the following arguments are
+    required" line, not merely somewhere in stderr: argparse also echoes the
+    usage line, which names every flag whether it is required or defaulted. On
+    an entry point carrying more than one required flag, a plain substring
+    check against all of stderr passes even when the flag under test has
+    silently regained a default, because a *different* missing flag is what
+    produced the non-zero exit.
+    """
     result = _run_module(module, "--data", "does_not_exist.csv")
     assert result.returncode != 0, f"{module} accepted a run with no {flag}"
-    assert flag in result.stderr, (
-        f"{module} failed without naming {flag} as the cause: {result.stderr[:400]}"
+    required_lines = [ln for ln in result.stderr.splitlines() if REQUIRED_ARGS_MARKER in ln]
+    assert required_lines, (
+        f"{module} failed without an argparse required-arguments error: {result.stderr[:400]}"
+    )
+    assert any(flag in ln for ln in required_lines), (
+        f"{module} failed without naming {flag} as required; it may have regained a "
+        f"default: {' '.join(required_lines)[:400]}"
     )
 
 
-@pytest.mark.parametrize("module", [m for m, _ in REQUIRED_OUTPUT_FLAGS])
+@pytest.mark.parametrize("module", ALLOW_OVERWRITE_ENTRY_POINTS)
 def test_allow_overwrite_escape_hatch_is_advertised(module: str) -> None:
     """The guard must document its own escape hatch, or it reads as a hard block."""
     result = _run_help(module)
