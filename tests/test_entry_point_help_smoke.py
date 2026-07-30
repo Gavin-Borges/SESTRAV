@@ -1,7 +1,8 @@
-"""`--help` smoke tests for every entry point whose `--model-dir` is required.
+"""`--help` smoke tests for every entry point with a required output directory.
 
-Deliberately not a sweep of everything that writes artifacts: `src/train_ann.py`,
-`src/train_gnn.py` and `src/gnn_benchmark.py` also write, and are not covered here.
+`src/train_ann.py` is deliberately excluded: its `models/ann` default holds no
+tracked artifacts, so it is the one writer of the family that never needed the
+required flag.
 
 Two regressions motivate this file:
 
@@ -36,9 +37,24 @@ MODEL_DIR_REQUIRED_ENTRY_POINTS = [
     "src.train_classifier",
     "src.ann_benchmark",
     "src.bias_skew_finalization",
+    "src.train_gnn",
 ]
 
-ALL_ENTRY_POINTS = [*MODEL_DIR_REQUIRED_ENTRY_POINTS, "src.cli"]
+# Same defect class, different flag name: gnn_benchmark writes its result CSVs
+# to --output-dir, which used to default to models/.
+OUTPUT_DIR_REQUIRED_ENTRY_POINTS = ["src.gnn_benchmark"]
+
+# (module, flag) pairs for the checks that do not care which name the flag has.
+REQUIRED_OUTPUT_FLAGS = [
+    *((m, "--model-dir") for m in MODEL_DIR_REQUIRED_ENTRY_POINTS),
+    *((m, "--output-dir") for m in OUTPUT_DIR_REQUIRED_ENTRY_POINTS),
+]
+
+ALL_ENTRY_POINTS = [
+    *MODEL_DIR_REQUIRED_ENTRY_POINTS,
+    *OUTPUT_DIR_REQUIRED_ENTRY_POINTS,
+    "src.cli",
+]
 
 
 def _run_module(*args: str) -> subprocess.CompletedProcess[str]:
@@ -66,33 +82,33 @@ def test_help_parses_and_exits_clean(module: str) -> None:
     assert "usage:" in result.stdout.lower(), f"{module} --help printed no usage block"
 
 
-@pytest.mark.parametrize("module", MODEL_DIR_REQUIRED_ENTRY_POINTS)
-def test_model_dir_is_advertised_as_required(module: str) -> None:
-    """--model-dir must appear in help and must not advertise a default.
+@pytest.mark.parametrize(("module", "flag"), REQUIRED_OUTPUT_FLAGS)
+def test_output_dir_flag_is_advertised_as_required(module: str, flag: str) -> None:
+    """The output-directory flag must appear in help and must not advertise a default.
 
     argparse renders an optional argument in the usage line wrapped in
     brackets; a required one is unbracketed. Checking the usage line rather
     than the help prose keeps this honest if the help text is reworded.
     """
     result = _run_help(module)
-    assert "--model-dir" in result.stdout, f"{module} does not expose --model-dir"
-    assert "[--model-dir" not in result.stdout, (
-        f"{module} advertises --model-dir as optional; it must stay required so a run "
+    assert flag in result.stdout, f"{module} does not expose {flag}"
+    assert f"[{flag}" not in result.stdout, (
+        f"{module} advertises {flag} as optional; it must stay required so a run "
         "cannot silently overwrite the published artifacts under models/"
     )
 
 
-@pytest.mark.parametrize("module", MODEL_DIR_REQUIRED_ENTRY_POINTS)
-def test_missing_model_dir_is_rejected(module: str) -> None:
-    """Omitting --model-dir must fail fast, before any training work starts."""
+@pytest.mark.parametrize(("module", "flag"), REQUIRED_OUTPUT_FLAGS)
+def test_missing_output_dir_flag_is_rejected(module: str, flag: str) -> None:
+    """Omitting the output-directory flag must fail fast, before any work starts."""
     result = _run_module(module, "--data", "does_not_exist.csv")
-    assert result.returncode != 0, f"{module} accepted a run with no --model-dir"
-    assert "--model-dir" in result.stderr, (
-        f"{module} failed without naming --model-dir as the cause: {result.stderr[:400]}"
+    assert result.returncode != 0, f"{module} accepted a run with no {flag}"
+    assert flag in result.stderr, (
+        f"{module} failed without naming {flag} as the cause: {result.stderr[:400]}"
     )
 
 
-@pytest.mark.parametrize("module", MODEL_DIR_REQUIRED_ENTRY_POINTS)
+@pytest.mark.parametrize("module", [m for m, _ in REQUIRED_OUTPUT_FLAGS])
 def test_allow_overwrite_escape_hatch_is_advertised(module: str) -> None:
     """The guard must document its own escape hatch, or it reads as a hard block."""
     result = _run_help(module)

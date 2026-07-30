@@ -403,8 +403,7 @@ def run_gnn_cv(
     """
     if not HAS_PYG:
         raise ImportError(
-            "torch_geometric is required for GNN benchmark. "
-            'Install with: pip install ".[gnn]"'
+            'torch_geometric is required for GNN benchmark. Install with: pip install ".[gnn]"'
         )
 
     if device is None:
@@ -593,6 +592,43 @@ def run_bipartite_gnn_benchmark(
 # ---------------------------------------------------------------------------
 
 
+def _writes_bipartite(skip_bipartite: bool, binding_matrix: str) -> bool:
+    """Whether this run will write the bipartite CSV.
+
+    Mirrors the write condition exactly rather than approximating it: the
+    bipartite benchmark is skipped both by --skip-bipartite and by a missing
+    binding matrix. Guarding a file the run would never write would abort a
+    legitimate sequence-only run for no reason.
+    """
+    return not skip_bipartite and os.path.isfile(binding_matrix)
+
+
+def planned_benchmark_paths(output_dir: str, writes_bipartite: bool = True) -> list[str]:
+    """Every result CSV a benchmark run writes into output_dir."""
+    paths = [os.path.join(output_dir, "gnn_sequence_benchmark.csv")]
+    if writes_bipartite:
+        paths.append(os.path.join(output_dir, "gnn_bipartite_benchmark.csv"))
+    return paths
+
+
+def _guard_output_dir(output_dir: str, writes_bipartite: bool, allow_overwrite: bool) -> None:
+    """Refuse to clobber result CSVs already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [
+        p for p in planned_benchmark_paths(output_dir, writes_bipartite) if os.path.isfile(p)
+    ]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing result CSV(s):\n  {listing}\n"
+        "These may be published results. Point --output-dir at a fresh directory "
+        "(for example models/scratch/<run-name>), or pass --allow-overwrite to "
+        "replace them deliberately."
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="SESTRAV GNN Benchmark - Graph Neural Network comparison"
@@ -604,9 +640,20 @@ def main():
         help="Path to peptide_binding_matrix.csv (for bipartite GNN)",
     )
     parser.add_argument("--cv-folds", type=int, default=5)
-    parser.add_argument("--output-dir", default="models", help="Directory for result CSVs")
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Directory for result CSVs. No default: pass models only when you intend to "
+        "replace the published benchmark artifacts, otherwise use a scratch directory",
+    )
     parser.add_argument(
         "--skip-bipartite", action="store_true", help="Skip the bipartite peptide-allele GNN"
+    )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace existing result CSVs in --output-dir instead of aborting before the "
+        "benchmark runs",
     )
     args = parser.parse_args()
 
@@ -614,6 +661,12 @@ def main():
         print("ERROR: torch_geometric not installed.")
         print('Install with: pip install ".[gnn]"')
         return
+
+    _guard_output_dir(
+        args.output_dir,
+        writes_bipartite=_writes_bipartite(args.skip_bipartite, args.binding_matrix),
+        allow_overwrite=args.allow_overwrite,
+    )
 
     set_seeds(SEED)
     device = get_device()

@@ -61,12 +61,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `models/` as the ANN output destination (`docs/nn_gnn_optional_module_guide.md`,
   `docs/model_evaluation_summary.md`) now describe the destination as whatever `--model-dir` is
   pointed at. `src/train_ann.py` is a separate entry point and is correctly untouched: its
-  `models/ann` default contains no tracked artifacts. **This does not close the defect class.**
-  `src/train_gnn.py` remains open and is deliberately out of scope here: its `--model-dir`
-  defaults to `models/gnn`, which does hold tracked artifacts (`gnn_config.json`,
-  `gnn_config_mean.json`), and `src/gnn_benchmark.py`'s `--output-dir` defaults to `models`,
-  where it writes the tracked `gnn_sequence_benchmark.csv` and `gnn_bipartite_benchmark.csv`.
-  Both still need the required-flag-plus-guard treatment. Training math is unchanged.
+  `models/ann` default contains no tracked artifacts. The two instances this entry previously
+  listed as still open - `src/train_gnn.py` and `src/gnn_benchmark.py` - are now closed as well;
+  see the following entry. Training math is unchanged.
+- **The GNN entry points close the same trap, completing the sweep** (breaking CLI change):
+  `src/train_gnn.py` defaulted `--model-dir` to `models/gnn` and `src/gnn_benchmark.py` defaulted
+  `--output-dir` to `models`, so a run that omitted the flag overwrote tracked release artifacts.
+  This was the widest instance of the family: a default `python -m src.train_gnn` run (v2
+  architecture, mean pooling) rewrote **four** tracked files - `models/gnn/gnn_config.json`,
+  `models/gnn/gnn_config_mean.json`, `models/gnn_oof_predictions.csv` and
+  `models/gnn_oof_predictions_mean.csv` - and `python -m src.gnn_benchmark` rewrote
+  `models/gnn_sequence_benchmark.csv` and `models/gnn_bipartite_benchmark.csv`.
+  Both flags are now required with no default, both entry points take `--allow-overwrite`, and
+  both abort with `FileExistsError` before any training or benchmarking work.
+  **The GNN guard is deliberately wider than its output directory:** `train_gnn` writes the OOF
+  predictions into the *parent* of `--model-dir`, so a guard scoped to `--model-dir` alone would
+  have missed the two tracked `gnn_oof_predictions*.csv` files entirely. Pointing `--model-dir`
+  at a scratch directory redirects those writes too. The guard is also pooling-aware: only a
+  mean-pooling run writes the untagged canonical copies, so an `--pooling attention` experiment
+  is not blocked by canonical artifacts sitting alongside it. `pipeline.smk`'s `train_gnn` rule
+  passes `--allow-overwrite` explicitly, because that rule *is* the reproduction path for those
+  published artifacts - regenerating them there is the intent, not an accident. Training math,
+  architectures and artifact filenames are unchanged.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as

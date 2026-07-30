@@ -3,6 +3,16 @@ SESTRAV Optional Deep Learning Module: Graph Neural Network (GNN)
 
 Transforms peptide sequences into chain molecular graphs, then classifies
 immunogenicity using Graph Convolutional Networks (GCN) in base PyTorch.
+
+Usage:
+    python -m src.train_gnn --data data/immunogenicity_dataset_v5.csv \\
+        --model-dir models/scratch/gnn_run --feature-mode 31 \\
+        --binding-matrix models/peptide_binding_matrix_v5.csv
+
+--model-dir is required and has no default. Existing artifacts there are never
+replaced unless --allow-overwrite is passed. The guard also covers the OOF
+predictions written into the PARENT of --model-dir, because a run training into
+models/gnn writes models/gnn_oof_predictions*.csv one level up.
 """
 
 import os
@@ -135,16 +145,90 @@ def set_seed(seed: int = 42) -> None:
     torch.backends.cudnn.benchmark = False
 
 
+def planned_gnn_artifact_paths(
+    model_dir: str, pooling: str = "mean", architecture: str = "v2"
+) -> list[str]:
+    """Every path a train_gnn / train_gnn_v2 run writes wholesale.
+
+    Two things make this set wider than the contents of model_dir:
+
+    1. The OOF predictions go into the PARENT of model_dir. A run training into
+       models/gnn writes models/gnn_oof_predictions*.csv one level up, and both
+       of those are tracked release artifacts. A guard scoped to model_dir alone
+       would miss them entirely.
+    2. A mean-pooling run writes each artifact twice - once pooling-tagged and
+       once under the canonical untagged name (see the comment at the OOF write
+       site). Only the untagged copies collide with the published artifacts, but
+       both are listed because both are written wholesale.
+    """
+    parent = os.path.dirname(model_dir)
+    if architecture == "v1":
+        return [
+            os.path.join(model_dir, "structural_gnn_v2.pth"),
+            os.path.join(model_dir, "gnn_scaler.joblib"),
+            os.path.join(parent, "gnn_oof_predictions.csv"),
+        ]
+
+    paths = [
+        os.path.join(model_dir, f"structural_gnn_v2_{pooling}.pth"),
+        os.path.join(model_dir, f"gnn_scaler_{pooling}.joblib"),
+        os.path.join(model_dir, f"gnn_platt_scaler_{pooling}.joblib"),
+        os.path.join(model_dir, f"gnn_config_{pooling}.json"),
+        os.path.join(parent, f"gnn_oof_predictions_{pooling}.csv"),
+    ]
+    if pooling == "mean":
+        paths += [
+            os.path.join(model_dir, "structural_gnn_v2.pth"),
+            os.path.join(model_dir, "gnn_scaler.joblib"),
+            os.path.join(model_dir, "gnn_platt_scaler.joblib"),
+            os.path.join(model_dir, "gnn_config.json"),
+            os.path.join(parent, "gnn_oof_predictions.csv"),
+        ]
+    return paths
+
+
+def _guard_output_dir(
+    model_dir: str, pooling: str, architecture: str, allow_overwrite: bool
+) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [
+        p for p in planned_gnn_artifact_paths(model_dir, pooling, architecture) if os.path.isfile(p)
+    ]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s):\n  {listing}\n"
+        "These may be published results. Point --model-dir at a fresh directory "
+        "(for example models/scratch/<run-name>), or pass --allow-overwrite "
+        "(train_gnn_v2(..., allow_overwrite=True)) to replace them deliberately. "
+        "Note that the OOF predictions are written to the parent of --model-dir, "
+        "so a scratch --model-dir also redirects those."
+    )
+
+
 def train_gnn(
     data_path,
-    model_dir="models/gnn",
+    model_dir: str,
     epochs=15,
     batch_size=64,
     lr=1e-3,
     feature_mode=21,
     binding_matrix_path=None,
     seed=42,
+    allow_overwrite: bool = False,
 ):
+    """Train the v1 dense-adjacency GCN.
+
+    Args:
+        model_dir: Output directory. No default: the destination of a training
+                   run must be a deliberate choice, because the repo's published
+                   artifacts live under models/.
+        allow_overwrite: Replace existing artifacts instead of aborting before
+                   any training work is done.
+    """
     from src.core.config import SestravConfig
     from src.core.feature_store import FeatureStore
 
@@ -153,6 +237,7 @@ def train_gnn(
 
     set_seed(seed)
     torch.autograd.set_detect_anomaly(True)
+    _guard_output_dir(model_dir, "mean", "v1", allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -391,7 +476,7 @@ def evaluate_model_v2(model, dataloader, device):
 
 def train_gnn_v2(
     data_path,
-    model_dir="models/gnn",
+    model_dir: str,
     epochs=50,
     batch_size=64,
     lr=3e-4,
@@ -403,6 +488,7 @@ def train_gnn_v2(
     binding_matrix_path=None,
     seed=42,
     pooling="mean",
+    allow_overwrite: bool = False,
 ):
     """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR.
 
@@ -410,6 +496,11 @@ def train_gnn_v2(
     feature_mode 31: 31-feature canonical set (21 physico + 10 per-allele binding scores +
                      peptide_length); requires --binding-matrix. Matches RF mode 31 feature
                      parity and is the recommended mode when a binding matrix is available.
+
+    model_dir has no default: the destination of a training run must be a
+    deliberate choice, because the repo's published artifacts live under models/.
+    allow_overwrite replaces existing artifacts instead of aborting before any
+    training work is done.
     """
     import json
     from src.core.config import SestravConfig
@@ -421,6 +512,7 @@ def train_gnn_v2(
     store = FeatureStore(config.output_dir)
 
     set_seed(seed)
+    _guard_output_dir(model_dir, pooling, "v2", allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -557,6 +649,14 @@ def train_gnn_v2(
                     break
 
         best_epoch_per_fold.append(best_epoch_this_fold)
+        if best_state is None:
+            # Only reachable with epochs=0: the epoch loop never ran, so no
+            # checkpoint was ever captured. Fail with a clear message instead of
+            # letting load_state_dict(None) raise from inside torch.
+            raise ValueError(
+                f"Fold {fold} ran no epochs, so there is no best checkpoint to restore. "
+                "epochs must be >= 1."
+            )
         model.load_state_dict(best_state)
         val_labels, val_preds = evaluate_model_v2(model, val_loader, device)
         m = evaluate(val_labels, val_preds)
@@ -673,7 +773,13 @@ def train_gnn_v2(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train GNN model on immunogenicity data")
     parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
-    parser.add_argument("--model-dir", default="models/gnn", help="Output directory")
+    parser.add_argument(
+        "--model-dir",
+        required=True,
+        help="Output directory for serialized models and configs. No default: pass "
+        "models/gnn only when you intend to replace the published artifacts, otherwise "
+        "use a scratch directory. OOF predictions are written to the parent directory",
+    )
     parser.add_argument("--epochs", type=int, default=15, help="Training epochs per fold")
     parser.add_argument(
         "--feature-mode",
@@ -727,6 +833,12 @@ if __name__ == "__main__":
         default=64,
         help="Training batch size (reduce to 32 for t33 650M to avoid OOM)",
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace existing artifacts in --model-dir (and the OOF predictions in its "
+        "parent) instead of aborting before training",
+    )
     args = parser.parse_args()
 
     if args.architecture == "v2":
@@ -743,6 +855,7 @@ if __name__ == "__main__":
             binding_matrix_path=args.binding_matrix,
             seed=args.seed,
             pooling=args.pooling,
+            allow_overwrite=args.allow_overwrite,
         )
     else:
         train_gnn(
@@ -752,4 +865,5 @@ if __name__ == "__main__":
             feature_mode=args.feature_mode,
             binding_matrix_path=args.binding_matrix,
             seed=args.seed,
+            allow_overwrite=args.allow_overwrite,
         )
