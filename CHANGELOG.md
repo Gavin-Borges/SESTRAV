@@ -201,8 +201,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   substring - the guard's own error message names `--output-dir` and would otherwise satisfy that
   check while a regression was live). `tests/test_entry_point_help_smoke.py` registers this module
   into the existing `OUTPUT_DIR_REQUIRED_ENTRY_POINTS` list, adding 4 more cases across the file's
-  existing parametrized checks. Full suite 1430 passed, 0 failed, 0 errors, 2 skipped, reconciling
-  as 1411 + 15 (new guard file) + 4 (smoke file). **Scope note, unchanged from the entry above:**
+  existing parametrized checks. Full suite 1430 passed, 0 failed, 0 errors, 2 skipped under this
+  box's standing local exclusion of `tests/test_run_analysis_results_guard.py` (7 tests; a
+  deterministic Windows `shap`-import crash on this machine, reproduced on 4 separate attempts
+  including with `KMP_DUPLICATE_LIB_OK=TRUE` set - not a regression from this change, and not
+  reproduced here on `main` either), reconciling as this box's 1411-test baseline + 15 (new guard
+  file) + 4 (smoke file). Without that local exclusion the suite totals 1437 (1418 baseline + 15 +
+  4); this session could not independently confirm that figure by direct local execution, since the
+  excluded file cannot be collected here at all. **Scope note, unchanged from the entry above:**
   `src/data_bias_audit.py`, `src/gold_standard_sensitivity.py`, `src/calibration_analysis.py`,
   `src/shap_analysis.py`, `scripts/compute_population_coverage.py`, and
   `src/external_validation_cross_virus.py` remain open instances of the same defect class.
