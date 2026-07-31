@@ -122,12 +122,14 @@ def run_bias_skew_finalization(
         output_csv=data_csv,
         provenance_csv=provenance_csv,
         include_hpv11=False,
+        allow_overwrite=allow_overwrite,
     )
     _, bias_summary = write_audit_reports(
         dataset_csv=data_csv,
         raw_records=raw_records,
         output_csv=audit_csv,
         output_md=audit_md,
+        allow_overwrite=allow_overwrite,
     )
 
     train_models(
@@ -166,7 +168,9 @@ def run_bias_skew_finalization(
 
     gs_sens_csv = os.path.join(results_dir, "gold_standard_sensitivity.csv")
     gs_sens_md = os.path.join(results_dir, "gold_standard_sensitivity.md")
-    run_gold_standard_sensitivity(results_dir, gs_sens_csv, gs_sens_md)
+    run_gold_standard_sensitivity(
+        results_dir, gs_sens_csv, gs_sens_md, allow_overwrite=allow_overwrite
+    )
 
     gates = _gate_status(
         bias_summary=bias_summary,

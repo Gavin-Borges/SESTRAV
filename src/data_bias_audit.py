@@ -11,6 +11,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
+from src.artifact_guard import guard_planned_paths
 from src.iedb_data_loader import (
     _detect_format,
     _infer_protein_gene,
@@ -95,13 +96,104 @@ def _collect_raw_records(data_dir: str, include_hpv11: bool = False) -> pd.DataF
     return pd.DataFrame(records)
 
 
+def planned_data_bias_audit_paths(provenance_csv: str, audit_csv: str, audit_md: str) -> list[str]:
+    """Every path this module's write side risks clobbering, across both
+    refresh_dataset and write_audit_reports.
+
+    Deliberately excludes output_csv (data/immunogenicity_dataset_v4.csv):
+    rewriting it is refresh_dataset's declared purpose, it is gitignored (not
+    published), and write_audit_reports reads it back intra-run moments later.
+    Including it would abort every run unconditionally, since the real dataset
+    already exists on disk (Hazard A in the step-8 enumeration note).
+
+    This combined list exists only for the __main__-level defense-in-depth
+    guard, which runs before either delegate has written anything. The two
+    delegates below each guard a narrower subset of it - their own writes
+    only - so a union guard cannot make write_audit_reports abort because
+    refresh_dataset already wrote provenance_csv earlier in the same run
+    (Hazard C).
+    """
+    return [
+        provenance_csv,
+        audit_csv,
+        audit_csv.replace(".csv", "_virus_label_counts.csv"),
+        audit_md,
+    ]
+
+
+def _guard_refresh_dataset(provenance_csv: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber refresh_dataset's own tracked-risk write.
+
+    Only provenance_csv is guarded here; output_csv is exempt by design (see
+    planned_data_bias_audit_paths).
+    """
+    guard_planned_paths(
+        os.path.dirname(provenance_csv) or ".",
+        [provenance_csv],
+        allow_overwrite,
+        flag="--provenance-csv",
+        api_hint="refresh_dataset(..., allow_overwrite=True)",
+        scope="among this run's planned artifacts",
+        remedy="Point --provenance-csv at a fresh path, ",
+    )
+
+
+def _guard_write_audit_reports(audit_csv: str, audit_md: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber write_audit_reports' own writes, including the
+    derived _virus_label_counts.csv name."""
+    guard_planned_paths(
+        os.path.dirname(audit_md) or ".",
+        [audit_csv, audit_csv.replace(".csv", "_virus_label_counts.csv"), audit_md],
+        allow_overwrite,
+        flag="--audit-csv/--audit-md",
+        api_hint="write_audit_reports(..., allow_overwrite=True)",
+        detail=(
+            ": data_bias_audit.md is the one git-tracked artifact this module writes"
+        ),
+        scope="among this run's planned artifacts",
+        remedy="Point --audit-csv and --audit-md at fresh paths, ",
+    )
+
+
+def _guard_data_bias_audit_cli(
+    provenance_csv: str, audit_csv: str, audit_md: str, allow_overwrite: bool
+) -> None:
+    """__main__-only defense-in-depth: checks all 4 tracked-risk paths before
+    refresh_dataset's IEDB xlsx parsing starts, rather than only discovering a
+    collision after that work (and after refresh_dataset has already written
+    provenance_csv) via the two narrower guards above. Safe to union here
+    because __main__ calls this before either delegate has written anything.
+    """
+    guard_planned_paths(
+        os.path.dirname(audit_md) or ".",
+        planned_data_bias_audit_paths(provenance_csv, audit_csv, audit_md),
+        allow_overwrite,
+        flag="--provenance-csv/--audit-csv/--audit-md",
+        api_hint=(
+            "refresh_dataset(..., allow_overwrite=True) / "
+            "write_audit_reports(..., allow_overwrite=True)"
+        ),
+        detail=(
+            ": data_bias_audit.md is the one git-tracked artifact this module writes"
+        ),
+        scope="among this run's planned artifacts",
+        remedy="Point --provenance-csv, --audit-csv and --audit-md at fresh paths, ",
+    )
+
+
 def refresh_dataset(
     source_data_dir: str,
     output_csv: str,
     provenance_csv: str,
     include_hpv11: bool = False,
+    allow_overwrite: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Regenerate curated immunogenicity dataset and provenance table."""
+    """Regenerate curated immunogenicity dataset and provenance table.
+
+    output_csv is not guarded: rewriting it is this function's declared
+    purpose (see planned_data_bias_audit_paths for why). provenance_csv is.
+    """
+    _guard_refresh_dataset(provenance_csv, allow_overwrite)
     refreshed = load_and_clean_iedb(source_data_dir, include_hpv11=include_hpv11)
     raw_records = _collect_raw_records(source_data_dir, include_hpv11=include_hpv11)
     os.makedirs(os.path.dirname(output_csv) or ".", exist_ok=True)
@@ -167,8 +259,10 @@ def write_audit_reports(
     raw_records: pd.DataFrame,
     output_csv: str,
     output_md: str,
+    allow_overwrite: bool = False,
 ) -> Tuple[pd.DataFrame, Dict]:
     """Write structured and markdown bias audit reports."""
+    _guard_write_audit_reports(output_csv, output_md, allow_overwrite)
     df = pd.read_csv(dataset_csv)
     summary = audit_dataset(df, raw_records)
     summary_df = pd.DataFrame([summary])
@@ -222,10 +316,38 @@ if __name__ == "__main__":
         "--source-data-dir", required=True, help="Directory with raw IEDB source xlsx/csv files"
     )
     parser.add_argument("--output-csv", default="data/immunogenicity_dataset_v4.csv")
-    parser.add_argument("--provenance-csv", default="results/immunogenicity_provenance.csv")
-    parser.add_argument("--audit-csv", default="results/data_bias_audit_summary.csv")
-    parser.add_argument("--audit-md", default="results/data_bias_audit.md")
+    parser.add_argument(
+        "--provenance-csv",
+        required=True,
+        help="Path for the provenance table CSV that refresh_dataset writes. No "
+        "default: it refuses to guess a destination.",
+    )
+    parser.add_argument(
+        "--audit-csv",
+        required=True,
+        help="Path for the bias-audit summary CSV (plus its derived "
+        "_virus_label_counts.csv) that write_audit_reports writes. No default: "
+        "it refuses to guess a destination.",
+    )
+    parser.add_argument(
+        "--audit-md",
+        required=True,
+        help="Path for the bias-audit markdown report that write_audit_reports "
+        "writes. No default: this is the one git-tracked artifact this module "
+        "writes, so it refuses to guess a destination.",
+    )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace provenance/audit artifacts that already exist at "
+        "--provenance-csv / --audit-csv / --audit-md. Does not affect "
+        "--output-csv, which refresh_dataset always rewrites by design.",
+    )
     args = parser.parse_args()
+
+    _guard_data_bias_audit_cli(
+        args.provenance_csv, args.audit_csv, args.audit_md, args.allow_overwrite
+    )
 
     os.makedirs(os.path.dirname(args.provenance_csv) or ".", exist_ok=True)
     os.makedirs(os.path.dirname(args.audit_csv) or ".", exist_ok=True)
@@ -234,6 +356,7 @@ if __name__ == "__main__":
         output_csv=args.output_csv,
         provenance_csv=args.provenance_csv,
         include_hpv11=False,
+        allow_overwrite=args.allow_overwrite,
     )
     raw_df = _collect_raw_records(args.source_data_dir, include_hpv11=False)
     write_audit_reports(
@@ -241,5 +364,6 @@ if __name__ == "__main__":
         raw_records=raw_df,
         output_csv=args.audit_csv,
         output_md=args.audit_md,
+        allow_overwrite=args.allow_overwrite,
     )
     print(f"Refreshed dataset rows: {len(refreshed_df)}")

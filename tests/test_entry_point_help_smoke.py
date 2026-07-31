@@ -63,12 +63,27 @@ OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS = ["scripts.compute_ann_baseline_summary"]
 # pairs, so listing it twice checks each flag rather than double-checking one.
 RESULTS_DIR_REQUIRED_ENTRY_POINTS = ["src.bias_skew_finalization"]
 
+# Same defect class, step 8: these two modules have no single output
+# directory - both take independent required file-path flags rather than one
+# --output-dir/--results-dir, so they don't fit any of the single-flag-name
+# lists above (each of which applies one flag name uniformly across every
+# module it lists). Listed as explicit (module, [flags]) pairs instead. See
+# _local/notes/step8-enumeration-2026-07-31.md for the write enumeration:
+# src.data_bias_audit protects one tracked file (results/data_bias_audit.md),
+# src.gold_standard_sensitivity protects zero tracked files and is guarded for
+# family-consistency/disclosure reasons only.
+MULTI_FLAG_REQUIRED_ENTRY_POINTS = [
+    ("src.data_bias_audit", ["--provenance-csv", "--audit-csv", "--audit-md"]),
+    ("src.gold_standard_sensitivity", ["--output-csv", "--output-md"]),
+]
+
 # (module, flag) pairs for the checks that do not care which name the flag has.
 REQUIRED_OUTPUT_FLAGS = [
     *((m, "--model-dir") for m in MODEL_DIR_REQUIRED_ENTRY_POINTS),
     *((m, "--output-dir") for m in OUTPUT_DIR_REQUIRED_ENTRY_POINTS),
     *((m, "--output-summary") for m in OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS),
     *((m, "--results-dir") for m in RESULTS_DIR_REQUIRED_ENTRY_POINTS),
+    *((m, flag) for m, flags in MULTI_FLAG_REQUIRED_ENTRY_POINTS for flag in flags),
 ]
 
 # Deliberately does not splat RESULTS_DIR_REQUIRED_ENTRY_POINTS: its only member
@@ -78,6 +93,7 @@ ALL_ENTRY_POINTS = [
     *MODEL_DIR_REQUIRED_ENTRY_POINTS,
     *OUTPUT_DIR_REQUIRED_ENTRY_POINTS,
     *OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS,
+    *(m for m, _ in MULTI_FLAG_REQUIRED_ENTRY_POINTS),
     "src.cli",
 ]
 

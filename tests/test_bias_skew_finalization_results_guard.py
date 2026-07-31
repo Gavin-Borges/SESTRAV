@@ -241,6 +241,130 @@ def test_run_bias_skew_finalization_requires_an_explicit_results_dir():
 
 
 # ---------------------------------------------------------------------------
+# Hazard B (step 8): allow_overwrite must thread through all three call sites
+# this step added guards to - refresh_dataset, write_audit_reports and
+# run_gold_standard_sensitivity - the same way it already threads through
+# train_models, train_ann and run_final_validation. Before this fix, a
+# legitimate `--results-dir results --allow-overwrite` rerun into a populated
+# directory would: pass the outer guard -> run train_models + train_ann
+# (expensive) -> let run_final_validation overwrite its 10 files -> then abort
+# at refresh_dataset's or write_audit_reports's own guard. Partial and
+# destructive. Pattern matches
+# tests/test_final_validation_results_guard.py's
+# test_bias_skew_finalization_threads_allow_overwrite_and_writes_no_baseline_csv_itself.
+# ---------------------------------------------------------------------------
+
+
+def test_bias_skew_finalization_threads_allow_overwrite_into_refresh_dataset_and_write_audit_reports(
+    tmp_path, monkeypatch
+):
+    bsf = _monkeypatch_heavy_dependencies(monkeypatch)
+
+    calls = {}
+
+    def _fake_refresh_dataset(**kwargs):
+        calls["refresh_dataset"] = kwargs
+        return None
+
+    def _fake_write_audit_reports(**kwargs):
+        calls["write_audit_reports"] = kwargs
+        return (pd.DataFrame(), {"n_total": 0, "raw_n_records": 0})
+
+    monkeypatch.setattr(bsf, "refresh_dataset", _fake_refresh_dataset)
+    monkeypatch.setattr(bsf, "write_audit_reports", _fake_write_audit_reports)
+
+    model_dir = tmp_path / "models"
+    results_dir = tmp_path / "results"
+
+    bsf.run_bias_skew_finalization(
+        source_data_dir=str(tmp_path / "raw"),
+        model_dir=str(model_dir),
+        results_dir=str(results_dir),
+        allow_overwrite=True,
+    )
+
+    assert calls["refresh_dataset"]["allow_overwrite"] is True
+    assert calls["write_audit_reports"]["allow_overwrite"] is True
+
+
+def test_bias_skew_finalization_threads_allow_overwrite_into_gold_standard_sensitivity(
+    tmp_path, monkeypatch
+):
+    bsf = _monkeypatch_heavy_dependencies(monkeypatch)
+
+    calls = {}
+
+    def _fake_run_gold_standard_sensitivity(*args, **kwargs):
+        calls["run_gold_standard_sensitivity"] = {"args": args, "kwargs": kwargs}
+        return None
+
+    monkeypatch.setattr(
+        bsf, "run_gold_standard_sensitivity", _fake_run_gold_standard_sensitivity
+    )
+
+    model_dir = tmp_path / "models"
+    results_dir = tmp_path / "results"
+
+    bsf.run_bias_skew_finalization(
+        source_data_dir=str(tmp_path / "raw"),
+        model_dir=str(model_dir),
+        results_dir=str(results_dir),
+        allow_overwrite=True,
+    )
+
+    call = calls["run_gold_standard_sensitivity"]
+    assert call["kwargs"].get("allow_overwrite") is True
+    # results_dir, gs_sens_csv and gs_sens_md must still be positional and in
+    # order - the enumeration note flags this call site as one that must not
+    # be reordered.
+    assert call["args"][0] == str(results_dir)
+    assert call["args"][1] == str(results_dir / "gold_standard_sensitivity.csv")
+    assert call["args"][2] == str(results_dir / "gold_standard_sensitivity.md")
+
+
+def test_bias_skew_finalization_threads_allow_overwrite_false_too(tmp_path, monkeypatch):
+    """allow_overwrite must thread through as False just as faithfully as
+    True - a call site that only forwards a True value would still leave a
+    default-False run silently assuming something different from what the
+    caller asked for."""
+    bsf = _monkeypatch_heavy_dependencies(monkeypatch)
+
+    calls = {}
+
+    def _fake_refresh_dataset(**kwargs):
+        calls["refresh_dataset"] = kwargs
+        return None
+
+    def _fake_write_audit_reports(**kwargs):
+        calls["write_audit_reports"] = kwargs
+        return (pd.DataFrame(), {"n_total": 0, "raw_n_records": 0})
+
+    def _fake_run_gold_standard_sensitivity(*args, **kwargs):
+        calls["run_gold_standard_sensitivity"] = kwargs
+        return None
+
+    monkeypatch.setattr(bsf, "refresh_dataset", _fake_refresh_dataset)
+    monkeypatch.setattr(bsf, "write_audit_reports", _fake_write_audit_reports)
+    monkeypatch.setattr(
+        bsf, "run_gold_standard_sensitivity", _fake_run_gold_standard_sensitivity
+    )
+
+    model_dir = tmp_path / "models"
+    results_dir = tmp_path / "results"
+
+    bsf.run_bias_skew_finalization(
+        source_data_dir=str(tmp_path / "raw"),
+        model_dir=str(model_dir),
+        results_dir=str(results_dir),
+        allow_overwrite=False,
+    )
+
+    assert calls["refresh_dataset"]["allow_overwrite"] is False
+    assert calls["write_audit_reports"]["allow_overwrite"] is False
+    assert calls["run_gold_standard_sensitivity"]["allow_overwrite"] is False
+
+
+# ---------------------------------------------------------------------------
 # CLI-level check
 # ---------------------------------------------------------------------------
 

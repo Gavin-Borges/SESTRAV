@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Set
 
 import pandas as pd
 
+from src.artifact_guard import guard_planned_paths
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
 
 # Strain-sensitive epitopes called out in project documentation/comments.
@@ -53,10 +54,43 @@ def _evaluate_set_on_ranked(
     }
 
 
+def planned_gold_standard_sensitivity_paths(output_csv: str, output_md: str) -> list[str]:
+    """Every path run_gold_standard_sensitivity writes, including the derived
+    _deltas.csv name.
+
+    None of these are currently git-tracked - see the module docstring for
+    why this is guarded anyway.
+    """
+    return [
+        output_csv,
+        output_csv.replace(".csv", "_deltas.csv"),
+        output_md,
+    ]
+
+
+def _guard_gold_standard_sensitivity(output_csv: str, output_md: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber run_gold_standard_sensitivity's own writes."""
+    guard_planned_paths(
+        os.path.dirname(output_csv) or ".",
+        planned_gold_standard_sensitivity_paths(output_csv, output_md),
+        allow_overwrite,
+        flag="--output-csv/--output-md",
+        api_hint="run_gold_standard_sensitivity(..., allow_overwrite=True)",
+        detail=(
+            ": gold_standard_sensitivity.* are not currently git-tracked - this "
+            "guard exists for consistency with the rest of the results/ "
+            "silent-overwrite defect-class family, not to protect a published result"
+        ),
+        scope="among this run's planned artifacts",
+        remedy="Point --output-csv and --output-md at fresh paths, ",
+    )
+
+
 def run_gold_standard_sensitivity(
-    results_dir: str, output_csv: str, output_md: str
+    results_dir: str, output_csv: str, output_md: str, allow_overwrite: bool = False
 ) -> pd.DataFrame:
     """Run the 3-way sensitivity analysis and write CSV + markdown report."""
+    _guard_gold_standard_sensitivity(output_csv, output_md, allow_overwrite)
     rows: List[Dict] = []
     gs_sets = _sets()
 
@@ -138,8 +172,34 @@ def run_gold_standard_sensitivity(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV gold-standard sensitivity analysis")
-    parser.add_argument("--results-dir", default="results")
-    parser.add_argument("--output-csv", default="results/gold_standard_sensitivity.csv")
-    parser.add_argument("--output-md", default="results/gold_standard_sensitivity.md")
+    parser.add_argument(
+        "--results-dir",
+        default="results",
+        help="Directory to read {prefix}_ranked.csv files from. Read-only input, "
+        "not a write target, so it keeps its default.",
+    )
+    parser.add_argument(
+        "--output-csv",
+        required=True,
+        help="Path for the sensitivity metrics CSV (plus its derived "
+        "_deltas.csv). No default: refuses to guess a destination.",
+    )
+    parser.add_argument(
+        "--output-md",
+        required=True,
+        help="Path for the sensitivity markdown report. No default: refuses to "
+        "guess a destination.",
+    )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace sensitivity artifacts that already exist at --output-csv "
+        "/ --output-md.",
+    )
     args = parser.parse_args()
-    run_gold_standard_sensitivity(args.results_dir, args.output_csv, args.output_md)
+    run_gold_standard_sensitivity(
+        args.results_dir,
+        args.output_csv,
+        args.output_md,
+        allow_overwrite=args.allow_overwrite,
+    )
