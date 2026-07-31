@@ -43,7 +43,13 @@ MODEL_DIR_REQUIRED_ENTRY_POINTS = [
 
 # Same defect class, different flag name: these write their result CSVs to
 # --output-dir, which used to default to models/.
-OUTPUT_DIR_REQUIRED_ENTRY_POINTS = ["src.gnn_benchmark", "src.ablation_study"]
+OUTPUT_DIR_REQUIRED_ENTRY_POINTS = [
+    "src.gnn_benchmark",
+    "src.ablation_study",
+    # Writes into results/, not models/: the 3 tracked H2 Tier A artifacts,
+    # one of which backs the certified R10 = 0.9494 result in README.md.
+    "src.h2_tier_a_evaluation",
+]
 
 # Same defect class again, a third flag name: this one writes its CV summary
 # to --output-summary, which used to default to models/ann_cv_summary.csv.

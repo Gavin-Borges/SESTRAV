@@ -180,6 +180,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   (`results/external_validation_cross_virus.csv`). These are disclosed here, not fixed: each needs
   the same per-file write enumeration this entry used before a guard can be built correctly, and
   that list is not assumed exhaustive.
+- **`src/h2_tier_a_evaluation.py` closes the most severe instance disclosed in the entry above**
+  (breaking CLI change): `--output-dir` defaulted to `results`, with no guard, so a bare
+  `python -m src.h2_tier_a_evaluation` run rewrote `h2_tier_a_summary.md` in place - the source
+  behind the certified R10 = 0.9494 H2 Tier A null result published in `README.md`. `--output-dir`
+  is now required with no default at both the CLI and `run_h2_tier_a(output_dir=...)` layers, gains
+  `--allow-overwrite`, and a new `planned_h2_tier_a_paths()` + `_guard_output_dir()` pair raises
+  `FileExistsError` listing every colliding file before any work starts. All three writes
+  (`h2_tier_a_fold_metrics.csv`, `h2_tier_a_summary.csv`, `h2_tier_a_summary.md`) are direct, with
+  no derived filenames and no delegate writes - `evaluate_subgroups` was checked and returns
+  DataFrames without touching disk. `src/final_validation_report.py:137` already calls
+  `run_h2_tier_a` with these same three filenames guarded a second time, and stays compatible only
+  because it passes a `tempfile.mkdtemp()` directory rather than `results/` itself, so this new
+  guard finds nothing there; a test locks that property down since it is load-bearing and
+  non-obvious. Tests: `tests/test_h2_tier_a_results_guard.py` adds 15 cases (planned-path
+  enumeration, guard-pass-on-empty-dir, a per-file parametrized clobber check, a wiring test
+  proving the guard is called by `run_h2_tier_a` and not merely defined, an
+  allow-overwrite-passthrough test, the `final_validation_report` temp-dir interaction lock, and 3
+  CLI-level checks anchored on argparse's required-arguments line rather than a bare stderr
+  substring - the guard's own error message names `--output-dir` and would otherwise satisfy that
+  check while a regression was live). `tests/test_entry_point_help_smoke.py` registers this module
+  into the existing `OUTPUT_DIR_REQUIRED_ENTRY_POINTS` list, adding 4 more cases across the file's
+  existing parametrized checks. Full suite 1430 passed, 0 failed, 0 errors, 2 skipped, reconciling
+  as 1411 + 15 (new guard file) + 4 (smoke file). **Scope note, unchanged from the entry above:**
+  `src/data_bias_audit.py`, `src/gold_standard_sensitivity.py`, `src/calibration_analysis.py`,
+  `src/shap_analysis.py`, `scripts/compute_population_coverage.py`, and
+  `src/external_validation_cross_virus.py` remain open instances of the same defect class.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as

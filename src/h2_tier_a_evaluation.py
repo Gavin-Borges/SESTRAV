@@ -144,6 +144,41 @@ def _aggregate(metrics_rows: List[Dict]) -> pd.DataFrame:
     return agg
 
 
+def planned_h2_tier_a_paths(output_dir: str) -> list[str]:
+    """Every path run_h2_tier_a writes into output_dir.
+
+    All three are written directly by run_h2_tier_a; this entry point delegates
+    no output to any other module. `evaluate_subgroups` is the only helper it
+    calls that could plausibly write, and it returns DataFrames without touching
+    disk. There are no derived filenames here, unlike the `.replace()`-built
+    names in data_bias_audit and gold_standard_sensitivity.
+    """
+    names = [
+        "h2_tier_a_fold_metrics.csv",  # fold_df
+        "h2_tier_a_summary.csv",  # full_summary_df (summary + h2_decision rows)
+        "h2_tier_a_summary.md",  # markdown decision report
+    ]
+    return [os.path.join(output_dir, name) for name in names]
+
+
+def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    if allow_overwrite:
+        return
+    existing = [p for p in planned_h2_tier_a_paths(output_dir) if os.path.isfile(p)]
+    if not existing:
+        return
+    listing = "\n  ".join(sorted(existing))
+    raise FileExistsError(
+        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{output_dir}':\n  "
+        f"{listing}\n"
+        "These may be published results: h2_tier_a_summary.md is the source behind the "
+        "certified R10 = 0.9494 H2 Tier A null result reported in README.md. Point "
+        "--output-dir at a fresh directory, or pass --allow-overwrite "
+        "(run_h2_tier_a(..., allow_overwrite=True)) to replace them deliberately."
+    )
+
+
 def run_h2_tier_a(
     data_path: str,
     model_path: str,
@@ -152,8 +187,10 @@ def run_h2_tier_a(
     n_splits: int = 5,
     random_state: int = 42,
     n_bootstrap: int = 5000,
+    allow_overwrite: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Run Tier A evaluation and write CSV + markdown artifacts."""
+    _guard_output_dir(output_dir, allow_overwrite)
     os.makedirs(output_dir, exist_ok=True)
 
     model_path = resolve_model_path(model_path)
@@ -402,8 +439,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--output-dir",
-        default="results",
-        help="Directory for H2 Tier A outputs",
+        required=True,
+        help="Directory for H2 Tier A outputs. No default: this evaluation writes 3 "
+        "tracked release artifacts into it, including h2_tier_a_summary.md, the source "
+        "behind the certified R10 = 0.9494 result in README.md, so it refuses to guess "
+        "a destination.",
     )
     parser.add_argument(
         "--cv-folds",
@@ -423,6 +463,12 @@ if __name__ == "__main__":
         default=5000,
         help="Number of bootstrap resamples for R10 CI (default: 5000)",
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace H2 Tier A artifacts that already exist in --output-dir. "
+        "Without this flag the run aborts before any work if any would be overwritten.",
+    )
     args = parser.parse_args()
 
     run_h2_tier_a(
@@ -433,4 +479,5 @@ if __name__ == "__main__":
         n_splits=args.cv_folds,
         random_state=args.random_state,
         n_bootstrap=args.bootstrap_samples,
+        allow_overwrite=args.allow_overwrite,
     )
