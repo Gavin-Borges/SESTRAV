@@ -18,6 +18,7 @@ import argparse
 
 import yaml
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.gold_standard import full_validation_report
 from src.baseline_comparison import compare_methods, print_comparison
 from src.shap_analysis import run_shap_analysis
@@ -44,23 +45,17 @@ def planned_analysis_paths(results_dir: str) -> list[str]:
         "shap_bar_xgb.png",
         "shap_waterfall_top_gs.png",
     ]
-    return [os.path.join(results_dir, name) for name in names]
+    return planned_paths_under(results_dir, names)
 
 
 def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [p for p in planned_analysis_paths(results_dir) if os.path.isfile(p)]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{results_dir}':\n  "
-        f"{listing}\n"
-        "These may be published results. Point --results-dir at a fresh directory, "
-        "or pass --allow-overwrite (main(..., allow_overwrite=True)) to replace them "
-        "deliberately."
+    guard_planned_paths(
+        results_dir,
+        planned_analysis_paths(results_dir),
+        allow_overwrite,
+        flag="--results-dir",
+        api_hint="main(..., allow_overwrite=True)",
     )
 
 

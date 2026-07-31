@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from src.ann_benchmark import train_ann
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.data_bias_audit import _collect_raw_records, refresh_dataset, write_audit_reports
 from src.final_validation_report import run_final_validation
 from src.gold_standard_sensitivity import run_gold_standard_sensitivity
@@ -78,23 +79,17 @@ def planned_bias_skew_paths(results_dir: str) -> list[str]:
         "gold_standard_sensitivity_deltas.csv",  # run_gold_standard_sensitivity(), derived name
         "release_readiness_summary.md",  # direct, final write below
     ]
-    return [os.path.join(results_dir, name) for name in names]
+    return planned_paths_under(results_dir, names)
 
 
 def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [p for p in planned_bias_skew_paths(results_dir) if os.path.isfile(p)]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{results_dir}':\n  "
-        f"{listing}\n"
-        "These may be published results. Point --results-dir at a fresh directory, "
-        "or pass --allow-overwrite (run_bias_skew_finalization(..., allow_overwrite=True)) "
-        "to replace them deliberately."
+    guard_planned_paths(
+        results_dir,
+        planned_bias_skew_paths(results_dir),
+        allow_overwrite,
+        flag="--results-dir",
+        api_hint="run_bias_skew_finalization(..., allow_overwrite=True)",
     )
 
 
