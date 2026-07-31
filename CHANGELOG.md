@@ -8,6 +8,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **`src/artifact_guard.py` - one shared overwrite guard, and one contract the four
+  `results/`-family entry points must satisfy.** The `FileExistsError` guard that closed the
+  `models/` and `results/` silent-overwrite defect class had been copy-pasted into ten modules.
+  This change extracts and unifies **four** of them - the `results/` family:
+  `scripts/run_analysis.py`, `src/final_validation_report.py`, `src/bias_skew_finalization.py`
+  and `src/h2_tier_a_evaluation.py`. The duplicated implementation was cheap; the *divergent
+  per-module tests written against it* were not. During the `--results-dir` repair a dedicated
+  16-test file passed in full against a live regression it existed to catch, because its
+  assertions searched all of stderr for a flag name the guard's own error message also contains.
+  Extraction is what makes a single generic, parametrized contract test possible, so a guarded
+  module cannot quietly be held to a weaker standard than its siblings.
+  **This is a behaviour-preserving refactor, and that was verified rather than asserted:** each
+  module's `FileExistsError` message, planned-path enumeration, empty-directory silence,
+  partial-collision behaviour and `allow_overwrite` disarm were captured before and after the
+  change and diffed byte-for-byte (15 captured behaviours across the three importable modules,
+  identical). `scripts/run_analysis.py` cannot be imported on the dev machine at all (its
+  `src/shap_analysis.py` import hard-crashes the interpreter via `shap`), so its message was
+  instead reproduced from the shared helper using its exact arguments and compared against the
+  pre-refactor literal recovered from git at `227ed6c` - full collision, partial collision and
+  empty-directory cases all match. Each module keeps its own `planned_*_paths()` and thin
+  `_guard_*_dir()` wrapper, so every existing per-module test still runs unchanged and is itself
+  evidence the behaviour did not move. Enumeration deliberately stays per-module: it is the part
+  that requires reading that specific module's writes, including derived filenames and delegate
+  writes, and the part most likely to drift.
+  `tests/test_artifact_guard_contract.py` adds 23 cases - 6 parametrized checks across the 3
+  registered modules (planned paths stay under the output directory, planned paths are unique,
+  silence on an empty directory, *every* planned artifact individually triggers the guard rather
+  than only the first, `allow_overwrite` disarms a full collision, and the message names the flag,
+  the escape hatch, the API hint and every colliding file), plus 5 covering the shared helper
+  directly (name joining, directories sharing an artifact name are not treated as overwrites,
+  sorted collision listing, and the optional detail clause both present and absent).
+  An 11-mutation battery confirms the tests are load-bearing: dead escape hatch, guard inspecting
+  only the first planned path, guard never raising, unsorted listing, dropped detail clause,
+  dropped flag name, dropped API hint, a same-prefix API hint, under-reported artifact count, a
+  module dropping a planned artifact, and a module's guard becoming defined-but-inert.
+  **11 of 11 detected.** Full suite
+  1451 passed, 0 failed, 0 errors, 2 skipped under the standing local exclusion, from 1453
+  collected (reconciling as 1430 + 23).
+  **Scope note - this does not put every guarded entry point under the contract.** Six further
+  modules carry their own copy of this guard and are deliberately left outside both the shared
+  helper and `tests/test_artifact_guard_contract.py`, so the coverage claim above is four of ten,
+  not ten of ten. Four are the same three-piece pattern and could be folded in later:
+  `src/train_classifier.py`, `src/train_gnn.py`, `src/ann_benchmark.py` and
+  `src/gnn_benchmark.py`. Two are single-path variants whose message has a different shape
+  entirely (no collision count, no listing): `src/ablation_study.py` and
+  `scripts/compute_ann_baseline_summary.py`. Extraction was not attempted for any of the six here
+  because the template would first need to grow: `src/ann_benchmark.py` and `src/ablation_study.py`
+  both add a "(for example `models/scratch/<run-name>`)" clause the current message cannot express,
+  and folding the single-path variants in would change their user-facing text, which would no
+  longer be a behaviour-preserving refactor. Each remains individually tested by its own
+  per-module file; what they do not yet get is the uniform contract.
+
 ### Removed
 - **`requirements-ann.txt` and `requirements-gnn.txt` retired** - both were broken installs and
   almost entirely redundant. Each began with `-r requirements.txt`, which is fully hash-pinned,
@@ -201,13 +254,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   substring - the guard's own error message names `--output-dir` and would otherwise satisfy that
   check while a regression was live). `tests/test_entry_point_help_smoke.py` registers this module
   into the existing `OUTPUT_DIR_REQUIRED_ENTRY_POINTS` list, adding 4 more cases across the file's
-  existing parametrized checks. Full suite 1430 passed, 0 failed, 0 errors, 2 skipped under this
-  box's standing local exclusion of `tests/test_run_analysis_results_guard.py` (7 tests; a
+  existing parametrized checks. Full suite 1428 passed, 0 failed, 0 errors, 2 skipped, from 1430
+  collected under this box's standing local exclusion of
+  `tests/test_run_analysis_results_guard.py` (7 tests; a
   deterministic Windows `shap`-import crash on this machine, reproduced on 4 separate attempts
   including with `KMP_DUPLICATE_LIB_OK=TRUE` set - not a regression from this change: it reproduces
   byte-identically on `main` (`d136942`) too, with the same `0xc06d007f` / `scipy.linalg.inv` /
-  `shap/plots/colors/_colorconv.py` signature), reconciling as this box's 1411-test baseline + 15
-  (new guard file) + 4 (smoke file). **CI confirms the unexcluded totals and that the crash is
+  `shap/plots/colors/_colorconv.py` signature), the collected figure reconciling as this box's
+  1411-collected baseline + 15 (new guard file) + 4 (smoke file). **CI confirms the unexcluded
+  totals and that the crash is
   local to this machine:** `test (3.13)` on `ubuntu-latest` collected 1437 (1428 passed, 9 skipped,
   0 failed), reconciling exactly as `main`'s 1418 + 19 on both the total and the passed count, which
   places the 7 otherwise-uncollectable tests among CI's passes rather than its skips. The 9-vs-2

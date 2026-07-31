@@ -25,6 +25,7 @@ from typing import Tuple
 
 import pandas as pd
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.baseline_comparison import compare_methods
 from src.gold_standard import full_validation_report
 from src.h2_tier_a_evaluation import run_h2_tier_a
@@ -53,29 +54,19 @@ def planned_validation_paths(
         canonical_output_filename("baseline_comparison", dataset_mode, dataset_version),
         canonical_output_filename("h2_tier_a_summary", dataset_mode, dataset_version),
     ]
-    return [os.path.join(results_dir, name) for name in names]
+    return planned_paths_under(results_dir, names)
 
 
 def _guard_results_dir(
     results_dir: str, dataset_mode: str, dataset_version: str, allow_overwrite: bool
 ) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [
-        p
-        for p in planned_validation_paths(results_dir, dataset_mode, dataset_version)
-        if os.path.isfile(p)
-    ]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{results_dir}':\n  "
-        f"{listing}\n"
-        "These may be published results. Point --results-dir at a fresh directory, "
-        "or pass --allow-overwrite (run_final_validation(..., allow_overwrite=True)) "
-        "to replace them deliberately."
+    guard_planned_paths(
+        results_dir,
+        planned_validation_paths(results_dir, dataset_mode, dataset_version),
+        allow_overwrite,
+        flag="--results-dir",
+        api_hint="run_final_validation(..., allow_overwrite=True)",
     )
 
 

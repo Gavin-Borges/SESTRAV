@@ -23,6 +23,7 @@ from sklearn.base import clone
 from sklearn.model_selection import StratifiedKFold
 from scipy.stats import false_discovery_control
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.artifact_integrity import load_verified_joblib
 from src.evaluate_metrics import evaluate
 from src.features import BINDING_ALLELE_COLUMNS
@@ -158,24 +159,21 @@ def planned_h2_tier_a_paths(output_dir: str) -> list[str]:
         "h2_tier_a_summary.csv",  # full_summary_df (summary + h2_decision rows)
         "h2_tier_a_summary.md",  # markdown decision report
     ]
-    return [os.path.join(output_dir, name) for name in names]
+    return planned_paths_under(output_dir, names)
 
 
 def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [p for p in planned_h2_tier_a_paths(output_dir) if os.path.isfile(p)]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{output_dir}':\n  "
-        f"{listing}\n"
-        "These may be published results: h2_tier_a_summary.md is the source behind the "
-        "certified R10 = 0.9494 H2 Tier A null result reported in README.md. Point "
-        "--output-dir at a fresh directory, or pass --allow-overwrite "
-        "(run_h2_tier_a(..., allow_overwrite=True)) to replace them deliberately."
+    guard_planned_paths(
+        output_dir,
+        planned_h2_tier_a_paths(output_dir),
+        allow_overwrite,
+        flag="--output-dir",
+        api_hint="run_h2_tier_a(..., allow_overwrite=True)",
+        detail=(
+            ": h2_tier_a_summary.md is the source behind the "
+            "certified R10 = 0.9494 H2 Tier A null result reported in README.md"
+        ),
     )
 
 
