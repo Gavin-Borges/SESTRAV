@@ -19,9 +19,10 @@ guard's own error message also contains. A single shared implementation is what
 lets one generic, parametrized test run against the modules that use it, so a
 module cannot quietly be held to a weaker standard than its siblings.
 
-Four of the ten currently delegate here - the `results/` family
-(`scripts/run_analysis.py`, `src/final_validation_report.py`,
-`src/bias_skew_finalization.py`, `src/h2_tier_a_evaluation.py`). The other six
+Six of the twelve modules that carry this pattern now delegate here - the
+`results/` family (`scripts/run_analysis.py`, `src/final_validation_report.py`,
+`src/bias_skew_finalization.py`, `src/h2_tier_a_evaluation.py`) plus
+`src/data_bias_audit.py` and `src/gold_standard_sensitivity.py`. The other six
 still carry their own copy: `src/train_classifier.py`, `src/train_gnn.py`,
 `src/ann_benchmark.py` and `src/gnn_benchmark.py` share this exact pattern, while
 `src/ablation_study.py` and `scripts/compute_ann_baseline_summary.py` are
@@ -31,6 +32,17 @@ six in means first growing the template: two of them add a
 the single-path variants would have their user-facing text changed, which would
 stop the move being behaviour-preserving. Until then, treat the contract test as
 covering the delegating modules only.
+
+`data_bias_audit.py` and `gold_standard_sensitivity.py` needed the template to
+grow first too, for a different reason: neither has a single output directory.
+Both take independent file-path flags (`--provenance-csv`, `--audit-csv`,
+`--audit-md` / `--output-csv`, `--output-md`), so the original message's
+`"under '{output_dir}'"` and `"Point {flag} at a fresh directory"` clauses would
+have been actively wrong advice - there is no one directory to point at, and the
+flags name files, not directories. `guard_planned_paths` gained optional `scope`
+and `remedy` keyword parameters to let those two callers substitute accurate
+clauses while leaving every other caller's message byte-identical (both default
+to reconstructing the original clause exactly when omitted).
 
 This module deliberately contains no policy about *which* files are planned.
 Enumeration stays with each entry point, because it is the part that requires
@@ -67,11 +79,16 @@ def guard_planned_paths(
     flag: str,
     api_hint: str,
     detail: str = "",
+    scope: str | None = None,
+    remedy: str | None = None,
 ) -> None:
     """Refuse to clobber planned artifacts already on disk.
 
     Args:
-        output_dir: The directory the run was pointed at. Named in the error.
+        output_dir: The directory the run was pointed at. Named in the error
+            unless `scope` overrides that clause (see below). Still required
+            even when `scope` is given, so every caller states plainly what
+            location its planned paths are rooted under.
         planned_paths: Every path the run intends to write. Callers build this
             from their own `planned_*_paths()` enumeration.
         allow_overwrite: When True the guard is disarmed and returns immediately.
@@ -82,6 +99,18 @@ def guard_planned_paths(
         detail: Optional clause appended to "These may be published results",
             for modules where naming the specific artifact at risk is worth the
             extra sentence. Must read as a continuation, e.g. a leading ": ".
+        scope: Optional replacement for the "under '{output_dir}'" clause. Set
+            this for entry points with no single output directory - e.g. a
+            module whose planned paths straddle independent `--flag`-supplied
+            file paths rather than one directory - so the message does not
+            claim a directory-shaped destination that does not exist. Defaults
+            to `under '{output_dir}'` when omitted, reproducing the original
+            message exactly.
+        remedy: Optional replacement for the "Point {flag} at a fresh
+            directory, " clause. Pairs with `scope`: "point the flag at a
+            fresh directory" is wrong advice when the flag names a file path,
+            not a directory. Defaults to `Point {flag} at a fresh directory, `
+            when omitted, reproducing the original message exactly.
 
     Raises:
         FileExistsError: If any planned path exists and allow_overwrite is False.
@@ -94,9 +123,11 @@ def guard_planned_paths(
     if not existing:
         return
     listing = "\n  ".join(existing)
+    scope_clause = scope if scope is not None else f"under '{output_dir}'"
+    remedy_clause = remedy if remedy is not None else f"Point {flag} at a fresh directory, "
     raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{output_dir}':\n  "
+        f"Refusing to overwrite {len(existing)} existing artifact(s) {scope_clause}:\n  "
         f"{listing}\n"
-        f"These may be published results{detail}. Point {flag} at a fresh directory, "
+        f"These may be published results{detail}. {remedy_clause}"
         f"or pass --allow-overwrite ({api_hint}) to replace them deliberately."
     )

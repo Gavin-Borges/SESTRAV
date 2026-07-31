@@ -272,6 +272,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `src/data_bias_audit.py`, `src/gold_standard_sensitivity.py`, `src/calibration_analysis.py`,
   `src/shap_analysis.py`, `scripts/compute_population_coverage.py`, and
   `src/external_validation_cross_virus.py` remain open instances of the same defect class.
+- **`src/data_bias_audit.py` and `src/gold_standard_sensitivity.py` close step 8 of the
+  `results/` silent-overwrite defect-class line** (breaking CLI change): per the Tier-1
+  enumeration in `_local/notes/results-dir-tier1-enumeration-2026-07-30.md` (15 modules, ~26
+  tracked artifacts, `src/h2_tier_a_evaluation.py` above closed item #1), this closes item #8,
+  bringing the closed count to **2 of 15**. `src/data_bias_audit.py` protects exactly **one**
+  git-tracked artifact: `results/data_bias_audit.md` (un-ignored at `.gitignore:259`); its other
+  writes (`immunogenicity_provenance.csv`, `data_bias_audit_summary.csv`, and the derived
+  `data_bias_audit_summary_virus_label_counts.csv`) are untracked. `src/gold_standard_sensitivity.py`
+  protects **zero** tracked files - `gold_standard_sensitivity.*` is untracked, unlike the
+  similarly-named, tracked `gold_standard_validation.csv` written by a different module (a Tier 2
+  entry in the enumeration, not Tier 1) - and is closed here for consistency with the rest of the
+  defect-class family and CHANGELOG-disclosure closure, not to protect a published result.
+  `--provenance-csv`, `--audit-csv` and `--audit-md` on `data_bias_audit.py`, and `--output-csv`
+  and `--output-md` on `gold_standard_sensitivity.py`, are now required with no default (all five
+  previously defaulted into `results/`); both modules gain `--allow-overwrite`.
+  `data_bias_audit.py`'s `--output-csv` (the `data/immunogenicity_dataset_v4.csv` dataset path)
+  and `gold_standard_sensitivity.py`'s `--results-dir` (a read-only input, only ever joined with
+  `{prefix}_ranked.csv` and read) are both deliberately untouched by this fix.
+  Neither module fit `src/artifact_guard.py`'s existing template as-is: neither has a single
+  output directory - both take independent file-path flags rather than one
+  `--output-dir`/`--results-dir` - so the shared `"under '{output_dir}'"` /
+  `"Point {flag} at a fresh directory"` message clauses would have been actively wrong advice.
+  `guard_planned_paths` gained optional `scope`/`remedy` keyword parameters so these two callers
+  can substitute accurate clauses (`scope="among this run's planned artifacts"` and a remedy
+  naming the actual flags to redirect) while every existing caller's message stays byte-identical
+  when the new parameters are omitted - verified directly, not assumed: the four existing callers'
+  `FileExistsError` messages (`scripts/run_analysis.py`, reproduced via the shared helper with its
+  exact arguments since it still cannot be imported on this machine; `src/final_validation_report.py`;
+  `src/bias_skew_finalization.py`; `src/h2_tier_a_evaluation.py`) were captured across
+  full-collision, partial-collision, empty-location and `allow_overwrite`-disarm cases both before
+  and after this change and diffed identical.
+  Three hazards drove the design, all handled. **Hazard A**: `data_bias_audit`'s `output_csv` (the
+  `data/` dataset path) exists on disk right now, is gitignored, is `refresh_dataset`'s declared
+  rewrite target, and is read back intra-run by `write_audit_reports` moments later - guarding it
+  would abort every run unconditionally, so `planned_data_bias_audit_paths` never includes it
+  (same exemption shape as the earlier `training_results.csv` merge-target precedent), locked down
+  by a dedicated regression test. **Hazard B**: `src/bias_skew_finalization.py` is the only caller
+  of either module and, unlike the `h2_tier_a`/`final_validation_report` interaction, passes the
+  real `results_dir` rather than a `tempfile.mkdtemp()` sandbox; `allow_overwrite` was already
+  threaded to `train_models`, `train_ann` and `run_final_validation` but not to `refresh_dataset`
+  (`:120`), `write_audit_reports` (`:126`) or `run_gold_standard_sensitivity` (`:169`), which would
+  have let a legitimate `--allow-overwrite` rerun do expensive training, let `run_final_validation`
+  overwrite its 10 files, and only then abort - partial and destructive. All three call sites now
+  forward `allow_overwrite` explicitly. **Hazard C**: each guarded function checks only its own
+  writes - `refresh_dataset`'s guard covers only `provenance_csv`, `write_audit_reports`'s guard
+  covers only its own 3 files - so a union guard cannot make the second call in a pipeline abort
+  because the first call already wrote its own file moments earlier in the same run.
+  Guards sit at the public function, matching `run_h2_tier_a`/`run_bias_skew_finalization`
+  precedent: `refresh_dataset`, `write_audit_reports` and `run_gold_standard_sensitivity` each
+  gained an `allow_overwrite: bool = False` parameter and guard themselves as their first
+  statement. `data_bias_audit.py`'s `__main__` also gets a defense-in-depth preflight guard
+  (`_guard_data_bias_audit_cli`, the union of all 4 tracked-risk paths) placed above the
+  `refresh_dataset` call, so a blocked run fails before paying the cost of parsing every IEDB xlsx
+  file rather than after. `run_gold_standard_sensitivity`'s call in
+  `bias_skew_finalization.py:169` stays positional and unreordered; `allow_overwrite` was appended
+  as a trailing keyword argument.
+  Tests: `tests/test_data_bias_audit_guard.py` (31 cases) and
+  `tests/test_gold_standard_sensitivity_guard.py` (16 cases) cover planned-path enumeration
+  (including the derived-filename behaviour, built with the identical `.replace()` expression the
+  writer uses, not `os.path.splitext`), guard silence on an empty/nonexistent location, a per-file
+  parametrized clobber check, a wiring test proving each guard is actually called by its real
+  function and not merely defined, `allow_overwrite` disarming and threading through each
+  function, a Hazard-A regression test, and CLI-level checks anchored on argparse's `the following
+  arguments are required:` line rather than a bare stderr substring (the guard's own message also
+  names these flags, which is exactly what let a prior regression in this line pass a naive
+  substring check while live). `tests/test_bias_skew_finalization_results_guard.py` gained 3
+  threading tests locking down Hazard B across all three call sites. Both new modules are
+  registered in `tests/test_entry_point_help_smoke.py`'s `REQUIRED_OUTPUT_FLAGS` /
+  `ALL_ENTRY_POINTS` via a new `MULTI_FLAG_REQUIRED_ENTRY_POINTS` list, since each carries multiple
+  required flags rather than the one uniform flag name the existing lists assume.
+  A 12-mutation battery (`_local/mutations/step8_data_bias_audit_gold_standard_sensitivity.json`,
+  gitignored, local dev tool) targeting this diff specifically - guard-never-called for each of the
+  three delegate functions, Hazard A reintroduced, Hazard B dropped from each of the three
+  `bias_skew_finalization.py` call sites, Hazard C reintroduced in both directions, both
+  derived-filename drops, and the `__main__` preflight guard dropped entirely - confirms the tests
+  are load-bearing. **12 of 12 detected.**
+  Full suite 1515 passed, 0 failed, 0 errors, 2 skipped under the standing local exclusion of
+  `tests/test_run_analysis_results_guard.py`, from 1517 collected, reconciling exactly as the
+  pre-branch baseline (1451 passed / 1453 collected) + 64 new cases (14 in
+  `tests/test_entry_point_help_smoke.py`, 31 in `tests/test_data_bias_audit_guard.py`, 16 in
+  `tests/test_gold_standard_sensitivity_guard.py`, 3 in
+  `tests/test_bias_skew_finalization_results_guard.py`).
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
