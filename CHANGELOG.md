@@ -206,11 +206,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   deterministic Windows `shap`-import crash on this machine, reproduced on 4 separate attempts
   including with `KMP_DUPLICATE_LIB_OK=TRUE` set - not a regression from this change: it reproduces
   byte-identically on `main` (`d136942`) too, with the same `0xc06d007f` / `scipy.linalg.inv` /
-  `shap/plots/colors/_colorconv.py` signature, and CI is unaffected because every CI job runs on
-  `ubuntu-latest`), reconciling as this box's 1411-test baseline + 15 (new guard
-  file) + 4 (smoke file). Without that local exclusion the suite totals 1437 (1418 baseline + 15 +
-  4); that figure could not be confirmed by direct local execution, since the
-  excluded file cannot be collected on this machine at all. **Scope note, unchanged from the entry above:**
+  `shap/plots/colors/_colorconv.py` signature), reconciling as this box's 1411-test baseline + 15
+  (new guard file) + 4 (smoke file). **CI confirms the unexcluded totals and that the crash is
+  local to this machine:** `test (3.13)` on `ubuntu-latest` collected 1437 (1428 passed, 9 skipped,
+  0 failed), reconciling exactly as `main`'s 1418 + 19 on both the total and the passed count, which
+  places the 7 otherwise-uncollectable tests among CI's passes rather than its skips. The 9-vs-2
+  skip difference is unrelated to this change: a fresh checkout has no gitignored `data/` or
+  `models/` fixtures, so 7 more data-dependent tests skip there than in a populated local tree,
+  reproduced identically in a `main` worktree. **Scope note, unchanged from the entry above:**
   `src/data_bias_audit.py`, `src/gold_standard_sensitivity.py`, `src/calibration_analysis.py`,
   `src/shap_analysis.py`, `scripts/compute_population_coverage.py`, and
   `src/external_validation_cross_virus.py` remain open instances of the same defect class.
