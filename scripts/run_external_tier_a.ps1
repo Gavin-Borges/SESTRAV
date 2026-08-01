@@ -35,7 +35,7 @@ if (-not $freeze.valid) {
 }
 
 Write-Log "Running prepare_external_validation_inputs"
-python -m src.prepare_external_validation_inputs
+python -m src.prepare_external_validation_inputs --results-dir results
 
 Write-Log "Building PredIG recombinant CSV"
 python -m src.build_predig_recombinant_input

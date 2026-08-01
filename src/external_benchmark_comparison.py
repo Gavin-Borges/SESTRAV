@@ -38,6 +38,7 @@ from sklearn.metrics import (
     roc_curve,
 )
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.evaluate_metrics import evaluate
 from src.gold_standard import GOLD_STANDARD, GOLD_STANDARD_NEGATIVES
 
@@ -594,10 +595,50 @@ def _df_to_md_table(df: pd.DataFrame) -> str:
 # ---------------------------------------------------------------------------
 
 
+def planned_external_benchmark_paths(output_dir: str) -> list[str]:
+    """Every path run_comparison writes into results_dir.
+
+    Written across three call sites that are all reachable only from inside
+    run_comparison - the inline merged-scores/per-virus-metrics writes plus the
+    generate_figures() and write_comparison_report() delegates it calls. Two of
+    the six (external_benchmark_rank_scatter.png and
+    external_tool_metrics_by_virus.csv) are written conditionally depending on
+    the input data, but are enumerated unconditionally here: the guard's job is
+    to refuse to clobber whatever already exists on disk, not to predict what
+    this particular run will produce. All six are literal filenames; none are
+    derived via string substitution.
+    """
+    names = [
+        "external_benchmark_comparison.md",
+        "external_benchmark_roc_pr_curves.png",
+        "external_benchmark_score_distributions.png",
+        "external_benchmark_rank_scatter.png",
+        "external_validation_merged_scores.csv",
+        "external_tool_metrics_by_virus.csv",
+    ]
+    return planned_paths_under(output_dir, names)
+
+
+def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    guard_planned_paths(
+        results_dir,
+        planned_external_benchmark_paths(results_dir),
+        allow_overwrite,
+        flag="--results-dir",
+        api_hint="run_comparison(..., allow_overwrite=True)",
+        detail=(
+            ": external_benchmark_comparison.md is also independently appended "
+            "to (not overwritten) by external_validation_finalize.py, a "
+            "separate write path this guard does not cover"
+        ),
+    )
+
+
 def run_comparison(
+    results_dir: str,
     predig_path: Optional[str] = None,
     prime_path: Optional[str] = None,
-    results_dir: str = "results",
     oof_path: str = "models/rf_oof_predictions.csv",
     base_path: Optional[str] = None,
     predig_peptide_col: str = "peptide",
@@ -607,8 +648,10 @@ def run_comparison(
     prime_sep: str = "\t",
     prime_use_pctrank: bool = False,
     n_bootstrap: int = 2000,
+    allow_overwrite: bool = False,
 ) -> str:
     """End-to-end comparison pipeline. Returns path to the comparison report."""
+    _guard_results_dir(results_dir, allow_overwrite)
     if base_path is None:
         base_path = os.path.join(results_dir, "external_validation_input.csv")
 
@@ -737,8 +780,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--results-dir",
-        default="results",
-        help="Directory for inputs and outputs (default: results)",
+        required=True,
+        help="Directory for inputs and outputs. No default: it refuses to "
+        "guess a destination.",
     )
     parser.add_argument(
         "--oof-path",
@@ -786,6 +830,13 @@ def main() -> None:
         default=2000,
         help="Number of bootstrap resamples (default: 2000)",
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace external benchmark comparison artifacts that already exist "
+        "in --results-dir. Without this flag the run aborts before any work if "
+        "any would be overwritten.",
+    )
     args = parser.parse_args()
 
     run_comparison(
@@ -801,6 +852,7 @@ def main() -> None:
         prime_sep=args.prime_sep,
         prime_use_pctrank=args.prime_use_pctrank,
         n_bootstrap=args.n_bootstrap,
+        allow_overwrite=args.allow_overwrite,
     )
 
 

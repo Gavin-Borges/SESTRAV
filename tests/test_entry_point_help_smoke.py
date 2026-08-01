@@ -61,7 +61,21 @@ OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS = ["scripts.compute_ann_baseline_summary"]
 # two independently required output flags, so it appears both here and in
 # MODEL_DIR_REQUIRED_ENTRY_POINTS. The checks below are keyed on (module, flag)
 # pairs, so listing it twice checks each flag rather than double-checking one.
-RESULTS_DIR_REQUIRED_ENTRY_POINTS = ["src.bias_skew_finalization"]
+# src.prepare_external_validation_inputs guards its 4 external-validation
+# sidecar artifacts and src.external_benchmark_comparison guards its 6
+# comparison-report artifacts (see
+# _local/notes/results-dir-tier1-enumeration-2026-07-30.md, Tier-1 #2 and #3);
+# both use the same --results-dir flag name as bias_skew_finalization.
+RESULTS_DIR_REQUIRED_ENTRY_POINTS = [
+    "src.bias_skew_finalization",
+    "src.prepare_external_validation_inputs",
+    "src.external_benchmark_comparison",
+]
+
+# Same defect class, a fifth flag name: src.external_validation_cross_virus
+# guards the single tracked results/external_validation_cross_virus.csv
+# artifact at --output (Tier-1 #9 in the enumeration doc above).
+OUTPUT_REQUIRED_ENTRY_POINTS = ["src.external_validation_cross_virus"]
 
 # Same defect class, step 8: these two modules have no single output
 # directory - both take independent required file-path flags rather than one
@@ -83,19 +97,27 @@ REQUIRED_OUTPUT_FLAGS = [
     *((m, "--output-dir") for m in OUTPUT_DIR_REQUIRED_ENTRY_POINTS),
     *((m, "--output-summary") for m in OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS),
     *((m, "--results-dir") for m in RESULTS_DIR_REQUIRED_ENTRY_POINTS),
+    *((m, "--output") for m in OUTPUT_REQUIRED_ENTRY_POINTS),
     *((m, flag) for m, flags in MULTI_FLAG_REQUIRED_ENTRY_POINTS for flag in flags),
 ]
 
-# Deliberately does not splat RESULTS_DIR_REQUIRED_ENTRY_POINTS: its only member
-# already appears via MODEL_DIR_REQUIRED_ENTRY_POINTS, and the checks keyed on
-# this list are per-module, not per-flag.
-ALL_ENTRY_POINTS = [
-    *MODEL_DIR_REQUIRED_ENTRY_POINTS,
-    *OUTPUT_DIR_REQUIRED_ENTRY_POINTS,
-    *OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS,
-    *(m for m, _ in MULTI_FLAG_REQUIRED_ENTRY_POINTS),
-    "src.cli",
-]
+# Deliberately does not splat RESULTS_DIR_REQUIRED_ENTRY_POINTS in full: its
+# first member (src.bias_skew_finalization) already appears via
+# MODEL_DIR_REQUIRED_ENTRY_POINTS, and the checks keyed on this list are
+# per-module, not per-flag, so it is only added once below via dict.fromkeys.
+ALL_ENTRY_POINTS = list(
+    dict.fromkeys(
+        [
+            *MODEL_DIR_REQUIRED_ENTRY_POINTS,
+            *OUTPUT_DIR_REQUIRED_ENTRY_POINTS,
+            *OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS,
+            *RESULTS_DIR_REQUIRED_ENTRY_POINTS,
+            *OUTPUT_REQUIRED_ENTRY_POINTS,
+            *(m for m, _ in MULTI_FLAG_REQUIRED_ENTRY_POINTS),
+            "src.cli",
+        ]
+    )
+)
 
 # Per-module, so an entry point with two required flags is still checked once.
 ALLOW_OVERWRITE_ENTRY_POINTS = list(dict.fromkeys(m for m, _ in REQUIRED_OUTPUT_FLAGS))
