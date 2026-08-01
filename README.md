@@ -368,8 +368,8 @@ snakemake --snakefile pipeline.smk full_validation_report --cores 4
 Prepare inputs for external tool comparison (PredIG, PRIME):
 
 ```bash
-python -m src.prepare_external_validation_inputs
-python -m src.external_benchmark_comparison --predig ... --prime ...
+python -m src.prepare_external_validation_inputs --results-dir results
+python -m src.external_benchmark_comparison --predig ... --prime ... --results-dir results
 ```
 
 See `scripts/README.md` for the external-validation utilities and workflow.

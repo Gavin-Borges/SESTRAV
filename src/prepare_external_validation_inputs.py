@@ -7,7 +7,7 @@ Reads:
   - models/peptide_binding_matrix.csv (bind_* presentation-style columns)
   - config.yaml (alleles for expansion + optional proteome mapping)
 
-Writes under results/ (default):
+Writes under --results-dir (required, no default):
   - external_validation_input.csv - one row per labeled peptide (left join):
         rf_oof_score (NaN for 16 gold-standard holdout rows), binding_max
         (NaN if peptide missing from binding matrix), tier_a_baseline_complete,
@@ -26,6 +26,7 @@ from typing import List
 import pandas as pd
 import yaml
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
 DEFAULT_VIRUS_TO_PROTEOME = {
@@ -50,18 +51,40 @@ def _binding_max_row(row: pd.Series, bind_cols: List[str]) -> float:
     return float(row[bind_cols].max())
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Prepare external validation input CSVs (PredIG/PRIME)"
+def planned_prepare_paths(results_dir: str) -> list[str]:
+    """Every path run_prepare writes into results_dir.
+
+    All four are written inline in run_prepare; there are no delegate writers
+    and no derived filenames here.
+    """
+    names = [
+        "external_validation_input.csv",
+        "external_predig_peptide_allele_pairs.csv",
+        "external_prime_peptides.txt",
+        "external_prime_alleles_compact.txt",
+    ]
+    return planned_paths_under(results_dir, names)
+
+
+def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    guard_planned_paths(
+        results_dir,
+        planned_prepare_paths(results_dir),
+        allow_overwrite,
+        flag="--results-dir",
+        api_hint="run_prepare(..., allow_overwrite=True)",
     )
-    parser.add_argument("--repo-root", default=".", help="SESTRAV-Dev root")
-    parser.add_argument(
-        "--results-dir",
-        default=None,
-        help="Output directory (default: config output_dir or results)",
-    )
-    args = parser.parse_args()
-    root = os.path.abspath(args.repo_root)
+
+
+def run_prepare(root: str, results_dir: str, allow_overwrite: bool = False) -> None:
+    """Build Tier A join tables and PredIG/PRIME sidecar inputs.
+
+    root is the SESTRAV-Dev repo root (used to locate config.yaml and the
+    data/models inputs); results_dir is the already-resolved output directory
+    for the 4 tracked artifacts this writes.
+    """
+    _guard_results_dir(results_dir, allow_overwrite)
 
     config_path = os.path.join(root, "config.yaml")
     with open(config_path, encoding="utf-8") as f:
@@ -71,9 +94,6 @@ def main() -> None:
     if not alleles:
         raise RuntimeError("config.yaml must define 'alleles'")
 
-    results_dir = args.results_dir or cfg.get("output_dir", "results")
-    if not os.path.isabs(results_dir):
-        results_dir = os.path.join(root, results_dir)
     os.makedirs(results_dir, exist_ok=True)
 
     data_path = os.path.join(root, "data", "immunogenicity_dataset_v4.csv")
@@ -187,6 +207,34 @@ def main() -> None:
     )
     print(f"[external-prep] PredIG peptide-allele rows: {len(predig_pairs)}")
     print("[external-prep] PRIME peptide list + compact alleles under results/")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Prepare external validation input CSVs (PredIG/PRIME)"
+    )
+    parser.add_argument("--repo-root", default=".", help="SESTRAV-Dev root")
+    parser.add_argument(
+        "--results-dir",
+        required=True,
+        help="Output directory for the 4 external validation sidecar "
+        "artifacts. No default: it refuses to guess a destination.",
+    )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace external validation prep artifacts that already exist "
+        "in --results-dir. Without this flag the run aborts before any work "
+        "if any would be overwritten.",
+    )
+    args = parser.parse_args()
+    root = os.path.abspath(args.repo_root)
+
+    results_dir = args.results_dir
+    if not os.path.isabs(results_dir):
+        results_dir = os.path.join(root, results_dir)
+
+    run_prepare(root, results_dir, allow_overwrite=args.allow_overwrite)
 
 
 if __name__ == "__main__":

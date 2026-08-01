@@ -5,7 +5,9 @@ Trains virus-specific RF models and evaluates on held-out virus peptides using
 OOF-style scoring, producing results/external_validation_cross_virus.csv.
 
 Usage:
-    python -m src.external_validation_cross_virus --data data/immunogenicity_dataset_v4.csv
+    python -m src.external_validation_cross_virus \\
+        --data data/immunogenicity_dataset_v4.csv \\
+        --output results/external_validation_cross_virus.csv
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.train_classifier import prepare_features_30
@@ -40,12 +43,42 @@ def _oof_scores(X: np.ndarray, y: np.ndarray, n_folds: int = 5, seed: int = 42) 
     return oof
 
 
+def planned_cross_virus_paths(output_path: str) -> list[str]:
+    """The single tracked artifact run_cross_virus writes.
+
+    output_path is a literal file path (--output), not a directory, so this
+    always resolves to exactly one entry.
+    """
+    return planned_paths_under(os.path.dirname(output_path) or ".", [os.path.basename(output_path)])
+
+
+def _guard_output_path(output_path: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber the tracked artifact already on disk.
+
+    --output names a file, not a directory, so scope/remedy override the
+    default "under '{output_dir}'" / "Point {flag} at a fresh directory"
+    clauses, which would be wrong advice here - same shape as
+    src/data_bias_audit.py's single-file guards.
+    """
+    guard_planned_paths(
+        os.path.dirname(output_path) or ".",
+        planned_cross_virus_paths(output_path),
+        allow_overwrite,
+        flag="--output",
+        api_hint="run_cross_virus(..., allow_overwrite=True)",
+        scope="among this run's planned artifacts",
+        remedy="Point --output at a fresh path, ",
+    )
+
+
 def run_cross_virus(
     data_path: str,
     binding_matrix_path: str,
-    output_path: str = "results/external_validation_cross_virus.csv",
+    output_path: str,
     n_folds: int = 5,
+    allow_overwrite: bool = False,
 ) -> pd.DataFrame:
+    _guard_output_path(output_path, allow_overwrite)
     df = pd.read_csv(data_path)
     df = df[~df["peptide"].isin(GOLD_STANDARD_EPITOPES)].copy()
 
@@ -105,8 +138,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-virus transfer table (A1)")
     parser.add_argument("--data", default="data/immunogenicity_dataset_v4.csv")
     parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
-    parser.add_argument("--output", default="results/external_validation_cross_virus.csv")
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to write the cross-virus transfer table. No default: it "
+        "refuses to guess a destination.",
+    )
     parser.add_argument("--n-folds", type=int, default=5)
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace the cross-virus artifact at --output if it already "
+        "exists. Without this flag the run aborts before any work if it "
+        "would be overwritten.",
+    )
     args = parser.parse_args()
 
     run_cross_virus(
@@ -114,6 +159,7 @@ def main() -> None:
         args.binding_matrix,
         output_path=args.output,
         n_folds=args.n_folds,
+        allow_overwrite=args.allow_overwrite,
     )
 
 

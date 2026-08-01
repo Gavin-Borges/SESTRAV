@@ -230,9 +230,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   (`results/calibration_metrics.csv`); `src/shap_analysis.py` (`shap_values_{tag}.csv`, i.e. the
   tracked `results/shap_values_rf.csv`); `scripts/compute_population_coverage.py`
   (`results/population_coverage_v5.json`); and `src/external_validation_cross_virus.py`
-  (`results/external_validation_cross_virus.csv`). These are disclosed here, not fixed: each needs
-  the same per-file write enumeration this entry used before a guard can be built correctly, and
-  that list is not assumed exhaustive.
+  (`results/external_validation_cross_virus.csv`, since closed - see the Tier-1 #2/#3/#9 entry
+  below). These were disclosed here, not fixed at the time: each needed the same per-file write
+  enumeration this entry used before a guard could be built correctly, and that list was not
+  assumed exhaustive.
 - **`src/h2_tier_a_evaluation.py` closes the most severe instance disclosed in the entry above**
   (breaking CLI change): `--output-dir` defaulted to `results`, with no guard, so a bare
   `python -m src.h2_tier_a_evaluation` run rewrote `h2_tier_a_summary.md` in place - the source
@@ -270,8 +271,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `models/` fixtures, so 7 more data-dependent tests skip there than in a populated local tree,
   reproduced identically in a `main` worktree. **Scope note, unchanged from the entry above:**
   `src/data_bias_audit.py`, `src/gold_standard_sensitivity.py`, `src/calibration_analysis.py`,
-  `src/shap_analysis.py`, `scripts/compute_population_coverage.py`, and
-  `src/external_validation_cross_virus.py` remain open instances of the same defect class.
+  `src/shap_analysis.py`, `scripts/compute_population_coverage.py`, and (at the time of this entry)
+  `src/external_validation_cross_virus.py` remained open instances of the same defect class.
+  `src/external_validation_cross_virus.py` is since closed - see the Tier-1 #2/#3/#9 entry below.
 - **`src/data_bias_audit.py` and `src/gold_standard_sensitivity.py` close step 8 of the
   `results/` silent-overwrite defect-class line** (breaking CLI change): per the Tier-1
   enumeration in `_local/notes/results-dir-tier1-enumeration-2026-07-30.md` (15 modules, ~26
@@ -354,6 +356,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_entry_point_help_smoke.py`, 31 in `tests/test_data_bias_audit_guard.py`, 16 in
   `tests/test_gold_standard_sensitivity_guard.py`, 3 in
   `tests/test_bias_skew_finalization_results_guard.py`).
+- **`src/external_benchmark_comparison.py`, `src/prepare_external_validation_inputs.py` and
+  `src/external_validation_cross_virus.py` close Tier-1 items #2, #3 and #9 of the `results/`
+  silent-overwrite defect-class line** (breaking CLI change): per the Tier-1 enumeration in
+  `_local/notes/results-dir-tier1-enumeration-2026-07-30.md` (15 modules; `h2_tier_a_evaluation.py`
+  closed item #1 and `data_bias_audit.py`/`gold_standard_sensitivity.py` closed item #8 above), this
+  closes items #2, #3 and #9, bringing the closed count to **5 of 15**.
+  `src/prepare_external_validation_inputs.py` was already required with no default going into this
+  branch (its config-indirection fallback `cfg.get("output_dir", "results")` was removed entirely
+  and `run_prepare()` extracted from the old inline `main()`); this branch closes the remaining two.
+  `src/external_benchmark_comparison.py`'s `--results-dir` defaulted to `results`, so a bare
+  `python -m src.external_benchmark_comparison` run could silently rewrite up to 6 tracked
+  comparison artifacts in place, including `external_benchmark_comparison.md` - the report backing
+  the head-to-head metric table published in `README.md`. `--results-dir` is now required with no
+  default at both the CLI and `run_comparison(results_dir=...)` layers; `results_dir` moved to the
+  front of the signature, ahead of the already-defaulted `predig_path`/`prime_path` parameters,
+  since Python does not allow a no-default parameter after a defaulted one - the only caller
+  (this module's own `main()`) already passed everything by keyword, so nothing breaks. A new
+  `planned_external_benchmark_paths()` + `_guard_results_dir()` pair raises `FileExistsError`
+  listing every colliding file before any work starts; the guard's message discloses that
+  `external_benchmark_comparison.md` is also independently appended to (not overwritten) by
+  `external_validation_finalize.py`, a separate write path this guard does not cover.
+  `src/external_validation_cross_virus.py`'s `--output` defaulted to
+  `results/external_validation_cross_virus.csv`, threatening the single tracked cross-virus
+  transfer table. `--output` is now required with no default at both the CLI and
+  `run_cross_virus(output_path=...)` layers; unlike the `--results-dir`-shaped guards elsewhere in
+  this line, `--output` names a file, not a directory, so `planned_cross_virus_paths()` and
+  `_guard_output_path()` use the `scope`/`remedy` override on `guard_planned_paths()` (same shape as
+  `src/data_bias_audit.py`'s single-file guards) so the message does not claim a directory-shaped
+  destination that does not exist. The only other caller of `run_cross_virus` in the repo,
+  `src/external_validation_finalize.py` (`:611-623`), already passes `output_path` explicitly as a
+  positional argument, so removing the default does not break it - reconfirmed by grep before this
+  change, not just assumed from the prior disclosure, and locked down by a dedicated regression
+  test. `README.md`'s `external_benchmark_comparison` example command gained the now-required
+  `--results-dir results`, matching its `prepare_external_validation_inputs` neighbor on the
+  preceding line.
+  Tests: `tests/test_prepare_external_validation_inputs_results_guard.py` (16 cases),
+  `tests/test_external_benchmark_comparison_results_guard.py` (19 cases) and
+  `tests/test_external_validation_cross_virus_results_guard.py` (15 cases) each cover planned-path
+  enumeration, guard-pass-on-empty-location, a per-file parametrized clobber check, a wiring test
+  proving the guard is actually called by the real `run_*` function before any read happens (rather
+  than merely defined - each guard is the literal first statement, so a bogus/nonexistent input
+  path deterministically distinguishes `FileExistsError` from the guard against a
+  `FileNotFoundError` the real work would raise instead), an allow-overwrite-passthrough test, a
+  Python-level `TypeError`-on-missing-argument test, and CLI-level checks anchored on argparse's
+  required-arguments line rather than a bare stderr substring - the guard's own error message names
+  the flag too and would give a false pass on a substring check while a regression was live.
+  `tests/test_entry_point_help_smoke.py` registers all three: `prepare_external_validation_inputs`
+  and `external_benchmark_comparison` join `RESULTS_DIR_REQUIRED_ENTRY_POINTS` (12 new parametrized
+  cases across the file's existing checks), and `external_validation_cross_virus` gets a new
+  `OUTPUT_REQUIRED_ENTRY_POINTS` list for its `--output` flag, wired into `REQUIRED_OUTPUT_FLAGS`
+  and `ALL_ENTRY_POINTS` the same way the existing lists are (49 -> 61 collected cases in this file).
+  **Scope note - this does not close the `results/` defect class.** Per the Tier-1 enumeration doc,
+  `src/calibration_analysis.py`, `src/shap_analysis.py` and `scripts/compute_population_coverage.py`
+  remain open instances and are explicitly out of scope for this branch. The two locations above
+  that previously listed `src/external_validation_cross_virus.py` as still open are now stale and
+  superseded by this entry - it is closed as of here. Three bare, flagless invocations of
+  `python -m src.external_benchmark_comparison` and `python -m src.external_validation_cross_virus`
+  survive in prose inside `docs/external_testing/SESTRAV_External_Validation_PRIME_PredIG_Plan.md`
+  (historical planning narrative, not a runnable script or CI step); disclosed here rather than
+  edited, since rewriting a planning-document's prose is a different kind of change than closing a
+  guard gap.
+  Full suite 1577 passed, 0 failed, 0 errors, 2 skipped under the standing local exclusion of
+  `tests/test_run_analysis_results_guard.py` (7 tests), from 1579 collected, reconciling exactly as
+  the pre-branch baseline (1515 passed / 1517 collected) + 62 new cases (16 in
+  `tests/test_prepare_external_validation_inputs_results_guard.py`, 19 in
+  `tests/test_external_benchmark_comparison_results_guard.py`, 15 in
+  `tests/test_external_validation_cross_virus_results_guard.py`, 12 in
+  `tests/test_entry_point_help_smoke.py`). `ruff check .` and `mypy src/` are clean on every
+  changed and added file.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
