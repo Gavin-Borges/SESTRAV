@@ -1209,9 +1209,9 @@ smmap==5.0.3 \
     --hash=sha256:4d9debb8b99007ae47165abc08670bd74cb74b5227dda7f643eccc4e9eb5642c \
     --hash=sha256:c106e05d5a61449cf6ba9a1e650227ecfb141590d2a98412103ff35d89fc7b2f
     # via gitdb
-snakemake==9.23.1 \
-    --hash=sha256:9fdbfff25f1b442cdf7906ca06b465fc24b9bf72e2d51514fb93d83e3f8aeb35 \
-    --hash=sha256:ef8d698bfce66a6669cc29df7e344b0b367fd90956c725e5ae0a79a556e8e93f
+snakemake==9.24.0 \
+    --hash=sha256:0561a41594c4955f705d1811ebed5e23020a5f26c4724e6cf102c5bd31804acd \
+    --hash=sha256:cf5a056eef5ac92970c2ee9e26fcd5f8138cf38a0a6db8904185f7ba2e317307
     # via -r requirements-ci.in
 snakemake-interface-common==1.23.0 \
     --hash=sha256:43bb10102d07149f27787dfc65a7342b86ff772973e7f9ca4940c89cb412a11e \
