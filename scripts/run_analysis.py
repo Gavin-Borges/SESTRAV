@@ -95,7 +95,18 @@ def main(results_dir: str, model_dir="models", allow_overwrite: bool = False):
     print("=" * 70)
 
     feature_mode = cfg.get("feature_mode", 30)
-    run_shap_analysis(results_dir, model_dir, results_dir, feature_mode=feature_mode)
+    # allow_overwrite must be threaded through: run_shap_analysis now carries its
+    # own guard over the same 7 SHAP filenames planned_analysis_paths lists, and
+    # steps 1 and 2 above have already written by this point. Without this, an
+    # --allow-overwrite rerun would do the gold-standard and baseline work, write
+    # both CSVs, and only then abort on SHAP's guard - partial and destructive.
+    run_shap_analysis(
+        results_dir=results_dir,
+        output_dir=results_dir,
+        model_dir=model_dir,
+        feature_mode=feature_mode,
+        allow_overwrite=allow_overwrite,
+    )
 
     # --- Summary ---
     print("\n" + "#" * 70)

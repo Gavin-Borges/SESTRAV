@@ -20,6 +20,17 @@ module-level import side effects and the epilog together. `--help` neither
 trains nor writes anything.
 
 Matches the existing subprocess pattern in tests/test_features_mode31.py.
+
+Machine note: the 4 cases parametrized on `src.shap_analysis` spawn a process
+that imports the real `shap` library, which hard-crashes the interpreter on at
+least one Windows dev machine in this project (Windows fatal exception
+0xc06d007f inside scipy.linalg.inv, called from
+shap/plots/colors/_colorconv.py at import time - the same pre-existing crash
+that makes tests/test_run_analysis_results_guard.py uncollectable there). They
+fail rather than crash, because the crash is contained in the subprocess, and
+CI on Linux is the authoritative check for them. The guard-side coverage for
+that module lives in tests/test_shap_analysis_results_guard.py, which stubs the
+import out and therefore runs everywhere.
 """
 
 from __future__ import annotations
@@ -49,6 +60,15 @@ OUTPUT_DIR_REQUIRED_ENTRY_POINTS = [
     # Writes into results/, not models/: the 3 tracked H2 Tier A artifacts,
     # one of which backs the certified R10 = 0.9494 result in README.md.
     "src.h2_tier_a_evaluation",
+    # Tier-1 #7: 3 calibration artifacts, one of them the tracked
+    # results/calibration_metrics.csv.
+    "src.calibration_analysis",
+    # Tier-1 #10: 7 SHAP artifacts (3 of the filename templates are
+    # interpolated over 2 model tags), one of them the tracked
+    # results/shap_values_rf.csv. Its --results-dir is an INPUT flag and stays
+    # optional on purpose, so it is deliberately absent from
+    # RESULTS_DIR_REQUIRED_ENTRY_POINTS below.
+    "src.shap_analysis",
 ]
 
 # Same defect class again, a third flag name: this one writes its CV summary
@@ -66,16 +86,30 @@ OUTPUT_SUMMARY_REQUIRED_ENTRY_POINTS = ["scripts.compute_ann_baseline_summary"]
 # comparison-report artifacts (see
 # _local/notes/results-dir-tier1-enumeration-2026-07-30.md, Tier-1 #2 and #3);
 # both use the same --results-dir flag name as bias_skew_finalization.
+# src.baseline_comparison (Tier-1 #6) guards the tracked
+# results/baseline_comparison.csv. Its --results-dir is the one dual-purpose
+# flag in this list: the run reads its {prefix}_features.csv inputs out of the
+# same directory it writes into, which is why its guard carries a custom remedy
+# clause. The required-flag contract checked here is identical either way.
 RESULTS_DIR_REQUIRED_ENTRY_POINTS = [
     "src.bias_skew_finalization",
     "src.prepare_external_validation_inputs",
     "src.external_benchmark_comparison",
+    "src.baseline_comparison",
 ]
 
 # Same defect class, a fifth flag name: src.external_validation_cross_virus
 # guards the single tracked results/external_validation_cross_virus.csv
-# artifact at --output (Tier-1 #9 in the enumeration doc above).
-OUTPUT_REQUIRED_ENTRY_POINTS = ["src.external_validation_cross_virus"]
+# artifact at --output (Tier-1 #9 in the enumeration doc above), and
+# scripts.compute_population_coverage guards the tracked
+# results/population_coverage_v5.json at the same flag name (Tier-1 #11). Both
+# flags name a file rather than a directory. Like
+# scripts.compute_ann_baseline_summary above, the second entry is a `scripts.`
+# module rather than a `src.` one; `python -m` reaches it the same way.
+OUTPUT_REQUIRED_ENTRY_POINTS = [
+    "src.external_validation_cross_virus",
+    "scripts.compute_population_coverage",
+]
 
 # Same defect class, step 8: these two modules have no single output
 # directory - both take independent required file-path flags rather than one

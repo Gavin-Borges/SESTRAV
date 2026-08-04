@@ -425,6 +425,190 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_external_validation_cross_virus_results_guard.py`, 12 in
   `tests/test_entry_point_help_smoke.py`). `ruff check .` and `mypy src/` are clean on every
   changed and added file.
+- **`src/calibration_analysis.py`, `scripts/compute_population_coverage.py`,
+  `src/shap_analysis.py` and `src/baseline_comparison.py` close Tier-1 items #7, #11, #10 and #6
+  of the `results/` silent-overwrite defect-class line** (breaking CLI change): per the Tier-1
+  enumeration in `_local/notes/results-dir-tier1-enumeration-2026-07-30.md` (15 modules; items #1,
+  #8, #2, #3 and #9 closed in the entries above), this closes four more, bringing the closed count
+  to **9 of 15**. Together the four modules make 12 planned writes, of which **4 are git-tracked**:
+  `results/calibration_metrics.csv`, `results/population_coverage_v5.json`,
+  `results/shap_values_rf.csv` and `results/baseline_comparison.csv`. **All four are cited in
+  tracked documents**, so every one of them sits behind something a reader can see:
+
+  - `results/population_coverage_v5.json` is the source of the panel-coverage prose and table in
+    `docs/paper.md:216-233` (EUR 0.919, AFR 0.621, AMR 0.813, EAS 0.742, SAS 0.847, global mean
+    0.789 - all six match the artifact exactly). A bare `python scripts/compute_population_coverage.py`
+    on `main` silently rewrote the file behind a manuscript table.
+  - `results/baseline_comparison.csv` is the source of the "Pipeline Gold-Standard Recovery" table
+    at `docs/model_evaluation_summary.md:169-174`, whose row labels ("RF (SESTRAV)", "ANN (MLP)",
+    "Binding-only baseline") are emitted by `src/baseline_comparison.py` and by no other module in
+    the repo. It is also summarized at `README.md:90` and named by path in
+    `results/final_validation_report.md:5`.
+  - `results/calibration_metrics.csv` is the source of the **v1** Brier column of the table at
+    `results/v1_v2_quality_comparison.md:33-35` (Brier 0.096, Trivial 0.131, BSS 0.265 match the CSV
+    exactly). The same table's **v2** column does not match the current artifact, and neither does
+    `results/multi_run_stability_report.md:147-148` - see the drift disclosure below.
+  - `results/shap_values_rf.csv` is cited by name at `README.md:162` as the supporting evidence for
+    the 60/40 SHAP attribution split published at `README.md:157-158` - but see below: the artifact
+    does not reproduce that split.
+
+  **This count was wrong three times before it was right, and the sequence is recorded rather than
+  quietly fixed.** Successive drafts of this entry said none of the four backed a published number,
+  then two, then three. Each figure was written from a partial sweep and revised only where the
+  previous round had looked. The correct answer, reached by tracing every artifact's citations
+  rather than by adjusting the previous count, is four.
+
+  **Two pre-existing drift/binding defects surfaced while tracing those citations. Neither is
+  introduced or repaired by this branch**, and both are disclosed here rather than silently patched,
+  because correcting a published number is a separate change that needs its own evidence trail:
+
+  - **`README.md`'s 60/40 SHAP attribution split is unbound.** `README.md:162` names
+    `results/shap_values_rf.csv` as its evidence, but all ten `bind_*` columns in that artifact are
+    identically `0.0` across all 2000 rows - a 0/100 binding-to-physicochemical attribution, not
+    60/40 - and the file carries 2000 rows against the README's stated 720 samples at `README.md:156`.
+    The other cited source, `results/external_benchmark_comparison.md`, contains no SHAP methodology
+    at all. The same figure appears again at `README.md:92`. So the guard added here protects a file
+    that a public claim points at while not actually supporting it.
+  - **Three tracked reports carry numbers their source artifacts no longer produce.**
+    `results/v1_v2_quality_comparison.md:33,35` publishes v2 Brier 0.170 / BSS 0.198 against the
+    current CSV's 0.199 / 0.059; `results/multi_run_stability_report.md:147-148` mirrors the same
+    mismatch; and `docs/model_evaluation_summary.md:172-174` publishes RF 6/15, 8/15, 27.1% against
+    the current `baseline_comparison.csv`'s 4, 7, 34.65% (XGBoost and ANN rows likewise). This is
+    ledger-independent drift of exactly the kind an unguarded regeneration produces, which is the
+    argument for the guards in this entry, not against them.
+
+  What remains true, and is the honest severity comparison: **none of the four carries a
+  certified-ledger headline metric** the way `h2_tier_a_summary.md` carries the certified
+  R10 = 0.9494 result (item #1) - verified against the ledger rather than assumed. This batch is
+  closer to defect-class completeness and OpenSSF posture than to a claim-integrity repair of item
+  #1's severity, but it is not free of claim-integrity exposure, and an earlier draft that described
+  it as such was wrong.
+  These were queued as "the mechanical sub-class (a) remainder," and that framing turned out to be
+  only partly right: all four do use an argparse default rather than a module-level constant, but
+  they have four different internal shapes and two needed a documented deviation from the template.
+  `src/calibration_analysis.py` is the clean case: `--output-dir` is now required with no default
+  at both the CLI and the `run_calibration_analysis(output_dir=...)` layers, and
+  `planned_calibration_paths()` enumerates all 3 writes
+  (`calibration_reliability_diagram.png`, `calibration_score_distribution.png`,
+  `calibration_metrics.csv`), guarded ahead of `os.makedirs`.
+  `scripts/compute_population_coverage.py`'s `--output` names a **file**, not a directory, so like
+  `src/external_validation_cross_virus.py` (item #9) it uses the `scope`/`remedy` override on
+  `guard_planned_paths()` rather than claiming a directory-shaped destination. The load-bearing
+  subtlety: this module resolves a relative `--output` against `PROJECT_ROOT`, not the working
+  directory, so the guard runs on the **resolved** path. Guarding `args.output` directly would have
+  checked the wrong location on any relative invocation and silently passed while a collision
+  existed; a dedicated regression test plants a collision under a monkeypatched `PROJECT_ROOT`,
+  changes directory elsewhere, and asserts the planted absolute path appears in the message.
+  `src/shap_analysis.py` is the derived-filename case this line has been bitten by twice before.
+  Three of its four filename templates are f-string interpolated over a model-tag loop, so
+  `planned_shap_paths()` enumerates **7** paths, not 4: `shap_values_{tag}.csv`,
+  `shap_summary_{tag}.png` and `shap_bar_{tag}.png` each expand over `rf` and `xgb`, plus
+  `shap_waterfall_top_gs.png`, which is written not by `run_shap_analysis` itself but by its
+  `_shap_gold_standard_waterfall` delegate and is included for that reason. The tag loop was
+  refactored to iterate the same `SHAP_MODEL_TAGS` constant the enumeration reads, so the two
+  cannot drift apart. **`--results-dir` on this module is an input flag and was deliberately left
+  optional**: it is where the feature CSVs are read from, and making it required would have been a
+  regression dressed as a fix. Only `--output-dir` is the output. The tracked
+  `results/shareout_20260426/` copies of three of these PNGs live in a frozen share-out directory
+  this script never writes to and are correctly **not** enumerated.
+  `src/baseline_comparison.py` needed the widest deviation, and it is disclosed rather than hidden.
+  Its `--results-dir` is the one **dual-purpose** flag in this line: the run reads its
+  `{prefix}_features.csv` inputs out of the same directory it writes `baseline_comparison.csv`
+  into. The family's standard remedy clause, "point the flag at a fresh directory," is therefore
+  actively wrong advice here, since a fresh directory has no inputs to read and produces a
+  different failure; the guard carries a custom remedy saying so explicitly, and a test asserts the
+  wrong advice is **absent** from the message. Second, this module has no public function that
+  writes: `compare_methods()` returns a DataFrame and the write happens inline under `__main__`. The
+  guard is therefore placed in `__main__`, after the pre-existing directory validation and before
+  `compare_methods()` is called, so it still aborts ahead of the expensive work. The consequence,
+  stated plainly: **this module gets a CLI-level guard only, with no Python-API-level
+  `allow_overwrite` parameter**, because it has no Python-level write API to attach one to, and the
+  guard message says so rather than advertising an escape hatch that does not exist. Note also that
+  `src/baseline_comparison.py` is **named in this changelog as an instance for the first time
+  here** - unlike items #7, #10 and #11 it appears in none of the earlier disclosure sweeps or
+  scope notes. It was, however, already enumerated as item #6 in
+  `_local/notes/results-dir-tier1-enumeration-2026-07-30.md`, the same internal document this
+  entry cites for its numbering, so it was known and tracked, just never surfaced publicly. The
+  reason it escaped the changelog sweeps is **not** a difference in spelling: its pre-change flag
+  name and `default="results"` were identical to `src/shap_analysis.py`'s, which those sweeps did
+  catch (the two differ only in help text - "pipeline output CSVs" versus "pipeline feature CSVs").
+  It is that the sweeps read `--results-dir` as an input-directory flag, which for this module it
+  also genuinely is; the write is the second, less visible half of a dual-purpose flag.
+  **Two breaking Python-API signature reorders, called out because they fail silently rather than
+  loudly.** `run_shap_analysis(results_dir, model_dir=, output_dir=, ...)` became
+  `(results_dir, output_dir, model_dir=, ...)`, and
+  `run_calibration_analysis(v2_oof_path, v1_oof_path=, output_dir=, ...)` became
+  `(v2_oof_path, output_dir, v1_oof_path=, ...)`. Python does not permit a no-default parameter
+  after a defaulted one, so making `output_dir` required forced it forward. Any **positional**
+  third-argument caller therefore now binds a different parameter instead of raising. Every caller
+  in this repo was converted to keyword form and the conversion is locked by source-reading tests,
+  so nothing in-tree breaks, but an external caller could. `scripts/run_analysis.py` additionally
+  threads `allow_overwrite` through to `run_shap_analysis`, which it previously did not: without
+  that, an `--allow-overwrite` rerun would have completed the gold-standard and baseline stages,
+  written both CSVs, and only then aborted on the SHAP guard, leaving partial and destructive
+  output. `scripts/regenerate_shareout_pngs.py` passes `allow_overwrite=True` to both
+  `run_shap_analysis` and `run_calibration_analysis` deliberately, with an inline comment:
+  regenerating exactly those artifacts is that script's declared purpose, so it *is* their
+  reproduction path, and without the flag its guard would abort every run after the first.
+  Tests: `tests/test_shap_analysis_results_guard.py` (25 cases),
+  `tests/test_baseline_comparison_results_guard.py` (17),
+  `tests/test_calibration_analysis_results_guard.py` (17) and
+  `tests/test_compute_population_coverage_results_guard.py` (15) each cover planned-path
+  enumeration, guard-pass-on-empty-location, a per-file parametrized clobber check, and a wiring
+  test proving the guard is actually called by the real entry point before any work starts rather
+  than merely defined. As in the entries above, the CLI required-flag checks are anchored on
+  argparse's own required-arguments line rather than a bare stderr substring, since the guard's
+  error message names the flag too and would give a false pass while a regression was live.
+  `tests/test_entry_point_help_smoke.py` registers all four (61 -> 77 collected cases in that
+  file): `src.calibration_analysis` and `src.shap_analysis` join `OUTPUT_DIR_REQUIRED_ENTRY_POINTS`,
+  `src.baseline_comparison` joins `RESULTS_DIR_REQUIRED_ENTRY_POINTS`, and
+  `scripts.compute_population_coverage` joins `OUTPUT_REQUIRED_ENTRY_POINTS`.
+  **Scope note - this does not close the `results/` defect class.** Six Tier-1 instances remain
+  (#4 `scripts/run_loo_cross_virus_v5.py`, #5 `scripts/run_loo_cross_virus_v4.py`,
+  #12 `compute_loo_binding_confound.py`, #13 `compute_tier_a_paired_bootstrap.py`,
+  #14 `eval_tsnadb_crossdomain.py`, #15 `run_tier_a_benchmarks.py`). **Four of those six**, not all
+  six, are the genuinely wider sub-class (b) repair where no output flag exists at all and one must
+  be introduced: #12, #13 and #14 do not import `argparse`, and #15 parses only `--smoke` while its
+  output path is an inline literal. The remaining two are closer to this batch than a first reading
+  of the enumeration suggests: `scripts/run_loo_cross_virus_v5.py:256-257` and
+  `scripts/run_loo_cross_virus_v4.py:187-188` already expose `--output-json` and `--output-csv`,
+  with the module-level constants supplying only their defaults, so they are the same
+  `required=True`-plus-guard shape this batch just applied. An earlier draft of this entry
+  described all six as flagless and therefore overstated the remaining work; corrected here after
+  reading each of the six rather than inheriting the enumeration's summary column.
+  **Three scope notes above are stale as of here and superseded by this entry**, each listing
+  `src/calibration_analysis.py`, `src/shap_analysis.py` and `scripts/compute_population_coverage.py`
+  as remaining open instances: the one closing the `src/bias_skew_finalization.py` entry, the one
+  in the `src/h2_tier_a_evaluation.py` entry, and the one in the item #2/#3/#9 entry. The first two
+  are explicitly maintained for supersession and already carry corrections for
+  `src/external_validation_cross_virus.py`. An earlier draft of this paragraph named only two of
+  the three; the third was found by a full re-sweep of this file rather than by re-checking the
+  locations already known.
+  Full suite on this branch: **1669 collected, 1663 passed, 4 failed, 0 errors, 2 skipped** under
+  the standing local exclusion of `tests/test_run_analysis_results_guard.py`. The 4 failures are
+  all four `src.shap_analysis` cases in `tests/test_entry_point_help_smoke.py` and are a property
+  of this Windows development machine, not of this branch: importing the real `shap` library
+  hard-crashes the interpreter there (`Windows fatal exception: code 0xc06d007f`, raised inside
+  `scipy.linalg.inv` from `shap/plots/colors/_colorconv.py` at import time). Because those cases
+  spawn a subprocess the crash is contained and they fail rather than taking the run down; the
+  guard-side coverage for that module lives in `tests/test_shap_analysis_results_guard.py`, which
+  stubs the import out and passes everywhere. **CI on `ubuntu-latest` is the designated authority
+  for those 4** - `.github/workflows/ci.yml` runs the suite with no `--ignore`, so it exercises
+  both them and the locally excluded file. Stated as the designated authority rather than a
+  completed check: at the time of writing this entry no CI run exists for this branch yet, so CI
+  green for those 4 is an expectation, not a measurement. The crash itself is confirmed
+  pre-existing - `python -m src.shap_analysis --help` returns 127 on an unmodified `main` checkout
+  as well as on this branch.
+  The count reconciles exactly against a freshly measured baseline: `main` at `2850bab` collects
+  1579 under the same exclusion, plus 74 new cases across the four new files, plus 16 in
+  `tests/test_entry_point_help_smoke.py` (4 new entry points x 4 parametrized checks each), equals
+  1669. **Two corrections to earlier entries in this file, both measured rather than assumed:** the
+  1453 collected figure stated in the `src/artifact_guard.py` entry above is stale (the current
+  `main` baseline is 1579), and the standing exclusion has been described as skipping "7 tests" -
+  in fact, without the exclusion pytest does not report failures at all, it dies during collection
+  and **zero** tests run. The same crash reproduces identically on an unmodified `main` checkout,
+  verified this session in a throwaway worktree rather than inferred. `ruff check .` and
+  `mypy src/` are clean; `bandit` is clean on `src/`, `scripts/` and `tests/`.
 - **Pooled same-pathogen AUC-ROC 0.9368 retracted (2026-07-11)**: The pooled within-virus
   "same-pathogen AUC-ROC 0.9368" reported for the e6aafe2 build was decoy-inflated - it only
   reproduces when synthetic / cross-pathogen decoys (incl. the vaccinia panel) are mixed in as
