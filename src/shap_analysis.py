@@ -13,7 +13,13 @@ Outputs:
 SHAP TreeExplainer is exact for tree models (RF, XGB) - no approximation.
 
 Usage (after pipeline.py has run):
-    python -m src.shap_analysis --results-dir results --model-dir models
+    python -m src.shap_analysis --results-dir results --model-dir models \\
+        --output-dir results/scratch/shap
+
+--results-dir is an input flag (it reads the pipeline's *_features.csv and
+*_ranked.csv) and keeps its default. --output-dir is the output flag: it is
+required with no default, because a run writes 7 files into it including the
+git-tracked shap_values_rf.csv.
 """
 
 import os
@@ -26,10 +32,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import shap
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.artifact_integrity import load_verified_joblib
 from src.features import TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
 from src.naming import proteome_id_candidates, resolve_model_path
+
+
+# The model tags run_shap_analysis interpolates into its output filenames. Three
+# of the four templates below are f-strings over this tuple, so each one is two
+# files, not one. Defined once and used both by the write loop and by
+# planned_shap_paths() so the two cannot drift apart.
+SHAP_MODEL_TAGS = ("rf", "xgb")
 
 
 FEATURE_DISPLAY_NAMES = {
@@ -95,13 +109,63 @@ def _load_features(results_dir, max_samples=2000):
     return combined
 
 
-def run_shap_analysis(results_dir, model_dir="models", output_dir="results", feature_mode=21):
+def planned_shap_paths(output_dir: str) -> list[str]:
+    """Every path a run writes into output_dir.
+
+    Seven paths, not four. Three of the filename templates are f-string
+    interpolated over SHAP_MODEL_TAGS inside run_shap_analysis's model loop, so
+    each template is two files. The seventh, shap_waterfall_top_gs.png, is
+    written by the _shap_gold_standard_waterfall delegate rather than by
+    run_shap_analysis itself.
+
+    Only results/shap_values_rf.csv is git-tracked among these. The tracked
+    results/shareout_20260426/ copies of shap_bar_rf.png, shap_summary_rf.png
+    and shap_waterfall_top_gs.png are deliberately not enumerated: they live in
+    a frozen share-out snapshot directory this module never writes into, so
+    they are not at risk from a run.
+    """
+    names: list[str] = []
+    for tag in SHAP_MODEL_TAGS:
+        names.append(f"shap_values_{tag}.csv")
+        names.append(f"shap_summary_{tag}.png")
+        names.append(f"shap_bar_{tag}.png")
+    names.append("shap_waterfall_top_gs.png")
+    return planned_paths_under(output_dir, names)
+
+
+def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    guard_planned_paths(
+        output_dir,
+        planned_shap_paths(output_dir),
+        allow_overwrite,
+        flag="--output-dir",
+        api_hint="run_shap_analysis(..., allow_overwrite=True)",
+        detail=(
+            ": shap_values_rf.csv is the one git-tracked artifact this module writes"
+        ),
+    )
+
+
+def run_shap_analysis(
+    results_dir,
+    output_dir,
+    model_dir="models",
+    feature_mode=21,
+    allow_overwrite=False,
+):
     """Compute SHAP values and generate all plots.
 
     Args:
+        results_dir: Input directory holding the pipeline's *_features.csv and
+                     *_ranked.csv. Read only; never written to.
+        output_dir: Destination for the 7 SHAP artifacts. No default, and it
+                    sits ahead of the defaulted parameters because Python does
+                    not allow a no-default parameter after a defaulted one.
         feature_mode: 21 for sequence-only legacy models, 30 for integrated
                       models that include per-allele binding features.
     """
+    _guard_output_dir(output_dir, allow_overwrite)
     os.makedirs(output_dir, exist_ok=True)
 
     if feature_mode == 30:
@@ -124,10 +188,11 @@ def run_shap_analysis(results_dir, model_dir="models", output_dir="results", fea
     X_display = X.copy()
     X_display.columns = display_names
 
-    for model, name, tag in [
-        (rf_model, "RandomForest", "rf"),
-        (xgb_model, "XGBoost", "xgb"),
-    ]:
+    for model, name, tag in zip(
+        [rf_model, xgb_model],
+        ["RandomForest", "XGBoost"],
+        SHAP_MODEL_TAGS,
+    ):
         print(f"\n[SHAP] Computing TreeExplainer for {name}...")
         try:
             explainer = shap.TreeExplainer(model)
@@ -264,13 +329,24 @@ def _shap_gold_standard_waterfall(model, results_dir, output_dir, feature_cols=N
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SESTRAV SHAP explainability analysis")
+    # --results-dir is an INPUT flag: it is only ever read from (*_features.csv,
+    # *_ranked.csv). It keeps its default deliberately. Every sibling module in
+    # this defect-class line made its --results-dir required because there the
+    # flag was the output destination; making this one required would be a
+    # pattern-match error, not a fix.
     parser.add_argument(
         "--results-dir", default="results", help="Directory containing pipeline feature CSVs"
     )
     parser.add_argument(
         "--model-dir", default="models", help="Directory containing .joblib model files"
     )
-    parser.add_argument("--output-dir", default="results", help="Directory for SHAP output files")
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Directory for SHAP output files. No default: a run writes 7 files into "
+        "it, one of them the git-tracked shap_values_rf.csv, so it refuses to guess a "
+        "destination.",
+    )
     parser.add_argument(
         "--feature-mode",
         type=int,
@@ -278,8 +354,18 @@ if __name__ == "__main__":
         choices=[21, 30],
         help="Feature mode: 21 (sequence-only) or 30 (integrated)",
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace SHAP artifacts that already exist in --output-dir. Without this "
+        "flag the run aborts before any work if any would be overwritten.",
+    )
     args = parser.parse_args()
 
     run_shap_analysis(
-        args.results_dir, args.model_dir, args.output_dir, feature_mode=args.feature_mode
+        results_dir=args.results_dir,
+        output_dir=args.output_dir,
+        model_dir=args.model_dir,
+        feature_mode=args.feature_mode,
+        allow_overwrite=args.allow_overwrite,
     )
