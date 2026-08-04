@@ -16,7 +16,14 @@ For each strategy, we compute:
   - ISSR@10 and ISSR@25 on the gold-standard subset
 
 Usage (after pipeline.py has run):
-    python -m src.baseline_comparison --results-dir results
+    python -m src.baseline_comparison --results-dir results --allow-overwrite
+
+--results-dir is required and has no default. It is dual-purpose here: the
+per-virus {prefix}_features.csv inputs are read out of it and baseline_comparison.csv
+is written back into it, so it cannot be pointed at an empty scratch directory
+the way the single-purpose output flags elsewhere in this family can. A run
+aborts before any work if baseline_comparison.csv already exists there, unless
+--allow-overwrite is passed.
 """
 
 import os
@@ -25,6 +32,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.artifact_integrity import load_verified_joblib, verify_artifact_checksum
 from src.features import FEATURE_COLUMNS, FEATURE_COLUMNS_30, TRAIN_FEATURE_COLUMNS
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
@@ -326,6 +334,42 @@ def compare_methods(
     return results
 
 
+def planned_baseline_comparison_paths(results_dir: str) -> list[str]:
+    """Every path a `python -m src.baseline_comparison` run writes.
+
+    One literal name, written by this module's __main__ block. compare_methods()
+    itself writes nothing - it returns a DataFrame - and the other writers of
+    this same filename (scripts/run_analysis.py, src/final_validation_report.py)
+    carry their own separate guards over their own planned-path lists.
+    """
+    return planned_paths_under(results_dir, ["baseline_comparison.csv"])
+
+
+def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber baseline_comparison.csv already on disk.
+
+    Only `remedy` is overridden, not `scope`: unlike the file-path flags
+    elsewhere in this family there really is a single directory to name, so the
+    default "under '{results_dir}'" clause stays accurate. The default remedy
+    does not: --results-dir is read from as well as written into here, so
+    "point it at a fresh directory" would send the caller to a directory with
+    no {prefix}_features.csv inputs and trade this error for a different one.
+    """
+    guard_planned_paths(
+        results_dir,
+        planned_baseline_comparison_paths(results_dir),
+        allow_overwrite,
+        flag="--results-dir",
+        api_hint="CLI only - compare_methods() returns a DataFrame and does not write",
+        detail=": baseline_comparison.csv is git-tracked",
+        remedy=(
+            "--results-dir is read from as well as written into, so pointing it at a "
+            "fresh directory would leave no feature CSVs to read; move or rename the "
+            "existing file, "
+        ),
+    )
+
+
 def print_comparison(results):
     """Pretty-print the comparison table."""
     print("\n" + "=" * 80)
@@ -357,10 +401,20 @@ def print_comparison(results):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SESTRAV baseline comparison")
     parser.add_argument(
-        "--results-dir", default="results", help="Directory containing pipeline output CSVs"
+        "--results-dir",
+        required=True,
+        help="Directory containing pipeline output CSVs, and the destination for "
+        "baseline_comparison.csv. No default: the run both reads from and writes into "
+        "this directory, and the file it writes is git-tracked, so it refuses to guess.",
     )
     parser.add_argument(
         "--model-dir", default="models", help="Directory containing .joblib model files"
+    )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace baseline_comparison.csv if it already exists in --results-dir. "
+        "Without this flag the run aborts before any work if it would be overwritten.",
     )
     args = parser.parse_args()
 
@@ -369,6 +423,12 @@ if __name__ == "__main__":
         parser.error(f"Results directory does not exist: '{args.results_dir}'")
     if not os.path.isdir(args.model_dir):
         parser.error(f"Models directory does not exist: '{args.model_dir}'")
+
+    # Guarded here, not inside a run_* function: this module has no public write
+    # API to attach an allow_overwrite parameter to. compare_methods() returns a
+    # DataFrame and the write below is the only one. Placed after the directory
+    # validation and before compare_methods(), which is where all the work is.
+    _guard_results_dir(args.results_dir, args.allow_overwrite)
 
     results = compare_methods(args.results_dir, args.model_dir)
 

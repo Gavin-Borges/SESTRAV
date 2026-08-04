@@ -54,8 +54,12 @@ WHO super-populations:
     SAS - South Asian
 
 Usage:
-    python scripts/compute_population_coverage.py
-    python scripts/compute_population_coverage.py --output results/population_coverage_v5.json
+    python scripts/compute_population_coverage.py \\
+        --output results/scratch/population_coverage_v5.json
+
+--output is required and has no default. Passing
+results/population_coverage_v5.json replaces a git-tracked artifact, so the run
+aborts before any work unless --allow-overwrite is also given.
 """
 
 from __future__ import annotations
@@ -69,6 +73,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -355,25 +361,72 @@ def build_output(
     }
 
 
+def planned_population_coverage_paths(output_path: str | Path) -> list[str]:
+    """The single artifact a run writes.
+
+    --output is a literal file path, not a directory, so this always resolves
+    to exactly one entry. Callers must pass the PROJECT_ROOT-resolved path that
+    main() builds, not the raw --output string: a relative --output is resolved
+    against PROJECT_ROOT rather than the working directory, so guarding the raw
+    string would check the wrong location.
+    """
+    path = Path(output_path)
+    return planned_paths_under(str(path.parent), [path.name])
+
+
+def _guard_output_path(output_path: str | Path, allow_overwrite: bool) -> None:
+    """Refuse to clobber the artifact already on disk.
+
+    --output names a file, not a directory, so scope/remedy override the
+    default "under '{output_dir}'" / "Point {flag} at a fresh directory"
+    clauses, which would be wrong advice here - same shape as
+    src/external_validation_cross_virus.py's single-file guard.
+    """
+    path = Path(output_path)
+    guard_planned_paths(
+        str(path.parent),
+        planned_population_coverage_paths(path),
+        allow_overwrite,
+        flag="--output",
+        api_hint="main([..., '--allow-overwrite'])",
+        scope="among this run's planned artifacts",
+        remedy="Point --output at a fresh path, ",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compute HLA population coverage for the SESTRAV v5 panel"
     )
     parser.add_argument(
         "--output",
-        default="results/population_coverage_v5.json",
-        help="Output JSON path (default: results/population_coverage_v5.json)",
+        required=True,
+        help="Output JSON path. No default: results/population_coverage_v5.json is a "
+        "git-tracked artifact, so this script refuses to guess a destination. A "
+        "relative path is resolved against the repository root, not the working "
+        "directory.",
     )
     parser.add_argument(
         "--no-markdown",
         action="store_true",
         help="Suppress markdown table output to stdout",
     )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace the coverage JSON at --output if it already exists. Without "
+        "this flag the run aborts before any work if it would be overwritten.",
+    )
     args = parser.parse_args(argv)
 
     output_path = Path(args.output)
     if not output_path.is_absolute():
         output_path = PROJECT_ROOT / args.output
+
+    # Guard the resolved path, not args.output: the line above rebases a relative
+    # --output onto PROJECT_ROOT, so guarding the raw string would check the
+    # working directory while the write lands somewhere else.
+    _guard_output_path(output_path, args.allow_overwrite)
 
     per_allele_cov, panel_cov, global_mean = compute_all_coverage(
         ALLELE_HAPLOTYPE_FREQUENCIES, POPULATIONS
