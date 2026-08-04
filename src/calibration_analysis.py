@@ -3,6 +3,14 @@ SESTRAV Calibration Analysis
 
 Computes Brier scores and reliability diagrams for OOF predictions,
 comparing v1 and v2 datasets to assess probability calibration quality.
+
+Outputs (all into --output-dir):
+  - calibration_reliability_diagram.png
+  - calibration_score_distribution.png
+  - calibration_metrics.csv (git-tracked)
+
+Usage:
+    python -m src.calibration_analysis --output-dir results/scratch/calibration
 """
 
 import argparse
@@ -16,6 +24,8 @@ import numpy as np
 import pandas as pd
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
+
+from src.artifact_guard import guard_planned_paths, planned_paths_under
 
 
 def _load_oof(path, method="RandomForest"):
@@ -40,10 +50,49 @@ def compute_calibration_metrics(y_true, y_prob, n_bins=10):
     }
 
 
+def planned_calibration_paths(output_dir: str) -> list[str]:
+    """Every path run_calibration_analysis writes into output_dir.
+
+    All three names are literals written directly by run_calibration_analysis.
+    This entry point delegates no output to any other module and derives no
+    filenames, so there is nothing here of the shape that the `.replace()`- and
+    f-string-built names elsewhere in this defect-class line hid.
+    """
+    names = [
+        "calibration_reliability_diagram.png",
+        "calibration_score_distribution.png",
+        "calibration_metrics.csv",  # git-tracked
+    ]
+    return planned_paths_under(output_dir, names)
+
+
+def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
+    guard_planned_paths(
+        output_dir,
+        planned_calibration_paths(output_dir),
+        allow_overwrite,
+        flag="--output-dir",
+        api_hint="run_calibration_analysis(..., allow_overwrite=True)",
+        detail=(
+            ": calibration_metrics.csv is the one git-tracked artifact this module writes"
+        ),
+    )
+
+
 def run_calibration_analysis(
-    v2_oof_path, v1_oof_path=None, output_dir="results", method="RandomForest"
+    v2_oof_path,
+    output_dir,
+    v1_oof_path=None,
+    method="RandomForest",
+    allow_overwrite=False,
 ):
-    """Run calibration analysis and produce reliability diagram + Brier scores."""
+    """Run calibration analysis and produce reliability diagram + Brier scores.
+
+    output_dir has no default and sits ahead of the defaulted parameters
+    because Python does not allow a no-default parameter after a defaulted one.
+    """
+    _guard_output_dir(output_dir, allow_overwrite)
     os.makedirs(output_dir, exist_ok=True)
 
     v2_df = _load_oof(v2_oof_path, method)
@@ -151,7 +200,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SESTRAV calibration analysis")
     parser.add_argument("--v2-oof", default="models/rf_oof_predictions.csv")
     parser.add_argument("--v1-oof", default="models/v1_backup/rf_oof_predictions.csv")
-    parser.add_argument("--output-dir", default="results")
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Directory for calibration outputs. No default: this analysis writes 3 "
+        "artifacts into it, one of them the git-tracked calibration_metrics.csv, so it "
+        "refuses to guess a destination.",
+    )
     parser.add_argument("--method", default="RandomForest")
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace calibration artifacts that already exist in --output-dir. "
+        "Without this flag the run aborts before any work if any would be overwritten.",
+    )
     args = parser.parse_args()
-    run_calibration_analysis(args.v2_oof, args.v1_oof, args.output_dir, args.method)
+    run_calibration_analysis(
+        v2_oof_path=args.v2_oof,
+        output_dir=args.output_dir,
+        v1_oof_path=args.v1_oof,
+        method=args.method,
+        allow_overwrite=args.allow_overwrite,
+    )
