@@ -59,8 +59,28 @@ fi
 # _local/notes/results-dir-silent-overwrite-2026-07-30.md for the full
 # writeup. Remove this --ignore if the underlying scipy/shap/MKL conflict is
 # ever fixed upstream or the dependency is replaced.
+#
+# tests/test_pipeline_stages.py is excluded for a second, unrelated reason:
+# it imports functions.stage1_peptide_generation, which imports Bio.SeqIO,
+# which on at least one Windows dev machine used on this project fails to
+# load Bio.Align.substitution_matrices._arraycore with
+# "ImportError: DLL load failed while importing _arraycore: An Application
+# Control policy has blocked this file." This is an OS-level security policy
+# blocking a native extension, not a Python-catchable error, so it kills
+# collection before any marker filtering runs - same failure shape as the
+# shap case above, different root cause. Confirmed pre-existing and
+# environment-specific: `python -c "from Bio import SeqIO"` fails identically
+# in total isolation, and the failure reproduces regardless of which branch
+# is checked out. CI (ubuntu-latest, see ci.yml) is unaffected and is the
+# authoritative check for that file; see
+# _local/notes/bio-align-arraycore-application-control-block-2026-08-04.md
+# for the full writeup and what remains open (the actual OS policy has not
+# been fixed - this only unblocks the local fast gate). Remove this --ignore
+# once the Application Control exception is granted or the block is
+# otherwise resolved on the affected machine(s).
 cd "${REPO_ROOT}" && python -m pytest tests/ -q -m "not heavy and not slow" \
-    --ignore=tests/test_run_analysis_results_guard.py
+    --ignore=tests/test_run_analysis_results_guard.py \
+    --ignore=tests/test_pipeline_stages.py
 
 status=$?
 
