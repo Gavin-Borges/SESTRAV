@@ -105,11 +105,16 @@ def step4_shap_plots():
         return
 
     print("[Step 4] Generating SHAP plots (30-feature)...")
+    # allow_overwrite is deliberate: regenerating these PNGs in results/ and then
+    # copying them into the share-out directory is this script's declared purpose,
+    # so it IS the reproduction path for them. Without it, run_shap_analysis's
+    # guard would abort every run after the first.
     run_shap_analysis(
         results_dir=RESULTS_DIR,
-        model_dir=model_dir,
         output_dir=RESULTS_DIR,
+        model_dir=model_dir,
         feature_mode=30,
+        allow_overwrite=True,
     )
     print("[Step 4] Done\n")
 
@@ -126,10 +131,12 @@ def step5_calibration_plot():
         return
 
     print("[Step 5] Generating calibration reliability diagram...")
+    # allow_overwrite is deliberate here for the same reason as step 4.
     run_calibration_analysis(
         v2_oof_path=v2_oof,
-        v1_oof_path=v1_oof if os.path.isfile(v1_oof) else None,
         output_dir=RESULTS_DIR,
+        v1_oof_path=v1_oof if os.path.isfile(v1_oof) else None,
+        allow_overwrite=True,
     )
     print("[Step 5] Done\n")
 
