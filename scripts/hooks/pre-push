@@ -85,7 +85,7 @@ fi
 # same native shap/scipy crash described above (confirmed identical
 # traceback shape - the interpreter dies before any Python-level assertion
 # runs), but this file cannot be --ignore'd wholesale like
-# test_run_analysis_results_guard.py, since 32 other passing parametrizations
+# test_run_analysis_results_guard.py, since 73 other passing parametrizations
 # in the same file cover every other guarded entry point in this line and
 # must keep running. Confirmed independently non-deterministic on the
 # affected machine within a single working session: one verification pass
