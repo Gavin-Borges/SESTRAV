@@ -8,6 +8,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Security
+- **`cryptography` floored at `>=50.0.0`** to close GHSA-g6cj-pr64-35w5 / CVE-2026-69247
+  (high, CVSS 8.2): `pkcs7_decrypt_der` / `_pem` / `_smime` reported the outcome of decrypting
+  a `RecipientInfo`'s `encryptedKey` in distinguishable ways, one of which disclosed the exact
+  recovered length, giving an attacker a Bleichenbacher oracle against the content-encryption
+  key. Affects `>=44.0.0,<50.0.0`; the repo was resolved at `49.0.0`.
+  `environments/requirements-lock.in` already carried a `cryptography>=48.0.1` floor for the
+  earlier GHSA-537c-gmf6-5ccf, so the floor was raised in place and both affected lockfiles
+  recompiled: `environments/requirements.lock` (where `cryptography` is a direct security
+  override) and `environments/requirements-semgrep.txt` (where it arrives via `pyjwt[crypto]`).
+  **Both source specs are floored, so neither lockfile can be walked back by a later
+  recompile.** The two arrive at `50.0.0` by different routes and each needed its own
+  constraint: `environments/requirements.lock` compiles from
+  `environments/requirements-lock.in`, where `cryptography` was already an explicit security
+  override and the existing floor was raised in place. `environments/requirements-semgrep.txt`
+  compiles from `environments/requirements-semgrep.in`, which previously declared nothing but
+  the `semgrep` pin - `cryptography` arrived transitively via `pyjwt[crypto]` and resolved to
+  `50.0.0` only because that is currently latest, not because anything required it. A matching
+  `cryptography>=50.0.0` override (with its own exit condition) was therefore added there too,
+  which is why that file's `# via` trailer now names the spec alongside `pyjwt`. Without it the
+  remediation would have held by coincidence rather than by constraint.
+  **Both recompiles were verified surgical rather than assumed:** each file changed exactly one
+  pin (`cryptography 49.0.0 -> 50.0.0`), with package count, total hash-line count and
+  per-package hash uniqueness identical before and after - the check that catches the
+  in-place-compile hash-duplication defect this repo hit once before (a recompile that silently
+  doubled 262 hash lines across 21 packages).
+  **Scope note - this is a defence-in-depth floor, not an exploitable-path fix.** The vulnerable
+  API is unreachable from SESTRAV: `cryptography` is never imported by tracked source (the only
+  tracked `.py` occurrence is a synthetic fixture string in
+  `tests/test_check_lockfile_freshness.py`), and there are zero `pkcs7` / `EnvelopedData` /
+  S-MIME call sites repo-wide. Exploitation additionally requires a service that auto-decrypts
+  untrusted `EnvelopedData`, which SESTRAV does not provide.
+  **Disclosed, not fixed here:** GitHub raised this as Dependabot alert #107 against
+  `environments/requirements-semgrep.txt` only. It did **not** raise an alert for
+  `environments/requirements.lock`, which pinned the same vulnerable `49.0.0` - Dependabot
+  tracks `environments/requirements-lock.in` (the source spec) rather than the compiled
+  `.lock` artifact, so a vulnerable *resolved* pin in that file is invisible to alerting
+  whenever the `.in` floor permits it. This branch closes the instance; the alerting blind
+  spot itself remains open.
+  `docs/security_compliance.md`'s pip-audit table records the resolution on its
+  `cryptography` row. That table is a dated snapshot of a 2026-06-18 run, and its other three
+  rows still quote that run's versions (`aiohttp` 3.13.5, `pyjwt` 2.12.0, `torch` 2.11.0)
+  against currently-resolved `3.14.3`, `2.13.0` and `2.12.0`. Those rows are **disclosed as
+  stale here, deliberately not rewritten** - correcting a historical run's findings is a
+  separate editorial decision from recording a remediation.
+
 ### Added
 - **`src/artifact_guard.py` - one shared overwrite guard, and one contract the four
   `results/`-family entry points must satisfy.** The `FileExistsError` guard that closed the
