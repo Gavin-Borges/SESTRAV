@@ -18,7 +18,8 @@
 > **The authoritative pinned versions are `environments/requirements.lock` and
 > `requirements.txt`, never this file.** Read this table for the *license* column, which is
 > stable per package; do not cite its versions. Regenerating both artifacts and gating that
-> regeneration in CI is tracked as open work.
+> regeneration in CI is disclosed here but **not yet scheduled** - no issue or roadmap item
+> tracks it at time of writing.
 
 | Name                                     | Version     | License                                                                       |
 |------------------------------------------|-------------|-------------------------------------------------------------------------------|
