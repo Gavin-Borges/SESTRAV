@@ -39,16 +39,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   resolution conflict.
 
 ### Fixed
-- **Four documents contradicted the torch upgrade and were corrected.**
+- **`docs/security_compliance.md`'s pip-audit table no longer asserts resolved advisories
+  are open.** Correcting the `torch` row surfaced the same defect on two others: `aiohttp`
+  read "tolerable risk ... will upgrade when mhcflurry releases a compatible version" and
+  `pyjwt` read "tolerable risk - transitive dependency", when
+  `environments/requirements.lock` already pins `aiohttp==3.14.3` and `pyjwt==2.13.0`,
+  satisfying the `>=3.14.1` and `>=2.13.0` fixes recorded in the table's own Fix column.
+  Both re-annotated RESOLVED, with the original disposition retained as the record of what
+  was believed at the time of the run. The observed-version column is left untouched
+  throughout: **a version number ageing is harmless, a false status assertion is not.**
+- **Five documents contradicted the torch upgrade and were corrected.**
   `docs/security_compliance.md` (linked from `README.md` as the compliance front door) and
   `docs/SCORECARD_REMEDIATION.md` both still asserted "no upstream patch"; the latter also
   rated the advisory *critical* in its summary table where GitHub rates it *low*, and gave
   the affected range as `<= 2.12.0` rather than `<= 2.12.1`. `SECURITY.md` was rewritten
-  from a risk acceptance to a resolution. `.github/workflows/security.yml` justified
-  auditing the installed set rather than `pip-audit -r environments/requirements.lock` on
-  the grounds that the direct form dies with `ResolutionImpossible` from the
-  setuptools/torch conflict - a reason the upgrade eliminated. The installed-set form is
-  kept deliberately, for the reason that is still true.
+  from a risk acceptance to a resolution. `docs/threat_model.md` (linked from `README.md`
+  as the governance and assurance evidence) listed CVE-2025-3000 under "Residual risks
+  (accepted)" as a live example of an advisory with "no available patch"; the example is
+  now the `mcp` SDK transport advisories, which are genuinely still accepted.
+  `.github/workflows/security.yml` justified auditing the installed set rather than
+  `pip-audit -r environments/requirements.lock` on the grounds that the direct form dies
+  with `ResolutionImpossible` from the setuptools/torch conflict - a reason the upgrade
+  eliminated. The installed-set form is kept deliberately, for the reason that is still
+  true.
+  **Three of these five were found only by successive pre-push claims audits, and two were
+  created by earlier commits in this same branch** - writing a changelog entry about the
+  upgrade falsified pre-existing text elsewhere in the same file. Correcting one document
+  repeatedly invalidated another.
 
 ### Documentation
 - **`docs/DEPENDENCY_LICENSES.md` labelled as stale rather than partially patched.** It
@@ -112,14 +129,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   whenever the `.in` floor permits it. This branch closes the instance; the alerting blind
   spot itself remains open.
   `docs/security_compliance.md`'s pip-audit table records the resolution on its
-  `cryptography` row. That table is a dated snapshot of a 2026-06-18 run, and its
-  `aiohttp` and `pyjwt` rows still quote that run's versions (3.13.5 and 2.12.0) against
-  currently-resolved `3.14.3` and `2.13.0`. Those two rows are **disclosed as stale here,
-  deliberately not rewritten** - correcting a historical run's findings is a separate
-  editorial decision from recording a remediation. (The `torch` row was subsequently
-  rewritten, on 2026-08-05, when CVE-2025-3000 was actually resolved - see the torch entry
-  at the top of this section. That row's status assertion had been falsified, which is a
-  different case from a version number simply ageing.)
+  `cryptography` row. That table is a dated snapshot of a 2026-06-18 run and its other
+  rows still quote that run's versions. Those version numbers are **deliberately left as
+  the historical record** - correcting a past run's observed versions is a separate
+  editorial decision from recording a remediation. (Superseded on 2026-08-05: the
+  *disposition* text on the remaining three rows was found to be a different case
+  entirely. A version number ageing is harmless; a row asserting "tolerable risk, will
+  upgrade later" when the upgrade has already shipped is a false status claim. All three
+  were re-annotated RESOLVED at that point. See the torch entry at the top of this
+  section.)
 
 ### Added
 - **`src/artifact_guard.py` - one shared overwrite guard, and one contract the four
