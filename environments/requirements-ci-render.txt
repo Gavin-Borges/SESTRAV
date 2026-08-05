@@ -26,9 +26,9 @@ fastjsonschema==2.22.1 \
     --hash=sha256:cf377ff5c9a6f4f3125fb35f75a2c5767bd824ffbcf62c209a93cd48d1453999
 ipykernel==6.29.5 \
     --hash=sha256:afdb66ba5aa354b09b91379bac28ae4afebbb30e8b39510c9690afb7a10421b5
-ipython==9.15.0 \
-    --hash=sha256:515ad9c3cdf0c932a5a9f6245419e8aba706b7bd03c3e1d3a1c83d9351d6aa6e \
-    --hash=sha256:da2819ce2aa83135257df830660b1176d986c3d2876db24df01974fa955b2756
+ipython==9.16.0 \
+    --hash=sha256:3d02b96de2a59074d153b1ac1c3865de738df114e430e879e6e5ef100a4d470c \
+    --hash=sha256:d2f92587b1ef51d84f934dffe05fabb9255f0038ed0a21426f2ea761e39ad09a
 ipython_pygments_lexers==1.1.1 \
     --hash=sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c
 jedi==0.20.0 \
@@ -318,8 +318,9 @@ tornado==6.5.7 \
     --hash=sha256:e726f0c75da7726eec023aa62751ff8878bd2737e34fbdd33b1ae5897d2200f5 \
     --hash=sha256:f8de3bf12d3efdd0cbe7c8887868198f8a91415e3f29fcf258d9b8eb7b1d9ae4 \
     --hash=sha256:ff934fce95643af5f11efdae618eaa73d469dc588641e5c8d19295a0c65c4796
-traitlets==5.15.1 \
-    --hash=sha256:770a53705f84b81ac107e83a1b3328ff2dae16094d8fc3cfc004e4b22dfd8e92
+traitlets==5.16.0 \
+    --hash=sha256:7de0a3fabaf5971ff15c8905545f9febfa850309fb8e86e1b42bdb5b46b293ed \
+    --hash=sha256:94a9967ba45e89e837cf9934029c8d019bea9149cfffa115ed8c1900f679beba
 typing_extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
