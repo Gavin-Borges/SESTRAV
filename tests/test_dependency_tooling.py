@@ -140,22 +140,32 @@ def test_ci_env_cannot_select_the_application_lockfiles():
         assert update_dependencies.select_specs(ci_env=name) == []
 
 
-def test_runtime_lockfiles_compile_with_the_uv_override():
-    # requirements.in / requirements-lock.in floor setuptools against torch's
-    # `setuptools<82` cap; without --overrides uv returns ResolutionImpossible.
-    for name in update_dependencies.RUNTIME_SPEC_NAMES:
-        spec = next(s for s in LOCK_SPECS if s.name == name)
-        command = build_command(spec)
-        assert "--overrides" in command
-        assert command[command.index("--overrides") + 1] == update_dependencies.OVERRIDES_FILE
-
-
-def test_override_file_exists_and_is_only_used_where_needed():
-    root = pathlib.Path(update_dependencies.REPO_ROOT)
-    assert (root / update_dependencies.OVERRIDES_FILE).is_file()
+def test_no_spec_compiles_with_a_uv_override_file():
+    # History: requirements.in / requirements-lock.in floor setuptools>=83.0.0
+    # for GHSA-h35f-9h28-mq5c, which collided with torch 2.12.0's declared
+    # `setuptools<82` build-metadata cap and made both specs unsatisfiable for
+    # any resolver. Both therefore compiled with `--overrides overrides.txt`.
+    # torch 2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was
+    # retired. This asserts the workaround does not creep back in: a
+    # reintroduced override would silently mask a genuine resolution conflict.
     for spec in LOCK_SPECS:
-        if spec.name not in update_dependencies.RUNTIME_SPEC_NAMES:
-            assert "--overrides" not in build_command(spec), spec.name
+        assert "--overrides" not in build_command(spec), spec.name
+
+
+def test_the_retired_override_file_is_gone():
+    # Guards the other half of the retirement: the file itself must not return.
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
+    assert not (root / "overrides.txt").exists()
+
+
+def test_setuptools_floor_survived_the_override_retirement():
+    # The floor is the security constraint (GHSA-h35f-9h28-mq5c); the override
+    # was only the workaround. Retiring the workaround must not drop the floor.
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
+    runtime = (root / "requirements.in").read_text(encoding="utf-8")
+    lock_spec = (root / "environments" / "requirements-lock.in").read_text(encoding="utf-8")
+    assert "setuptools==83.0.0" in runtime
+    assert "setuptools>=83.0.0" in lock_spec
 
 
 def test_select_specs_defaults_to_everything():

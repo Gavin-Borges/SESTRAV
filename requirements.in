@@ -12,6 +12,12 @@ xgboost==3.2.0
 
 # Pipeline feature/binding stack
 mhcflurry==2.2.1
+# setuptools 83.0.0 closes GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in
+# sdist via Unicode NFC/NFD normalization collision on macOS APFS/HFS+). This
+# pin previously conflicted with torch 2.12.0's `setuptools<82` cap and required
+# a uv override file to resolve at all; torch 2.13.0 raised that cap to
+# `setuptools>=77.0.3`, so the pin now resolves normally and overrides.txt has
+# been retired.
 setuptools==83.0.0
 
 # Plotting and explainability
@@ -24,7 +30,11 @@ hypothesis==6.157.1
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
-torch==2.12.0
+# torch 2.13.0 closes CVE-2025-3000 / GHSA-rrmf-rvhw-rf47 / PYSEC-2025-194
+# (memory corruption in torch.jit.script, vulnerable <=2.12.1, patched 2.13.0).
+# It also drops the `setuptools<82` build-metadata cap that 2.12.0 declared,
+# which is why overrides.txt is no longer needed - see the setuptools note above.
+torch==2.13.0
 torch-geometric==2.7.0
 
 # API scaffolding

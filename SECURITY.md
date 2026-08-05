@@ -165,20 +165,35 @@ As a standalone, offline scientific tool, SESTRAV occasionally relies on complex
 third-party libraries (e.g., PyTorch) that may contain upstream vulnerabilities
 with no available vendor patch. Each consciously-deferred advisory is logged here.
 
-- **CVE-2025-3000 (PyTorch JIT script memory corruption):** Mitigated / risk-accepted.
-  PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside
+- **CVE-2025-3000 (PyTorch JIT script memory corruption):** **RESOLVED 2026-08-05 - no
+  longer risk-accepted.** PyTorch `<= 2.12.1` contains a memory corruption flaw inside
   `torch.jit.script`.
   - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
-  - **Scope:** `torch==2.12.0` in `environments/requirements.lock`, and the CI
-    pins `environments/requirements-ci.txt` / `requirements-ci-torch-cpu.txt`.
-  - **Severity:** Low (per GitHub advisory). No upstream patch is available.
-  - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler
-    (`torch.jit.script`) anywhere in its pipeline. Because all execution happens
-    offline on locally validated datasets and does not accept dynamic compilation
-    payloads, the attack surface is completely absent.
-  - **Suppression:** Dependabot alerts dismissed as `not_used`; pip-audit ignores
-    `PYSEC-2025-194` / `GHSA-rrmf-rvhw-rf47` in `security.yml`. Both reference this entry.
-  - **Re-review trigger:** any PyTorch version bump, or publication of a patched release.
+  - **Resolution:** upgraded to `torch==2.13.0`, the first patched release (published
+    2026-07-08), across `requirements.in`, `requirements.txt`,
+    `environments/requirements.lock` and `environments/requirements-ci-torch-cpu.txt`.
+  - **How this entry went stale, recorded deliberately:** it asserted "No upstream patch
+    is available" and set a re-review trigger of "publication of a patched release." That
+    trigger fired on 2026-07-08 and went unnoticed for four weeks, because nothing
+    re-evaluates this register on a schedule - the suppression was set once and never
+    revisited. The advisory's own metadata (`firstPatchedVersion: 2.13.0`) was the
+    authoritative signal and was queryable the whole time.
+  - **Suppressions removed:** the `--ignore-vuln PYSEC-2025-194` /
+    `GHSA-rrmf-rvhw-rf47` flags have been deleted from `.github/workflows/security.yml`,
+    so pip-audit now reports this advisory again if it ever reappears. Any previously
+    dismissed Dependabot alerts for it are superseded by the upgrade.
+  - **Side effect, intentional:** torch 2.12.0 declared a `setuptools<82` build-metadata
+    cap that collided with this repo's `setuptools>=83.0.0` floor
+    (GHSA-h35f-9h28-mq5c) and forced every lockfile recompile through a `uv` override
+    file. torch 2.13.0 declares `setuptools>=77.0.3`, so `overrides.txt` has been retired
+    and both application lockfiles now resolve unaided. The setuptools floor itself is
+    unchanged - it was the security constraint, not the workaround.
+
+- **Standing lesson from the entry above:** a risk acceptance with no scheduled
+  re-review is a claim that decays silently. Every entry in this register carries a
+  re-review trigger; none of them fire on their own. Re-check this register whenever
+  dependencies are audited, and treat an advisory's `firstPatchedVersion` field as the
+  authoritative test of "is a patch available yet," not the prose in this file.
 
 - **Semgrep `dangerous-subprocess-use-tainted-env-args` (external-tool wrappers):**
   Risk-accepted false positive. The benchmark wrappers shell out to external binaries

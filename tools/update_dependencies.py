@@ -29,12 +29,6 @@ DEFAULT_PYTHON_PLATFORM = "linux"
 # must opt out explicitly or the recompile adds packages that were never there.
 UNSAFE_PACKAGES = ("pip", "setuptools", "wheel")
 
-# uv dependency-override file. Required by the two specs that floor
-# setuptools>=83.0.0 (GHSA-h35f-9h28-mq5c) against torch's declared
-# `setuptools<82` build-metadata cap; without it uv returns
-# ResolutionImpossible. See overrides.txt for the rationale and exit condition.
-OVERRIDES_FILE = "overrides.txt"
-
 # The two application lockfiles, as opposed to the CI tool environments.
 # --ci-env selects among the tool environments only.
 RUNTIME_SPEC_NAMES = ("runtime", "lock")
@@ -49,21 +43,16 @@ class LockSpec:
     output: str
     python_version: str
     allow_unsafe: bool
-    # uv override file needed for this spec to resolve at all, or None.
-    # Only the two specs that carry the setuptools-83 floor need one; see
-    # overrides.txt for the rationale and its exit condition.
-    overrides: str | None = None
 
 
 LOCK_SPECS: tuple[LockSpec, ...] = (
-    LockSpec("runtime", "requirements.in", "requirements.txt", "3.11", True, OVERRIDES_FILE),
+    LockSpec("runtime", "requirements.in", "requirements.txt", "3.11", True),
     LockSpec(
         "lock",
         "environments/requirements-lock.in",
         "environments/requirements.lock",
         "3.11",
         True,
-        OVERRIDES_FILE,
     ),
     LockSpec(
         "ci",
@@ -149,11 +138,11 @@ Notes:
     with `pip download` + `pip hash` and are deliberately not managed here.
 
 The 'runtime' and 'lock' specs constrain setuptools to 83.0.0 for
-GHSA-h35f-9h28-mq5c while torch 2.12.0 declares setuptools<82, which on its own
-makes any resolver return ResolutionImpossible. Both specs therefore compile
-with `--overrides overrides.txt`, which this tool passes automatically; that
-file carries the rationale, the runtime-safety argument and the exit condition
-for dropping it once torch raises its cap.
+GHSA-h35f-9h28-mq5c. That floor used to collide with torch 2.12.0's declared
+`setuptools<82` build-metadata cap, making both specs unsatisfiable for any
+resolver, so each compiled through a `--overrides overrides.txt` file. torch
+2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was retired and
+both specs now compile with no special handling.
 """
 
 
@@ -194,8 +183,6 @@ def build_command(
         "--python-platform",
         python_platform,
     ]
-    if spec.overrides:
-        command += ["--overrides", spec.overrides]
     if not spec.allow_unsafe:
         for package in UNSAFE_PACKAGES:
             command += ["--unsafe-package", package]

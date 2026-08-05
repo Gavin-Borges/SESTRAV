@@ -153,12 +153,14 @@ jobs:
       - name: Audit installed dependency set
         continue-on-error: true
         run: |
+          # No --ignore-vuln suppressions. The only entry this audit ever
+          # suppressed was CVE-2025-3000 / PYSEC-2025-194 / GHSA-rrmf-rvhw-rf47
+          # (torch.jit.script memory corruption), which is fixed upstream in
+          # torch 2.13.0 and resolved by upgrading rather than ignoring. Keep
+          # this list empty unless a finding is added to SECURITY.md's
+          # risk-acceptance register with a re-review trigger.
           pip-audit \
-            --desc \
-            --ignore-vuln PYSEC-2025-194 \
-            --ignore-vuln GHSA-rrmf-rvhw-rf47
-            # ^ CVE-2025-3000 (torch.jit.script) - no upstream patch; torch.jit.script
-            #   is never called in SESTRAV. Risk-accepted, see SECURITY.md register.
+            --desc
 
       - name: Assert pip-audit tooling actually ran (fail on TOOLING error only)
         # The advisory audit above is continue-on-error so real CVE findings do not
@@ -173,8 +175,6 @@ jobs:
           set -o pipefail
           pip-audit \
             --format json \
-            --ignore-vuln PYSEC-2025-194 \
-            --ignore-vuln GHSA-rrmf-rvhw-rf47 \
             --output pip-audit-report.json || true
           python - <<'PY'
           import json, sys
@@ -207,8 +207,7 @@ jobs:
           {
             echo "## pip-audit - installed production dependency set"
             echo ""
-            pip-audit --format markdown \
-              --ignore-vuln PYSEC-2025-194 --ignore-vuln GHSA-rrmf-rvhw-rf47 || true
+            pip-audit --format markdown || true
           } >> "$GITHUB_STEP_SUMMARY"
 
   python-sbom:

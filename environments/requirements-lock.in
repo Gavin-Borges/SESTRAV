@@ -22,13 +22,11 @@ pydantic-settings>=2.14.2
 pyjwt>=2.13.0
 # setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
 # Unicode NFC/NFD normalization collision on macOS APFS/HFS+).
-# DELIBERATE OVERRIDE vs torch's metadata cap `setuptools<82`: this pin makes the
-# lockfile unsatisfiable for a *resolving* installer (ResolutionImpossible). It is
-# runtime-safe because (1) torch's cap is a build/metadata declaration, not a
-# runtime import guard - torch 2.12 imports and runs fine against setuptools 83 -
-# and (2) every install path pins by hash (`pip install --require-hashes`), which
-# installs the exact resolved set without re-resolving, so the cap is never
-# enforced. EXIT CONDITION: drop this floor (revert to the transitive setuptools
-# pulled by torch) once torch raises its `setuptools<82` cap upstream, then
-# re-run the pip-compile command at the top of this file and re-verify hashes.
+# This floor used to conflict with torch 2.12.0's `setuptools<82` build-metadata
+# cap, which made the spec unsatisfiable for any resolving installer
+# (ResolutionImpossible) and forced every recompile through a uv override file.
+# torch 2.13.0 raised that cap to `setuptools>=77.0.3`, so the documented exit
+# condition is met: overrides.txt has been retired and this spec now resolves
+# normally. The floor itself stays - it is the security constraint, not the
+# workaround.
 setuptools>=83.0.0
