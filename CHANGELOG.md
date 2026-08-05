@@ -9,6 +9,90 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Security
+- **`torch` upgraded `2.12.0` -> `2.13.0`** to close CVE-2025-3000 / GHSA-rrmf-rvhw-rf47 /
+  PYSEC-2025-194 (low, CVSS v3 5.3): memory corruption in `torch.jit.script`, affecting
+  `<= 2.12.1`, first patched in `2.13.0` (published 2026-07-08). This **replaces a standing
+  risk acceptance with an actual fix.** The prior entry in `SECURITY.md` rested on two
+  claims - that SESTRAV never calls `torch.jit.script` (still true) and that no upstream
+  patch existed (false since 2026-07-08). Its own re-review trigger was "publication of a
+  patched release"; that trigger fired and went unnoticed for four weeks because nothing
+  re-evaluates the register on a schedule.
+  Pinned at `2.13.0` in `requirements.in`, `requirements.txt`,
+  `environments/requirements.lock` and `environments/requirements-ci-torch-cpu.txt`, and
+  floored at `>=2.13.0` in `pyproject.toml`. **The `pyproject.toml` floor is not
+  redundant:** the lockfiles only govern hash-pinned installs, so without it a plain
+  `pip install -e .` or any downstream consumer could still resolve into the affected
+  range. Both compiled lockfiles moved exactly three pins, all torch-transitive: `torch`,
+  `cuda-toolkit` `13.0.2` -> `13.0.3.0`, `triton` `3.7.0` -> `3.7.1`.
+- **`pip-audit` suppressions removed.** The `--ignore-vuln PYSEC-2025-194` /
+  `GHSA-rrmf-rvhw-rf47` flags are deleted from all three `pip-audit` invocations in
+  `.github/workflows/security.yml`, so the advisory is reported again if it ever
+  reappears rather than being permanently muted. That suppression list is now empty.
+- **`overrides.txt` retired.** torch `2.12.0` declared a `setuptools<82` build-metadata cap
+  that collided with this repo's `setuptools>=83.0.0` security floor (GHSA-h35f-9h28-mq5c)
+  and made both application specs unsatisfiable for any resolver, forcing every recompile
+  through a `uv` override file. torch `2.13.0` declares `setuptools>=77.0.3`, meeting the
+  override's own documented exit condition, so the file is deleted and both specs now
+  compile unaided. **The `setuptools` floor itself is unchanged** - it was the security
+  constraint, not the workaround. `tests/test_dependency_tooling.py` now asserts both
+  halves of the retirement so the workaround cannot quietly return and mask a genuine
+  resolution conflict.
+
+### Fixed
+- **`docs/security_compliance.md`'s pip-audit table no longer asserts resolved advisories
+  are open.** Correcting the `torch` row surfaced the same defect on two others: `aiohttp`
+  read "tolerable risk ... will upgrade when mhcflurry releases a compatible version" and
+  `pyjwt` read "tolerable risk - transitive dependency", when
+  `environments/requirements.lock` already pins `aiohttp==3.14.3` and `pyjwt==2.13.0`,
+  satisfying the `>=3.14.1` and `>=2.13.0` fixes recorded in the table's own Fix column.
+  Both re-annotated RESOLVED, with the original disposition retained as the record of what
+  was believed at the time of the run. The observed-version column is left untouched
+  throughout: **a version number ageing is harmless, a false status assertion is not.**
+- **Five documents contradicted the torch upgrade and were corrected.**
+  `docs/security_compliance.md` (linked from `README.md` as the compliance front door) and
+  `docs/SCORECARD_REMEDIATION.md` both still asserted "no upstream patch"; the latter also
+  rated the advisory *critical* in its summary table where GitHub rates it *low*, and gave
+  the affected range as `<= 2.12.0` rather than `<= 2.12.1`. `SECURITY.md` was rewritten
+  from a risk acceptance to a resolution. `docs/threat_model.md` (linked from `README.md`
+  as the governance and assurance evidence) listed CVE-2025-3000 under "Residual risks
+  (accepted)" as a live example of an advisory with "no available patch"; the example is
+  now the `mcp` SDK transport advisories, which are genuinely still accepted.
+  `.github/workflows/security.yml` justified auditing the installed set rather than
+  `pip-audit -r environments/requirements.lock` on the grounds that the direct form dies
+  with `ResolutionImpossible` from the setuptools/torch conflict - a reason the upgrade
+  eliminated. The installed-set form is kept deliberately, for the reason that is still
+  true.
+  **Three of these five were found only by successive pre-push claims audits**, not by the
+  initial sweep. Separately, and worth recording on its own: three of the five were
+  falsified by the very first commit of this branch (the upgrade itself invalidated their
+  status assertions), and this file then developed two *internal* self-contradictions
+  because writing a changelog entry about the upgrade falsified pre-existing text
+  elsewhere in the same file. Correcting one document repeatedly invalidated another,
+  across four successive audit rounds.
+
+### Documentation
+- **`docs/DEPENDENCY_LICENSES.md` labelled as stale rather than partially patched.** It
+  carried `torch 2.12.0`, but the file turned out to be broadly stale: generated by
+  `pip-licenses` against an installed environment, last regenerated 2026-06-26, not derived
+  from the lockfiles, with **46 of its 124 lockfile-matched rows** now disagreeing with
+  `environments/requirements.lock`. It names `torch 2.12.0`, `cryptography 48.0.0` and
+  `gitpython 3.1.46` where the repo pins `2.13.0`, `50.0.0` and `3.1.57` - all three older
+  versions carrying advisories already closed, so the table *understates* the project's
+  posture. Updating only the torch row would have manufactured the appearance of freshness
+  across the other 45, so the version column is left untouched and a provenance banner
+  added instead. `docs/sbom.json` is co-generated by the same tool and stale in the same
+  way, but being JSON cannot carry such a banner; it is disclosed in the licenses banner.
+  Regenerating both and gating that regeneration in CI is **disclosed but not yet
+  scheduled** - no issue or roadmap item tracks it at time of writing.
+- **Recorded a standing lesson in `SECURITY.md`:** a risk acceptance with no scheduled
+  re-review is a claim that decays silently. Treat an advisory's `firstPatchedVersion`
+  field as the authoritative test of whether a patch exists, not prose in a checked-in
+  document.
+- **Noted the Dependabot lockfile blind spot** in `.github/workflows/security.yml`:
+  Dependabot parses `.in` sources, never the compiled `.lock`/`.txt` artifacts, so a
+  resolved-but-vulnerable pin that exists only in a lockfile raises no alert. That job is
+  currently the only thing that sees such a pin.
+
 - **`cryptography` floored at `>=50.0.0`** to close GHSA-g6cj-pr64-35w5 / CVE-2026-69247
   (high, CVSS 8.2): `pkcs7_decrypt_der` / `_pem` / `_smime` reported the outcome of decrypting
   a `RecipientInfo`'s `encryptedKey` in distinguishable ways, one of which disclosed the exact
@@ -48,11 +132,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   whenever the `.in` floor permits it. This branch closes the instance; the alerting blind
   spot itself remains open.
   `docs/security_compliance.md`'s pip-audit table records the resolution on its
-  `cryptography` row. That table is a dated snapshot of a 2026-06-18 run, and its other three
-  rows still quote that run's versions (`aiohttp` 3.13.5, `pyjwt` 2.12.0, `torch` 2.11.0)
-  against currently-resolved `3.14.3`, `2.13.0` and `2.12.0`. Those rows are **disclosed as
-  stale here, deliberately not rewritten** - correcting a historical run's findings is a
-  separate editorial decision from recording a remediation.
+  `cryptography` row. That table is a dated snapshot of a 2026-06-18 run and its other
+  rows still quote that run's versions. Those version numbers are **deliberately left as
+  the historical record** - correcting a past run's observed versions is a separate
+  editorial decision from recording a remediation. (Superseded on 2026-08-05: the
+  *disposition* text on the remaining three rows was found to be a different case
+  entirely. A version number ageing is harmless; a row asserting "tolerable risk, will
+  upgrade later" when the upgrade has already shipped is a false status claim. All three
+  were re-annotated RESOLVED at that point. See the torch entry at the top of this
+  section.)
 
 ### Added
 - **`src/artifact_guard.py` - one shared overwrite guard, and one contract the four
@@ -92,7 +180,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   module dropping a planned artifact, and a module's guard becoming defined-but-inert.
   **11 of 11 detected.** Full suite
   1451 passed, 0 failed, 0 errors, 2 skipped under the standing local exclusion, from 1453
-  collected (reconciling as 1430 + 23).
+  collected (reconciling as 1430 + 23). *(These are the figures measured for this change.
+  The torch 2.13.0 entry at the top of this section subsequently adds a net +1 test, so
+  they no longer describe the current suite. Left as the record of this run rather than
+  recomputed, since the two runs use different exclusion sets and the newer figure was
+  measured under the pre-push gate, not this one.)*
   **Scope note - this does not put every guarded entry point under the contract.** Six further
   modules carry their own copy of this guard and are deliberately left outside both the shared
   helper and `tests/test_artifact_guard_contract.py`, so the coverage claim above is four of ten,
@@ -113,8 +205,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and then added unhashed pins; pip turns on `--require-hashes` automatically as soon as any
   requirement carries a hash, so `pip install -r requirements-ann.txt` failed with "Hashes are
   required in --require-hashes mode" - the same defect class as the README install command
-  repaired in #177. The pins they added were redundant anyway: `torch==2.12.0` and
-  `torch-geometric==2.7.0` are already pinned and hashed in `requirements.txt`, leaving only
+  repaired in #177. The pins they added were redundant anyway: `torch` and
+  `torch-geometric` are both already pinned and hashed in `requirements.txt`, leaving only
   `transformers`, which `pyproject.toml`'s existing `[gnn]` extra already declares. Callers now
   point at the two paths that work: the base install for `src/ann_benchmark.py` and
   `src/verify/sestrav_evaluator.py` (which need only what `requirements.txt` already pins -
@@ -793,9 +885,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   all other jobs.
 - **Alert #15 (HIGH - CVE-2025-3000, torch)**: Dismissed won't-fix - no upstream
   patch; `torch.jit.script` not exposed to untrusted input; EPSS 0.08%; will reopen
-  when PyTorch releases a fix.
+  when PyTorch releases a fix. **(SUPERSEDED 2026-08-05 - torch 2.13.0 shipped the
+  fix and the advisory is now resolved by upgrade, not dismissal. See the torch
+  entry in the Security section at the top of this release.)**
 - **Dependabot #35 (torch CVE-2025-3000)**: Dismissed `tolerable_risk` - same
-  rationale as alert #15.
+  rationale as alert #15. **(SUPERSEDED 2026-08-05, same as above.)**
 - **Dependabot #99-#103 (5x HIGH - GitPython URL/config injection and env-var
   expansion, secret exfiltration on fetch)**: Fixed - `gitpython` bumped 3.1.52
   -> 3.1.54 (PR #157, clears GHSA-r9mr-m37c-5fr3 / GHSA-6p8h-3wgx-97gf /

@@ -18,7 +18,7 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
 | 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) - embedded in `README.md` |
-| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | **Critical** | ✅ Mitigated - zero usage (not imported/executed) |
+| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | Low | ✅ Resolved - upgraded to `torch==2.13.0`, the first patched release |
 
 ---
 
@@ -27,9 +27,11 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 ### Step 1: Regenerate requirements.txt (dependency CVEs) - ✅ Complete
 
 We have successfully regenerated `requirements.txt` from `requirements.in` using `pip-compile`.
-The compiled file resolves:
-- `keras==3.14.1` (fully secure against all Keras CVEs)
-- `protobuf==7.35.0` (fully secure against protobuf DoS CVE)
+At the time of that remediation the compiled file resolved `keras==3.14.1` (secure against
+the then-known Keras CVEs) and `protobuf==7.35.0` (secure against the protobuf DoS CVE).
+Both have since moved forward with routine dependency updates; **the authoritative pinned
+versions are always `requirements.txt` and `environments/requirements.lock`, not the
+figures recorded here.**
 
 No conflicts with `mhcflurry` were encountered.
 
@@ -115,14 +117,29 @@ recognition of the MIT license.
 
 ## Mitigated Upstream Vulnerabilities
 
-### PyTorch Memory Corruption (CVE-2025-3000) - Mitigated (No execution path)
+### PyTorch Memory Corruption (CVE-2025-3000) - Resolved by upgrade
 
-- **Vulnerability:** CVE-2025-3000 involves a critical memory corruption (segmentation fault) in PyTorch's `torch.jit.script` function (underlying TorchScript compiler).
-- **Remediation Status:** There is currently **no upstream patched version** released by the PyTorch maintainers (all versions `<= 2.12.0` are affected).
-- **SESTRAV Mitigation:**
-  1. **Zero Usage:** SESTRAV does not invoke or import `torch.jit.script` anywhere in the codebase. All PyTorch usage is restricted to standard model definitions, dataset loading, and feedforward inference.
-  2. **Offline Execution:** SESTRAV is designed as a standalone offline pipeline that does not accept dynamic untrusted code inputs or compile arbitrary scripts.
-  3. **Runtime Safety:** Since there is no execution path to the vulnerable function with untrusted input, the vulnerability is fully mitigated in the SESTRAV workspace.
+- **Vulnerability:** CVE-2025-3000 (`GHSA-rrmf-rvhw-rf47`, `PYSEC-2025-194`) is a memory
+  corruption (segmentation fault) in PyTorch's `torch.jit.script` function, the
+  underlying TorchScript compiler. GitHub rates it **low** severity. Affected versions
+  are `<= 2.12.1`.
+- **Remediation Status:** **RESOLVED.** PyTorch published `2.13.0`, the first patched
+  release, on 2026-07-08. SESTRAV upgraded to `torch==2.13.0` on 2026-08-05 across
+  `requirements.in`, `requirements.txt`, `environments/requirements.lock` and
+  `environments/requirements-ci-torch-cpu.txt`, and floored `torch>=2.13.0` in
+  `pyproject.toml` so that installs which do not use the compiled lockfiles cannot
+  resolve back into the affected range. The advisory is no longer suppressed in
+  `.github/workflows/security.yml`.
+- **Prior position, retained for the record:** before the patch existed, this entry
+  documented the advisory as mitigated-not-fixed on the grounds that SESTRAV never
+  invokes or imports `torch.jit.script` (all PyTorch use is standard model definitions,
+  dataset loading and feedforward inference), runs offline, and accepts no dynamically
+  compiled input. That reachability argument still holds and is why the exposure was
+  never urgent, but it is no longer the remediation: the upgrade is.
+- **Process note:** this entry asserted "no upstream patched version" for four weeks
+  after 2.13.0 shipped, because nothing re-evaluated it on a schedule. See the standing
+  lesson in `SECURITY.md` - treat an advisory's `firstPatchedVersion` field as the
+  authoritative test of patch availability, not prose in a checked-in document.
 
 ---
 

@@ -165,20 +165,40 @@ As a standalone, offline scientific tool, SESTRAV occasionally relies on complex
 third-party libraries (e.g., PyTorch) that may contain upstream vulnerabilities
 with no available vendor patch. Each consciously-deferred advisory is logged here.
 
-- **CVE-2025-3000 (PyTorch JIT script memory corruption):** Mitigated / risk-accepted.
-  PyTorch version `<= 2.12.0` contains a critical memory corruption flaw inside
+- **CVE-2025-3000 (PyTorch JIT script memory corruption):** **RESOLVED 2026-08-05 - no
+  longer risk-accepted.** PyTorch `<= 2.12.1` contains a memory corruption flaw inside
   `torch.jit.script`.
   - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
-  - **Scope:** `torch==2.12.0` in `environments/requirements.lock`, and the CI
-    pins `environments/requirements-ci.txt` / `requirements-ci-torch-cpu.txt`.
-  - **Severity:** Low (per GitHub advisory). No upstream patch is available.
-  - **Mitigation:** SESTRAV does not use, import, or execute the TorchScript compiler
-    (`torch.jit.script`) anywhere in its pipeline. Because all execution happens
-    offline on locally validated datasets and does not accept dynamic compilation
-    payloads, the attack surface is completely absent.
-  - **Suppression:** Dependabot alerts dismissed as `not_used`; pip-audit ignores
-    `PYSEC-2025-194` / `GHSA-rrmf-rvhw-rf47` in `security.yml`. Both reference this entry.
-  - **Re-review trigger:** any PyTorch version bump, or publication of a patched release.
+  - **Resolution:** upgraded to `torch==2.13.0`, the first patched release (published
+    2026-07-08), across `requirements.in`, `requirements.txt`,
+    `environments/requirements.lock` and `environments/requirements-ci-torch-cpu.txt`,
+    plus a `torch>=2.13.0` floor in `pyproject.toml`. The lockfiles only govern
+    hash-pinned installs; the `pyproject.toml` floor is what stops `pip install -e .` or
+    a downstream consumer from resolving back into the affected range (`<= 2.12.1`).
+  - **How this entry went stale, recorded deliberately:** it asserted "No upstream patch
+    is available" and set a re-review trigger of "publication of a patched release." That
+    trigger fired on 2026-07-08 and went unnoticed for four weeks, because nothing
+    re-evaluates this register on a schedule - the suppression was set once and never
+    revisited. The advisory's own metadata (`firstPatchedVersion: 2.13.0`) was the
+    authoritative signal and was queryable the whole time.
+  - **Suppressions removed:** the `--ignore-vuln PYSEC-2025-194` /
+    `GHSA-rrmf-rvhw-rf47` flags have been deleted from `.github/workflows/security.yml`,
+    so pip-audit now reports this advisory again if it ever reappears. Any previously
+    dismissed Dependabot alerts for it are superseded by the upgrade.
+  - **Side effect, intentional:** torch 2.12.0 declared a `setuptools<82` build-metadata
+    cap that collided with this repo's `setuptools>=83.0.0` floor
+    (GHSA-h35f-9h28-mq5c) and forced every lockfile recompile through a `uv` override
+    file. torch 2.13.0 declares `setuptools>=77.0.3`, so `overrides.txt` has been retired
+    and both application lockfiles now resolve unaided. The setuptools floor itself is
+    unchanged - it was the security constraint, not the workaround.
+
+- **Standing lesson from the entry above:** a risk acceptance with no scheduled
+  re-review is a claim that decays silently. Every **live** entry in this register carries
+  a re-review trigger; none of them fire on their own. (Writing this sentence exposed a
+  counter-example: the `-W error` bypass below had no trigger at all. One was added rather
+  than weakening the rule.) Re-check this register whenever
+  dependencies are audited, and treat an advisory's `firstPatchedVersion` field as the
+  authoritative test of "is a patch available yet," not the prose in this file.
 
 - **Semgrep `dangerous-subprocess-use-tainted-env-args` (external-tool wrappers):**
   Risk-accepted false positive. The benchmark wrappers shell out to external binaries
@@ -222,4 +242,8 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   - **Scope:** `pytest` test collection and runtime.
   - **Rationale:** Deep dependencies within `torch_geometric` raise unpatchable `DeprecationWarning`s during import (e.g., `torch_geometric.distributed` deprecation since 2.7.0). Enforcing `-W error` globally breaks the CI pipeline.
   - **Mitigation:** We enforce strict warnings exclusively through our linting pipeline (Ruff) which is set to fail on any warning or error, satisfying the Silver criteria for static analysis, while allowing runtime PyTorch deprecation warnings to pass in test execution.
+  - **Re-review trigger:** any `torch` or `torch-geometric` major/minor upgrade (which may
+    drop the import-time `DeprecationWarning`s this bypass exists for), or any narrowing of
+    the pytest warning filter. Added 2026-08-05: this entry previously carried no trigger,
+    which the standing lesson above says is exactly how a risk acceptance decays silently.
 

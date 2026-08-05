@@ -56,9 +56,14 @@ FastAPI microservice and Streamlit demo are developer tools that bind to
 
 ## 5. Residual risks (accepted)
 
-- Complex upstream ML dependencies may carry advisories with no available patch;
-  these are risk-assessed and logged in the **Risk-Acceptance Register** in
-  `SECURITY.md` (e.g. CVE-2025-3000 in PyTorch JIT, which SESTRAV never invokes).
+- Complex upstream dependencies may carry advisories that are unreachable from SESTRAV
+  or have no available patch; these are risk-assessed and logged in the
+  **Risk-Acceptance Register** in `SECURITY.md` (e.g. the `mcp` SDK transport
+  advisories, which reach the dependency closure only as a transitive dev/CI dependency
+  of `semgrep` and are unreachable because SESTRAV never starts an MCP server).
+  CVE-2025-3000 in PyTorch JIT was previously the example here; it was **resolved on
+  2026-08-05** by upgrading to `torch 2.13.0`, the first patched release, and is no
+  longer risk-accepted.
 - Release **signing** (authenticity) is being added; until then, integrity is
   provided by SHA-256 manifests over TLS-delivered GitHub Releases.
 

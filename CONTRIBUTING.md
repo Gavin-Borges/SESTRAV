@@ -91,17 +91,20 @@ them, find the tier it belongs to.
    from the pins it duplicates, and - if it pulls the hashed base in with `-r` -
    breaks rule 3 and cannot be installed at all.
 
-### The setuptools override
+### The setuptools floor (and the override that used to be needed)
 
 `requirements.in` pins `setuptools==83.0.0` and
 `environments/requirements-lock.in` floors it at `>=83.0.0`, both to close
-GHSA-h35f-9h28-mq5c. Either way it conflicts with torch's declared
-`setuptools<82` build-metadata cap, so `uv pip compile` returns
-`ResolutionImpossible` unaided. `overrides.txt` resolves this, and
-`tools/update_dependencies.py` passes it via `--overrides` automatically for
-tiers 1-2 only. That file documents the rationale, why it is runtime-safe, and
-the **exit condition** - drop the override once torch raises its cap upstream.
-Read it before touching either lockfile.
+GHSA-h35f-9h28-mq5c. **That floor is still in force - do not remove it.**
+
+Until 2026-08-05 it collided with torch 2.12.0's declared `setuptools<82`
+build-metadata cap, which made `uv pip compile` return `ResolutionImpossible`
+unaided, so both application lockfiles compiled through an `overrides.txt` file
+that `tools/update_dependencies.py` passed automatically. torch 2.13.0 declares
+`setuptools>=77.0.3`, meeting that override's documented exit condition, so
+`overrides.txt` was deleted and the tool no longer passes `--overrides` for any
+tier. `tests/test_dependency_tooling.py` asserts both halves of the retirement,
+so the workaround cannot quietly return and mask a real resolution conflict.
 
 ## Development Guidelines
 
