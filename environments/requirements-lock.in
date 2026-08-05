@@ -10,8 +10,10 @@
 # resolver would otherwise peg to vulnerable releases.
 # aiohttp: CVE-2026-54273/54274/54275/54276/54277/54278/54280, CVE-2026-50269
 aiohttp>=3.14.2
-# cryptography: GHSA-537c-gmf6-5ccf
-cryptography>=48.0.1
+# cryptography: GHSA-537c-gmf6-5ccf, and GHSA-g6cj-pr64-35w5 / CVE-2026-69247
+# (PKCS#7 EnvelopedData decryption leaks a Bleichenbacher oracle through
+# distinguishable errors and timing; affects >=44.0.0,<50.0.0).
+cryptography>=50.0.0
 # msgpack: GHSA-6v7p-g79w-8964 (DoS via malformed input)
 msgpack>=1.2.1
 # pydantic-settings: GHSA-4xgf-cpjx-pc3j

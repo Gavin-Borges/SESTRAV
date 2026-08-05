@@ -1,1 +1,15 @@
 semgrep==1.172.0
+
+# Security override - minimum version to close a CVE that this spec's resolver
+# would otherwise be free to peg to a vulnerable release.
+# cryptography: GHSA-g6cj-pr64-35w5 / CVE-2026-69247 (PKCS#7 EnvelopedData
+# decryption leaks a Bleichenbacher oracle through distinguishable errors and
+# timing; affects >=44.0.0,<50.0.0). Arrives here transitively via pyjwt[crypto].
+# The vulnerable path is unreachable from SESTRAV - nothing in tracked source
+# imports cryptography and there are no PKCS#7 / EnvelopedData / S-MIME call
+# sites - so this is defence in depth. It is pinned rather than dismissed
+# because a real upstream fix exists, and floored rather than left to resolve
+# to latest so a future recompile cannot silently walk it back.
+# EXIT CONDITION: drop this floor once semgrep's own dependency graph requires
+# cryptography>=50.0.0 without help, then recompile and re-verify hashes.
+cryptography>=50.0.0
