@@ -193,8 +193,10 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     unchanged - it was the security constraint, not the workaround.
 
 - **Standing lesson from the entry above:** a risk acceptance with no scheduled
-  re-review is a claim that decays silently. Every entry in this register carries a
-  re-review trigger; none of them fire on their own. Re-check this register whenever
+  re-review is a claim that decays silently. Every **live** entry in this register carries
+  a re-review trigger; none of them fire on their own. (Writing this sentence exposed a
+  counter-example: the `-W error` bypass below had no trigger at all. One was added rather
+  than weakening the rule.) Re-check this register whenever
   dependencies are audited, and treat an advisory's `firstPatchedVersion` field as the
   authoritative test of "is a patch available yet," not the prose in this file.
 
@@ -240,4 +242,8 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   - **Scope:** `pytest` test collection and runtime.
   - **Rationale:** Deep dependencies within `torch_geometric` raise unpatchable `DeprecationWarning`s during import (e.g., `torch_geometric.distributed` deprecation since 2.7.0). Enforcing `-W error` globally breaks the CI pipeline.
   - **Mitigation:** We enforce strict warnings exclusively through our linting pipeline (Ruff) which is set to fail on any warning or error, satisfying the Silver criteria for static analysis, while allowing runtime PyTorch deprecation warnings to pass in test execution.
+  - **Re-review trigger:** any `torch` or `torch-geometric` major/minor upgrade (which may
+    drop the import-time `DeprecationWarning`s this bypass exists for), or any narrowing of
+    the pytest warning filter. Added 2026-08-05: this entry previously carried no trigger,
+    which the standing lesson above says is exactly how a risk acceptance decays silently.
 

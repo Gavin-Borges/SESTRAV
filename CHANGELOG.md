@@ -62,10 +62,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   with `ResolutionImpossible` from the setuptools/torch conflict - a reason the upgrade
   eliminated. The installed-set form is kept deliberately, for the reason that is still
   true.
-  **Three of these five were found only by successive pre-push claims audits, and two were
-  created by earlier commits in this same branch** - writing a changelog entry about the
-  upgrade falsified pre-existing text elsewhere in the same file. Correcting one document
-  repeatedly invalidated another.
+  **Three of these five were found only by successive pre-push claims audits**, not by the
+  initial sweep. Separately, and worth recording on its own: three of the five were
+  falsified by the very first commit of this branch (the upgrade itself invalidated their
+  status assertions), and this file then developed two *internal* self-contradictions
+  because writing a changelog entry about the upgrade falsified pre-existing text
+  elsewhere in the same file. Correcting one document repeatedly invalidated another,
+  across four successive audit rounds.
 
 ### Documentation
 - **`docs/DEPENDENCY_LICENSES.md` labelled as stale rather than partially patched.** It
@@ -177,7 +180,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   module dropping a planned artifact, and a module's guard becoming defined-but-inert.
   **11 of 11 detected.** Full suite
   1451 passed, 0 failed, 0 errors, 2 skipped under the standing local exclusion, from 1453
-  collected (reconciling as 1430 + 23).
+  collected (reconciling as 1430 + 23). *(These are the figures measured for this change.
+  The torch 2.13.0 entry at the top of this section subsequently adds a net +1 test, so
+  they no longer describe the current suite. Left as the record of this run rather than
+  recomputed, since the two runs use different exclusion sets and the newer figure was
+  measured under the pre-push gate, not this one.)*
   **Scope note - this does not put every guarded entry point under the contract.** Six further
   modules carry their own copy of this guard and are deliberately left outside both the shared
   helper and `tests/test_artifact_guard_contract.py`, so the coverage claim above is four of ten,
@@ -198,8 +205,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and then added unhashed pins; pip turns on `--require-hashes` automatically as soon as any
   requirement carries a hash, so `pip install -r requirements-ann.txt` failed with "Hashes are
   required in --require-hashes mode" - the same defect class as the README install command
-  repaired in #177. The pins they added were redundant anyway: `torch==2.12.0` and
-  `torch-geometric==2.7.0` are already pinned and hashed in `requirements.txt`, leaving only
+  repaired in #177. The pins they added were redundant anyway: `torch` and
+  `torch-geometric` are both already pinned and hashed in `requirements.txt`, leaving only
   `transformers`, which `pyproject.toml`'s existing `[gnn]` extra already declares. Callers now
   point at the two paths that work: the base install for `src/ann_benchmark.py` and
   `src/verify/sestrav_evaluator.py` (which need only what `requirements.txt` already pins -
