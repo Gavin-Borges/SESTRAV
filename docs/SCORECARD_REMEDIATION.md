@@ -27,9 +27,11 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 ### Step 1: Regenerate requirements.txt (dependency CVEs) - ✅ Complete
 
 We have successfully regenerated `requirements.txt` from `requirements.in` using `pip-compile`.
-The compiled file resolves:
-- `keras==3.14.1` (fully secure against all Keras CVEs)
-- `protobuf==7.35.0` (fully secure against protobuf DoS CVE)
+At the time of that remediation the compiled file resolved `keras==3.14.1` (secure against
+the then-known Keras CVEs) and `protobuf==7.35.0` (secure against the protobuf DoS CVE).
+Both have since moved forward with routine dependency updates; **the authoritative pinned
+versions are always `requirements.txt` and `environments/requirements.lock`, not the
+figures recorded here.**
 
 No conflicts with `mhcflurry` were encountered.
 
