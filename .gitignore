@@ -429,6 +429,19 @@ ci_install_test.log
 temp_test_out.txt
 bandit_text.txt
 
+# Local wave-test harness and its run artifacts. A researcher-run exploratory
+# harness that drives batch training/pipeline/CLI "waves" and writes ~260 MB of
+# per-run JSON/CSV under wave_results/. Ignored wholesale for two reasons, not
+# one: the results are large regenerable run output, AND the harness scripts
+# themselves currently hardcode an absolute Windows user-profile path to
+# conda.exe in 12 files plus the README, which the PII and path-leak gate in
+# .github/workflows/pii_scan.yml is designed to reject. (That gate matches the
+# path form on any added line, so this comment deliberately describes it rather
+# than reproducing it.) Making the harness publishable means parameterising that
+# path first; until then this entry keeps 392 files from being swept in by a
+# `git add -A`.
+tests/wave_test_package/
+
 # Antigravity agent cache and rules (local dev AI tooling - not for public repo)
 .cache/
 .antigravityrules
