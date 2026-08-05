@@ -18,7 +18,7 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
 | 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) - embedded in `README.md` |
-| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | **Critical** | ✅ Mitigated - zero usage (not imported/executed) |
+| 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | Low | ✅ Resolved - upgraded to `torch==2.13.0`, the first patched release |
 
 ---
 
@@ -124,7 +124,9 @@ recognition of the MIT license.
 - **Remediation Status:** **RESOLVED.** PyTorch published `2.13.0`, the first patched
   release, on 2026-07-08. SESTRAV upgraded to `torch==2.13.0` on 2026-08-05 across
   `requirements.in`, `requirements.txt`, `environments/requirements.lock` and
-  `environments/requirements-ci-torch-cpu.txt`. The advisory is no longer suppressed in
+  `environments/requirements-ci-torch-cpu.txt`, and floored `torch>=2.13.0` in
+  `pyproject.toml` so that installs which do not use the compiled lockfiles cannot
+  resolve back into the affected range. The advisory is no longer suppressed in
   `.github/workflows/security.yml`.
 - **Prior position, retained for the record:** before the patch existed, this entry
   documented the advisory as mitigated-not-fixed on the grounds that SESTRAV never

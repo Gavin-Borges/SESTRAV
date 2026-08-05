@@ -5,12 +5,19 @@
 > commit `83a7c12`. It is **not** generated from the lockfiles and nothing currently keeps
 > it in step with them, so its version column drifts as dependencies move. As of
 > 2026-08-05, 46 of the 124 rows that also appear in `environments/requirements.lock`
-> disagree with it, including `cryptography` and `gitpython`, where this table names older
-> versions than the repo actually pins.
+> disagree with it. Three matter most: this table names `torch 2.12.0`, `cryptography
+> 48.0.0` and `gitpython 3.1.46`, where the repo actually pins `2.13.0`, `50.0.0` and
+> `3.1.57`. All three of those older versions carry advisories the repo has already
+> closed, so **this table understates SESTRAV's security posture rather than overstating
+> it.**
+>
+> `docs/sbom.json` is produced by the same tool in the same run and is stale in the same
+> way, including its `torch` entry. Being JSON consumed by tooling, it cannot carry a
+> warning like this one. Treat it with the same caution.
 >
 > **The authoritative pinned versions are `environments/requirements.lock` and
 > `requirements.txt`, never this file.** Read this table for the *license* column, which is
-> stable per package; do not cite its versions. Regenerating it and gating that
+> stable per package; do not cite its versions. Regenerating both artifacts and gating that
 > regeneration in CI is tracked as open work.
 
 | Name                                     | Version     | License                                                                       |

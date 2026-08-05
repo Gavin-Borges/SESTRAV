@@ -171,7 +171,10 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
   - **Resolution:** upgraded to `torch==2.13.0`, the first patched release (published
     2026-07-08), across `requirements.in`, `requirements.txt`,
-    `environments/requirements.lock` and `environments/requirements-ci-torch-cpu.txt`.
+    `environments/requirements.lock` and `environments/requirements-ci-torch-cpu.txt`,
+    plus a `torch>=2.13.0` floor in `pyproject.toml`. The lockfiles only govern
+    hash-pinned installs; the `pyproject.toml` floor is what stops `pip install -e .` or
+    a downstream consumer from resolving back into the affected range (`<= 2.12.1`).
   - **How this entry went stale, recorded deliberately:** it asserted "No upstream patch
     is available" and set a re-review trigger of "publication of a patched release." That
     trigger fired on 2026-07-08 and went unnoticed for four weeks, because nothing
