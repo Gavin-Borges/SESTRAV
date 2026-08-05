@@ -26,7 +26,14 @@ classifiers = [
 ]
 keywords = ["immunology", "machine-learning", "epitope", "pytorch", "gnn"]
 dependencies = [
-    "torch>=2.2.0",
+    # Floored at 2.13.0 to close CVE-2025-3000 / GHSA-rrmf-rvhw-rf47 /
+    # PYSEC-2025-194 (memory corruption in torch.jit.script, affected <= 2.12.1,
+    # first patched 2.13.0). The compiled lockfiles already pin 2.13.0, but they
+    # only govern hash-pinned installs; this floor is what stops a plain
+    # `pip install -e .` or a downstream consumer from resolving a vulnerable
+    # torch. SESTRAV does not call torch.jit.script, so this is defence in depth
+    # rather than an exploitable-path fix. See SECURITY.md.
+    "torch>=2.13.0",
     "pandas>=2.0.0",
     "numpy>=1.24.0",
     "scikit-learn>=1.3.0",
