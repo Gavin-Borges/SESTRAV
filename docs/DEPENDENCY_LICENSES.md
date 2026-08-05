@@ -1,3 +1,18 @@
+# Dependency License Inventory
+
+> **Provenance and staleness warning.** This table is a point-in-time snapshot produced by
+> `pip-licenses` against an *installed* environment, last regenerated on 2026-06-26 in
+> commit `83a7c12`. It is **not** generated from the lockfiles and nothing currently keeps
+> it in step with them, so its version column drifts as dependencies move. As of
+> 2026-08-05, 46 of the 124 rows that also appear in `environments/requirements.lock`
+> disagree with it, including `cryptography` and `gitpython`, where this table names older
+> versions than the repo actually pins.
+>
+> **The authoritative pinned versions are `environments/requirements.lock` and
+> `requirements.txt`, never this file.** Read this table for the *license* column, which is
+> stable per package; do not cite its versions. Regenerating it and gating that
+> regeneration in CI is tracked as open work.
+
 | Name                                     | Version     | License                                                                       |
 |------------------------------------------|-------------|-------------------------------------------------------------------------------|
 | CacheControl                             | 0.14.4      | Apache-2.0                                                                    |
