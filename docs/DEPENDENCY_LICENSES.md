@@ -2,14 +2,13 @@
 
 > **Provenance and staleness warning.** This table is a point-in-time snapshot produced by
 > `pip-licenses` against an *installed* environment, last regenerated on 2026-06-26 in
-> commit `83a7c12`. It is **not** generated from the lockfiles and nothing currently keeps
-> it in step with them, so its version column drifts as dependencies move. As of
-> 2026-08-05, 46 of the 124 rows that also appear in `environments/requirements.lock`
-> disagree with it. Three matter most: this table names `torch 2.12.0`, `cryptography
-> 48.0.0` and `gitpython 3.1.46`, where the repo actually pins `2.13.0`, `50.0.0` and
-> `3.1.57`. All three of those older versions carry advisories the repo has already
-> closed, so **this table understates SESTRAV's security posture rather than overstating
-> it.**
+> commit `83a7c12`. It is **not** generated from the lockfiles, so its version column
+> drifts as dependencies move. As of 2026-08-05, 46 of the 124 rows that also appear in
+> `environments/requirements.lock` disagree with it. Four matter most: this table names
+> `torch 2.12.0`, `cryptography 48.0.0`, `gitpython 3.1.46` and `aiohttp 3.13.5`, where the
+> repo actually pins `2.13.0`, `50.0.0`, `3.1.57` and `3.14.3`. All four of those older
+> versions carry advisories the repo has already closed, so **this table understates
+> SESTRAV's security posture rather than overstating it.**
 >
 > `docs/sbom.json` is produced by the same tool in the same run and is stale in the same
 > way, including its `torch` entry. Being JSON consumed by tooling, it cannot carry a
@@ -17,9 +16,23 @@
 >
 > **The authoritative pinned versions are `environments/requirements.lock` and
 > `requirements.txt`, never this file.** Read this table for the *license* column, which is
-> stable per package; do not cite its versions. Regenerating both artifacts and gating that
-> regeneration in CI is disclosed here but **not yet scheduled** - no issue or roadmap item
-> tracks it at time of writing.
+> stable per package; do not cite its versions.
+>
+> **CI now gates this drift.** The `python-sbom` job in `.github/workflows/security.yml`
+> regenerates both artifacts from the pinned lockfile on every run and fails
+> (`tools/check_sbom_freshness.py`) when the committed copies disagree with it or omit a
+> package it produced. What remains outstanding is the one-time correction: download the
+> `python-sbom` artifact from a workflow run and commit both files over the copies here.
+> Until that happens the gate is red by design, and the numbers quoted above are the drift
+> it is reporting. They were deliberately not hand-patched - editing individual rows would
+> fabricate freshness in an artifact downstream tooling reads as authoritative.
+>
+> **That correction will also shrink this table.** It currently lists 214 packages,
+> captured in a local development environment that contained tooling well beyond the
+> production dependency set; a CI regeneration produces the pinned lockfile's set minus
+> any wheel that does not build on the runner, and minus the SBOM tooling itself. Expect a
+> substantial drop in row count on that commit. It is the table becoming an accurate
+> production inventory, not content being lost.
 
 | Name                                     | Version     | License                                                                       |
 |------------------------------------------|-------------|-------------------------------------------------------------------------------|
