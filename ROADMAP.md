@@ -25,7 +25,7 @@ _Last updated: 2026-08._
     This clears the OpenSSF **Gold** targets (>=90% statement, >=80% branch).
   - **Whole-repo floor**: `pyproject.toml`'s `fail_under` blocks regressions across
     the entire tree (research/CLI scripts included), gated at `fail_under=35`,
-    currently ~45% statement.
+    currently ~35% statement (~33.74% branch-inclusive).
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
 
@@ -38,9 +38,10 @@ _Last updated: 2026-08._
   with verification documented in `SECURITY.md`'s "Release Integrity &
   Verification" section. Version tags remain annotated but **unsigned**
   (`version_tags_signed`, SUGGESTED, currently Unmet - see `docs/releasing.md`).
-- **Container image - shipped.** A pre-built Docker image is published to
-  `ghcr.io` on version tags with provenance and SBOM attached
-  (`.github/workflows/docker.yml`).
+- **Container image.** A publish-to-`ghcr.io` workflow with provenance and SBOM
+  is in place (`.github/workflows/docker.yml`); it fires on the next version tag.
+  It has not run yet - the workflow was added after `v2.0.3`, so no image is
+  published.
 - **Packaging.** Publish `sestrav` to PyPI as a pip-installable package (the
   publish job exists but is gated off; installation is from source today).
 

@@ -83,7 +83,9 @@ tag builds the distribution and produces a **keyless SLSA build-provenance
 attestation** (Sigstore, via GitHub OIDC - no maintainer-managed keys). From the
 release at which signing is introduced onward:
 
-- **Tags** are signed (`git tag -s`) and verifiable with `git tag -v vX.Y.Z`.
+- **Tags** are annotated but **not yet signed** (`version_tags_signed`, an OpenSSF
+  SUGGESTED criterion, is currently Unmet - see `docs/releasing.md`). Once tag
+  signing is introduced they will be verifiable with `git tag -v vX.Y.Z`.
 - **Artifacts** carry a Sigstore provenance attestation, verifiable with:
 
   ```bash
@@ -92,9 +94,9 @@ release at which signing is introduced onward:
 
 The full release procedure is documented in [`docs/releasing.md`](docs/releasing.md).
 
-> Maintainer note: when the first signed release is cut, record the Sigstore
-> identity (and any key fingerprint) and its recovery path per `BUS_FACTOR.md`,
-> and update this section to state the first signed version.
+> Maintainer note: artifact attestation is keyless, so there is no artifact-signing
+> key to record. When tag signing is introduced, note the first signed version here
+> and record the signing identity per `BUS_FACTOR.md`.
 
 ---
 
@@ -116,7 +118,7 @@ of findings *block* merges/releases, while everything else is surfaced as a
 *non-blocking advisory* that is tracked and triaged on a cadence rather than
 gating active development.
 
-### Severity → action (target SLA)
+### Severity -> action (target SLA)
 
 | Severity | Action | Target SLA | Gate |
 | -------- | ------ | ---------- | ---- |
@@ -133,13 +135,13 @@ Timelines follow the solo-maintainer cadence described under **Response Commitme
 | --------------- | -------------- | ---- |
 | Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | **Blocking** |
 | Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: high`) | **Blocking** |
-| CodeQL (`security.yml`) | Deep SAST → Security ▸ Code scanning | Blocking (default severities) |
-| Semgrep (`security.yml`) | SAST ruleset `p/python` → Security ▸ Code scanning | Advisory |
-| pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` → run summary | Advisory |
-| Dependabot alerts | Known CVEs in dependencies → Security ▸ Dependabot | Advisory (triaged) |
+| CodeQL (`security.yml`) | Deep SAST -> Security > Code scanning | Blocking (default severities) |
+| Semgrep (`security.yml`) | SAST ruleset `p/python` -> Security > Code scanning | Advisory |
+| pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` -> run summary | Advisory |
+| Dependabot alerts | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged) |
 
 Advisory findings never turn CI red. They surface as **(a)** tracked, dismissable
-alerts in *Security ▸ Code scanning* (Semgrep/CodeQL SARIF), **(b)** a markdown
+alerts in *Security > Code scanning* (Semgrep/CodeQL SARIF), **(b)** a markdown
 digest on each `security.yml` run summary (pip-audit), and **(c)** Dependabot
 alerts/PRs. They are reviewed on the weekly cadence and logged in the register
 below whenever consciously deferred.
@@ -179,7 +181,7 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
 - **CVE-2025-3000 (PyTorch JIT script memory corruption):** **RESOLVED 2026-08-05 - no
   longer risk-accepted.** PyTorch `<= 2.12.1` contains a memory corruption flaw inside
   `torch.jit.script`.
-  - **Identifiers:** `CVE-2025-3000` · `GHSA-rrmf-rvhw-rf47` · `PYSEC-2025-194`.
+  - **Identifiers:** `CVE-2025-3000`, `GHSA-rrmf-rvhw-rf47`, `PYSEC-2025-194`.
   - **Resolution:** upgraded to `torch==2.13.0`, the first patched release (published
     2026-07-08), across `requirements.in`, `requirements.txt`,
     `environments/requirements.lock` and `environments/requirements-ci-torch-cpu.txt`,
@@ -215,7 +217,7 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   Risk-accepted false positive. The benchmark wrappers shell out to external binaries
   (PRIME, PredIG/Docker) via `subprocess.run`.
   - **Identifiers:** Semgrep `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args`
-    · Bandit `B603`.
+   , Bandit `B603`.
   - **Scope:** `scripts/run_prime_wrapper.py`, `scripts/run_predig_wrapper.py`,
     `scripts/run_predig_batched.py`.
   - **Severity:** Error (Semgrep default); not exploitable in SESTRAV's model.
@@ -235,7 +237,7 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   Risk-accepted. The `mcp` package is pulled in transitively as a dev/CI dependency of
   `semgrep`; it is not an application dependency and no MCP server transport is ever
   invoked by SESTRAV.
-  - **Identifiers:** `GHSA-vj7q-gjh5-988w` · `GHSA-jpw9-pfvf-9f58` · `GHSA-hvrp-rf83-w775`.
+  - **Identifiers:** `GHSA-vj7q-gjh5-988w`, `GHSA-jpw9-pfvf-9f58`, `GHSA-hvrp-rf83-w775`.
   - **Scope:** `mcp` (transitive, via `semgrep`) in the CI/dev dependency closure.
   - **Severity:** High (per GitHub advisory). All three are server-transport
     vulnerabilities (session-ID authentication bypass, WebSocket origin validation);

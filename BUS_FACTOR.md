@@ -16,9 +16,11 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
   person with the ability and willingness to take over if the lead becomes
   unavailable. They do **not** need to be a daily committer,
   but they MUST have (a) repository **Admin/Maintain** access and (b) a verified
-  ability to build, test, and cut a release (see checklist below). Release signing
-  is keyless (Sigstore via GitHub OIDC), so there is no maintainer-held signing key
-  to hand over; the continuity requirement is workflow access, not key custody.
+  ability to build, test, and cut a release (see checklist below). Release-artifact
+  signing is keyless (Sigstore via GitHub OIDC), so no artifact-signing key changes
+  hands; the continuity requirement there is workflow access, not key custody.
+  Commit and tag signing is separate and does use a maintainer-held SSH key
+  (see `docs/releasing.md`).
 - **Honest current bus factor:** **1** until a backup maintainer is designated and
   has completed the onboarding checklist below. Do not claim a bus factor of 2 on
   the OpenSSF questionnaire until this is genuinely true.
@@ -51,7 +53,8 @@ The designated backup confirms they can independently:
 - [ ] Run the Snakemake dry-run (`snakemake --snakefile pipeline.smk --dry-run --cores 1`).
 - [ ] Produce a release bundle (`python -m src.release_bundle --output-dir release_artifacts`).
 - [ ] Hold repository **Maintain/Admin** access.
-- [ ] Hold or have a recovery path for the release-signing key (see `SECURITY.md`).
+- [ ] Hold `workflow` permission to run `.github/workflows/release.yml` (release
+      artifacts are signed keylessly via Sigstore/OIDC - no key custody required).
 
 ## Succession
 
