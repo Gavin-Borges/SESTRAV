@@ -50,15 +50,15 @@ The canonical (30-feature) Random Forest and XGBoost classifiers were validated 
 | :--- | :---: | :---: | :--- |
 | **AUC-ROC** | 0.524 ± 0.242 | 0.562 ± 0.261 | Area Under the Receiver Operating Characteristic |
 | **AUC-PR** | 0.787 ± 0.191 | 0.805 ± 0.197 | Area Under the Precision-Recall Curve (Primary Metric) |
-| **ISSR@10** | 0.814 ± 0.381 | 0.820 ± 0.378 | Immunogenicity Score Selection Ratio in the top 10% |
-| **ISSR@25** | 0.811 ± 0.375 | 0.815 ± 0.371 | Immunogenicity Score Selection Ratio in the top 25% |
+| **ISSR@10** | 0.814 ± 0.381 | 0.820 ± 0.378 | Immune-Stimulating Success Rate: fraction of the top-10% ranked peptides that are true positives |
+| **ISSR@25** | 0.811 ± 0.375 | 0.815 ± 0.371 | Immune-Stimulating Success Rate: fraction of the top-25% ranked peptides that are true positives |
 | **NDCG@10** | 0.872 ± 0.284 | 0.896 ± 0.263 | Normalized Discounted Cumulative Gain at rank 10 |
 | **NDCG@25** | 0.857 ± 0.242 | 0.878 ± 0.213 | Normalized Discounted Cumulative Gain at rank 25 |
 
 ### 2.1 Critical Metric Analysis
 *   **AUC-PR as the Primary Metric:** The training set compiled from IEDB exhibits a high positive class prevalence (~77% positive). Under severe class imbalance, ROC-AUC can present an overly optimistic view of model performance. Precision-Recall curves are highly sensitive to false positives, making AUC-PR the gold-standard metric for verifying true enrichment. A random model on this dataset yields a baseline AUC-PR of ~0.77, placing SESTRAV's values (~0.79-0.81) above baseline expectations.
 *   **AUC-ROC Variance:** The high standard deviation in AUC-ROC (~0.24-0.26) is driven by the small absolute number of negative samples in individual validation folds. Folds with very few negative instances are highly sensitive to even a single misclassified negative sample, causing substantial variance in rank-based AUC metrics.
-*   **Ranking Metrics (ISSR & NDCG):** In vaccine candidate screening, the goal is to prioritize the top epitopes. The Immunogenicity Score Selection Ratio (ISSR) measures positive class enrichment in the top $K\%$ of scores, while NDCG measures how effectively the model ranks true positives above negatives. The high NDCG values (~0.87-0.90) indicate the model is highly effective at prioritizing positive epitopes at the top of the predicted list.
+*   **Ranking Metrics (ISSR & NDCG):** In vaccine candidate screening, the goal is to prioritize the top epitopes. The Immune-Stimulating Success Rate (ISSR) measures positive class enrichment in the top $K\%$ of scores - that is, precision within that top slice, not recall of all positives - while NDCG measures how effectively the model ranks true positives above negatives. The high NDCG values (~0.87-0.90) indicate the model is highly effective at prioritizing positive epitopes at the top of the predicted list.
 
 ---
 

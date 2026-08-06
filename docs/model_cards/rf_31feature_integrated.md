@@ -35,11 +35,11 @@
 |--------|-----------------|-------|
 | **AUC-PR** | **0.8276 ± 0.027** | Primary metric (class imbalance) |
 | AUC-ROC | 0.6431 ± 0.039 | |
-| ISSR@10 | 0.8105 ± 0.079 | True positives in top 10% of scored peptides |
+| ISSR@10 | 0.8105 ± 0.079 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
 | ISSR@25 | 0.8367 ± 0.022 | |
 
 - **Unweighted ablation AUC-PR:** 0.864 - used for ablation comparisons in Table 1 of the paper.
-- **External benchmark context:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained on undisclosed data, edges SESTRAV on top-decile recall). SESTRAV OOF is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
+- **External benchmark context:** On the certified Tier A field (n=704, a different evaluation set from the n=1,004 v3 results above), the closest external tool is BigMHC (0.822, a near-tie; fully trained on undisclosed data, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. SESTRAV OOF is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
 - **Cross-virus transfer:** EBV→HPV16 AUC-PR 0.742; HPV16→EBV 0.711.
 - **SYFPEITHI recall:** 1/6 evaluable epitopes in top 5%; 2/6 in top 25% (3.3× and 1.3× enrichment). See `results/syfpeithi_benchmark.json`.
 - **Feature importance note:** All 10 MHCflurry binding features (`bind_A0101`-`bind_B4402`) register RF importance = 0.0 in v3. Root cause: physico features at p5-p8 capture anchor-residue binding variance; v3 negative selection confound suppresses binding variance. This is a scientific finding, not a bug. Hard decoys (v4) will restore binding feature utility.

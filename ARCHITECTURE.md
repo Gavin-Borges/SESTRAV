@@ -163,7 +163,9 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
 
 - **Tier A labeled benchmark** (head-to-head against the field): canonical `full_31`
   AUC-PR 0.828 (OOF), a near-tie with the best fully-trained external tool (BigMHC 0.822,
-  which edges SESTRAV on top-decile recall). The extended `full_33` configuration (0.840)
+  which edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of
+  5 on that metric, behind binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR
+  lead does not extend to top-decile precision). The extended `full_33` configuration (0.840)
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
