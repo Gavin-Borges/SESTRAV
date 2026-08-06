@@ -31,8 +31,9 @@ _Last updated: 2026-08._
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
 
-  Raise both floors only as real tests land - never by padding - stepping toward
-  >=90% statement / >=80% branch on the library for Gold. Subprocess-launched
+  Raise both floors only as real tests land - never by padding. The library scope
+  already clears the Gold targets (>=90% statement / >=80% branch); the whole-repo
+  floor is the one with room to ratchet. Subprocess-launched
   modules are measured via the `tools/coverage_subprocess` hook so they are not
   undercounted as 0%.
 - **Signed release artifacts - shipped.** Release artifacts carry a keyless
