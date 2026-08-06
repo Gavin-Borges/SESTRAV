@@ -892,7 +892,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   CPU/GPU tensor mismatch. Found during Windows/Blackwell (RTX 5070 Ti, sm_120) GPU
   bring-up; fixed with `model = model.to(device)` immediately after device
   resolution. Full suite: 1213 passed / 2 skipped / 0 failed.
-- **`external_predictors.py` coverage 88% → 100%** (issue #77): 13 targeted tests
+- **`external_predictors.py` coverage 88% -> 100%** (issue #77): 13 targeted tests
   covering proline/PDE/RKYFW mock-score paths, OOB index in `parse_netchop_html`,
   poll-success return, TAPreg threshold kwarg, and parse success/empty-parse branches.
   Removed dead conditional `if mock_fallback or True:` in `query_netchop`; deleted
@@ -990,9 +990,9 @@ publish pipeline.
 
 ### Changed
 - **Library coverage ratchet** advanced: `fail_under` in `.coveragerc.library`
-  raised from 85 → **90**. Actual library coverage is **96.03%** combined
-  statement+branch (≈96% statement, ≈94% branch) - both above the OpenSSF
-  Gold targets (≥90% statement, ≥80% branch).
+  raised from 85 -> **90**. Actual library coverage is **96.03%** combined
+  statement+branch (~96% statement, ~94% branch) - both above the OpenSSF
+  Gold targets (>=90% statement, >=80% branch).
 - **Whole-repo coverage floor** unchanged at 33 (`pyproject.toml`); actual is
   33.74%. Executable research scripts (those with a `__main__` guard) are
   validated by integration tests and CI gates, not unit statement coverage.
@@ -1008,7 +1008,7 @@ two-scope test-coverage regime meeting the Gold coverage targets.
 ### Added
 - **OpenSSF governance & assurance documentation**: `GOVERNANCE.md`, `ROADMAP.md`, `BUS_FACTOR.md`, `CONTRIBUTORS.md`, `docs/threat_model.md`, and `docs/security_review.md`.
 - **Signed releases with provenance**: `.github/workflows/release.yml` builds the distribution on a version tag and publishes a keyless SLSA build-provenance attestation (Sigstore via GitHub OIDC), guarded by a fail-fast tag/version consistency check. Verification and the release procedure are documented in `docs/releasing.md` and `SECURITY.md`.
-- **Two-scope test-coverage measurement**: library-scope coverage via `.coveragerc.library` (OpenSSF Silver `test_statement_coverage80`), kept in sync mechanically by `tools/check_library_coverage.py`, with a subprocess-coverage hook (`tools/coverage_subprocess`). Library coverage raised to ≈91% statement / ≈81% branch (OpenSSF Gold targets) with new unit tests.
+- **Two-scope test-coverage measurement**: library-scope coverage via `.coveragerc.library` (OpenSSF Silver `test_statement_coverage80`), kept in sync mechanically by `tools/check_library_coverage.py`, with a subprocess-coverage hook (`tools/coverage_subprocess`). Library coverage raised to ~91% statement / ~81% branch (OpenSSF Gold targets) with new unit tests.
 
 ### Fixed
 - **Stage 4 MC-dropout path**: corrected a missing `import torch` on the uncertainty-scoring branch.
@@ -1020,7 +1020,7 @@ two-scope test-coverage regime meeting the Gold coverage targets.
 
 ### Changed
 - **License detection**: `LICENSE` now opens with the canonical `MIT License` text so GitHub and automated tooling identify it as MIT (the SPDX identifier is retained in `pyproject.toml`).
-- **Dependency updates** (Dependabot): `starlette` 1.1.0→1.3.1 (#75), `aiohttp` 3.14.0→3.14.1 (#74), and a Python minor/patch group of six updates (#73).
+- **Dependency updates** (Dependabot): `starlette` 1.1.0->1.3.1 (#75), `aiohttp` 3.14.0->3.14.1 (#74), and a Python minor/patch group of six updates (#73).
 
 ### Security
 - **Hash-pinned security-scanner installs**: The `semgrep` and `pip-audit` jobs in `security.yml` now install from hash-pinned lockfiles (`environments/requirements-semgrep.txt`, `environments/requirements-pip-audit.txt`) via `pip install --require-hashes`, resolving the OpenSSF Scorecard *Pinned-Dependencies* findings. Lockfiles are generated from `.in` sources with `pip-compile --generate-hashes`.
