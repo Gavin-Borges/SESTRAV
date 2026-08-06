@@ -22,30 +22,33 @@ _Last updated: 2026-08._
     point. Measured via `.coveragerc.library` (omit list generated mechanically by
     `tools/check_library_coverage.py`, kept in sync by `--check`). Currently
     **~99% statement / ~98% branch** (combined 98.91%), gated at `fail_under=95`.
-    This clears the OpenSSF **Gold** targets (≥90% statement, ≥80% branch).
+    This clears the OpenSSF **Gold** targets (>=90% statement, >=80% branch).
   - **Whole-repo floor**: `pyproject.toml`'s `fail_under` blocks regressions across
     the entire tree (research/CLI scripts included), gated at `fail_under=35`,
-    currently ≈45% statement.
+    currently ~45% statement.
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
 
   Raise both floors only as real tests land - never by padding - stepping toward
-  ≥90% statement / ≥80% branch on the library for Gold. Subprocess-launched
+  >=90% statement / >=80% branch on the library for Gold. Subprocess-launched
   modules are measured via the `tools/coverage_subprocess` hook so they are not
   undercounted as 0%.
-- **Signed releases - shipped.** Release artifacts and tags are cryptographically
-  signed (keyless Sigstore/SLSA build-provenance attestation via
-  `.github/workflows/release.yml`), with verification documented in
-  `SECURITY.md`'s "Release Integrity & Verification" section.
-- **Packaging.** Publish `sestrav` to PyPI as a pip-installable package and push a
-  pre-built Docker image (with the canonical 30-feature model) to a container
-  registry.
+- **Signed release artifacts - shipped.** Release artifacts carry a keyless
+  Sigstore/SLSA build-provenance attestation (`.github/workflows/release.yml`),
+  with verification documented in `SECURITY.md`'s "Release Integrity &
+  Verification" section. Version tags remain annotated but **unsigned**
+  (`version_tags_signed`, SUGGESTED, currently Unmet - see `docs/releasing.md`).
+- **Container image - shipped.** A pre-built Docker image is published to
+  `ghcr.io` on version tags with provenance and SBOM attached
+  (`.github/workflows/docker.yml`).
+- **Packaging.** Publish `sestrav` to PyPI as a pip-installable package (the
+  publish job exists but is gated off; installation is from source today).
 
 ## Mid term (3-9 months)
 
 - **Pathogen expansion.** Curate IEDB-derived training data for additional
   oncogenic viruses (e.g. HBV, HCV, KSHV) and add the corresponding proteomes.
-  Target: AUC-PR ≥ 0.80 on new taxa without regression on HPV/EBV.
+  Target: AUC-PR >= 0.80 on new taxa without regression on HPV/EBV.
 - **Pan-allele modeling.** Integrate allele-aware pocket pseudo-sequence features
   to improve allele-stratified recall.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
@@ -57,11 +60,11 @@ _Last updated: 2026-08._
 
 - **Deep-learning promotion.** ANN/GNN tracks remain optional benchmarks until they
   meet published quantitative gates (sufficient multi-virus training data,
-  5-fold CV AUC-PR ≥ 0.85, cross-run SD < 0.02, calibration ECE < 0.05, and
+  5-fold CV AUC-PR >= 0.85, cross-run SD < 0.02, calibration ECE < 0.05, and
   interpretability via SHAP/surrogate). On passing, a track may be promoted to a
   second canonical model with its own model card.
 - **Wet-lab validation (contingent on partnership).** Pre-register and execute an
-  IFN-γ ELISpot validation comparing SESTRAV-ranked epitopes against binding-only
+  IFN-gamma ELISpot validation comparing SESTRAV-ranked epitopes against binding-only
   controls across HPV16/HPV18/EBV.
 - **Governance growth.** Recruit and onboard additional maintainers and
   independent contributors to raise the project's bus factor and enable

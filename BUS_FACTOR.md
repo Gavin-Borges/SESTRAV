@@ -2,7 +2,7 @@
 
 The "bus factor" is the number of people who would have to suddenly leave the
 project before it could no longer be maintained. This document records SESTRAV's
-bus factor, its continuity measures, and the designated backup maintainer.
+bus factor, its continuity measures, and the status of the backup-maintainer role.
 It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
 (Silver SHOULD / Gold MUST).
 
@@ -15,9 +15,10 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
   `MAINTAINERS.md` for how to get involved. The backup should be a trusted
   person with the ability and willingness to take over if the lead becomes
   unavailable. They do **not** need to be a daily committer,
-  but they MUST have (a) repository **Admin/Maintain** access, (b) a verified
-  ability to build, test, and cut a release (see checklist below), and (c) access
-  to or a recovery path for the release-signing key.
+  but they MUST have (a) repository **Admin/Maintain** access and (b) a verified
+  ability to build, test, and cut a release (see checklist below). Release signing
+  is keyless (Sigstore via GitHub OIDC), so there is no maintainer-held signing key
+  to hand over; the continuity requirement is workflow access, not key custody.
 - **Honest current bus factor:** **1** until a backup maintainer is designated and
   has completed the onboarding checklist below. Do not claim a bus factor of 2 on
   the OpenSSF questionnaire until this is genuinely true.

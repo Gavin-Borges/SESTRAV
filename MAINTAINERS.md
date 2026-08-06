@@ -1,8 +1,10 @@
 # SESTRAV Maintainers
 
-This file supports the OpenSSF Best Practices Silver badge criteria for `bus_factor >= 2`
-and `two_person_review` (see `BUS_FACTOR.md` for the current honest status). All pull
-requests to `main` require at least one review from a maintainer listed here.
+This file records the project's maintainer roster, which the OpenSSF Best Practices
+Silver criteria `bus_factor >= 2` and `two_person_review` depend on. Neither criterion
+is met today: pull requests from contributors require maintainer review, but with a
+single maintainer `two_person_review` is not yet in force (GitHub does not permit
+self-approval). See `BUS_FACTOR.md` for the honest current status.
 
 ## Active Maintainers
 
@@ -18,7 +20,8 @@ for why this matters and what the role requires.
 
 - Review and approve pull requests to `main`
 - Triage security reports (see `SECURITY.md`)
-- Publish PyPI releases via the OIDC Trusted Publisher workflow
+- Cut releases (tag, artifacts, provenance attestation). PyPI publishing via the
+  OIDC Trusted Publisher workflow is implemented but currently gated off.
 
 ## Adding a Maintainer
 
