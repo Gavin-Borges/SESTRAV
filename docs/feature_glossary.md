@@ -103,7 +103,7 @@ The following feature groups are defined in `src/ablation_study.py` for systemat
 | `physico_20` | 20 | TCR-contact physicochemical features only (p4-p8 x 4 properties) |
 | `binding_10` | 10 | Per-allele MHC binding features only |
 | `sestrav_21` | 21 | physico_20 + peptide_length (legacy training track) |
-| `combined_30` | 30 | physico_20 + binding_10 (canonical track) |
+| `combined_30` | 30 | physico_20 + binding_10 (legacy comparator track) |
 | `full_31` | 31 | combined_30 + peptide_length |
 
 ## Evaluation Metrics

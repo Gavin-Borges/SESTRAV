@@ -22,7 +22,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
   - Test suite executes cleanly with no critical failures.
 - **CI/CD Integration:** Tests are executed via `.github/workflows/ci.yml` on every pull request.
 - **Statement coverage (OpenSSF Silver `test_statement_coverage80`):** Coverage is
-  measured on two scopes, both gated in CI:
+  measured on two scopes; only the library scope is gated in CI:
   - *Library scope* - the importable library surface (`src`/`functions` modules
     with no `__main__` CLI entry point), measured via `.coveragerc.library` and
     gated at `fail_under=95`. Currently 98.91% combined (~99% statement /
@@ -32,7 +32,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
     guard (`tools/check_library_coverage.py --check` enforces it stays in sync),
     so the scope is objective rather than hand-picked.
   - *Whole-repo floor* - a regression floor across the entire tree
-    (`pyproject.toml`), gated at `fail_under=35`, currently ~34% statement (34.37%, measured
+    (`pyproject.toml`), gated at `fail_under=35`, currently 34.37% (branch-inclusive, measured
     2026-06-22) - a hair under the floor.
     Executable research/pipeline
     scripts (those with `__main__`) are validated by integration tests and the CI
@@ -104,7 +104,8 @@ alongside the Dependency-review Action and OSSF Scorecard. Signed releases now
 ship via the `release.yml` workflow, which attaches a Sigstore build-provenance
 attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 `signed_releases` criterion (verify with `gh attestation verify`). Remaining
-planned work: publish the package to PyPI, and optionally cryptographically sign
-the git tags themselves (`version_tags_signed`, a SUGGESTED criterion) once a
-personal signing key is configured. See `ROADMAP.md` for the open multi-person
+planned work: publish the package to PyPI, and cryptographically sign the git tags
+themselves (`version_tags_signed`, a SUGGESTED criterion). A maintainer SSH signing
+key is configured locally with `tag.gpgsign` enabled, so this is met on the next
+release by tagging with `git tag -s`. See `ROADMAP.md` for the open multi-person
 Silver/Gold criteria and the coverage ratchet.

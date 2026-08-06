@@ -21,7 +21,8 @@ for why this matters and what the role requires.
 - Review and approve pull requests to `main`
 - Triage security reports (see `SECURITY.md`)
 - Cut releases (tag, artifacts, provenance attestation). PyPI publishing via the
-  OIDC Trusted Publisher workflow is implemented but currently gated off.
+  OIDC Trusted Publisher workflow is enabled and is scheduled by any `v*` tag; it
+  waits on manual approval under the `pypi` environment's required-reviewer rule.
 
 ## Adding a Maintainer
 

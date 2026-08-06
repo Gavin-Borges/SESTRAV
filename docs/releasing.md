@@ -6,8 +6,9 @@ keyless [SLSA build-provenance](https://slsa.dev/) attestation (Sigstore, via
 GitHub OIDC - no maintainer-managed keys), and publishes the artifacts plus a
 SHA-256 manifest to a GitHub Release.
 
-This is the mechanism behind OpenSSF Best Practices `signed_releases` and
-`version_tags_signed`.
+This is the mechanism behind OpenSSF Best Practices `signed_releases`.
+`version_tags_signed` is separate: it depends on signing the tag locally with
+`git tag -s`, not on this workflow.
 
 ## One-time setup: signed git tags (`version_tags_signed`)
 
@@ -20,7 +21,7 @@ git config --global tag.gpgSign true
 ```
 
 Then add the **same public key** to GitHub as a *signing* key:
-GitHub → Settings → SSH and GPG keys → **New SSH key** → Key type: *Signing Key*.
+GitHub -> Settings -> SSH and GPG keys -> **New SSH key** -> Key type: *Signing Key*.
 GitHub will then show your tags/commits as **Verified**.
 
 ## Cutting a release
@@ -61,8 +62,9 @@ gh attestation verify sestrav-2.0.2-py3-none-any.whl --repo Gavin-Borges/SESTRAV
 # Verify the checksum manifest:
 sha256sum -c SHA256SUMS.txt
 
-# Verify the signed tag:
-git tag -v v2.0.2
+# Verify the tag signature (only for tags cut with `git tag -s`;
+# tags through v2.0.3 are annotated but unsigned):
+git tag -v vX.Y.Z
 ```
 
 ## Publishing to PyPI (Trusted Publishers - no API token)
@@ -73,8 +75,8 @@ Trusted Publishers** - no API token or GitHub secret is required.
 ### One-time setup (already complete)
 
 1. PyPI account created with 2FA enabled.
-2. A **pending trusted publisher** is registered at `pypi.org` → Account settings
-   → Publishing with:
+2. A **pending trusted publisher** is registered at `pypi.org` -> Account settings
+   -> Publishing with:
    - Owner: `Gavin-Borges`, Repository: `SESTRAV`
    - Workflow: `release.yml`, Environment: `pypi`
 3. GitHub environment `pypi` configured with **Required reviewers** - every publish
@@ -84,7 +86,7 @@ Trusted Publishers** - no API token or GitHub secret is required.
 
 ### How a release publishes to PyPI
 
-After the `release` job completes (build → attest → GitHub Release), the `publish`
+After the `release` job completes (build -> attest -> GitHub Release), the `publish`
 job is triggered, pauses for reviewer approval, then runs
 `pypa/gh-action-pypi-publish` which exchanges a short-lived GitHub OIDC token for
 a PyPI upload credential automatically. No static credentials are involved.
@@ -97,8 +99,9 @@ build-provenance attestation, so on the badge form
 **Met** (cryptographic provenance over the release artifacts, verifiable with
 `gh attestation verify`).
 
-`version_tags_signed` remains **Unmet**: v2.0.2 used an annotated but unsigned git
-tag because no personal signing key was configured at release time. It is a
-SUGGESTED (not MUST) criterion, so it does not affect the tier. To meet it on a
-future release, set up an SSH/GPG signing key, tag with `git tag -s`, and verify
-with `git tag -v`.
+`version_tags_signed` remains **Unmet**: every tag through v2.0.3 is annotated but
+unsigned, because no personal signing key was configured at the time those
+releases were cut. It is a SUGGESTED (not MUST) criterion, so it does not affect
+the tier. A maintainer SSH signing key is now configured locally (`gpg.format=ssh`
+with `commit.gpgsign` and `tag.gpgsign` enabled), so the criterion is met on the
+next release simply by tagging with `git tag -s` and verifying with `git tag -v`.

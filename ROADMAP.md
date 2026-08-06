@@ -16,7 +16,8 @@ _Last updated: 2026-08._
   model/assurance case); the open gaps are the multi-person criteria
   (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require
   a second maintainer/contributor. See `docs/threat_model.md` and `GOVERNANCE.md`.
-- **Test coverage.** Coverage is measured on two scopes, both gated in CI:
+- **Test coverage.** Coverage is measured on two scopes; only the library scope is
+  gated in CI:
   - **Library scope** (OpenSSF Silver `test_statement_coverage80`): the importable
     library surface - `src`/`functions` modules without a `__main__` CLI entry
     point. Measured via `.coveragerc.library` (omit list generated mechanically by
@@ -25,7 +26,7 @@ _Last updated: 2026-08._
     This clears the OpenSSF **Gold** targets (>=90% statement, >=80% branch).
   - **Whole-repo floor**: `pyproject.toml`'s `fail_under` blocks regressions across
     the entire tree (research/CLI scripts included), gated at `fail_under=35`,
-    currently ~34% statement (34.37%, measured 2026-06-22) - a hair under the
+    currently 34.37% (branch-inclusive, measured 2026-06-22) - a hair under the
     floor. This is a local-DX regression gate, not a CI/badge gate.
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
@@ -43,8 +44,11 @@ _Last updated: 2026-08._
   is in place (`.github/workflows/docker.yml`); it fires on the next version tag.
   It has not run yet - the workflow was added after `v2.0.3`, so no image is
   published.
-- **Packaging.** Publish `sestrav` to PyPI as a pip-installable package (the
-  publish job exists but is gated off; installation is from source today).
+- **Packaging.** Publish `sestrav` to PyPI as a pip-installable package.
+  Installation is from source today. The publish job in
+  `.github/workflows/release.yml` is enabled (`PYPI_PUBLISH` is `true`) and will
+  be scheduled by the next `v*` tag; it then pauses for manual approval under the
+  `pypi` environment's required-reviewer rule, which is the actual gate.
 
 ## Mid term (3-9 months)
 

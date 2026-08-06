@@ -302,7 +302,8 @@ trained model binaries or runtime caches; training must run before production sc
   loopback only.
 - **CI:** GitHub Actions runs the pytest suite, validates Snakemake wiring, enforces a
   dataset-curation QC gate, and runs the security workflows on every push and PR to
-  `main`. Coverage is gated on two scopes (library and whole-repo).
+  `main`. Coverage is measured on two scopes (library and whole-repo); CI gates the
+  library scope, while the whole-repo floor is a local regression check.
 
 ---
 
