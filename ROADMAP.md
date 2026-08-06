@@ -25,7 +25,8 @@ _Last updated: 2026-08._
     This clears the OpenSSF **Gold** targets (>=90% statement, >=80% branch).
   - **Whole-repo floor**: `pyproject.toml`'s `fail_under` blocks regressions across
     the entire tree (research/CLI scripts included), gated at `fail_under=35`,
-    currently ~35% statement (~33.74% branch-inclusive).
+    currently ~34% statement (34.37%, measured 2026-06-22) - a hair under the
+    floor. This is a local-DX regression gate, not a CI/badge gate.
     Executable scripts (those with `__main__`) are validated by the integration
     tests and CI data/benchmark gates rather than unit statement coverage.
 
@@ -54,8 +55,9 @@ _Last updated: 2026-08._
   to improve allele-stratified recall.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
   for balanced recall across taxa and peptide lengths.
-- **Release automation.** Automate release-bundle attachment and checksum/signature
-  verification in the GitHub Release workflow.
+- **Release automation.** Attach the `src.release_bundle` ZIP to the GitHub
+  Release automatically. Checksum generation (`SHA256SUMS.txt`) and artifact
+  provenance attestation are already automated in `.github/workflows/release.yml`.
 
 ## Longer term (9-18 months)
 

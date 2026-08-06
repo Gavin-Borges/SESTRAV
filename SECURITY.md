@@ -216,8 +216,9 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
 - **Semgrep `dangerous-subprocess-use-tainted-env-args` (external-tool wrappers):**
   Risk-accepted false positive. The benchmark wrappers shell out to external binaries
   (PRIME, PredIG/Docker) via `subprocess.run`.
-  - **Identifiers:** Semgrep `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args`
-   , Bandit `B603`.
+  - **Identifiers:** Semgrep
+    `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args`,
+    Bandit `B603`.
   - **Scope:** `scripts/run_prime_wrapper.py`, `scripts/run_predig_wrapper.py`,
     `scripts/run_predig_batched.py`.
   - **Severity:** Error (Semgrep default); not exploitable in SESTRAV's model.

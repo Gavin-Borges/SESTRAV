@@ -19,7 +19,8 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
   ability to build, test, and cut a release (see checklist below). Release-artifact
   signing is keyless (Sigstore via GitHub OIDC), so no artifact-signing key changes
   hands; the continuity requirement there is workflow access, not key custody.
-  Commit and tag signing is separate and does use a maintainer-held SSH key
+  Commit signing is separate and does use a maintainer-held SSH key; tag signing
+  is configured to use that same key, but no signed tag has been cut yet
   (see `docs/releasing.md`).
 - **Honest current bus factor:** **1** until a backup maintainer is designated and
   has completed the onboarding checklist below. Do not claim a bus factor of 2 on
@@ -53,8 +54,8 @@ The designated backup confirms they can independently:
 - [ ] Run the Snakemake dry-run (`snakemake --snakefile pipeline.smk --dry-run --cores 1`).
 - [ ] Produce a release bundle (`python -m src.release_bundle --output-dir release_artifacts`).
 - [ ] Hold repository **Maintain/Admin** access.
-- [ ] Hold `workflow` permission to run `.github/workflows/release.yml` (release
-      artifacts are signed keylessly via Sigstore/OIDC - no key custody required).
+- [ ] Push a version tag (`v*`) to trigger `.github/workflows/release.yml` - release
+      artifacts are signed keylessly via Sigstore/OIDC, so no key custody is required.
 
 ## Succession
 
