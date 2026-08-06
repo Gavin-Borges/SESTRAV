@@ -33,7 +33,7 @@ _Last updated: 2026-08._
 
   Raise both floors only as real tests land - never by padding. The library scope
   already clears the Gold targets (>=90% statement / >=80% branch); the whole-repo
-  floor is the one with room to ratchet. Subprocess-launched
+  scope is the one with headroom to grow. Subprocess-launched
   modules are measured via the `tools/coverage_subprocess` hook so they are not
   undercounted as 0%.
 - **Signed release artifacts - shipped.** Release artifacts carry a keyless
