@@ -93,6 +93,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   resolved-but-vulnerable pin that exists only in a lockfile raises no alert. That job is
   currently the only thing that sees such a pin.
 
+- **Fail-closed advisory gate added for the production lockfile**
+  (`tools/check_lockfile_advisories.py`, `environments/accepted_advisories.toml`),
+  retiring pip-audit's `--ignore-vuln` CLI flags as a suppression mechanism in
+  `.github/workflows/security.yml`. Two structural gaps compounded to let
+  CVE-2025-3000 sit patched-but-unnoticed for four weeks after torch 2.13.0 shipped:
+  Dependabot parses `.in` sources, never compiled `.lock`/`.txt` artifacts (across
+  every alert this repo has ever had, zero carry a `manifest_path` ending in
+  `.lock`), and every pip-audit step in CI was `continue-on-error` with permanent
+  `--ignore-vuln` flags applied *before* any report was written - invisible to any
+  tool that reads pip-audit's own output, including one meant to notice when a
+  suppressed finding gets fixed upstream. The new step consumes the same
+  `pip-audit --format json` report the tooling-assert step already produces
+  (now generated unfiltered), fails the job on any finding not explicitly listed
+  in `environments/accepted_advisories.toml`, and emits a `::notice::` when an
+  accepted advisory no longer appears in the audit - the fixed-but-forgotten
+  direction of the same problem. **Scoped to packages this repo actually pins**
+  in `environments/requirements.lock`, not everything an audited venv contains:
+  a real `pip-audit` run against a live dev environment (not just a fixture)
+  surfaced findings on `pip` and `mcp`, neither of which is a lockfile pin -
+  `pip` is whatever the CI runner's Python bootstrap ships, `mcp` lives only in
+  `environments/requirements-semgrep.txt`, a separate CI/dev-only manifest this
+  job never audits. Gating on either would have blocked every PR on a finding
+  with no pin here to bump. Out-of-scope findings are reported as `::notice::`
+  for visibility and never require an acceptance entry, matching Dependabot's
+  own scope (it never alerts on a package absent from a tracked manifest). 28
+  new unit tests (`tests/test_check_lockfile_advisories.py`), since pip-audit
+  cannot run against `environments/requirements.lock` on Windows (it is
+  Linux-compiled; `nvidia-cufile` has no Windows wheel), so the gate is
+  exercised against fixture reports rather than a live audit; schema
+  assumptions were independently verified against a real `pip-audit --format
+  json` report before being locked into fixtures. Built against a branch point
+  before PR #205 (torch 2.13.0) had merged, so it was briefly seeded with a
+  temporary allowlist entry for `PYSEC-2025-194` / torch; rebased onto main
+  after that PR merged, and the now-unnecessary entry was removed before this
+  branch was pushed rather than left for the tool's own stale-acceptance
+  notice to catch later.
+
 - **`cryptography` floored at `>=50.0.0`** to close GHSA-g6cj-pr64-35w5 / CVE-2026-69247
   (high, CVSS 8.2): `pkcs7_decrypt_der` / `_pem` / `_smime` reported the outcome of decrypting
   a `RecipientInfo`'s `encryptedKey` in distinguishable ways, one of which disclosed the exact

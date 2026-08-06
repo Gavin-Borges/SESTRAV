@@ -152,8 +152,19 @@ SESTRAV's offline model, etc.):
 1. Add an entry to the **Risk-Acceptance Register** below: identifier, component,
    rationale, and a re-review trigger or date.
 2. If it is noisy in CI, suppress it *at the source* with the verified advisory ID
-   and a comment pointing here (e.g. pip-audit `--ignore-vuln <GHSA>`, or
-   dismiss-with-reason in the Security tab). Never suppress without a register entry.
+   and a pointer back to this register entry:
+   - For a `pip-audit` finding on `environments/requirements.lock` (the production
+     lockfile), add an entry to `environments/accepted_advisories.toml` -
+     `.github/workflows/security.yml`'s `pip-audit` job fails closed on any finding
+     not listed there (`tools/check_lockfile_advisories.py`). Do **not** use
+     pip-audit's `--ignore-vuln` flag for this: it is applied before pip-audit
+     writes its own report, so a suppressed finding becomes invisible to every tool
+     that reads that report, including the ones meant to notice when it gets fixed
+     upstream. That gap is exactly how CVE-2025-3000 sat patched-but-unnoticed for
+     four weeks; see the entry below.
+   - For anything else (Semgrep/CodeQL SARIF, Dependabot), dismiss-with-reason in
+     the Security tab, citing this register entry in the dismissal comment.
+   - Never suppress without a register entry.
 3. Note material changes in the `CHANGELOG.md` `Unreleased / Security` section as
    the audit trail.
 
