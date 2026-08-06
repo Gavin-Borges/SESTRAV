@@ -42,7 +42,7 @@ def test_random_predictions():
 
 
 def test_issr_perfect():
-    """ISSR@10 should be 1.0 when all true positives are in top 10%."""
+    """ISSR@10 should be 1.0 when every peptide in the top 10% is a true positive."""
     y_true = np.array([0] * 90 + [1] * 10)
     y_scores = np.array(list(range(100)))  # positives have highest scores
     assert issr_at_k(y_true, y_scores, 10) == 1.0
