@@ -196,6 +196,7 @@ pull request; CI must be green before merging.
 | `fix/` | bug fix |
 | `docs/` | documentation only |
 | `chore/` | tooling, deps, config, CI |
+| `ci/` | CI/CD pipeline and workflow changes |
 | `data/` | dataset assembly or curation |
 | `results/` | results artefacts, evaluation runs |
 | `refactor/` | code restructuring, no behaviour change |

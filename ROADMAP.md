@@ -5,7 +5,7 @@ This roadmap describes the project's intended direction for at least the next
 with research findings and contributor availability. Progress is tracked in
 GitHub Issues and reflected in `CHANGELOG.md`.
 
-_Last updated: 2026-06._
+_Last updated: 2026-08._
 
 ## Near term (0-3 months)
 
@@ -33,8 +33,10 @@ _Last updated: 2026-06._
   ≥90% statement / ≥80% branch on the library for Gold. Subprocess-launched
   modules are measured via the `tools/coverage_subprocess` hook so they are not
   undercounted as 0%.
-- **Signed releases.** Cryptographically sign release artifacts and tags and
-  document verification in `SECURITY.md`.
+- **Signed releases - shipped.** Release artifacts and tags are cryptographically
+  signed (keyless Sigstore/SLSA build-provenance attestation via
+  `.github/workflows/release.yml`), with verification documented in
+  `SECURITY.md`'s "Release Integrity & Verification" section.
 - **Packaging.** Publish `sestrav` to PyPI as a pip-installable package and push a
   pre-built Docker image (with the canonical 30-feature model) to a container
   registry.

@@ -10,9 +10,11 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
 
 - **Lead maintainer:** Gavin Borges (@Gavin-Borges) - primary author, holds repo
   admin, performs releases and security response.
-- **Backup maintainer:** _<DESIGNATE: name and @handle>_ - **action required.**
-  This should be a trusted person with the ability and willingness to take over
-  if the lead becomes unavailable. They do **not** need to be a daily committer,
+- **Backup maintainer:** none currently designated - **action required.** The
+  project is open to a qualified co-maintainer taking on this role; see
+  `MAINTAINERS.md` for how to get involved. The backup should be a trusted
+  person with the ability and willingness to take over if the lead becomes
+  unavailable. They do **not** need to be a daily committer,
   but they MUST have (a) repository **Admin/Maintain** access, (b) a verified
   ability to build, test, and cut a release (see checklist below), and (c) access
   to or a recovery path for the release-signing key.
