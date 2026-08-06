@@ -141,13 +141,20 @@ jobs:
       #
       # NOTE: Dependabot parses `.in` sources, not compiled `.lock`/`.txt`
       # artifacts, so a resolved-but-vulnerable pin in a lockfile raises no alert.
-      # This job is currently the only thing that sees those. Keep it that way.
+      # This job is the only thing that SEES those - the step below is what ENFORCES
+      # on what it sees.
       #
-      # Risk-accepted advisories are suppressed here with verified IDs and logged
-      # in SECURITY.md's Risk-Acceptance Register. To accept a new one, add its
-      # ID below with a comment and a matching register entry - never suppress
-      # without one. PYSEC ids are matched by pip-audit's PyPI source; GHSA ids
-      # are kept alongside for traceability with Dependabot/Security-tab reports.
+      # No pip-audit invocation below carries `--ignore-vuln`. Suppression lives
+      # entirely in environments/accepted_advisories.toml, enforced by the fail-closed
+      # step at the bottom of this job (tools/check_lockfile_advisories.py). A CLI
+      # suppression flag is invisible in any report pip-audit produces - it is applied
+      # before the JSON is written - so nothing that reads pip-audit's own output can
+      # ever notice a suppressed finding, whether it is still vulnerable or has since
+      # been fixed. That is exactly how CVE-2025-3000 sat patched-but-unnoticed for
+      # four weeks (see PR #205 / SECURITY.md). To accept a new advisory, add it to
+      # environments/accepted_advisories.toml with a matching SECURITY.md
+      # Risk-Acceptance Register entry that carries a re-review trigger - never
+      # suppress without one.
       - name: Install the pinned lockfile (resolver-free) for auditing
         # continue-on-error mirrors the SBOM job below: a heavy or platform-specific
         # wheel may not install on this runner. The guard two steps down asserts the
@@ -157,30 +164,22 @@ jobs:
 
       - name: Audit installed dependency set
         continue-on-error: true
-        run: |
-          # No --ignore-vuln suppressions. The only entry this audit ever
-          # suppressed was CVE-2025-3000 / PYSEC-2025-194 / GHSA-rrmf-rvhw-rf47
-          # (torch.jit.script memory corruption), which is fixed upstream in
-          # torch 2.13.0 and resolved by upgrading rather than ignoring. Keep
-          # this list empty unless a finding is added to SECURITY.md's
-          # risk-acceptance register with a re-review trigger.
-          pip-audit \
-            --desc
+        run: pip-audit --desc
 
       - name: Assert pip-audit tooling actually ran (fail on TOOLING error only)
         # The advisory audit above is continue-on-error so real CVE findings do not
-        # block merges. That also masks a TOOLING failure (crash, unparseable output,
-        # incomplete install) as a clean pass. This guard re-runs pip-audit in JSON
-        # mode over the installed environment and fails the JOB only when the
-        # production set was not actually audited - findings themselves are ignored
-        # here (they are routed to the run summary and the Security tab). It requires
-        # a parseable report AND a core production dependency present, so an empty or
-        # tooling-only environment cannot pass as a clean scan.
+        # block merges here - the fail-closed advisory gate below does that instead,
+        # against an allowlist rather than blocking on every finding. This step masks
+        # only a TOOLING failure (crash, unparseable output, incomplete install), not
+        # a real finding. It re-runs pip-audit in JSON mode over the installed
+        # environment (unfiltered - no --ignore-vuln) and fails the JOB only when the
+        # production set was not actually audited. It requires a parseable report AND
+        # a core production dependency present, so an empty or tooling-only
+        # environment cannot pass as a clean scan. The report this step writes is
+        # consumed as-is by the next step - do not add --ignore-vuln here.
         run: |
           set -o pipefail
-          pip-audit \
-            --format json \
-            --output pip-audit-report.json || true
+          pip-audit --format json --output pip-audit-report.json || true
           python - <<'PY'
           import json, sys
           try:
@@ -204,6 +203,13 @@ jobs:
               sys.exit(1)
           print(f"pip-audit tooling OK: audited {len(deps)} installed packages")
           PY
+
+      - name: Fail on unaccepted lockfile advisories
+        # The actual fail-closed gate. Consumes the same pip-audit-report.json the
+        # step above just wrote - unfiltered, no --ignore-vuln - so a suppressed
+        # advisory cannot hide from it the way it could hide from a CLI flag. NOT
+        # continue-on-error: this is the step that is supposed to block a merge.
+        run: python tools/check_lockfile_advisories.py pip-audit-report.json
 
       - name: Write triage digest to run summary
         if: always()

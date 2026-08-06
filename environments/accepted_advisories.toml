@@ -1,0 +1,35 @@
+# Explicitly accepted pip-audit findings for environments/requirements.lock.
+#
+# This file is the sole suppression mechanism for the fail-closed advisory gate
+# (tools/check_lockfile_advisories.py, wired into the `pip-audit` job in
+# .github/workflows/security.yml). It replaces the previous mechanism of permanent
+# `--ignore-vuln` CLI flags on pip-audit invocations, which had two problems: nothing
+# tested them, and because they are applied before pip-audit ever writes a report,
+# nothing that reads pip-audit's own output could notice when a suppressed advisory
+# got fixed upstream. That combination is exactly how CVE-2025-3000 sat
+# patched-but-unnoticed for four weeks (see PR #205 / SECURITY.md).
+#
+# Every entry here MUST have a matching Risk-Acceptance Register entry in SECURITY.md
+# that carries a re-review trigger. Never add an entry here without one.
+#
+# An entry is scoped to one (id, package) pair - the same advisory id reaching the
+# lockfile through a different package has not been assessed and will still fail.
+#
+# Fields:
+#   id             - the advisory id as pip-audit's JSON report names it (PYSEC ids are
+#                    matched by pip-audit's PyPI source; keep the GHSA id in `reason`
+#                    for cross-reference with Dependabot/the Security tab).
+#   package        - normalized (lowercase, underscores as hyphens).
+#   reason         - one line: why this is accepted, not just "see register".
+#   register_entry - pointer to the exact SECURITY.md section.
+#
+# Currently empty. This branch was built off a point before PR #205 (torch 2.13.0,
+# closing CVE-2025-3000) had merged, so it briefly carried one temporary entry for
+# PYSEC-2025-194 / torch; removed after rebasing onto main once #205 merged, since
+# the finding no longer appears in the audit at all. Example shape, for reference:
+#
+# [[accepted]]
+# id = "PYSEC-2026-NNNN"
+# package = "some-package"
+# reason = "one line: why this is accepted, not just 'see register'"
+# register_entry = "SECURITY.md, Risk-Acceptance Register, '<exact entry title>'"
