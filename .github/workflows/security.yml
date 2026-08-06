@@ -248,11 +248,26 @@ jobs:
         run: pip install --require-hashes --no-deps -r environments/requirements.lock
 
       - name: Generate Python SBOM
+        # --ignore-packages excludes the SBOM tooling itself and the runner's own
+        # bootstrap. pip-licenses reports whatever is installed, and this job installs
+        # pip-licenses (plus prettytable/wcwidth from environments/requirements-sbom.txt)
+        # alongside the production lockfile; pip and wheel come preinstalled on the
+        # runner. None of the five is a production dependency - verified absent from
+        # environments/requirements.lock, which does pin setuptools, so setuptools is
+        # deliberately NOT excluded. Without this, the documented fix path (commit the
+        # generated artifact wholesale) would bake the SBOM tooling into the production
+        # SBOM, over-reporting the dependency set - the mirror of the under-reporting
+        # this job's freshness gate exists to catch.
         run: |
-          pip-licenses --format=json --output-file=sbom.json
-          pip-licenses --format=markdown --output-file=DEPENDENCY_LICENSES.md
+          pip-licenses --format=json --output-file=sbom.json \
+            --ignore-packages pip-licenses prettytable wcwidth pip wheel
+          pip-licenses --format=markdown --output-file=DEPENDENCY_LICENSES.md \
+            --ignore-packages pip-licenses prettytable wcwidth pip wheel
 
       - name: Upload SBOM artifact
+        # Uploaded BEFORE the freshness gate below, and with `if: always()`, so the
+        # regenerated artifacts are downloadable even on a failing run - that download
+        # is the documented fix path for the gate.
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -261,3 +276,51 @@ jobs:
             sbom.json
             DEPENDENCY_LICENSES.md
           retention-days: 90
+
+      # Fail-closed freshness gate. docs/sbom.json and docs/DEPENDENCY_LICENSES.md are
+      # committed pip-licenses output, but nothing regenerated them on a schedule and
+      # nothing compared them against the lockfile, so they drifted silently: as of
+      # 2026-08-05 they were last generated 2026-06-26 and 46 of the 124 packages they
+      # share with environments/requirements.lock disagreed with it. Four disagreed in
+      # the security-relevant direction, advertising torch 2.12.0, cryptography 48.0.0,
+      # gitpython 3.1.46 and aiohttp 3.13.5 when the repo already pinned 2.13.0, 50.0.0,
+      # 3.1.57 and 3.14.3. A supply-chain artifact that understates its own project's
+      # posture is worse than none, because downstream tooling reads it as authoritative.
+      #
+      # These compare what was just generated from the pinned lockfile against what is
+      # committed. NOT continue-on-error: they are meant to block. A version
+      # disagreement fails, and so does a package present in the generated set but
+      # absent from the committed one (that is how a deleted or tampered row shows up).
+      # The reverse - committed but not regenerated - is a notice only, because the
+      # lockfile install above is continue-on-error and platform wheels (CUDA etc.)
+      # legitimately fail on this runner.
+      #
+      # EXPECTED TO FAIL ON ITS FIRST RUN, by design: the committed artifacts are
+      # genuinely stale and the fix is to download the `python-sbom` artifact uploaded
+      # by the step above and commit both files over the copies in docs/. They were
+      # deliberately not hand-patched, because editing individual rows would fabricate
+      # freshness in a supply-chain attestation. Note that correction will also SHRINK
+      # the committed artifacts: they currently carry 214 packages captured in a local
+      # dev environment, while a CI run produces the lockfile set minus any wheel that
+      # does not build on the runner. A large row-count drop on that commit is expected,
+      # not tampering.
+      #
+      # After that one commit this stays green until the audited dependency set changes.
+      # That is usually a lockfile bump, but not only: a GitHub runner image refresh can
+      # move a preinstalled package and turn this red with the lockfile untouched. Every
+      # such failure is resolved by the same regenerate-and-commit path.
+      #
+      # Two separate steps on purpose: GitHub runs `run:` blocks under `bash -e`, so
+      # chaining both invocations in one block would abort on the first failure and
+      # never compare the second artifact - which matters precisely on the first red run.
+      # Both carry `!cancelled()` so neither is skipped when the other fails, while a
+      # genuinely cancelled job still stops.
+      - name: Fail on stale committed sbom.json
+        if: ${{ !cancelled() }}
+        run: python tools/check_sbom_freshness.py --generated sbom.json --committed docs/sbom.json
+
+      - name: Fail on stale committed DEPENDENCY_LICENSES.md
+        if: ${{ !cancelled() }}
+        run: |
+          python tools/check_sbom_freshness.py \
+            --generated DEPENDENCY_LICENSES.md --committed docs/DEPENDENCY_LICENSES.md
