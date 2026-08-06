@@ -113,8 +113,11 @@ All metrics are computed by `src/evaluate_metrics.py`. The `evaluate()` function
 **Core metrics (used in all reports):**
 - `auc_roc` - Area Under the ROC Curve
 - `auc_pr` - Area Under the Precision-Recall Curve (primary metric)
-- `issr_10` - Immune-Stimulating Success Rate at top 10%
-- `issr_25` - ISSR at top 25%
+- `issr_10` - Immune-Stimulating Success Rate at top 10%: the fraction of the
+  top-10%-ranked peptides that are true positives. This is precision within the top
+  decile, not recall of all positives, and is numerically identical to `precision_10`
+  (`precision_at_k` in `src/evaluate_metrics.py` calls `issr_at_k` directly).
+- `issr_25` - ISSR at top 25%, same definition applied to the top quartile
 
 **Extended metrics (added in v2.0):**
 - `precision_10`, `precision_25` - Precision at top 10%/25%

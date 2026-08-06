@@ -107,7 +107,7 @@ SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A label
 | Binding-only (MHCflurry) | 0.800 | 0.861 | Fully scored |
 | DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) |
 
-> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile recall - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's canonical `full_31`/`mode_31` (0.828) posts the highest point AUC-PR in this certified field - a statistical near-tie with BigMHC. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper section 3.3.
+> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile precision (ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to top-decile precision) - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's canonical `full_31`/`mode_31` (0.828) posts the highest point AUC-PR in this certified field - a statistical near-tie with BigMHC. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper section 3.3.
 
 ### Paradigm 2 - v5 within-virus CV (N=35,597 active; 9 viruses + IEDB viral negatives + central-tolerance decoys)
 
@@ -130,7 +130,7 @@ Self-proteome Gate 1 (viral epitopes vs. self-peptide background) is a separate,
 
 > **Note:** The pooled AUC-ROC 0.9368 previously reported as a same-pathogen figure was decoy-inflated (it only reproduces when synthetic / cross-pathogen decoys, incl. the vaccinia panel, are mixed in as if they were same-pathogen negatives) and is RETRACTED. The honest pooled same-pathogen ROC on real IEDB negatives is 0.712; the pooled same-pathogen AUC-PR is base-rate-inflated (about 81% positive) and is not reported as a headline. The per-virus within-CV AUC-ROC above (mean 0.751), not any pooled number, is the reported same-pathogen metric. DENV 0.859 is itself decoy-inflated (real-negative-only ROC 0.491 on 12 negatives).
 
-> **Primary metric:** AUC-PR (class-imbalanced data; random baseline ≈ positive prevalence). ISSR@10 = fraction of true positives ranked in the top 10%.
+> **Primary metric:** AUC-PR (class-imbalanced data; random baseline ~ positive prevalence). ISSR@10 = the fraction of the top-10%-ranked peptides that are true positives (precision within the top decile, not recall of all positives).
 
 ### Paradigm 3 - Leave-One-Virus-Out (LOO) Cross-Virus Transfer (Amendment 7)
 
@@ -464,7 +464,7 @@ All metrics are computed by `src/evaluate_metrics.py`.
 | --- | --- |
 | AUC-PR | Area Under Precision-Recall Curve (primary metric, robust to class imbalance) |
 | AUC-ROC | Area Under ROC Curve |
-| ISSR@10/25 | True positive fraction in top 10% / 25% (enrichment) |
+| ISSR@10/25 | Fraction of the top 10% / 25% ranked peptides that are true positives (enrichment; precision within that slice, not recall). Numerically identical to Precision@10/25 - the same computation under a domain-specific name, not independent evidence. |
 | Precision@10/25 | Precision among top 10% / 25% predictions |
 | Recall@10/25 | Recall captured in top 10% / 25% |
 | NDCG@10/25 | Normalized Discounted Cumulative Gain at top 10% / 25% |

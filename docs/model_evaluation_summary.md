@@ -51,8 +51,8 @@ metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `script
 |--------|-----------------|----------------------|-------|
 | **AUC-PR** | **0.8399 ± 0.011** | 0.8235 ± 0.012 | Primary metric |
 | **AUC-ROC** | 0.6728 ± 0.023 | 0.6393 ± 0.029 | |
-| **ISSR@10** | **0.9158 ± 0.042** | 0.8842 ± 0.052 | True positive fraction in top 10% |
-| **ISSR@25** | 0.9102 ± 0.038 | 0.8816 ± 0.024 | True positive fraction in top 25% |
+| **ISSR@10** | **0.9158 ± 0.042** | 0.8842 ± 0.052 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
+| **ISSR@25** | 0.9102 ± 0.038 | 0.8816 ± 0.024 | Fraction of the top-25% ranked peptides that are true positives (precision within the top quartile) |
 
 > **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** - best single-number unweighted
 > result for SESTRAV on v3. Improvement over feature_mode=31 unweighted (0.864): +0.022 AUC-PR.
@@ -70,8 +70,8 @@ metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `script
 |--------|-----------------|----------------------|-------|
 | **AUC-PR** | **0.8276 ± 0.027** | 0.8205 ± 0.010 | Primary metric (class imbalance) |
 | **AUC-ROC** | 0.6431 ± 0.039 | 0.6062 ± 0.037 | |
-| **ISSR@10** | 0.8105 ± 0.079 | 0.8105 ± 0.042 | True positive fraction in top 10% |
-| **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | True positive fraction in top 25% |
+| **ISSR@10** | 0.8105 ± 0.079 | 0.8105 ± 0.042 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
+| **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | Fraction of the top-25% ranked peptides that are true positives (precision within the top quartile) |
 
 > **Note on ablation estimate:** An early unweighted ablation projected `full_31` AUC-PR 0.864.
 > The actual result with sample weights is 0.8276 - consistent with the frozen v2.0.0 30-feature
