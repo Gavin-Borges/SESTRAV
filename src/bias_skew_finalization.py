@@ -93,12 +93,39 @@ def _guard_results_dir(results_dir: str, allow_overwrite: bool) -> None:
     )
 
 
+def _resolve_feature_mode_artifact(feature_mode: int, binding_matrix_path: str) -> tuple[str, str | None]:
+    """Map a feature_mode this pipeline knows how to train to its model
+    filename and the binding_matrix_path (if any) train_models needs for it.
+
+    Only feature_mode values this pipeline is actually wired to run through
+    train_classifier.train_models get an explicit case: 21 (legacy
+    sequence-only, no binding matrix), 30 (multi-allele integrated) and 31
+    (canonical production model; see README.md / ARCHITECTURE.md). Anything
+    else raises rather than silently falling back to whichever branch was
+    written last - a prior version of this function had exactly that shape:
+    an `== 30` check with an `else` that unconditionally pointed at
+    rf_21feature_legacy.joblib, so feature_mode=31 (the repo-wide canonical
+    default, e.g. pipeline.smk's config.get("feature_mode", 31)) silently
+    loaded the wrong, legacy model instead of erroring or training mode 31.
+    """
+    if feature_mode == 21:
+        return "rf_21feature_legacy.joblib", None
+    if feature_mode == 30:
+        return "rf_30feature_integrated.joblib", binding_matrix_path
+    if feature_mode == 31:
+        return "rf_31feature_integrated.joblib", binding_matrix_path
+    raise ValueError(
+        f"Unsupported feature_mode={feature_mode!r} for run_bias_skew_finalization; "
+        "expected one of 21, 30, 31."
+    )
+
+
 def run_bias_skew_finalization(
     source_data_dir: str,
     model_dir: str,
     results_dir: str,
     data_csv: str = "data/immunogenicity_dataset_v4.csv",
-    feature_mode: int = 30,
+    feature_mode: int = 31,
     binding_matrix_path: str = "models/peptide_binding_matrix_v4.csv",
     allow_overwrite: bool = False,
 ) -> str:
@@ -110,6 +137,9 @@ def run_bias_skew_finalization(
     dataset's own honesty claims, so it refuses to guess a destination.
     """
     _guard_results_dir(results_dir, allow_overwrite)
+    model_filename, effective_binding_matrix_path = _resolve_feature_mode_artifact(
+        feature_mode, binding_matrix_path
+    )
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(results_dir, exist_ok=True)
 
@@ -138,7 +168,7 @@ def run_bias_skew_finalization(
         n_cv_folds=5,
         random_state=42,
         feature_mode=feature_mode,
-        binding_matrix_path=binding_matrix_path if feature_mode == 30 else None,
+        binding_matrix_path=effective_binding_matrix_path,
         allow_overwrite=allow_overwrite,
     )
     train_ann(
@@ -149,10 +179,7 @@ def run_bias_skew_finalization(
         allow_overwrite=allow_overwrite,
     )
 
-    model_path = os.path.join(
-        model_dir,
-        "rf_30feature_integrated.joblib" if feature_mode == 30 else "rf_21feature_legacy.joblib",
-    )
+    model_path = os.path.join(model_dir, model_filename)
     # run_final_validation computes and publishes baseline_comparison.csv itself
     # (via the same compare_methods call), so no separate direct write is needed
     # here - a redundant pre-write would also always collide with the guard
@@ -238,7 +265,7 @@ if __name__ == "__main__":
         "artifacts. No default: this pipeline writes 8 files directly into it, "
         "including the provenance/audit trail, so it refuses to guess a destination.",
     )
-    parser.add_argument("--feature-mode", type=int, default=30, choices=[21, 30])
+    parser.add_argument("--feature-mode", type=int, default=31, choices=[21, 30, 31])
     parser.add_argument("--binding-matrix", default="models/peptide_binding_matrix_v4.csv")
     parser.add_argument(
         "--allow-overwrite",

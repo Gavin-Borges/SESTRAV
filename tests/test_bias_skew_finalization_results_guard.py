@@ -408,3 +408,102 @@ def test_bias_skew_finalization_cli_advertises_allow_overwrite():
     )
     assert result.returncode == 0
     assert "--allow-overwrite" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# feature_mode -> model artifact resolution
+#
+# Regression coverage for the defect where run_bias_skew_finalization branched
+# only on `feature_mode == 30` (both for the binding_matrix_path passed into
+# train_models, and for the model_path handed to run_final_validation), with
+# an unconditional `else` that pointed at rf_21feature_legacy.joblib. A caller
+# passing feature_mode=31 - the repo-wide canonical default (see
+# pipeline.smk's config.get("feature_mode", 31), README.md, ARCHITECTURE.md)
+# - did not error; it silently ran validation against the wrong, legacy
+# 21-feature model. These tests pin the fixed, explicit per-mode mapping and
+# the default.
+# ---------------------------------------------------------------------------
+
+
+def test_default_feature_mode_is_the_repo_wide_canonical_31():
+    import inspect
+
+    import src.bias_skew_finalization as bsf
+
+    sig = inspect.signature(bsf.run_bias_skew_finalization)
+    assert sig.parameters["feature_mode"].default == 31
+
+
+def test_resolve_feature_mode_artifact_maps_31_to_the_canonical_model_and_binding_matrix():
+    import src.bias_skew_finalization as bsf
+
+    model_filename, effective_binding_matrix_path = bsf._resolve_feature_mode_artifact(
+        31, "models/peptide_binding_matrix_v4.csv"
+    )
+    assert model_filename == "rf_31feature_integrated.joblib"
+    assert effective_binding_matrix_path == "models/peptide_binding_matrix_v4.csv"
+
+
+def test_resolve_feature_mode_artifact_maps_30_to_the_30feature_model():
+    import src.bias_skew_finalization as bsf
+
+    model_filename, effective_binding_matrix_path = bsf._resolve_feature_mode_artifact(
+        30, "models/peptide_binding_matrix_v4.csv"
+    )
+    assert model_filename == "rf_30feature_integrated.joblib"
+    assert effective_binding_matrix_path == "models/peptide_binding_matrix_v4.csv"
+
+
+def test_resolve_feature_mode_artifact_maps_21_to_the_legacy_model_with_no_binding_matrix():
+    import src.bias_skew_finalization as bsf
+
+    model_filename, effective_binding_matrix_path = bsf._resolve_feature_mode_artifact(
+        21, "models/peptide_binding_matrix_v4.csv"
+    )
+    assert model_filename == "rf_21feature_legacy.joblib"
+    assert effective_binding_matrix_path is None
+
+
+def test_resolve_feature_mode_artifact_rejects_unsupported_feature_mode_instead_of_silently_falling_back():
+    import src.bias_skew_finalization as bsf
+
+    with pytest.raises(ValueError, match="Unsupported feature_mode"):
+        bsf._resolve_feature_mode_artifact(33, "models/peptide_binding_matrix_v4.csv")
+
+
+def test_bias_skew_finalization_feature_mode_31_trains_and_validates_against_the_31feature_model(
+    tmp_path, monkeypatch
+):
+    """End-to-end wiring proof: with feature_mode=31 (the default), both the
+    train_models call and the model_path handed to run_final_validation
+    resolve to the 31-feature artifact - not the 21-feature legacy one."""
+    bsf = _monkeypatch_heavy_dependencies(monkeypatch)
+
+    calls = {}
+
+    def _fake_train_models(**kwargs):
+        calls["train_models"] = kwargs
+        return None
+
+    def _fake_run_final_validation(**kwargs):
+        calls["run_final_validation"] = kwargs
+        return ("gs.csv", "baseline.csv", "final.md")
+
+    monkeypatch.setattr(bsf, "train_models", _fake_train_models)
+    monkeypatch.setattr(bsf, "run_final_validation", _fake_run_final_validation)
+
+    model_dir = tmp_path / "models"
+    results_dir = tmp_path / "results"
+
+    bsf.run_bias_skew_finalization(
+        source_data_dir=str(tmp_path / "raw"),
+        model_dir=str(model_dir),
+        results_dir=str(results_dir),
+        allow_overwrite=True,
+    )
+
+    assert calls["train_models"]["feature_mode"] == 31
+    assert calls["train_models"]["binding_matrix_path"] is not None
+    assert calls["run_final_validation"]["model_path"] == str(
+        model_dir / "rf_31feature_integrated.joblib"
+    )
