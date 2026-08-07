@@ -90,7 +90,7 @@ The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) p
 | Gold-standard positive recovery | 15/15 positives found; 7/15 in top 25% |
 | Binding-only baseline comparison | Baseline recovers 15/15 (expected for strong-binder set) |
 | Gold-standard negative discrimination | 9/10 negatives pushed down vs. binding-only |
-| SHAP feature contribution | ~60% MHC binding, ~40% TCR-contact features |
+| SHAP feature contribution | Retracted - see [SHAP Feature Attribution](#shap-feature-attribution) below |
 
 **Important:** These results constitute computational validation only and do not establish biological efficacy. Wet-lab experimental confirmation is required for any therapeutic claims. See `results/final_validation_report.md` and `docs/limitations_statement_v1.md` for full details.
 
@@ -154,13 +154,9 @@ Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely
 
 ### SHAP Feature Attribution
 
-SHAP analysis (Random Forest, 720 samples) attributes the decision to:
-- **60%** MHC binding features (per-allele presentation scores)
-- **40%** TCR-contact physicochemical features (positions p4-p8)
+**Retracted.** The previously published ~60% MHC binding / ~40% TCR-contact split is not supported by the current `results/shap_values_rf.csv`: all 10 `bind_*` (MHC binding) SHAP columns are exactly zero across all 2000 rows in that file (100% of attributed |SHAP| falls on TCR-contact physicochemical features), and the row count (2000) does not match the previously cited 720. This traces to an upstream feature-pipeline regression between v1.0.0 and v2.0-rc1, not a SHAP-explainer defect - the explainer code is byte-identical across the regression commit. An investigation confirmed this is an isolated defect in this specific historical artifact: current production training (July 2026 retrain) produces real, varied `bind_*` feature values and is not affected. No replacement attribution split is reported here pending a full SHAP re-run against current production data.
 
-This 60/40 split confirms that TCR features provide meaningful independent signal beyond binding alone, consistent with the 9/10 gold-standard negative discrimination result.
-
-See [`results/external_benchmark_comparison.md`](results/external_benchmark_comparison.md) for full methodology and [`results/shap_values_rf.csv`](results/shap_values_rf.csv) for per-feature SHAP values.
+See [`results/shap_values_rf.csv`](results/shap_values_rf.csv) for the raw (currently non-representative) values, and `docs/claims_register.md` Section 1 (D11) for the discrepancy record.
 
 ## Pipeline Overview
 
