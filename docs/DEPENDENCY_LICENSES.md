@@ -1,453 +1,350 @@
-# Dependency License Inventory
-
-> **Provenance and staleness warning.** This table is a point-in-time snapshot produced by
-> `pip-licenses` against an *installed* environment, last regenerated on 2026-06-26 in
-> commit `83a7c12`. It is **not** generated from the lockfiles, so its version column
-> drifts as dependencies move. As of 2026-08-05, 46 of the 124 rows that also appear in
-> `environments/requirements.lock` disagree with it. Four matter most: this table names
-> `torch 2.12.0`, `cryptography 48.0.0`, `gitpython 3.1.46` and `aiohttp 3.13.5`, where the
-> repo actually pins `2.13.0`, `50.0.0`, `3.1.57` and `3.14.3`. All four of those older
-> versions carry advisories the repo has already closed, so **this table understates
-> SESTRAV's security posture rather than overstating it.**
->
-> `docs/sbom.json` is produced by the same tool in the same run and is stale in the same
-> way, including its `torch` entry. Being JSON consumed by tooling, it cannot carry a
-> warning like this one. Treat it with the same caution.
->
-> **The authoritative pinned versions are `environments/requirements.lock` and
-> `requirements.txt`, never this file.** Read this table for the *license* column, which is
-> stable per package; do not cite its versions.
->
-> **CI now gates this drift.** The `python-sbom` job in `.github/workflows/security.yml`
-> regenerates both artifacts from the pinned lockfile on every run and fails
-> (`tools/check_sbom_freshness.py`) when the committed copies disagree with it or omit a
-> package it produced. What remains outstanding is the one-time correction: download the
-> `python-sbom` artifact from a workflow run and commit both files over the copies here.
-> Until that happens the gate is red by design, and the numbers quoted above are the drift
-> it is reporting. They were deliberately not hand-patched - editing individual rows would
-> fabricate freshness in an artifact downstream tooling reads as authoritative.
->
-> **That correction will also shrink this table.** It currently lists 214 packages,
-> captured in a local development environment that contained tooling well beyond the
-> production dependency set; a CI regeneration produces the pinned lockfile's set minus
-> any wheel that does not build on the runner, and minus the SBOM tooling itself. Expect a
-> substantial drop in row count on that commit. It is the table becoming an accurate
-> production inventory, not content being lost.
-
-| Name                                     | Version     | License                                                                       |
-|------------------------------------------|-------------|-------------------------------------------------------------------------------|
-| CacheControl                             | 0.14.4      | Apache-2.0                                                                    |
-| ConfigArgParse                           | 1.7.5       | MIT License                                                                   |
-| GitPython                                | 3.1.46      | BSD-3-Clause                                                                  |
-| Jinja2                                   | 3.1.6       | BSD License                                                                   |
-| Markdown                                 | 3.10.2      | BSD-3-Clause                                                                  |
-| MarkupSafe                               | 3.0.3       | BSD-3-Clause                                                                  |
-| PuLP                                     | 3.3.0       | MIT                                                                           |
-| PyJWT                                    | 2.13.0      | MIT                                                                           |
-| PyYAML                                   | 6.0.3       | MIT License                                                                   |
-| Pygments                                 | 2.20.0      | BSD-2-Clause                                                                  |
-| Werkzeug                                 | 3.1.8       | BSD-3-Clause                                                                  |
-| absl-py                                  | 2.4.0       | Apache-2.0                                                                    |
-| aiohappyeyeballs                         | 2.6.2       | Python Software Foundation License                                            |
-| aiohttp                                  | 3.13.5      | Apache-2.0 AND MIT                                                            |
-| aiosignal                                | 1.4.0       | Apache Software License                                                       |
-| annotated-doc                            | 0.0.4       | MIT                                                                           |
-| annotated-types                          | 0.7.0       | MIT License                                                                   |
-| anyio                                    | 4.13.0      | MIT                                                                           |
-| appdirs                                  | 1.4.4       | MIT License                                                                   |
-| argparse-dataclass                       | 2.0.0       | MIT License                                                                   |
-| ast_serialize                            | 0.5.0       | MIT                                                                           |
-| astunparse                               | 1.6.3       | BSD License                                                                   |
-| attrs                                    | 26.1.0      | MIT                                                                           |
-| bandit                                   | 1.8.2       | Apache Software License                                                       |
-| biopython                                | 1.87        | LicenseRef-Biopython-License-Agreement                                        |
-| boltons                                  | 21.0.0      | BSD License                                                                   |
-| boolean.py                               | 5.0         | BSD-2-Clause                                                                  |
-| bracex                                   | 2.6         | MIT                                                                           |
-| build                                    | 1.5.0       | MIT                                                                           |
-| certifi                                  | 2026.5.20   | Mozilla Public License 2.0 (MPL 2.0)                                          |
-| cffi                                     | 2.0.0       | MIT                                                                           |
-| charset-normalizer                       | 3.4.7       | MIT                                                                           |
-| click                                    | 8.4.1       | BSD-3-Clause                                                                  |
-| click-option-group                       | 0.5.9       | BSD-3-Clause                                                                  |
-| cloudpickle                              | 3.1.2       | BSD License                                                                   |
-| colorama                                 | 0.4.6       | BSD License                                                                   |
-| conda-inject                             | 1.3.2       | UNKNOWN                                                                       |
-| connection_pool                          | 0.0.3       | MIT License                                                                   |
-| contourpy                                | 1.3.3       | BSD License                                                                   |
-| coverage                                 | 7.14.1      | Apache-2.0                                                                    |
-| cryptography                             | 48.0.0      | Apache-2.0 OR BSD-3-Clause                                                    |
-| cycler                                   | 0.12.1      | BSD License                                                                   |
-| cyclonedx-python-lib                     | 11.11.0     | Apache Software License                                                       |
-| defusedxml                               | 0.7.1       | Python Software Foundation License                                            |
-| docutils                                 | 0.22.4      | BSD License; GNU General Public License (GPL); Public Domain                  |
-| dpath                                    | 2.2.0       | MIT License                                                                   |
-| et_xmlfile                               | 2.0.0       | MIT License                                                                   |
-| exceptiongroup                           | 1.2.2       | MIT License                                                                   |
-| face                                     | 26.0.1      | UNKNOWN                                                                       |
-| fastapi                                  | 0.136.3     | MIT                                                                           |
-| fastjsonschema                           | 2.21.2      | BSD License                                                                   |
-| filelock                                 | 3.29.0      | MIT                                                                           |
-| flatbuffers                              | 25.12.19    | Apache Software License                                                       |
-| fonttools                                | 4.63.0      | MIT                                                                           |
-| frozenlist                               | 1.8.0       | Apache-2.0                                                                    |
-| fsspec                                   | 2026.4.0    | BSD-3-Clause                                                                  |
-| gast                                     | 0.7.0       | BSD License                                                                   |
-| git-filter-repo                          | 2.47.0      | MIT License                                                                   |
-| gitdb                                    | 4.0.12      | BSD License                                                                   |
-| glom                                     | 25.12.0     | BSD License                                                                   |
-| google-auth                              | 2.53.0      | Apache Software License                                                       |
-| google-auth-oauthlib                     | 1.4.0       | Apache Software License                                                       |
-| google-pasta                             | 0.2.0       | Apache Software License                                                       |
-| googleapis-common-protos                 | 1.75.0      | Apache Software License                                                       |
-| grpcio                                   | 1.80.0      | Apache-2.0                                                                    |
-| h11                                      | 0.16.0      | MIT License                                                                   |
-| h5py                                     | 3.16.0      | BSD-3-Clause                                                                  |
-| hf-xet                                   | 1.5.1       | Apache-2.0                                                                    |
-| httpcore                                 | 1.0.9       | BSD-3-Clause                                                                  |
-| httpx                                    | 0.28.1      | BSD License                                                                   |
-| httpx-sse                                | 0.4.3       | MIT                                                                           |
-| huggingface_hub                          | 1.20.1      | Apache Software License                                                       |
-| humanfriendly                            | 10.0        | MIT License                                                                   |
-| hypothesis                               | 6.102.2     | Mozilla Public License 2.0 (MPL 2.0)                                          |
-| idna                                     | 3.16        | BSD-3-Clause                                                                  |
-| immutables                               | 0.21        | Apache Software License                                                       |
-| importlib_metadata                       | 8.7.1       | Apache-2.0                                                                    |
-| iniconfig                                | 2.3.0       | MIT                                                                           |
-| joblib                                   | 1.5.3       | BSD-3-Clause                                                                  |
-| jsonschema                               | 4.25.1      | MIT                                                                           |
-| jsonschema-specifications                | 2025.9.1    | MIT                                                                           |
-| jupyter_core                             | 5.9.1       | BSD-3-Clause                                                                  |
-| keras                                    | 3.13.2      | Apache License 2.0                                                            |
-| kiwisolver                               | 1.5.0       | BSD License                                                                   |
-| libclang                                 | 18.1.1      | Apache Software License                                                       |
-| librt                                    | 0.11.0      | MIT                                                                           |
-| license-expression                       | 30.4.4      | Apache-2.0                                                                    |
-| llvmlite                                 | 0.47.0      | UNKNOWN                                                                       |
-| markdown-it-py                           | 4.2.0       | MIT License                                                                   |
-| matplotlib                               | 3.10.9      | Python Software Foundation License                                            |
-| mcp                                      | 1.23.3      | MIT License                                                                   |
-| mdurl                                    | 0.1.2       | MIT License                                                                   |
-| mhcflurry                                | 2.2.1       | Apache-2.0                                                                    |
-| mhcgnomes                                | 3.32.0      | Apache License                                                                |
-|                                          |             |                            Version 2.0, January 2004                          |
-|                                          |             |                         http://www.apache.org/licenses/                       |
-|                                          |             |                                                                               |
-|                                          |             |    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION               |
-|                                          |             |                                                                               |
-|                                          |             |    1. Definitions.                                                            |
-|                                          |             |                                                                               |
-|                                          |             |       "License" shall mean the terms and conditions for use, reproduction,    |
-|                                          |             |       and distribution as defined by Sections 1 through 9 of this document.   |
-|                                          |             |                                                                               |
-|                                          |             |       "Licensor" shall mean the copyright owner or entity authorized by       |
-|                                          |             |       the copyright owner that is granting the License.                       |
-|                                          |             |                                                                               |
-|                                          |             |       "Legal Entity" shall mean the union of the acting entity and all        |
-|                                          |             |       other entities that control, are controlled by, or are under common     |
-|                                          |             |       control with that entity. For the purposes of this definition,          |
-|                                          |             |       "control" means (i) the power, direct or indirect, to cause the         |
-|                                          |             |       direction or management of such entity, whether by contract or          |
-|                                          |             |       otherwise, or (ii) ownership of fifty percent (50%) or more of the      |
-|                                          |             |       outstanding shares, or (iii) beneficial ownership of such entity.       |
-|                                          |             |                                                                               |
-|                                          |             |       "You" (or "Your") shall mean an individual or Legal Entity              |
-|                                          |             |       exercising permissions granted by this License.                         |
-|                                          |             |                                                                               |
-|                                          |             |       "Source" form shall mean the preferred form for making modifications,   |
-|                                          |             |       including but not limited to software source code, documentation        |
-|                                          |             |       source, and configuration files.                                        |
-|                                          |             |                                                                               |
-|                                          |             |       "Object" form shall mean any form resulting from mechanical             |
-|                                          |             |       transformation or translation of a Source form, including but           |
-|                                          |             |       not limited to compiled object code, generated documentation,           |
-|                                          |             |       and conversions to other media types.                                   |
-|                                          |             |                                                                               |
-|                                          |             |       "Work" shall mean the work of authorship, whether in Source or          |
-|                                          |             |       Object form, made available under the License, as indicated by a        |
-|                                          |             |       copyright notice that is included in or attached to the work            |
-|                                          |             |       (an example is provided in the Appendix below).                         |
-|                                          |             |                                                                               |
-|                                          |             |       "Derivative Works" shall mean any work, whether in Source or Object     |
-|                                          |             |       form, that is based on (or derived from) the Work and for which the     |
-|                                          |             |       editorial revisions, annotations, elaborations, or other modifications  |
-|                                          |             |       represent, as a whole, an original work of authorship. For the purposes |
-|                                          |             |       of this License, Derivative Works shall not include works that remain   |
-|                                          |             |       separable from, or merely link (or bind by name) to the interfaces of,  |
-|                                          |             |       the Work and Derivative Works thereof.                                  |
-|                                          |             |                                                                               |
-|                                          |             |       "Contribution" shall mean any work of authorship, including             |
-|                                          |             |       the original version of the Work and any modifications or additions     |
-|                                          |             |       to that Work or Derivative Works thereof, that is intentionally         |
-|                                          |             |       submitted to Licensor for inclusion in the Work by the copyright owner  |
-|                                          |             |       or by an individual or Legal Entity authorized to submit on behalf of   |
-|                                          |             |       the copyright owner. For the purposes of this definition, "submitted"   |
-|                                          |             |       means any form of electronic, verbal, or written communication sent     |
-|                                          |             |       to the Licensor or its representatives, including but not limited to    |
-|                                          |             |       communication on electronic mailing lists, source code control systems, |
-|                                          |             |       and issue tracking systems that are managed by, or on behalf of, the    |
-|                                          |             |       Licensor for the purpose of discussing and improving the Work, but      |
-|                                          |             |       excluding communication that is conspicuously marked or otherwise       |
-|                                          |             |       designated in writing by the copyright owner as "Not a Contribution."   |
-|                                          |             |                                                                               |
-|                                          |             |       "Contributor" shall mean Licensor and any individual or Legal Entity    |
-|                                          |             |       on behalf of whom a Contribution has been received by Licensor and      |
-|                                          |             |       subsequently incorporated within the Work.                              |
-|                                          |             |                                                                               |
-|                                          |             |    2. Grant of Copyright License. Subject to the terms and conditions of      |
-|                                          |             |       this License, each Contributor hereby grants to You a perpetual,        |
-|                                          |             |       worldwide, non-exclusive, no-charge, royalty-free, irrevocable          |
-|                                          |             |       copyright license to reproduce, prepare Derivative Works of,            |
-|                                          |             |       publicly display, publicly perform, sublicense, and distribute the      |
-|                                          |             |       Work and such Derivative Works in Source or Object form.                |
-|                                          |             |                                                                               |
-|                                          |             |    3. Grant of Patent License. Subject to the terms and conditions of         |
-|                                          |             |       this License, each Contributor hereby grants to You a perpetual,        |
-|                                          |             |       worldwide, non-exclusive, no-charge, royalty-free, irrevocable          |
-|                                          |             |       (except as stated in this section) patent license to make, have made,   |
-|                                          |             |       use, offer to sell, sell, import, and otherwise transfer the Work,      |
-|                                          |             |       where such license applies only to those patent claims licensable       |
-|                                          |             |       by such Contributor that are necessarily infringed by their             |
-|                                          |             |       Contribution(s) alone or by combination of their Contribution(s)        |
-|                                          |             |       with the Work to which such Contribution(s) was submitted. If You       |
-|                                          |             |       institute patent litigation against any entity (including a             |
-|                                          |             |       cross-claim or counterclaim in a lawsuit) alleging that the Work        |
-|                                          |             |       or a Contribution incorporated within the Work constitutes direct       |
-|                                          |             |       or contributory patent infringement, then any patent licenses           |
-|                                          |             |       granted to You under this License for that Work shall terminate         |
-|                                          |             |       as of the date such litigation is filed.                                |
-|                                          |             |                                                                               |
-|                                          |             |    4. Redistribution. You may reproduce and distribute copies of the          |
-|                                          |             |       Work or Derivative Works thereof in any medium, with or without         |
-|                                          |             |       modifications, and in Source or Object form, provided that You          |
-|                                          |             |       meet the following conditions:                                          |
-|                                          |             |                                                                               |
-|                                          |             |       (a) You must give any other recipients of the Work or                   |
-|                                          |             |           Derivative Works a copy of this License; and                        |
-|                                          |             |                                                                               |
-|                                          |             |       (b) You must cause any modified files to carry prominent notices        |
-|                                          |             |           stating that You changed the files; and                             |
-|                                          |             |                                                                               |
-|                                          |             |       (c) You must retain, in the Source form of any Derivative Works         |
-|                                          |             |           that You distribute, all copyright, patent, trademark, and          |
-|                                          |             |           attribution notices from the Source form of the Work,               |
-|                                          |             |           excluding those notices that do not pertain to any part of          |
-|                                          |             |           the Derivative Works; and                                           |
-|                                          |             |                                                                               |
-|                                          |             |       (d) If the Work includes a "NOTICE" text file as part of its            |
-|                                          |             |           distribution, then any Derivative Works that You distribute must    |
-|                                          |             |           include a readable copy of the attribution notices contained        |
-|                                          |             |           within such NOTICE file, excluding those notices that do not        |
-|                                          |             |           pertain to any part of the Derivative Works, in at least one        |
-|                                          |             |           of the following places: within a NOTICE text file distributed      |
-|                                          |             |           as part of the Derivative Works; within the Source form or          |
-|                                          |             |           documentation, if provided along with the Derivative Works; or,     |
-|                                          |             |           within a display generated by the Derivative Works, if and          |
-|                                          |             |           wherever such third-party notices normally appear. The contents     |
-|                                          |             |           of the NOTICE file are for informational purposes only and          |
-|                                          |             |           do not modify the License. You may add Your own attribution         |
-|                                          |             |           notices within Derivative Works that You distribute, alongside      |
-|                                          |             |           or as an addendum to the NOTICE text from the Work, provided        |
-|                                          |             |           that such additional attribution notices cannot be construed        |
-|                                          |             |           as modifying the License.                                           |
-|                                          |             |                                                                               |
-|                                          |             |       You may add Your own copyright statement to Your modifications and      |
-|                                          |             |       may provide additional or different license terms and conditions        |
-|                                          |             |       for use, reproduction, or distribution of Your modifications, or        |
-|                                          |             |       for any such Derivative Works as a whole, provided Your use,            |
-|                                          |             |       reproduction, and distribution of the Work otherwise complies with      |
-|                                          |             |       the conditions stated in this License.                                  |
-|                                          |             |                                                                               |
-|                                          |             |    5. Submission of Contributions. Unless You explicitly state otherwise,     |
-|                                          |             |       any Contribution intentionally submitted for inclusion in the Work      |
-|                                          |             |       by You to the Licensor shall be under the terms and conditions of       |
-|                                          |             |       this License, without any additional terms or conditions.               |
-|                                          |             |       Notwithstanding the above, nothing herein shall supersede or modify     |
-|                                          |             |       the terms of any separate license agreement you may have executed       |
-|                                          |             |       with Licensor regarding such Contributions.                             |
-|                                          |             |                                                                               |
-|                                          |             |    6. Trademarks. This License does not grant permission to use the trade     |
-|                                          |             |       names, trademarks, service marks, or product names of the Licensor,     |
-|                                          |             |       except as required for reasonable and customary use in describing the   |
-|                                          |             |       origin of the Work and reproducing the content of the NOTICE file.      |
-|                                          |             |                                                                               |
-|                                          |             |    7. Disclaimer of Warranty. Unless required by applicable law or            |
-|                                          |             |       agreed to in writing, Licensor provides the Work (and each              |
-|                                          |             |       Contributor provides its Contributions) on an "AS IS" BASIS,            |
-|                                          |             |       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or         |
-|                                          |             |       implied, including, without limitation, any warranties or conditions    |
-|                                          |             |       of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A           |
-|                                          |             |       PARTICULAR PURPOSE. You are solely responsible for determining the      |
-|                                          |             |       appropriateness of using or redistributing the Work and assume any      |
-|                                          |             |       risks associated with Your exercise of permissions under this License.  |
-|                                          |             |                                                                               |
-|                                          |             |    8. Limitation of Liability. In no event and under no legal theory,         |
-|                                          |             |       whether in tort (including negligence), contract, or otherwise,         |
-|                                          |             |       unless required by applicable law (such as deliberate and grossly       |
-|                                          |             |       negligent acts) or agreed to in writing, shall any Contributor be       |
-|                                          |             |       liable to You for damages, including any direct, indirect, special,     |
-|                                          |             |       incidental, or consequential damages of any character arising as a      |
-|                                          |             |       result of this License or out of the use or inability to use the        |
-|                                          |             |       Work (including but not limited to damages for loss of goodwill,        |
-|                                          |             |       work stoppage, computer failure or malfunction, or any and all          |
-|                                          |             |       other commercial damages or losses), even if such Contributor           |
-|                                          |             |       has been advised of the possibility of such damages.                    |
-|                                          |             |                                                                               |
-|                                          |             |    9. Accepting Warranty or Additional Liability. While redistributing        |
-|                                          |             |       the Work or Derivative Works thereof, You may choose to offer,          |
-|                                          |             |       and charge a fee for, acceptance of support, warranty, indemnity,       |
-|                                          |             |       or other liability obligations and/or rights consistent with this       |
-|                                          |             |       License. However, in accepting such obligations, You may act only       |
-|                                          |             |       on Your own behalf and on Your sole responsibility, not on behalf       |
-|                                          |             |       of any other Contributor, and only if You agree to indemnify,           |
-|                                          |             |       defend, and hold each Contributor harmless for any liability            |
-|                                          |             |       incurred by, or claims asserted against, such Contributor by reason     |
-|                                          |             |       of your accepting any such warranty or additional liability.            |
-|                                          |             |                                                                               |
-|                                          |             |    END OF TERMS AND CONDITIONS                                                |
-|                                          |             |                                                                               |
-|                                          |             |    APPENDIX: How to apply the Apache License to your work.                    |
-|                                          |             |                                                                               |
-|                                          |             |       To apply the Apache License to your work, attach the following          |
-|                                          |             |       boilerplate notice, with the fields enclosed by brackets "[]"           |
-|                                          |             |       replaced with your own identifying information. (Don't include          |
-|                                          |             |       the brackets!)  The text should be enclosed in the appropriate          |
-|                                          |             |       comment syntax for the file format. We also recommend that a            |
-|                                          |             |       file or class name and description of purpose be included on the        |
-|                                          |             |       same "printed page" as the copyright notice for easier                  |
-|                                          |             |       identification within third-party archives.                             |
-|                                          |             |                                                                               |
-|                                          |             |    Copyright [yyyy] [name of copyright owner]                                 |
-|                                          |             |                                                                               |
-|                                          |             |    Licensed under the Apache License, Version 2.0 (the "License");            |
-|                                          |             |    you may not use this file except in compliance with the License.           |
-|                                          |             |    You may obtain a copy of the License at                                    |
-|                                          |             |                                                                               |
-|                                          |             |        http://www.apache.org/licenses/LICENSE-2.0                             |
-|                                          |             |                                                                               |
-|                                          |             |    Unless required by applicable law or agreed to in writing, software        |
-|                                          |             |    distributed under the License is distributed on an "AS IS" BASIS,          |
-|                                          |             |    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   |
-|                                          |             |    See the License for the specific language governing permissions and        |
-|                                          |             |    limitations under the License.                                             |
-|                                          |             |                                                                               |
-| ml-dtypes                                | 0.3.2       | Apache Software License                                                       |
-| mpmath                                   | 1.3.0       | BSD License                                                                   |
-| msgpack                                  | 1.2.1       | Apache-2.0                                                                    |
-| multidict                                | 6.7.1       | Apache License 2.0                                                            |
-| mypy                                     | 2.1.0       | MIT                                                                           |
-| mypy_extensions                          | 1.1.0       | MIT                                                                           |
-| namex                                    | 0.1.0       | UNKNOWN                                                                       |
-| nbformat                                 | 5.10.4      | BSD License                                                                   |
-| networkx                                 | 3.6.1       | BSD-3-Clause                                                                  |
-| numba                                    | 0.65.1      | BSD License                                                                   |
-| numpy                                    | 2.4.6       | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0                            |
-| oauthlib                                 | 3.3.1       | BSD-3-Clause                                                                  |
-| openpyxl                                 | 3.1.5       | MIT License                                                                   |
-| opentelemetry-api                        | 1.37.0      | Apache-2.0                                                                    |
-| opentelemetry-exporter-otlp-proto-common | 1.37.0      | Apache-2.0                                                                    |
-| opentelemetry-exporter-otlp-proto-http   | 1.37.0      | Apache-2.0                                                                    |
-| opentelemetry-instrumentation            | 0.58b0      | Apache-2.0                                                                    |
-| opentelemetry-instrumentation-requests   | 0.58b0      | Apache-2.0                                                                    |
-| opentelemetry-instrumentation-threading  | 0.58b0      | Apache-2.0                                                                    |
-| opentelemetry-proto                      | 1.37.0      | Apache-2.0                                                                    |
-| opentelemetry-sdk                        | 1.37.0      | Apache-2.0                                                                    |
-| opentelemetry-semantic-conventions       | 0.58b0      | Apache-2.0                                                                    |
-| opentelemetry-util-http                  | 0.58b0      | Apache-2.0                                                                    |
-| opt_einsum                               | 3.4.0       | MIT                                                                           |
-| optree                                   | 0.19.1      | Apache-2.0                                                                    |
-| packageurl-python                        | 0.17.6      | MIT License                                                                   |
-| packaging                                | 26.2        | Apache-2.0 OR BSD-2-Clause                                                    |
-| pandas                                   | 3.0.3       | BSD License                                                                   |
-| pathspec                                 | 1.1.1       | Mozilla Public License 2.0 (MPL 2.0)                                          |
-| peewee                                   | 3.19.0      | UNKNOWN                                                                       |
-| pillow                                   | 12.2.0      | MIT-CMU                                                                       |
-| pip-api                                  | 0.0.34      | Apache Software License                                                       |
-| pip-requirements-parser                  | 32.0.1      | MIT                                                                           |
-| pip-tools                                | 7.5.3       | BSD License                                                                   |
-| pip_audit                                | 2.10.1      | Apache Software License                                                       |
-| platformdirs                             | 4.9.6       | MIT                                                                           |
-| pluggy                                   | 1.6.0       | MIT License                                                                   |
-| propcache                                | 0.5.2       | Apache Software License                                                       |
-| protobuf                                 | 6.33.6      | 3-Clause BSD License                                                          |
-| psutil                                   | 7.2.2       | BSD-3-Clause                                                                  |
-| py-serializable                          | 2.1.0       | Apache Software License                                                       |
-| pyahocorasick                            | 2.3.0       | BSD-3-Clause and Public-Domain                                                |
-| pyasn1                                   | 0.6.3       | BSD-2-Clause                                                                  |
-| pyasn1_modules                           | 0.4.2       | BSD License                                                                   |
-| pycparser                                | 3.0         | BSD-3-Clause                                                                  |
-| pydantic                                 | 2.13.4      | MIT                                                                           |
-| pydantic-settings                        | 2.14.1      | MIT                                                                           |
-| pydantic_core                            | 2.46.4      | MIT                                                                           |
-| pyparsing                                | 3.3.2       | MIT                                                                           |
-| pyproject_hooks                          | 1.2.0       | MIT License                                                                   |
-| pyreadline3                              | 3.5.4       | BSD License                                                                   |
-| pytest                                   | 9.0.3       | MIT                                                                           |
-| pytest-cov                               | 7.1.0       | MIT                                                                           |
-| python-dateutil                          | 2.9.0.post0 | Apache Software License; BSD License                                          |
-| python-dotenv                            | 1.2.2       | BSD-3-Clause                                                                  |
-| python-multipart                         | 0.0.32      | Apache-2.0                                                                    |
-| pywin32                                  | 311         | Python Software Foundation License                                            |
-| referencing                              | 0.37.0      | MIT                                                                           |
-| regex                                    | 2026.5.9    | Apache-2.0 AND CNRI-Python                                                    |
-| requests                                 | 2.34.2      | Apache Software License                                                       |
-| requests-oauthlib                        | 2.0.0       | BSD License                                                                   |
-| reretry                                  | 0.11.8      | Apache Software License                                                       |
-| rich                                     | 15.0.0      | MIT License                                                                   |
-| rpds-py                                  | 0.30.0      | MIT                                                                           |
-| ruamel.yaml                              | 0.19.1      | MIT License                                                                   |
-| ruamel.yaml.clib                         | 0.2.15      | MIT License                                                                   |
-| ruff                                     | 0.15.17     | MIT                                                                           |
-| safetensors                              | 0.8.0       | Apache Software License                                                       |
-| scikit-learn                             | 1.8.0       | BSD-3-Clause                                                                  |
-| scipy                                    | 1.17.1      | BSD License                                                                   |
-| seaborn                                  | 0.13.2      | BSD License                                                                   |
-| semantic-version                         | 2.10.0      | BSD License                                                                   |
-| semgrep                                  | 1.167.0     | LGPL-2.1-or-later                                                             |
-| sestrav                                  | 2.0.1       | MIT                                                                           |
-| shap                                     | 0.51.0      | MIT License                                                                   |
-| shellingham                              | 1.5.4       | ISC License (ISCL)                                                            |
-| six                                      | 1.17.0      | MIT License                                                                   |
-| slicer                                   | 0.0.8       | MIT License                                                                   |
-| smart_open                               | 7.6.0       | MIT License                                                                   |
-| smmap                                    | 5.0.3       | BSD License                                                                   |
-| snakemake                                | 9.13.3      | MIT                                                                           |
-| snakemake-interface-common               | 1.23.0      | UNKNOWN                                                                       |
-| snakemake-interface-executor-plugins     | 9.4.0       | MIT License                                                                   |
-| snakemake-interface-logger-plugins       | 2.0.1       | UNKNOWN                                                                       |
-| snakemake-interface-report-plugins       | 1.3.0       | UNKNOWN                                                                       |
-| snakemake-interface-scheduler-plugins    | 2.0.2       | UNKNOWN                                                                       |
-| snakemake-interface-storage-plugins      | 4.4.1       | UNKNOWN                                                                       |
-| sortedcontainers                         | 2.4.0       | Apache Software License                                                       |
-| sse-starlette                            | 3.4.4       | BSD-3-Clause                                                                  |
-| starlette                                | 1.1.0       | BSD-3-Clause                                                                  |
-| stevedore                                | 5.8.0       | Apache-2.0                                                                    |
-| sympy                                    | 1.14.0      | BSD License                                                                   |
-| tabulate                                 | 0.10.0      | MIT                                                                           |
-| tenacity                                 | 9.1.4       | Apache Software License                                                       |
-| tensorboard                              | 2.15.2      | Apache Software License                                                       |
-| tensorboard-data-server                  | 0.7.2       | Apache Software License                                                       |
-| termcolor                                | 3.3.0       | MIT                                                                           |
-| threadpoolctl                            | 3.6.0       | BSD License                                                                   |
-| throttler                                | 1.2.3       | MIT License                                                                   |
-| tokenizers                               | 0.22.2      | Apache Software License                                                       |
-| tomli                                    | 2.4.1       | MIT                                                                           |
-| tomli_w                                  | 1.2.0       | MIT License                                                                   |
-| torch                                    | 2.12.0      | BSD-3-Clause                                                                  |
-| torch-geometric                          | 2.7.0       | MIT                                                                           |
-| tqdm                                     | 4.67.3      | MPL-2.0 AND MIT                                                               |
-| traitlets                                | 5.14.3      | BSD License                                                                   |
-| transformers                             | 5.12.1      | Apache 2.0 License                                                            |
-| typer                                    | 0.25.1      | MIT                                                                           |
-| typing-inspection                        | 0.4.2       | MIT                                                                           |
-| typing_extensions                        | 4.15.0      | PSF-2.0                                                                       |
-| tzdata                                   | 2026.2      | Apache-2.0                                                                    |
-| urllib3                                  | 2.7.0       | MIT                                                                           |
-| uvicorn                                  | 0.48.0      | BSD-3-Clause                                                                  |
-| wcmatch                                  | 8.5.2       | MIT                                                                           |
-| wrapt                                    | 1.14.2      | BSD License                                                                   |
-| xgboost                                  | 3.2.0       | Apache Software License                                                       |
-| xxhash                                   | 3.7.0       | BSD License                                                                   |
-| yarl                                     | 1.24.2      | Apache-2.0                                                                    |
-| yte                                      | 1.9.4       | MIT                                                                           |
-| zipp                                     | 4.1.0       | MIT                                                                           |
+| Name                                  | Version     | License                                                                                             |
+|---------------------------------------|-------------|-----------------------------------------------------------------------------------------------------|
+| ConfigArgParse                        | 1.7.5       | MIT License                                                                                         |
+| GitPython                             | 3.1.57      | BSD-3-Clause                                                                                        |
+| Jinja2                                | 3.1.6       | BSD License                                                                                         |
+| MarkupSafe                            | 3.0.3       | BSD-3-Clause                                                                                        |
+| PuLP                                  | 3.3.2       | MIT                                                                                                 |
+| PyJWT                                 | 2.13.0      | MIT                                                                                                 |
+| PyYAML                                | 6.0.3       | MIT License                                                                                         |
+| Pygments                              | 2.20.0      | BSD-2-Clause                                                                                        |
+| SQLAlchemy                            | 2.0.51      | MIT                                                                                                 |
+| absl-py                               | 2.5.0       | Apache-2.0                                                                                          |
+| aiohappyeyeballs                      | 2.7.1       | Python Software Foundation License                                                                  |
+| aiohttp                               | 3.14.3      | Apache-2.0 AND MIT                                                                                  |
+| aiosignal                             | 1.4.0       | Apache Software License                                                                             |
+| annotated-doc                         | 0.0.5       | MIT                                                                                                 |
+| annotated-types                       | 0.8.0       | MIT                                                                                                 |
+| anyio                                 | 4.14.2      | MIT                                                                                                 |
+| appdirs                               | 1.4.4       | MIT License                                                                                         |
+| argparse-dataclass                    | 2.0.0       | MIT License                                                                                         |
+| attrs                                 | 26.1.0      | MIT                                                                                                 |
+| biopython                             | 1.87        | LicenseRef-Biopython-License-Agreement                                                              |
+| certifi                               | 2026.7.22   | Mozilla Public License 2.0 (MPL 2.0)                                                                |
+| cffi                                  | 2.1.0       | MIT-0                                                                                               |
+| charset-normalizer                    | 3.4.9       | MIT                                                                                                 |
+| click                                 | 8.4.2       | BSD-3-Clause                                                                                        |
+| cloudpickle                           | 3.1.2       | BSD License                                                                                         |
+| conda-inject                          | 1.3.2       | UNKNOWN                                                                                             |
+| connection_pool                       | 0.0.3       | MIT License                                                                                         |
+| contourpy                             | 1.3.3       | BSD License                                                                                         |
+| cryptography                          | 50.0.0      | Apache-2.0 OR BSD-3-Clause                                                                          |
+| cuda-bindings                         | 13.3.1      | LicenseRef-NVIDIA-SOFTWARE-LICENSE                                                                  |
+| cuda-pathfinder                       | 1.6.0       | Apache-2.0                                                                                          |
+| cuda-toolkit                          | 13.0.3.0    | UNKNOWN                                                                                             |
+| cycler                                | 0.12.1      | BSD License                                                                                         |
+| docutils                              | 0.22.4      | BSD License; GNU General Public License (GPL); Public Domain                                        |
+| dpath                                 | 2.2.0       | MIT License                                                                                         |
+| et_xmlfile                            | 2.0.0       | MIT License                                                                                         |
+| fastapi                               | 0.139.2     | MIT                                                                                                 |
+| fastjsonschema                        | 2.22.1      | BSD License                                                                                         |
+| filelock                              | 3.32.0      | MIT                                                                                                 |
+| fonttools                             | 4.63.0      | MIT                                                                                                 |
+| frozenlist                            | 1.8.0       | Apache-2.0                                                                                          |
+| fsspec                                | 2026.7.0    | BSD-3-Clause                                                                                        |
+| gitdb                                 | 4.0.12      | BSD License                                                                                         |
+| greenlet                              | 3.5.4       | MIT AND PSF-2.0                                                                                     |
+| h11                                   | 0.16.0      | MIT License                                                                                         |
+| h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
+| humanfriendly                         | 10.0        | MIT License                                                                                         |
+| hypothesis                            | 6.157.1     | MPL-2.0                                                                                             |
+| idna                                  | 3.18        | BSD-3-Clause                                                                                        |
+| immutables                            | 0.21        | Apache Software License                                                                             |
+| iniconfig                             | 2.3.0       | MIT                                                                                                 |
+| joblib                                | 1.5.3       | BSD-3-Clause                                                                                        |
+| jsonschema                            | 4.26.0      | MIT                                                                                                 |
+| jsonschema-specifications             | 2025.9.1    | MIT                                                                                                 |
+| jupyter_core                          | 5.9.1       | BSD-3-Clause                                                                                        |
+| keras                                 | 3.15.0      | Apache License 2.0                                                                                  |
+| kiwisolver                            | 1.5.0       | BSD License                                                                                         |
+| llvmlite                              | 0.48.0      | BSD-2-Clause AND Apache-2.0 WITH LLVM-exception                                                     |
+| markdown-it-py                        | 4.2.0       | MIT License                                                                                         |
+| matplotlib                            | 3.11.1      | Python Software Foundation License                                                                  |
+| mdurl                                 | 0.1.2       | MIT License                                                                                         |
+| mhcflurry                             | 2.2.1       | Apache-2.0                                                                                          |
+| mhcgnomes                             | 3.33.4      | Apache License                                                                                      |
+|                                       |             |                            Version 2.0, January 2004                                                |
+|                                       |             |                         http://www.apache.org/licenses/                                             |
+|                                       |             |                                                                                                     |
+|                                       |             |    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION                                     |
+|                                       |             |                                                                                                     |
+|                                       |             |    1. Definitions.                                                                                  |
+|                                       |             |                                                                                                     |
+|                                       |             |       "License" shall mean the terms and conditions for use, reproduction,                          |
+|                                       |             |       and distribution as defined by Sections 1 through 9 of this document.                         |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Licensor" shall mean the copyright owner or entity authorized by                             |
+|                                       |             |       the copyright owner that is granting the License.                                             |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Legal Entity" shall mean the union of the acting entity and all                              |
+|                                       |             |       other entities that control, are controlled by, or are under common                           |
+|                                       |             |       control with that entity. For the purposes of this definition,                                |
+|                                       |             |       "control" means (i) the power, direct or indirect, to cause the                               |
+|                                       |             |       direction or management of such entity, whether by contract or                                |
+|                                       |             |       otherwise, or (ii) ownership of fifty percent (50%) or more of the                            |
+|                                       |             |       outstanding shares, or (iii) beneficial ownership of such entity.                             |
+|                                       |             |                                                                                                     |
+|                                       |             |       "You" (or "Your") shall mean an individual or Legal Entity                                    |
+|                                       |             |       exercising permissions granted by this License.                                               |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Source" form shall mean the preferred form for making modifications,                         |
+|                                       |             |       including but not limited to software source code, documentation                              |
+|                                       |             |       source, and configuration files.                                                              |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Object" form shall mean any form resulting from mechanical                                   |
+|                                       |             |       transformation or translation of a Source form, including but                                 |
+|                                       |             |       not limited to compiled object code, generated documentation,                                 |
+|                                       |             |       and conversions to other media types.                                                         |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Work" shall mean the work of authorship, whether in Source or                                |
+|                                       |             |       Object form, made available under the License, as indicated by a                              |
+|                                       |             |       copyright notice that is included in or attached to the work                                  |
+|                                       |             |       (an example is provided in the Appendix below).                                               |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Derivative Works" shall mean any work, whether in Source or Object                           |
+|                                       |             |       form, that is based on (or derived from) the Work and for which the                           |
+|                                       |             |       editorial revisions, annotations, elaborations, or other modifications                        |
+|                                       |             |       represent, as a whole, an original work of authorship. For the purposes                       |
+|                                       |             |       of this License, Derivative Works shall not include works that remain                         |
+|                                       |             |       separable from, or merely link (or bind by name) to the interfaces of,                        |
+|                                       |             |       the Work and Derivative Works thereof.                                                        |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Contribution" shall mean any work of authorship, including                                   |
+|                                       |             |       the original version of the Work and any modifications or additions                           |
+|                                       |             |       to that Work or Derivative Works thereof, that is intentionally                               |
+|                                       |             |       submitted to Licensor for inclusion in the Work by the copyright owner                        |
+|                                       |             |       or by an individual or Legal Entity authorized to submit on behalf of                         |
+|                                       |             |       the copyright owner. For the purposes of this definition, "submitted"                         |
+|                                       |             |       means any form of electronic, verbal, or written communication sent                           |
+|                                       |             |       to the Licensor or its representatives, including but not limited to                          |
+|                                       |             |       communication on electronic mailing lists, source code control systems,                       |
+|                                       |             |       and issue tracking systems that are managed by, or on behalf of, the                          |
+|                                       |             |       Licensor for the purpose of discussing and improving the Work, but                            |
+|                                       |             |       excluding communication that is conspicuously marked or otherwise                             |
+|                                       |             |       designated in writing by the copyright owner as "Not a Contribution."                         |
+|                                       |             |                                                                                                     |
+|                                       |             |       "Contributor" shall mean Licensor and any individual or Legal Entity                          |
+|                                       |             |       on behalf of whom a Contribution has been received by Licensor and                            |
+|                                       |             |       subsequently incorporated within the Work.                                                    |
+|                                       |             |                                                                                                     |
+|                                       |             |    2. Grant of Copyright License. Subject to the terms and conditions of                            |
+|                                       |             |       this License, each Contributor hereby grants to You a perpetual,                              |
+|                                       |             |       worldwide, non-exclusive, no-charge, royalty-free, irrevocable                                |
+|                                       |             |       copyright license to reproduce, prepare Derivative Works of,                                  |
+|                                       |             |       publicly display, publicly perform, sublicense, and distribute the                            |
+|                                       |             |       Work and such Derivative Works in Source or Object form.                                      |
+|                                       |             |                                                                                                     |
+|                                       |             |    3. Grant of Patent License. Subject to the terms and conditions of                               |
+|                                       |             |       this License, each Contributor hereby grants to You a perpetual,                              |
+|                                       |             |       worldwide, non-exclusive, no-charge, royalty-free, irrevocable                                |
+|                                       |             |       (except as stated in this section) patent license to make, have made,                         |
+|                                       |             |       use, offer to sell, sell, import, and otherwise transfer the Work,                            |
+|                                       |             |       where such license applies only to those patent claims licensable                             |
+|                                       |             |       by such Contributor that are necessarily infringed by their                                   |
+|                                       |             |       Contribution(s) alone or by combination of their Contribution(s)                              |
+|                                       |             |       with the Work to which such Contribution(s) was submitted. If You                             |
+|                                       |             |       institute patent litigation against any entity (including a                                   |
+|                                       |             |       cross-claim or counterclaim in a lawsuit) alleging that the Work                              |
+|                                       |             |       or a Contribution incorporated within the Work constitutes direct                             |
+|                                       |             |       or contributory patent infringement, then any patent licenses                                 |
+|                                       |             |       granted to You under this License for that Work shall terminate                               |
+|                                       |             |       as of the date such litigation is filed.                                                      |
+|                                       |             |                                                                                                     |
+|                                       |             |    4. Redistribution. You may reproduce and distribute copies of the                                |
+|                                       |             |       Work or Derivative Works thereof in any medium, with or without                               |
+|                                       |             |       modifications, and in Source or Object form, provided that You                                |
+|                                       |             |       meet the following conditions:                                                                |
+|                                       |             |                                                                                                     |
+|                                       |             |       (a) You must give any other recipients of the Work or                                         |
+|                                       |             |           Derivative Works a copy of this License; and                                              |
+|                                       |             |                                                                                                     |
+|                                       |             |       (b) You must cause any modified files to carry prominent notices                              |
+|                                       |             |           stating that You changed the files; and                                                   |
+|                                       |             |                                                                                                     |
+|                                       |             |       (c) You must retain, in the Source form of any Derivative Works                               |
+|                                       |             |           that You distribute, all copyright, patent, trademark, and                                |
+|                                       |             |           attribution notices from the Source form of the Work,                                     |
+|                                       |             |           excluding those notices that do not pertain to any part of                                |
+|                                       |             |           the Derivative Works; and                                                                 |
+|                                       |             |                                                                                                     |
+|                                       |             |       (d) If the Work includes a "NOTICE" text file as part of its                                  |
+|                                       |             |           distribution, then any Derivative Works that You distribute must                          |
+|                                       |             |           include a readable copy of the attribution notices contained                              |
+|                                       |             |           within such NOTICE file, excluding those notices that do not                              |
+|                                       |             |           pertain to any part of the Derivative Works, in at least one                              |
+|                                       |             |           of the following places: within a NOTICE text file distributed                            |
+|                                       |             |           as part of the Derivative Works; within the Source form or                                |
+|                                       |             |           documentation, if provided along with the Derivative Works; or,                           |
+|                                       |             |           within a display generated by the Derivative Works, if and                                |
+|                                       |             |           wherever such third-party notices normally appear. The contents                           |
+|                                       |             |           of the NOTICE file are for informational purposes only and                                |
+|                                       |             |           do not modify the License. You may add Your own attribution                               |
+|                                       |             |           notices within Derivative Works that You distribute, alongside                            |
+|                                       |             |           or as an addendum to the NOTICE text from the Work, provided                              |
+|                                       |             |           that such additional attribution notices cannot be construed                              |
+|                                       |             |           as modifying the License.                                                                 |
+|                                       |             |                                                                                                     |
+|                                       |             |       You may add Your own copyright statement to Your modifications and                            |
+|                                       |             |       may provide additional or different license terms and conditions                              |
+|                                       |             |       for use, reproduction, or distribution of Your modifications, or                              |
+|                                       |             |       for any such Derivative Works as a whole, provided Your use,                                  |
+|                                       |             |       reproduction, and distribution of the Work otherwise complies with                            |
+|                                       |             |       the conditions stated in this License.                                                        |
+|                                       |             |                                                                                                     |
+|                                       |             |    5. Submission of Contributions. Unless You explicitly state otherwise,                           |
+|                                       |             |       any Contribution intentionally submitted for inclusion in the Work                            |
+|                                       |             |       by You to the Licensor shall be under the terms and conditions of                             |
+|                                       |             |       this License, without any additional terms or conditions.                                     |
+|                                       |             |       Notwithstanding the above, nothing herein shall supersede or modify                           |
+|                                       |             |       the terms of any separate license agreement you may have executed                             |
+|                                       |             |       with Licensor regarding such Contributions.                                                   |
+|                                       |             |                                                                                                     |
+|                                       |             |    6. Trademarks. This License does not grant permission to use the trade                           |
+|                                       |             |       names, trademarks, service marks, or product names of the Licensor,                           |
+|                                       |             |       except as required for reasonable and customary use in describing the                         |
+|                                       |             |       origin of the Work and reproducing the content of the NOTICE file.                            |
+|                                       |             |                                                                                                     |
+|                                       |             |    7. Disclaimer of Warranty. Unless required by applicable law or                                  |
+|                                       |             |       agreed to in writing, Licensor provides the Work (and each                                    |
+|                                       |             |       Contributor provides its Contributions) on an "AS IS" BASIS,                                  |
+|                                       |             |       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or                               |
+|                                       |             |       implied, including, without limitation, any warranties or conditions                          |
+|                                       |             |       of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A                                 |
+|                                       |             |       PARTICULAR PURPOSE. You are solely responsible for determining the                            |
+|                                       |             |       appropriateness of using or redistributing the Work and assume any                            |
+|                                       |             |       risks associated with Your exercise of permissions under this License.                        |
+|                                       |             |                                                                                                     |
+|                                       |             |    8. Limitation of Liability. In no event and under no legal theory,                               |
+|                                       |             |       whether in tort (including negligence), contract, or otherwise,                               |
+|                                       |             |       unless required by applicable law (such as deliberate and grossly                             |
+|                                       |             |       negligent acts) or agreed to in writing, shall any Contributor be                             |
+|                                       |             |       liable to You for damages, including any direct, indirect, special,                           |
+|                                       |             |       incidental, or consequential damages of any character arising as a                            |
+|                                       |             |       result of this License or out of the use or inability to use the                              |
+|                                       |             |       Work (including but not limited to damages for loss of goodwill,                              |
+|                                       |             |       work stoppage, computer failure or malfunction, or any and all                                |
+|                                       |             |       other commercial damages or losses), even if such Contributor                                 |
+|                                       |             |       has been advised of the possibility of such damages.                                          |
+|                                       |             |                                                                                                     |
+|                                       |             |    9. Accepting Warranty or Additional Liability. While redistributing                              |
+|                                       |             |       the Work or Derivative Works thereof, You may choose to offer,                                |
+|                                       |             |       and charge a fee for, acceptance of support, warranty, indemnity,                             |
+|                                       |             |       or other liability obligations and/or rights consistent with this                             |
+|                                       |             |       License. However, in accepting such obligations, You may act only                             |
+|                                       |             |       on Your own behalf and on Your sole responsibility, not on behalf                             |
+|                                       |             |       of any other Contributor, and only if You agree to indemnify,                                 |
+|                                       |             |       defend, and hold each Contributor harmless for any liability                                  |
+|                                       |             |       incurred by, or claims asserted against, such Contributor by reason                           |
+|                                       |             |       of your accepting any such warranty or additional liability.                                  |
+|                                       |             |                                                                                                     |
+|                                       |             |    END OF TERMS AND CONDITIONS                                                                      |
+|                                       |             |                                                                                                     |
+|                                       |             |    APPENDIX: How to apply the Apache License to your work.                                          |
+|                                       |             |                                                                                                     |
+|                                       |             |       To apply the Apache License to your work, attach the following                                |
+|                                       |             |       boilerplate notice, with the fields enclosed by brackets "[]"                                 |
+|                                       |             |       replaced with your own identifying information. (Don't include                                |
+|                                       |             |       the brackets!)  The text should be enclosed in the appropriate                                |
+|                                       |             |       comment syntax for the file format. We also recommend that a                                  |
+|                                       |             |       file or class name and description of purpose be included on the                              |
+|                                       |             |       same "printed page" as the copyright notice for easier                                        |
+|                                       |             |       identification within third-party archives.                                                   |
+|                                       |             |                                                                                                     |
+|                                       |             |    Copyright [yyyy] [name of copyright owner]                                                       |
+|                                       |             |                                                                                                     |
+|                                       |             |    Licensed under the Apache License, Version 2.0 (the "License");                                  |
+|                                       |             |    you may not use this file except in compliance with the License.                                 |
+|                                       |             |    You may obtain a copy of the License at                                                          |
+|                                       |             |                                                                                                     |
+|                                       |             |        http://www.apache.org/licenses/LICENSE-2.0                                                   |
+|                                       |             |                                                                                                     |
+|                                       |             |    Unless required by applicable law or agreed to in writing, software                              |
+|                                       |             |    distributed under the License is distributed on an "AS IS" BASIS,                                |
+|                                       |             |    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                         |
+|                                       |             |    See the License for the specific language governing permissions and                              |
+|                                       |             |    limitations under the License.                                                                   |
+|                                       |             |                                                                                                     |
+| ml_dtypes                             | 0.5.4       | Apache-2.0                                                                                          |
+| mpmath                                | 1.3.0       | BSD License                                                                                         |
+| msgpack                               | 1.2.1       | Apache-2.0                                                                                          |
+| multidict                             | 6.7.1       | Apache License 2.0                                                                                  |
+| namex                                 | 0.1.0       | UNKNOWN                                                                                             |
+| nbformat                              | 5.10.4      | BSD License                                                                                         |
+| networkx                              | 3.6.1       | BSD-3-Clause                                                                                        |
+| numba                                 | 0.66.0      | BSD License                                                                                         |
+| numpy                                 | 2.4.6       | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0                                                  |
+| nvidia-cublas                         | 13.1.1.3    | LicenseRef-NVIDIA-Proprietary                                                                       |
+| nvidia-cuda-cupti                     | 13.0.85     | Other/Proprietary License                                                                           |
+| nvidia-cuda-nvrtc                     | 13.0.88     | Other/Proprietary License                                                                           |
+| nvidia-cuda-runtime                   | 13.0.96     | LicenseRef-NVIDIA-Proprietary                                                                       |
+| nvidia-cudnn-cu13                     | 9.20.0.48   | LicenseRef-NVIDIA-Proprietary                                                                       |
+| nvidia-cufft                          | 12.0.0.61   | Other/Proprietary License                                                                           |
+| nvidia-cufile                         | 1.15.1.6    | Other/Proprietary License                                                                           |
+| nvidia-curand                         | 10.4.0.35   | Other/Proprietary License                                                                           |
+| nvidia-cusolver                       | 12.0.4.66   | Other/Proprietary License                                                                           |
+| nvidia-cusparse                       | 12.6.3.3    | Other/Proprietary License                                                                           |
+| nvidia-cusparselt-cu13                | 0.8.1       | NVIDIA Proprietary Software                                                                         |
+| nvidia-nccl-cu12                      | 2.30.7      | LicenseRef-NVIDIA-Proprietary                                                                       |
+| nvidia-nccl-cu13                      | 2.29.7      | LicenseRef-NVIDIA-Proprietary                                                                       |
+| nvidia-nvjitlink                      | 13.0.88     | Other/Proprietary License                                                                           |
+| nvidia-nvshmem-cu13                   | 3.4.5       | LicenseRef-NVIDIA-Proprietary                                                                       |
+| nvidia-nvtx                           | 13.0.85     | Other/Proprietary License                                                                           |
+| openpyxl                              | 3.1.5       | MIT License                                                                                         |
+| optree                                | 0.19.1      | Apache-2.0                                                                                          |
+| packaging                             | 25.0        | Apache Software License; BSD License                                                                |
+| pandas                                | 3.0.3       | BSD License                                                                                         |
+| pillow                                | 12.3.0      | MIT-CMU                                                                                             |
+| platformdirs                          | 4.11.0      | MIT                                                                                                 |
+| pluggy                                | 1.6.0       | MIT License                                                                                         |
+| propcache                             | 0.5.2       | Apache Software License                                                                             |
+| protobuf                              | 7.35.1      | 3-Clause BSD License                                                                                |
+| psutil                                | 7.2.2       | BSD-3-Clause                                                                                        |
+| pyahocorasick                         | 2.3.1       | BSD-3-Clause and Public-Domain                                                                      |
+| pycparser                             | 3.0         | BSD-3-Clause                                                                                        |
+| pydantic                              | 2.13.4      | MIT                                                                                                 |
+| pydantic-settings                     | 2.14.2      | MIT                                                                                                 |
+| pydantic_core                         | 2.46.4      | MIT                                                                                                 |
+| pyparsing                             | 3.3.2       | MIT                                                                                                 |
+| pytest                                | 9.1.1       | MIT                                                                                                 |
+| python-dateutil                       | 2.9.0.post0 | Apache Software License; BSD License                                                                |
+| python-dotenv                         | 1.2.2       | BSD-3-Clause                                                                                        |
+| referencing                           | 0.37.0      | MIT                                                                                                 |
+| requests                              | 2.34.2      | Apache Software License                                                                             |
+| rich                                  | 15.0.0      | MIT License                                                                                         |
+| rpds-py                               | 2026.6.3    | MIT                                                                                                 |
+| scikit-learn                          | 1.8.0       | BSD-3-Clause                                                                                        |
+| scipy                                 | 1.17.1      | BSD License                                                                                         |
+| shap                                  | 0.51.0      | MIT License                                                                                         |
+| six                                   | 1.17.0      | MIT License                                                                                         |
+| slicer                                | 0.0.8       | MIT License                                                                                         |
+| smart_open                            | 7.7.1       | MIT License                                                                                         |
+| smmap                                 | 5.0.3       | BSD License                                                                                         |
+| snakemake                             | 9.24.0      | MIT                                                                                                 |
+| snakemake-interface-common            | 1.23.0      | UNKNOWN                                                                                             |
+| snakemake-interface-executor-plugins  | 9.4.0       | MIT License                                                                                         |
+| snakemake-interface-logger-plugins    | 2.1.0       | UNKNOWN                                                                                             |
+| snakemake-interface-report-plugins    | 1.3.0       | UNKNOWN                                                                                             |
+| snakemake-interface-scheduler-plugins | 2.0.2       | UNKNOWN                                                                                             |
+| snakemake-interface-storage-plugins   | 4.4.1       | UNKNOWN                                                                                             |
+| sortedcontainers                      | 2.4.0       | Apache Software License                                                                             |
+| sqlmodel                              | 0.0.37      | MIT                                                                                                 |
+| starlette                             | 1.3.1       | BSD-3-Clause                                                                                        |
+| sympy                                 | 1.14.0      | BSD License                                                                                         |
+| tabulate                              | 0.10.0      | MIT                                                                                                 |
+| tenacity                              | 9.1.4       | Apache Software License                                                                             |
+| threadpoolctl                         | 3.6.0       | BSD License                                                                                         |
+| throttler                             | 1.2.3       | MIT License                                                                                         |
+| torch                                 | 2.13.0      | Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT |
+| torch-geometric                       | 2.7.0       | MIT                                                                                                 |
+| tqdm                                  | 4.70.0      | MPL-2.0 AND MIT                                                                                     |
+| traitlets                             | 5.15.1      | BSD License                                                                                         |
+| triton                                | 3.7.1       | MIT License                                                                                         |
+| typing-inspection                     | 0.4.2       | MIT                                                                                                 |
+| typing_extensions                     | 4.16.0      | PSF-2.0                                                                                             |
+| urllib3                               | 2.7.0       | MIT                                                                                                 |
+| uvicorn                               | 0.51.0      | BSD-3-Clause                                                                                        |
+| wrapt                                 | 2.3.0       | BSD-2-Clause                                                                                        |
+| xgboost                               | 3.2.0       | Apache Software License                                                                             |
+| xxhash                                | 3.8.1       | BSD-2-Clause                                                                                        |
+| yarl                                  | 1.24.5      | Apache-2.0                                                                                          |
+| yte                                   | 1.9.4       | MIT                                                                                                 |
