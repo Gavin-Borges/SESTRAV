@@ -1,15 +1,18 @@
 # SESTRAV Maintainers
 
-This file satisfies the OpenSSF Best Practices Silver badge criteria for `bus_factor >= 2`
-and `two_person_review`. All pull requests to `main` require at least one review from a
-maintainer listed here.
+This file supports the OpenSSF Best Practices Silver badge criteria for `bus_factor >= 2`
+and `two_person_review` (see `BUS_FACTOR.md` for the current honest status). All pull
+requests to `main` require at least one review from a maintainer listed here.
 
 ## Active Maintainers
 
 | Name | GitHub | Role | Affiliation |
 |---|---|---|---|
 | Gavin Borges | @Gavin-Borges | Lead maintainer | University of Rhode Island |
-| TBD | @TBD | Co-maintainer | TBD |
+
+SESTRAV currently has a single maintainer. The project is open to a qualified
+co-maintainer - see "Adding a Maintainer" below for the process, and `BUS_FACTOR.md`
+for why this matters and what the role requires.
 
 ## Responsibilities
 
