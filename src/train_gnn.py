@@ -29,6 +29,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
+from src.artifact_guard import guard_planned_paths
 from src.train_classifier import (
     _filter_quarantined,
     prepare_features,
@@ -191,21 +192,18 @@ def _guard_output_dir(
     model_dir: str, pooling: str, architecture: str, allow_overwrite: bool
 ) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [
-        p for p in planned_gnn_artifact_paths(model_dir, pooling, architecture) if os.path.isfile(p)
-    ]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s):\n  {listing}\n"
-        "These may be published results. Point --model-dir at a fresh directory "
-        "(for example models/scratch/<run-name>), or pass --allow-overwrite "
-        "(train_gnn_v2(..., allow_overwrite=True)) to replace them deliberately. "
-        "Note that the OOF predictions are written to the parent of --model-dir, "
-        "so a scratch --model-dir also redirects those."
+    guard_planned_paths(
+        model_dir,
+        planned_gnn_artifact_paths(model_dir, pooling, architecture),
+        allow_overwrite,
+        flag="--model-dir",
+        api_hint="train_gnn_v2(..., allow_overwrite=True)",
+        scope="",
+        remedy="Point --model-dir at a fresh directory (for example models/scratch/<run-name>), ",
+        trailing=(
+            " Note that the OOF predictions are written to the parent of --model-dir, "
+            "so a scratch --model-dir also redirects those."
+        ),
     )
 
 
