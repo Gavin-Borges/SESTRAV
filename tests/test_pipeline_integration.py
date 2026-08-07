@@ -69,10 +69,10 @@ def test_train_feature_columns_are_21():
 
 
 def test_canonical_feature_columns_are_present():
-    """Synthetic Stage 3 output can satisfy the canonical 30-feature schema."""
+    """Synthetic Stage 3 output can satisfy the legacy comparator 30-feature schema."""
     df = _make_synthetic_features_df()
     for col in FEATURE_COLUMNS_30:
-        assert col in df.columns, f"Missing canonical feature column: {col}"
+        assert col in df.columns, f"Missing legacy 30-feature column: {col}"
     X = df[FEATURE_COLUMNS_30]
     assert X.shape[1] == 30
 

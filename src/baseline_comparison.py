@@ -107,7 +107,7 @@ def _load_torch_checkpoint(model_path):
 def _score_with_ann(features_df, model_path):
     """Score peptides using a trained ANN checkpoint.
 
-    ANN checkpoints can be either legacy 21-feature or canonical 30-feature.
+    ANN checkpoints can be either legacy 21-feature or legacy comparator 30-feature.
     This helper reads checkpoint metadata and aligns feature columns to the
     expected schema. Returned values are probabilities (sigmoid of logits).
     """
