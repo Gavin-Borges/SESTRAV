@@ -192,8 +192,24 @@ def _init_repo_with_ignored_copy(root):
     _write(ignored / "requirements-ci.in", "ruff==0.16.0\n")
     _write(ignored.parent / "requirements.in", "biopython==1.87\n")
 
-    env = {**os.environ, "GIT_CONFIG_GLOBAL": str(root / "gitconfig"), "GIT_CONFIG_SYSTEM": ""}
-    for command in (["git", "init", "-q"], ["git", "add", "-A"]):
+    # Strip GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE: if any were set in the
+    # ambient environment, git gives them precedence over cwd-based repo
+    # discovery (neither command below passes an explicit -C/--git-dir), so
+    # `git init`/`git add -A` would silently target the real repo's .git and
+    # index instead of this scratch root. Explicit -C/--git-dir/--work-tree
+    # below is a second, independent guard against that same failure mode.
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+    }
+    env["GIT_CONFIG_GLOBAL"] = str(root / "gitconfig")
+    env["GIT_CONFIG_SYSTEM"] = ""
+    git_dir = str(root / ".git")
+    for command in (
+        ["git", "-C", str(root), "init", "-q"],
+        ["git", f"--git-dir={git_dir}", f"--work-tree={root}", "add", "-A"],
+    ):
         subprocess.run(command, cwd=root, env=env, check=True, capture_output=True)
 
 

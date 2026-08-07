@@ -252,7 +252,19 @@ def _git_tracked_in_files() -> list[str] | None:
 
     Two pathspecs are needed: git's default wildmatch anchors at the start of
     the path, so "requirements*.in" alone matches only the repo-root file.
+
+    GIT_DIR / GIT_WORK_TREE, if set in the ambient environment (as git sets
+    them for hook subprocesses, e.g. pre-push), take precedence over the -C
+    flag for repository discovery, which would silently point this at the
+    wrong repository (or the caller's monkeypatched REPO_ROOT in tests would
+    be ignored in favor of the real one). Both are stripped so -C is the only
+    thing that decides which repo is queried.
     """
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+    }
     try:
         result = subprocess.run(
             [
@@ -269,6 +281,7 @@ def _git_tracked_in_files() -> list[str] | None:
             text=True,
             timeout=30,
             check=False,
+            env=env,
         )
     except (OSError, subprocess.SubprocessError):
         return None
