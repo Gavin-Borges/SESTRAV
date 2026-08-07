@@ -29,7 +29,7 @@ maintainer committee with shared merge rights (see `ROADMAP.md`).
 | **Lead maintainer** | Gavin Borges (@Gavin-Borges) | Architecture, releases, merge authority, final decisions, security response. |
 | **Security contact** | Gavin Borges (`gavinmborges1104@gmail.com`) | Triage and coordinate vulnerability reports per `SECURITY.md`. |
 | **Release manager** | Lead maintainer | Versioning, tagging, changelog, and release-bundle signing. |
-| **Reviewers** | Lead maintainer (+ designated backup, see `BUS_FACTOR.md`) | Review Pull Requests for correctness, tests, and style. |
+| **Reviewers** | Lead maintainer (no backup designated yet, see `BUS_FACTOR.md`) | Review Pull Requests for correctness, tests, and style. |
 | **Backup maintainer** | See `BUS_FACTOR.md` | Continuity if the lead is unavailable. |
 | **Contributors** | Anyone who opens a PR/Issue | Propose changes per `CONTRIBUTING.md`. |
 

@@ -65,15 +65,16 @@ SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data p
 | Tier | Status | Evidence and remaining gap |
 |---|---|---|
 | **Passing** | Attained ([project 13191](https://www.bestpractices.dev/projects/13191)) | Full criteria-to-evidence mapping in `docs/openssf_best_practices_readiness.md`. |
-| **Silver** | Substantially met | Documented governance, two-scope CI coverage gating, Sigstore-signed releases, and a published threat model are in place. Remaining gap: the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. |
+| **Silver** | Substantially met | Documented governance, library-scope CI coverage gating (the whole-repo floor is a local check), Sigstore-signed release artifacts, and a published threat model are in place. Remaining gap: the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. |
 | **Gold** | Coverage targets met; in progress | Library-scope statement and branch coverage already clear the Gold thresholds (>= 90% statement, >= 80% branch; currently ~99% / ~98%). Remaining gaps: the multi-person criteria above, plus per-file SPDX/copyright headers (`license_per_file`), deferred until a second contributor lands so authorship is attributed accurately. |
 
 Tier progress is tracked in `ROADMAP.md`; governance and assurance evidence is in `docs/threat_model.md` and `GOVERNANCE.md`.
 
-Coverage is gated at two scopes, deliberately, and the two numbers are not the same: unit
+Coverage is measured at two scopes, deliberately, and the two numbers are not the same: unit
 statement/branch coverage on the importable library surface (currently ~99% / ~98%, clearing the
-Gold thresholds of >= 90% / >= 80%), and whole-repository statement coverage including the
-pipeline/CLI research scripts (gated at a lower floor of ~35% in `pyproject.toml`). The gap is by
+Gold thresholds of >= 90% / >= 80%), which is the scope CI gates; and whole-repository coverage
+including the pipeline/CLI research scripts, which carries a lower local regression floor of ~35%
+in `pyproject.toml` and is not enforced in CI. The gap is by
 design - executable research scripts are validated by the integration and data/benchmark CI gates
 rather than by unit statement coverage (see `.coveragerc.library`).
 

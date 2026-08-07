@@ -90,7 +90,7 @@ jobs:
     name: Publish to PyPI
     needs: release
     runs-on: ubuntu-latest
-    # Gate: set repository variable PYPI_PUBLISH=true (Settings → Variables → Actions).
+    # Gate: set repository variable PYPI_PUBLISH=true (Settings -> Variables -> Actions).
     # Keeping the toggle in a non-secret variable makes the condition evaluable at
     # job-scheduling time (secrets context is unavailable in job-level `if` expressions).
     # Authentication uses OIDC Trusted Publishers - no API token or secret required.

@@ -6,7 +6,7 @@ research design, data curation, validation, and review.
 ## Maintainers
 
 - **Gavin Borges** ([@Gavin-Borges](https://github.com/Gavin-Borges)) - Lead
-  maintainer and primary author. Architecture, the canonical 30-feature pipeline,
+  maintainer and primary author. Architecture, the canonical 31-feature pipeline,
   security posture, releases, and the majority of the codebase.
 
 ## Code contributors

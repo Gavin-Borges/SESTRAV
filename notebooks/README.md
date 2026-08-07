@@ -24,7 +24,7 @@ A complete Colab-ready script that runs the SESTRAV model training and evaluatio
 1. **Setup & Installation** - Installs all required dependencies
 2. **Clone & Path Setup** - Clones the SESTRAV repository and configures imports
 3. **Data Loading** - Loads the IEDB immunogenicity dataset
-4. **Feature Extraction** - Computes both 21-feature (legacy) and 30-feature (canonical) matrices
+4. **Feature Extraction** - Computes both 21-feature and 30-feature (legacy comparator) matrices
 5. **RF/XGBoost Training** - Trains production tree classifiers with 5-fold CV
 6. **ANN Training** - Trains the FlexibleMLP (256-128-64 ReLU d0.2)
 7. **Architecture Search** - (Optional) evaluates all 14 benchmark configurations

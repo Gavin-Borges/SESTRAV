@@ -155,9 +155,10 @@ omit = ["*/tests/*", "*/__init__.py"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# Honest hard floor: the suite currently measures ~33.74% (branch-inclusive) /
-# ~35% statement coverage. This gate prevents regressions below the level CI
-# genuinely clears. It is deliberately NOT the OpenSSF Silver target of 80%;
+# Honest hard floor: the suite measured 34.37% branch-inclusive coverage on 2026-06-22
+# (see docs/claims_register.md), a hair under this floor. This gate prevents
+# regressions and is local-DX only, not a CI/badge gate. It is deliberately NOT
+# the OpenSSF Silver target of 80%;
 # raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
 # up as real tests land - never by padding.
 fail_under = 35

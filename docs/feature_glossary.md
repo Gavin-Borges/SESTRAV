@@ -90,7 +90,7 @@ The expanded schema (`FEATURE_COLUMNS_50`) utilizes all 8 properties at each of 
 
 ## 166-Feature Allele-Aware Schema
 
-The allele-aware schema (`FEATURE_COLUMNS_ALLELE`) builds on the canonical 30 features by appending 136 HLA pocket pseudo-sequence features (34 canonical pocket residues × 4 properties: hydrophobicity, aromaticity, volume, charge). This enables pan-allele training methodologies.
+The allele-aware schema (`FEATURE_COLUMNS_ALLELE`) builds on the 30-feature legacy base by appending 136 HLA pocket pseudo-sequence features (34 canonical pocket residues x 4 properties: hydrophobicity, aromaticity, volume, charge). This enables pan-allele training methodologies.
 
 All lists are defined in `src/features.py` and imported by all downstream modules.
 
@@ -100,10 +100,10 @@ The following feature groups are defined in `src/ablation_study.py` for systemat
 
 | Group | Count | Composition |
 |-------|-------|-------------|
-| `physico_20` | 20 | TCR-contact physicochemical features only (p4-p8 × 4 properties) |
+| `physico_20` | 20 | TCR-contact physicochemical features only (p4-p8 x 4 properties) |
 | `binding_10` | 10 | Per-allele MHC binding features only |
 | `sestrav_21` | 21 | physico_20 + peptide_length (legacy training track) |
-| `combined_30` | 30 | physico_20 + binding_10 (canonical track) |
+| `combined_30` | 30 | physico_20 + binding_10 (legacy comparator track) |
 | `full_31` | 31 | combined_30 + peptide_length |
 
 ## Evaluation Metrics

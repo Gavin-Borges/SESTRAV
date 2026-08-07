@@ -195,8 +195,8 @@ pull request; CI must be green before merging.
 | `feat/` | new feature or capability |
 | `fix/` | bug fix |
 | `docs/` | documentation only |
-| `chore/` | tooling, deps, config, CI |
-| `ci/` | CI/CD pipeline and workflow changes |
+| `chore/` | tooling, deps, config |
+| `ci/` | CI/CD workflow files |
 | `data/` | dataset assembly or curation |
 | `results/` | results artefacts, evaluation runs |
 | `refactor/` | code restructuring, no behaviour change |
@@ -267,9 +267,11 @@ Building twice from the same commit should yield byte-identical artifacts.
 
 ### Signing releases
 
-Release tags and artifacts are cryptographically signed so consumers can verify
-authenticity (not just integrity). Sign tags with `git tag -s vX.Y.Z`; the
-verification procedure for release artifacts is documented in `SECURITY.md`.
+Release **artifacts** carry a keyless Sigstore provenance attestation so consumers
+can verify authenticity (not just integrity); the verification procedure is
+documented in `SECURITY.md`. Version **tags** are annotated but not yet signed
+(`version_tags_signed`, an OpenSSF SUGGESTED criterion, is currently Unmet - see
+`docs/releasing.md`); sign new tags with `git tag -s vX.Y.Z` going forward.
 
 ---
 
