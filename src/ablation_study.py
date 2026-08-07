@@ -8,7 +8,7 @@ Feature group definitions (from CMB 523 Project 2):
   physico_20  : 20 TCR-contact physicochemical features only
   binding_10  : 10 per-allele MHC binding features only
   sestrav_21  : physico + peptide_length (legacy training track)
-  combined_30 : physico + binding (canonical 30-feature track)
+  combined_30 : physico + binding (legacy comparator 30-feature track)
   full_31     : physico + binding + peptide_length
 
 Project 2 results (5-fold CV, best ANN: 256-128-64 ReLU d0.2):
