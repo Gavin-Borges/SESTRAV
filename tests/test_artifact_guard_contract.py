@@ -23,14 +23,25 @@ here would take the whole file down with it. Its guard is the same shared
 implementation, exercised through `tests/test_run_analysis_results_guard.py`,
 which CI runs with no `--ignore`.
 
-Six other modules carry their own copy of the guard and do not delegate here at
-all, so this contract does not speak for them: `src/train_classifier.py`,
-`src/train_gnn.py`, `src/ann_benchmark.py`, `src/gnn_benchmark.py` (same
-three-piece pattern) and `src/ablation_study.py`,
-`scripts/compute_ann_baseline_summary.py` (single-path variants with a different
-message shape). See `src/artifact_guard.py`'s module docstring for why folding
-them in needs the template to grow first. This file covers the delegating
-modules; it is not a sweep of everything that guards an artifact.
+`src/train_classifier.py` and `src/ann_benchmark.py` now delegate too: both
+matched the shared three-piece shape exactly once `remedy` carried their
+"(for example models/scratch/<run-name>)" clause, verified byte-identical
+against their pre-refactor messages.
+
+Four other modules still carry their own copy of the guard and do not delegate
+here at all, so this contract does not speak for them. Two are genuine
+three-piece variants blocked on the template growing further:
+`src/train_gnn.py` omits the `under '{output_dir}'` scope clause entirely and
+appends a trailing sentence about OOF predictions the shared message has no
+slot for; `src/gnn_benchmark.py` also omits the scope clause, calls its
+artifacts "result CSV(s)" instead of "artifact(s)" (the noun is not a shared
+parameter), and omits the Python-API-hint parenthesis altogether. Folding
+either in by editing its message to fit would not be behaviour-preserving.
+The remaining two, `src/ablation_study.py` and
+`scripts/compute_ann_baseline_summary.py`, are single-path variants whose
+message omits the count and the listing. See `src/artifact_guard.py`'s module
+docstring for more. This file covers the delegating modules; it is not a
+sweep of everything that guards an artifact.
 """
 
 from __future__ import annotations
@@ -39,9 +50,11 @@ import os
 
 import pytest
 
+from src import ann_benchmark as ab
 from src import bias_skew_finalization as bsf
 from src import final_validation_report as fvr
 from src import h2_tier_a_evaluation as h2
+from src import train_classifier as tc
 from src.artifact_guard import guard_planned_paths, planned_paths_under
 
 # planned_paths(dir), guard(dir, allow_overwrite), flag, api_hint. The pytest id
@@ -69,6 +82,20 @@ GUARDED_MODULES = [
         "--output-dir",
         "run_h2_tier_a(..., allow_overwrite=True)",
         id="h2_tier_a_evaluation",
+    ),
+    pytest.param(
+        lambda d: tc.planned_artifact_paths(d, 21),
+        lambda d, allow: tc._guard_output_dir(d, 21, allow),
+        "--model-dir",
+        "train_models(..., allow_overwrite=True)",
+        id="train_classifier",
+    ),
+    pytest.param(
+        lambda d: ab.planned_ann_artifact_paths(d, 21, False),
+        lambda d, allow: ab._guard_output_dir(d, 21, False, allow),
+        "--model-dir",
+        "train_ann(..., allow_overwrite=True)",
+        id="ann_benchmark",
     ),
 ]
 
