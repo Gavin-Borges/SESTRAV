@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-07
+
 ### Security
 - **Fail-closed freshness gate for the committed SBOM artifacts**
   (`tools/check_sbom_freshness.py`, wired into the `python-sbom` job in
