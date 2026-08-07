@@ -15,7 +15,7 @@ rule Results:
         expand("results/{proteome_id}_score_distribution.png", proteome_id=ANTIGENS),
         expand("results/{proteome_id}_standardized_outputs.csv", proteome_id=ANTIGENS),
         "models/ann/ann_model.pth",
-        "models/gnn/gnn_model.pth",
+        "models/gnn/structural_gnn_v2.pth",
         "results/final_validation_report.md"
 
 
@@ -135,7 +135,14 @@ rule train_gnn:
         qc = "results/qc/dataset_qc.json",
         binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v4.csv")
     output:
-        "models/gnn/gnn_model.pth"
+        # src/train_gnn.py (train_gnn_v2, architecture="v2" default) writes the checkpoint as
+        # structural_gnn_v2.pth, not gnn_model.pth. This rule never passes --pooling, so it
+        # takes the CLI default (pooling="mean"), which is the one pooling value that writes
+        # the canonical untagged structural_gnn_v2.pth (see planned_gnn_artifact_paths() in
+        # src/train_gnn.py) alongside pooling-tagged companions (gnn_scaler_mean.joblib,
+        # gnn_config_mean.json, etc.) that are not declared here, matching the single-primary-
+        # output convention used by the train_ann rule above.
+        "models/gnn/structural_gnn_v2.pth"
     params:
         feature_mode = config.get("feature_mode", 31)
     log:

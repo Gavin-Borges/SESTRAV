@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-07-12T15:54:09.393006+00:00",
+  "generated_utc": "2026-08-07T11:51:55.724466+00:00",
   "artifacts": {
     "rf_30feature_integrated.joblib": {
       "sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3",
@@ -37,10 +37,6 @@
       "sha256": "541c7935dc01b33cf875a0dd5731462ca0e7047ae62fa418a41e3d1629fab98d",
       "size_bytes": 176713
     },
-    "ann_30feature_integrated.pt": {
-      "sha256": "e7472490fe026a97e459eb25149effe110750490cc62c18edf3fcd4e607056d3",
-      "size_bytes": 201557
-    },
     "rf_21feature_legacy.joblib": {
       "sha256": "3ec3fd3b441a6d72fb8abe8347cbdc72d13a789d3f02c79af0a7c2c382672ccd",
       "size_bytes": 7321225
@@ -48,10 +44,6 @@
     "xgb_21feature_legacy.joblib": {
       "sha256": "45ebff0784e1f757acf5be0921204f1bd62627e56a4dfcda776c55910b000380",
       "size_bytes": 381346
-    },
-    "ann_architecture_search.csv": {
-      "sha256": "3e6af0d46f1c18a7109fba0069686a0b8286e73b4872ed30d9d01b03155f54b9",
-      "size_bytes": 2637
     },
     "rf_31feature_integrated.joblib": {
       "sha256": "e2acd33228f2270ca0cde5af4605359c83faadae8f3f5b1f9147132f26d80c3f",

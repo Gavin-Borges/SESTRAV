@@ -34,7 +34,7 @@ The pipeline natively supports dynamic execution based on `dataset_mode`, `datas
 
 6. **`train_ann` & `train_gnn`**
    - **Input**: `data/immunogenicity_dataset_v3.csv`, QC output, binding matrices.
-   - **Output**: `models/ann/ann_model.pth`, `models/gnn/gnn_model.pth`.
+   - **Output**: `models/ann/ann_model.pth`, `models/gnn/structural_gnn_v2.pth`.
    - Trains multi-layer perceptrons or molecular graph nets using stratified cross-validation.
 
 7. **`full_validation_report`**
