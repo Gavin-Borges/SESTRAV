@@ -166,6 +166,26 @@ def test_allow_overwrite_passes_through_run_loo(tmp_path):
         )
 
 
+def test_run_loo_has_no_default_for_output_json_or_output_csv():
+    """The Python-API layer must not silently fall back to the tracked paths.
+
+    Omitting either kwarg has to fail loudly (TypeError, missing required
+    keyword-only argument) rather than quietly defaulting to
+    results/loo_cross_virus_v4.{json,csv} - the exact defect this guard exists
+    to close. Asserted two ways: the call itself, and the signature directly,
+    so a future refactor that reintroduces a default fails this test even if
+    it happens not to hit the omitted-kwarg call path.
+    """
+    import inspect
+
+    with pytest.raises(TypeError):
+        loo_v4.run_loo(dataset_path="unused.csv")  # missing output_json/output_csv
+
+    sig = inspect.signature(loo_v4.run_loo)
+    assert sig.parameters["output_json"].default is inspect.Parameter.empty
+    assert sig.parameters["output_csv"].default is inspect.Parameter.empty
+
+
 # ---------------------------------------------------------------------------
 # CLI contract
 # ---------------------------------------------------------------------------

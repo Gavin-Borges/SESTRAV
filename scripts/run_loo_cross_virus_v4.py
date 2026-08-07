@@ -90,8 +90,9 @@ def _guard_output_paths(output_json: str, output_csv: str, allow_overwrite: bool
 def run_loo(
     dataset_path: str = DATASET_PATH,
     binding_matrix_path: str = BINDING_MATRIX_PATH,
-    output_json: str = OUTPUT_JSON,
-    output_csv: str = OUTPUT_CSV,
+    *,
+    output_json: str,
+    output_csv: str,
     min_pos: int = 10,
     min_neg: int = 10,
     seed: int = 42,
