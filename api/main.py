@@ -55,7 +55,7 @@ _ZENODO_DOI: str | None = None
 try:
     _APP_VERSION = version("sestrav")
 except PackageNotFoundError:  # pragma: no cover - only when run from an uninstalled tree
-    _APP_VERSION = "2.0.3"
+    _APP_VERSION = "2.1.0"
 
 
 # ---------------------------------------------------------------------------
