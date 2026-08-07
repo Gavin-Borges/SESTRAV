@@ -43,12 +43,12 @@ from src.external_validation_fairness import (
 
 CONTAMINATION_CAP_PCT = 30.0
 PRIMARY_TOOLS = {
-    "SESTRAV RF (30-feat)": "rf_oof_score",
+    "SESTRAV RF (31-feat)": "rf_oof_score",
     "Binding-only (max)": "binding_max",
     "PredIG-Path": "predig_max_score",
     "PRIME 2.1": "prime_score",
 }
-REFERENCE_NAME = "SESTRAV RF (30-feat)"
+REFERENCE_NAME = "SESTRAV RF (31-feat)"
 REFERENCE_COL = "rf_oof_score"
 DEFAULT_PREDIG_TRAIN = "data/external/predig_train_modf.csv"
 
