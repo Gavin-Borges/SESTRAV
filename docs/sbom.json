@@ -1,10 +1,5 @@
 [
   {
-    "License": "Apache-2.0",
-    "Name": "CacheControl",
-    "Version": "0.14.4"
-  },
-  {
     "License": "MIT License",
     "Name": "ConfigArgParse",
     "Version": "1.7.5"
@@ -12,17 +7,12 @@
   {
     "License": "BSD-3-Clause",
     "Name": "GitPython",
-    "Version": "3.1.46"
+    "Version": "3.1.57"
   },
   {
     "License": "BSD License",
     "Name": "Jinja2",
     "Version": "3.1.6"
-  },
-  {
-    "License": "BSD-3-Clause",
-    "Name": "Markdown",
-    "Version": "3.10.2"
   },
   {
     "License": "BSD-3-Clause",
@@ -32,7 +22,7 @@
   {
     "License": "MIT",
     "Name": "PuLP",
-    "Version": "3.3.0"
+    "Version": "3.3.2"
   },
   {
     "License": "MIT",
@@ -50,24 +40,24 @@
     "Version": "2.20.0"
   },
   {
-    "License": "BSD-3-Clause",
-    "Name": "Werkzeug",
-    "Version": "3.1.8"
+    "License": "MIT",
+    "Name": "SQLAlchemy",
+    "Version": "2.0.51"
   },
   {
     "License": "Apache-2.0",
     "Name": "absl-py",
-    "Version": "2.4.0"
+    "Version": "2.5.0"
   },
   {
     "License": "Python Software Foundation License",
     "Name": "aiohappyeyeballs",
-    "Version": "2.6.2"
+    "Version": "2.7.1"
   },
   {
     "License": "Apache-2.0 AND MIT",
     "Name": "aiohttp",
-    "Version": "3.13.5"
+    "Version": "3.14.3"
   },
   {
     "License": "Apache Software License",
@@ -77,17 +67,17 @@
   {
     "License": "MIT",
     "Name": "annotated-doc",
-    "Version": "0.0.4"
+    "Version": "0.0.5"
   },
   {
-    "License": "MIT License",
+    "License": "MIT",
     "Name": "annotated-types",
-    "Version": "0.7.0"
+    "Version": "0.8.0"
   },
   {
     "License": "MIT",
     "Name": "anyio",
-    "Version": "4.13.0"
+    "Version": "4.14.2"
   },
   {
     "License": "MIT License",
@@ -101,23 +91,8 @@
   },
   {
     "License": "MIT",
-    "Name": "ast_serialize",
-    "Version": "0.5.0"
-  },
-  {
-    "License": "BSD License",
-    "Name": "astunparse",
-    "Version": "1.6.3"
-  },
-  {
-    "License": "MIT",
     "Name": "attrs",
     "Version": "26.1.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "bandit",
-    "Version": "1.8.2"
   },
   {
     "License": "LicenseRef-Biopython-License-Agreement",
@@ -125,59 +100,29 @@
     "Version": "1.87"
   },
   {
-    "License": "BSD License",
-    "Name": "boltons",
-    "Version": "21.0.0"
-  },
-  {
-    "License": "BSD-2-Clause",
-    "Name": "boolean.py",
-    "Version": "5.0"
-  },
-  {
-    "License": "MIT",
-    "Name": "bracex",
-    "Version": "2.6"
-  },
-  {
-    "License": "MIT",
-    "Name": "build",
-    "Version": "1.5.0"
-  },
-  {
     "License": "Mozilla Public License 2.0 (MPL 2.0)",
     "Name": "certifi",
-    "Version": "2026.5.20"
+    "Version": "2026.7.22"
   },
   {
-    "License": "MIT",
+    "License": "MIT-0",
     "Name": "cffi",
-    "Version": "2.0.0"
+    "Version": "2.1.0"
   },
   {
     "License": "MIT",
     "Name": "charset-normalizer",
-    "Version": "3.4.7"
+    "Version": "3.4.9"
   },
   {
     "License": "BSD-3-Clause",
     "Name": "click",
-    "Version": "8.4.1"
-  },
-  {
-    "License": "BSD-3-Clause",
-    "Name": "click-option-group",
-    "Version": "0.5.9"
+    "Version": "8.4.2"
   },
   {
     "License": "BSD License",
     "Name": "cloudpickle",
     "Version": "3.1.2"
-  },
-  {
-    "License": "BSD License",
-    "Name": "colorama",
-    "Version": "0.4.6"
   },
   {
     "License": "UNKNOWN",
@@ -195,29 +140,29 @@
     "Version": "1.3.3"
   },
   {
-    "License": "Apache-2.0",
-    "Name": "coverage",
-    "Version": "7.14.1"
-  },
-  {
     "License": "Apache-2.0 OR BSD-3-Clause",
     "Name": "cryptography",
-    "Version": "48.0.0"
+    "Version": "50.0.0"
+  },
+  {
+    "License": "LicenseRef-NVIDIA-SOFTWARE-LICENSE",
+    "Name": "cuda-bindings",
+    "Version": "13.3.1"
+  },
+  {
+    "License": "Apache-2.0",
+    "Name": "cuda-pathfinder",
+    "Version": "1.6.0"
+  },
+  {
+    "License": "UNKNOWN",
+    "Name": "cuda-toolkit",
+    "Version": "13.0.3.0"
   },
   {
     "License": "BSD License",
     "Name": "cycler",
     "Version": "0.12.1"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "cyclonedx-python-lib",
-    "Version": "11.11.0"
-  },
-  {
-    "License": "Python Software Foundation License",
-    "Name": "defusedxml",
-    "Version": "0.7.1"
   },
   {
     "License": "BSD License; GNU General Public License (GPL); Public Domain",
@@ -235,34 +180,19 @@
     "Version": "2.0.0"
   },
   {
-    "License": "MIT License",
-    "Name": "exceptiongroup",
-    "Version": "1.2.2"
-  },
-  {
-    "License": "UNKNOWN",
-    "Name": "face",
-    "Version": "26.0.1"
-  },
-  {
     "License": "MIT",
     "Name": "fastapi",
-    "Version": "0.136.3"
+    "Version": "0.139.2"
   },
   {
     "License": "BSD License",
     "Name": "fastjsonschema",
-    "Version": "2.21.2"
+    "Version": "2.22.1"
   },
   {
     "License": "MIT",
     "Name": "filelock",
-    "Version": "3.29.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "flatbuffers",
-    "Version": "25.12.19"
+    "Version": "3.32.0"
   },
   {
     "License": "MIT",
@@ -277,17 +207,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "fsspec",
-    "Version": "2026.4.0"
-  },
-  {
-    "License": "BSD License",
-    "Name": "gast",
-    "Version": "0.7.0"
-  },
-  {
-    "License": "MIT License",
-    "Name": "git-filter-repo",
-    "Version": "2.47.0"
+    "Version": "2026.7.0"
   },
   {
     "License": "BSD License",
@@ -295,34 +215,9 @@
     "Version": "4.0.12"
   },
   {
-    "License": "BSD License",
-    "Name": "glom",
-    "Version": "25.12.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "google-auth",
-    "Version": "2.53.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "google-auth-oauthlib",
-    "Version": "1.4.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "google-pasta",
-    "Version": "0.2.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "googleapis-common-protos",
-    "Version": "1.75.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "grpcio",
-    "Version": "1.80.0"
+    "License": "MIT AND PSF-2.0",
+    "Name": "greenlet",
+    "Version": "3.5.4"
   },
   {
     "License": "MIT License",
@@ -335,54 +230,24 @@
     "Version": "3.16.0"
   },
   {
-    "License": "Apache-2.0",
-    "Name": "hf-xet",
-    "Version": "1.5.1"
-  },
-  {
-    "License": "BSD-3-Clause",
-    "Name": "httpcore",
-    "Version": "1.0.9"
-  },
-  {
-    "License": "BSD License",
-    "Name": "httpx",
-    "Version": "0.28.1"
-  },
-  {
-    "License": "MIT",
-    "Name": "httpx-sse",
-    "Version": "0.4.3"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "huggingface_hub",
-    "Version": "1.20.1"
-  },
-  {
     "License": "MIT License",
     "Name": "humanfriendly",
     "Version": "10.0"
   },
   {
-    "License": "Mozilla Public License 2.0 (MPL 2.0)",
+    "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.102.2"
+    "Version": "6.157.1"
   },
   {
     "License": "BSD-3-Clause",
     "Name": "idna",
-    "Version": "3.16"
+    "Version": "3.18"
   },
   {
     "License": "Apache Software License",
     "Name": "immutables",
     "Version": "0.21"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "importlib_metadata",
-    "Version": "8.7.1"
   },
   {
     "License": "MIT",
@@ -397,7 +262,7 @@
   {
     "License": "MIT",
     "Name": "jsonschema",
-    "Version": "4.25.1"
+    "Version": "4.26.0"
   },
   {
     "License": "MIT",
@@ -412,7 +277,7 @@
   {
     "License": "Apache License 2.0",
     "Name": "keras",
-    "Version": "3.13.2"
+    "Version": "3.15.0"
   },
   {
     "License": "BSD License",
@@ -420,24 +285,9 @@
     "Version": "1.5.0"
   },
   {
-    "License": "Apache Software License",
-    "Name": "libclang",
-    "Version": "18.1.1"
-  },
-  {
-    "License": "MIT",
-    "Name": "librt",
-    "Version": "0.11.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "license-expression",
-    "Version": "30.4.4"
-  },
-  {
-    "License": "UNKNOWN",
+    "License": "BSD-2-Clause AND Apache-2.0 WITH LLVM-exception",
     "Name": "llvmlite",
-    "Version": "0.47.0"
+    "Version": "0.48.0"
   },
   {
     "License": "MIT License",
@@ -447,12 +297,7 @@
   {
     "License": "Python Software Foundation License",
     "Name": "matplotlib",
-    "Version": "3.10.9"
-  },
-  {
-    "License": "MIT License",
-    "Name": "mcp",
-    "Version": "1.23.3"
+    "Version": "3.11.1"
   },
   {
     "License": "MIT License",
@@ -467,12 +312,12 @@
   {
     "License": "Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n      other entities that control, are controlled by, or are under common\n      control with that entity. For the purposes of this definition,\n      \"control\" means (i) the power, direct or indirect, to cause the\n      direction or management of such entity, whether by contract or\n      otherwise, or (ii) ownership of fifty percent (50%) or more of the\n      outstanding shares, or (iii) beneficial ownership of such entity.\n\n      \"You\" (or \"Your\") shall mean an individual or Legal Entity\n      exercising permissions granted by this License.\n\n      \"Source\" form shall mean the preferred form for making modifications,\n      including but not limited to software source code, documentation\n      source, and configuration files.\n\n      \"Object\" form shall mean any form resulting from mechanical\n      transformation or translation of a Source form, including but\n      not limited to compiled object code, generated documentation,\n      and conversions to other media types.\n\n      \"Work\" shall mean the work of authorship, whether in Source or\n      Object form, made available under the License, as indicated by a\n      copyright notice that is included in or attached to the work\n      (an example is provided in the Appendix below).\n\n      \"Derivative Works\" shall mean any work, whether in Source or Object\n      form, that is based on (or derived from) the Work and for which the\n      editorial revisions, annotations, elaborations, or other modifications\n      represent, as a whole, an original work of authorship. For the purposes\n      of this License, Derivative Works shall not include works that remain\n      separable from, or merely link (or bind by name) to the interfaces of,\n      the Work and Derivative Works thereof.\n\n      \"Contribution\" shall mean any work of authorship, including\n      the original version of the Work and any modifications or additions\n      to that Work or Derivative Works thereof, that is intentionally\n      submitted to Licensor for inclusion in the Work by the copyright owner\n      or by an individual or Legal Entity authorized to submit on behalf of\n      the copyright owner. For the purposes of this definition, \"submitted\"\n      means any form of electronic, verbal, or written communication sent\n      to the Licensor or its representatives, including but not limited to\n      communication on electronic mailing lists, source code control systems,\n      and issue tracking systems that are managed by, or on behalf of, the\n      Licensor for the purpose of discussing and improving the Work, but\n      excluding communication that is conspicuously marked or otherwise\n      designated in writing by the copyright owner as \"Not a Contribution.\"\n\n      \"Contributor\" shall mean Licensor and any individual or Legal Entity\n      on behalf of whom a Contribution has been received by Licensor and\n      subsequently incorporated within the Work.\n\n   2. Grant of Copyright License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      copyright license to reproduce, prepare Derivative Works of,\n      publicly display, publicly perform, sublicense, and distribute the\n      Work and such Derivative Works in Source or Object form.\n\n   3. Grant of Patent License. Subject to the terms and conditions of\n      this License, each Contributor hereby grants to You a perpetual,\n      worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n      (except as stated in this section) patent license to make, have made,\n      use, offer to sell, sell, import, and otherwise transfer the Work,\n      where such license applies only to those patent claims licensable\n      by such Contributor that are necessarily infringed by their\n      Contribution(s) alone or by combination of their Contribution(s)\n      with the Work to which such Contribution(s) was submitted. If You\n      institute patent litigation against any entity (including a\n      cross-claim or counterclaim in a lawsuit) alleging that the Work\n      or a Contribution incorporated within the Work constitutes direct\n      or contributory patent infringement, then any patent licenses\n      granted to You under this License for that Work shall terminate\n      as of the date such litigation is filed.\n\n   4. Redistribution. You may reproduce and distribute copies of the\n      Work or Derivative Works thereof in any medium, with or without\n      modifications, and in Source or Object form, provided that You\n      meet the following conditions:\n\n      (a) You must give any other recipients of the Work or\n          Derivative Works a copy of this License; and\n\n      (b) You must cause any modified files to carry prominent notices\n          stating that You changed the files; and\n\n      (c) You must retain, in the Source form of any Derivative Works\n          that You distribute, all copyright, patent, trademark, and\n          attribution notices from the Source form of the Work,\n          excluding those notices that do not pertain to any part of\n          the Derivative Works; and\n\n      (d) If the Work includes a \"NOTICE\" text file as part of its\n          distribution, then any Derivative Works that You distribute must\n          include a readable copy of the attribution notices contained\n          within such NOTICE file, excluding those notices that do not\n          pertain to any part of the Derivative Works, in at least one\n          of the following places: within a NOTICE text file distributed\n          as part of the Derivative Works; within the Source form or\n          documentation, if provided along with the Derivative Works; or,\n          within a display generated by the Derivative Works, if and\n          wherever such third-party notices normally appear. The contents\n          of the NOTICE file are for informational purposes only and\n          do not modify the License. You may add Your own attribution\n          notices within Derivative Works that You distribute, alongside\n          or as an addendum to the NOTICE text from the Work, provided\n          that such additional attribution notices cannot be construed\n          as modifying the License.\n\n      You may add Your own copyright statement to Your modifications and\n      may provide additional or different license terms and conditions\n      for use, reproduction, or distribution of Your modifications, or\n      for any such Derivative Works as a whole, provided Your use,\n      reproduction, and distribution of the Work otherwise complies with\n      the conditions stated in this License.\n\n   5. Submission of Contributions. Unless You explicitly state otherwise,\n      any Contribution intentionally submitted for inclusion in the Work\n      by You to the Licensor shall be under the terms and conditions of\n      this License, without any additional terms or conditions.\n      Notwithstanding the above, nothing herein shall supersede or modify\n      the terms of any separate license agreement you may have executed\n      with Licensor regarding such Contributions.\n\n   6. Trademarks. This License does not grant permission to use the trade\n      names, trademarks, service marks, or product names of the Licensor,\n      except as required for reasonable and customary use in describing the\n      origin of the Work and reproducing the content of the NOTICE file.\n\n   7. Disclaimer of Warranty. Unless required by applicable law or\n      agreed to in writing, Licensor provides the Work (and each\n      Contributor provides its Contributions) on an \"AS IS\" BASIS,\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n      implied, including, without limitation, any warranties or conditions\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n      PARTICULAR PURPOSE. You are solely responsible for determining the\n      appropriateness of using or redistributing the Work and assume any\n      risks associated with Your exercise of permissions under this License.\n\n   8. Limitation of Liability. In no event and under no legal theory,\n      whether in tort (including negligence), contract, or otherwise,\n      unless required by applicable law (such as deliberate and grossly\n      negligent acts) or agreed to in writing, shall any Contributor be\n      liable to You for damages, including any direct, indirect, special,\n      incidental, or consequential damages of any character arising as a\n      result of this License or out of the use or inability to use the\n      Work (including but not limited to damages for loss of goodwill,\n      work stoppage, computer failure or malfunction, or any and all\n      other commercial damages or losses), even if such Contributor\n      has been advised of the possibility of such damages.\n\n   9. Accepting Warranty or Additional Liability. While redistributing\n      the Work or Derivative Works thereof, You may choose to offer,\n      and charge a fee for, acceptance of support, warranty, indemnity,\n      or other liability obligations and/or rights consistent with this\n      License. However, in accepting such obligations, You may act only\n      on Your own behalf and on Your sole responsibility, not on behalf\n      of any other Contributor, and only if You agree to indemnify,\n      defend, and hold each Contributor harmless for any liability\n      incurred by, or claims asserted against, such Contributor by reason\n      of your accepting any such warranty or additional liability.\n\n   END OF TERMS AND CONDITIONS\n\n   APPENDIX: How to apply the Apache License to your work.\n\n      To apply the Apache License to your work, attach the following\n      boilerplate notice, with the fields enclosed by brackets \"[]\"\n      replaced with your own identifying information. (Don't include\n      the brackets!)  The text should be enclosed in the appropriate\n      comment syntax for the file format. We also recommend that a\n      file or class name and description of purpose be included on the\n      same \"printed page\" as the copyright notice for easier\n      identification within third-party archives.\n\n   Copyright [yyyy] [name of copyright owner]\n\n   Licensed under the Apache License, Version 2.0 (the \"License\");\n   you may not use this file except in compliance with the License.\n   You may obtain a copy of the License at\n\n       http://www.apache.org/licenses/LICENSE-2.0\n\n   Unless required by applicable law or agreed to in writing, software\n   distributed under the License is distributed on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n   See the License for the specific language governing permissions and\n   limitations under the License.\n",
     "Name": "mhcgnomes",
-    "Version": "3.32.0"
+    "Version": "3.33.4"
   },
   {
-    "License": "Apache Software License",
-    "Name": "ml-dtypes",
-    "Version": "0.3.2"
+    "License": "Apache-2.0",
+    "Name": "ml_dtypes",
+    "Version": "0.5.4"
   },
   {
     "License": "BSD License",
@@ -488,16 +333,6 @@
     "License": "Apache License 2.0",
     "Name": "multidict",
     "Version": "6.7.1"
-  },
-  {
-    "License": "MIT",
-    "Name": "mypy",
-    "Version": "2.1.0"
-  },
-  {
-    "License": "MIT",
-    "Name": "mypy_extensions",
-    "Version": "1.1.0"
   },
   {
     "License": "UNKNOWN",
@@ -517,7 +352,7 @@
   {
     "License": "BSD License",
     "Name": "numba",
-    "Version": "0.65.1"
+    "Version": "0.66.0"
   },
   {
     "License": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
@@ -525,9 +360,84 @@
     "Version": "2.4.6"
   },
   {
-    "License": "BSD-3-Clause",
-    "Name": "oauthlib",
-    "Version": "3.3.1"
+    "License": "LicenseRef-NVIDIA-Proprietary",
+    "Name": "nvidia-cublas",
+    "Version": "13.1.1.3"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-cuda-cupti",
+    "Version": "13.0.85"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-cuda-nvrtc",
+    "Version": "13.0.88"
+  },
+  {
+    "License": "LicenseRef-NVIDIA-Proprietary",
+    "Name": "nvidia-cuda-runtime",
+    "Version": "13.0.96"
+  },
+  {
+    "License": "LicenseRef-NVIDIA-Proprietary",
+    "Name": "nvidia-cudnn-cu13",
+    "Version": "9.20.0.48"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-cufft",
+    "Version": "12.0.0.61"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-cufile",
+    "Version": "1.15.1.6"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-curand",
+    "Version": "10.4.0.35"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-cusolver",
+    "Version": "12.0.4.66"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-cusparse",
+    "Version": "12.6.3.3"
+  },
+  {
+    "License": "NVIDIA Proprietary Software",
+    "Name": "nvidia-cusparselt-cu13",
+    "Version": "0.8.1"
+  },
+  {
+    "License": "LicenseRef-NVIDIA-Proprietary",
+    "Name": "nvidia-nccl-cu12",
+    "Version": "2.30.7"
+  },
+  {
+    "License": "LicenseRef-NVIDIA-Proprietary",
+    "Name": "nvidia-nccl-cu13",
+    "Version": "2.29.7"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-nvjitlink",
+    "Version": "13.0.88"
+  },
+  {
+    "License": "LicenseRef-NVIDIA-Proprietary",
+    "Name": "nvidia-nvshmem-cu13",
+    "Version": "3.4.5"
+  },
+  {
+    "License": "Other/Proprietary License",
+    "Name": "nvidia-nvtx",
+    "Version": "13.0.85"
   },
   {
     "License": "MIT License",
@@ -536,73 +446,13 @@
   },
   {
     "License": "Apache-2.0",
-    "Name": "opentelemetry-api",
-    "Version": "1.37.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-exporter-otlp-proto-common",
-    "Version": "1.37.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-exporter-otlp-proto-http",
-    "Version": "1.37.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-instrumentation",
-    "Version": "0.58b0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-instrumentation-requests",
-    "Version": "0.58b0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-instrumentation-threading",
-    "Version": "0.58b0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-proto",
-    "Version": "1.37.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-sdk",
-    "Version": "1.37.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-semantic-conventions",
-    "Version": "0.58b0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "opentelemetry-util-http",
-    "Version": "0.58b0"
-  },
-  {
-    "License": "MIT",
-    "Name": "opt_einsum",
-    "Version": "3.4.0"
-  },
-  {
-    "License": "Apache-2.0",
     "Name": "optree",
     "Version": "0.19.1"
   },
   {
-    "License": "MIT License",
-    "Name": "packageurl-python",
-    "Version": "0.17.6"
-  },
-  {
-    "License": "Apache-2.0 OR BSD-2-Clause",
+    "License": "Apache Software License; BSD License",
     "Name": "packaging",
-    "Version": "26.2"
+    "Version": "25.0"
   },
   {
     "License": "BSD License",
@@ -610,44 +460,14 @@
     "Version": "3.0.3"
   },
   {
-    "License": "Mozilla Public License 2.0 (MPL 2.0)",
-    "Name": "pathspec",
-    "Version": "1.1.1"
-  },
-  {
-    "License": "UNKNOWN",
-    "Name": "peewee",
-    "Version": "3.19.0"
-  },
-  {
     "License": "MIT-CMU",
     "Name": "pillow",
-    "Version": "12.2.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "pip-api",
-    "Version": "0.0.34"
-  },
-  {
-    "License": "MIT",
-    "Name": "pip-requirements-parser",
-    "Version": "32.0.1"
-  },
-  {
-    "License": "BSD License",
-    "Name": "pip-tools",
-    "Version": "7.5.3"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "pip_audit",
-    "Version": "2.10.1"
+    "Version": "12.3.0"
   },
   {
     "License": "MIT",
     "Name": "platformdirs",
-    "Version": "4.9.6"
+    "Version": "4.11.0"
   },
   {
     "License": "MIT License",
@@ -662,7 +482,7 @@
   {
     "License": "3-Clause BSD License",
     "Name": "protobuf",
-    "Version": "6.33.6"
+    "Version": "7.35.1"
   },
   {
     "License": "BSD-3-Clause",
@@ -670,24 +490,9 @@
     "Version": "7.2.2"
   },
   {
-    "License": "Apache Software License",
-    "Name": "py-serializable",
-    "Version": "2.1.0"
-  },
-  {
     "License": "BSD-3-Clause and Public-Domain",
     "Name": "pyahocorasick",
-    "Version": "2.3.0"
-  },
-  {
-    "License": "BSD-2-Clause",
-    "Name": "pyasn1",
-    "Version": "0.6.3"
-  },
-  {
-    "License": "BSD License",
-    "Name": "pyasn1_modules",
-    "Version": "0.4.2"
+    "Version": "2.3.1"
   },
   {
     "License": "BSD-3-Clause",
@@ -702,7 +507,7 @@
   {
     "License": "MIT",
     "Name": "pydantic-settings",
-    "Version": "2.14.1"
+    "Version": "2.14.2"
   },
   {
     "License": "MIT",
@@ -715,24 +520,9 @@
     "Version": "3.3.2"
   },
   {
-    "License": "MIT License",
-    "Name": "pyproject_hooks",
-    "Version": "1.2.0"
-  },
-  {
-    "License": "BSD License",
-    "Name": "pyreadline3",
-    "Version": "3.5.4"
-  },
-  {
     "License": "MIT",
     "Name": "pytest",
-    "Version": "9.0.3"
-  },
-  {
-    "License": "MIT",
-    "Name": "pytest-cov",
-    "Version": "7.1.0"
+    "Version": "9.1.1"
   },
   {
     "License": "Apache Software License; BSD License",
@@ -745,39 +535,14 @@
     "Version": "1.2.2"
   },
   {
-    "License": "Apache-2.0",
-    "Name": "python-multipart",
-    "Version": "0.0.32"
-  },
-  {
-    "License": "Python Software Foundation License",
-    "Name": "pywin32",
-    "Version": "311"
-  },
-  {
     "License": "MIT",
     "Name": "referencing",
     "Version": "0.37.0"
   },
   {
-    "License": "Apache-2.0 AND CNRI-Python",
-    "Name": "regex",
-    "Version": "2026.5.9"
-  },
-  {
     "License": "Apache Software License",
     "Name": "requests",
     "Version": "2.34.2"
-  },
-  {
-    "License": "BSD License",
-    "Name": "requests-oauthlib",
-    "Version": "2.0.0"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "reretry",
-    "Version": "0.11.8"
   },
   {
     "License": "MIT License",
@@ -787,27 +552,7 @@
   {
     "License": "MIT",
     "Name": "rpds-py",
-    "Version": "0.30.0"
-  },
-  {
-    "License": "MIT License",
-    "Name": "ruamel.yaml",
-    "Version": "0.19.1"
-  },
-  {
-    "License": "MIT License",
-    "Name": "ruamel.yaml.clib",
-    "Version": "0.2.15"
-  },
-  {
-    "License": "MIT",
-    "Name": "ruff",
-    "Version": "0.15.17"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "safetensors",
-    "Version": "0.8.0"
+    "Version": "2026.6.3"
   },
   {
     "License": "BSD-3-Clause",
@@ -820,34 +565,9 @@
     "Version": "1.17.1"
   },
   {
-    "License": "BSD License",
-    "Name": "seaborn",
-    "Version": "0.13.2"
-  },
-  {
-    "License": "BSD License",
-    "Name": "semantic-version",
-    "Version": "2.10.0"
-  },
-  {
-    "License": "LGPL-2.1-or-later",
-    "Name": "semgrep",
-    "Version": "1.167.0"
-  },
-  {
-    "License": "MIT",
-    "Name": "sestrav",
-    "Version": "2.0.1"
-  },
-  {
     "License": "MIT License",
     "Name": "shap",
     "Version": "0.51.0"
-  },
-  {
-    "License": "ISC License (ISCL)",
-    "Name": "shellingham",
-    "Version": "1.5.4"
   },
   {
     "License": "MIT License",
@@ -862,7 +582,7 @@
   {
     "License": "MIT License",
     "Name": "smart_open",
-    "Version": "7.6.0"
+    "Version": "7.7.1"
   },
   {
     "License": "BSD License",
@@ -872,7 +592,7 @@
   {
     "License": "MIT",
     "Name": "snakemake",
-    "Version": "9.13.3"
+    "Version": "9.24.0"
   },
   {
     "License": "UNKNOWN",
@@ -887,7 +607,7 @@
   {
     "License": "UNKNOWN",
     "Name": "snakemake-interface-logger-plugins",
-    "Version": "2.0.1"
+    "Version": "2.1.0"
   },
   {
     "License": "UNKNOWN",
@@ -910,19 +630,14 @@
     "Version": "2.4.0"
   },
   {
-    "License": "BSD-3-Clause",
-    "Name": "sse-starlette",
-    "Version": "3.4.4"
+    "License": "MIT",
+    "Name": "sqlmodel",
+    "Version": "0.0.37"
   },
   {
     "License": "BSD-3-Clause",
     "Name": "starlette",
-    "Version": "1.1.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "stevedore",
-    "Version": "5.8.0"
+    "Version": "1.3.1"
   },
   {
     "License": "BSD License",
@@ -940,21 +655,6 @@
     "Version": "9.1.4"
   },
   {
-    "License": "Apache Software License",
-    "Name": "tensorboard",
-    "Version": "2.15.2"
-  },
-  {
-    "License": "Apache Software License",
-    "Name": "tensorboard-data-server",
-    "Version": "0.7.2"
-  },
-  {
-    "License": "MIT",
-    "Name": "termcolor",
-    "Version": "3.3.0"
-  },
-  {
     "License": "BSD License",
     "Name": "threadpoolctl",
     "Version": "3.6.0"
@@ -965,24 +665,9 @@
     "Version": "1.2.3"
   },
   {
-    "License": "Apache Software License",
-    "Name": "tokenizers",
-    "Version": "0.22.2"
-  },
-  {
-    "License": "MIT",
-    "Name": "tomli",
-    "Version": "2.4.1"
-  },
-  {
-    "License": "MIT License",
-    "Name": "tomli_w",
-    "Version": "1.2.0"
-  },
-  {
-    "License": "BSD-3-Clause",
+    "License": "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT",
     "Name": "torch",
-    "Version": "2.12.0"
+    "Version": "2.13.0"
   },
   {
     "License": "MIT",
@@ -992,22 +677,17 @@
   {
     "License": "MPL-2.0 AND MIT",
     "Name": "tqdm",
-    "Version": "4.67.3"
+    "Version": "4.70.0"
   },
   {
     "License": "BSD License",
     "Name": "traitlets",
-    "Version": "5.14.3"
+    "Version": "5.15.1"
   },
   {
-    "License": "Apache 2.0 License",
-    "Name": "transformers",
-    "Version": "5.12.1"
-  },
-  {
-    "License": "MIT",
-    "Name": "typer",
-    "Version": "0.25.1"
+    "License": "MIT License",
+    "Name": "triton",
+    "Version": "3.7.1"
   },
   {
     "License": "MIT",
@@ -1017,12 +697,7 @@
   {
     "License": "PSF-2.0",
     "Name": "typing_extensions",
-    "Version": "4.15.0"
-  },
-  {
-    "License": "Apache-2.0",
-    "Name": "tzdata",
-    "Version": "2026.2"
+    "Version": "4.16.0"
   },
   {
     "License": "MIT",
@@ -1032,17 +707,12 @@
   {
     "License": "BSD-3-Clause",
     "Name": "uvicorn",
-    "Version": "0.48.0"
+    "Version": "0.51.0"
   },
   {
-    "License": "MIT",
-    "Name": "wcmatch",
-    "Version": "8.5.2"
-  },
-  {
-    "License": "BSD License",
+    "License": "BSD-2-Clause",
     "Name": "wrapt",
-    "Version": "1.14.2"
+    "Version": "2.3.0"
   },
   {
     "License": "Apache Software License",
@@ -1050,23 +720,18 @@
     "Version": "3.2.0"
   },
   {
-    "License": "BSD License",
+    "License": "BSD-2-Clause",
     "Name": "xxhash",
-    "Version": "3.7.0"
+    "Version": "3.8.1"
   },
   {
     "License": "Apache-2.0",
     "Name": "yarl",
-    "Version": "1.24.2"
+    "Version": "1.24.5"
   },
   {
     "License": "MIT",
     "Name": "yte",
     "Version": "1.9.4"
-  },
-  {
-    "License": "MIT",
-    "Name": "zipp",
-    "Version": "4.1.0"
   }
 ]
