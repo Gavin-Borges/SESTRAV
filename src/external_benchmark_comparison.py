@@ -336,7 +336,7 @@ def run_bootstrap_comparisons(
     merged: pd.DataFrame,
     tool_columns: Dict[str, str],
     reference_col: str = "rf_oof_score",
-    reference_name: str = "SESTRAV RF (30-feat)",
+    reference_name: str = "SESTRAV RF (31-feat)",
     n_bootstrap: int = 2000,
 ) -> pd.DataFrame:
     """Bootstrap CIs for AUC-PR and ISSR@10 differences: reference vs each tool."""
@@ -746,7 +746,7 @@ def run_comparison(
 def _discover_tool_columns(merged: pd.DataFrame) -> Dict[str, str]:
     """Discover which tool score columns are present in the merged table."""
     candidates = [
-        ("SESTRAV RF (30-feat)", "rf_oof_score"),
+        ("SESTRAV RF (31-feat)", "rf_oof_score"),
         ("SESTRAV XGBoost", "xgb_oof_score"),
         ("Binding-only (max)", "binding_max"),
         ("PredIG-Path", "predig_max_score"),

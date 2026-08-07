@@ -37,7 +37,7 @@ PREVALENCE_POS_RATE = 506 / 720  # frozen Tier A class balance
 def _tool_columns(merged: pd.DataFrame) -> Dict[str, str]:
     cols: Dict[str, str] = {}
     if "rf_oof_score" in merged.columns:
-        cols["SESTRAV RF (30-feat)"] = "rf_oof_score"
+        cols["SESTRAV RF (31-feat)"] = "rf_oof_score"
     if "binding_max" in merged.columns:
         cols["Binding-only (max)"] = "binding_max"
     if "predig_max_score" in merged.columns:

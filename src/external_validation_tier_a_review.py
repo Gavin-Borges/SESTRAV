@@ -77,7 +77,7 @@ def build_summary(run_dir: str) -> dict:
         "training_overlap": overlap,
         "mcda_verdicts": mcda,
         "intersection_metrics": {
-            "SESTRAV RF (30-feat)": _tool_row(metrics_int, "SESTRAV RF (30-feat)"),
+            "SESTRAV RF (31-feat)": _tool_row(metrics_int, "SESTRAV RF (31-feat)"),
             "PredIG-Path": _tool_row(metrics_int, "PredIG-Path"),
             "PRIME 2.1": _tool_row(metrics_int, "PRIME 2.1"),
             "Binding-only (max)": _tool_row(metrics_int, "Binding-only (max)"),
@@ -89,12 +89,12 @@ def build_summary(run_dir: str) -> dict:
         if not metrics_only.empty and "n_peptides" in metrics_only.columns
         else None,
         "overlap_excluded_auc_pr": {
-            "SESTRAV RF (30-feat)": _tool_row(metrics_excl, "SESTRAV RF (30-feat)").get("auc_pr"),
+            "SESTRAV RF (31-feat)": _tool_row(metrics_excl, "SESTRAV RF (31-feat)").get("auc_pr"),
             "PRIME 2.1": _tool_row(metrics_excl, "PRIME 2.1").get("auc_pr"),
             "PredIG-Path": _tool_row(metrics_excl, "PredIG-Path").get("auc_pr"),
         },
         "overlap_only_auc_pr": {
-            "SESTRAV RF (30-feat)": _tool_row(metrics_only, "SESTRAV RF (30-feat)").get("auc_pr"),
+            "SESTRAV RF (31-feat)": _tool_row(metrics_only, "SESTRAV RF (31-feat)").get("auc_pr"),
             "PRIME 2.1": _tool_row(metrics_only, "PRIME 2.1").get("auc_pr"),
             "PredIG-Path": _tool_row(metrics_only, "PredIG-Path").get("auc_pr"),
         },
@@ -110,7 +110,7 @@ def build_summary(run_dir: str) -> dict:
 
     if not length_df.empty:
         nine = length_df[length_df["length_group"] == "9-mer"]
-        rf = nine[nine["tool"] == "SESTRAV RF (30-feat)"]
+        rf = nine[nine["tool"] == "SESTRAV RF (31-feat)"]
         pr = nine[nine["tool"] == "PRIME 2.1 (max)"]
         if not rf.empty:
             summary["length_stratified_9mer_rf_auc_pr"] = float(rf["auc_pr"].iloc[0])
