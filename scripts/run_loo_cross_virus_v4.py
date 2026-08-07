@@ -13,9 +13,14 @@ Output:
   results/loo_cross_virus_v4.json   - machine-readable per-virus metrics + provenance
   results/loo_cross_virus_v4.csv    - flat CSV for quick inspection
 
+--output-json and --output-csv are required, with no default: both are
+git-tracked artifacts, so a bare invocation refuses to guess a destination
+rather than silently rewriting them. Pass --allow-overwrite to replace them
+deliberately.
+
 Usage:
-  python scripts/run_loo_cross_virus_v4.py
-  python scripts/run_loo_cross_virus_v4.py --min-pos 20 --min-neg 20
+  python scripts/run_loo_cross_virus_v4.py --output-json results/loo_cross_virus_v4.json --output-csv results/loo_cross_virus_v4.csv
+  python scripts/run_loo_cross_virus_v4.py --output-json results/loo_cross_virus_v4.json --output-csv results/loo_cross_virus_v4.csv --min-pos 20 --min-neg 20
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ from sklearn.ensemble import RandomForestClassifier
 # Allow running from repo root without `pip install -e .`
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.artifact_guard import guard_planned_paths
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.train_classifier import prepare_features_31
@@ -52,6 +58,35 @@ def _fit_rf(X_train: np.ndarray, y_train: np.ndarray) -> RandomForestClassifier:
     return clf
 
 
+def planned_loo_paths(output_json: str, output_csv: str) -> list[str]:
+    """Both tracked artifacts run_loo writes.
+
+    --output-json and --output-csv each name a literal file path, not a
+    directory, so this is just the two given paths - no derived filenames,
+    unlike the `.replace()`-built names in data_bias_audit.py.
+    """
+    return [output_json, output_csv]
+
+
+def _guard_output_paths(output_json: str, output_csv: str, allow_overwrite: bool) -> None:
+    """Refuse to clobber artifacts already on disk unless overwrite is explicit.
+
+    --output-json and --output-csv each name a file, not a directory, so
+    scope/remedy override the default "under '{output_dir}'" / "Point {flag}
+    at a fresh directory" clauses - same two-independent-file-flag shape as
+    src/data_bias_audit.py's guards.
+    """
+    guard_planned_paths(
+        os.path.dirname(output_json) or ".",
+        planned_loo_paths(output_json, output_csv),
+        allow_overwrite,
+        flag="--output-json/--output-csv",
+        api_hint="run_loo(..., allow_overwrite=True)",
+        scope="among this run's planned artifacts",
+        remedy="Point --output-json and --output-csv at fresh paths, ",
+    )
+
+
 def run_loo(
     dataset_path: str = DATASET_PATH,
     binding_matrix_path: str = BINDING_MATRIX_PATH,
@@ -60,7 +95,9 @@ def run_loo(
     min_pos: int = 10,
     min_neg: int = 10,
     seed: int = 42,
+    allow_overwrite: bool = False,
 ) -> pd.DataFrame:
+    _guard_output_paths(output_json, output_csv, allow_overwrite)
     df = pd.read_csv(dataset_path)
     print(f"[loo] Loaded {len(df)} rows from {dataset_path}")
 
@@ -184,10 +221,26 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--dataset", default=DATASET_PATH)
     p.add_argument("--binding-matrix", default=BINDING_MATRIX_PATH)
-    p.add_argument("--output-json", default=OUTPUT_JSON)
-    p.add_argument("--output-csv", default=OUTPUT_CSV)
+    p.add_argument(
+        "--output-json",
+        required=True,
+        help="Output JSON path. No default: results/loo_cross_virus_v4.json is a "
+        "git-tracked artifact, so this script refuses to guess a destination.",
+    )
+    p.add_argument(
+        "--output-csv",
+        required=True,
+        help="Output CSV path. No default: results/loo_cross_virus_v4.csv is a "
+        "git-tracked artifact, so this script refuses to guess a destination.",
+    )
     p.add_argument("--min-pos", type=int, default=10)
     p.add_argument("--min-neg", type=int, default=10)
+    p.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="Replace --output-json/--output-csv if they already exist. Without "
+        "this flag the run aborts before any work if either would be overwritten.",
+    )
     args = p.parse_args()
 
     run_loo(
@@ -197,6 +250,7 @@ def main() -> None:
         output_csv=args.output_csv,
         min_pos=args.min_pos,
         min_neg=args.min_neg,
+        allow_overwrite=args.allow_overwrite,
     )
 
 
