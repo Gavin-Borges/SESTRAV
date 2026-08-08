@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.artifact_guard import guard_planned_paths
 from src.artifact_integrity import MODEL_CHECKSUM_MANIFEST, update_checksum_manifest
 from src.features import (
     compute_features,
@@ -162,20 +163,13 @@ def _guard_output_dir(
     model_dir: str, feature_mode: int | str, search: bool, allow_overwrite: bool
 ) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [
-        p for p in planned_ann_artifact_paths(model_dir, feature_mode, search) if os.path.isfile(p)
-    ]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{model_dir}':\n  "
-        f"{listing}\n"
-        "These may be published results. Point --model-dir at a fresh directory "
-        "(for example models/scratch/<run-name>), or pass --allow-overwrite "
-        "(train_ann(..., allow_overwrite=True)) to replace them deliberately."
+    guard_planned_paths(
+        model_dir,
+        planned_ann_artifact_paths(model_dir, feature_mode, search),
+        allow_overwrite,
+        flag="--model-dir",
+        api_hint="train_ann(..., allow_overwrite=True)",
+        remedy="Point --model-dir at a fresh directory (for example models/scratch/<run-name>), ",
     )
 
 

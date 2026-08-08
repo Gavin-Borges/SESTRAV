@@ -48,6 +48,7 @@ try:
 except ImportError:
     HAS_PYG = False
 
+from src.artifact_guard import guard_planned_paths
 from src.features import KD_HYDRO, VDW_VOL, AROMATIC, CHARGE
 from src.evaluate_metrics import evaluate, summarize_fold_metrics
 from src.model import set_seeds, get_device, SEED, N_FOLDS, LEARNING_RATE, WEIGHT_DECAY
@@ -613,19 +614,15 @@ def planned_benchmark_paths(output_dir: str, writes_bipartite: bool = True) -> l
 
 def _guard_output_dir(output_dir: str, writes_bipartite: bool, allow_overwrite: bool) -> None:
     """Refuse to clobber result CSVs already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [
-        p for p in planned_benchmark_paths(output_dir, writes_bipartite) if os.path.isfile(p)
-    ]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing result CSV(s):\n  {listing}\n"
-        "These may be published results. Point --output-dir at a fresh directory "
-        "(for example models/scratch/<run-name>), or pass --allow-overwrite to "
-        "replace them deliberately."
+    guard_planned_paths(
+        output_dir,
+        planned_benchmark_paths(output_dir, writes_bipartite),
+        allow_overwrite,
+        flag="--output-dir",
+        api_hint="",
+        noun="result CSV(s)",
+        scope="",
+        remedy="Point --output-dir at a fresh directory (for example models/scratch/<run-name>), ",
     )
 
 

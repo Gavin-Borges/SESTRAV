@@ -33,6 +33,7 @@ import os
 import numpy as np
 import pandas as pd
 
+from src.artifact_guard import guard_planned_paths
 from src.features import PHYSICO_COLUMNS, BINDING_ALLELE_COLUMNS
 from src.evaluate_metrics import summarize_fold_metrics
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
@@ -59,16 +60,15 @@ FEATURE_GROUPS = {
 
 def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
     """Refuse to clobber an existing ablation_study_results.csv unless overwrite is explicit."""
-    if allow_overwrite:
-        return
     out_path = os.path.join(output_dir, "ablation_study_results.csv")
-    if not os.path.isfile(out_path):
-        return
-    raise FileExistsError(
-        f"Refusing to overwrite existing artifact at '{out_path}'.\n"
-        "This may be a published result. Point --output-dir at a fresh directory "
-        "(for example models/scratch/<run-name>), or pass --allow-overwrite to "
-        "replace it deliberately."
+    guard_planned_paths(
+        output_dir,
+        [out_path],
+        allow_overwrite,
+        flag="--output-dir",
+        api_hint="",
+        remedy="Point --output-dir at a fresh directory (for example models/scratch/<run-name>), ",
+        single_path=True,
     )
 
 

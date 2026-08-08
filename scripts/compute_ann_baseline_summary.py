@@ -28,6 +28,7 @@ import pandas as pd
 
 # Allow running from SESTRAV-Dev root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.artifact_guard import guard_planned_paths
 from src.evaluate_metrics import evaluate
 
 
@@ -73,15 +74,17 @@ def _guard_summary_path(output_summary: str, allow_overwrite: bool) -> None:
     whatever is at that path, so it gets the same guard as train_ann's .pt/
     architecture-search artifacts.
     """
-    if allow_overwrite:
-        return
-    if not os.path.isfile(output_summary):
-        return
-    raise FileExistsError(
-        f"Refusing to overwrite existing artifact at '{output_summary}'.\n"
-        "This may be a published result. Point --output-summary at a fresh path "
-        "(for example models/scratch/<run-name>/ann_cv_summary.csv), or pass "
-        "--allow-overwrite to replace it deliberately."
+    guard_planned_paths(
+        os.path.dirname(output_summary) or ".",
+        [output_summary],
+        allow_overwrite,
+        flag="--output-summary",
+        api_hint="",
+        remedy=(
+            "Point --output-summary at a fresh path "
+            "(for example models/scratch/<run-name>/ann_cv_summary.csv), "
+        ),
+        single_path=True,
     )
 
 
