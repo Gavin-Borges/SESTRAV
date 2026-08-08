@@ -1,3 +1,10 @@
+> **SUPERSEDED HISTORICAL SNAPSHOT (dated 2026-04-24, v1/v2 diagnostic assessment). DO NOT CITE.**
+> The numbers below (including the 30-feature RF model, the 720/928-peptide v1/v2
+> figures, the 59.9%/40.1% SHAP split, and the v2 Brier/BSS values) are a stale
+> historical snapshot and must NOT be read as current results. For the current
+> validation and Tier A figures see the canonical files
+> `results/final_validation_report.md` and `results/h2_tier_a_summary.md`.
+
 # SESTRAV v1 vs v2 Quality Comparison
 
 **Generated:** 2026-04-24 | **Mode:** Diagnostic Assessment
