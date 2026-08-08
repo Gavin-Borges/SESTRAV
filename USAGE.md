@@ -175,8 +175,10 @@ snakemake --snakefile pipeline.smk --cores 4 --config freeze_mode=true
 python scripts/benchmark_runner.py --tier A --run-id reproduce_v3 --skip-freeze-check
 ```
 
-See `docs/external_testing/External_Validation_Sign_Off.md` for the contamination
-analysis and `docs/model_evaluation_summary.md` for all benchmark results.
+See `docs/model_evaluation_summary.md` for all benchmark results and
+`docs/claims_register.md` for the scope boundary and required qualifier on each
+certified claim. The full contamination analysis lives in an internal validation
+sign-off document that is not published in this repository.
 
 > **Evaluation note:** SESTRAV RF is evaluated strictly out-of-fold (conservative estimate),
 > while external tools are fully scored on the same peptides. On the certified Tier A

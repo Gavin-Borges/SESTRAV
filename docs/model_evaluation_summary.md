@@ -100,8 +100,9 @@ ANN/GNN values are sourced from the ANN/GNN benchmark study and mirrored in SEST
 
 > **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `src/train_classifier.py` and `src/ann_benchmark.py` locally to reproduce; both require `--model-dir`, so point them at a scratch directory such as `models/local` rather than at the published artifacts in `models/`.
 
-> **Provenance note:** The canonical optional ANN/GNN evidence source for the
-> latest Project 2 sync is documented in `docs/nn_gnn_project2_sync_matrix.md`.
+> **Provenance note:** The canonical optional ANN/GNN evidence source is documented in
+> `docs/nn_gnn_optional_module_guide.md`, which defines the optional ANN/GNN benchmark
+> track and its boundary against the canonical release gate.
 
 ### ANN Architecture Search (14 Configurations)
 
