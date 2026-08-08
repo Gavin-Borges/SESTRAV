@@ -13,6 +13,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
   `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
   `2.1.0`, matching `pyproject.toml`.
+- **Tier-1 `results/` silent-overwrite guard closed for the last 4 enumeration items**
+  (`scripts/compute_loo_binding_confound.py`, `scripts/compute_tier_a_paired_bootstrap.py`,
+  `scripts/eval_tsnadb_crossdomain.py`, `scripts/run_tier_a_benchmarks.py`), none of which
+  had a CLI at all before - a bare invocation always silently rewrote a git-tracked
+  artifact. Each script now takes an optional `--output` flag (or
+  `--scores-output`/`--metrics-output` for `run_tier_a_benchmarks.py`, which writes two
+  independent tracked artifacts) with no default: omitting it prints results without
+  writing anything, matching `scripts/evaluate_per_virus.py`'s existing convention, rather
+  than erroring or guessing a destination. `eval_tsnadb_crossdomain.py`'s undisclosed
+  second write site (`data/tsnadb_crossdomain_binding.csv`) was confirmed gitignored and
+  left unguarded deliberately, out of scope for the tracked-artifact defect class. Closes
+  the Tier-1 enumeration completely: 15 of 15 modules now guarded.
 
 ## [2.1.0] - 2026-08-07
 
