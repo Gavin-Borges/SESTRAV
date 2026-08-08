@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+- **Tier-1 `results/` silent-overwrite guard closed for LOO cross-virus benchmarks**
+  (`scripts/run_loo_cross_virus_v4.py`, `scripts/run_loo_cross_virus_v5.py`).
+  `--output-json`/`--output-csv` are now required with no default at both the
+  CLI and Python-API layers (`run_loo()`'s two output parameters are
+  keyword-only with no default), guarded via `src/artifact_guard.py` before
+  any work starts. Closes Tier-1 enumeration items #4 and #5.
+
 ## [2.1.0] - 2026-08-07
 
 ### Security
