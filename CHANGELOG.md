@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **Consolidated the last 6 bespoke `results/`/`models/` overwrite guards onto
+  the shared `src/artifact_guard.py` template** (`src/train_classifier.py`,
+  `src/train_gnn.py`, `src/ann_benchmark.py`, `src/gnn_benchmark.py`,
+  `src/ablation_study.py`, `scripts/compute_ann_baseline_summary.py`).
+  `guard_planned_paths()` gained `noun`, `trailing`, and `single_path`
+  parameters (each defaulting to reproducing the exact prior message) to
+  cover message shapes the shared template didn't previously support.
+  `single_path=True` now raises `ValueError` if a caller passes more than
+  one planned path, and the module docstring's stale module count is
+  corrected. All 19 modules using this pattern now delegate to one
+  implementation instead of 13 delegating and 6 carrying their own copy.
+
 ## [2.1.0] - 2026-08-07
 
 ### Security
