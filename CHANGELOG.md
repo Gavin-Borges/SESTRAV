@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
   `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
   `2.1.0`, matching `pyproject.toml`.
+- **Tier-1 `results/` silent-overwrite guard closed for LOO cross-virus benchmarks**
+  (`scripts/run_loo_cross_virus_v4.py`, `scripts/run_loo_cross_virus_v5.py`).
+  `--output-json`/`--output-csv` are now required with no default at both the
+  CLI and Python-API layers (`run_loo()`'s two output parameters are
+  keyword-only with no default), guarded via `src/artifact_guard.py` before
+  any work starts. Closes Tier-1 enumeration items #4 and #5.
 - **Tier-1 `results/` silent-overwrite guard closed for the last 4 enumeration items**
   (`scripts/compute_loo_binding_confound.py`, `scripts/compute_tier_a_paired_bootstrap.py`,
   `scripts/eval_tsnadb_crossdomain.py`, `scripts/run_tier_a_benchmarks.py`), none of which
