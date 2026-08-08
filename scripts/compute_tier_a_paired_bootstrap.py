@@ -22,10 +22,16 @@ Inputs (committed):
   results/external_validation_merged_scores.csv  (peptide,label,rf_oof_score,binding_max)
   data/tier_a_external_benchmarks.csv            (peptide,bigmhc_score)
 
-Reproduce:  python scripts/compute_tier_a_paired_bootstrap.py
-Writes:     results/tier_a_paired_bootstrap.csv
+--output has no default: results/tier_a_paired_bootstrap.csv is a git-tracked
+artifact, so a bare invocation prints the table without writing anything rather
+than silently rewriting it.
+
+Reproduce:  python scripts/compute_tier_a_paired_bootstrap.py --output results/tier_a_paired_bootstrap.csv
 """
 from __future__ import annotations
+
+import argparse
+import os
 
 import numpy as np
 import pandas as pd
@@ -33,7 +39,7 @@ from sklearn.metrics import average_precision_score
 
 SEED = 20260719
 B = 10000
-OUT = "results/tier_a_paired_bootstrap.csv"
+TRACKED_OUTPUT = "results/tier_a_paired_bootstrap.csv"
 
 
 def paired_bootstrap(sub: pd.DataFrame, col_a: str, col_b: str, rng: np.random.Generator) -> dict:
@@ -67,7 +73,7 @@ def paired_bootstrap(sub: pd.DataFrame, col_a: str, col_b: str, rng: np.random.G
     }
 
 
-def main() -> None:
+def compute_bootstrap_table() -> pd.DataFrame:
     rng = np.random.default_rng(SEED)
     rf = pd.read_csv("results/external_validation_merged_scores.csv")[
         ["peptide", "label", "rf_oof_score", "binding_max"]
@@ -84,9 +90,37 @@ def main() -> None:
     out = pd.DataFrame(rows)
     out.insert(1, "n_bootstrap", B)
     out.insert(2, "seed", SEED)
-    out.to_csv(OUT, index=False)
+    return out
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Paired-bootstrap CI + p-value on the Tier-A AUC-PR delta (manuscript Sec 3.5)."
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            f"Output CSV path (optional). No default: {TRACKED_OUTPUT} is a "
+            "git-tracked artifact, so this script refuses to guess a destination "
+            "- omit this flag to print the table without writing anything."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    out = compute_bootstrap_table()
     print(out.to_string(index=False))
-    print(f"\nwrote {OUT}")
+    if args.output:
+        output_dir = os.path.dirname(args.output)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        out.to_csv(args.output, index=False)
+        print(f"\nwrote {args.output}")
 
 
 if __name__ == "__main__":
