@@ -169,9 +169,9 @@ This document should be interpreted as the legacy baseline comparison, not the c
 | Method | GS in Top 10% | GS in Top 25% | Mean Rank % |
 |--------|---------------|---------------|-------------|
 | Binding-only baseline | 15/15 | 15/15 | 2.2% |
-| **RF (SESTRAV)** | **6/15** | **8/15** | **27.1%** |
-| XGBoost | 2/15 | 6/15 | 35.6% |
-| ANN (MLP) | 0/15 | 3/15 | 36.0% |
+| **RF (SESTRAV)** | **4/15** | **7/15** | **34.7%** |
+| XGBoost | 1/15 | 3/15 | 52.4% |
+| ANN (MLP) | 4/15 | 6/15 | 47.3% |
 
 ### Interpreting the Baseline Result
 

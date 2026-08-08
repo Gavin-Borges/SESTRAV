@@ -13,6 +13,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
   `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
   `2.1.0`, matching `pyproject.toml`.
+- **`docs/model_evaluation_summary.md`'s Pipeline Gold-Standard Recovery table corrected**
+  to match its own cited source, `results/baseline_comparison.csv` (Combined row): RF
+  4/15 top-10% / 7/15 top-25% / 34.7% mean rank (was stale at 6/15 / 8/15 / 27.1%);
+  XGBoost 1/15 / 3/15 / 52.4% (was 2/15 / 6/15 / 35.6%); ANN (MLP) 4/15 / 6/15 / 47.3%
+  (was 0/15 / 3/15 / 36.0%). The Binding-only baseline row already matched and is
+  unchanged. This drift was disclosed but not fixed in the 2026-07-31 `results/` guard
+  batch; the source CSV itself was already current, so this is a transcription
+  correction only, not a new pipeline run. Logged as `docs/claims_register.md` D14.
+- **`results/v1_v2_quality_comparison.md` given the same "SUPERSEDED HISTORICAL
+  SNAPSHOT... DO NOT CITE" disclosure banner already carried by its sibling file**,
+  `results/multi_run_stability_report.md` - both are the same 2026-04-24/25 v1/v2
+  diagnostic era, but only one had been banner-ed; this one was missed. No content
+  below the banner changed.
 
 ## [2.1.0] - 2026-08-07
 
