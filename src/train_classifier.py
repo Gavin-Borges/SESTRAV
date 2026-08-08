@@ -35,6 +35,7 @@ import json
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from src.artifact_guard import guard_planned_paths
 from src.ml_utils import MultiStratifiedKFold
 from xgboost import XGBClassifier
 from joblib import dump
@@ -473,18 +474,13 @@ def planned_artifact_paths(model_dir: str, feature_mode: int | str) -> list[str]
 
 def _guard_output_dir(model_dir: str, feature_mode: int | str, allow_overwrite: bool) -> None:
     """Refuse to clobber artifacts already on disk unless overwrite is explicit."""
-    if allow_overwrite:
-        return
-    existing = [p for p in planned_artifact_paths(model_dir, feature_mode) if os.path.isfile(p)]
-    if not existing:
-        return
-    listing = "\n  ".join(sorted(existing))
-    raise FileExistsError(
-        f"Refusing to overwrite {len(existing)} existing artifact(s) under '{model_dir}':\n  "
-        f"{listing}\n"
-        "These may be published results. Point --model-dir at a fresh directory "
-        "(for example models/scratch/<run-name>), or pass --allow-overwrite "
-        "(train_models(..., allow_overwrite=True)) to replace them deliberately."
+    guard_planned_paths(
+        model_dir,
+        planned_artifact_paths(model_dir, feature_mode),
+        allow_overwrite,
+        flag="--model-dir",
+        api_hint="train_models(..., allow_overwrite=True)",
+        remedy="Point --model-dir at a fresh directory (for example models/scratch/<run-name>), ",
     )
 
 

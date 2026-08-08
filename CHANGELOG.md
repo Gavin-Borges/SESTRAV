@@ -20,6 +20,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
   `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
   `2.1.0`, matching `pyproject.toml`.
+- **Tier-1 `results/` silent-overwrite guard closed for LOO cross-virus benchmarks**
+  (`scripts/run_loo_cross_virus_v4.py`, `scripts/run_loo_cross_virus_v5.py`).
+  `--output-json`/`--output-csv` are now required with no default at both the
+  CLI and Python-API layers (`run_loo()`'s two output parameters are
+  keyword-only with no default), guarded via `src/artifact_guard.py` before
+  any work starts. Closes Tier-1 enumeration items #4 and #5.
 - **Tier-1 `results/` silent-overwrite guard closed for the last 4 enumeration items**
   (`scripts/compute_loo_binding_confound.py`, `scripts/compute_tier_a_paired_bootstrap.py`,
   `scripts/eval_tsnadb_crossdomain.py`, `scripts/run_tier_a_benchmarks.py`), none of which
@@ -45,6 +51,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `results/multi_run_stability_report.md` - both are the same 2026-04-24/25 v1/v2
   diagnostic era, but only one had been banner-ed; this one was missed. No content
   below the banner changed.
+
+### Changed
+- **Consolidated the last 6 bespoke `results/`/`models/` overwrite guards onto
+  the shared `src/artifact_guard.py` template** (`src/train_classifier.py`,
+  `src/train_gnn.py`, `src/ann_benchmark.py`, `src/gnn_benchmark.py`,
+  `src/ablation_study.py`, `scripts/compute_ann_baseline_summary.py`).
+  `guard_planned_paths()` gained `noun`, `trailing`, and `single_path`
+  parameters (each defaulting to reproducing the exact prior message) to
+  cover message shapes the shared template didn't previously support.
+  `single_path=True` now raises `ValueError` if a caller passes more than
+  one planned path, and the module docstring's stale module count is
+  corrected. All 19 modules using this pattern now delegate to one
+  implementation instead of 13 delegating and 6 carrying their own copy.
 
 ## [2.1.0] - 2026-08-07
 
