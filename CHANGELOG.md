@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **`LICENSE` now detected as MIT by GitHub instead of "Other".** The copyright block
+  spanned two lines, but only the first began with `Copyright`; GitHub's `licensee`
+  detector strips copyright lines before template matching, so the second line
+  (the five author names) was treated as license BODY text and pushed the file below
+  the similarity threshold for the MIT template. The author line is now its own
+  `Copyright (c) 2026` line - the idiomatic multi-holder form. No legal substance
+  changed: the grant, conditions, and warranty disclaimer are byte-identical.
 - **Leftover `2.0.3` version strings missed by the v2.1.0 bump** (`README.md`'s BibTeX
   citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
   `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
