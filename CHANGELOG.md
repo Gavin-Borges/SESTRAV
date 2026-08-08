@@ -9,12 +9,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **Leftover `2.0.3` version strings missed by the v2.1.0 bump** (`README.md`'s BibTeX
+  citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
+  `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
+  `2.1.0`, matching `pyproject.toml`.
 - **Tier-1 `results/` silent-overwrite guard closed for LOO cross-virus benchmarks**
   (`scripts/run_loo_cross_virus_v4.py`, `scripts/run_loo_cross_virus_v5.py`).
   `--output-json`/`--output-csv` are now required with no default at both the
   CLI and Python-API layers (`run_loo()`'s two output parameters are
   keyword-only with no default), guarded via `src/artifact_guard.py` before
   any work starts. Closes Tier-1 enumeration items #4 and #5.
+- **Tier-1 `results/` silent-overwrite guard closed for the last 4 enumeration items**
+  (`scripts/compute_loo_binding_confound.py`, `scripts/compute_tier_a_paired_bootstrap.py`,
+  `scripts/eval_tsnadb_crossdomain.py`, `scripts/run_tier_a_benchmarks.py`), none of which
+  had a CLI at all before - a bare invocation always silently rewrote a git-tracked
+  artifact. Each script now takes an optional `--output` flag (or
+  `--scores-output`/`--metrics-output` for `run_tier_a_benchmarks.py`, which writes two
+  independent tracked artifacts) with no default: omitting it prints results without
+  writing anything, matching `scripts/evaluate_per_virus.py`'s existing convention, rather
+  than erroring or guessing a destination. `eval_tsnadb_crossdomain.py`'s undisclosed
+  second write site (`data/tsnadb_crossdomain_binding.csv`) was confirmed gitignored and
+  left unguarded deliberately, out of scope for the tracked-artifact defect class. Closes
+  the Tier-1 enumeration completely: 15 of 15 modules now guarded.
+- **`docs/model_evaluation_summary.md`'s Pipeline Gold-Standard Recovery table corrected**
+  to match its own cited source, `results/baseline_comparison.csv` (Combined row): RF
+  4/15 top-10% / 7/15 top-25% / 34.7% mean rank (was stale at 6/15 / 8/15 / 27.1%);
+  XGBoost 1/15 / 3/15 / 52.4% (was 2/15 / 6/15 / 35.6%); ANN (MLP) 4/15 / 6/15 / 47.3%
+  (was 0/15 / 3/15 / 36.0%). The Binding-only baseline row already matched and is
+  unchanged. This drift was disclosed but not fixed in the 2026-07-31 `results/` guard
+  batch; the source CSV itself was already current, so this is a transcription
+  correction only, not a new pipeline run. Logged as `docs/claims_register.md` D14.
+- **`results/v1_v2_quality_comparison.md` given the same "SUPERSEDED HISTORICAL
+  SNAPSHOT... DO NOT CITE" disclosure banner already carried by its sibling file**,
+  `results/multi_run_stability_report.md` - both are the same 2026-04-24/25 v1/v2
+  diagnostic era, but only one had been banner-ed; this one was missed. No content
+  below the banner changed.
 
 ## [2.1.0] - 2026-08-07
 
