@@ -329,3 +329,37 @@ def test_no_detail_clause_leaves_the_sentence_intact(tmp_path):
             api_hint="run(..., allow_overwrite=True)",
         )
     assert "These may be published results. Point --results-dir" in str(exc.value)
+
+
+def test_single_path_rejects_more_than_one_planned_path(tmp_path):
+    """single_path=True is a caller contract, not just a formatting toggle.
+
+    A future single_path=True caller that (by mistake) passes more than one
+    planned path would otherwise have collisions silently under-reported -
+    the message only ever names existing[0]. This must fail loudly instead,
+    and before allow_overwrite so the contract violation cannot be masked by
+    the escape hatch.
+    """
+    with pytest.raises(ValueError, match="single_path=True requires exactly one"):
+        guard_planned_paths(
+            str(tmp_path),
+            [str(tmp_path / "a.csv"), str(tmp_path / "b.csv")],
+            True,  # allow_overwrite=True - must not suppress this check
+            flag="--output",
+            api_hint="",
+            single_path=True,
+        )
+
+
+def test_single_path_accepts_exactly_one_planned_path(tmp_path):
+    """Sanity check: the new guard does not reject the normal, valid case."""
+    (tmp_path / "a.csv").write_text("x", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        guard_planned_paths(
+            str(tmp_path),
+            [str(tmp_path / "a.csv")],
+            False,
+            flag="--output",
+            api_hint="",
+            single_path=True,
+        )

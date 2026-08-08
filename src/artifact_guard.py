@@ -19,7 +19,7 @@ guard's own error message also contains. A single shared implementation is what
 lets one generic, parametrized test run against the modules that use it, so a
 module cannot quietly be held to a weaker standard than its siblings.
 
-All twelve modules that carry this pattern now delegate here. The `results/`
+All nineteen modules that carry this pattern now delegate here. The `results/`
 family (`scripts/run_analysis.py`, `src/final_validation_report.py`,
 `src/bias_skew_finalization.py`, `src/h2_tier_a_evaluation.py`) and several more
 (`src/data_bias_audit.py`, `src/gold_standard_sensitivity.py`,
@@ -155,11 +155,19 @@ def guard_planned_paths(
             Defaults to False, reproducing the original multi-path shape.
 
     Raises:
+        ValueError: If `single_path` is True and `planned_paths` does not
+            resolve to exactly one path - a caller-contract violation, checked
+            before `allow_overwrite` so it cannot be silently bypassed.
         FileExistsError: If any planned path exists and allow_overwrite is False.
             The message lists every collision, not just the first (unless
             `single_path` is True, where there is only ever one to name), so
             one run surfaces the full extent of what a retry would replace.
     """
+    if single_path and len(planned_paths) > 1:
+        raise ValueError(
+            f"single_path=True requires exactly one planned path, got "
+            f"{len(planned_paths)}: {list(planned_paths)}"
+        )
     if allow_overwrite:
         return
     existing = existing_planned_paths(planned_paths)
