@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+- **Leftover `2.0.3` version strings missed by the v2.1.0 bump** (`README.md`'s BibTeX
+  citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
+  `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
+  `2.1.0`, matching `pyproject.toml`.
+
 ## [2.1.0] - 2026-08-07
 
 ### Security

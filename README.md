@@ -507,7 +507,7 @@ If you use SESTRAV in your research, please cite this repository:
   title     = {{SESTRAV}: Structural Epitope Scoring via {TCR} Recognition And Vaccinology},
   year      = {2026},
   url       = {https://github.com/Gavin-Borges/SESTRAV},
-  version   = {2.0.3}
+  version   = {2.1.0}
 }
 ```
 

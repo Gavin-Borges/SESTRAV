@@ -43,7 +43,7 @@ Expected output:
 ============================================================
 SESTRAV Environment Info
 ============================================================
-  sestrav version : 2.0.3
+  sestrav version : 2.1.0
   mhcflurry       : 2.2.1
   torch           : 2.2.0
   CUDA            : not available
