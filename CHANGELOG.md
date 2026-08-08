@@ -19,8 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Dead citations in tracked docs re-pointed at targets a reader can actually open.**
   Seven reader-facing references pointed at paths that are not in the repository.
   `README.md`'s certified-headline footnote and `USAGE.md:178` cited the gitignored
-  `docs/external_testing/External_Validation_Sign_Off.md`; both now cite
-  `results/table3_tier_a_metrics.csv` and `docs/claims_register.md`, and
+  `docs/external_testing/External_Validation_Sign_Off.md`; both now cite the tracked
+  `results/external_benchmark_comparison.md` for methodology plus
+  `results/table3_tier_a_metrics.csv` and `docs/claims_register.md` for the certified
+  metrics and their scope boundaries, and
   `docs/claims_register.md` gained an explicit note that the sign-off file is an internal
   artifact named for provenance completeness, not a document a reader can open. Two
   typo-class defects fixed in the claims register itself: `docs/model_cards/rf_31feature.md

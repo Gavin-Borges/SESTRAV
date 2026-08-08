@@ -175,7 +175,8 @@ snakemake --snakefile pipeline.smk --cores 4 --config freeze_mode=true
 python scripts/benchmark_runner.py --tier A --run-id reproduce_v3 --skip-freeze-check
 ```
 
-See `docs/model_evaluation_summary.md` for all benchmark results and
+See `results/external_benchmark_comparison.md` for the external benchmark methodology,
+`docs/model_evaluation_summary.md` for all benchmark results, and
 `docs/claims_register.md` for the scope boundary and required qualifier on each
 certified claim. The full contamination analysis lives in an internal validation
 sign-off document that is not published in this repository.
