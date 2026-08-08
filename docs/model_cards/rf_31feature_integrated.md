@@ -2,7 +2,7 @@
 
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights)
-- **Version:** SESTRAV v2.0.3 - **Current canonical production model.**
+- **Version:** SESTRAV v2.1.0 - **Current canonical production model.**
 - **Model file:** `models/rf_31feature_integrated.joblib` - **not distributed with this repository.** `models/*.joblib` is gitignored, so a fresh clone contains no model binary (confirm the live rule with `git check-ignore -v models/rf_31feature_integrated.joblib`); a reader obtains it by training locally with the command under [Provenance](#provenance) (see README, "Reproducibility and Data Provenance").
 - **Provenance:** `models/model_artifact_checksums.json` - records the SHA-256 digest and byte size of `rf_31feature_integrated.joblib`, so a locally trained binary can be compared against the reference build. See [Provenance](#provenance) below for the full record.
 - **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides for T-cell vaccine candidate triage.
