@@ -9,9 +9,14 @@ already present in models/peptide_binding_matrix_v4.csv), writes a cohort-local
 merged binding matrix, then scores the pool with the canonical v4 mode-31 RF.
 Reports AUC-PR / AUC-ROC / ISSR@10/25 with 2,000-resample bootstrap CIs.
 
-Output: results/tsnadb_crossdomain_benchmark.json
+--output has no default: results/tsnadb_crossdomain_benchmark.json is a
+git-tracked artifact, so a bare invocation runs the full benchmark and prints
+the metrics table without writing anything rather than silently rewriting it.
+
+Reproduce: python scripts/eval_tsnadb_crossdomain.py --output results/tsnadb_crossdomain_benchmark.json
 """
 
+import argparse
 import json
 import os
 import sys
@@ -38,7 +43,7 @@ HARD_DECOYS = os.path.join(PROJECT_ROOT, "data", "hard_decoys.csv")
 BINDING_MATRIX_V4 = os.path.join(PROJECT_ROOT, "models", "peptide_binding_matrix_v4.csv")
 BINDING_MATRIX_OUT = os.path.join(PROJECT_ROOT, "data", "tsnadb_crossdomain_binding.csv")
 MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "rf_31feature_integrated.joblib")
-OUTPUT_PATH = os.path.join(PROJECT_ROOT, "results", "tsnadb_crossdomain_benchmark.json")
+TRACKED_OUTPUT = os.path.join(PROJECT_ROOT, "results", "tsnadb_crossdomain_benchmark.json")
 
 # Canonical-10 alleles - must match the binding matrix column order
 ALLELES = [
@@ -115,7 +120,9 @@ def build_pool(tsna_path: str, decoys_path: str) -> pd.DataFrame:
     return pool
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+
     print("SESTRAV - Tumor Neoantigen Cross-Domain Benchmark")
     print("=" * 60)
 
@@ -236,10 +243,41 @@ def main() -> None:
         ),
     }
 
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w") as fh:
+    maybe_write_json(result, args.output)
+
+
+def maybe_write_json(result: dict, output_path: str | None) -> None:
+    """Write result to output_path, or do nothing if output_path is falsy.
+
+    Kept as its own function (rather than inlined at the end of main()) so
+    the write-or-skip decision is testable without running the full
+    MHCflurry/model-scoring pipeline that produces `result`.
+    """
+    if not output_path:
+        return
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as fh:
         json.dump(result, fh, indent=2)
-    print(f"\nResults written to {OUTPUT_PATH}")
+    print(f"\nResults written to {output_path}")
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Score the tumor neoantigen cross-domain benchmark."
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            f"Output JSON path (optional). No default: {TRACKED_OUTPUT} is a "
+            "git-tracked artifact, so this script refuses to guess a destination "
+            "- omit this flag to run the benchmark and print metrics without "
+            "writing anything."
+        ),
+    )
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
