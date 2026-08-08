@@ -16,6 +16,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the similarity threshold for the MIT template. The author line is now its own
   `Copyright (c) 2026` line - the idiomatic multi-holder form. No legal substance
   changed: the grant, conditions, and warranty disclaimer are byte-identical.
+- **Dead citations in tracked docs re-pointed at targets a reader can actually open.**
+  Seven reader-facing references pointed at paths that are not in the repository.
+  `README.md`'s certified-headline footnote and `USAGE.md:178` cited the gitignored
+  `docs/external_testing/External_Validation_Sign_Off.md`; both now cite the tracked
+  `results/external_benchmark_comparison.md` for methodology plus
+  `results/table3_tier_a_metrics.csv` and `docs/claims_register.md` for the certified
+  metrics and their scope boundaries, and
+  `docs/claims_register.md` gained an explicit note that the sign-off file is an internal
+  artifact named for provenance completeness, not a document a reader can open. Two
+  typo-class defects fixed in the claims register itself: `docs/model_cards/rf_31feature.md
+  (pending)` -> `docs/model_cards/rf_31feature_integrated.md`, and `docs/naming.py` ->
+  `src/naming.py`. `docs/model_evaluation_summary.md`'s provenance note cited
+  `docs/nn_gnn_project2_sync_matrix.md`, which has never existed; it now cites the tracked
+  `docs/nn_gnn_optional_module_guide.md`. `docs/model_cards/rf_30feature.md` told the reader
+  to "See `results/scoring_error_audit.md`", a generated artifact that is not tracked; it now
+  names the generator, `scripts/scoring_error_audit.py`. `docs/architecture/gnn_alphafold_debate.md`
+  proposed `src/generate_structural_cache.py`; that script was never created under that name,
+  and the design record now points at what was actually built,
+  `scripts/run_pandora_structures.py` (PANDORA/MODELLER rather than AlphaFold).
+- **Contributor-facing instruction to run a script that does not exist, removed.**
+  `.github/ISSUE_TEMPLATE/data_contribution.md` instructed data contributors to run
+  `python scripts/check_overlap.py`, which is absent repo-wide (`git ls-files '*overlap*'`
+  returns nothing), against `data/immunogenicity_dataset_v3.csv`, two dataset generations
+  stale. Replaced with a plain request to state known overlap against the current v5 dataset,
+  noting that maintainers re-run a full overlap and contamination check before any merge, so
+  an approximate answer does not block a submission.
 - **Leftover `2.0.3` version strings missed by the v2.1.0 bump** (`README.md`'s BibTeX
   citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
   `importlib.metadata` fallback constant for uninstalled/source runs) - all now read

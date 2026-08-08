@@ -32,5 +32,6 @@ As for GCN vs. GAT, I side with the ML Engineer for V2. Let's build a **GCN with
 ### Synthesis & Strategic Recommendation
 
 1. **Architecture Choice:** **GCN with Edge Weights.** We will extend `GraphPredictor` to accept an edge-weight tensor ($1/d_{ij}$ derived from AlphaFold) rather than implementing a full GAT. This respects our base-PyTorch constraint and VRAM limits.
-2. **Data Flow:** We will not run AlphaFold at runtime. We will create a standalone script (`src/generate_structural_cache.py`) that pre-computes distance matrices for the dataset and saves them to `data/structural_cache/`.
+2. **Data Flow:** We will not run AlphaFold at runtime. We will create a standalone script that pre-computes distance matrices for the dataset and saves them to `data/structural_cache/`.
+   > **Implemented as (added 2026-08-08):** this became `scripts/run_pandora_structures.py`, which generates Cb-Cb distance tensors via PANDORA/MODELLER rather than AlphaFold. `data/structural_cache/` is wired through `config.yaml` (`structural_cache_dir`) and consumed by `src/train_gnn.py`. The originally proposed filename `src/generate_structural_cache.py` was never created; this note records the rename so the design record stays traceable to the code that actually exists.
 3. **GraphBuilder Update:** `GraphBuilder.build_chain_adj` will be extended to `GraphBuilder.build_spatial_adj(peptide, cache_dir)` which loads the distance matrix and thresholds it into a sparse adjacency tensor.

@@ -26,7 +26,9 @@
   - AUC-PR: **0.828** (OOF, conservative estimate)
   - ISSR@10: 0.843
 - **External benchmark note:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. The SESTRAV OOF comparison is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
-- **Subgroup:** HPV16 subgroup AUC-PR lower than EBV; 9-mer subgroup AUC-PR above PredIG baseline. See `results/scoring_error_audit.md`.
+- **Subgroup:** HPV16 subgroup AUC-PR lower than EBV; 9-mer subgroup AUC-PR above PredIG baseline. Reproduce with `python scripts/scoring_error_audit.py` (writes
+  `results/scoring_error_audit.md`, a generated artifact that is not tracked in this
+  repository).
 - **Cross-virus transfer:** EBV→HPV16 AUC-PR 0.742; HPV16→EBV 0.711. HBV/HCV transfer: not validated.
 
 ## Limitations
