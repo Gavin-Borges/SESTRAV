@@ -1,3 +1,22 @@
+"""Run the Tier-A external benchmark comparison (DeepImmuno/BigMHC/MixMHCpred).
+
+Scores results/external_validation_input.csv (n=720) against three external
+tools and aggregates by MAX per peptide across alleles, then evaluates all
+five candidates (SESTRAV RF, Binding-only, DeepImmuno, BigMHC, MixMHCpred).
+
+This writes two independent git-tracked artifacts:
+  data/tier_a_external_benchmarks.csv     per-peptide external tool scores
+  results/table3_tier_a_metrics.csv       the certified Tier-A headline table
+
+Neither --scores-output nor --metrics-output has a default: both paths above
+are git-tracked, so a bare invocation runs the benchmark and prints results
+without writing anything rather than silently rewriting either one.
+
+Reproduce:
+  python scripts/run_tier_a_benchmarks.py \\
+      --scores-output data/tier_a_external_benchmarks.csv \\
+      --metrics-output results/table3_tier_a_metrics.csv
+"""
 import os
 import sys
 import subprocess
@@ -5,6 +24,9 @@ import pandas as pd
 import numpy as np
 import argparse
 import shutil
+
+TRACKED_SCORES_OUTPUT = "data/tier_a_external_benchmarks.csv"
+TRACKED_METRICS_OUTPUT = "results/table3_tier_a_metrics.csv"
 
 
 def get_data():
@@ -143,10 +165,56 @@ sys.path.insert(0, os.path.abspath("."))
 from src.evaluate_metrics import evaluate
 
 
-def main():
-    parser = argparse.ArgumentParser()
+def maybe_write_csv(df: pd.DataFrame, output_path: str | None, columns: list[str]) -> None:
+    """Write df[columns] to output_path, or do nothing if output_path is falsy.
+
+    Shared by both write sites below so the write-or-skip decision is
+    identical (and independently testable) for both tracked artifacts.
+    """
+    if not output_path:
+        return
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    df[columns].to_csv(output_path, index=False)
+    print(f"Saved to {output_path}")
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the Tier-A external benchmark comparison."
+    )
     parser.add_argument("--smoke", action="store_true", help="Run on a small subset")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--scores-output",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            f"Per-peptide external-tool scores CSV path (optional). No "
+            f"default: {TRACKED_SCORES_OUTPUT} is a git-tracked artifact, so "
+            "this script refuses to guess a destination - omit this flag to "
+            "skip writing it."
+        ),
+    )
+    parser.add_argument(
+        "--metrics-output",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            f"Tier-A metrics table CSV path (optional). No default: "
+            f"{TRACKED_METRICS_OUTPUT} is a git-tracked artifact (the source "
+            "of the certified headline AUC-PR figure), so this script "
+            "refuses to guess a destination - omit this flag to skip "
+            "writing it."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
 
     pairs_df, peptides_df = get_data()
 
@@ -186,12 +254,11 @@ def main():
     )
 
     # Save the per-peptide scores
-    os.makedirs("data", exist_ok=True)
-    out_csv = "data/tier_a_external_benchmarks.csv"
-    agg_df[["peptide", "label", "deepimmuno_score", "bigmhc_score", "mixmhcpred_score"]].to_csv(
-        out_csv, index=False
+    maybe_write_csv(
+        agg_df,
+        args.scores_output,
+        ["peptide", "label", "deepimmuno_score", "bigmhc_score", "mixmhcpred_score"],
     )
-    print(f"Saved aggregated per-peptide scores to {out_csv}")
 
     print("\n--- Benchmark Results (Tier A) ---")
 
@@ -240,10 +307,9 @@ def main():
         print(f"  Coverage: {n_scored}/{len(agg_df)} ({coverage_pct:.1f}%)")
 
     metrics_df = pd.DataFrame(metrics_list)
-    os.makedirs("results", exist_ok=True)
-    metrics_out = "results/table3_tier_a_metrics.csv"
-    metrics_df.to_csv(metrics_out, index=False)
-    print(f"Saved metrics to {metrics_out}")
+    maybe_write_csv(
+        metrics_df, args.metrics_output, ["tool", "auc_pr", "auc_roc", "issr_10", "n_scored", "coverage_pct"]
+    )
 
 
 if __name__ == "__main__":
