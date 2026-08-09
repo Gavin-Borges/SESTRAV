@@ -26,7 +26,7 @@ shap==0.51.0
 
 # Test tooling
 pytest==9.1.1
-hypothesis==6.157.1
+hypothesis==6.165.0
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
@@ -38,8 +38,8 @@ torch==2.13.0
 torch-geometric==2.7.0
 
 # API scaffolding
-fastapi==0.139.2
-uvicorn==0.51.0
+fastapi==0.141.1
+uvicorn==0.52.1
 pydantic==2.13.4
 
 # Security: minimum version pins to close known CVEs
@@ -47,7 +47,7 @@ pydantic==2.13.4
 # untrusted deserialization, arbitrary code execution via safe_mode bypass).
 # GHSA-36fq-jgmw-4r9c, GHSA-4f3f-g24h-fr8m, GHSA-cjgq-5qmw-rcj6,
 # GHSA-hjqc-jx6g-rwp9, GHSA-mq84-hjqx-cwf2, GHSA-7gcm-g887-7qv7
-keras==3.15.0
+keras==3.15.1
 
 # protobuf < 5.29.6 allows DoS via Any-message recursion depth bypass.
 # GHSA-m2f8-v8q4-3m59 / PYSEC-2025-121
