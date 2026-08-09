@@ -161,11 +161,16 @@ the scoring stage so the pipeline does not retrain at runtime.
 
 Evaluation uses two complementary paradigms, both reported in the README and paper:
 
-- **Tier A labeled benchmark** (head-to-head against the field): canonical `full_31`
-  AUC-PR 0.828 (OOF), a near-tie with the best fully-trained external tool (BigMHC 0.822,
-  which edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of
-  5 on that metric, behind binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR
-  lead does not extend to top-decile precision). The extended `full_33` configuration (0.840)
+- **Tier A labeled benchmark** (head-to-head against the field): a 30-feature, unweighted,
+  200-tree RF configuration from 2026-05 - **not** the canonical `full_31`/`mode_31`
+  production model, corrected 2026-08-09 (`docs/claims_register.md` D16) - scores
+  AUC-PR 0.828 (OOF, ungrouped by peptide and leakage-inflated, D15), a near-tie with the
+  best fully-trained external tool (BigMHC 0.822, which edges SESTRAV on top-decile
+  precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind
+  binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to
+  top-decile precision). Because the out-of-fold arm is optimistic rather than conservative
+  (71.0% of held-out rows share their exact peptide with the training fold), this near-tie
+  cannot be read as SESTRAV being understated. The extended `full_33` configuration (0.840)
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
@@ -186,8 +191,10 @@ explainer, and current production training is unaffected - but no replacement sp
 stated until a fresh SHAP run against current production data is committed.
 
 > Numbers in this document are the certified v5 figures (35,597-active-row dataset) that the
-> README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite. Earlier v3/v4
-> results are retained elsewhere only where explicitly labeled as historical.
+> README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite, with one named
+> exception: the Tier A benchmark figure (0.828, Section 5 above) is a v3-era, 30-feature
+> measurement, explicitly labeled as such where it appears (`docs/claims_register.md` D16).
+> Earlier v3/v4 results are retained elsewhere only where explicitly labeled as historical.
 
 ---
 

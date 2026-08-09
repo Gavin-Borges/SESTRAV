@@ -14,7 +14,7 @@
 | Evaluation context | AUC-PR | AUC-ROC | Notes |
 |---|---|---|---|
 | Within-virus (same-pathogen discrimination) | see per-virus table | **0.751** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses (`results/per_virus_eval_v5_mode31.csv`) |
-| Self-proteome Gate 1 | **0.8897** | - | Viral epitopes vs. self-peptide hard decoys; Gate 1 threshold protocol (>= 0.85 PASS) |
+| Pooled cross-validation (whole v5 corpus) | **0.8312** | - | **Correction (2026-08-09):** this row previously read "Self-proteome Gate 1, AUC-PR 0.8897, Gate 1 threshold protocol". That was wrong on two counts: 0.8897 is the pooled `auc_pr` from an earlier (2026-06-26) v5 build, not the current 35,597-row corpus (which reports 0.8312 for the same metric), and no self-proteome-vs-viral evaluation artifact exists in this repository - "Gate 1" is a GNN promotion threshold (`src/verify/promote_gnn.py`), unrelated to this RF metric. This pooled figure is also leakage-inflated (folds stratified but not grouped by peptide, `docs/claims_register.md` D15). |
 
 [^retracted]: The previously reported pooled same-pathogen AUC-ROC 0.9368 was decoy-inflated
 (it only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel, are
@@ -74,10 +74,16 @@ metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `script
 | **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | Fraction of the top-25% ranked peptides that are true positives (precision within the top quartile) |
 
 > **Note on ablation estimate:** An early unweighted ablation projected `full_31` AUC-PR 0.864.
-> The actual result with sample weights is 0.8276 - consistent with the frozen v2.0.0 30-feature
-> result (0.828), since sample weighting increases the effective training difficulty on the majority
-> class. The 31-feature model should be
-> compared against the 30-feature result (0.810 ± 0.025) from the same weighted evaluation context.
+> The actual result with sample weights is 0.8276.
+> **Correction (2026-08-09):** this note previously called 0.8276 "consistent with the frozen
+> v2.0.0 30-feature result (0.828)" and treated the two as a reconciliation. They are not the
+> same measurement: 0.8276 is a weighted 31-feature cross-validation mean over the full n=1,004
+> v3 corpus, while 0.828 is an unweighted 30-feature, 200-tree measurement over the n=704 Tier A
+> field benchmark (`docs/claims_register.md` D16). The two values are 0.0002 apart by
+> coincidence; treating that coincidence as agreement is the root cause of 0.828 being mislabeled
+> as a `full_31`/`mode_31` result elsewhere in this repository's history. The 31-feature model's
+> own weighted result on this table (0.8276) should be compared against the 30-feature weighted
+> result (0.810 ± 0.025) directly below, not against 0.828.
 ---
 
 ## v2 Canonical Track: 30-Feature Integrated (720 peptides, 2.36:1 class ratio)
