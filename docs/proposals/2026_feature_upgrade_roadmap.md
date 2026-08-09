@@ -32,8 +32,9 @@ under the production splitter versus 0.6587 peptide-grouped (+14.0%), and the po
 same-pathogen figure (certified 0.712) reproduces at 0.7124 versus 0.5989 peptide-grouped
 (+19.0%) - see Section 2. The Tier A external benchmark is exposed by the same chain but the
 leakage effect there is small (AUC-PR -0.0176 on the measurable subset); its real problem is that
-the certified 0.828 is not reproducible from tracked artifacts at all (`docs/claims_register.md`
-D16).
+the certified 0.828 is a **v3-era** measurement mislabeled as the canonical v5 `mode_31` figure
+(`docs/claims_register.md` D16) - reproducible from tracked v3 inputs, but not a description of
+the shipped model.
 
 The seven proposed upgrades separate by honest, peptide-grouped AUC-PR delta into a **-0.0037 to
 +0.0096** band (measured for three of them; estimated for the rest against the same baseline).
@@ -222,11 +223,16 @@ certified n=704 field (positive rate 0.838 vs 0.696), so its absolute AUC-PR is 
 the certified 0.828 and only the within-subset delta is interpretable; and those 414 are precisely
 the peptides that DO sit in the training corpus, so this is closer to an upper bound on the
 field-wide effect than to an underestimate. The practical conclusion is that peptide leakage does
-**not** explain the Tier A headline - but a separate and more serious defect does bear on it:
-`results/external_validation_input.csv` cannot be regenerated from tracked artifacts (290 of 704
-field peptides are absent from v5, and of the 414 present, zero match on score - mean absolute
-difference 0.371). That is recorded as `docs/claims_register.md` D16 and is a reproducibility
-problem rather than a leakage one.
+**not** explain the Tier A headline - but a separate defect does bear on it: the Tier A SESTRAV arm
+is a **v3-era** measurement, not the v5 mode-31 result `README.md` labels it as. All 704 field
+peptides resolve against the tracked `data/immunogenicity_dataset_v3.csv` (1,004 peptides), while
+only 414 exist in v5 and 236 exist in neither v4 nor v5. Re-running from tracked v3 inputs recovers
+704/704 coverage and matches the certified ISSR@10 (0.8429) exactly, with AUC-ROC within 0.004 and
+AUC-PR within 0.009 - so the figure is reproducible, just mislabeled. Recorded as
+`docs/claims_register.md` D16. The consequence for this roadmap: **the v5 mode-31 model has never
+been evaluated on the full Tier A field and cannot be**, so any Phase 0 re-baseline that touches
+Tier A necessarily produces a different, smaller (n=414) field whose numbers are not comparable to
+the published ones.
 
 **Cross-fold imputation (secondary finding).** `feature_mode=33`/`35` impute missing antigen-
 processing scores with medians computed over the full cache before cross-validation begins; this

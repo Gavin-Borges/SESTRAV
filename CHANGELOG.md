@@ -41,11 +41,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   CV metrics above. Two limits are recorded: that subset is not representative of the certified
   n=704 field (positive rate 0.838 vs 0.696), so only the within-subset delta is interpretable;
   and those 414 are the maximally-exposed peptides, so the delta reads closer to an upper bound.
-  Recorded as `docs/claims_register.md` **D16**: the certified 0.828 cannot be regenerated from
-  tracked artifacts at all - 290 of 704 field peptides are absent from the v5 corpus, and of the
-  414 present, none match the current OOF (mean absolute difference 0.371). It appears to be a
-  v3-era weighted run while `README.md` labels it canonical `mode_31`. Rebuilding the field
-  changes its membership and n, so every dependent number recomputes together.
+  Recorded as `docs/claims_register.md` **D16**: the certified 0.828 is a **v3-era** measurement
+  presented as the canonical v5 `mode_31` result. The number is sound for what it is; its label is
+  wrong. All 704 field peptides resolve against the tracked `data/immunogenicity_dataset_v3.csv`,
+  while only 414 exist in v5 and 236 exist in neither v4 nor v5. Re-running from tracked v3 inputs
+  (`prepare_features_31`, 5-fold `StratifiedKFold`, RF 500 estimators) recovers 704/704 coverage
+  and matches the certified ISSR@10 (0.8429) exactly, with AUC-ROC within 0.004 and AUC-PR within
+  0.009; mean deviation from the stored column is 0.084 against v3 versus 0.371 against v5,
+  confirming the generation. **The v5 mode-31 model has never been evaluated on the full Tier A
+  field and cannot be** - 290 of its peptides are absent from v5 - so re-running Tier A under v5
+  yields a different, smaller (n=414) field whose numbers are not comparable to the published
+  ones. That is a replacement, not a refresh.
 - **Whole-repo coverage re-measured: 47.88%, not the published 34.37%.** `ROADMAP.md`,
   `docs/security_compliance.md`, and `docs/claims_register.md` all carried "34.37%
   (branch-inclusive, measured 2026-06-22) - a hair under the floor" against a `fail_under=35`
