@@ -287,6 +287,10 @@ results/*
 # Peptide-level CV leakage audit (docs/proposals/2026_feature_upgrade_roadmap.md, D15)
 !results/cv_leakage_audit.csv
 !results/cv_leakage_audit.csv.provenance.json
+# Honest pooled same-pathogen metric (claims_register D12/D15 cite 0.712 against this
+# file, so it has to be reader-visible; 277 bytes, regenerate with
+# scripts/compute_pooled_honest_metric.py)
+!results/pooled_honest_same_pathogen.csv
 release_artifacts/
 *.pyc
 __pycache__/

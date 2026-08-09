@@ -1,0 +1,2 @@
+metric,definition,auc_roc,auc_pr,n_pos,n_neg,source_oof,generated_utc
+honest_same_pathogen,"Def A: positives + real IEDB (iedb_api) negatives, 9 target viruses",0.7115060107457002,0.9170367766325238,8003,1851,models/v5/rf_oof_predictions_mode31.csv,2026-07-13T01:19:36+00:00
