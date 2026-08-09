@@ -239,7 +239,7 @@ At each TCR contact position, SESTRAV computes the following physicochemical pro
 | Canonical (31-feature) | 20 physicochemical + 10 binding + length | 0.864 | Default release track |
 | Extended (33-feature) | 31 + NetChop + TAPreg | 0.886 (unweighted) / 0.840 (weighted) | Antigen processing tier - best v3 result |
 | Legacy (30-feature) | 20 physicochemical + 10 binding | 0.825 | Historical comparator |
-| Legacy (21-feature) | Sequence-only (binding excluded) | 0.772 | Historical comparator |
+| Legacy (21-feature) | Sequence-only (binding excluded) | 0.784 | Historical comparator |
 | Expanded (50-feature) | 40 physicochemical + 10 binding | - | Extended evaluation |
 | Allele-aware (166) | Canonical + 136 HLA pocket pseudo-sequences | - | Pan-allele modeling |
 

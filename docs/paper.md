@@ -773,8 +773,9 @@ given an out-of-fold handicap; that framing is withdrawn. Because the out-of-fol
 leakage-inflated rather than conservative, the near-tie with BigMHC cannot be read as
 SESTRAV being understated, and the margin over binding-only should be read as an upper
 bound pending re-measurement under a peptide-grouped splitter, which has not yet been run
-for this Tier A field (n=414 of the 704 peptides are resolvable against the current v5
-production corpus; the remainder are absent from v5 and any re-run would score a smaller,
+for this Tier A field (n=414 of the 704 peptides resolve to an active, non-quarantined row of
+the current v5 production corpus; of the remaining 290, 236 are absent from v5 entirely and 54
+appear only in quarantined rows, so any re-run would score a smaller,
 non-comparable field).
 
 To distinguish genuine performance separation from sampling noise, we performed a paired

@@ -98,7 +98,11 @@ replacing them is the intent.
 Expected per-virus within-CV mean AUC-ROC ~ 0.751 on the v5 dataset (35,597 active rows /
 51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`).
 The pooled AUC-PR is a base-rate artifact and is not reported as a headline; see
-`docs/model_evaluation_summary.md`.
+`docs/model_evaluation_summary.md`. **Splitter disclosure (required whenever this figure is
+quoted, `docs/claims_register.md` D15):** 0.751 comes from folds that are stratified but not
+grouped by peptide, so it is leakage-inflated; under a matched peptide-grouped splitter it
+reproduces at 0.6587 (+0.0925, +14.0%). Expect your own run to land near 0.751 because it uses
+the same ungrouped splitter - that agreement confirms reproducibility, not leakage-freedom.
 
 ### 4. Benchmark against gold standard
 

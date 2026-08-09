@@ -31,12 +31,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   roughly 23x smaller than the leakage inflation itself.
 
 ### Fixed
-- **Tier A measured under both splitters; its real defect is reproducibility, not leakage.**
+- **Tier A measured under both splitters.** [**SUPERSEDED IN PART - read the two corrections
+  below this bullet's original text before citing anything in it.** Its original heading said
+  Tier A's "real defect is reproducibility, not leakage"; that framing, and the v3-generation
+  detail in this bullet, were retracted by later commits recorded further down this same section.
+  The current account: 0.828 is a **2026-05, 30-feature, unweighted, 200-tree** measurement whose
+  provenance IS established - the defect is a wrong label, not irreproducibility. The corpus was
+  the 720-row root `immunogenicity_dataset.csv` at `69e0e5c` (recoverable from history, not
+  tracked at HEAD), **not** `data/immunogenicity_dataset_v3.csv`; and it used
+  `prepare_features_30` with `n_estimators=200`, **not** `prepare_features_31` with 500. The
+  v5-coverage figures below were also mispaired and are corrected in the second note. Original
+  text retained for the record:]
   The SESTRAV arm of the Tier A external benchmark is the `rf_oof_score` column, which traces
   to the same ungrouped OOF output as everything else (`src/train_classifier.py:781-786` ->
   `src/prepare_external_validation_inputs.py:100` -> `scripts/run_tier_a_benchmarks.py:269`),
   so Tier A was never an independent held-out field. Measured on the 414 field peptides
-  resolvable to a v5 row, changing only the splitter moves AUC-PR 0.8932 -> 0.8756 (-0.0176),
+  resolvable to an active (non-quarantined) v5 row, changing only the splitter moves AUC-PR
+  0.8932 -> 0.8756 (-0.0176),
   AUC-ROC 0.5924 -> 0.5680, ISSR@10 1.0000 -> 0.9024 - an order of magnitude milder than the
   CV metrics above. Two limits are recorded: that subset is not representative of the certified
   n=704 field (positive rate 0.838 vs 0.696), so only the within-subset delta is interpretable;
@@ -52,6 +63,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   field and cannot be** - 290 of its peptides are absent from v5 - so re-running Tier A under v5
   yields a different, smaller (n=414) field whose numbers are not comparable to the published
   ones. That is a replacement, not a refresh.
+  [**Second correction (2026-08-09), on the v5-coverage figures in the paragraph above.** It read
+  "only 414 exist in v5 and 236 exist in neither v4 nor v5" - arithmetically impossible, since
+  704 - 414 = 290, not 236; the pairing silently required 54 v4-only peptides and there are zero.
+  The two figures measure different things. Measured directly: **468** of the 704 exist somewhere
+  in v5 and **236** exist in neither v4 nor v5 (none are v4-only); only **414** resolve to an
+  **active, non-quarantined** v5 row, the other **54** appearing solely in quarantined rows. So
+  236 + 54 = **290** unscoreable, and n=414 remains the correct evaluable field size - the
+  conclusion of the paragraph stands, only its justification was misstated.]
 - **Whole-repo coverage re-measured: 47.88%, not the published 34.37%.** `ROADMAP.md`,
   `docs/security_compliance.md`, and `docs/claims_register.md` all carried "34.37%
   (branch-inclusive, measured 2026-06-22) - a hair under the floor" against a `fail_under=35`
@@ -1137,6 +1156,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   base-rate-inflated and not a headline). Self-proteome Gate 1 AUC-PR 0.8897 is unaffected.
   The historical e6aafe2 entry below is left intact as the record of what was reported then;
   see `docs/claims_register.md` D12.
+  **[Superseded 2026-08-09: the sentence "Self-proteome Gate 1 AUC-PR 0.8897 is unaffected" is
+  withdrawn. There is no self-proteome evaluation artifact in this repository and "Gate 1" is a
+  GNN promotion threshold (`src/verify/promote_gnn.py:8`), not an RF metric; 0.8897 is the pooled
+  CV `auc_pr` of the 2026-06-26 `58bbc15` build, superseded by 0.8312 on the current corpus, and
+  both are peptide-leakage-inflated (D15). The bare "AUC-PR 0.7678 ... / 0.8897 self-proteome
+  Gate 1" restatement further down this released section carries the same two defects; it is
+  annotated here rather than rewritten, because released entries are the record of what was
+  reported at the time. See `docs/claims_register.md` D3, D12, D15, D16.]**
 - **Per-virus within-CV metrics regenerated (session 70, 2026-07-10)**: The committed
   `results/per_virus_eval_v5_mode31.{csv,json}` lagged the current 35,597-row v5 dataset and
   were regenerated. New within-CV AUC-ROC: CMV 0.819, DENV 0.859, EBV 0.790, HBV 0.708,

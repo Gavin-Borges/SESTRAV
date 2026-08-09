@@ -178,8 +178,11 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   self-binder plus IEDB viral negatives): canonical `mode_31` per-virus within-CV mean AUC-ROC
   0.751 over nine viruses (`results/per_virus_eval_v5_mode31.csv`). This same-pathogen number is
   lower by design because the hard decoys remove the binding-equals-immunogenic shortcut; the
-  pooled AUC-PR is a base-rate artifact and is not reported as a headline. This is the model
-  shipped for production scoring.
+  pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
+  (required whenever this figure is quoted, `docs/claims_register.md` D15):** 0.751 is measured
+  under folds that are stratified but not grouped by peptide, and is leakage-inflated - it
+  reproduces at 0.6587 under a matched peptide-grouped splitter (+0.0925, +14.0%). This is the
+  model shipped for production scoring.
 
 Interpretability is built in: a SHAP attribution artifact is committed alongside the model.
 **No binding-versus-TCR-contact attribution split is currently reported.** The previously

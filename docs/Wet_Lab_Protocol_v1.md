@@ -24,8 +24,16 @@
 > prior.
 >
 > **ADDENDUM (2026-08-09), flagged not fixed - a substrate mismatch in that same prior.** The
-> R10=0.9494 computational prior comes from the Tier A benchmark family (`results/h2_tier_a_summary.md`
-> / `results/table3_tier_a_metrics.csv`). Per `docs/claims_register.md` D16, the SESTRAV arm of
+> R10=0.9494 computational prior binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
+> `issr_10_ratio_integrated_over_binding` = 0.9493670886075949) and its rendered companion
+> `results/h2_tier_a_summary.md:17`; it is also restated in `results/final_validation_report.md:10`.
+> It does **not** appear in `results/table3_tier_a_metrics.csv`, whose ISSR@10 ratio is
+> 0.8429/0.8611 = 0.9788 - an earlier draft of this addendum co-cited that file, and a first
+> correction then over-narrowed the citation to the `.md` alone; both are fixed here (2026-08-09).
+> Note also that `h2_tier_a_summary.csv` records `model_path = models/rf_30feature_integrated.joblib`,
+> `feature_count = 30`, `n_total_labeled = 1004` - which independently corroborates the
+> substrate mismatch described below, though it is a different artifact from the n=704 Tier A arm
+> that `docs/claims_register.md` D16 governs. Per D16, the SESTRAV arm of
 > that benchmark is a 2026-05, **30-feature, unweighted, 200-tree** measurement - not the
 > production RF **mode-31** (31-feature) model this protocol scores the physical peptide panel
 > with (Section 2, Section "Objective"). The disclosed prior and the model actually under test

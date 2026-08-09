@@ -31,7 +31,12 @@ cells, while a re-run in a different environment landed close but not exact. Bot
 printed so the reader sees the spread rather than a single asserted number.
 
 The consequence worth carrying: the v5 mode-31 production model has never been evaluated
-on the full Tier A field and cannot be, because 290 of its 704 peptides are absent from v5.
+on the full Tier A field and cannot be, because 290 of its 704 peptides are unreachable in
+the active v5 corpus. Stated precisely (corrected 2026-08-09): 468 of the 704 exist somewhere
+in v5 and 236 exist in neither v4 nor v5 (none are v4-only); only 414 resolve to an active,
+non-quarantined v5 row, the other 54 appearing solely in quarantined rows. 236 + 54 = 290.
+An earlier version of this docstring, and of claims_register D16, paired "414 exist in v5"
+with "236 in neither", which is arithmetically impossible (704 - 414 = 290).
 Re-running Tier A under v5 produces a different, smaller field - a replacement, not a refresh.
 
 This is a read-only verifier: it prints a comparison and writes nothing. It is deliberately

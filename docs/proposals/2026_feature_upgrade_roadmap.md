@@ -32,9 +32,9 @@ under the production splitter versus 0.6587 peptide-grouped (+14.0%), and the po
 same-pathogen figure (certified 0.712) reproduces at 0.7124 versus 0.5989 peptide-grouped
 (+19.0%) - see Section 2. The Tier A external benchmark is exposed by the same chain but the
 leakage effect there is small (AUC-PR -0.0176 on the measurable subset); its real problem is that
-the certified 0.828 is a **v3-era** measurement mislabeled as the canonical v5 `mode_31` figure
-(`docs/claims_register.md` D16) - reproducible from tracked v3 inputs, but not a description of
-the shipped model.
+the certified 0.828 is a **2026-05, 30-feature, unweighted, 200-tree** measurement mislabeled as
+the canonical v5 `mode_31` figure (`docs/claims_register.md` D16) - a sound result for what it
+is, but not a description of the shipped model.
 
 The seven proposed upgrades separate by honest, peptide-grouped AUC-PR delta into a **-0.0037 to
 +0.0096** band (measured for three of them; estimated for the rest against the same baseline).
@@ -210,7 +210,8 @@ peptides from training.
 small.** The SESTRAV arm of Tier A is the `rf_oof_score` column, which traces to the same ungrouped
 OOF output (`src/train_classifier.py:781-786` -> `src/prepare_external_validation_inputs.py:100` ->
 `scripts/run_tier_a_benchmarks.py:269`), so Tier A is not an independent held-out field. Measured on
-the 414 field peptides resolvable to a v5 row, changing only the splitter:
+the 414 field peptides resolvable to an active (non-quarantined) v5 row, changing only the
+splitter:
 
 | Metric | Production splitter | Peptide-grouped | Delta |
 |---|---|---|---|
@@ -224,11 +225,25 @@ the certified 0.828 and only the within-subset delta is interpretable; and those
 the peptides that DO sit in the training corpus, so this is closer to an upper bound on the
 field-wide effect than to an underestimate. The practical conclusion is that peptide leakage does
 **not** explain the Tier A headline - but a separate defect does bear on it: the Tier A SESTRAV arm
-is a **v3-era** measurement, not the v5 mode-31 result `README.md` labels it as. All 704 field
-peptides resolve against the tracked `data/immunogenicity_dataset_v3.csv` (1,004 peptides), while
-only 414 exist in v5 and 236 exist in neither v4 nor v5. Re-running from tracked v3 inputs recovers
-704/704 coverage and matches the certified ISSR@10 (0.8429) exactly, with AUC-ROC within 0.004 and
-AUC-PR within 0.009 - so the figure is reproducible, just mislabeled. Recorded as
+is a **2026-05, 30-feature, unweighted, 200-tree** measurement, not the v5 mode-31 result
+`README.md` labels it as. Two independently verified facts establish this without relying on any
+reproduction: `results/external_validation_input.csv` has exactly one commit in history,
+`f360b90` (2026-05-23), at which `src/train_classifier.py` declared `--feature-mode
+choices=[21, 30, 50, 166]` and `prepare_features_31` appeared zero times - `feature_mode=31` did
+not exist yet, entering 26 days later at `27cdc61` (2026-06-18); and all 704 stored
+`rf_oof_score` values are exact multiples of 1/200 (704/704, against 362/704 for 1/500), which
+fingerprints `n_estimators=200`. The training corpus was the 720-row root
+`immunogenicity_dataset.csv` at `69e0e5c` (the field is exactly 720 minus the 16
+`GOLD_STANDARD_EPITOPES`); that file is **not tracked at HEAD** - it was deleted at `ec9aba0` -
+but `69e0e5c` is an ancestor of `main`, so it remains recoverable from a clean clone. Of the 704
+field peptides, **468** exist somewhere in v5 and **236** exist in neither v4 nor v5 (none are
+v4-only); only **414** resolve to an active, non-quarantined v5 row, because a further **54**
+appear only in quarantined rows - so **290** cannot be scored by the v5 model. An independent
+reproduction of that 30-feature, unweighted, 200-tree configuration on the 720-row corpus
+reports a bit-exact match to all three certified cells; a second run of the
+same nominal configuration landed close but not exact (AUC-PR 0.8247, MAD 0.058), so
+bit-exactness is **reported, not independently confirmed** - the two decisive facts above do not
+depend on it. So the figure is sound for what it is, and mislabeled. Recorded as
 `docs/claims_register.md` D16. The consequence for this roadmap: **the v5 mode-31 model has never
 been evaluated on the full Tier A field and cannot be**, so any Phase 0 re-baseline that touches
 Tier A necessarily produces a different, smaller (n=414) field whose numbers are not comparable to
@@ -448,9 +463,22 @@ Phase 0 step 6 restates the project's certified headline result downward by roug
 project has been citing as the leakage-honest corrective - the per-virus mean (0.751 -> 0.659,
 -0.09) and the pooled honest same-pathogen figure (0.712 -> 0.599, -0.11) - both downward by a
 smaller but still material amount. The Tier A headline (0.828) moves far less on leakage grounds
-(-0.0176 AUC-PR on the measurable subset) but carries a separate, arguably harder problem: it
-cannot be regenerated from tracked inputs at all (D16), so restating it requires rebuilding the
-Tier A field rather than editing a number. These numbers currently reach `docs/paper.md`, the
+(-0.0176 AUC-PR on the measurable subset) but carries a separate, arguably harder problem: it is
+a 2026-05, 30-feature, unweighted, 200-tree measurement mislabeled as the canonical v5 `mode_31`
+result (D16). **Corrected 2026-08-09, and worth recording as a process note:** this paragraph
+previously asserted that 0.828 "cannot be regenerated from tracked inputs at all" - the first,
+since-retracted version of D16. That version was corrected twice: `a843385` (mislabeled, not
+irreproducible) and `dd5a356` (30-feature/unweighted/200-tree, not 31-feature/500-tree). This
+document tracked neither correction cleanly: `a843385` did edit it but missed this section,
+leaving it at the original claim, while `dd5a356` never touched this file at all, so the sections
+`a843385` did update were themselves left a generation behind. All three sites were reconciled
+against the certified register in one pass on 2026-08-09. The number is sound and its provenance
+is established - what is wrong is the label, so the cheap remedy is relabeling, not regeneration.
+The genuinely hard constraint is different and survives: **the v5 mode-31 model has never been
+evaluated on the full 704-peptide Tier A field and cannot be**, since 290 of those peptides are
+absent from v5. So a re-baseline that touches Tier A is a replacement on a different, smaller
+(n=414) field whose numbers are not comparable to the published ones - not a refresh of an
+existing figure. These numbers currently reach `docs/paper.md`, the
 OpenSSF evidence trail, and prior public communication. This document performs the analysis and states
 the recommendation; it does not itself alter any published claim. Whether and when to execute
 the re-baseline, and how to sequence the outward-facing disclosure, is a decision for the
