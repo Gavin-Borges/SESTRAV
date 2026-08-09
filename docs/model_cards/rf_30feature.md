@@ -21,11 +21,11 @@
 - **Biases:** Taxonomic bias toward EBV anchor motifs; length bias toward 9-mers. Inverse-frequency sample weights applied at training time.
 
 ## Evaluation and Performance
-- **Evaluation method:** Strict out-of-fold (OOF) 5-fold cross-validation - conservative; never scores peptides seen during training.
+- **Evaluation method:** Out-of-fold 5-fold cross-validation. **The previous wording - "strict... conservative; never scores peptides seen during training" - is WITHDRAWN (2026-08-08).** Folds are stratified but not grouped by peptide: 71.0% of held-out rows share their exact peptide with the training fold, and the feature vector is a pure function of the peptide string, so those rows are feature-identical. Reported CV metrics are optimistic, not conservative (`docs/claims_register.md` D15).
 - **Metrics on v3 dataset (n=704 Tier A intersection):**
-  - AUC-PR: **0.828** (OOF, conservative estimate)
+  - AUC-PR: **0.828** (OOF, ungrouped folds - leakage-inflated, D15). **This card's attribution is the correct one:** 0.828 is a 30-feature, unweighted, 200-tree measurement, and `README.md`'s attribution of it to `mode_31` "weighted OOF" is the error (`docs/claims_register.md` D16).
   - ISSR@10: 0.843
-- **External benchmark note:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. The SESTRAV OOF comparison is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
+- **External benchmark note:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. The SESTRAV out-of-fold arm is NOT conservative: folds are ungrouped by peptide, so it is leakage-inflated (D15). The previous "conservative by design" claim is withdrawn. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
 - **Subgroup:** HPV16 subgroup AUC-PR lower than EBV; 9-mer subgroup AUC-PR above PredIG baseline. Reproduce with `python scripts/scoring_error_audit.py` (writes
   `results/scoring_error_audit.md`, a generated artifact that is not tracked in this
   repository).

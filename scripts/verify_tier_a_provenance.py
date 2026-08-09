@@ -1,22 +1,34 @@
 #!/usr/bin/env python3
-"""Verify which dataset generation produced the certified Tier A SESTRAV arm.
+"""Verify which model and corpus produced the certified Tier A SESTRAV arm.
 
 Background (docs/claims_register.md D16): `results/table3_tier_a_metrics.csv` reports
 SESTRAV RF AUC-PR 0.828 / AUC-ROC 0.7255 / ISSR@10 0.8429 over an n=704 field, and
-`README.md` presents that as the canonical v5 `mode_31` result. It is not - it is a v3-era
-measurement. This script is the evidence for that claim, so the register cites a
+`README.md` presents that as the canonical v5 `mode_31` result, calling it "weighted OOF".
+It is none of those things. This script is the evidence, so the register cites a
 reproducible check rather than an assertion.
 
-What it establishes, by direct measurement:
-  1. Field membership. All 704 Tier A peptides resolve against the TRACKED v3 corpus
-     (`data/immunogenicity_dataset_v3.csv`, 1,004 peptides). Only ~414 exist in v5, and
-     ~236 exist in neither v4 nor v5 - so v5 cannot be the source and v3 can.
-  2. Score agreement. Mean absolute deviation of a v3 re-run from the stored
-     `rf_oof_score` column is roughly 0.084, versus roughly 0.371 for the current v5 OOF.
-  3. Metric recovery. A v3 re-run at 500 estimators recovers the certified ISSR@10
-     exactly (0.8429), with AUC-ROC within ~0.004 and AUC-PR within ~0.009 - residuals
-     consistent with fold-shuffle variance between independent runs, not with a
-     different measurement.
+The two decisive facts do NOT depend on re-running the model:
+
+  1. `feature_mode=31` did not exist when the column was created. `results/
+     external_validation_input.csv` has exactly one commit in history, `f360b90`
+     (2026-05-23); at that commit `src/train_classifier.py` declares
+     `--feature-mode ... choices=[21, 30, 50, 166]` and contains no
+     `prepare_features_31`. That helper first appears at `27cdc61` (2026-06-18),
+     26 days later. So 0.828 cannot be a mode-31 measurement - it is mode-30.
+
+  2. All 704 stored scores are exact multiples of 1/200, against 362/704 for 1/500.
+     That fingerprints `n_estimators=200`, not the 500 the v3 model card documents.
+
+The corpus is the 720-row root `immunogenicity_dataset.csv` at `69e0e5c`; the field is
+exactly 720 minus the 16 `GOLD_STANDARD_EPITOPES` = 704. That file was deleted from the
+working tree at `ec9aba0` (2026-06-03) and is not tracked at HEAD, but `69e0e5c` is an
+ancestor of `main`, so it stays recoverable from a clean clone.
+
+The reproduction arm below is corroborating, not decisive: an independent run of
+(720-row corpus, prepare_features_30, StratifiedKFold seed 42, RF n_estimators=200,
+class_weight=balanced, unweighted) has been reported bit-exact against all three certified
+cells, while a re-run in a different environment landed close but not exact. Both are
+printed so the reader sees the spread rather than a single asserted number.
 
 The consequence worth carrying: the v5 mode-31 production model has never been evaluated
 on the full Tier A field and cannot be, because 290 of its 704 peptides are absent from v5.
@@ -43,13 +55,17 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.evaluate_metrics import evaluate  # noqa: E402
-from src.train_classifier import prepare_features_31  # noqa: E402
+from src.train_classifier import prepare_features_30  # noqa: E402
 
 RANDOM_STATE = 42
 N_SPLITS = 5
-# The v3-era production model card documents 500 estimators; the current v5 pipeline uses
-# 200. Both are reported so the better-fitting configuration is visible rather than asserted.
+# 200 is the fingerprinted value (all 704 stored scores are exact multiples of 1/200).
+# 500 is what the v3 model card documents and is retained only to show it does NOT fit.
 ESTIMATOR_SETTINGS = (200, 500)
+# The corpus is the 720-row root dataset, deleted from the working tree at ec9aba0 but
+# recoverable because 69e0e5c is an ancestor of main.
+TIER_A_CORPUS_REV = "69e0e5c"
+TIER_A_CORPUS_PATH_AT_REV = "immunogenicity_dataset.csv"
 
 # Certified cells from results/table3_tier_a_metrics.csv (SESTRAV RF row).
 CERTIFIED = {"auc_pr": 0.827767, "auc_roc": 0.725505, "issr_10": 0.842857}
@@ -60,6 +76,24 @@ V5_PATH = PROJECT_ROOT / "data" / "immunogenicity_dataset_v5.csv"
 BINDING_MATRIX_PATH = PROJECT_ROOT / "models" / "peptide_binding_matrix.csv"
 TIER_A_PATH = PROJECT_ROOT / "results" / "external_validation_input.csv"
 V5_OOF_PATH = PROJECT_ROOT / "models" / "rf_oof_predictions.csv"
+
+
+REPO_ROOT_GIT = PROJECT_ROOT
+
+
+def _tier_a_corpus() -> pd.DataFrame | None:
+    """The 720-row root corpus, read out of git history (not tracked at HEAD)."""
+    import subprocess
+    from io import StringIO
+
+    try:
+        blob = subprocess.run(
+            ["git", "show", f"{TIER_A_CORPUS_REV}:{TIER_A_CORPUS_PATH_AT_REV}"],
+            cwd=REPO_ROOT_GIT, capture_output=True, text=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return pd.read_csv(StringIO(blob))
 
 
 def _peptides(path: Path) -> set[str]:
@@ -83,8 +117,45 @@ def report_membership(field: pd.DataFrame) -> None:
     print(f"  resolvable against v4 : {len(peptides & v4):>4}  (gitignored)")
     print(f"  resolvable against v5 : {len(peptides & v5):>4}")
     print(f"  in NEITHER v4 nor v5  : {len(peptides - v4 - v5):>4}")
+    corpus = _tier_a_corpus()
+    if corpus is not None:
+        print(f"  720-row root corpus @ {TIER_A_CORPUS_REV}: {len(corpus)} rows, "
+              f"{corpus['peptide'].nunique()} unique peptides")
+        print(f"  field == corpus minus the 16 GOLD_STANDARD_EPITOPES: {len(corpus) - 16} == {len(peptides)}")
     if v3 and peptides <= v3:
-        print("  -> every Tier A peptide is present in v3; v3 is the only generation that covers the field.")
+        print("  note: v3 is a superset of the field, but it is NOT the training corpus - see the")
+        print("        feature-mode and estimator evidence below.")
+
+
+def report_history_evidence() -> None:
+    """The two facts that settle provenance without re-running the model."""
+    import subprocess
+
+    print("\n--- decisive evidence (no model run required) ---")
+    try:
+        commits = subprocess.run(
+            ["git", "log", "--follow", "--diff-filter=A", "--format=%h %ci",
+             "--", "results/external_validation_input.csv"],
+            cwd=REPO_ROOT_GIT, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        print(f"1. external_validation_input.csv creation commit(s): {commits or '(none)'}")
+        src = subprocess.run(
+            ["git", "show", "f360b90:src/train_classifier.py"],
+            cwd=REPO_ROOT_GIT, capture_output=True, text=True, check=True,
+        ).stdout
+        choices = [ln.strip() for ln in src.splitlines() if "--feature-mode" in ln and "choices" in ln]
+        print(f"   at f360b90: {choices[0] if choices else '(feature-mode arg not found)'}")
+        print(f"   prepare_features_31 occurrences at f360b90: {src.count('prepare_features_31')}"
+              "  -> mode 31 did not exist, so 0.828 is not a mode-31 figure")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"1. git history check unavailable: {exc}")
+
+    field = _tier_a_field()
+    stored = field["rf_oof_score"].to_numpy()
+    print("2. n_estimators fingerprint (stored scores should be exact multiples of 1/n):")
+    for n in (200, 500):
+        exact = int((np.abs(stored * n - np.round(stored * n)) < 1e-9).sum())
+        print(f"   1/{n}: {exact}/{len(stored)} exact")
 
 
 def report_v5_disagreement(field: pd.DataFrame) -> None:
@@ -104,9 +175,13 @@ def report_v5_disagreement(field: pd.DataFrame) -> None:
     print(f"  identical (<1e-9): {int((delta < 1e-9).sum())}/{len(merged)}   mean abs diff: {delta.mean():.4f}")
 
 
-def report_v3_reproduction(field: pd.DataFrame) -> None:
-    df = pd.read_csv(V3_PATH, low_memory=False)
-    X = prepare_features_31(df, str(BINDING_MATRIX_PATH))
+def report_reproduction(field: pd.DataFrame) -> None:
+    """Corroborating arm: re-run the era-faithful configuration and show the spread."""
+    df = _tier_a_corpus()
+    if df is None:
+        print("\n[reproduction skipped: cannot read the 720-row corpus from git history]")
+        return
+    X = prepare_features_30(df, str(BINDING_MATRIX_PATH))
     y = df["label"].astype(int).to_numpy()
 
     for n_estimators in ESTIMATOR_SETTINGS:
@@ -128,12 +203,15 @@ def report_v3_reproduction(field: pd.DataFrame) -> None:
         merged = field[["peptide", "label", "rf_oof_score"]].merge(scored, on="peptide", how="left")
         resolved = merged.dropna(subset=["score"])
         if resolved.empty:
-            print(f"\nv3 re-run (n_estimators={n_estimators}): no Tier A peptide resolved")
+            print(f"\nmode-30 re-run (n_estimators={n_estimators}): no Tier A peptide resolved")
             continue
 
         metrics = evaluate(resolved["label"].to_numpy(), resolved["score"].to_numpy())
         delta = (resolved["rf_oof_score"] - resolved["score"]).abs()
-        print(f"\nv3 re-run, n_estimators={n_estimators}: coverage {len(resolved)}/{len(merged)}")
+        print(
+            f"\nmode-30 re-run on the 720-row corpus, n_estimators={n_estimators}: "
+            f"coverage {len(resolved)}/{len(merged)}"
+        )
         for key in ("auc_pr", "auc_roc", "issr_10"):
             print(
                 f"  {key:8} {metrics[key]:.4f}   certified {CERTIFIED[key]:.4f}   "
@@ -157,9 +235,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     report_membership(_tier_a_field())
+    report_history_evidence()
     report_v5_disagreement(_tier_a_field())
     if not args.skip_reproduction:
-        report_v3_reproduction(_tier_a_field())
+        report_reproduction(_tier_a_field())
     return 0
 
 

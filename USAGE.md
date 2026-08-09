@@ -181,12 +181,19 @@ See `results/external_benchmark_comparison.md` for the external benchmark method
 certified claim. The full contamination analysis lives in an internal validation
 sign-off document that is not published in this repository.
 
-> **Evaluation note:** SESTRAV RF is evaluated strictly out-of-fold (conservative estimate),
-> while external tools are fully scored on the same peptides. On the certified Tier A
-> head-to-head (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) posts the highest point AUC-PR - a statistical near-tie with BigMHC
-> (0.822), the MHCflurry binding-only baseline (0.800), MixMHCpred 2.2 (0.795), and
-> DeepImmuno (0.698). Because SESTRAV is scored out-of-fold while the external tools score
-> every peptide directly, the comparison is conservative by construction for SESTRAV.
+> **Evaluation note:** SESTRAV RF is evaluated out-of-fold, while external tools are fully
+> scored on the same peptides. On the certified Tier A head-to-head
+> (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) posts the highest point
+> AUC-PR - a statistical near-tie with BigMHC (0.822), the MHCflurry binding-only baseline
+> (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698).
+>
+> **This comparison was previously described here as "conservative by construction" for
+> SESTRAV. That is withdrawn.** SESTRAV's cross-validation folds are stratified but not
+> grouped by peptide, so 71.0% of held-out rows share their exact peptide with the training
+> fold; the out-of-fold arm is optimistic, not handicapped, and the near-tie must not be read
+> as SESTRAV being understated (`docs/claims_register.md` D15). Separately, the 0.828 figure
+> is a 30-feature, unweighted, 200-tree measurement from 2026-05, not the canonical
+> `mode_31` result (D16).
 
 ---
 

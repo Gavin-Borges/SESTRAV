@@ -28,7 +28,7 @@
 - **Holdout policy (SCOPE CORRECTED 2026-08-08):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the training pool (`src/train_classifier.py:555`). This is a 16-peptide exclusion. It is **not** a quarantine of the Tier A / Tier B external benchmark sets, as this card previously stated - 414 of the 704 Tier A peptides are present in the v5 training corpus. See `docs/claims_register.md` D16.
 
 ## Evaluation and Performance
-- **Evaluation method:** Stratified 5-fold OOF cross-validation - conservative; models never score peptides seen during training.
+- **Evaluation method:** Stratified 5-fold out-of-fold cross-validation. **The previous wording - "conservative; models never score peptides seen during training" - is WITHDRAWN (2026-08-08).** Folds are stratified but not grouped by peptide, so a peptide recorded under more than one HLA allele can appear on both sides of a fold boundary; 71.0% of held-out rows share their exact peptide with the training fold. Because every mode-31 feature is a pure function of the peptide string, those rows are feature-identical. Reported CV metrics are therefore optimistic, not conservative (`docs/claims_register.md` D15).
 - **v3 weighted production results (n=1,004):**
 
 | Metric | RF (mean ± std) | Notes |
@@ -39,7 +39,7 @@
 | ISSR@25 | 0.8367 ± 0.022 | |
 
 - **Unweighted ablation AUC-PR:** 0.864 - used for ablation comparisons in Table 1 of the paper.
-- **External benchmark context:** On the certified Tier A field (n=704, a different evaluation set from the n=1,004 v3 results above), the closest external tool is BigMHC (0.822, a near-tie; fully trained on undisclosed data, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. SESTRAV OOF is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
+- **External benchmark context:** On the certified Tier A field (n=704, a different evaluation set from the n=1,004 v3 results above), the closest external tool is BigMHC (0.822, a near-tie; fully trained on undisclosed data, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. SESTRAV's out-of-fold arm is NOT conservative: folds are ungrouped by peptide, so it is leakage-inflated (D15). The previous "conservative by design" claim is withdrawn. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
 - **Cross-virus transfer:** EBV→HPV16 AUC-PR 0.742; HPV16→EBV 0.711.
 - **SYFPEITHI recall:** 1/6 evaluable epitopes in top 5%; 2/6 in top 25% (3.3× and 1.3× enrichment). See `results/syfpeithi_benchmark.json`.
 - **Feature importance note:** All 10 MHCflurry binding features (`bind_A0101`-`bind_B4402`) register RF importance = 0.0 in v3. Root cause: physico features at p5-p8 capture anchor-residue binding variance; v3 negative selection confound suppresses binding variance. This is a scientific finding, not a bug. Hard decoys (v4) will restore binding feature utility.
