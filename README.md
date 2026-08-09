@@ -19,7 +19,7 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 | Capability | SESTRAV | PredIG | PRIME | NetMHCpan | pVACtools |
 |---|---|---|---|---|---|
 | End-to-end workflow (proteome → ranked output) | ✓ | Partial | Partial | ✗ | ✓ (neoantigens) |
-| Open source, pip-installable | ✓ | ✓ | ✓ | Academic license | ✓ |
+| Open source, pip-installable | Open source; `pip install .` from source (not yet on PyPI - `ROADMAP.md`) | ✓ | ✓ | Academic license | ✓ |
 | Cryptographic dataset governance (freeze mode) | ✓ | ✗ | ✗ | ✗ | ✗ |
 | OpenSSF Passing badge | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Antigen processing as training features | `feature_mode=33` | ✓ | Partial | ✗ | Partial |
@@ -27,9 +27,9 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 | Pan-allele training | v5 active | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support | 9 viruses (v5 active): CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
-| AUC-PR on labeled benchmark (Tier A) | **0.828 (OOF, `full_31`/`mode_31`)** | not benchmarked | not benchmarked | N/A | N/A |
+| AUC-PR on labeled benchmark (Tier A) | **0.828 (OOF, 30-feature, unweighted, 2026-05; not `mode_31` - see note below)** | not benchmarked | not benchmarked | N/A | N/A |
 
-*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated strictly out-of-fold (conservative); external tools are fully scored on the same peptides. The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` scores self-proteome Gate 1 AUC-PR 0.8897 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see Paradigm 2 below). `full_31`/`mode_31` (0.828) is the canonical track and the certified Tier-A head-to-head result; the extended `full_33` antigen-processing configuration is reported separately under Release Tracks and is not part of this certified field. Methodology: `results/external_benchmark_comparison.md`. Certified per-tool metrics and their scope boundaries: `results/table3_tier_a_metrics.csv` and `docs/claims_register.md`.*
+*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated out-of-fold; external tools are fully scored on the same peptides. **That asymmetry does not favour the external tools as previously claimed here.** SESTRAV's cross-validation folds are stratified but not grouped by peptide, so 71.0% of held-out rows share their exact peptide with the training fold; the out-of-fold arm is therefore optimistic, not conservative (`docs/claims_register.md` D15). The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` reports pooled cross-validation AUC-PR 0.8312 (not a "self-proteome Gate 1" metric - that label was an error and is corrected below) and same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see Paradigm 2 below). **0.828 is NOT a `full_31`/`mode_31` result** - it is a 30-feature, unweighted, 200-tree measurement from 2026-05, predating `feature_mode=31`'s introduction by 26 days (`docs/claims_register.md` D16); the extended `full_33` antigen-processing configuration is reported separately under Release Tracks and is not part of this certified field. Certified per-tool metrics and their scope boundaries: `results/table3_tier_a_metrics.csv` and `docs/claims_register.md`. (`results/external_benchmark_comparison.md` is a 2026-05-22 SESTRAV-vs-binding-only-only report carrying the same pre-D16 mislabel and an unresolved provenance gap - historical reference only, not a citable source for the 5-tool field above.)*
 
 ---
 
@@ -37,7 +37,7 @@ Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harde
 
 > SESTRAV is a governed computational workflow for viral T-cell epitope prioritization (immunogenicity scoring against a self-proteome background). It integrates six computational stages - proteome-scale peptide generation, multi-allele MHC binding prediction, TCR contact physicochemical feature extraction, antigen processing scoring, ensemble immunogenicity inference, and freeze-mode governed output - under a single reproducible Snakemake DAG with cryptographic dataset provenance. To our knowledge, no publicly available tool integrates antigen processing, physicochemical TCR features, and graph neural network scoring within an OpenSSF-compliant, auditable pipeline.
 
-The canonical release uses a 31-feature model (20 physicochemical properties at TCR-contact positions + 10 per-allele MHC binding scores + peptide length as the critical mediating variable). On the Tier A labeled benchmark it achieves AUC-PR 0.828 (weighted OOF; 0.864 unweighted ablation); on the harder v5 generalization set (35,597 active rows, 9 viruses) it achieves AUC-PR 0.8897 self-proteome Gate 1 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see External Benchmark Results). Leave-one-virus-out (LOO) cross-virus analysis (Amendment 7 corrected, IEDB assay-confirmed negatives only) yields mean AUC-ROC 0.463 with 3 of 9 viruses above chance - the model is designed for within-virus epitope prioritization and self-proteome discrimination, not cross-virus transfer; LOO results are reported in full below. Optional tiers add antigen processing features (NetChop/TAPreg, `feature_mode=33`) and a GINEConv+ESM-2 graph neural network research track.
+The canonical release uses a 31-feature model (20 physicochemical properties at TCR-contact positions + 10 per-allele MHC binding scores + peptide length as the critical mediating variable). Its own v3 cross-validation mean, unweighted, on the full n=1,004 training corpus is AUC-PR 0.864 (`docs/model_cards/rf_31feature_integrated.md`); the Tier A field benchmark figure of 0.828 belongs to a different, 30-feature unweighted configuration and is not this model's result (`docs/claims_register.md` D16 - see External Benchmark Results below for the correctly-attributed Tier A table). On the harder v5 generalization set (35,597 active rows, 9 viruses) the canonical `mode_31` model achieves pooled cross-validation AUC-PR 0.8312 and reports same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC 0.751; the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted - see External Benchmark Results). Both the Tier A and v5 cross-validation figures are computed with folds stratified but not grouped by peptide and are leakage-inflated (D15); see the disclosure in External Benchmark Results. Leave-one-virus-out (LOO) cross-virus analysis (Amendment 7 corrected, IEDB assay-confirmed negatives only) yields mean AUC-ROC 0.463 with 3 of 9 viruses above chance - the model is designed for within-virus epitope prioritization and self-proteome discrimination, not cross-virus transfer; LOO results are reported in full below. Optional tiers add antigen processing features (NetChop/TAPreg, `feature_mode=33`) and a GINEConv+ESM-2 graph neural network research track.
 
 ## Background and Motivation
 
@@ -47,7 +47,7 @@ This approach combines structural insights with multi-allele binding predictions
 
 ## Release Tracks and Policy
 
-* **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length). Tier A AUC-PR 0.828 (weighted OOF) / v5 self-proteome Gate 1 AUC-PR 0.8897. Within-virus (same-pathogen) discrimination is reported per-virus (mean within-CV AUC-ROC 0.751; see Paradigm 2); the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted. This is the maintained release path and the production scorer.
+* **Canonical track (default):** 31-feature configuration (20 physicochemical + 10 multi-allele MHC binding + peptide length). v3 unweighted CV mean AUC-PR 0.864 (n=1,004); v5 pooled cross-validation AUC-PR 0.8312 (not "self-proteome Gate 1" - that label was an error, see Paradigm 2). The Tier A field benchmark AUC-PR 0.828 belongs to a separate 30-feature configuration, not this model (D16). Within-virus (same-pathogen) discrimination is reported per-virus (mean within-CV AUC-ROC 0.751; see Paradigm 2); the previously reported pooled AUC-ROC 0.9368 was decoy-inflated and is retracted. All cross-validation figures above are leakage-inflated (folds stratified but not grouped by peptide, D15). This is the maintained release path and the production scorer.
 * **Extended track:** 33-feature configuration adds NetChop 3.1 and TAPreg antigen processing scores as training features (`feature_mode=33`). AUC-PR 0.886 (unweighted) / 0.840 (weighted) - v3 extended-track result (antigen-processing features); not part of the certified v5 Tier-A head-to-head. Requires antigen processing cache; see `scripts/precompute_antigen_processing.py`.
 * **Legacy comparator track:** 30-feature (without peptide length) and 21-feature (sequence-only) configurations retained for historical reproducibility.
 
@@ -96,19 +96,19 @@ The committed release evidence (v3 dataset, 1004 peptides, 3.35:1 class ratio) p
 
 ## External Benchmark Results
 
-SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A labeled benchmark** for a clean head-to-head against the field, and (2) a **larger, harder hard-decoy generalization set** that decouples MHC binding from immunogenicity. The two numbers are not competing - the v4 figure is lower *by design* because the task is harder.
+SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A labeled benchmark** for a clean head-to-head against the field, and (2) a **larger, harder hard-decoy generalization set** that decouples MHC binding from immunogenicity. The two numbers are not competing - the Paradigm 2 (v5) figure is lower *by design* because the task is harder. (This sentence previously said "v4," stale since the corpus moved to v5 - see Paradigm 2 below.)
 
 ### Paradigm 1 - Tier A head-to-head (N=720 labeled; SESTRAV OOF on the N=704 scored intersection)
 
 | Tool | AUC-PR | ISSR@10 | Evaluation |
 |------|--------|---------|------------|
-| **SESTRAV RF (`full_31`/`mode_31`, canonical)** | **0.828** | 0.843 | OOF 5-fold (conservative) |
+| **SESTRAV RF (30-feature, unweighted, 2026-05 - NOT `full_31`/`mode_31`, see note)** | **0.828** | 0.843 | OOF 5-fold, ungrouped (leakage-inflated, D15) |
 | BigMHC | 0.822 | **0.917** | Fully trained |
 | MixMHCpred 2.2 | 0.795 | 0.847 | Fully scored |
 | Binding-only (MHCflurry) | 0.800 | 0.861 | Fully scored |
 | DeepImmuno | 0.698 | 0.710 | Fully trained (9/10-mer only, n=623) |
 
-> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's canonical `full_31` (0.828) and edges it on top-decile precision (ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to top-decile precision) - but SESTRAV is scored strictly out-of-fold while BigMHC is fully trained on undisclosed data. SESTRAV's canonical `full_31`/`mode_31` (0.828) posts the highest point AUC-PR in this certified field - a statistical near-tie with BigMHC. Source: `results/table3_tier_a_metrics.csv`; full methodology in paper section 3.3.
+> **Read this honestly:** BigMHC (0.822) is a near-tie with SESTRAV's 0.828 and edges it on top-decile precision (ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to top-decile precision) - and SESTRAV's arm is scored out-of-fold while BigMHC is fully trained on undisclosed data. **That asymmetry was previously presented here as a handicap on SESTRAV. It is not.** SESTRAV's folds are stratified but not grouped by peptide (71.0% of held-out rows share their exact peptide with the training fold), so the out-of-fold arm is optimistic rather than conservative - the near-tie cannot be read as SESTRAV being understated. See `docs/claims_register.md` D15. Note also that 0.828 is a 30-feature, unweighted, 200-tree measurement from 2026-05, not the canonical `full_31`/`mode_31` result (D16). Source: `results/table3_tier_a_metrics.csv`. `results/external_benchmark_comparison.md` documents only the SESTRAV-vs-binding-only pairwise mechanics (not the full 5-tool field) and is itself dated 2026-05-22 with the same pre-D16 "31-feat" mislabel and an unresolved `predig_run_date: unknown` provenance gap; treat it as historical methodology reference only, not as a citable source for the current 5-tool comparison above.
 
 ### Paradigm 2 - v5 within-virus CV (N=35,597 active; 9 viruses + IEDB viral negatives + central-tolerance decoys)
 
@@ -127,9 +127,9 @@ The canonical same-pathogen (within-virus) discrimination metric is the per-viru
 | HPV | 0.561 |
 | **Mean** | **0.751** |
 
-Self-proteome Gate 1 (viral epitopes vs. self-peptide background) is a separate, valid context: AUC-PR 0.8897 (consistent with the Gate 1 threshold protocol). Both are strict 5-fold OOF. This is the model shipped for production scoring.
+**Correction (2026-08-08):** this paragraph previously reported "Self-proteome Gate 1 (viral epitopes vs. self-peptide background): AUC-PR 0.8897". That label was wrong on two counts. **0.8897 is not a self-proteome evaluation** - it is the global pooled cross-validation `auc_pr` in `models/v5/training_results.csv`, written by `58bbc15` (2026-06-26); no self-proteome-versus-viral evaluation artifact exists anywhere in this repository, and "Gate 1" is a GNN promotion threshold (`src/verify/promote_gnn.py`), not an RF metric. **And it is not the current corpus**: the 35,597-active-row build cited in this section reports 0.8312 for that same pooled metric (`models/v5/training_results_mode31.csv`, `d3972f7`, 2026-07-05). Both figures come from ungrouped cross-validation and are peptide-leakage-inflated (`docs/claims_register.md` D15). This is the model shipped for production scoring.
 
-> **Note:** The pooled AUC-ROC 0.9368 previously reported as a same-pathogen figure was decoy-inflated (it only reproduces when synthetic / cross-pathogen decoys, incl. the vaccinia panel, are mixed in as if they were same-pathogen negatives) and is RETRACTED. The honest pooled same-pathogen ROC on real IEDB negatives is 0.712; the pooled same-pathogen AUC-PR is base-rate-inflated (about 81% positive) and is not reported as a headline. The per-virus within-CV AUC-ROC above (mean 0.751), not any pooled number, is the reported same-pathogen metric. DENV 0.859 is itself decoy-inflated (real-negative-only ROC 0.491 on 12 negatives).
+> **Note:** The pooled AUC-ROC 0.9368 previously reported as a same-pathogen figure was decoy-inflated (it only reproduces when synthetic / cross-pathogen decoys, incl. the vaccinia panel, are mixed in as if they were same-pathogen negatives) and is RETRACTED. The honest (decoy-corrected) pooled same-pathogen ROC on real IEDB negatives is 0.712; the pooled same-pathogen AUC-PR is base-rate-inflated (about 81% positive) and is not reported as a headline. The per-virus within-CV AUC-ROC above (mean 0.751), not any pooled number, is the reported same-pathogen metric. DENV 0.859 is itself decoy-inflated (real-negative-only ROC 0.491 on 12 negatives). **"Honest" here means decoy-corrected only, not leakage-corrected: both 0.712 and 0.751 are still peptide-leakage-exposed and reproduce lower (0.5989 and 0.6587 respectively) under a peptide-grouped splitter (`docs/claims_register.md` D15, D12).**
 
 > **Primary metric:** AUC-PR (class-imbalanced data; random baseline ~ positive prevalence). ISSR@10 = the fraction of the top-10%-ranked peptides that are true positives (precision within the top decile, not recall of all positives).
 
@@ -150,7 +150,7 @@ Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely
 | HIV-1 | 0.162 | 0.894 | 2516 | 60 | Anti-predictive (binding-feature reversal) |
 | **Mean** | **0.463** | 0.751 | | | 3/9 viruses above chance |
 
-> **Interpretation:** Mean LOO AUC-ROC 0.463 indicates that mode-31 binding-derived features do not transfer reliably across viral families when tested fairly. This is an expected finding given the model's design: SESTRAV is engineered for within-virus epitope prioritization (within-CV mean AUC-ROC 0.751) and self-proteome discrimination (Gate 1 AUC-PR 0.8897). The LOO analysis characterizes the boundary of current applicability and motivates the GNN research track, where structural embeddings (ESM-2 + GINEConv) may provide more transferable representations.
+> **Interpretation:** Mean LOO AUC-ROC 0.463 indicates that mode-31 binding-derived features do not transfer reliably across viral families when tested fairly. This is an expected finding given the model's design: SESTRAV is engineered for within-virus epitope prioritization (within-CV mean AUC-ROC 0.751, leakage-inflated per D15) rather than cross-virus transfer. The LOO analysis characterizes the boundary of current applicability and motivates the GNN research track, where structural embeddings (ESM-2 + GINEConv) may provide more transferable representations.
 
 ### SHAP Feature Attribution
 
@@ -234,14 +234,21 @@ At each TCR contact position, SESTRAV computes the following physicochemical pro
 
 ### Track Definitions
 
-| Track | Features | AUC-PR (v3 OOF) | Use Case |
+| Track | Features | AUC-PR (v3 OOF, unweighted CV mean, n=1,004) | Use Case |
 | :--- | :--- | :--- | :--- |
 | Canonical (31-feature) | 20 physicochemical + 10 binding + length | 0.864 | Default release track |
 | Extended (33-feature) | 31 + NetChop + TAPreg | 0.886 (unweighted) / 0.840 (weighted) | Antigen processing tier - best v3 result |
 | Legacy (30-feature) | 20 physicochemical + 10 binding | 0.825 | Historical comparator |
-| Legacy (21-feature) | Sequence-only (binding excluded) | 0.772 | Historical comparator |
+| Legacy (21-feature) | Sequence-only (binding excluded) | 0.784 | Historical comparator |
 | Expanded (50-feature) | 40 physicochemical + 10 binding | - | Extended evaluation |
 | Allele-aware (166) | Canonical + 136 HLA pocket pseudo-sequences | - | Pan-allele modeling |
+
+**None of the figures in this table are the Tier A field benchmark (0.828, External Benchmark
+Results above).** This table's numbers are an unweighted feature-ablation cross-validation study
+over the full n=1,004 v3 corpus (`docs/model_evaluation_summary.md`); the Tier A figure is a
+separate, n=704, 200-tree measurement on the held-out field intersection. The 30-feature row
+(0.825) and the Tier A figure (0.828) are two different measurements of two different fields that
+happen to be close - not the same number under two names (`docs/claims_register.md` D16).
 
 Stage 4 auto-detects the appropriate feature set for each trained model.
 

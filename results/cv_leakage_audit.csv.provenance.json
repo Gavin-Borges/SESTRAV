@@ -1,0 +1,10 @@
+{
+  "generated_utc": "2026-08-09T02:40:26+00:00",
+  "script": "scripts/audit_cv_leakage.py",
+  "dataset_path": "data/immunogenicity_dataset_v5.csv",
+  "dataset_sha256": "1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7",
+  "random_state": 42,
+  "n_splits": 5,
+  "n_estimators": 200,
+  "n_rows_emitted": 53
+}

@@ -301,11 +301,15 @@ def model_card() -> ModelCard:
         training_dataset="immunogenicity_dataset_v5.csv (IEDB + VDJdb + central-tolerance hard decoys, 35,597 active rows / 51,185 total)",
         cv_folds=5,
         contamination_disclosure=(
-            "SESTRAV is evaluated on a held-out independent validation cohort "
-            "(SARS-CoV-2 and Influenza A) that is excluded from training. Because "
-            "IEDB-derived benchmarks can overlap a model's training data, results are "
-            "reported on a contamination-excluded clean holdout; see the project README "
-            "for the benchmarking methodology."
+            "SARS-CoV-2 and Influenza A are among the nine viruses this model is TRAINED on; "
+            "they are not a held-out cohort. Only 16 named gold-standard epitopes are excluded "
+            "from the training manifold. Cross-validation folds are stratified but NOT grouped "
+            "by peptide, so a peptide appearing under more than one HLA allele can be split "
+            "across the train/test boundary: 71.0% of held-out rows share their exact peptide "
+            "with the training fold. Reported cross-validation metrics are therefore inflated "
+            "relative to a peptide-grouped estimate (pooled AUC-PR 0.8347 ungrouped vs 0.6092 "
+            "grouped). See docs/claims_register.md D15 for the measured effect on each metric, "
+            "and the leave-one-virus-out results for the one evaluation this does not affect."
         ),
     )
 

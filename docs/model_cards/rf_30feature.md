@@ -6,7 +6,7 @@
 - **Primary Use:** Scoring the relative immunogenicity of peptide candidates presented by MHC Class I molecules for therapeutic vaccine triage.
 - **Input Features (30):** 20 physicochemical features at TCR contact positions p4-p8 (hydrophobicity, aromaticity, Van der Waals volume, charge, flexibility, bulkiness, hydrophilicity, upward-facing probability proxy) + 10 per-allele MHCflurry 2.0 presentation scores.
 - **Output:** A continuous probability score [0.0-1.0] representing population-level likelihood of T-cell activation. Does not represent allele-specific or donor-specific immunogenicity.
-- **Superseded by:** `rf_31feature_integrated.joblib` (feature_mode=31, AUC-PR 0.864 vs 0.828 for this model).
+- **Superseded by:** `rf_31feature_integrated.joblib` (feature_mode=31, AUC-PR **0.864 vs 0.825** for this model - both from the same unweighted n=1,004 v3 feature-ablation study, `docs/model_evaluation_summary.md`, "Ablation Study Results" section). **Corrected 2026-08-09:** this line previously read "0.864 vs 0.828", pairing the 31-feature ablation mean against this model's **Tier A field** metric (n=704) rather than against its ablation-study counterpart (n=1,004). Those are two different measurements on two different fields; conflating them is the precise error D16 records as the root cause of the 0.828 mislabel, and both `README.md` and `docs/model_evaluation_summary.md` were corrected against it. This model's Tier A figure remains 0.828 (see Evaluation and Performance below) - it is simply not the number 0.864 should be compared against.
 
 ## Intended Use
 - **Primary Domain (trained):** EBV (B95-8 strain) and HPV 16/18 derived epitopes (8-11 amino acids).
@@ -17,15 +17,18 @@
 - **Source:** IEDB (curated exports, v3 dataset, 2.0.0-alpha schema).
 - **Composition:** EBV 68.1%, HPV16 30.9%, HPV11 1.0%. 9-mers 64.7%.
 - **Label quality:** IEDB labels represent population-average responses across heterogeneous assay types, donor backgrounds, and stimulation conditions. Labels do not represent allele-specific or donor-specific immunogenicity.
-- **Holdout Policy:** Tier A and Tier B Gold Standard validation peptides strictly excluded from the training manifold.
+- **Holdout Policy (SCOPE CORRECTED 2026-08-08):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the training pool (`src/train_classifier.py:555`). This is a 16-peptide exclusion, **not** the "strict exclusion of Tier A and Tier B Gold Standard validation peptides" this card previously claimed - 414 of the 704 Tier A peptides are present in the v5 training corpus. See `docs/claims_register.md` D16.
 - **Biases:** Taxonomic bias toward EBV anchor motifs; length bias toward 9-mers. Inverse-frequency sample weights applied at training time.
 
 ## Evaluation and Performance
-- **Evaluation method:** Strict out-of-fold (OOF) 5-fold cross-validation - conservative; never scores peptides seen during training.
-- **Metrics on v3 dataset (n=704 Tier A intersection):**
-  - AUC-PR: **0.828** (OOF, conservative estimate)
+- **Evaluation method:** Out-of-fold 5-fold cross-validation. **The previous wording - "strict... conservative; never scores peptides seen during training" - is WITHDRAWN (2026-08-08).** Folds are stratified but not grouped by peptide: 71.0% of held-out rows share their exact peptide with the training fold, and the feature vector is a pure function of the peptide string, so those rows are feature-identical. Reported CV metrics are optimistic, not conservative (`docs/claims_register.md` D15).
+- **Metrics on the 2026-05 Tier A field (n=704):** the corpus is the 720-row root
+  `immunogenicity_dataset.csv` at `69e0e5c` minus the 16 `GOLD_STANDARD_EPITOPES`, **not** the
+  1,004-row `data/immunogenicity_dataset_v3.csv` this line previously named (corrected
+  2026-08-09, `docs/claims_register.md` D16).
+  - AUC-PR: **0.828** (OOF, ungrouped folds - leakage-inflated, D15). **This card's attribution is the correct one:** 0.828 is a 30-feature, unweighted, 200-tree measurement, and `README.md`'s attribution of it to `mode_31` "weighted OOF" is the error (`docs/claims_register.md` D16).
   - ISSR@10: 0.843
-- **External benchmark note:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. The SESTRAV OOF comparison is conservative by design. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
+- **External benchmark note:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. The SESTRAV out-of-fold arm is NOT conservative: folds are ungrouped by peptide, so it is leakage-inflated (D15). The previous "conservative by design" claim is withdrawn. PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
 - **Subgroup:** HPV16 subgroup AUC-PR lower than EBV; 9-mer subgroup AUC-PR above PredIG baseline. Reproduce with `python scripts/scoring_error_audit.py` (writes
   `results/scoring_error_audit.md`, a generated artifact that is not tracked in this
   repository).

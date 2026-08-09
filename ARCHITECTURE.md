@@ -161,11 +161,16 @@ the scoring stage so the pipeline does not retrain at runtime.
 
 Evaluation uses two complementary paradigms, both reported in the README and paper:
 
-- **Tier A labeled benchmark** (head-to-head against the field): canonical `full_31`
-  AUC-PR 0.828 (OOF), a near-tie with the best fully-trained external tool (BigMHC 0.822,
-  which edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of
-  5 on that metric, behind binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR
-  lead does not extend to top-decile precision). The extended `full_33` configuration (0.840)
+- **Tier A labeled benchmark** (head-to-head against the field): a 30-feature, unweighted,
+  200-tree RF configuration from 2026-05 - **not** the canonical `full_31`/`mode_31`
+  production model, corrected 2026-08-09 (`docs/claims_register.md` D16) - scores
+  AUC-PR 0.828 (OOF, ungrouped by peptide and leakage-inflated, D15), a near-tie with the
+  best fully-trained external tool (BigMHC 0.822, which edges SESTRAV on top-decile
+  precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind
+  binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to
+  top-decile precision). Because the out-of-fold arm is optimistic rather than conservative
+  (71.0% of held-out rows share their exact peptide with the training fold), this near-tie
+  cannot be read as SESTRAV being understated. The extended `full_33` configuration (0.840)
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
@@ -173,16 +178,26 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   self-binder plus IEDB viral negatives): canonical `mode_31` per-virus within-CV mean AUC-ROC
   0.751 over nine viruses (`results/per_virus_eval_v5_mode31.csv`). This same-pathogen number is
   lower by design because the hard decoys remove the binding-equals-immunogenic shortcut; the
-  pooled AUC-PR is a base-rate artifact and is not reported as a headline. This is the model
-  shipped for production scoring.
+  pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
+  (required whenever this figure is quoted, `docs/claims_register.md` D15):** 0.751 is measured
+  under folds that are stratified but not grouped by peptide, and is leakage-inflated - it
+  reproduces at 0.6587 under a matched peptide-grouped splitter (+0.0925, +14.0%). This is the
+  model shipped for production scoring.
 
-Interpretability is built in: SHAP attribution (roughly 60% MHC binding, 40% TCR-contact
-features) is committed alongside the model, confirming that the physicochemical features
-carry independent signal beyond binding.
+Interpretability is built in: a SHAP attribution artifact is committed alongside the model.
+**No binding-versus-TCR-contact attribution split is currently reported.** The previously
+published "roughly 60% MHC binding / 40% TCR-contact" figure is RETRACTED
+(`docs/claims_register.md` D13): the committed `results/shap_values_rf.csv` has all ten
+`bind_*` columns at exactly zero, so it cannot support any such split. That traces to an
+upstream feature-pipeline regression between v1.0.0 and v2.0-rc1 rather than to the SHAP
+explainer, and current production training is unaffected - but no replacement split will be
+stated until a fresh SHAP run against current production data is committed.
 
 > Numbers in this document are the certified v5 figures (35,597-active-row dataset) that the
-> README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite. Earlier v3/v4
-> results are retained elsewhere only where explicitly labeled as historical.
+> README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite, with one named
+> exception: the Tier A benchmark figure (0.828, Section 5 above) is a v3-era, 30-feature
+> measurement, explicitly labeled as such where it appears (`docs/claims_register.md` D16).
+> Earlier v3/v4 results are retained elsewhere only where explicitly labeled as historical.
 
 ---
 

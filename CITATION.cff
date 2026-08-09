@@ -21,9 +21,11 @@ abstract: >-
   Epitope Database records and validated against experimentally confirmed T-cell
   epitopes within a fully containerized high-performance computing environment.
   Version 2 integrates a neural network architecture search (FlexibleMLP with
-  14 configurations), graph neural network benchmarks (GCN, GAT, bipartite
-  peptide-allele), feature group ablation analysis, and calibration/uncertainty
-  quantification.
+  14 configurations), a GINEConv graph neural network research track using
+  ESM-2 protein-language-model residue embeddings (an earlier exploratory
+  comparison of GCN, GAT, and bipartite peptide-allele graph architectures is
+  retained for reference but is not the production GNN design), feature group
+  ablation analysis, and calibration/uncertainty quantification.
 keywords:
   - immunoinformatics
   - epitope prediction

@@ -1,7 +1,7 @@
 # SESTRAV Model Card: RandomForest (33-Feature Integrated)
 
 ## Model Details
-- **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights)
+- **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights). **Flagged 2026-08-09, unresolved (H3):** this card's own Provenance section below cites `src/train_classifier.py --feature-mode 33 --sample-weights` as the reproducing command, but that tracked script hardcodes `n_estimators=200` (`src/train_classifier.py:666`), not 500. Not yet resolved whether "500" reflects an unpreserved earlier script version or was never verified; see the same flag on `rf_31feature_integrated.md` for detail. Do not treat either the 500 or 200 count as confirmed for this card's own results until checked.
 - **Version:** SESTRAV v2.1-dev - **Best current v3 model (extended track).**
 - **Model file:** `models/rf_33feature_integrated.joblib`
 - **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides where antigen processing predictions are pre-computed. Recommended over the 31-feature canonical model when the antigen processing cache is available.
@@ -26,7 +26,7 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 **Important cache note:** The `netchop_score` and `tap_score` values in the current v3 cache (`data/antigen_processing_cache.csv`) are high-fidelity mock scores calibrated to literature ranges (median netchop ≈ 0.4 for 9-mers) due to DTU API format changes and TAPreg UCM VPN restriction during development. Results from live NetChop 3.1 and TAPreg queries may differ. See `docs/limitations_statement_v1.md §2.5`.
 
 ## Evaluation and Performance
-- **Evaluation method:** Stratified 5-fold OOF cross-validation.
+- **Evaluation method:** Stratified 5-fold OOF cross-validation. **Leakage disclosure added 2026-08-09, this card previously carried none (`docs/claims_register.md` D15).** Folds are stratified but not grouped by peptide: a peptide recorded under more than one HLA allele can appear on both sides of a fold boundary, and every feature in `feature_mode=33` is a pure function of the peptide string plus its precomputed antigen-processing score, so those rows are feature-identical across the boundary. `scripts/audit_cv_leakage.py` has directly measured this splitter-grouping effect for mode 31 only: production (ungrouped) 0.8347 vs peptide-grouped 0.6092, +0.2255 AUC-PR (+37.0%) (`results/cv_leakage_audit.csv`). Mode-33's own delta from the same mechanism has **not** been measured. (Separately, `docs/proposals/2026_feature_upgrade_roadmap.md` reports a peptide-grouped feature-ablation comparison - mode 35 vs mode 31, both already grouped - of -0.0037 AUC-PR; that figure is unrelated to this splitter-leakage mechanism and is not a mode-33 measurement either.) Reported CV metrics below should be treated as optimistic, not conservative, pending a mode-33-specific measurement.
 - **v3 weighted production results (n=1,004):**
 
 | Metric | RF (mean ± std) | XGBoost (mean ± std) | Notes |

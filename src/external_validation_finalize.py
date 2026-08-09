@@ -474,7 +474,9 @@ def append_finalize_report(
         sections.append(f"3. **Robustness note:** {v['rationale']}")
         sections.append(
             "4. **Boundary statement:** External tools evaluated with fully-trained models; "
-            "SESTRAV RF uses conservative OOF scoring."
+            "SESTRAV RF uses out-of-fold scoring. That is NOT a handicap on SESTRAV: its "
+            "folds are ungrouped by peptide, so the OOF arm is leakage-inflated rather "
+            "than conservative (docs/claims_register.md D15)."
         )
         sections.append("")
 

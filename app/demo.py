@@ -417,19 +417,27 @@ def main() -> None:
     with st.expander("ℹ️ Contamination disclosure & caveats"):
         st.markdown(
             """
-            **Benchmark overlap & clean-holdout evaluation**
+            **Cross-validation folds are not grouped by peptide**
 
-            Because IEDB-derived benchmarks can overlap a model's training data, SESTRAV
-            reports results on a contamination-excluded clean holdout, and is evaluated on
-            a held-out independent validation cohort (SARS-CoV-2 and Influenza A) with no
-            overlap with the training set.
+            SARS-CoV-2 and Influenza A are among the nine viruses this model is **trained**
+            on - they are not a held-out cohort. Only 16 named gold-standard epitopes are
+            excluded from the training manifold.
+
+            Cross-validation folds are stratified but **not grouped by peptide**, so a
+            peptide appearing under more than one HLA allele can land on both sides of the
+            train/test boundary: 71.0% of held-out rows share their exact peptide with the
+            training fold. Reported cross-validation metrics are therefore inflated relative
+            to a peptide-grouped estimate (pooled AUC-PR 0.8347 ungrouped vs 0.6092 grouped).
+
+            The leave-one-virus-out results are the one evaluation this does not affect -
+            each held-out virus is scored by a model trained without it.
 
             **Usage limits**
             - Predictions are for research hypothesis generation only.
             - Do not use SESTRAV as a clinical decision engine.
             - Peptides outside the 8-11-mer MHC-I binding length range are not supported.
 
-            See `docs/validation_summary.md` for validation metrics.
+            See `docs/claims_register.md` (D15) for the measured effect on each metric.
             """
         )
 

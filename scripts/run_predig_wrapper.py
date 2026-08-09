@@ -97,7 +97,11 @@ def main():
             "--rm",
             "-v",
             f"{results_dir}:/predig",
-            "bsceapm/predig:latest",
+            # Pinned off :latest for supply-chain reproducibility (2026-08-08 security sweep,
+            # W14.4). Same digest already validated and pinned in run_predig_batched.py /
+            # run_external_tier_a.ps1 / run_external_tier_b.ps1 - reused here for consistency
+            # rather than pinning a second, untested digest for the same image.
+            "bsceapm/predig@sha256:4a0c8b6b23a968600c4363290dc778a4b6e51cc24032d16ebfdb3119846b0a79",
             input_rel_docker,
             "--output",
             output_rel_docker,

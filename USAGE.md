@@ -98,7 +98,11 @@ replacing them is the intent.
 Expected per-virus within-CV mean AUC-ROC ~ 0.751 on the v5 dataset (35,597 active rows /
 51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`).
 The pooled AUC-PR is a base-rate artifact and is not reported as a headline; see
-`docs/model_evaluation_summary.md`.
+`docs/model_evaluation_summary.md`. **Splitter disclosure (required whenever this figure is
+quoted, `docs/claims_register.md` D15):** 0.751 comes from folds that are stratified but not
+grouped by peptide, so it is leakage-inflated; under a matched peptide-grouped splitter it
+reproduces at 0.6587 (+0.0925, +14.0%). Expect your own run to land near 0.751 because it uses
+the same ungrouped splitter - that agreement confirms reproducibility, not leakage-freedom.
 
 ### 4. Benchmark against gold standard
 
@@ -181,12 +185,19 @@ See `results/external_benchmark_comparison.md` for the external benchmark method
 certified claim. The full contamination analysis lives in an internal validation
 sign-off document that is not published in this repository.
 
-> **Evaluation note:** SESTRAV RF is evaluated strictly out-of-fold (conservative estimate),
-> while external tools are fully scored on the same peptides. On the certified Tier A
-> head-to-head (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) posts the highest point AUC-PR - a statistical near-tie with BigMHC
-> (0.822), the MHCflurry binding-only baseline (0.800), MixMHCpred 2.2 (0.795), and
-> DeepImmuno (0.698). Because SESTRAV is scored out-of-fold while the external tools score
-> every peptide directly, the comparison is conservative by construction for SESTRAV.
+> **Evaluation note:** SESTRAV RF is evaluated out-of-fold, while external tools are fully
+> scored on the same peptides. On the certified Tier A head-to-head
+> (`results/table3_tier_a_metrics.csv`), SESTRAV RF (AUC-PR 0.828) posts the highest point
+> AUC-PR - a statistical near-tie with BigMHC (0.822), the MHCflurry binding-only baseline
+> (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698).
+>
+> **This comparison was previously described here as "conservative by construction" for
+> SESTRAV. That is withdrawn.** SESTRAV's cross-validation folds are stratified but not
+> grouped by peptide, so 71.0% of held-out rows share their exact peptide with the training
+> fold; the out-of-fold arm is optimistic, not handicapped, and the near-tie must not be read
+> as SESTRAV being understated (`docs/claims_register.md` D15). Separately, the 0.828 figure
+> is a 30-feature, unweighted, 200-tree measurement from 2026-05, not the canonical
+> `mode_31` result (D16).
 
 ---
 
