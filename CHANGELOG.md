@@ -166,6 +166,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   same stratified-but-ungrouped 5-fold OOF metric. Scoped honestly: only mode-31's
   splitter-leakage delta has been directly measured (+0.2255 AUC-PR, `results/cv_leakage_audit.csv`);
   mode-33's own delta has not. Same 500-vs-200-estimators flag added as `rf_31feature_integrated.md`.
+- **`docs/claims_register.md` D12 marked superseded-in-part by D15.** D12's own "honest"
+  corrective figures (per-virus mean 0.751, pooled same-pathogen 0.712) are themselves
+  peptide-leakage-inflated - D15 measures them at 0.6587 and 0.5989 under a peptide-grouped
+  splitter - but D12 carried no cross-reference to that fact. Added the same SUPERSEDED banner
+  pattern already used on Section 2's D15-affected rows.
+- **"Honest" disambiguated at four locations that used it for a decoy-corrected figure without
+  flagging it is not also leakage-corrected.** README.md, `docs/model_evaluation_summary.md`,
+  `docs/validation_summary.md`, and `docs/model_cards/rf_31feature_integrated.md` all stated
+  "the honest pooled same-pathogen ROC is 0.712" (or the 0.751 per-virus mean) with no leakage
+  caveat nearby. Added "(decoy-corrected)" qualifiers and the D15 peptide-grouped reproduction
+  values at all four.
+- **`CITATION.cff`'s abstract described "Version 2" GNN work as "graph neural network
+  benchmarks (GCN, GAT, bipartite peptide-allele)."** Per D1 the actual v2.3 GNN research track
+  is GINEConv+ESM-2 (`GraphPredictorV2`); GCN/GAT/bipartite are a real but separate historical
+  benchmark. Citation metadata now names the shipped architecture and scopes the older
+  benchmark as retained-for-reference.
+- **README's citation of `results/external_benchmark_comparison.md` corrected to match its
+  actual content.** README described it as methodology for the certified 5-tool Tier A
+  comparison; it is dated 2026-05-22, compares only SESTRAV against one binding-only baseline,
+  and itself carries the pre-D16 "31-feat" mislabel. Both citing locations now describe it as
+  historical reference, not a citable source for the current comparison.
+- **Wet-lab protocol's disclosed prior traced to a different model generation than the one
+  under test.** `docs/Wet_Lab_Protocol_v1.md`'s R10 success criterion is grounded in a 0.9494
+  prior from the Tier A family, whose SESTRAV arm (D16) is a 30-feature, 200-tree, 2026-05
+  measurement - not the production mode-31 model the protocol's own Objective and Section 2
+  target for the physical assay. Added an addendum disclosing the mismatch; not resolved, since
+  no mode-31-substrate R10 exists without a grouped-splitter re-run (D15).
+- **README's comparison table claimed "pip-installable"; the package is not yet on PyPI**
+  (`ROADMAP.md`: "Installation is from source today"), and README's own Quick Start already said
+  so. Table cell corrected.
+- **Stale "v4" reference in README's Paradigm 1/2 framing corrected to "v5"** - the
+  generalization-set corpus moved to v5 well before this sentence was last touched; Paradigm 2
+  is explicitly labeled v5 two sections below it.
 
 ### Security
 - **PredIG Docker image pinned off the mutable `:latest` tag**
