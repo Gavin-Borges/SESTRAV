@@ -65,8 +65,26 @@ EXCLUDED_NAMES = {
     "requirements-ci.in",
 }
 
-# 7-40 hex characters, not embedded in a longer alphanumeric run.
-SHA_RE = re.compile(r"(?<![0-9a-zA-Z])([0-9a-f]{7,40})(?![0-9a-zA-Z])")
+# 7-40 hex characters, not embedded in a longer alphanumeric run, and not the
+# fractional part of a decimal number.
+#
+# The `(?<!\d\.)` guard exists because "." is not alphanumeric, so the leading
+# lookbehind alone lets the tail of a decimal match: in `0.8275628` the token
+# `8275628` is seven characters, every one of them a valid hex digit, preceded
+# by "." and followed by a boundary. `docs/claims_register.md` D16 cites exactly
+# that pair - the 31-feature v3 weighted CV mean 0.8275628 against the
+# 30-feature pooled field metric 0.8277666, whose 0.0002 separation is the
+# documented root cause of the Tier A mislabel - and both were reported as dead
+# commits, failing this gate on a repository that had no dead citations.
+#
+# Deliberately NOT fixed by rejecting all-decimal tokens outright: a real
+# abbreviated SHA is all digits with probability (10/16)^7, about 3.7%, so that
+# rule would silently stop catching roughly one in twenty-seven dead citations -
+# a false negative in the one gate whose job is catching them. Scoping the guard
+# to "preceded by digit-then-dot" rejects decimal tails only; a SHA that follows
+# a sentence period ("... the fix. abc1234 reverts it") keeps matching, because
+# the intervening space breaks the `\d\.` sequence.
+SHA_RE = re.compile(r"(?<![0-9a-zA-Z])(?<!\d\.)([0-9a-f]{7,40})(?![0-9a-zA-Z])")
 
 # Signals that a hex token is being presented as a commit reference.
 COMMIT_CONTEXT_RE = re.compile(
