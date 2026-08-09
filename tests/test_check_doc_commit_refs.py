@@ -24,6 +24,7 @@ behaviour so the cheap-but-wrong fix cannot be reintroduced.
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -106,12 +107,44 @@ def test_non_sha_tokens_are_ignored(sha_re, text):
     assert sha_re.findall(text) == []
 
 
+def _is_shallow_clone() -> bool:
+    """True when the working clone lacks full history.
+
+    `git rev-parse --is-shallow-repository` prints "true"/"false" (git >= 2.15).
+    Any failure is treated as shallow, so the end-to-end check below skips
+    rather than reporting a spurious failure in an environment it cannot judge.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            cwd=_SCRIPT.parent.parent,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return True
+    return out.stdout.strip() != "false"
+
+
+@pytest.mark.skipif(
+    _is_shallow_clone(),
+    reason=(
+        "shallow clone: abbreviated SHAs cited in docs cannot resolve without "
+        "full history. CI's `test` job checks out at the default depth of 1, "
+        "while the dedicated doc_commit_refs workflow sets fetch-depth: 0 - "
+        "so that workflow, not this test, is the authoritative gate there."
+    ),
+)
 def test_gate_passes_on_the_live_tree(monkeypatch):
     """End-to-end: the checker must exit clean on the repository as it stands.
 
-    This is the assertion CI actually makes. Keeping it here means a dead
+    This mirrors the assertion CI's `doc_commit_refs` workflow makes, so a dead
     citation - or a fresh false positive - is caught by the local fast gate
     rather than only after a push.
+
+    Requires full git history and is skipped without it (see the skipif above);
+    the unit cases in this module are environment-independent and always run.
 
     `main()` builds its own argparse parser and reads `sys.argv`, which under
     pytest holds pytest's arguments, so argv is replaced with a bare program
