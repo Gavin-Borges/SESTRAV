@@ -5,6 +5,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       # Collapse routine minor/patch bumps into one PR to cut review noise.
       # Major bumps stay ungrouped so each breaking change is reviewed alone.
@@ -41,6 +43,8 @@ updates:
     directory: "/environments"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       python-env-minor-patch:
         patterns: ["*"]
@@ -76,6 +80,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       # Action SHA bumps are low-risk; group all of them into a single PR.
       github-actions:

@@ -8,7 +8,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **Peptide-level cross-validation leakage audit** (`scripts/audit_cv_leakage.py`, output
+  `results/cv_leakage_audit.csv` with a provenance sidecar recording the dataset SHA-256,
+  seed, and estimator count). `src/train_classifier.py` cross-validates with
+  `MultiStratifiedKFold` (`src/ml_utils.py`), which accepts a `peptides=` argument but uses
+  it only to bin length for stratification - never as a fold group. The v5 corpus is
+  deduplicated on `(peptide, hla_allele)` rather than on peptide, and every
+  `feature_mode=31` feature is a pure function of the peptide string, so rows sharing a
+  peptide are feature-identical and land on opposite sides of a fold boundary: **71.0% of
+  held-out test rows have their exact peptide present in that fold's training set.** Holding
+  the RF configuration fixed at production's own settings (`n_estimators=200`,
+  `random_state=42`, `class_weight=balanced`) and changing only the splitter moves AUC-PR
+  from 0.8347 to 0.6092 (+0.2255, +37.0%). The production-splitter arm reproduces the
+  certified ledger cell (`models/v5/training_results_mode31.csv`, AUC-PR 0.8312) to within
+  0.0035, so the gap is attributable to leakage rather than to a modeling difference.
+  Recorded as `docs/claims_register.md` D15.
+- **`docs/proposals/2026_feature_upgrade_roadmap.md`** - ranks seven 2026-era feature-schema
+  upgrades against the leakage-corrected baseline, and proposes a Phase 0 that repairs the
+  evaluation harness (peptide-grouped splitter, fold-disjointness test, in-fold imputation)
+  before any feature work is measured. The honest feature-mode deltas span -0.0037 to +0.0096,
+  roughly 23x smaller than the leakage inflation itself.
+
 ### Fixed
+- **The two metrics cited as the leakage-honest corrective are themselves inflated.**
+  `results/per_virus_eval_v5_mode31.csv` (per-virus mean AUC-ROC 0.751) and
+  `results/pooled_honest_same_pathogen.csv` (Def A pooled AUC-ROC 0.712) have been cited as
+  the honest antidote to the retracted pooled 0.9368/0.7678 (`docs/claims_register.md` D12).
+  Both are computed downstream of `models/v5/rf_oof_predictions_mode31.csv`, which the same
+  `MultiStratifiedKFold` path writes - not an independent splitter, as had been assumed.
+  Measured under a matched peptide-grouped splitter: the per-virus mean falls to
+  0.6587 +/- 0.0908 (+0.0925, +14.0% inflation) and the pooled honest figure to 0.5989
+  (+0.1135, +19.0%). Both production-splitter reproductions match their certified values
+  almost exactly, validating the measurement. The LOO cross-virus table
+  (`results/loo_cross_virus_v5_clean.csv`) is confirmed genuinely unaffected: it trains a
+  fresh model per held-out virus with explicit virus-level partitioning and never uses
+  `MultiStratifiedKFold`. No published number is changed here - this records the finding and
+  its scope; the re-baseline itself is a separate, owner-sequenced decision.
+
+### Security
+- **PredIG Docker image pinned off the mutable `:latest` tag**
+  (`scripts/run_predig_wrapper.py`). This wrapper was the last of four PredIG call sites
+  still pulling `bsceapm/predig:latest`; it now uses the same content digest already pinned
+  in `scripts/run_predig_batched.py`, `scripts/run_external_tier_a.ps1`, and
+  `scripts/run_external_tier_b.ps1`, so all four resolve to one validated image instead of
+  whatever `:latest` happens to point at on a given day.
+- **Dependabot cooldown window added** (`.github/dependabot.yml`): `cooldown.default-days: 7`
+  on all three `package-ecosystem` blocks (`pip` root, `pip` `/environments`,
+  `github-actions`). Newly published versions were previously eligible for a bump with zero
+  waiting period, which narrows the window in which a compromised release could be proposed
+  before the advisory databases catch it. Closes semgrep `dependabot-missing-cooldown`.
+
 - **`LICENSE` now detected as MIT by GitHub instead of "Other".** The copyright block
   spanned two lines, but only the first began with `Copyright`; GitHub's `licensee`
   detector strips copyright lines before template matching, so the second line

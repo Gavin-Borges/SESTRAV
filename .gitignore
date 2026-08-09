@@ -284,6 +284,9 @@ results/*
 # H0 statistic promotion (session 85/86 manuscript stats, harness-bound session 2026-07-28)
 !results/loo_binding_confound_decomposition.csv
 !results/tier_a_paired_bootstrap.csv
+# Peptide-level CV leakage audit (docs/proposals/2026_feature_upgrade_roadmap.md, D15)
+!results/cv_leakage_audit.csv
+!results/cv_leakage_audit.csv.provenance.json
 release_artifacts/
 *.pyc
 __pycache__/
