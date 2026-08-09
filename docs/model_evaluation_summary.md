@@ -19,10 +19,14 @@
 [^retracted]: The previously reported pooled same-pathogen AUC-ROC 0.9368 was decoy-inflated
 (it only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel, are
 mixed in as if they were same-pathogen negatives) and is RETRACTED (2026-07-11). The honest
-pooled same-pathogen ROC on real IEDB negatives (origin in {tested_negative, iedb_api}) is
-0.712. The pooled same-pathogen AUC-PR is a base-rate artifact (8003 positive vs 1851 negative,
-about 81% positive) and is NOT reported as a headline. The canonical, reproducible same-pathogen
-metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from `scripts/evaluate_per_virus.py`.
+(decoy-corrected) pooled same-pathogen ROC on real IEDB negatives (origin in {tested_negative,
+iedb_api}) is 0.712. The pooled same-pathogen AUC-PR is a base-rate artifact (8003 positive vs
+1851 negative, about 81% positive) and is NOT reported as a headline. The canonical, reproducible
+same-pathogen metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from
+`scripts/evaluate_per_virus.py`. **Correction (2026-08-09):** "honest" above means decoy-corrected
+only. Both 0.712 and 0.751 are separately peptide-leakage-exposed and reproduce lower (0.5989 and
+0.6587) under a peptide-grouped splitter - see `docs/claims_register.md` D15, and D12 which this
+footnote records, now marked superseded-in-part by D15.
 
 **Per-virus within-CV results (Amendment 6 thresholds; regenerated session 70, 2026-07-10, on the 35,597-row v5 dataset):**
 

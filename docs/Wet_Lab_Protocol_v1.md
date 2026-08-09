@@ -22,6 +22,20 @@
 > half is not rigor; it invites a reviewer to read the eventual null as a failed prediction
 > rather than as the confirmation of a disclosed prior. The criterion is now grounded in that
 > prior.
+>
+> **ADDENDUM (2026-08-09), flagged not fixed - a substrate mismatch in that same prior.** The
+> R10=0.9494 computational prior comes from the Tier A benchmark family (`results/h2_tier_a_summary.md`
+> / `results/table3_tier_a_metrics.csv`). Per `docs/claims_register.md` D16, the SESTRAV arm of
+> that benchmark is a 2026-05, **30-feature, unweighted, 200-tree** measurement - not the
+> production RF **mode-31** (31-feature) model this protocol scores the physical peptide panel
+> with (Section 2, Section "Objective"). The disclosed prior and the model actually under test
+> are therefore not the same generation. This does not by itself invalidate the null as a
+> reasonable working prior - both models draw on overlapping physicochemical/binding features and
+> a null (R10 near 1.0) is a weak, easily-transferable prediction - but it means the specific
+> figure 0.9494 is not a like-for-like computational analog of what this protocol tests, and that
+> gap should be disclosed alongside the criterion rather than left implicit. No corrected
+> mode-31-substrate R10 has been computed; state this exposure if the study proceeds, rather than
+> re-deriving one without a grouped-splitter re-run (D15).
 
 ## Objective
 To prospectively test, in a rigorous *in vitro* setting using PBMCs (Peripheral Blood Mononuclear
