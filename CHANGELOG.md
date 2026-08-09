@@ -82,6 +82,90 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   fresh model per held-out virus with explicit virus-level partitioning and never uses
   `MultiStratifiedKFold`. No published number is changed here - this records the finding and
   its scope; the re-baseline itself is a separate, owner-sequenced decision.
+- **False held-out-cohort claim removed from the served API and demo.** `api/main.py`'s
+  `/model-card` endpoint and `app/demo.py`'s disclosure expander both claimed SESTRAV "is
+  evaluated on a held-out independent validation cohort (SARS-CoV-2 and Influenza A) ... with
+  no overlap with the training set" - inside the field literally named
+  `contamination_disclosure`. Both are trained viruses in v5 (SARS-CoV-2 n_pos 2473, IAV
+  n_pos 342, `results/per_virus_eval_v5_mode31.csv`); stranded v4-era copy that survived the
+  v5 migration and contradicted `api/main.py`'s own correct training-set description three
+  lines above it. Replaced with the true v5 posture and the D15 splitter disclosure.
+- **16-peptide holdout scope corrected, not "Tier A/B quarantine."** `GOLD_STANDARD_EPITOPES`
+  (`src/iedb_data_loader.py:24`) excludes exactly 16 peptides from training
+  (`src/train_classifier.py:555`); `docs/holdout_and_qc_policy.md`, both RF model cards, and
+  `docs/paper.md` all overstated this as "Tier A and Tier B Gold Standard validation peptides
+  ... strictly excluded" / "permanently quarantined." 414 of the 704 Tier A peptides are
+  present in the v5 training corpus (D16). This is the root cause of D16's "the SESTRAV Tier A
+  arm was never independent"; corrected at all four locations, which also supplies the
+  replacement language the "conservative" framing fixes below depend on.
+- **RETRACTED SHAP 60/40 split removed from `ARCHITECTURE.md`.** `ARCHITECTURE.md:179-181`
+  still restated the pre-D13 "roughly 60% MHC binding / 40% TCR-contact" figure verbatim,
+  contradicting `README.md:157` ("Retracted") and the register itself. Replaced with an
+  explicit RETRACTED note citing D13 and the all-zero `bind_*` SHAP columns.
+- **QC policy amended to require peptide grouping.** `docs/holdout_and_qc_policy.md` mandated
+  "strict stratified 5-fold cross-validation" - the exact splitter D15 indicts - as binding
+  policy. New certified runs must now group by peptide; documented as a hard prerequisite for
+  any future re-baseline (H6).
+- **Hardcoded baseline printout corrected to read its cited source.**
+  `scripts/compute_ann_baseline_summary.py:194` printed a literal `RF AUC-ROC 0.7268 AUC-PR
+  0.8317` attributed to `training_results.csv`, which actually holds 0.9429/0.8312. Now reads
+  the RF row from `--results-file` at call time, with an explicit D15 caveat printed alongside.
+- **Test-count claim corrected.** `docs/security_compliance.md:21` said "200+ tests" against
+  an actual, much higher floor (1,200 elsewhere, 1809 current); now states "More than 1,200
+  pytest test cases" with a dated correction note.
+- **`results/pooled_honest_same_pathogen.csv` tracked.** Cited by D15, its Section-4 row, this
+  CHANGELOG, and the roadmap as the binding source for the 0.712 honest pooled same-pathogen
+  figure, but gitignored - a reader could not open the evidence for a number the claims
+  register asserts. Same defect class `ad65a21` closed for `External_Validation_Sign_Off.md`
+  hours earlier, reintroduced by the same day's own D15 edit. Un-ignored (277 bytes, one row,
+  regenerates from `scripts/compute_pooled_honest_metric.py`).
+- **D16 corrected a second time: 0.828 is 30-feature, unweighted, 200 trees - not 500.**
+  `results/external_validation_input.csv`'s only commit (`f360b90`, 2026-05-23) predates
+  `feature_mode=31`'s introduction (`27cdc61`, 2026-06-18) by 26 days, so 0.828 cannot be a
+  mode-31 measurement; it belongs to the 30-feature track. All 704 stored `rf_oof_score`
+  values are exact multiples of 1/200 (704/704, vs 362/704 for 1/500), fingerprinting
+  `n_estimators=200` and refuting the 500 the first D16 pass asserted. Root cause of the
+  original mislabel identified: the 31-feature v3 weighted CV mean (0.8275628) sits 0.0002
+  from this 30-feature field metric (0.8277666) by coincidence; treating that coincidence as
+  agreement licensed collapsing two different measurements into one headline. `README.md`,
+  `USAGE.md`, and both RF model cards' "conservative by construction"/"strictly out-of-fold"
+  framing withdrawn (not softened) at this point - D15 shows the leakage runs toward SESTRAV,
+  so the framing was backwards. `README.md`'s "self-proteome Gate 1 AUC-PR 0.8897" also
+  corrected here: not a self-proteome metric (no such artifact exists; "Gate 1" is a GNN
+  promotion threshold), and not the current corpus (which reports 0.8312).
+- **The 0.828/0.8897 relabel propagated from footnotes to the public headline.** The corrections
+  immediately above landed as fine-print footnotes without updating the text three lines above
+  them: `README.md`'s top comparison table (:30) and Tier A table (:105) still read
+  "full_31/mode_31" for the 30-feature figure; `ARCHITECTURE.md:164-165` asserted "canonical
+  full_31 AUC-PR 0.828 (OOF)" with no D15/D16 disclosure at all; `docs/model_evaluation_summary.md`
+  and `docs/validation_summary.md` still stated "Self-proteome Gate 1 AUC-PR 0.8897" as live
+  fact; `docs/data_registry.md`'s v5 Build Log was missing the row for the `d3972f7` rebuild
+  (2026-07-05) that produced the shipped 51,185/35,597-row corpus entirely (H7). All propagated
+  to match the corrected internal record. Separately, `docs/model_evaluation_summary.md:76-80`
+  had called the 0.8276-vs-0.828 coincidence a "reconciliation" - the documented root cause of
+  the original mislabel - and is now corrected to state plainly that they are not the same
+  measurement (H2). `rf_31feature_integrated.md`'s 500-vs-200-estimators mismatch against the
+  tracked `src/train_classifier.py` (H3) is flagged rather than resolved, pending archaeological
+  confirmation of which generation "500" ever described.
+- **"Conservative by construction" / "strictly out-of-fold" framing retired from `docs/paper.md`**
+  (Abstract, Section 2.4 Evaluation Methodology, Section 3.5 Table 4 caption and narrative) -
+  the 7 locations in this file the register had flagged as still carrying the withdrawn framing
+  after `README.md`/`USAGE.md`/the model cards were already fixed. Section 3.5's SESTRAV row
+  relabeled per D16 to match the front-door fix above. The paired-bootstrap paragraph now
+  discloses that both significance tests were computed on the leakage-inflated OOF arm and that
+  the binding-only result (p=0.04) clears zero by only 0.0018 within a 0.069-wide CI, so should
+  be treated as unconfirmed pending a peptide-grouped re-run.
+- **A leakage-explained gap misread as biology, retracted.** `docs/paper.md` Section 3.4 stated
+  the pooled model (AUC-ROC 0.943) exceeding most per-virus values "indicat[es] that cross-viral
+  training provides complementary discriminatory signal." Pooled AUC-PR is +37.0%
+  leakage-inflated versus the per-virus mean's +14.0% (D15); the gap is substantially explained
+  by that differential inflation rather than by validated cross-viral signal. Inference
+  retracted explicitly, not deleted silently.
+- **`rf_33feature_integrated.md` given the D15 leakage disclosure the other two RF model cards
+  already carried** - it was the only one with zero corrective language despite reporting the
+  same stratified-but-ungrouped 5-fold OOF metric. Scoped honestly: only mode-31's
+  splitter-leakage delta has been directly measured (+0.2255 AUC-PR, `results/cv_leakage_audit.csv`);
+  mode-33's own delta has not. Same 500-vs-200-estimators flag added as `rf_31feature_integrated.md`.
 
 ### Security
 - **PredIG Docker image pinned off the mutable `:latest` tag**
