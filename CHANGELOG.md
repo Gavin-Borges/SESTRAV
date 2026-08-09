@@ -218,6 +218,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Stale "v4" reference in README's Paradigm 1/2 framing corrected to "v5"** - the
   generalization-set corpus moved to v5 well before this sentence was last touched; Paradigm 2
   is explicitly labeled v5 two sections below it.
+- **An arithmetically impossible coverage claim in the certified claims register, corrected.**
+  `docs/claims_register.md` D16 stated "Only 414 of the 704 peptides exist in v5 and 236 exist in
+  neither v4 nor v5" - both cannot hold, since 704 - 414 = 290, not 236, and the pairing silently
+  required 54 v4-only peptides where there are **zero**. The figures measure different things and
+  had been conflated. Measured directly, and matching what `scripts/verify_tier_a_provenance.py`
+  has printed all along: **468** exist somewhere in v5; **236** exist in neither v4 nor v5;
+  **414** resolve to an **active, non-quarantined** v5 row; the other **54** appear only in
+  quarantined rows; so **290** cannot be scored by the v5 model. Only the register and the
+  script's docstring were wrong. n=414 remains the correct evaluable field size, so every
+  downstream conclusion is unchanged. The "exists in v5" versus "resolves to an active v5 row"
+  distinction was propagated to `docs/paper.md`, the feature-upgrade roadmap, D15's Tier A subset
+  wording, and this file.
+- **Two claims-register rows still asserted retired numbers as live fact.** The D3 (GNN promotion
+  gates) row cited the D12-retracted 0.7678 without retraction framing, asserted a "Gate 1
+  self-proteome 0.8897" that does not exist (Gate 1 is a GNN promotion threshold,
+  `src/verify/promote_gnn.py:8`; no self-proteome artifact exists in this repository), and
+  miscomputed both of its differences (0.85 - 0.7678 = 0.082, not 0.12; 0.85 is 0.04 *below*
+  0.8897, not above). The Section 4 row attributed 0.8897 to "commit e6aafe2" - `git log --
+  models/v5/training_results.csv` returns only `58bbc15` and `7656b8f`, and `e6aafe2` touched a
+  different path whose values at that commit are the D12-retracted 0.7678/0.9368. Both rewritten.
+  D15's row also still carried the retracted D16-v2 text ("a v3-era result ... reproduces from
+  tracked v3 inputs at 704/704"), superseded by `dd5a356` but missed there at the time.
+- **The withdrawn "conservative out-of-fold" framing survived in two tracked source files**, which
+  the B3 pass never reached because its enumeration listed only markdown.
+  `src/external_validation_fairness.py` emitted "SESTRAV RF uses 5-fold out-of-fold predictions
+  (conservative)" into a report section headed "## Mandatory Disclosure", and
+  `src/external_validation_finalize.py` emitted "SESTRAV RF uses conservative OOF scoring" into
+  every MCDA verdict block - the same defect class as the API/demo `contamination_disclosure`
+  (fixed earlier) and the hardcoded baseline print (H8). Both now state the D15-accurate
+  direction: the arm is optimistic, not conservative.
+- **`docs/model_cards/rf_30feature.md` compared 0.864 against 0.828** - the 31-feature ablation
+  mean (n=1,004) against this model's Tier A *field* metric (n=704). The like-for-like counterpart
+  is 0.825 (`combined_30`, same ablation table), as `docs/claims_register.md` D8 already stated.
+  This is the card D16 singles out as correct all along, so the mispairing was unusually likely to
+  be trusted. Its "Metrics on v3 dataset" heading was also stale: the corpus is the 720-row root
+  `immunogenicity_dataset.csv` at `69e0e5c`, not the 1,004-row v3 dataset.
+- **`README.md`'s Track Definitions bound the 21-feature row to 0.772**, which is `physico_20`'s
+  ablation value; `sestrav_21` is **0.784**. All six rows re-checked against their source.
+- **`ARCHITECTURE.md` and `USAGE.md` quoted the per-virus mean 0.751 with no splitter
+  disclosure**, which D15 makes mandatory wherever that figure appears. Both now record that it
+  reproduces at 0.6587 under a peptide-grouped splitter (+0.0925, +14.0%).
+- **This CHANGELOG's own D16 bullet, and a released `[2.0.x]` entry, still asserted retracted
+  accounts** (respectively the v3-corpus/500-estimator first draft, and "Self-proteome Gate 1
+  AUC-PR 0.8897 is unaffected"). Both marked superseded in place with the corrected account rather
+  than rewritten, since released entries record what was reported at the time.
 
 ### Security
 - **PredIG Docker image pinned off the mutable `:latest` tag**
