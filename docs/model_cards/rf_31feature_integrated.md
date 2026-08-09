@@ -25,7 +25,7 @@
 - **Composition:** EBV 68.1%, HPV16 30.9%, HPV11 1.0%. Length distribution: 9-mer 64.7%.
 - **Label quality:** IEDB labels represent population-average T-cell responses aggregated across heterogeneous assay types, donor HLA backgrounds, stimulation conditions, and peptide concentrations (Vita et al. 2019). Labels do not represent allele-specific or donor-specific immunogenicity.
 - **Sample weights:** Inverse-frequency weights applied at training time: `virus_weight=0.5`, `length_weight=0.5` to partially correct EBV majority-class and 9-mer length biases.
-- **Holdout policy:** Tier A and Tier B Gold Standard validation peptides excluded from training manifold via `freeze_mode: true`.
+- **Holdout policy (SCOPE CORRECTED 2026-08-08):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the training pool (`src/train_classifier.py:555`). This is a 16-peptide exclusion. It is **not** a quarantine of the Tier A / Tier B external benchmark sets, as this card previously stated - 414 of the 704 Tier A peptides are present in the v5 training corpus. See `docs/claims_register.md` D16.
 
 ## Evaluation and Performance
 - **Evaluation method:** Stratified 5-fold OOF cross-validation - conservative; models never score peptides seen during training.

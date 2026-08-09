@@ -17,7 +17,7 @@
 - **Source:** IEDB (curated exports, v3 dataset, 2.0.0-alpha schema).
 - **Composition:** EBV 68.1%, HPV16 30.9%, HPV11 1.0%. 9-mers 64.7%.
 - **Label quality:** IEDB labels represent population-average responses across heterogeneous assay types, donor backgrounds, and stimulation conditions. Labels do not represent allele-specific or donor-specific immunogenicity.
-- **Holdout Policy:** Tier A and Tier B Gold Standard validation peptides strictly excluded from the training manifold.
+- **Holdout Policy (SCOPE CORRECTED 2026-08-08):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the training pool (`src/train_classifier.py:555`). This is a 16-peptide exclusion, **not** the "strict exclusion of Tier A and Tier B Gold Standard validation peptides" this card previously claimed - 414 of the 704 Tier A peptides are present in the v5 training corpus. See `docs/claims_register.md` D16.
 - **Biases:** Taxonomic bias toward EBV anchor motifs; length bias toward 9-mers. Inverse-frequency sample weights applied at training time.
 
 ## Evaluation and Performance

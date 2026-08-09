@@ -176,9 +176,14 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   pooled AUC-PR is a base-rate artifact and is not reported as a headline. This is the model
   shipped for production scoring.
 
-Interpretability is built in: SHAP attribution (roughly 60% MHC binding, 40% TCR-contact
-features) is committed alongside the model, confirming that the physicochemical features
-carry independent signal beyond binding.
+Interpretability is built in: a SHAP attribution artifact is committed alongside the model.
+**No binding-versus-TCR-contact attribution split is currently reported.** The previously
+published "roughly 60% MHC binding / 40% TCR-contact" figure is RETRACTED
+(`docs/claims_register.md` D13): the committed `results/shap_values_rf.csv` has all ten
+`bind_*` columns at exactly zero, so it cannot support any such split. That traces to an
+upstream feature-pipeline regression between v1.0.0 and v2.0-rc1 rather than to the SHAP
+explainer, and current production training is unaffected - but no replacement split will be
+stated until a fresh SHAP run against current production data is committed.
 
 > Numbers in this document are the certified v5 figures (35,597-active-row dataset) that the
 > README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite. Earlier v3/v4

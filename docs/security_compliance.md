@@ -18,7 +18,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 
 ## 4. Quality
 - **Automated Testing:** 
-  - 200+ pytest test cases (`tests/`) validate core logic, schema conformity, and feature store deterministic behavior.
+  - More than 1,200 pytest test cases (`tests/`) validate core logic, schema conformity, and feature store deterministic behavior. No exact count is published here; reproduce the current number from a checkout with `pytest --collect-only -q`. (Corrected 2026-08-08: this line read "200+", which understated the suite by roughly 9x and contradicted the 1,200 floor stated in `docs/claims_register.md` and `docs/openssf_best_practices_readiness.md`.)
   - Test suite executes cleanly with no critical failures.
 - **CI/CD Integration:** Tests are executed via `.github/workflows/ci.yml` on every pull request.
 - **Statement coverage (OpenSSF Silver `test_statement_coverage80`):** Coverage is

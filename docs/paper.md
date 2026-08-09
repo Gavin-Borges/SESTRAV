@@ -348,12 +348,21 @@ carry 95% confidence intervals derived from 1,000-replicate bootstrap resampling
 the held-out partition. Pairwise AUC-ROC comparisons on the same held-out partition
 used DeLong's paired test [19]; metric differences across independently
 constructed cross-validation partitions were not subjected to significance testing
-because the partitions are not exchangeable. Peptides listed in the external
-gold-standard benchmark set were excluded from the training pool in all
-cross-validation folds, as specified in Section 2.1; this exclusion ensured that
-benchmark evaluation reflected genuinely unseen data and that contamination of
-cross-validation performance estimates by well-characterised canonical epitopes was
-prevented.
+because the partitions are not exchangeable. Sixteen named canonical gold-standard
+epitopes were excluded from the training pool in all cross-validation folds, as
+specified in Section 2.1. This exclusion is narrow: it prevents contamination of
+cross-validation estimates by those sixteen well-characterised epitopes, and it does
+not make the external benchmark field unseen. Of the 704 peptides in the Tier A
+comparison, 414 are present in the training corpus. Cross-validation folds are
+stratified but not grouped by peptide, so peptides recorded under more than one HLA
+allele may appear on both sides of a fold boundary; 71.0% of held-out rows share
+their exact peptide with the corresponding training fold. Because the feature vector
+is a deterministic function of the peptide sequence, such rows are feature-identical,
+and the cross-validation estimates reported here are consequently optimistic relative
+to a peptide-grouped resampling scheme. The magnitude of this effect is quantified for
+each reported metric in the project's claims register (entry D15), which records a
+peptide-grouped re-measurement of the pooled, per-virus, and external-comparison
+figures.
 
 
 ### 2.5 Leave-One-Virus-Out Evaluation

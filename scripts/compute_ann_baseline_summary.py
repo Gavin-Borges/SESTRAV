@@ -190,8 +190,25 @@ def main():
     print(f"  AUC-PR  : {avg['auc_pr']:.4f} +/- {std['auc_pr']:.4f}")
     print(f"  ISSR@10 : {avg['issr_10']:.4f} +/- {std['issr_10']:.4f}")
     print(f"  ISSR@25 : {avg['issr_25']:.4f} +/- {std['issr_25']:.4f}")
-    print("\nCompare vs legacy RF baseline (from training_results.csv):")
-    print("  RF AUC-ROC: 0.7268  RF AUC-PR: 0.8317  RF ISSR@10: 0.8429")
+    # Read the RF comparison row from the results file rather than hardcoding it.
+    # Corrected 2026-08-08: this block printed a hardcoded "RF AUC-ROC: 0.7268
+    # RF AUC-PR: 0.8317 RF ISSR@10: 0.8429" attributed to training_results.csv,
+    # but that file holds 0.9429 / 0.8312 / 0.9291 - so the script told the user
+    # numbers its own cited source contradicted. Binding to the file keeps the
+    # comparison honest when the RF baseline is retrained.
+    if args.results_file and os.path.isfile(args.results_file):
+        rf = pd.read_csv(args.results_file).set_index("metric")
+        if "rf_cv_mean" in rf.columns:
+            print(f"\nCompare vs RF baseline (read from {args.results_file}):")
+            for key in ("auc_roc", "auc_pr", "issr_10"):
+                if key in rf.index:
+                    print(f"  RF {key}: {rf.loc[key, 'rf_cv_mean']:.4f}")
+            print(
+                "  NOTE: these RF figures come from an ungrouped cross-validation splitter "
+                "and are peptide-leakage-inflated; see docs/claims_register.md D15."
+            )
+    else:
+        print("\nNo --results-file given - skipping the RF baseline comparison.")
     return avg, std
 
 
