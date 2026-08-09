@@ -30,7 +30,10 @@ D12) turn out to be downstream consumers of the same leaky OOF predictions and a
 measurably, if less severely, inflated: the per-virus mean (certified 0.751) reproduces at 0.7512
 under the production splitter versus 0.6587 peptide-grouped (+14.0%), and the pooled honest
 same-pathogen figure (certified 0.712) reproduces at 0.7124 versus 0.5989 peptide-grouped
-(+19.0%) - see Section 2.
+(+19.0%) - see Section 2. The Tier A external benchmark is exposed by the same chain but the
+leakage effect there is small (AUC-PR -0.0176 on the measurable subset); its real problem is that
+the certified 0.828 is not reproducible from tracked artifacts at all (`docs/claims_register.md`
+D16).
 
 The seven proposed upgrades separate by honest, peptide-grouped AUC-PR delta into a **-0.0037 to
 +0.0096** band (measured for three of them; estimated for the rest against the same baseline).
@@ -201,6 +204,29 @@ headline's 37%, but not zero. Only the LOO cross-virus table
 trains a fresh model per held-out virus with explicit virus-level partitioning
 (`scripts/run_loo_cross_virus_v5.py`), never uses `MultiStratifiedKFold`, and excludes gold-standard
 peptides from training.
+
+**The Tier A external benchmark is exposed by the same chain, but the leakage effect there is
+small.** The SESTRAV arm of Tier A is the `rf_oof_score` column, which traces to the same ungrouped
+OOF output (`src/train_classifier.py:781-786` -> `src/prepare_external_validation_inputs.py:100` ->
+`scripts/run_tier_a_benchmarks.py:269`), so Tier A is not an independent held-out field. Measured on
+the 414 field peptides resolvable to a v5 row, changing only the splitter:
+
+| Metric | Production splitter | Peptide-grouped | Delta |
+|---|---|---|---|
+| AUC-PR | 0.8932 | 0.8756 | -0.0176 (-2.0%) |
+| AUC-ROC | 0.5924 | 0.5680 | -0.0244 |
+| ISSR@10 | 1.0000 | 0.9024 | -0.0976 |
+
+Two limits on that delta, both mandatory to carry: the n=414 subset is **not representative** of the
+certified n=704 field (positive rate 0.838 vs 0.696), so its absolute AUC-PR is not comparable to
+the certified 0.828 and only the within-subset delta is interpretable; and those 414 are precisely
+the peptides that DO sit in the training corpus, so this is closer to an upper bound on the
+field-wide effect than to an underestimate. The practical conclusion is that peptide leakage does
+**not** explain the Tier A headline - but a separate and more serious defect does bear on it:
+`results/external_validation_input.csv` cannot be regenerated from tracked artifacts (290 of 704
+field peptides are absent from v5, and of the 414 present, zero match on score - mean absolute
+difference 0.371). That is recorded as `docs/claims_register.md` D16 and is a reproducibility
+problem rather than a leakage one.
 
 **Cross-fold imputation (secondary finding).** `feature_mode=33`/`35` impute missing antigen-
 processing scores with medians computed over the full cache before cross-validation begins; this
@@ -415,8 +441,11 @@ Phase 0 step 6 restates the project's certified headline result downward by roug
 (or 0.07 if reported net of the vaccinia bloc instead), and also restates the two figures this
 project has been citing as the leakage-honest corrective - the per-virus mean (0.751 -> 0.659,
 -0.09) and the pooled honest same-pathogen figure (0.712 -> 0.599, -0.11) - both downward by a
-smaller but still material amount. These numbers currently reach `docs/paper.md`, the OpenSSF
-evidence trail, and prior public communication. This document performs the analysis and states
+smaller but still material amount. The Tier A headline (0.828) moves far less on leakage grounds
+(-0.0176 AUC-PR on the measurable subset) but carries a separate, arguably harder problem: it
+cannot be regenerated from tracked inputs at all (D16), so restating it requires rebuilding the
+Tier A field rather than editing a number. These numbers currently reach `docs/paper.md`, the
+OpenSSF evidence trail, and prior public communication. This document performs the analysis and states
 the recommendation; it does not itself alter any published claim. Whether and when to execute
 the re-baseline, and how to sequence the outward-facing disclosure, is a decision for the
 repository owner - track it as a `/handoff` action item rather than as an automatic consequence

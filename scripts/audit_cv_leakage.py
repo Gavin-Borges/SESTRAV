@@ -39,6 +39,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa: E402
+from src.evaluate_metrics import evaluate  # noqa: E402
 from src.ml_utils import MultiStratifiedKFold  # noqa: E402
 from src.train_classifier import (  # noqa: E402
     prepare_features_31,
@@ -235,6 +236,81 @@ def _per_virus_and_pooled_honest_ab(active: pd.DataFrame) -> list[dict]:
     return rows
 
 
+def _tier_a_ab(active: pd.DataFrame) -> list[dict]:
+    """Re-measure the Tier A external benchmark under both splitters.
+
+    Why this exists: the SESTRAV arm of Tier A is the `rf_oof_score` column, which
+    traces to the same ungrouped `MultiStratifiedKFold` OOF output as everything else
+    audited here (`src/train_classifier.py:781-786` writes both
+    `models/rf_oof_predictions.csv` and `models/rf_oof_predictions_mode31.csv` from one
+    `_cross_validate` call; `src/prepare_external_validation_inputs.py:100` reads the
+    former; `scripts/run_tier_a_benchmarks.py:269` scores it). Tier A is therefore not an
+    independent held-out field, and its certified AUC-PR 0.828 carries the same exposure.
+
+    Method: score each Tier A peptide with the OOF value from the v5 row(s) carrying that
+    peptide, taking the first occurrence to mirror the drop_duplicates(keep="first") in
+    `prepare_external_validation_inputs.py:122`, then evaluate with the repo's own shared
+    `src.evaluate_metrics.evaluate` so the numbers are directly comparable to
+    `results/table3_tier_a_metrics.csv`. Labels come from the Tier A field, not from v5.
+
+    Coverage caveat recorded in the output: only the Tier A peptides that appear in the v5
+    corpus can be scored this way, so n is smaller than the certified n=704 and the two
+    arms are compared to each other on that common subset, not to the certified cell.
+    """
+    tier_a_path = PROJECT_ROOT / "results" / "external_validation_input.csv"
+    if not tier_a_path.is_file():
+        return [{"config": "tier_a", "metric": "status", "value": np.nan, "note": "external_validation_input.csv absent"}]
+
+    tier_a = pd.read_csv(tier_a_path)
+    # The certified field is the 704 rows flagged baseline-complete (the other 16 are
+    # gold-standard holdout rows excluded from the published table).
+    if "tier_a_baseline_complete" in tier_a.columns:
+        tier_a = tier_a[tier_a["tier_a_baseline_complete"].astype(bool)]
+
+    X = prepare_features_31(active, str(BINDING_MATRIX_PATH))
+    y = active["label"].astype(int).to_numpy()
+    groups = active["peptide"].to_numpy()
+
+    first_row = (
+        pd.DataFrame({"peptide": active["peptide"].to_numpy(), "_idx": np.arange(len(active))})
+        .drop_duplicates(subset=["peptide"], keep="first")
+        .set_index("peptide")["_idx"]
+    )
+    joined = tier_a[["peptide", "label"]].join(first_row, on="peptide", how="inner")
+    n_field = len(tier_a)
+    n_scored = len(joined)
+
+    rows: list[dict[str, object]] = [
+        {
+            "config": "tier_a",
+            "metric": "coverage_n_scored",
+            "value": float(n_scored),
+            "std": np.nan,
+            "n_rows": n_field,
+            "note": "Tier A peptides resolvable to a v5 row; certified table reports n=704",
+        }
+    ]
+    if n_scored == 0 or joined["label"].nunique() < 2:
+        return rows
+
+    idx = joined["_idx"].to_numpy()
+    y_true = joined["label"].astype(int).to_numpy()
+    for config, grp in (("production_splitter", None), ("peptide_grouped_splitter", groups)):
+        _ap, _apstd, _roc, oof = _cv_auc(X, y, grp)
+        m = evaluate(y_true, oof[idx])
+        for key in ("auc_pr", "auc_roc", "issr_10"):
+            rows.append(
+                {
+                    "config": config,
+                    "metric": f"tier_a_sestrav_rf_{key}",
+                    "value": float(m[key]),
+                    "std": np.nan,
+                    "n_rows": n_scored,
+                }
+            )
+    return rows
+
+
 def _feature_mode_ab(active: pd.DataFrame) -> list[dict]:
     """Mode 31 vs 35 vs 50 AUC-PR under peptide-grouped CV, isolating feature-side gains."""
     y = active["label"].astype(int).to_numpy()
@@ -300,6 +376,7 @@ def run(dataset_path: Path) -> pd.DataFrame:
     rows += _fold_overlap(active)
     rows += _splitter_ab(active)
     rows += _per_virus_and_pooled_honest_ab(active)
+    rows += _tier_a_ab(active)
     rows += _feature_mode_ab(active)
     rows += _vaccinia_ablation(active)
     return pd.DataFrame(rows)
