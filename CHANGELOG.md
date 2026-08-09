@@ -31,6 +31,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   roughly 23x smaller than the leakage inflation itself.
 
 ### Fixed
+- **Tier A measured under both splitters; its real defect is reproducibility, not leakage.**
+  The SESTRAV arm of the Tier A external benchmark is the `rf_oof_score` column, which traces
+  to the same ungrouped OOF output as everything else (`src/train_classifier.py:781-786` ->
+  `src/prepare_external_validation_inputs.py:100` -> `scripts/run_tier_a_benchmarks.py:269`),
+  so Tier A was never an independent held-out field. Measured on the 414 field peptides
+  resolvable to a v5 row, changing only the splitter moves AUC-PR 0.8932 -> 0.8756 (-0.0176),
+  AUC-ROC 0.5924 -> 0.5680, ISSR@10 1.0000 -> 0.9024 - an order of magnitude milder than the
+  CV metrics above. Two limits are recorded: that subset is not representative of the certified
+  n=704 field (positive rate 0.838 vs 0.696), so only the within-subset delta is interpretable;
+  and those 414 are the maximally-exposed peptides, so the delta reads closer to an upper bound.
+  Recorded as `docs/claims_register.md` **D16**: the certified 0.828 cannot be regenerated from
+  tracked artifacts at all - 290 of 704 field peptides are absent from the v5 corpus, and of the
+  414 present, none match the current OOF (mean absolute difference 0.371). It appears to be a
+  v3-era weighted run while `README.md` labels it canonical `mode_31`. Rebuilding the field
+  changes its membership and n, so every dependent number recomputes together.
+- **Whole-repo coverage re-measured: 47.88%, not the published 34.37%.** `ROADMAP.md`,
+  `docs/security_compliance.md`, and `docs/claims_register.md` all carried "34.37%
+  (branch-inclusive, measured 2026-06-22) - a hair under the floor" against a `fail_under=35`
+  gate. Both halves were wrong: the number by 13.5 points, and the characterization in the
+  opposite direction (the gate reports "Required test coverage of 35.0% reached"). All three
+  locations updated with an explicit supersedes note.
+- **Wet-lab pre-registration retargeted to the production model and its success bar grounded.**
+  `docs/Wet_Lab_Protocol_v1.md` was written against the GNN - a deferred, GPU-gated research
+  track never promoted through `src/verify/promote_gnn.py` - so it could not have been run
+  against the system that exists; it now targets the RF mode-31 production scorer. Its
+  pre-committed `R10 >= 2.0` success criterion exceeded SESTRAV's own certified computational
+  analog of that ratio (0.9494, a null) by more than 2x; the criterion is now `R10 > 1.0` with
+  a bootstrap CI lower bound above 1.0, the disclosed prior stated up front, and the expected
+  null pre-registered as a publishable result. Peptide selection moved from absolute probability
+  thresholds to rank, since the model emits a triage score rather than a calibrated probability.
+  Added an explicit status banner: not funded, not IRB-approved, not scheduled.
 - **The two metrics cited as the leakage-honest corrective are themselves inflated.**
   `results/per_virus_eval_v5_mode31.csv` (per-virus mean AUC-ROC 0.751) and
   `results/pooled_honest_same_pathogen.csv` (Def A pooled AUC-ROC 0.712) have been cited as
