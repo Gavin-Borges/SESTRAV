@@ -25,7 +25,7 @@
 are mixed in as if they were same-pathogen negatives; RETRACTED. **(2) Peptide leakage
 (2026-08-10, D15):** the decoy-corrected figures that replaced it were computed under a
 splitter that stratified but did not group by peptide, and are themselves retracted - pooled
-honest same-pathogen ROC 0.712 -> **0.6015**, per-virus within-CV mean 0.751 -> **0.658**.
+honest same-pathogen ROC 0.712 -> **0.602**, per-virus within-CV mean 0.751 -> **0.658**.
 The current figures are decoy-corrected AND peptide-grouped. The pooled same-pathogen AUC-PR
 (now 0.8711) remains a base-rate artifact (8003 positive vs 1851 negative, about 81% positive)
 and is NOT reported as a headline. The canonical, reproducible same-pathogen metric is the
