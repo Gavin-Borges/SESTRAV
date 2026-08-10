@@ -99,7 +99,7 @@ SESTRAV proceeds through six computational stages under a reproducible Snakemake
 | 2. MHC binding | Peptides + allele panel | MHCflurry 2.2.1 presentation scores, 10 HLA alleles (pinned, CI-gated) | `{proteome}_binding.csv` |
 | 3. Feature extraction | Binding CSV | `src/features.py`: 20 physicochemical properties at p4-p8 + 10 per-allele binding + peptide length | `{proteome}_features.csv` |
 | 4. Immunogenicity scoring | Features + serialized model | RF / XGBoost ensemble; SHAP attribution; conformal intervals | `{proteome}_ranked.csv` |
-| 5. Antigen processing (optional) | Peptides | NetChop 3.1 cleavage + TAPreg transport scores joined as features (`mode_33`) | extended feature cache |
+| 5. Antigen processing (optional) | Peptides | Cleavage + transport scores joined as features (`mode_33`). **The shipped cache holds MOCK values, not real NetChop 3.1 / TAPreg output** (`docs/claims_register.md` D18) | extended feature cache |
 | 6. GNN benchmark (optional, research) | Peptide graphs + ESM-2 cache | GINEConv + ESM-2 scoring, fused with mode-31 features | GNN OOF predictions, eval JSON |
 
 ```mermaid
@@ -108,7 +108,7 @@ graph LR
     B -->|S2| C("MHC Binding<br/>MHCflurry, 10-allele panel")
     C -->|S3| D("Feature Extraction<br/>20 physico + 10 binding + length")
     D -->|S4| E("Immunogenicity Scoring<br/>RF / XGBoost ensemble")
-    E -.->|S5 optional| F("Antigen Processing<br/>NetChop / TAPreg")
+    E -.->|S5 optional| F("Antigen Processing<br/>cleavage / transport<br/>MOCK scores - D18")
     E -.->|S6 optional, research| G("GNN Benchmark<br/>GINEConv + ESM-2")
     E --> H("Ranked Output<br/>+ SHAP, freeze-mode governed")
     F --> H
@@ -137,7 +137,7 @@ peptide length, which acts as a critical mediating variable.
 | Track | Features | Composition | Role |
 |---|---|---|---|
 | Canonical (`mode_31`) | 31 | 20 physicochemical (p4-p8) + 10 binding + length | Default production track |
-| Extended (`mode_33`) | 33 | 31 + NetChop + TAPreg antigen processing | Antigen-processing tier |
+| Extended (`mode_33`) | 33 | 31 + antigen processing (**MOCK** cleavage/transport scores, not real NetChop/TAPreg - D18) | Antigen-processing tier |
 | Legacy (`mode_30`) | 30 | 20 physicochemical + 10 binding (no length) | Historical comparator |
 | Legacy (`mode_21`) | 21 | Sequence-only physicochemical (binding excluded) | Historical comparator |
 | Expanded (`mode_50`) | 50 | 40 physicochemical + 10 binding | Extended evaluation |
@@ -378,7 +378,7 @@ contributor lands. Progress is tracked in `ROADMAP.md`; full criteria mapping is
 | `src/gnn/` | GNN graph builder (`graph_builder.py`) and models (`models.py`) |
 | `src/train_gnn.py` | GNN training (v1 dense-adjacency and v2.3 GINEConv paths) |
 | `src/verify/promote_gnn.py` | Five-gate GNN promotion check |
-| `src/antigen_processing.py` | NetChop / TAPreg antigen-processing features (mode 33) |
+| `src/antigen_processing.py` | Literature-transcribed ERAP/TAP PSSM proxy scores. **NOT wired into any build** - imported only by its own test, and it emits `erap_score` (N-terminal trimming), not `netchop_score`. Mode 33 reads `data/antigen_processing_cache.csv` instead, which holds MOCK values (D18) |
 | `src/evaluate_metrics.py` | AUC-PR, AUC-ROC, ISSR/precision/recall/NDCG at top-k |
 | `src/shap_analysis.py`, `src/statistical_bootstrap.py` | Interpretability and CI estimation |
 | `src/release_bundle.py` | SHA-256 release manifests |

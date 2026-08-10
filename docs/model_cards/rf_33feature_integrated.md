@@ -2,15 +2,15 @@
 
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn `RandomForestClassifier`, 500 estimators, `max_features='sqrt'`, balanced class weights). **Flagged 2026-08-09, unresolved (H3):** this card's own Provenance section below cites `src/train_classifier.py --feature-mode 33 --sample-weights` as the reproducing command, but that tracked script hardcodes `n_estimators=200` (`src/train_classifier.py:666`), not 500. Not yet resolved whether "500" reflects an unpreserved earlier script version or was never verified; see the same flag on `rf_31feature_integrated.md` for detail. Do not treat either the 500 or 200 count as confirmed for this card's own results until checked.
-- **Version:** SESTRAV v2.1-dev - **Best current v3 model (extended track).**
+- **Version:** SESTRAV v2.1-dev - extended track. **"Best current v3 model" RETRACTED 2026-08-10 (D18):** its margin was measured on mock antigen-processing features, and under the certified v5 peptide-grouped splitter this configuration exceeds `mode_31` by +0.0027 AUC-PR.
 - **Model file:** `models/rf_33feature_integrated.joblib`
-- **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides where antigen processing predictions are pre-computed. Recommended over the 31-feature canonical model when the antigen processing cache is available.
+- **Primary Use:** Scoring relative immunogenicity of MHC Class I-presented peptides where antigen processing predictions are pre-computed. **The recommendation that previously stood here - "Recommended over the 31-feature canonical model when the antigen processing cache is available" - is RETRACTED (D18).** It rested on a +0.022 AUC-PR margin measured on mock features. **`mode_31` remains the canonical production track**; do not prefer this configuration over it on the strength of the antigen-processing features until they are real.
 - **Input Features (33):**
   - 20 physicochemical features at TCR contact positions p4-p8 (identical to feature_mode=31)
   - 10 per-allele MHCflurry 2.2.1 `presentation_score` for 10 canonical alleles (identical to feature_mode=31)
   - `peptide_length` (identical to feature_mode=31)
-  - `netchop_score`: NetChop 3.1 C-terminal cleavage probability (Nielsen et al. 2005)
-  - `tap_score`: TAPreg TAP transport affinity prediction (Peters et al. 2003)
+  - `netchop_score`: **MOCK** proteasomal C-terminal cleavage score. Named for NetChop 3.1 (Nielsen et al. 2005) but **not produced by it** - see the cache note and Limitations 1 below, and `docs/claims_register.md` D18.
+  - `tap_score`: **MOCK** TAP transport affinity score. Named for TAPreg (Peters et al. 2003) but **not produced by it** - same disclosure.
 - **Output:** Continuous probability [0.0-1.0] representing population-level likelihood of T-cell activation. Does not represent allele-specific or donor-specific immunogenicity.
 - **Extends:** `rf_31feature_integrated.joblib` (canonical, feature_mode=31)
 - **Prerequisite:** Antigen processing cache at `data/antigen_processing_cache.csv` (1,004 rows, pre-computed via `scripts/precompute_antigen_processing.py`)
@@ -37,8 +37,18 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 | ISSR@10 | **0.9158 ± 0.042** | 0.8842 ± 0.052 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
 | ISSR@25 | 0.9102 ± 0.038 | 0.8816 ± 0.024 | |
 
-- **Unweighted ablation AUC-PR:** 0.886 ± 0.019 - best single-number unweighted result in SESTRAV v3.
-- **Improvement over feature_mode=31:** +0.022 AUC-PR (unweighted); +0.012 AUC-PR (weighted). The most informative single feature is `netchop_score` (RF importance = 0.118), confirming independent proteasomal processing signal.
+- **Unweighted ablation AUC-PR:** 0.886 ± 0.019 - highest single-number unweighted result in SESTRAV v3, **but measured on mock antigen-processing features (D18) and therefore not a real-predictor result.**
+- **Improvement over feature_mode=31:** +0.022 AUC-PR (unweighted); +0.012 AUC-PR (weighted).
+  > **RETRACTED CLAUSE (2026-08-10, `docs/claims_register.md` D18).** This bullet previously ended
+  > "The most informative single feature is `netchop_score` (RF importance = 0.118), **confirming
+  > independent proteasomal processing signal**." That inference is withdrawn. `netchop_score` is a
+  > locally generated MOCK value (see Limitations 1) whose generator **already assumes** hydrophobic
+  > and basic C-terminal cleavage preference, so its importance rank cannot be evidence *for* that
+  > mechanism - the inference is circular. The importance figure itself is
+  > unchanged and is retained below as a description of the fitted model, not as biology. The
+  > +0.022 gain is likewise a mock-feature gain. **Corroboration:** under the certified v5
+  > peptide-grouped splitter, mode 33 exceeds mode 31 by **+0.0027 AUC-PR** (0.6085 vs 0.6058,
+  > `models/v5/training_results_ablation.csv`) - approximately nothing. Same error class as D13.
 
 ## Top Features (RF Importance, feature_mode=33)
 | Rank | Feature | RF Importance | Category |
@@ -49,7 +59,18 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 | 4 | p7_vdw_volume | 0.063 | TCR contact |
 | 5 | p5_vdw_volume | 0.062 | TCR contact |
 
-`netchop_score` being the top feature is consistent with the established rate-limiting role of proteasomal C-terminal cleavage in antigen presentation (Rock & Goldberg 1999). Antigen processing features (ranks 1-2) collectively account for 21.4% of total importance.
+> **RETRACTED PARAGRAPH (2026-08-10, `docs/claims_register.md` D18).** This paragraph read:
+> "`netchop_score` being the top feature is consistent with the established rate-limiting role of
+> proteasomal C-terminal cleavage in antigen presentation (Rock & Goldberg 1999)." **That is a
+> biological interpretation of a mock feature and is withdrawn.** Both `netchop_score` and
+> `tap_score` are locally generated placeholder values (Limitations 1) built from a hand-coded rule
+> that already encodes the very cleavage and transport preferences the sentence claimed to confirm,
+> so the inference is circular and no conclusion about proteasomal cleavage or TAP transport
+> follows from their importance ranks. What the table above
+> does show, and all it shows, is that the fitted RF distributed 21.4% of its total importance
+> across two synthetic columns - which is itself worth knowing, because it means the reported
+> feature ranking of this configuration is not interpretable as biology. Cite Rock & Goldberg 1999
+> for the mechanism if needed, but not this model as evidence for it.
 
 ## Limitations
 1. **Mock antigen processing scores.** Current v3 cache uses mock scores due to DTU API unavailability and TAPreg VPN restriction. Performance metrics reflect mock-score quality, not live API output. Live query validation is pending.

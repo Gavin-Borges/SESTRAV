@@ -39,4 +39,4 @@
 - **No allele-specific predictions.** Population-average allele features only. Allele-aware training requires v4 dataset.
 - **Cross-family generalization unvalidated.** HBV and HCV are exploratory. Cross-virus validation pending v4 training data.
 - **TCR contact approximation.** p4-p8 features are a length-agnostic proxy, validated primarily for HLA-A*02:01 canonical 9-mers (Chowell et al. 2015). 8-mer/10-mer non-canonical binding registers carry additional uncertainty.
-- **No antigen processing in training.** NetChop and TAPreg scores are pipeline outputs but not training features in this model. `feature_mode=33` (in development) adds them.
+- **No antigen processing in training.** Cleavage and transport scores are pipeline outputs but not training features in this model. `feature_mode=33` adds them - but note the shipped cache holds **MOCK** values, not real NetChop 3.1 / TAPreg output (`docs/claims_register.md` D18).

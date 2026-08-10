@@ -328,6 +328,21 @@ protein context already available via `docs/antigen_accessions.md`, and correct 
 This converts a scientific-integrity liability into whatever real signal the PSSM approach
 actually carries - which should be measured honestly (peptide-grouped) rather than assumed.
 
+> **Partly actioned 2026-08-10 (`docs/claims_register.md` D18).** The documentation half is done:
+> the mock is now disclosed at every tracked **documentation** surface that presented it as real,
+> and the model card has been corrected. **Code surfaces still present the features as real** and
+> are listed as open in D18: `src/features.py` (two sites, one of which also calls them
+> "orthogonal") and `src/train_classifier.py` (two sites, one of them printed by `--help`) - so "documented as real ... correct the model card" above is satisfied and is
+> retained as the historical statement. The code half is NOT done: the mock still feeds
+> `data/antigen_processing_cache.csv` and remains Phase 1 step 8. Two corrections to the paragraph
+> above, both established while writing D18. (1) Wiring in `src/antigen_processing.py` is **not a
+> like-for-like repair**: by its own docstring it emits *proxy* scores, "not tool-call wrappers to
+> NetChop or NetCTL", and it produces `erap_score` (ERAP N-terminal trimming), a different
+> biological quantity from `netchop_score` (proteasomal C-terminal cleavage). (2) The mock is not
+> merely unstable across processes - because `hash()` is per-process salted and the original
+> `PYTHONHASHSEED` was never recorded, **the shipped cache cannot be reproduced**, which makes
+> replacement, not repair, the only route.
+
 ### 4.3 Prototype: agretope/epitope (P2/P9 vs P4-P8) disconnect ratio
 
 The repo's own design choice supports this as the most promising *novel* signal on the list:

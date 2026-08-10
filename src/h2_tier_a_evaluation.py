@@ -171,8 +171,10 @@ def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
         flag="--output-dir",
         api_hint="run_h2_tier_a(..., allow_overwrite=True)",
         detail=(
-            ": h2_tier_a_summary.md is the source behind the "
-            "certified R10 = 0.9494 H2 Tier A null result reported in README.md"
+            ": h2_tier_a_summary.md is the source behind the H2 Tier A primary-hypothesis "
+            "result reported in README.md. The previously certified R10 = 0.9494 is RETRACTED "
+            "as void (docs/claims_register.md D17): it was computed against an all-zeros "
+            "binding matrix, so the binding-only arm was a constant"
         ),
     )
 
@@ -440,8 +442,10 @@ if __name__ == "__main__":
         required=True,
         help="Directory for H2 Tier A outputs. No default: this evaluation writes 3 "
         "tracked release artifacts into it, including h2_tier_a_summary.md, the source "
-        "behind the certified R10 = 0.9494 result in README.md, so it refuses to guess "
-        "a destination.",
+        "behind the H2 Tier A primary-hypothesis result in README.md, so it refuses to "
+        "guess a destination. Note the previously certified R10 = 0.9494 is RETRACTED as "
+        "void (docs/claims_register.md D17): it was computed against an all-zeros binding "
+        "matrix.",
     )
     parser.add_argument(
         "--cv-folds",

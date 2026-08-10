@@ -73,12 +73,21 @@ The canonical production schema adds `peptide_length` to the 30-feature baseline
 
 ## 33-Feature Extended Schema (Antigen Processing Tier)
 
-Adds two orthogonal antigen processing signals to the 31-feature canonical baseline. These features capture the proteasomal and TAP transport steps independently of the MHCflurry presentation_score (which also integrates processing internally).
+Adds two antigen processing columns to the 31-feature canonical baseline. **The claim that previously stood here - that these features "capture the proteasomal and TAP transport steps independently of the MHCflurry presentation_score" - is RETRACTED (2026-08-10, `docs/claims_register.md` D18):** the shipped values are mock, so they capture no proteasomal or transport step at all. See the disclosure below the table.
 
 | Feature | Tool | Reference | Range |
 |---------|------|-----------|-------|
-| `netchop_score` | NetChop 3.1 C-terminal cleavage probability | Nielsen et al., *Protein Sci* 2005;14(11):2759-2763 | [0, 1] |
-| `tap_score` | TAPreg TAP transport efficiency | Doytchinova et al., *BMC Bioinformatics* 2004;5:48 | [0, ~1] |
+| `netchop_score` | **MOCK** C-terminal cleavage score (named for NetChop 3.1; **not** its output - D18) | Nielsen et al., *Protein Sci* 2005;14(11):2759-2763 - cited for the mechanism the mock imitates, NOT as the source of these values | [0, 1] |
+| `tap_score` | **MOCK** TAP transport score (named for TAPreg; **not** its output - D18) | Doytchinova et al., *BMC Bioinformatics* 2004;5:48 - as above | [0, ~1] |
+
+> **Disclosure (2026-08-10, `docs/claims_register.md` D18).** The shipped
+> `data/antigen_processing_cache.csv` contains locally generated mock values, not NetChop 3.1 or
+> TAPreg output: `scripts/precompute_antigen_processing.py` calls both predictors with
+> `mock_fallback=True`, which skips the real API entirely. The values come from a hand-coded
+> hydrophobic/basic cleavage rule plus a per-process `hash()` jitter, so they are **not reproducible
+> across runs**, and their feature importances must not be read as evidence for the cleavage or
+> transport biology the generator already assumes. `docs/limitations_statement_v1.md` points readers
+> to this glossary as the disclosure site, which is why the disclosure now lives here.
 
 - `FEATURE_COLUMNS_33` (33): FEATURE_COLUMNS_31 + `netchop_score` + `tap_score`
 - Config: `feature_mode: 33`, requires `antigen_processing_cache_path` (built by `scripts/precompute_antigen_processing.py`)

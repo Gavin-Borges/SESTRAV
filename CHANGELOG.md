@@ -9,6 +9,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Changed
+- **RETRACTED: the H2 Tier A primary-hypothesis result R10 = 0.9494 is VOID** (`docs/claims_register.md`
+  **D17**). The binding-only arm of that comparison was computed against an **all-zeros binding
+  matrix**, so the denominator was a constant, not a baseline.
+  - Three independent signatures of a constant score vector in `results/h2_tier_a_fold_metrics.csv`:
+    for `method == binding_only_max`, `auc_roc` is **exactly 0.5000 with std 0.0 in all five folds and every subgroup that has both classes**; `auc_pr`
+    equals the fold base rate exactly (146/192, 146/191); `ndcg_10` equals `auc_pr` to within
+    floating-point rounding.
+  - Root cause is `f360b90`, which introduced the placeholder. `37d1d67` (2026-06-18) is the FIX,
+    and states it in its own message: "peptide_binding_matrix_v3.csv was an all-zeros placeholder
+    since commit f360b90." The H2 artifact was generated against the placeholder.
+  - **The integrated arm was degraded by the same file** - `prepare_features_30` sources 10 of its
+    30 features from it, so the "integrated model" ran with 10 dead features.
+  - **Corrected by controlled re-run** (identical script, data, model and seed; only the matrix
+    differs): binding-only AUC-ROC **0.6636** / ISSR@10 **0.8947**; integrated AUC-ROC **0.7563** /
+    ISSR@10 **0.9474**; **R10 = 1.0588** (95% CI [0.9778, 1.1220], sign-flip p = 0.1875);
+    **R25 = 1.0331**. Verification control: re-running against the `f360b90` matrix reproduces
+    `results/h2_tier_a_summary.csv` **byte-for-byte**, establishing the matrix as the sole cause.
+  - **The H2 decision is UNCHANGED: NOT SUPPORTED.** Note the correction moves R10 *upward* past
+    1.0 - the void artifact reported a lower ratio than a valid measurement does.
+  - **Not a D15 leakage defect.** The v3 corpus is 1,004 rows / 1,004 unique peptides, so
+    `StratifiedKFold` is already peptide-disjoint on it and a grouped re-run would be a no-op.
+  - `docs/Wet_Lab_Protocol_v1.md` pre-registered 0.9494 as its powering prior and is marked
+    **do not run, submit, or cite until re-derived**. A separate error corrected in the same pass:
+    three of this repo's own annotations had conflated the H2 computational gate (R10 >= 2.0) with
+    that protocol's Primary criterion, which pre-commits **no fixed multiple** and instead requires
+    R10 > 1.0 with a bootstrap CI lower bound above 1.0. The corrected figure passes the first and
+    fails the second (0.9778), so the disclosed null stands - on the protocol's own terms.
+  - **`results/h2_tier_a_*` and `results/final_validation_report.md` still carry the void values**
+    and are pending regeneration; no corrected R10 is asserted as certified anywhere.
+- **DISCLOSED: the `feature_mode=33` antigen-processing features are MOCK, not NetChop 3.1 / TAPreg
+  output** (`docs/claims_register.md` **D18**). `scripts/precompute_antigen_processing.py` calls both
+  predictors with `mock_fallback=True`, which short-circuits before any network call.
+  - **The values are not reproducible**: the generators use `hash()`, which CPython salts per
+    process and the original seed was never recorded, so the shipped
+    `data/antigen_processing_cache.csv` cannot be reproduced.
+  - **Two biological inferences retracted.** `netchop_score` ranking first was cited as "confirming
+    independent proteasomal processing signal" and as consistent with Rock & Goldberg 1999. The
+    generator **already assumes** hydrophobic/basic C-terminal cleavage preference, so its
+    importance cannot be evidence *for* that mechanism - the inference is circular. Same error
+    class as D13. Corroboration: under the v5 peptide-grouped splitter, mode 33 exceeds mode 31 by
+    **+0.0027 AUC-PR** (0.6085 vs 0.6058).
+  - **"Best v3 model" and "recommended for production" designations withdrawn** across
+    `docs/data_registry.md` AD-9 (a LOCKED row, amended under disclosure rather than silently
+    edited), `docs/model_evaluation_summary.md`, and both the 31- and 33-feature model cards.
+    **`mode_31` remains the canonical production track.**
+  - Disclosure was partial, not absent - `docs/limitations_statement_v1.md` and the 33-card's cache
+    note named the mock - but seven further tracked surfaces presented it as real, including
+    `README.md` and `ARCHITECTURE.md`, and the 33-card's own feature schema cited Nielsen 2005 and
+    Peters 2003 for values neither tool produced. All are now corrected.
+  - Still open: `docs/limitations_statement_v1.md` and `scripts/precompute_antigen_processing.py`
+    describe the mock as "deterministic", which the per-process salting refutes.
 - **BREAKING (reported metrics): peptide-level CV leakage remediated and every certified v5
   number re-baselined** (`docs/claims_register.md` D15, Phase 0 of
   `docs/proposals/2026_feature_upgrade_roadmap.md`). The leakage disclosed in the audit below

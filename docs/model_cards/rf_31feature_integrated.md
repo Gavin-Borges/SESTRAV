@@ -52,7 +52,7 @@
 5. `p5_hydrophobicity` - 0.062
 
 ## Limitations
-1. **No antigen processing features.** NetChop and TAPreg scores are not training features in this model. Use `rf_33feature_integrated.joblib` where antigen processing cache is available (+0.022 AUC-PR over this model).
+1. **No antigen processing features.** NetChop and TAPreg scores are not training features in this model. **The recommendation to "use `rf_33feature_integrated.joblib` where antigen processing cache is available (+0.022 AUC-PR over this model)" is RETRACTED (2026-08-10, `docs/claims_register.md` D18):** that margin was measured on mock, not real, antigen-processing values, and under the certified v5 peptide-grouped splitter mode 33 exceeds mode 31 by only +0.0027 AUC-PR. **This model remains the canonical production track.**
 2. **Binding feature marginal redundancy.** Per-allele MHCflurry scores contribute zero marginal information in v3 (physico-binding overlap; negative selection confound). Expected to be resolved in v4 with hard decoys.
 3. **No allele-specific predictions.** Population-average feature representation only.
 4. **TCR contact approximation.** p4-p8 physicochemical features are a sequence-derived proxy, validated primarily for HLA-A*02:01 canonical 9-mers (Chowell et al. 2015). 8-mer/10-mer non-canonical binding registers carry additional uncertainty.
