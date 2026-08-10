@@ -21,7 +21,7 @@
 - **Biases:** Taxonomic bias toward EBV anchor motifs; length bias toward 9-mers. Inverse-frequency sample weights applied at training time.
 
 ## Evaluation and Performance
-- **Evaluation method:** Out-of-fold 5-fold cross-validation. **The previous wording - "strict... conservative; never scores peptides seen during training" - is WITHDRAWN (2026-08-08).** Folds are stratified but not grouped by peptide: 71.0% of held-out rows share their exact peptide with the training fold, and the feature vector is a pure function of the peptide string, so those rows are feature-identical. Reported CV metrics are optimistic, not conservative (`docs/claims_register.md` D15).
+- **Evaluation method:** Out-of-fold 5-fold cross-validation. **The previous wording - "strict... conservative; never scores peptides seen during training" - is WITHDRAWN (2026-08-08).** This card's figures are the 2026-05 Tier A arm, whose folds were stratified but not grouped by peptide: 71.1% of held-out rows shared their exact peptide with the training fold, and the feature vector is a pure function of the peptide string, so those rows are feature-identical. Reported CV metrics are optimistic, not conservative (`docs/claims_register.md` D15).
 - **Metrics on the 2026-05 Tier A field (n=704):** the corpus is the 720-row root
   `immunogenicity_dataset.csv` at `69e0e5c` minus the 16 `GOLD_STANDARD_EPITOPES`, **not** the
   1,004-row `data/immunogenicity_dataset_v3.csv` this line previously named (corrected

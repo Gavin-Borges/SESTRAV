@@ -55,7 +55,7 @@ def test_gate1_fails_on_random_predictions():
         }
     )
     r = gate1_generalization(df)
-    # AUC-PR near chance (≈0.5) should fail the ≥0.85 threshold
+    # AUC-PR near chance (about 0.5) should fail the GATE1_AUC_PR_MIN threshold
     assert not r.passed
 
 

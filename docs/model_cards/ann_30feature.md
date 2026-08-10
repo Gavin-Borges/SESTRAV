@@ -18,7 +18,8 @@
 - **Optimization:** Evaluated over 14 distinct architectures via grid search; trained using BCEWithLogitsLoss with Adam optimization and early stopping.
 
 ## Evaluation and Performance
-- **Primary Metrics:** Evaluated via stratified 5-fold cross-validation on the v3 (2.0.0-alpha) dataset. Average metrics on unseen folds:
+- **Leakage disclosure (added 2026-08-10, `docs/claims_register.md` D15).** The metrics below were computed under a splitter that stratifies but does **not** group by peptide. Because the feature vector is a pure function of the peptide string, peptides recorded under more than one HLA allele can land on both sides of a fold boundary as feature-identical rows. On the v5 corpus this effect was measured at +37.0% AUC-PR for the mode-31 RF (0.8347 ungrouped vs 0.6092 peptide-grouped); the v5 RF/XGB ledgers were re-baselined under a peptide-grouped splitter on 2026-08-10. **This ANN card's numbers are v3-era and have NOT been re-measured under the grouped splitter**, so they should be read as optimistic, not conservative, and are not comparable to the current peptide-grouped v5 figures reported in `README.md` and `docs/paper.md`.
+- **Primary Metrics:** Evaluated via stratified 5-fold cross-validation (ungrouped by peptide - see disclosure above) on the v3 (2.0.0-alpha) dataset. Average metrics on unseen folds:
   - AUC-ROC: ~0.67 (exact: 0.670)
   - AUC-PR: ~0.83 (exact: 0.825)
   - ISSR@10: ~0.88 (exact: 0.880)

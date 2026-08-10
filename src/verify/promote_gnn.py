@@ -5,7 +5,9 @@ Validates the 5 Canonical Promotion Gates before mutating config.yaml and
 model_artifact_checksums.json.
 
 Gate definitions (all must pass):
-  Gate 1 - Generalization:   GNN OOF AUC-PR >= 0.85 on full training dataset.
+  Gate 1 - Generalization:   GNN OOF AUC-PR >= 0.65 on full training dataset,
+                             scored under a peptide-grouped splitter
+                             (re-anchored 2026-08-10; see GATE1_AUC_PR_MIN).
   Gate 2 - Stability:        Cross-fold AUC-PR std <= 0.02 across 5 CV folds.
   Gate 3 - Latency:          GNN CPU inference <= 2× RF CPU inference (per batch).
   Gate 4 - Calibration:      Expected Calibration Error (ECE) < 0.05.
@@ -50,7 +52,13 @@ CONFIG_PATH = Path("config.yaml")
 CHECKSUM_FILE = Path("models/model_artifact_checksums.json")
 
 # Gate thresholds (immutable constants - edit requires PR review)
-GATE1_AUC_PR_MIN: float = 0.85
+# Gate 1 re-anchored 2026-08-10 from 0.85 to 0.65. The 0.85 threshold was set
+# against the pre-remediation ungrouped RF baseline (pooled AUC-PR 0.8312), which
+# is retracted as peptide-leakage-inflated (docs/claims_register.md D15). Against
+# the certified peptide-grouped RF baseline of 0.6058 it was unreachable rather
+# than ambitious. A promotion candidate must be scored under a peptide-grouped
+# splitter (src.ml_utils.PeptideGroupedKFold) for this comparison to be valid.
+GATE1_AUC_PR_MIN: float = 0.65
 GATE2_STD_MAX: float = 0.02
 GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2× RF latency
 GATE4_ECE_MAX: float = 0.05

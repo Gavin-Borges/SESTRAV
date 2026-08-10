@@ -16,6 +16,8 @@ from src.train_classifier import (
     load_all_proteins,
     _get_protein_name_from_header,
     _cross_validate,
+    _excluded_bloc_cv_metrics,
+    VACCINIA_VIRUS,
     prepare_features_30,
     prepare_features_31,
     prepare_features_33,
@@ -146,6 +148,225 @@ def test_lopo_cross_validate():
     assert "auc_pr" in avg
 
 
+class _DummyClassifier:
+    """sklearn-shaped stub: fixed predictions, no real fitting."""
+
+    def __init__(self, **kwargs):
+        pass
+
+    def fit(self, X, y, sample_weight=None):
+        return self
+
+    def predict_proba(self, X):
+        return np.column_stack([np.ones(len(X)) * 0.5, np.ones(len(X)) * 0.5])
+
+
+def _grouped_cv_fixture(n_peptides=40, rows_per_peptide=3):
+    """Peptides repeated across rows, the shape cv_group_by="peptide" exists for."""
+    n = n_peptides * rows_per_peptide
+    X = pd.DataFrame(np.random.default_rng(0).normal(size=(n, 5)), columns=[f"f{i}" for i in range(5)])
+    peptides, labels, origins, alleles = [], [], [], []
+    for i in range(n_peptides):
+        for _ in range(rows_per_peptide):
+            peptides.append(f"PEPTIDE{i:03d}")
+            labels.append(i % 2)
+            origins.append("tested_negative" if i % 2 == 0 else None)
+            alleles.append("HLA-A*02:01")
+    y = np.array(labels)
+    metadata = pd.DataFrame(
+        {"peptide": peptides, "negative_origin": origins, "hla_allele": alleles}
+    )
+    return X, y, metadata
+
+
+def test_cross_validate_cv_group_by_peptide_is_fold_disjoint():
+    X, y, metadata = _grouped_cv_fixture()
+    avg, std, subgroup_df, oof_df = _cross_validate(
+        X, y, metadata, _DummyClassifier, {}, n_splits=5, cv_group_by="peptide"
+    )
+    assert "auc_roc" in avg
+    for fold_idx, fold_df in oof_df.groupby("fold"):
+        train_peptides = set(oof_df.loc[oof_df["fold"] != fold_idx, "peptide"])
+        assert not (set(fold_df["peptide"]) & train_peptides)
+
+
+def test_cross_validate_cv_group_by_none_matches_legacy_default():
+    X, y, metadata = _grouped_cv_fixture()
+    avg_default, _std, _subgroup, oof_default = _cross_validate(
+        X, y, metadata, _DummyClassifier, {}, n_splits=5
+    )
+    avg_explicit, _std2, _subgroup2, oof_explicit = _cross_validate(
+        X, y, metadata, _DummyClassifier, {}, n_splits=5, cv_group_by=None
+    )
+    assert avg_default == avg_explicit
+    assert oof_default["fold"].tolist() == oof_explicit["fold"].tolist()
+
+
+def test_cross_validate_cv_group_by_and_lopo_conflict():
+    X, y, metadata = _grouped_cv_fixture()
+    metadata = metadata.assign(protein=["P0"] * len(metadata))
+    with pytest.raises(ValueError, match="select different splitters"):
+        list(
+            _cross_validate(
+                X, y, metadata, _DummyClassifier, {}, use_lopo=True, cv_group_by="peptide"
+            )
+        )
+
+
+def test_cross_validate_cv_group_by_unsupported_value_raises():
+    X, y, metadata = _grouped_cv_fixture()
+    with pytest.raises(ValueError, match="Unsupported cv_group_by"):
+        _cross_validate(X, y, metadata, _DummyClassifier, {}, cv_group_by="protein")
+
+
+def test_cross_validate_cv_group_by_peptide_requires_peptide_column():
+    X, y, metadata = _grouped_cv_fixture()
+    metadata_no_peptide = metadata.drop(columns=["peptide"])
+    with pytest.raises(ValueError, match="requires a 'peptide' column"):
+        _cross_validate(X, y, metadata_no_peptide, _DummyClassifier, {}, cv_group_by="peptide")
+
+
+# ---------------------------------------------------------------------------
+# fold_impute_columns (Phase 0 step 6: in-fold antigen-processing imputation)
+# ---------------------------------------------------------------------------
+
+
+class _RecordingClassifier:
+    """Stub that records every X it is fit on, keyed by call order."""
+
+    fit_calls: list = []
+
+    def __init__(self, **kwargs):
+        pass
+
+    def fit(self, X, y, sample_weight=None):
+        _RecordingClassifier.fit_calls.append(X.copy())
+        return self
+
+    def predict_proba(self, X):
+        return np.column_stack([np.ones(len(X)) * 0.5, np.ones(len(X)) * 0.5])
+
+
+def test_cross_validate_fold_impute_touches_only_named_columns():
+    X, y, metadata = _grouped_cv_fixture(n_peptides=20, rows_per_peptide=3)
+    X = X.copy()
+    X["netchop_score"] = np.nan
+    X.loc[X.index[:10], "netchop_score"] = 0.5
+    X["f0"] = np.nan  # a control column NOT named in fold_impute_columns
+
+    _RecordingClassifier.fit_calls = []
+    _cross_validate(
+        X,
+        y,
+        metadata,
+        _RecordingClassifier,
+        {},
+        n_splits=5,
+        fold_impute_columns=("netchop_score",),
+    )
+    for fitted_X in _RecordingClassifier.fit_calls:
+        assert not fitted_X["netchop_score"].isna().any()
+        assert fitted_X["f0"].isna().all()  # untouched: not in fold_impute_columns
+
+
+def test_cross_validate_fold_impute_median_is_train_rows_only():
+    # Concentrate the NaN rows in one stratum so the train-fold median
+    # diverges sharply from the whole-column (pooled) median.
+    n_peptides, rows_per_peptide = 20, 3
+    X, y, metadata = _grouped_cv_fixture(n_peptides=n_peptides, rows_per_peptide=rows_per_peptide)
+    X = X.copy()
+    netchop = np.full(len(X), 10.0)
+    # Make roughly half of it NaN, concentrated among a subset of peptides,
+    # so at least one fold's training median differs from the pooled one.
+    for pep_idx in range(n_peptides):
+        if pep_idx % 2 == 0:
+            netchop[pep_idx * rows_per_peptide : (pep_idx + 1) * rows_per_peptide] = np.nan
+    X["netchop_score"] = netchop
+
+    _RecordingClassifier.fit_calls = []
+    _cross_validate(
+        X,
+        y,
+        metadata,
+        _RecordingClassifier,
+        {},
+        n_splits=5,
+        fold_impute_columns=("netchop_score",),
+    )
+    assert _RecordingClassifier.fit_calls  # sanity: folds ran
+    for fitted_X in _RecordingClassifier.fit_calls:
+        assert not fitted_X["netchop_score"].isna().any()
+        # every filled value must be exactly 10.0 (the only non-NaN value present)
+        assert (fitted_X["netchop_score"] == 10.0).all()
+
+
+def test_cross_validate_fold_impute_columns_none_is_bitwise_identical():
+    X, y, metadata = _grouped_cv_fixture()  # no NaN anywhere in this fixture
+    avg_none, _std1, _sub1, oof_none = _cross_validate(
+        X, y, metadata, _DummyClassifier, {}, n_splits=5, fold_impute_columns=None
+    )
+    avg_cols, _std2, _sub2, oof_cols = _cross_validate(
+        X, y, metadata, _DummyClassifier, {}, n_splits=5, fold_impute_columns=("f0",)
+    )
+    assert avg_none == avg_cols
+    assert oof_none["score"].tolist() == oof_cols["score"].tolist()
+
+
+# ---------------------------------------------------------------------------
+# _excluded_bloc_cv_metrics (vaccinia-excluded OOF re-slice, Phase 0 step 5)
+# ---------------------------------------------------------------------------
+
+
+def _oof_fixture_with_vaccinia():
+    # 2 folds, each with a mix of vaccinia and non-vaccinia rows, both classes
+    # present in each fold after vaccinia is dropped.
+    rows = []
+    for fold in (1, 2):
+        for i in range(10):
+            rows.append(
+                {
+                    "virus": VACCINIA_VIRUS if i < 6 else "EBV",
+                    "label": 0 if i < 6 else (i % 2),
+                    "score": 0.1 if i < 6 else 0.9 - 0.05 * i,
+                    "fold": fold,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_excluded_bloc_cv_metrics_drops_vaccinia_rows():
+    oof_df = _oof_fixture_with_vaccinia()
+    avg, std = _excluded_bloc_cv_metrics(oof_df)
+    assert "auc_roc" in avg
+    assert "auc_roc" in std
+
+
+def test_excluded_bloc_cv_metrics_empty_when_no_virus_column():
+    avg, std = _excluded_bloc_cv_metrics(pd.DataFrame({"label": [0, 1], "score": [0.1, 0.9]}))
+    assert avg == {}
+    assert std == {}
+
+
+def test_excluded_bloc_cv_metrics_empty_on_empty_input():
+    avg, std = _excluded_bloc_cv_metrics(pd.DataFrame())
+    assert avg == {}
+    assert std == {}
+
+
+def test_excluded_bloc_cv_metrics_empty_when_every_row_is_the_excluded_bloc():
+    oof_df = pd.DataFrame(
+        {
+            "virus": [VACCINIA_VIRUS] * 4,
+            "label": [0, 1, 0, 1],
+            "score": [0.1, 0.9, 0.2, 0.8],
+            "fold": [1, 1, 2, 2],
+        }
+    )
+    avg, std = _excluded_bloc_cv_metrics(oof_df)
+    assert avg == {}
+    assert std == {}
+
+
 # ---------------------------------------------------------------------------
 # Feature builders: 30 guard, 31, 33, 35, 166
 # ---------------------------------------------------------------------------
@@ -179,6 +400,24 @@ def test_prepare_features_33_appends_processing_scores(tmp_path):
     result = prepare_features_33(pd.DataFrame({"peptide": peps}), str(binding), str(ap_cache))
     assert result.shape == (3, 33)
     assert {"netchop_score", "tap_score"}.issubset(result.columns)
+    assert not result.isnull().any().any()
+
+
+def test_prepare_features_33_impute_false_leaves_nan(tmp_path):
+    # A peptide missing from the antigen-processing cache stays NaN when
+    # impute=False, so a caller can fit the median inside a CV fold instead
+    # of from the whole cache (docs/claims_register.md D15).
+    peps = _make_peptides(3)
+    binding = _mock_binding_csv(tmp_path, peps)
+    ap_cache = tmp_path / "ap.csv"
+    pd.DataFrame(
+        {"peptide": peps[:2], "netchop_score": [0.4, 0.5], "tap_score": [0.1, 0.2]}
+    ).to_csv(ap_cache, index=False)
+    result = prepare_features_33(
+        pd.DataFrame({"peptide": peps}), str(binding), str(ap_cache), impute=False
+    )
+    assert result["netchop_score"].isna().sum() == 1
+    assert result["tap_score"].isna().sum() == 1
 
 
 def test_prepare_features_35_appends_self_similarity(tmp_path):
@@ -204,6 +443,34 @@ def test_prepare_features_35_appends_self_similarity(tmp_path):
         "self_similarity_max_identity",
         "self_similarity_exact_match",
     }.issubset(result.columns)
+
+
+def test_prepare_features_35_impute_false_leaves_antigen_processing_nan(tmp_path):
+    peps = _make_peptides(3)
+    binding = _mock_binding_csv(tmp_path, peps)
+    ap_cache = tmp_path / "ap.csv"
+    pd.DataFrame(
+        {"peptide": peps[:2], "netchop_score": [0.4, 0.5], "tap_score": [0.1, 0.2]}
+    ).to_csv(ap_cache, index=False)
+    sim_cache = tmp_path / "sim.csv"
+    pd.DataFrame(
+        {
+            "peptide": peps,
+            "self_similarity_max_identity": [1.0, 0.5, 0.0],
+            "self_similarity_exact_match": [1.0, 0.0, 0.0],
+        }
+    ).to_csv(sim_cache, index=False)
+    result = prepare_features_35(
+        pd.DataFrame({"peptide": peps}),
+        str(binding),
+        str(ap_cache),
+        str(sim_cache),
+        impute=False,
+    )
+    # impute=False forwards to the antigen-processing join only; self-similarity
+    # always fills a constant 0.0 and needs no in-fold variant.
+    assert result["netchop_score"].isna().sum() == 1
+    assert not result["self_similarity_max_identity"].isnull().any()
 
 
 def test_prepare_features_166_missing_pseudo_raises(tmp_path):
@@ -378,6 +645,58 @@ def test_train_classifier_cli_exposes_allow_overwrite():
         cwd=".",
     )
     assert "--allow-overwrite" in result.stdout
+
+
+def test_train_classifier_cli_bare_lopo_is_not_rejected(tmp_path):
+    """--cv-group-by defaults to 'peptide', but a bare --lopo must still work.
+
+    Regression guard: naively treating the default as an explicit choice made
+    --lopo (valid before Phase 0) abort on a spurious conflict error.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.train_classifier",
+            "--data",
+            "does_not_exist.csv",
+            "--model-dir",
+            str(tmp_path / "out"),
+            "--lopo",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=".",
+    )
+    # It must fail on the missing data file, NOT on a splitter conflict.
+    assert "select different splitters" not in result.stderr
+    assert "Data file does not exist" in result.stderr
+
+
+def test_train_classifier_cli_explicit_lopo_and_grouped_conflict(tmp_path):
+    import subprocess
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.train_classifier",
+            "--data",
+            "does_not_exist.csv",
+            "--model-dir",
+            str(tmp_path / "out"),
+            "--lopo",
+            "--cv-group-by",
+            "peptide",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=".",
+    )
+    assert result.returncode != 0
+    assert "select different splitters" in result.stderr
 
 
 # ---------------------------------------------------------------------------

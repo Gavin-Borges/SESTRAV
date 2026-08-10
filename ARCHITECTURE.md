@@ -48,7 +48,7 @@ all driven by the same Snakemake workflow.
 | Track | Model | Status | Role |
 |---|---|---|---|
 | Production | Random Forest / XGBoost ensemble on the 31-feature representation (`mode_31`) | Validated, maintained | Canonical immunogenicity scorer used for ranked output |
-| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (4 of 5 promotion gates pass on v4) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
+| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (promotion gates not re-evaluated since the 2026-08-10 re-anchor) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
 
 Both tracks consume the same physicochemical feature pipeline and the same governed
 training data, which keeps comparisons fair and lets the GNN reuse the production
@@ -169,20 +169,22 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind
   binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to
   top-decile precision). Because the out-of-fold arm is optimistic rather than conservative
-  (71.0% of held-out rows share their exact peptide with the training fold), this near-tie
+  (71.1% of held-out rows share their exact peptide with the training fold), this near-tie
   cannot be read as SESTRAV being understated. The extended `full_33` configuration (0.840)
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
 - **Within-virus generalization set** (v5, 35,597 active rows / 51,185 total; central-tolerance
   self-binder plus IEDB viral negatives): canonical `mode_31` per-virus within-CV mean AUC-ROC
-  0.751 over nine viruses (`results/per_virus_eval_v5_mode31.csv`). This same-pathogen number is
+  **0.658** over nine viruses (`results/per_virus_eval_v5_mode31.csv`), and pooled CV AUC-PR
+  **0.6058** (`models/v5/training_results_mode31.csv`). This same-pathogen number is
   lower by design because the hard decoys remove the binding-equals-immunogenic shortcut; the
   pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
-  (required whenever this figure is quoted, `docs/claims_register.md` D15):** 0.751 is measured
-  under folds that are stratified but not grouped by peptide, and is leakage-inflated - it
-  reproduces at 0.6587 under a matched peptide-grouped splitter (+0.0925, +14.0%). This is the
-  model shipped for production scoring.
+  (required whenever these figures are quoted, `docs/claims_register.md` D15 - remediated
+  2026-08-10):** these are measured under a **peptide-grouped** splitter
+  (`src.ml_utils.PeptideGroupedKFold`), so no peptide appears on both sides of a fold boundary.
+  The prior ungrouped figures (per-virus mean 0.751, pooled AUC-PR 0.8312) are retracted as
+  peptide-leakage-inflated. This is the model shipped for production scoring.
 
 Interpretability is built in: a SHAP attribution artifact is committed alongside the model.
 **No binding-versus-TCR-contact attribution split is currently reported.** The previously
@@ -193,10 +195,14 @@ upstream feature-pipeline regression between v1.0.0 and v2.0-rc1 rather than to 
 explainer, and current production training is unaffected - but no replacement split will be
 stated until a fresh SHAP run against current production data is committed.
 
-> Numbers in this document are the certified v5 figures (35,597-active-row dataset) that the
-> README, `docs/model_evaluation_summary.md`, and `docs/claims_register.md` cite, with one named
-> exception: the Tier A benchmark figure (0.828, Section 5 above) is a v3-era, 30-feature
-> measurement, explicitly labeled as such where it appears (`docs/claims_register.md` D16).
+> Numbers in this document are the certified v5 figures (35,597-active-row dataset,
+> peptide-grouped CV as of 2026-08-10) that the README, `docs/model_evaluation_summary.md`, and
+> `docs/claims_register.md` cite, with one named exception: the Tier A benchmark figure (0.828,
+> Section 5 above) is a **2026-05, 30-feature, unweighted, 200-tree** measurement on a 704-peptide
+> field derived from the 720-row root corpus at `69e0e5c` - not a v3-dataset measurement, as an
+> earlier revision of this line stated (`docs/claims_register.md` D16, second correction). It is
+> explicitly labeled as historical where it appears and is deliberately not re-run under the
+> peptide-grouped splitter, since only 414 of its 704 peptides resolve to an active v5 row.
 > Earlier v3/v4 results are retained elsewhere only where explicitly labeled as historical.
 
 ---
@@ -233,7 +239,7 @@ cache is present, falling back to the chain graph otherwise.
 - **Fusion:** the graph embedding is concatenated with the encoded mode-31 features and
   passed through an MLP head to a single immunogenicity logit.
 
-On v4 data the v2.3 GNN reaches mean-fold AUC-PR 0.7281, below the production RF. It is
+On v4 data the v2.3 GNN reaches mean-fold AUC-PR 0.7281. That figure is not comparable to the current production RF baseline (0.6058): it is a v4-corpus, ungrouped-splitter measurement, whereas the RF figure is v5 and peptide-grouped. It is
 therefore a research track, not the canonical scorer.
 
 ### 6.3 Promotion gates
@@ -243,14 +249,24 @@ the checksum manifest to become canonical:
 
 | Gate | Criterion | v4 status |
 |---|---|---|
-| 1. Discrimination | 5-fold AUC-PR >= 0.85 | Not met (0.7281) |
-| 2. Stability | Cross-fold standard deviation <= 0.02 | Pass |
-| 3. Latency | Inference latency <= 2x the RF baseline | Pass |
-| 4. Calibration | Expected calibration error < 0.05 | Pass |
-| 5. Escape sensitivity | Escape-variant sensitivity >= 80% | Pass |
+| 1. Discrimination | peptide-grouped 5-fold AUC-PR >= 0.65 | Not re-evaluated under the current gate (v4 figure 0.7281 predates both the 2026-08-10 re-anchor and the grouped splitter) |
+| 2. Stability | Cross-fold standard deviation <= 0.02 | Passed on v4/ungrouped; splitter-dependent, see note |
+| 3. Latency | Inference latency <= 2x the RF baseline | Pass (splitter-independent) |
+| 4. Calibration | Expected calibration error < 0.05 | Passed on v4/ungrouped; splitter-dependent, see note |
+| 5. Escape sensitivity | Escape-variant sensitivity >= 80% | Pass (splitter-independent) |
 
-Four of five gates pass; Gate 1 is the open blocker. The roadmap to clear it centers on a
-larger multi-virus training set and an ESM-2 capacity scaling curve (t6 -> t12 -> t33).
+**No gate that depends on the cross-validation splitter has a current status.** Gates 3 and 5
+do not depend on it and pass. Gates 1, 2 and 4 are all computed from out-of-fold predictions, so
+the same caveat applies to each: on the RF the fold standard deviation moves from 0.0065
+(ungrouped) to 0.0229 (grouped), which would flip a Gate-2 pass into a failure, and Gate 4's ECE
+comes from the same OOF scores. **Gate 1's status is currently unknown, not failing.**
+The threshold was re-anchored 2026-08-10 from AUC-PR >= 0.85 to >= 0.65 under a peptide-grouped
+splitter (`src/verify/promote_gnn.py`, `docs/claims_register.md` D15), and the v4 figure of
+0.7281 was measured under neither the new threshold nor the grouped splitter, so it cannot be
+compared against the current gate in either direction. A v5 GNN run under
+`src.ml_utils.PeptideGroupedKFold` is required before Gate 1 can be called. The roadmap to clear
+it centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
+(t6 -> t12 -> t33).
 
 ### 6.4 Structural edges (in development, not active)
 
