@@ -22,7 +22,9 @@ Usage (recommended flow):
 External dependencies:
     NetChop 3.1: https://services.healthtech.dtu.dk/cgi-bin/webface2.cgi
     TAPreg:      https://imed.med.ucm.es/cgi-bin/tapreg.pl
-    Both APIs currently unavailable; all scoring uses deterministic mock fallbacks.
+    Both APIs currently unavailable; all scoring uses mock fallbacks. Those mocks are
+    NOT reproducible across runs: the generators use hash(), which CPython salts per
+    process, so a re-run produces different values (docs/claims_register.md D18).
     Rate limiting disabled (RATE_LIMIT_SECONDS=0). When real APIs become available,
     restore RATE_LIMIT_SECONDS=1.0 to respect server rate limits.
 """
@@ -39,7 +41,9 @@ from src.external_predictors import query_netchop, query_tapreg
 
 BATCH_SIZE = 100
 # Both external APIs are unavailable (NetChop webface2 format changed; TAPreg requires VPN).
-# All paths use deterministic mock scores - no network calls, no rate limiting needed.
+# All paths use mock scores - no network calls, no rate limiting needed. The mocks are
+# stable within one process but differ between processes (hash() salt), so re-running
+# this script does NOT reproduce the shipped cache (D18).
 RATE_LIMIT_SECONDS = 0.0
 
 
@@ -112,8 +116,9 @@ def main():
     print(
         "[NOTE] Using biologically-informed mock scores: DTU NetChop webface2 response "
         "format changed (real parser finds no tabular data) and TAPreg requires UCM "
-        "institutional VPN. Scores are deterministic and sequence-derived but are NOT "
-        "real NetChop 3.1 / TAPreg predictions. Document this in limitations."
+        "institutional VPN. Scores are sequence-derived but are NOT real NetChop 3.1 / "
+        "TAPreg predictions, and are NOT reproducible across runs (hash() is salted per "
+        "process). Document this in limitations. See docs/claims_register.md D18."
     )
 
     if args.dry_run:
@@ -134,7 +139,7 @@ def main():
         try:
             # mock_fallback=True: DTU NetChop webface2 response format changed (parser finds no
             # tabular data) and TAPreg requires UCM institutional VPN. Both real-API paths fall
-            # back to deterministic mock scores anyway after exhausting retries (~154s/peptide).
+            # back to mock scores anyway after exhausting retries (~154s/peptide).
             # Using mock_fallback=True takes the fast path directly and is honest about the source.
             result = query_netchop([peptide], mock_fallback=True)
             pep_scores = result.get(peptide, {}).get("scores", [])

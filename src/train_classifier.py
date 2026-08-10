@@ -139,6 +139,10 @@ def prepare_features_31(df, binding_matrix_path):
 def prepare_features_33(df, binding_matrix_path, cache_path, *, impute=True):
     """Build the 33-feature extended matrix: 31-feature canonical + netchop_score + tap_score.
 
+    WARNING: netchop_score / tap_score come from a MOCK generator, not real
+    NetChop 3.1 / TAPreg output, and are not reproducible
+    (docs/claims_register.md D18). mode_31 is the canonical production track.
+
     impute=True (default) matches every pre-Phase-0 caller: missing peptides
     are median-imputed from the whole cache. Cross-validation callers pass
     impute=False and fit the median inside each fold on training rows only
@@ -732,7 +736,10 @@ def train_models(
             impute=fold_impute_columns is None,
         )
         feature_cols_used = FEATURE_COLUMNS_33
-        mode_label = "33-feature extended (31 canonical + netchop_score + tap_score)"
+        mode_label = (
+            "33-feature extended (31 canonical + netchop_score + tap_score; "
+            "MOCK antigen-processing scores, D18)"
+        )
     elif feature_mode == 31:
         if binding_matrix_path is None:
             raise ValueError("--binding-matrix is required for feature-mode 31")
@@ -990,7 +997,8 @@ if __name__ == "__main__":
         default="21",
         choices=["21", "30", "31", "33", "35", "50", "166", "30_esm", "30_graph"],
         help="Feature mode: 21 (sequence-only) | 30 (physico+binding) | 31 canonical | "
-        "33 (31+NetChop+TAPreg) | 35 (33+self-similarity) | 50 (expanded) | "
+        "33 (31+antigen-processing; MOCK scores, not real NetChop/TAPreg output - "
+        "see docs/claims_register.md D18) | 35 (33+self-similarity) | 50 (expanded) | "
         "30_esm | 30_graph",
     )
     parser.add_argument(
@@ -1002,7 +1010,8 @@ if __name__ == "__main__":
         "--antigen-processing-cache",
         default=None,
         help="Path to antigen processing cache CSV with netchop_score + tap_score "
-        "(required for --feature-mode 33+)",
+        "(required for --feature-mode 33+). NOTE: the shipped cache holds MOCK "
+        "sequence-derived scores, not real NetChop 3.1 / TAPreg output (D18)",
     )
     parser.add_argument(
         "--self-similarity-cache",

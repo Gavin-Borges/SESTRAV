@@ -330,11 +330,17 @@ actually carries - which should be measured honestly (peptide-grouped) rather th
 
 > **Partly actioned 2026-08-10 (`docs/claims_register.md` D18).** The documentation half is done:
 > the mock is now disclosed at every tracked **documentation** surface that presented it as real,
-> and the model card has been corrected. **Code surfaces still present the features as real** and
-> are listed as open in D18: `src/features.py` (two sites, one of which also calls them
-> "orthogonal") and `src/train_classifier.py` (two sites, one of them printed by `--help`) - so "documented as real ... correct the model card" above is satisfied and is
-> retained as the historical statement. The code half is NOT done: the mock still feeds
-> `data/antigen_processing_cache.csv` and remains Phase 1 step 8. Two corrections to the paragraph
+> and the model card has been corrected. ~~**Code surfaces still present the features as real**~~
+> **UPDATE (2026-08-10, later the same day): the code-disclosure surfaces are now CLOSED too.**
+> `src/features.py` (the `FEATURE_COLUMNS_33` comment, which no longer calls them "orthogonal",
+> and `load_antigen_processing_cache`'s docstring) and `src/train_classifier.py` (the
+> `--feature-mode` `--help` text, which no longer reads "31+NetChop+TAPreg", plus the
+> `--antigen-processing-cache` help, the printed `mode_label`, and `prepare_features_33`'s
+> docstring) all now state the scores are mock and non-reproducible. The step-8 wording above
+> ("documented as real ... correct the model card") is therefore satisfied, and is retained as the
+> historical statement of what the gap was. **Disclosure is not repair:** the code half of the
+> *remedy* is still NOT done - the mock still feeds `data/antigen_processing_cache.csv` and remains
+> Phase 1 step 8. Two corrections to the paragraph
 > above, both established while writing D18. (1) Wiring in `src/antigen_processing.py` is **not a
 > like-for-like repair**: by its own docstring it emits *proxy* scores, "not tool-call wrappers to
 > NetChop or NetCTL", and it produces `erap_score` (ERAP N-terminal trimming), a different

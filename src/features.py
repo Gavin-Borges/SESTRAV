@@ -249,7 +249,14 @@ BINDING_ALLELE_COLUMNS = [
 
 FEATURE_COLUMNS_30 = PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ["peptide_length"]
-# 33-feature: canonical 31 + orthogonal antigen processing signals (NetChop 3.1, TAPreg)
+# 33-feature: canonical 31 + two antigen-processing columns.
+# WARNING: netchop_score / tap_score are MOCK, sequence-derived scores from
+# src/external_predictors.py - NOT NetChop 3.1 or TAPreg output, and NOT
+# reproducible (the generators use hash(), which CPython salts per process,
+# and the seed behind the shipped cache was never recorded). They are also not
+# "orthogonal": the generator assumes hydrophobic/basic C-terminal cleavage
+# preference by construction, so their feature importance cannot be evidence
+# for that mechanism. See docs/claims_register.md D18.
 FEATURE_COLUMNS_33 = FEATURE_COLUMNS_31 + ["netchop_score", "tap_score"]
 # 35-feature: extended 33 + human-proteome self-similarity (tolerance signal)
 FEATURE_COLUMNS_35 = FEATURE_COLUMNS_33 + [
@@ -879,7 +886,13 @@ def antigen_processing_cache_medians(cache_path: str) -> dict[str, float]:
 def load_antigen_processing_cache(
     cache_path: str, df: pd.DataFrame, *, impute: bool = True
 ) -> pd.DataFrame:
-    """Join precomputed NetChop/TAPreg scores onto a peptide DataFrame.
+    """Join precomputed antigen-processing scores onto a peptide DataFrame.
+
+    WARNING: despite the column names, the shipped
+    data/antigen_processing_cache.csv holds MOCK sequence-derived scores, not
+    NetChop 3.1 / TAPreg output, and they cannot be reproduced from the
+    generators (docs/claims_register.md D18). Treat feature_mode 33/35 results
+    as a structural ablation, not validated antigen-processing prediction.
 
     The cache CSV must have columns: peptide, netchop_score, tap_score.
 

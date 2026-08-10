@@ -9,6 +9,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Changed
+- **The `feature_mode=33` code surfaces now disclose that the antigen-processing features are MOCK**
+  (`docs/claims_register.md` **D18**, items (1) and (2), previously recorded there as open).
+  - `src/features.py`: the `FEATURE_COLUMNS_33` comment no longer describes the features as
+    "orthogonal ... (NetChop 3.1, TAPreg)"; it now states they are mock, not reproducible, and
+    circular as evidence for proteasomal cleavage preference. `load_antigen_processing_cache`'s
+    docstring carries the same warning.
+  - `src/train_classifier.py`: **the `--feature-mode` `--help` text no longer reads
+    "33 (31+NetChop+TAPreg)"** - the string a user sees now names the scores as MOCK and cites D18.
+    The `--antigen-processing-cache` help, the printed `mode_label`, and `prepare_features_33`'s
+    docstring were given the same disclosure.
+  - **The "deterministic" mischaracterization is corrected** at all four
+    `scripts/precompute_antigen_processing.py` sites and in `docs/limitations_statement_v1.md`.
+    The mocks are stable *within* one process but differ *between* processes, because the
+    generators use `hash()`, which CPython salts per process; re-running the script therefore does
+    not reproduce the shipped `data/antigen_processing_cache.csv`. Empirically confirmed: three
+    processes scoring `SIINFEKL` gave netchop means 0.43625 / 0.42000 / 0.42750. Those specific
+    figures are single draws and will not themselves reproduce; the disagreement, not the values,
+    is the evidence. The reproducible statement is analytic, not sampled: for `SIINFEKL` the
+    generator's netchop mean has exact support `[0.36875, 0.45875]` on a `0.00125` lattice, and
+    every value quoted in D18 lies inside it.
+  - **Deliberately NOT changed:** `src/features.py`'s ESM-2 fallback also says "deterministic mock
+    vector", and that claim is accurate - it seeds `numpy.random.default_rng` from a
+    `hashlib.sha256` digest, which is stable across processes. Different generator, different
+    guarantee; the correction is scoped to the antigen-processing mock only.
+  - **Two further surfaces found by the adversarial pass on this very diff, in the retraction
+    ledger itself** (`docs/claims_register.md` Section 3, Biological Accuracy Claims - both dated
+    `2026-06-18`, both still listed as *approved corrective language*, neither carrying a mock
+    note). Both are now amended in place under disclosure rather than silently edited:
+    - The MHCflurry row asserted "NetChop 3.1 and TAPreg features provide **orthogonal**,
+      tool-independent processing signals" - verbatim the clause D18 retracts, and verbatim the
+      word this same commit removed from `src/features.py`. Retracted; first sentence retained.
+    - The Rock & Goldberg 1999 row asserted "**Predicted via NetChop 3.1** (Nielsen et al. 2005)".
+      The pipeline does not predict via NetChop 3.1. Retracted and replaced with language that
+      also names the circularity.
+    - Both rows' `Location` pointers (`docs/paper.md` Section 2.2; `docs/feature_glossary.md`) were
+      already orphaned - neither file still contains the clause - and are now marked historical.
+  - `docs/model_cards/rf_33feature_integrated.md`'s cache note called the values "high-fidelity
+    mock scores calibrated to literature ranges"; that overstates a hand-coded rule plus `hash()`
+    jitter and carried no non-reproducibility note. Corrected, and the pre-existing non-ASCII
+    `U+2248` / `U+00A7` characters on that line replaced per `.claude/rules/encoding.md`.
+  - `docs/proposals/2026_feature_upgrade_roadmap.md`'s D18 note still read "Code surfaces still
+    present the features as real" in the present tense - the doc D18 names as its own remedy
+    tracker. Updated, while keeping the distinction that **disclosure is not repair**: the mock
+    still feeds `data/antigen_processing_cache.csv` and the actual fix remains Phase 1 step 8.
+  - `scripts/batch_experiment_runner.py`'s mode-33 comment given the same note.
+  - **A citation this commit invalidated itself:** D18 cited
+    `scripts/precompute_antigen_processing.py:139,148` for the `mock_fallback=True` call sites, but
+    this commit's own edits shifted them to 144/153. Re-anchored by symbol as well as line.
+  - **KNOWN, PRE-EXISTING, NOT FIXED HERE - two `file.py:NNN` citations into
+    `src/train_classifier.py` were already wrong before this commit** and are shifted further by
+    it. Recorded rather than silently carried: (a) `docs/holdout_and_qc_policy.md:20` cites `:555`
+    for the `GOLD_STANDARD_EPITOPES` exclusion; the real site is the `gs_mask = ...isin(...)` line
+    (671 before this commit, 675 after). (b) `docs/claims_register.md` D15,
+    `docs/proposals/2026_feature_upgrade_roadmap.md:227`, `scripts/audit_cv_leakage.py:307`, and an
+    earlier `CHANGELOG.md` entry all cite `:781-786` for where `rf_oof_predictions*.csv` is
+    written; the real writes are at 934/939 before this commit, 941/946 after. **(b) is
+    load-bearing** - it is the code-traced provenance chain D15 uses to establish the Tier A
+    leakage exposure, so a reader following it lands on unrelated code. Left for a dedicated pass
+    rather than widened into this one. **This is the third instance of the same failure mode**
+    (line-number citations rotting as files change), so the fix worth making is systemic: anchor
+    by symbol, and add a CI check that resolves `file.py:NNN` citations in tracked docs the way
+    `scripts/check_doc_commit_refs.py` already resolves commit SHAs.
+  - Item (3) of D18 remains open, and is **understated in the original row**: `docs/paper.md`
+    carries **three** mode-33 surfaces with no mock note (ablation prose, the Table 1 row, and the
+    imputation-coverage sentence), not one. Note that exposure is a *missing disclosure, not a
+    false attribution* - `docs/paper.md` never names NetChop or TAPreg. Deferred to the manuscript
+    submission pass. No model, feature value, metric, or test-assertion changes anywhere in this
+    entry; verified by an AST comparison showing all **four** touched `.py` files
+    (`src/features.py`, `src/train_classifier.py`, `scripts/precompute_antigen_processing.py`,
+    `scripts/batch_experiment_runner.py`) differ from their prior state only in
+    comment/docstring/string-literal text.
 - **RETRACTED: the H2 Tier A primary-hypothesis result R10 = 0.9494 is VOID** (`docs/claims_register.md`
   **D17**). The binding-only arm of that comparison was computed against an **all-zeros binding
   matrix**, so the denominator was a constant, not a baseline.
