@@ -24,8 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **Corrected by controlled re-run** (identical script, data, model and seed; only the matrix
     differs): binding-only AUC-ROC **0.6636** / ISSR@10 **0.8947**; integrated AUC-ROC **0.7563** /
     ISSR@10 **0.9474**; **R10 = 1.0588** (95% CI [0.9778, 1.1220], sign-flip p = 0.1875);
-    **R25 = 1.0331**. Verification control: re-running against the `f360b90` matrix reproduces
-    `results/h2_tier_a_summary.csv` **byte-for-byte**, establishing the matrix as the sole cause.
+    **R25 = 1.0331**. Verification control: re-running against the `f360b90` matrix reproduces the
+    pre-regeneration `results/h2_tier_a_summary.csv` **byte-for-byte**, establishing the matrix as
+    the sole cause.
   - **The H2 decision is UNCHANGED: NOT SUPPORTED.** Note the correction moves R10 *upward* past
     1.0 - the void artifact reported a lower ratio than a valid measurement does.
   - **Not a D15 leakage defect.** The v3 corpus is 1,004 rows / 1,004 unique peptides, so
@@ -36,8 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     that protocol's Primary criterion, which pre-commits **no fixed multiple** and instead requires
     R10 > 1.0 with a bootstrap CI lower bound above 1.0. The corrected figure passes the first and
     fails the second (0.9778), so the disclosed null stands - on the protocol's own terms.
-  - **`results/h2_tier_a_*` and `results/final_validation_report.md` still carry the void values**
-    and are pending regeneration; no corrected R10 is asserted as certified anywhere.
+  - **Regenerated 2026-08-10:** `results/h2_tier_a_*` and `results/final_validation_report.md` now
+    carry the corrected values, reproducing the figures above byte-for-byte. The corrected R10 is
+    bound in the local claims manifest against `results/h2_tier_a_summary.csv`.
 - **DISCLOSED: the `feature_mode=33` antigen-processing features are MOCK, not NetChop 3.1 / TAPreg
   output** (`docs/claims_register.md` **D18**). `scripts/precompute_antigen_processing.py` calls both
   predictors with `mock_fallback=True`, which short-circuits before any network call.
