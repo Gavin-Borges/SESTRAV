@@ -186,6 +186,16 @@ spanning CV folds) and refers to a "grouped-CV guard" - that guard does not exis
 no test in `tests/` asserts fold disjointness by peptide. This roadmap's Phase 0 (Section 5)
 closes that gap.
 
+> **Closed 2026-08-10 (Phase 0, `30f1b76`).** Both clauses above are now false and are retained
+> only as the historical statement of the gap. The guard exists as
+> `PeptideGroupedKFold` (`src/ml_utils.py`), and fold disjointness is asserted at two layers:
+> `tests/test_ml_utils.py::test_peptide_grouped_kfold_folds_are_peptide_disjoint` on the splitter,
+> and `tests/test_train_classifier.py` on the OOF frame that `_cross_validate` actually emits. A
+> paired negative control
+> (`tests/test_ml_utils.py::test_multi_stratified_kfold_can_leak_peptides_across_folds`) proves the
+> splitter-layer fixture would expose a regression rather than passing vacuously. That control
+> pairs with the splitter layer only; the pipeline-layer test uses its own fixture.
+
 **Vaccinia decoy bloc.** Excluding `Orthopoxvirus vaccinia` from the peptide-grouped evaluation
 moves AUC-PR from 0.6092 to 0.7693 (+0.1601) while AUC-ROC falls 0.8130 -> 0.7427. The pooled
 headline metric, as currently computed, is substantially a measure of "can the model recognise
@@ -398,6 +408,22 @@ of the additions below ship.
 
 ### Phase 0 - Repair the instrument (blocking; nothing in Phases 1-3 is measurable before this)
 
+> **EXECUTED 2026-08-10 (`30f1b76`, merged via PR #233). All six steps below have landed**, step 6
+> with one declared carve-out (Tier A, see its row), verified
+> against the tree rather than the commit message. The imperative wording is preserved as the
+> historical statement of the work; two of its factual assertions are now false (step 2's "fires on
+> every v5 split", step 3's "`tests/` has no assertion today"). How the landed form differs from
+> what was proposed:
+>
+> | Step | As landed |
+> |---|---|
+> | 1 | `PeptideGroupedKFold` (`src/ml_utils.py`), threaded through `_cross_validate`. **The `src/train_classifier.py` CLI defaults to grouped**; the *Python API* keeps `cv_group_by=None` so the four indirect callers are untouched. `sestrav validate` via `src/cli.py` therefore still yields an ungrouped number and has no knob of its own. (There is no `sestrav train` subcommand; the CLI exposes `predict`, `validate`, `benchmark`, `info`.) |
+> | 2 | Both offered remedies, in modified form: an explicit coarsening ladder that records the rung as `.stratification_components_` **and** raises rather than degrading further. Root cause was `_bin_origin` not recognising `iedb_api`. Note the second remedy was not taken literally as proposed: label-only remains a *reachable* rung, and the raise fires only when label-only is itself too sparse. What changed is that degradation is no longer silent. |
+> | 3 | Asserted at two layers (splitter and emitted OOF frame) plus a paired negative control proving the fixture would expose a regression. |
+> | 4 | First option taken: a vaccinia-excluded re-slice reported alongside the pooled metric. The decoy bloc was **not** repartitioned. The re-slice is not the corpus-refit counterpart in `results/cv_leakage_audit.csv` and must not be conflated with it. |
+> | 5 | Mechanism spans `src/features.py` (an `impute=` flag) and `src/train_classifier.py` (the in-fold median arithmetic), gated to modes 33/35. The final full-pool refit still uses whole-cache medians, correctly: the full pool is that model's own training set. |
+> | 6 | Done across `results/`, `models/v5/`, the model cards, `docs/claims_register.md` D15 and `CHANGELOG.md`. **Tier A deliberately not re-run** (only 414 of 704 peptides resolve to an active v5 row); 0.828 stands as a labeled historical figure per D16. |
+
 1. **Add a peptide-grouped splitter.** Extend `src/ml_utils.py` with a grouped mode built on
    `sklearn.model_selection.StratifiedGroupKFold`, reusing the existing
    `make_stratification_key` for the label/origin/supertype/length composite while peptide
@@ -461,9 +487,26 @@ of the additions below ship.
 - Re-run `python scripts/audit_cv_leakage.py` after Phase 0 lands and confirm the production
   training path now reports the grouped number by default.
 
+> **Phase 0 arm of this checklist is discharged (2026-08-10).** The fold-disjointness test exists
+> (named in the closure note in Section 2) and `scripts/audit_cv_leakage.py` carries a
+> `production_grouped_splitter` arm bound to `PeptideGroupedKFold`. The remaining bullets stay
+> live: they are the standing gate for the Phases 1-3 feature work, which has not started.
+
 ---
 
 ## 7. Standing decision for the repository owner
+
+> **RESOLVED AND EXECUTED 2026-08-10.** This section is retained as the analysis that framed the
+> decision; it is no longer an open question. The re-baseline was carried out (`30f1b76`) and
+> published (PR #233), so the closing sentence below - "it does not itself alter any published
+> claim ... a decision for the repository owner" - is now historically inverted and must not be
+> read as live guidance. Two further notes for accuracy: the figures projected here were
+> estimates, and the measured outcomes differ slightly (per-virus mean landed at **0.658**, not
+> 0.659; pooled honest same-pathogen at **0.6015**, not 0.599). The Tier A constraint stated in
+> the second half of this section **survives unchanged** and remains the live reason 0.828 was not
+> re-run: the v5 mode-31 model has never been evaluated on the full 704-peptide field and cannot
+> be. What remains genuinely open is not the re-baseline but its downstream sequencing, which is
+> tracked in `CHANGELOG.md` `[Unreleased]` and `docs/claims_register.md` rather than here.
 
 Phase 0 step 6 restates the project's certified headline result downward by roughly 0.23 AUC-PR
 (or 0.07 if reported net of the vaccinia bloc instead), and also restates the two figures this

@@ -31,10 +31,32 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
   land on opposite sides of the boundary - measured at 71.0% of held-out rows. Because every
   `feature_mode=31` feature is a pure function of the peptide string, those rows are
   feature-identical and the split leaks. **New certified runs must group by peptide** (see Phase 0
-  of `docs/proposals/2026_feature_upgrade_roadmap.md`). Until a grouped splitter is the production
-  default, any metric produced by this path must be reported with an explicit splitter disclosure
-  per `docs/claims_register.md` D15. This clause previously mandated the ungrouped splitter and
-  therefore mandated the defect; that is corrected here.
+  of `docs/proposals/2026_feature_upgrade_roadmap.md`). This clause previously mandated the
+  ungrouped splitter and therefore mandated the defect; that is corrected here.
+  **PARTIALLY SATISFIED 2026-08-10 (Phase 0, `30f1b76`, merged as PR #233):** a grouped splitter
+  (`PeptideGroupedKFold`) is now the default on the `src/train_classifier.py` CLI
+  (`--cv-group-by peptide`), which is the path that produces the certified v5 CV artifacts. The interim
+  condition that previously stood here - "until a grouped splitter is the production default,
+  disclose the splitter" - is therefore met **for that path only.**
+  **The disclosure requirement does not lapse and does not narrow.** D15's rule
+  (`docs/claims_register.md`) is unconditional and stands in full: **state the splitter explicitly
+  whenever any v5 CV figure is quoted**, grouped or not. Figures from a path that does *not* group
+  by peptide carry the ADDITIONAL burden of being flagged as ungrouped and therefore
+  leakage-affected.
+  **Ungrouped paths still in the tree (non-exhaustive - verify before quoting any figure):** the
+  `train_models` Python API keeps `cv_group_by=None` for backward compatibility, and its four
+  indirect callers inherit that (`src/cli.py` via the `sestrav validate` subcommand,
+  `src/bias_skew_finalization.py`, `scripts/regenerate_shareout_pngs.py`, and the Colab notebook);
+  none exposes a `--cv-group-by` knob. `scripts/diagnose_vaccinia_contamination.py` calls
+  `_cross_validate` directly, bypassing `train_models` entirely. Separately, the whole
+  non-`train_classifier` CV family still uses label-only `StratifiedKFold`: `src/train_ann.py`,
+  `src/train_gnn.py`, `src/gnn_benchmark.py`, `src/model.py`,
+  `src/external_validation_cross_virus.py`, `src/virus_specific_ablation.py`,
+  `src/training_plots.py`, `scripts/verify_tier_a_provenance.py`, and - note, because this one
+  produces a certified ledger number - `src/h2_tier_a_evaluation.py`, the source of R10 = 0.9494 in
+  `results/h2_tier_a_summary.md`. **This qualifies the "without exception" wording in the
+  ANN/GNN bullet below**, which those tracks do not currently meet on the splitter dimension:
+  both `src/train_ann.py` and `src/train_gnn.py` are themselves ungrouped.
 - **Cross-Virus Isolation:** When running cross-virus transfer experiments (e.g., EBV $\rightarrow$ HPV), the target virus must not exist in the training manifold in any capacity.
 - **Optional Experiments (ANN/GNN):** All experimental runs in these tracks must explicitly report sample counts and dataset versioning, enforcing the exact same holdout rules as the canonical track without exception.
 
