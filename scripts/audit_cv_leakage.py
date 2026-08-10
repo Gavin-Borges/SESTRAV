@@ -304,7 +304,7 @@ def _tier_a_ab(active: pd.DataFrame) -> list[dict]:
 
     Why this exists: the SESTRAV arm of Tier A is the `rf_oof_score` column, which
     traces to the same ungrouped `MultiStratifiedKFold` OOF output as everything else
-    audited here (`src/train_classifier.py:781-786` writes both
+    audited here (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`, lines 941/946) writes both
     `models/rf_oof_predictions.csv` and `models/rf_oof_predictions_mode31.csv` from one
     `_cross_validate` call; `src/prepare_external_validation_inputs.py:100` reads the
     former; `scripts/run_tier_a_benchmarks.py:269` scores it). Tier A is therefore not an

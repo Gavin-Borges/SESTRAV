@@ -17,7 +17,7 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
 ## 3. Holdout Separation Rules
 - **Gold-standard epitope quarantine (SCOPE CORRECTED 2026-08-08):** the 16 named canonical
   epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the
-  training pool, enforced at `src/train_classifier.py:555`. **This is a 16-peptide exclusion, not
+  training pool, enforced at `src/train_classifier.py` (the `gs_mask` gold-standard exclusion in `train_models`, line 675). **This is a 16-peptide exclusion, not
   a quarantine of the Tier A / Tier B external benchmark sets.** The prior wording ("the
   gold-standard test set (Tier A / Tier B external peptides) is permanently quarantined")
   overstated a 16-peptide list as a 704-peptide (Tier A) and ~4,000-peptide (Tier B) quarantine.

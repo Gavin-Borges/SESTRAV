@@ -224,7 +224,7 @@ peptides from training.
 
 **The Tier A external benchmark is exposed by the same chain, but the leakage effect there is
 small.** The SESTRAV arm of Tier A is the `rf_oof_score` column, which traces to the same ungrouped
-OOF output (`src/train_classifier.py:781-786` -> `src/prepare_external_validation_inputs.py:100` ->
+OOF output (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`, lines 941/946) -> `src/prepare_external_validation_inputs.py:100` ->
 `scripts/run_tier_a_benchmarks.py:269`), so Tier A is not an independent held-out field. Measured on
 the 414 field peptides resolvable to an active (non-quarantined) v5 row, changing only the
 splitter:

@@ -391,6 +391,12 @@ def run_h2_tier_a(
 - Integrated model template: `{model_path}`
 - Binding matrix: `{binding_matrix_path}`
 - CV: StratifiedKFold(n_splits={n_splits}, shuffle=True, random_state={random_state})
+- Splitter note: this is a label-only (ungrouped) splitter, but it is **peptide-disjoint
+  on this corpus by construction** - the v3 dataset is 1,004 rows over 1,004 unique
+  peptides, so no peptide can straddle a fold boundary and a peptide-grouped re-run
+  would be a no-op. This figure is therefore NOT exposed to the D15 leakage defect
+  (`docs/claims_register.md` D15, D17); the disclosure is stated here rather than left
+  for a reader to infer from the splitter name.
 - Gold-standard peptides held out before CV: `{int(gs_mask.sum())}`
 
 ## Fold-aggregated metrics (mean +/- std)

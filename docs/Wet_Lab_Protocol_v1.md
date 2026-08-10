@@ -53,7 +53,10 @@
 > **ADDENDUM (2026-08-09), flagged not fixed - a substrate mismatch in that same prior.** The
 > R10=0.9494 computational prior binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
 > `issr_10_ratio_integrated_over_binding` = 0.9493670886075949) and its rendered companion
-> `results/h2_tier_a_summary.md:17`; it is also restated in `results/final_validation_report.md:10`.
+> `results/h2_tier_a_summary.md` (the `R10 = ISSR@10(integrated) / ISSR@10(binding-only)` line under
+> "Enrichment ratios"); it is also restated in `results/final_validation_report.md` under
+> "H2 Tier A Headline". Both are cited by anchor rather than line number: these files are generated,
+> so line numbers in them shift whenever the generator's template changes.
 > It does **not** appear in `results/table3_tier_a_metrics.csv`, whose ISSR@10 ratio is
 > 0.8429/0.8611 = 0.9788 - an earlier draft of this addendum co-cited that file, and a first
 > correction then over-narrowed the citation to the `.md` alone; both are fixed here (2026-08-09).

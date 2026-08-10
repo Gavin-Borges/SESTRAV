@@ -1,8 +1,8 @@
 ---
 title: "SESTRAV: A Leave-One-Virus-Out Immunogenicity Benchmark Reveals Systematic Test Partition Contamination in Cross-Pathogen MHC Class I Prediction"
 target_journal: Bioinformatics (Oxford Academic)
-last_updated: 2026-07-28
-status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation; all reported numbers are current and claims-audited
+last_updated: 2026-08-10
+status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts - with a known exception: the calibration ECE pair in Section 3.2 cites _local/staging/calibration_assessment.csv, which is gitignored and does not ship, so those two figures are not reader-reproducible and are pending promotion to a tracked results/ artifact. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) was deliberately not re-measured under the grouped splitter and remains an ungrouped 2026-05 30-feature figure (D15/D16, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). See docs/claims_register.md for the full register
 ---
 
 ## Abstract
@@ -444,9 +444,12 @@ van der Waals volume, and formal charge at pH 7 - each computed at five TCR cont
 positions p4-p8 in the peptide-MHC complex), 10 per-allele MHCflurry presentation
 scores for the panel alleles (HLA-A*01:01, A*02:01, A*03:01, A*11:01, A*24:02,
 B*07:02, B*08:01, B*27:05, B*35:01, B*44:02), and peptide length as an integer
-feature. Mode-31 was selected over extended feature modes (33, 35) to ensure that
-LOO evaluation is reproducible without dependence on antigen-processing prediction
-caches that may not be available for novel pathogens. Hyperparameters were held
+feature. Mode-31 was selected over extended feature modes (33, 35) so that LOO evaluation
+would not depend on antigen-processing caches that may not be available for novel
+pathogens. That choice is now additionally supported by a fact established after it was
+made: the antigen-processing values in the shipped cache are mock, not real NetChop 3.1 /
+TAPreg output (`docs/claims_register.md` D18; see the caveat following Table 1). Mode-31
+is retained on both grounds. Hyperparameters were held
 constant across all nine folds and matched those used for within-virus stratified
 cross-validation: 200 trees, balanced class weighting (class_weight = "balanced"),
 and a fixed random seed of 42. No fold-specific hyperparameter tuning was performed.
@@ -485,10 +488,20 @@ and peptide length) was trained on all 35,597 active v5 rows under peptide-group
 cross-validation (`src.ml_utils.PeptideGroupedKFold`, re-baselined 2026-08-10, closing
 `docs/claims_register.md` D15 - see below). The pooled mixed-background out-of-fold
 performance was AUC-ROC 0.814 and AUC-PR 0.606 (models/v5/training_results_mode31.csv),
-reflecting discrimination between immunogenic viral peptides and the mixed background of
-confirmed non-immunogenic viral peptides and self-proteome hard decoys when all nine
-viruses contribute jointly to training. Because this pooled figure is computed against a
-background that includes self-proteome hard decoys, it is not directly comparable to the
+reflecting discrimination between immunogenic viral peptides and a mixed negative
+background when all nine viruses contribute jointly to training. **That background is
+dominated by out-of-panel negatives, and contains no self-proteome decoys.** Of its
+27,534 scored negatives (`models/v5/rf_oof_predictions_mode31.csv`), 21,432 (77.8%) are
+*Orthopoxvirus vaccinia* rows - a pathogen outside the nine-virus target panel, though
+these are genuine IEDB assay-confirmed negatives (`negative_origin = tested_negative`),
+not synthetic decoys - and a further 3,112 (11.3%) are allelotype-matched non-binding
+viral-proteome decoys (`negative_origin = allele_matched_nonbinder`). Only 1,851 are
+same-pathogen IEDB REST-API negatives; across the nine target viruses the real-negative
+pool contributing here is 2,201 rows. The 5,000 human self-proteome decoys in the v5
+corpus carry `is_quarantined = True` and are removed by `_filter_quarantined`
+(`src/train_classifier.py`) before training and scoring, so none of them reaches this
+figure. Because this pooled figure is computed against a background three-quarters
+composed of a single out-of-panel pathogen, it is not directly comparable to the
 per-virus within-CV or real-neg-only discrimination values reported below, and it is
 referred to throughout as the pooled mixed-background AUC-ROC to keep the two quantities
 distinct. A feature ablation within the same Random Forest family (Table 1) shows that
@@ -521,7 +534,7 @@ single Random Forest model family; models/v5/training_results_ablation.csv, re-b
 |--------------|---------------------------------------------------|---------|--------|
 | 21           | physicochemical + length (binding-free floor)     | 0.712   | 0.505  |
 | 31           | + 10 allele binding scores (production)           | 0.814   | 0.606  |
-| 33           | + antigen processing                              | 0.817   | 0.609  |
+| 33           | + antigen processing (MOCK features - see below)  | 0.817   | 0.609  |
 | 35           | + self-similarity                                 | 0.814   | 0.607  |
 
 On the v5 build, approximately 11% of antigen-processing and self-similarity cache
@@ -530,15 +543,47 @@ on training rows only (`--no-fold-impute` reproduces the whole-cache-median pre-
 behavior). The near-zero contribution of modes 33 and 35 over mode-31 should be read with
 this caveat in mind.
 
+**The mode-33 antigen-processing features are mock, not real tool output, and the mode-33
+row of Table 1 must be read accordingly.** The `netchop_score` and `tap_score` values in
+`data/antigen_processing_cache.csv` are generated locally by
+`src/external_predictors.py` - the DTU NetChop 3.1 web interface changed its response
+format and the TAPreg endpoint requires institutional VPN access, so
+`scripts/precompute_antigen_processing.py` calls both predictors with `mock_fallback=True`,
+which short-circuits before any network call. **They are also not reproducible**: the
+generators key on Python's built-in `hash()`, which CPython salts per process, and the
+seed behind the shipped cache was never recorded. They are not pure noise either - a
+hand-coded rule supplies the dominant term (increments for hydrophobic and basic residues,
+a proline penalty) with a small hash-derived jitter - which is precisely why no
+biological inference may be drawn from their feature importance: the generator *assumes*
+the hydrophobic and basic C-terminal cleavage preference that such an inference would be
+claiming to discover. Mode 33 is therefore reported here as a structural ablation only,
+not as validated antigen-processing prediction, and `mode_31` remains the production
+configuration. This is documented in full as `docs/claims_register.md` **D18**; the
+remedy - replacing the mock cache rather than repairing it - is tracked as Phase 1 step 8
+of `docs/proposals/2026_feature_upgrade_roadmap.md` and has not been carried out.
+
 Per-virus within-CV AUC-ROC values, computed by training and evaluating exclusively on
 each individual virus under peptide-grouped 5-fold cross-validation, are more variable,
 ranging from 0.482 (HPV) to 0.805 (DENV) (Table 2; results/per_virus_eval_v5_mode31.csv).
 This spread reflects differences in cohort size, negative-class composition,
 and the inherent difficulty of within-virus immunogenicity discrimination for each
 pathogen. The pooled mixed-background model (AUC-ROC 0.814) exceeds most per-virus
-within-CV values; this pooled comparison is inflated by the self-proteome hard
-decoys in the pooled background and should be read alongside the decoy-free
-real-neg-only values in Table 2b. **We retract the inference, made in an earlier
+within-CV values; this pooled comparison is inflated by the out-of-panel *vaccinia*
+bloc that makes up 77.8% of its negative background - **not**, as an earlier version of
+this section stated, by self-proteome decoys, which are quarantined out of training and
+scoring entirely (`docs/claims_register.md` D19). Note the allelotype-matched non-binders
+do **not** explain this gap in either direction: they are present on both sides of the
+comparison and constitute a far larger share of most per-virus negative sets (Table 3b:
+0.988 for DENV, 0.920 for HIV-1) than of the pooled background (0.113), so if anything
+they inflate the per-virus side more. No re-slice isolating them is reported here. The magnitude is measured in the same file the pooled
+figure is drawn from: re-slicing the identical out-of-fold predictions with the vaccinia
+rows removed moves AUC-ROC from 0.814 to 0.670 (`rf_cv_mean_no_vaccinia`,
+models/v5/training_results_mode31.csv). On that same re-slice AUC-PR moves in the
+opposite direction, 0.606 to 0.733, because removing 78% of the negatives raises the
+positive base rate; that is a prevalence effect and must not be read as better
+discrimination. The re-slice re-partitions the same predictions rather than refitting the
+model, and is not the corpus-refit counterpart reported in results/cv_leakage_audit.csv.
+These figures should be read alongside the decoy-free real-neg-only values in Table 2b. **We retract the inference, made in an earlier
 version of this section, that the (larger, pre-remediation) gap between the pooled and
 per-virus figures indicated cross-viral training provides complementary discriminatory
 signal.** Both the pooled figure and the per-virus within-CV mean were, prior to
@@ -723,9 +768,14 @@ are immunogenicity-positive, which is the biologically relevant discrimination p
 for cross-virus generalization. The pooled mixed-background performance of RF mode-31 is
 high relative to the per-virus real-negative-only figures (pooled mixed-background
 AUC-ROC 0.81; Section 3.2) because these pooled test sets
-include both IEDB-tested positives and a mixed background of IEDB-tested or allele_nb
-negatives and self-proteome hard decoys drawn from similar HLA and peptide distributions
-as the training data. Cross-virus test sets expose the model to
+include both IEDB-tested positives and a mixed background of IEDB-tested and
+allelotype-matched non-binding negatives - dominated by the out-of-panel *vaccinia*
+tested-negative bloc - drawn from similar HLA and peptide distributions as the training
+data.
+(Self-proteome decoys do **not** enter this pooled background: they are quarantined out
+of `train_classifier.py`'s pipeline entirely, per `docs/claims_register.md` D19. They are
+included in LOO *training* only, as described in Section 2.5, which is a different
+protocol from the pooled evaluation referenced here.) Cross-virus test sets expose the model to
 pathogen-specific immunogenicity patterns for which the binding prior provides misleading
 signal, as demonstrated most acutely by HIV-1.
 

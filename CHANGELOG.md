@@ -8,7 +8,131 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+- **`results/h2_tier_a_summary.md` now states WHY its ungrouped splitter is harmless**, closing the
+  item the prior session plan called "the largest remaining honesty gap". That framing turned out to
+  overstate it: `src/h2_tier_a_evaluation.py` already emitted the splitter name into the artifact, so
+  D15's disclosure duty was met. What was missing was the justification - a reader could not tell a
+  benign ungrouped splitter from a D15-class defect. The generator now emits, alongside the splitter
+  line, that the v3 corpus is **1,004 rows over 1,004 unique peptides** (verified directly, not
+  carried over from D17), so no peptide can straddle a fold boundary and a grouped re-run is a no-op.
+  Written at the generator rather than into the artifact so the two cannot drift apart.
+  **Regenerating produced a 6-line diff and zero numeric change** - both H2 CSVs are bit-identical,
+  which independently re-confirms the D17 corrected values reproduce.
+  - **That 6-line insertion immediately broke a live citation, and the incident is worth recording:**
+    it shifted the R10 row in the generated summary from line 17 to line 23, and
+    `docs/Wet_Lab_Protocol_v1.md` cited `results/h2_tier_a_summary.md:17` for its powering prior -
+    so a reader following it landed on the integrated-arm ISSR@10 instead of the ratio, **in a
+    pre-registration document**. Caught before commit and fixed by de-line-numbering the citation
+    (it now names the "Enrichment ratios" anchor, with a note that generated files shift whenever
+    the template changes). This is the **tenth** instance of line-citation rot handled here, and it
+    was created by the same commit that fixes the other nine - which is the strongest available
+    argument that prose discipline is not sufficient and a mechanical, symbol-anchored gate is
+    needed. Generated artifacts are the sharpest case: their line numbers move whenever a generator
+    template changes, so they should never be cited by line at all.
+- **Two rotten `src/train_classifier.py` line citations re-anchored by symbol, across nine sites in
+  seven tracked files.** Both were correct when written and drifted silently as the file grew; this
+  is the failure mode recorded in the prior entry as having recurred three times.
+  - `:781-786` (cited for the `rf_oof_predictions*.csv` writes) - the real writes are at **941/946**.
+    This one is **load-bearing**: it is the code-traced provenance chain D15 uses to establish the
+    Tier A leakage exposure, so a reader following it landed on unrelated sample-weight code. Five
+    citing sites, not the two previously recorded: `docs/claims_register.md` (D15 **and** the
+    Section 2 Tier A row), `docs/proposals/2026_feature_upgrade_roadmap.md`,
+    `scripts/audit_cv_leakage.py`, and `CHANGELOG.md`.
+  - `:555` (cited for the `GOLD_STANDARD_EPITOPES` exclusion) - the real `gs_mask` line is **675**.
+    Four citing sites: `docs/holdout_and_qc_policy.md`, both RF model cards, and `CHANGELOG.md`.
+  - Each now names the **symbol** as well as the line, so the next drift is detectable by reading
+    rather than silent. A mechanical gate for this class is still worth building: note that a naive
+    exists-plus-EOF checker finds **none** of these, because every rotten citation still points at a
+    real file and a line that exists - the rot is semantic, so the check must be symbol-anchored.
+- **`config.yaml`'s `thresholds_path` was dead config - nothing read it.** The key was declared on
+  `SestravConfig` (`src/core/config.py`) and set in `config.yaml`, and `SestravConfig.load()`
+  populated it correctly, but no consumer ever asked for it:
+  `functions/stage4_immunogenicity_scoring.py` located `optimal_thresholds.json` purely by
+  convention from the model's directory. **Repointing `thresholds_path` was therefore a silent
+  no-op, while repointing `model_path` silently moved the operating point with it** - the opposite
+  of what the two keys look like they do.
+  - Added `_resolve_thresholds_path(model_dir, thresholds_path=None)`, mirroring the preference
+    order the adjacent `_resolve_calibrator_path` has always used: an explicit config path when it
+    exists, else the model-directory copy. Threaded through `score_immunogenicity` and passed from
+    `pipeline.py` exactly as `calibration_path` already was. `src/cli.py` passes neither and so
+    keeps the model-dir fallback unchanged.
+  - **No behavior change, asserted rather than assumed:** under the live config both the old
+    convention and the new resolver return `models/optimal_thresholds.json`, so no score, threshold,
+    or shortlist moves. Four unit tests pin the resolver, including that a configured-but-missing
+    path does not mask the model-dir copy, and that an explicit path actually drives the cut.
+  - **Deliberately NOT changed** (each a separate, owner-visible decision): `_apply_thresholds`
+    still silently no-ops when no thresholds file is found, including under `freeze_mode`; and the
+    shipped root file still carries the leakage-era `overall_f1: 0.7316` alongside
+    `min_subgroup_f1: 0.0`, despite "maximize minimum subgroup F1" being its stated primary
+    objective. Regenerating the root operating point remains out of scope here.
+
 ### Changed
+- **CORRECTED: `docs/paper.md` attributed the pooled figure's inflation to self-proteome hard
+  decoys; the pooled background contains none** (`docs/claims_register.md` **D19**). No reported
+  number changes - only the stated explanation for one.
+  - **Verified false.** All 5,000 `self_proteome_decoy` rows in `data/immunogenicity_dataset_v5.csv`
+    carry `is_quarantined = True` (crosstab, zero exceptions). `_filter_quarantined`
+    (`src/train_classifier.py`) drops them right after the corpus read in `train_models`, and no
+    unfiltered re-read occurs before the `training_results_mode{N}.csv` write - so both the OOF
+    frame and the cited results file are computed on the filtered pool.
+    `models/v5/rf_oof_predictions_mode31.csv` contains **zero** such rows.
+  - **What actually dominates the pooled negative background:** of 27,534 negatives, **21,432
+    (77.8%) are *Orthopoxvirus vaccinia*** - outside the nine-virus target panel, carried under
+    `negative_origin = tested_negative` - and **3,112 (11.3%) are `allele_matched_nonbinder`**.
+    Only **1,851** are same-pathogen `iedb_api` negatives (the 1,956 `iedb_api` rows include 105
+    RSV); across the nine target viruses the real-negative pool is **2,201**.
+  - **The vaccinia rows are NOT decoys, and an intermediate draft of this entry wrongly called
+    them one.** They are genuine IEDB tier-1 assay records (21,432/21,432 `database_source = IEDB`;
+    21,425 ELISPOT + 7 multimer), and `results/per_virus_eval_v5_mode31.csv` reports them as
+    `n_neg_real = 21432, n_neg_decoy = 0`. They are *out-of-panel*, not synthetic - which is a
+    different and weaker claim than the one being retracted, and the honest one. The error was
+    inherited from `scripts/compute_pooled_honest_metric.py`'s docstring and
+    `src/train_classifier.py`'s comments, both of which call this a "hard-decoy panel"; correcting
+    those generators is left as a separate, tracked follow-up rather than folded in here.
+  - **The allele-matched non-binders do not explain the pooled-vs-per-virus gap** and the
+    manuscript no longer claims they do. They sit on both sides of the comparison and are a far
+    larger share of most per-virus negative sets (Table 3b: 0.988 DENV, 0.920 HIV-1) than of the
+    pooled background (0.113), so if anything they inflate the per-virus side more. Only the
+    vaccinia term is both unique to the pooled side and measured.
+  - **The inflation was already measured, in the very file the paper cites.** Re-slicing the same
+    out-of-fold predictions without vaccinia gives AUC-ROC **0.670** (`rf_cv_mean_no_vaccinia`)
+    against 0.814 pooled. The manuscript now quotes that instead of asserting inflation
+    unquantified. AUC-PR moves the *other* way on the re-slice (0.606 -> 0.733) purely because
+    dropping 78% of the negatives raises the base rate - a prevalence effect, flagged in the text
+    so it is not misread as better discrimination.
+  - **Two carry-caveats preserved:** the re-slice re-partitions existing predictions rather than
+    refitting, so it is **not** the corpus-refit counterpart in `results/cv_leakage_audit.csv`
+    (0.7693 / 0.7427); and the paper's own Methods already stated the correct composition
+    elsewhere, so the document previously contradicted itself.
+  - This is a D12-class error inverted - attributing decoy inflation to an absent decoy category
+    while the categories actually present went unnamed, despite
+    `scripts/compute_pooled_honest_metric.py`'s docstring already naming them.
+  - **Three sites corrected, and five deliberately left alone.** A sweep found the same wording in
+    a Discussion paragraph that also cites the pooled 0.81 figure, so three sites were corrected,
+    not two. The manuscript's other self-proteome statements (LOO training set, corpus
+    construction, dedup priority) are **correct**: `scripts/run_loo_cross_virus_v5.py` separates
+    `source_type == "Self"` rows *before* the quarantine filter and applies that filter to viral
+    rows only - "Self-proteome decoys are quarantined by design ... but are always included in
+    training regardless of quarantine status". LOO training genuinely includes all 5,000. Only the
+    `train_classifier.py` pooled path drops them, so the defect is scoped to the pooled figure.
+- **`docs/paper.md` now carries the D18 mock-antigen-processing disclosure, closing D18 item (3)**
+  - the last surface where mode-33 numbers were presented with no mock qualifier. It was scheduled
+  for the manuscript submission pass; it is closed here instead because D19 required editing the
+  same Results section, and leaving a known disclosure gap in a paragraph being touched anyway
+  would have been indefensible. The D18 register row has been updated to say CLOSED rather than
+  STILL OPEN, so the register and this changelog agree.
+  The manuscript contained zero occurrences of "mock", "NetChop", or "TAPreg" before this change.
+  Added: a bold-lead caveat after Table 1 in the paper's established house style (matching the D15
+  precedents in the same section), a `MOCK features - see below` marker on Table 1's mode-33 row,
+  and an amended Methods 2.5, which had justified excluding mode-33 from LOO on cache-*availability*
+  grounds. That rationale is retained as the original reason - the mock status was established later
+  and is now stated as an additional, after-the-fact ground, not retrofitted as the decisive one.
+  The YAML front matter's blanket "all reported numbers are current and claims-audited" was
+  reconciled: it now names **three** qualifications (Tier A, D18, D19) as an explicitly open list
+  ("at least these three"), scopes the currency claim to the v5 cross-validation figures, and
+  discloses that the Section 3.2 calibration ECE pair binds to a gitignored path and is therefore
+  not reader-reproducible pending promotion to a tracked artifact.
 - **The `feature_mode=33` code surfaces now disclose that the antigen-processing features are MOCK**
   (`docs/claims_register.md` **D18**, items (1) and (2), previously recorded there as open).
   - `src/features.py`: the `FEATURE_COLUMNS_33` comment no longer describes the features as
@@ -276,7 +400,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   v5-coverage figures below were also mispaired and are corrected in the second note. Original
   text retained for the record:]
   The SESTRAV arm of the Tier A external benchmark is the `rf_oof_score` column, which traces
-  to the same ungrouped OOF output as everything else (`src/train_classifier.py:781-786` ->
+  to the same ungrouped OOF output as everything else (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`, lines 941/946) ->
   `src/prepare_external_validation_inputs.py:100` -> `scripts/run_tier_a_benchmarks.py:269`),
   so Tier A was never an independent held-out field. Measured on the 414 field peptides
   resolvable to an active (non-quarantined) v5 row, changing only the splitter moves AUC-PR
@@ -344,7 +468,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   lines above it. Replaced with the true v5 posture and the D15 splitter disclosure.
 - **16-peptide holdout scope corrected, not "Tier A/B quarantine."** `GOLD_STANDARD_EPITOPES`
   (`src/iedb_data_loader.py:24`) excludes exactly 16 peptides from training
-  (`src/train_classifier.py:555`); `docs/holdout_and_qc_policy.md`, both RF model cards, and
+  (`src/train_classifier.py` (the `gs_mask` gold-standard exclusion in `train_models`, line 675)); `docs/holdout_and_qc_policy.md`, both RF model cards, and
   `docs/paper.md` all overstated this as "Tier A and Tier B Gold Standard validation peptides
   ... strictly excluded" / "permanently quarantined." 414 of the 704 Tier A peptides are
   present in the v5 training corpus (D16). This is the root cause of D16's "the SESTRAV Tier A
