@@ -40,7 +40,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa: E402
 from src.evaluate_metrics import evaluate  # noqa: E402
-from src.ml_utils import MultiStratifiedKFold  # noqa: E402
+from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold  # noqa: E402
 from src.train_classifier import (  # noqa: E402
     prepare_features_31,
     prepare_features_35,
@@ -163,6 +163,54 @@ def _cv_auc(X: pd.DataFrame, y: np.ndarray, groups: np.ndarray | None) -> tuple[
     return float(np.mean(aps)), float(np.std(aps)), float(np.mean(rocs)), oof
 
 
+def _cv_auc_production_splitter(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    splitter_cls: type,
+    negative_origin: pd.Series | None,
+    hla_alleles: pd.Series | None,
+    peptides: pd.Series,
+) -> tuple[float, float, float, np.ndarray]:
+    """5-fold AUC-PR/AUC-ROC using an actual src.ml_utils splitter class.
+
+    Unlike _cv_auc's "production_splitter" (label-only, no origin/allele/
+    peptide passed) and "peptide_grouped_splitter" (StratifiedGroupKFold
+    stratified on y alone) - both the original D15 measurement, kept
+    unchanged in code so they keep reproducing to 4 decimal places (they are
+    NOT bit-frozen: Phase 0's _bin_origin fix shifts _fold_overlap's per-fold
+    percentages) - this constructs the splitter with
+    the full negative_origin/hla_alleles/peptides composite-key arguments
+    exactly as src/train_classifier.py's _cross_validate passes them, so it
+    reflects Phase 0's harness repair (fixed _bin_origin, coarsening ladder).
+    """
+    splitter = splitter_cls(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
+    splits = list(
+        splitter.split(
+            X,
+            pd.Series(y),
+            negative_origin=negative_origin,
+            hla_alleles=hla_alleles,
+            peptides=peptides,
+        )
+    )
+    aps: list[float] = []
+    rocs: list[float] = []
+    oof = np.full(len(y), np.nan)
+    for train_idx, test_idx in splits:
+        clf = RandomForestClassifier(
+            n_estimators=N_ESTIMATORS,
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+            class_weight="balanced",
+        )
+        clf.fit(X.iloc[train_idx], y[train_idx])
+        proba = clf.predict_proba(X.iloc[test_idx])[:, 1]
+        oof[test_idx] = proba
+        aps.append(average_precision_score(y[test_idx], proba))
+        rocs.append(roc_auc_score(y[test_idx], proba))
+    return float(np.mean(aps)), float(np.std(aps)), float(np.mean(rocs)), oof
+
+
 def _splitter_ab(active: pd.DataFrame) -> list[dict]:
     """Production (ungrouped) vs peptide-grouped AUC-PR/AUC-ROC, mode-31 features."""
     X = prepare_features_31(active, str(BINDING_MATRIX_PATH))
@@ -172,6 +220,21 @@ def _splitter_ab(active: pd.DataFrame) -> list[dict]:
     rows = []
     for config, grp in (("production_splitter", None), ("peptide_grouped_splitter", groups)):
         ap_mean, ap_std, roc_mean, _oof = _cv_auc(X, y, grp)
+        rows.append({"config": config, "metric": "mode31_auc_pr", "value": ap_mean, "std": ap_std})
+        rows.append({"config": config, "metric": "mode31_auc_roc", "value": roc_mean, "std": np.nan})
+
+    # Phase 0 repaired arms - see _cv_auc_production_splitter's docstring for
+    # why these are separate from the two D15-anchor arms above.
+    negative_origin = active.get("negative_origin")
+    hla_alleles = active.get("hla_allele")
+    peptides = active["peptide"]
+    for config, splitter_cls in (
+        ("production_splitter_repaired", MultiStratifiedKFold),
+        ("production_grouped_splitter", PeptideGroupedKFold),
+    ):
+        ap_mean, ap_std, roc_mean, _oof = _cv_auc_production_splitter(
+            X, y, splitter_cls, negative_origin, hla_alleles, peptides
+        )
         rows.append({"config": config, "metric": "mode31_auc_pr", "value": ap_mean, "std": ap_std})
         rows.append({"config": config, "metric": "mode31_auc_roc", "value": roc_mean, "std": np.nan})
     return rows

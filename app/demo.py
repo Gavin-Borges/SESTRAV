@@ -417,20 +417,23 @@ def main() -> None:
     with st.expander("ℹ️ Contamination disclosure & caveats"):
         st.markdown(
             """
-            **Cross-validation folds are not grouped by peptide**
+            **Training-set scope, and a corrected cross-validation baseline**
 
             SARS-CoV-2 and Influenza A are among the nine viruses this model is **trained**
             on - they are not a held-out cohort. Only 16 named gold-standard epitopes are
             excluded from the training manifold.
 
-            Cross-validation folds are stratified but **not grouped by peptide**, so a
-            peptide appearing under more than one HLA allele can land on both sides of the
-            train/test boundary: 71.0% of held-out rows share their exact peptide with the
-            training fold. Reported cross-validation metrics are therefore inflated relative
-            to a peptide-grouped estimate (pooled AUC-PR 0.8347 ungrouped vs 0.6092 grouped).
+            Cross-validation folds **are peptide-grouped** as of 2026-08-10, so no peptide
+            appears on both sides of the train/test boundary. Certified figures: pooled
+            AUC-PR **0.6058**, per-virus within-CV mean AUC-ROC **0.658**.
 
-            The leave-one-virus-out results are the one evaluation this does not affect -
-            each held-out virus is scored by a model trained without it.
+            Metrics published before that date were computed under an ungrouped splitter in
+            which 71.1% of held-out rows shared their exact peptide with the training fold,
+            and are **retracted as inflated** (pooled AUC-PR 0.8347 ungrouped vs 0.6092
+            grouped). See `docs/claims_register.md` D15.
+
+            The leave-one-virus-out results were never affected by this - each held-out
+            virus is scored by a model trained without it.
 
             **Usage limits**
             - Predictions are for research hypothesis generation only.

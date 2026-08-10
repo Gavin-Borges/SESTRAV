@@ -49,10 +49,12 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
 - **GNN Fusion Layer**: `(batch, 64)` pool ‖ `(batch, 32)` physico → `(batch, 96)`.
 
 ## Promotion Gate
-`src/verify/promote_gnn.py` runs 5 gates (AUC-PR ≥ 0.85, fold-std ≤ 0.02,
-latency ≤ 2× RF, ECE < 0.05, escape sensitivity ≥ 80%) before mutating
-`config.yaml` and the checksum manifest. Gates are blocked until the v5
-dataset is finalized and a benchmark pass is confirmed.
+`src/verify/promote_gnn.py` runs 5 gates (AUC-PR >= 0.65 under a peptide-grouped
+splitter, fold-std <= 0.02, latency <= 2x RF, ECE < 0.05, escape sensitivity >= 80%)
+before mutating `config.yaml` and the checksum manifest. Gate 1 was re-anchored
+2026-08-10 from 0.85, which had been set against the pre-remediation ungrouped RF
+baseline now retracted as peptide-leakage-inflated (`docs/claims_register.md` D15).
+Gates are blocked until the v5 dataset is finalized and a benchmark pass is confirmed.
 
 ## [PENDING]
 - `max_len=11` is hard-coded in `GraphBuilder`; a future shift to MHC-II 15-mers

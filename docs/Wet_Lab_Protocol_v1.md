@@ -13,8 +13,9 @@
 > **REVISION NOTE (v1.1.0).** v1.0.0 had two substantive defects, both corrected below.
 > (1) It was written against the **structural GNN**, which is not the production scorer - the
 > GNN is a deferred, GPU-gated research track that has never been promoted through
-> `src/verify/promote_gnn.py`, and its Gate-1 threshold (AUC-PR >= 0.85) is structurally
-> unreachable. The protocol as written could not have been run against the system that actually
+> `src/verify/promote_gnn.py`, and its Gate-1 threshold was unreachable as written
+> (AUC-PR >= 0.85; re-anchored to >= 0.65 under a peptide-grouped splitter on 2026-08-10,
+> and not since re-evaluated). The protocol as written could not have been run against the system that actually
 > exists. It now targets the production RF mode-31 scorer.
 > (2) Its success criterion pre-committed to a **2.0x** enrichment ratio, while SESTRAV's own
 > certified computational analog of that same ratio is **0.9494 - a null** (`results/h2_tier_a_summary.md`).

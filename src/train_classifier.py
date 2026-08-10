@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from src.artifact_guard import guard_planned_paths
-from src.ml_utils import MultiStratifiedKFold
+from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold
 from xgboost import XGBClassifier
 from joblib import dump
 
@@ -67,6 +67,8 @@ from src.features import (
     FEATURE_COLUMNS_30_GRAPH,
     load_antigen_processing_cache,
     load_self_similarity_cache,
+    antigen_processing_cache_medians,
+    ANTIGEN_PROCESSING_COLUMNS,
 )
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
@@ -134,15 +136,23 @@ def prepare_features_31(df, binding_matrix_path):
     return pd.concat([base_30.reset_index(drop=True), length_df], axis=1)[FEATURE_COLUMNS_31]
 
 
-def prepare_features_33(df, binding_matrix_path, cache_path):
-    """Build the 33-feature extended matrix: 31-feature canonical + netchop_score + tap_score."""
+def prepare_features_33(df, binding_matrix_path, cache_path, *, impute=True):
+    """Build the 33-feature extended matrix: 31-feature canonical + netchop_score + tap_score.
+
+    impute=True (default) matches every pre-Phase-0 caller: missing peptides
+    are median-imputed from the whole cache. Cross-validation callers pass
+    impute=False and fit the median inside each fold on training rows only
+    (docs/claims_register.md D15) - see _cross_validate's fold_impute_columns.
+    """
     base_31 = prepare_features_31(df, binding_matrix_path)
-    df_with_scores = load_antigen_processing_cache(cache_path, df.reset_index(drop=True))
+    df_with_scores = load_antigen_processing_cache(
+        cache_path, df.reset_index(drop=True), impute=impute
+    )
     proc_df = df_with_scores[["netchop_score", "tap_score"]].reset_index(drop=True)
     return pd.concat([base_31.reset_index(drop=True), proc_df], axis=1)[FEATURE_COLUMNS_33]
 
 
-def prepare_features_35(df, binding_matrix_path, ap_cache_path, sim_cache_path):
+def prepare_features_35(df, binding_matrix_path, ap_cache_path, sim_cache_path, *, impute=True):
     """Build the 35-feature tolerance-aware matrix: 33-feature extended + self-similarity.
 
     Adds two columns from the human-proteome k-mer lookup cache:
@@ -151,8 +161,12 @@ def prepare_features_35(df, binding_matrix_path, ap_cache_path, sim_cache_path):
 
     Self-peptide matches indicate central-tolerance targets (thymic deletion),
     the mechanistic basis for non-immunogenicity in hard decoys.
+
+    impute is forwarded to prepare_features_33's antigen-processing join; the
+    self-similarity join always fills missing peptides with a constant 0.0
+    (fold-independent, so it needs no in-fold variant).
     """
-    base_33 = prepare_features_33(df, binding_matrix_path, ap_cache_path)
+    base_33 = prepare_features_33(df, binding_matrix_path, ap_cache_path, impute=impute)
     df_with_sim = load_self_similarity_cache(sim_cache_path, df.reset_index(drop=True))
     sim_df = df_with_sim[
         ["self_similarity_max_identity", "self_similarity_exact_match"]
@@ -348,8 +362,36 @@ def _cross_validate(
     min_group_size=15,
     sample_weights=None,
     use_lopo=False,
+    *,
+    cv_group_by=None,
+    fold_impute_columns=None,
 ):
-    """Run stratified k-fold or Leave-One-Protein-Out (LOPO) CV and return metrics."""
+    """Run stratified k-fold or Leave-One-Protein-Out (LOPO) CV and return metrics.
+
+    cv_group_by selects the composite-stratified splitter:
+      - None (default): MultiStratifiedKFold. NOT peptide-grouped - rows
+        sharing a peptide can land on both sides of a fold boundary
+        (docs/claims_register.md D15). Reproduces pre-Phase-0 numbers.
+      - "peptide": PeptideGroupedKFold. Every row for a given peptide lands
+        in exactly one fold. Use this for any certified generalization
+        estimate.
+    A string rather than a bool so a future rung (e.g. "protein") needs no
+    second flag, and so the choice is recorded verbatim wherever it is logged.
+
+    fold_impute_columns, if given, names columns in X that may carry NaN
+    (feature modes 33/35's antigen-processing scores) and should be median-
+    imputed from each fold's TRAINING rows only, rather than from a
+    whole-pool statistic computed before CV even starts - the latter leaks
+    the held-out fold's peptides into the training features
+    (docs/claims_register.md D15). None (default) is a no-op: for every
+    caller and feature mode that has no NaN to fill, the fold loop below is
+    unchanged.
+    """
+    if use_lopo and cv_group_by:
+        raise ValueError(
+            f"use_lopo=True and cv_group_by={cv_group_by!r} select different "
+            "splitters; pass exactly one."
+        )
     if use_lopo:
         from sklearn.model_selection import LeaveOneGroupOut
 
@@ -358,9 +400,17 @@ def _cross_validate(
         splits = list(logo.split(X, y, groups=groups))
         print(f"  LOPO CV: detected {len(np.unique(groups))} unique groups -> {len(splits)} folds")
     else:
-        mskf = MultiStratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        if cv_group_by is None:
+            splitter = MultiStratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        elif cv_group_by == "peptide":
+            if "peptide" not in metadata.columns:
+                raise ValueError("cv_group_by='peptide' requires a 'peptide' column in metadata.")
+            splitter = PeptideGroupedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        else:
+            raise ValueError(f"Unsupported cv_group_by={cv_group_by!r}; expected None or 'peptide'.")
+
         splits = list(
-            mskf.split(
+            splitter.split(
                 X,
                 y,
                 negative_origin=metadata["negative_origin"]
@@ -370,6 +420,17 @@ def _cross_validate(
                 peptides=metadata["peptide"] if "peptide" in metadata.columns else None,
             )
         )
+        components = getattr(splitter, "stratification_components_", None)
+        if components is not None:
+            print(
+                f"  {type(splitter).__name__}: {len(splits)} folds, "
+                f"stratified on {'|'.join(components)}"
+                + (
+                    ", grouped by peptide"
+                    if cv_group_by == "peptide"
+                    else ", UNGROUPED (peptide leakage: docs/claims_register.md D15)"
+                )
+            )
 
     fold_metrics = []
     subgroup_rows = []
@@ -377,6 +438,17 @@ def _cross_validate(
     for fold_idx, (train_idx, val_idx) in enumerate(splits, 1):
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_val = y[train_idx], y[val_idx]
+
+        if fold_impute_columns:
+            # Fit the imputation statistic on this fold's TRAINING rows only,
+            # then apply it to both sides. A statistic computed over all rows
+            # (as load_antigen_processing_cache's default impute=True does)
+            # puts the held-out fold's peptides into the training features.
+            # Series.median() skips NaN, so this is the train-rows-only
+            # median; DataFrame.fillna(dict) touches only the named columns.
+            medians = {col: float(X_tr[col].median()) for col in fold_impute_columns}
+            X_tr = X_tr.fillna(medians)
+            X_val = X_val.fillna(medians)
 
         # Sample weights for this fold's training split (if provided)
         sw_tr = None
@@ -423,6 +495,42 @@ def _cross_validate(
     subgroup_df = pd.DataFrame(subgroup_rows)
     oof_df = pd.concat(oof_rows, ignore_index=True) if oof_rows else pd.DataFrame()
     return avg, std, subgroup_df, oof_df
+
+
+VACCINIA_VIRUS = "Orthopoxvirus vaccinia"
+
+
+def _excluded_bloc_cv_metrics(
+    oof_df: pd.DataFrame, exclude_virus: str = VACCINIA_VIRUS
+) -> tuple[dict, dict]:
+    """Per-fold metrics recomputed with one virus bloc dropped from each validation fold.
+
+    This is an EVALUATION-SCOPE re-slice of the folds the production model
+    was already scored on, not a refit on a corpus without that bloc. The two
+    differ materially: on v5 the Orthopoxvirus vaccinia bloc is 77.8% of
+    active negatives. Dropping it RAISES AUC-PR partly mechanically (the
+    validation base rate goes from 0.226 to 0.568) and LOWERS AUC-ROC,
+    because the trivially separable decoys leave the negative set - AUC-ROC
+    is prevalence-invariant, so the base rate does not explain that fall.
+    The corpus-refit
+    counterpart (retrain without the bloc entirely) lives in
+    results/cv_leakage_audit.csv under config peptide_grouped_splitter_no_vaccinia
+    - do not conflate the two under one label (docs/claims_register.md D15).
+    """
+    if oof_df.empty or "virus" not in oof_df.columns:
+        return {}, {}
+    kept = oof_df[oof_df["virus"] != exclude_virus]
+    per_fold = [
+        evaluate(grp["label"].to_numpy(), grp["score"].to_numpy())
+        for _fold, grp in kept.groupby("fold", sort=True)
+        if grp["label"].nunique() >= 2
+    ]
+    if not per_fold:
+        return {}, {}
+    keys = per_fold[0].keys()
+    avg = {k: float(np.nanmean([f[k] for f in per_fold])) for k in keys}
+    std = {k: float(np.nanstd([f[k] for f in per_fold])) for k in keys}
+    return avg, std
 
 
 def _filter_quarantined(df: pd.DataFrame) -> pd.DataFrame:
@@ -496,6 +604,9 @@ def train_models(
     use_sample_weights=False,
     use_lopo=False,
     allow_overwrite: bool = False,
+    *,
+    cv_group_by: str | None = None,
+    fold_impute: bool = False,
 ):
     """
     Full training pipeline:
@@ -511,11 +622,21 @@ def train_models(
     model_dir has no default: the destination of a training run must be a
     deliberate choice. Existing artifacts there are never replaced unless
     allow_overwrite is True.
+
+    fold_impute=False (default) matches every pre-Phase-0 caller. When True
+    and feature_mode is 33 or 35, the antigen-processing scores are median-
+    imputed inside each CV fold from that fold's training rows only, instead
+    of from the whole cache before CV starts (docs/claims_register.md D15);
+    a no-op for every other feature mode. The final full-pool refit always
+    uses the whole-cache medians regardless of this flag, since the full
+    pool IS that model's own training set.
     """
     try:
         feature_mode = int(feature_mode)
     except (ValueError, TypeError):
         pass
+
+    fold_impute_columns = ANTIGEN_PROCESSING_COLUMNS if fold_impute and feature_mode in (33, 35) else None
 
     _guard_output_dir(model_dir, feature_mode, allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
@@ -595,6 +716,7 @@ def train_models(
             binding_matrix_path,
             antigen_processing_cache_path,
             self_similarity_cache_path,
+            impute=fold_impute_columns is None,
         )
         feature_cols_used = FEATURE_COLUMNS_35
         mode_label = "35-feature tolerance-aware (33 extended + self_similarity_max_identity + self_similarity_exact_match)"
@@ -603,7 +725,12 @@ def train_models(
             raise ValueError("--binding-matrix is required for feature-mode 33")
         if antigen_processing_cache_path is None:
             raise ValueError("--antigen-processing-cache is required for feature-mode 33")
-        X = prepare_features_33(train_pool, binding_matrix_path, antigen_processing_cache_path)
+        X = prepare_features_33(
+            train_pool,
+            binding_matrix_path,
+            antigen_processing_cache_path,
+            impute=fold_impute_columns is None,
+        )
         feature_cols_used = FEATURE_COLUMNS_33
         mode_label = "33-feature extended (31 canonical + netchop_score + tap_score)"
     elif feature_mode == 31:
@@ -692,6 +819,8 @@ def train_models(
         subgroup_columns=subgroup_columns,
         sample_weights=sample_weights,
         use_lopo=use_lopo,
+        cv_group_by=cv_group_by,
+        fold_impute_columns=fold_impute_columns,
     )
     print("  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in rf_avg.items()))
     print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in rf_std.items()))
@@ -710,9 +839,21 @@ def train_models(
         subgroup_columns=subgroup_columns,
         sample_weights=sample_weights,
         use_lopo=use_lopo,
+        cv_group_by=cv_group_by,
+        fold_impute_columns=fold_impute_columns,
     )
     print("  Mean:  " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_avg.items()))
     print("  Stdev: " + "  ".join(f"{k}={v:.4f}" for k, v in xgb_std.items()))
+
+    if fold_impute_columns:
+        # The final models train on the whole pool, so a pool-wide statistic
+        # is their own training statistic, not leakage - use the same
+        # whole-cache medians load_antigen_processing_cache(impute=True)
+        # would have applied, so the serialized artifact this run ships is
+        # unchanged by the in-fold CV repair. Only the reported CV metric
+        # reflects fold_impute; X here still carries the NaN the CV loop
+        # imputed per-fold and never wrote back.
+        X = X.fillna(antigen_processing_cache_medians(antigen_processing_cache_path))
 
     print(f"\n{'=' * 60}")
     print("Retraining final models on full training pool...")
@@ -732,6 +873,9 @@ def train_models(
     dump(xgb_final, xgb_path)
     print(f"  XGBoost saved to {xgb_path}")
 
+    rf_nv_avg, rf_nv_std = _excluded_bloc_cv_metrics(rf_oof)
+    xgb_nv_avg, xgb_nv_std = _excluded_bloc_cv_metrics(xgb_oof)
+    _nan = float("nan")
     results_rows = []
     for metric_key in rf_avg:
         results_rows.append(
@@ -741,6 +885,15 @@ def train_models(
                 "rf_cv_std": rf_std[metric_key],
                 "xgb_cv_mean": xgb_avg[metric_key],
                 "xgb_cv_std": xgb_std[metric_key],
+                # OOF re-slice with the Orthopoxvirus vaccinia bloc dropped from
+                # validation - NOT a refit on a vaccinia-free corpus. See
+                # _excluded_bloc_cv_metrics docstring; nan when the corpus (or a
+                # fold) carries no vaccinia rows to exclude (e.g. --lopo, or a
+                # non-v5 corpus).
+                "rf_cv_mean_no_vaccinia": rf_nv_avg.get(metric_key, _nan),
+                "rf_cv_std_no_vaccinia": rf_nv_std.get(metric_key, _nan),
+                "xgb_cv_mean_no_vaccinia": xgb_nv_avg.get(metric_key, _nan),
+                "xgb_cv_std_no_vaccinia": xgb_nv_std.get(metric_key, _nan),
             }
         )
     results_df = pd.DataFrame(results_rows)
@@ -869,6 +1022,34 @@ if __name__ == "__main__":
         action="store_true",
         help="Perform Leave-One-Protein-Out (LOPO) cross-validation instead of StratifiedKFold",
     )
+    # dest differs from the resolved value below so a bare --lopo can tell an
+    # explicit --cv-group-by peptide apart from the default.
+    parser.add_argument(
+        "--cv-group-by",
+        dest="cv_group_by_explicit",
+        default=None,
+        choices=["none", "peptide"],
+        help="Fold grouping for cross-validation. 'peptide' (default) selects "
+        "PeptideGroupedKFold, which keeps every row sharing a peptide in the "
+        "same fold - required for a certified generalization estimate, since "
+        "every feature_mode=31 feature is a pure function of the peptide "
+        "string (docs/claims_register.md D15). Pass 'none' only to reproduce "
+        "a pre-Phase-0 figure, and state the splitter wherever the number is "
+        "quoted.",
+    )
+    parser.add_argument(
+        "--no-fold-impute",
+        dest="fold_impute",
+        action="store_false",
+        default=True,
+        help="Disable in-fold (training-rows-only) median imputation of the "
+        "antigen-processing features (feature modes 33/35 only; a no-op for "
+        "every other mode). The default imputes each fold's missing "
+        "netchop_score/tap_score from that fold's TRAINING rows; a whole-"
+        "cache median otherwise leaks the held-out fold's peptides into the "
+        "training features (docs/claims_register.md D15). Pass this only to "
+        "reproduce a pre-Phase-0 figure.",
+    )
     parser.add_argument(
         "--allow-overwrite",
         action="store_true",
@@ -876,6 +1057,16 @@ if __name__ == "__main__":
         "(without this the run aborts before training)",
     )
     args = parser.parse_args()
+
+    # Argument-consistency validation, before any filesystem check.
+    # --cv-group-by defaults to "peptide", so a bare --lopo (valid before Phase 0)
+    # must not start erroring. Only an explicit grouped choice conflicts; LOPO
+    # otherwise wins and selects its own splitter.
+    if args.lopo and args.cv_group_by_explicit == "peptide":
+        parser.error("--lopo and --cv-group-by select different splitters; pass exactly one.")
+    # Default (flag absent) is "peptide"; --lopo selects its own splitter instead.
+    resolved = args.cv_group_by_explicit or "peptide"
+    cv_group_by = None if (args.lopo or resolved == "none") else resolved
 
     # Input validation
     if not os.path.isfile(args.data):
@@ -898,4 +1089,6 @@ if __name__ == "__main__":
         use_sample_weights=args.sample_weights,
         use_lopo=args.lopo,
         allow_overwrite=args.allow_overwrite,
+        cv_group_by=cv_group_by,
+        fold_impute=args.fold_impute,
     )

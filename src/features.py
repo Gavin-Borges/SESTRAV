@@ -856,32 +856,62 @@ def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFram
     return result
 
 
-def load_antigen_processing_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
+ANTIGEN_PROCESSING_COLUMNS: tuple[str, str] = ("netchop_score", "tap_score")
+
+
+def _read_antigen_processing_cache(cache_path: str) -> pd.DataFrame:
+    cache = pd.read_csv(cache_path, usecols=["peptide", *ANTIGEN_PROCESSING_COLUMNS])
+    return cache.drop_duplicates(subset="peptide").set_index("peptide")
+
+
+def antigen_processing_cache_medians(cache_path: str) -> dict[str, float]:
+    """Whole-cache medians: the imputation values used outside cross-validation.
+
+    Used for the final full-pool refit, where the whole training pool IS the
+    model's training set and a pool-wide statistic is not leakage - only a
+    per-CV-fold statistic computed over all rows (including the held-out
+    fold) would be.
+    """
+    cache = _read_antigen_processing_cache(cache_path)
+    return {col: float(cache[col].median()) for col in ANTIGEN_PROCESSING_COLUMNS}
+
+
+def load_antigen_processing_cache(
+    cache_path: str, df: pd.DataFrame, *, impute: bool = True
+) -> pd.DataFrame:
     """Join precomputed NetChop/TAPreg scores onto a peptide DataFrame.
 
-    Missing peptides receive median imputation from the cache distribution.
     The cache CSV must have columns: peptide, netchop_score, tap_score.
 
     Args:
         cache_path: Path to the antigen processing cache CSV.
         df:         DataFrame containing a 'peptide' column.
+        impute:     When True (default - the behavior every pre-Phase-0 caller
+                    relies on), missing peptides receive median imputation from
+                    the whole cache distribution. When False the scores are
+                    left as NaN, so a caller doing cross-validation can fit the
+                    median inside each fold on training rows only; a
+                    whole-cache median otherwise leaks the held-out fold's
+                    peptides into the training features (docs/claims_register.md D15).
 
     Returns:
         df with 'netchop_score' and 'tap_score' columns appended.
     """
-    cache = pd.read_csv(cache_path, usecols=["peptide", "netchop_score", "tap_score"])
-    cache = cache.drop_duplicates(subset="peptide").set_index("peptide")
+    cache = _read_antigen_processing_cache(cache_path)
     result = df.copy()
-    result["netchop_score"] = result["peptide"].map(cache["netchop_score"])
-    result["tap_score"] = result["peptide"].map(cache["tap_score"])
+    for col in ANTIGEN_PROCESSING_COLUMNS:
+        result[col] = result["peptide"].map(cache[col])
     missing = int(result["netchop_score"].isna().sum())
-    if missing:
-        netchop_median = float(cache["netchop_score"].median())
-        tap_median = float(cache["tap_score"].median())
-        result["netchop_score"] = result["netchop_score"].fillna(netchop_median)
-        result["tap_score"] = result["tap_score"].fillna(tap_median)
+    if missing and impute:
+        medians = {col: float(cache[col].median()) for col in ANTIGEN_PROCESSING_COLUMNS}
+        result = result.fillna(medians)
         print(
             f"[features] Imputed {missing} missing antigen processing scores with cache medians "
-            f"(netchop={netchop_median:.4f}, tap={tap_median:.4f})"
+            f"(netchop={medians['netchop_score']:.4f}, tap={medians['tap_score']:.4f})"
+        )
+    elif missing:
+        print(
+            f"[features] {missing} antigen processing scores left as NaN "
+            "for in-fold median imputation"
         )
     return result

@@ -43,7 +43,7 @@ Expected output:
 ============================================================
 SESTRAV Environment Info
 ============================================================
-  sestrav version : 2.1.0
+  sestrav version : 2.0.3
   mhcflurry       : 2.2.1
   torch           : 2.2.0
   CUDA            : not available
@@ -95,14 +95,17 @@ destination. `models/local/` is gitignored. A run aborts before training if it w
 replace artifacts already present in the target directory; add `--allow-overwrite` when
 replacing them is the intent.
 
-Expected per-virus within-CV mean AUC-ROC ~ 0.751 on the v5 dataset (35,597 active rows /
-51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`).
+Expected per-virus within-CV mean AUC-ROC ~ **0.658** on the v5 dataset (35,597 active rows /
+51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`),
+and pooled CV AUC-PR ~ **0.6058** (`models/v5/training_results_mode31.csv`).
 The pooled AUC-PR is a base-rate artifact and is not reported as a headline; see
-`docs/model_evaluation_summary.md`. **Splitter disclosure (required whenever this figure is
-quoted, `docs/claims_register.md` D15):** 0.751 comes from folds that are stratified but not
-grouped by peptide, so it is leakage-inflated; under a matched peptide-grouped splitter it
-reproduces at 0.6587 (+0.0925, +14.0%). Expect your own run to land near 0.751 because it uses
-the same ungrouped splitter - that agreement confirms reproducibility, not leakage-freedom.
+`docs/model_evaluation_summary.md`. **Splitter disclosure (required whenever these figures are
+quoted, `docs/claims_register.md` D15 - remediated 2026-08-10):** these come from a
+**peptide-grouped** splitter (`--cv-group-by peptide`, now the CLI default), so no peptide
+appears on both sides of a fold boundary. The prior ungrouped figures (per-virus mean 0.751,
+pooled AUC-PR 0.8312) are retracted as leakage-inflated. Expect your own run to land near
+0.658 / 0.6058; passing `--cv-group-by none` reproduces the retracted ungrouped values and
+should be used only to reproduce a pre-Phase-0 figure.
 
 ### 4. Benchmark against gold standard
 
