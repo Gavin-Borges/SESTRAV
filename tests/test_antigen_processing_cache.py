@@ -4,7 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.features import load_antigen_processing_cache
+from src.features import (
+    load_antigen_processing_cache,
+    antigen_processing_cache_medians,
+    ANTIGEN_PROCESSING_COLUMNS,
+)
 
 
 def _write_cache(path, rows):
@@ -98,3 +102,36 @@ def test_load_cache_empty_cache_produces_nan(tmp_path):
     # Median of empty series is NaN; imputed value is therefore also NaN
     assert result["netchop_score"].isna().all()
     assert result["tap_score"].isna().all()
+
+
+# ---------------------------------------------------------------------------
+# impute=False (Phase 0 step 6: in-fold imputation support)
+# ---------------------------------------------------------------------------
+
+
+def test_load_cache_impute_false_leaves_missing_as_nan(tmp_path):
+    cache_path = tmp_path / "cache.csv"
+    _write_cache(cache_path, [("AAAAAAAAAA", 0.6, 0.4)])
+    df = pd.DataFrame({"peptide": ["AAAAAAAAAA", "UNKNOWNPEP"]})
+    result = load_antigen_processing_cache(str(cache_path), df, impute=False)
+    assert result.loc[0, "netchop_score"] == pytest.approx(0.6)
+    assert pd.isna(result.loc[1, "netchop_score"])
+    assert pd.isna(result.loc[1, "tap_score"])
+
+
+def test_load_cache_impute_true_is_still_the_default(tmp_path):
+    cache_path = tmp_path / "cache.csv"
+    _write_cache(cache_path, [("AAAAAAAAAA", 0.6, 0.4), ("CCCCCCCCC", 0.8, 0.8)])
+    df = pd.DataFrame({"peptide": ["UNKNOWNPEP"]})
+    default_call = load_antigen_processing_cache(str(cache_path), df)
+    explicit_call = load_antigen_processing_cache(str(cache_path), df, impute=True)
+    pd.testing.assert_frame_equal(default_call, explicit_call)
+
+
+def test_antigen_processing_cache_medians(tmp_path):
+    cache_path = tmp_path / "cache.csv"
+    _write_cache(cache_path, [("AAAAAAAAAA", 0.6, 0.4), ("CCCCCCCCC", 0.8, 0.8)])
+    medians = antigen_processing_cache_medians(str(cache_path))
+    assert set(medians) == set(ANTIGEN_PROCESSING_COLUMNS)
+    assert medians["netchop_score"] == pytest.approx(0.7)
+    assert medians["tap_score"] == pytest.approx(0.6)

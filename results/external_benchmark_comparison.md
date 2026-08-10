@@ -1,3 +1,5 @@
+> **Label correction (added 2026-08-10; see docs/claims_register.md D16).** The "SESTRAV RF (31-feat)" label used throughout this file is incorrect: this is a 2026-05, 30-feature (feature_mode=30), unweighted, 200-tree out-of-fold measurement, not the canonical v5 mode_31 result. The head-to-head comparison itself remains valid and current - all tools were scored on one common 704-peptide field - only the model-identity label is wrong. See docs/claims_register.md D16 for the full derivation.
+
 # External Benchmark Comparison Report
 
 Generated: 2026-05-22T15:38:59.228651+00:00

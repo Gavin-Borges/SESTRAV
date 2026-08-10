@@ -1,7 +1,13 @@
 # 2026 Feature Schema Upgrade Roadmap
 
-**Status:** Proposal - Phase 0 not yet started. No feature-schema code has changed as part of
-this document; it is the analysis and plan only.
+**Status:** **Phase 0 EXECUTED 2026-08-10** (`docs/claims_register.md` D15, remediated) - the
+evaluation harness has been repaired and every certified v5 number re-baselined under a
+peptide-grouped splitter. Phases 1-3 (the feature-schema work) remain a proposal; no
+feature-schema code has changed. **The measurements throughout this document are the
+pre-remediation ones that motivated Phase 0 and are preserved as the historical record** - where
+this document says the certified figures are 0.8312 / 0.751 / 0.712, those are the numbers
+Phase 0 retracted, now 0.6058 / 0.658 / 0.6015. Do not cite this document for current figures;
+cite `docs/claims_register.md` D15 or the ledgers under `models/v5/` and `results/`.
 **Scope:** `feature_mode` 31/33/35 canonical + extended pipelines, v5 dataset, RF/XGB production
 path, GNN research track.
 **Primary evidence:** `results/cv_leakage_audit.csv` (reproduce with
@@ -277,7 +283,7 @@ flagged as such - do not cite them as certified numbers.
 | pMHC stability (t1/2, NetMHCstabpan) | Estimated from literature; orthogonal to affinity | External predictor call per peptide-allele pair; cacheable | DTU academic-license binary, non-redistributable; repo's one existing DTU integration (NetChop) is currently a silent mock (Section 4) - repeat risk is high without a hard-fail contract | **Gate** on a real (non-mock) integration |
 | ESM-2 embeddings + PCA for RF/XGB | Estimated; existing `30_esm` mode suggests limited RF headroom at this dataset size | Model forward pass per peptide (cacheable), PCA fit must be inside the fold | `transformers` not installed locally; `src/features.py` ESM loader currently falls back to a SHA256-seeded **random** vector on load failure - a silent-garbage pattern that must be fixed before this is trustworthy | **Research only** |
 | Self-proteome tolerance (RSAT / foreignness) | **-0.0037 (measured, existing mode 35)** | None - already implemented, binary exact-match only | Zero new dependencies | **Reject on this dataset** (Section 4 explains the structural confound) |
-| AlphaFold3/Boltz-1 pLDDT + ESM-3/ESM-C in GINEConv | Not estimated - GNN promotion Gate 1 (AUC-PR >= 0.85) is unreachable at the current honest baseline | Structure prediction per peptide-MHC complex; GPU-bound | AlphaFold3 weights are gated/non-commercial - direct OpenSSF/redistribution conflict; Boltz-1 is licence-viable; `src/verify/structural_gnn.py` currently fabricates idealised coordinates rather than using real structures | **Defer** |
+| AlphaFold3/Boltz-1 pLDDT + ESM-3/ESM-C in GINEConv | Not estimated - GNN promotion Gate 1 was re-anchored 2026-08-10 from AUC-PR >= 0.85 (unreachable against the honest baseline) to >= 0.65 under a peptide-grouped splitter; the gate is now reachable in principle but this work remains unscoped | Structure prediction per peptide-MHC complex; GPU-bound | AlphaFold3 weights are gated/non-commercial - direct OpenSSF/redistribution conflict; Boltz-1 is licence-viable; `src/verify/structural_gnn.py` currently fabricates idealised coordinates rather than using real structures | **Defer** |
 
 ---
 
@@ -373,9 +379,10 @@ posture (hash-pinned, redistributable dependencies only); Boltz-1 is license-via
 confidence on an isolated 9-mer peptide (rather than the full pMHC-TCR complex) carries limited
 structural information. Second, and more decisively: `src/verify/structural_gnn.py` currently
 fabricates idealised backbone coordinates (`generate_canonical_groove_coords`) rather than using
-real structures, and the GNN promotion Gate 1 threshold (AUC-PR >= 0.85, `src/verify/promote_
-gnn.py`) is unreachable relative to even the leaky RF ceiling (0.831) and dramatically
-unreachable relative to the honest peptide-grouped baseline (0.6092). Spending compute on richer
+real structures, and the GNN promotion Gate 1 threshold was re-anchored 2026-08-10 from AUC-PR >= 0.85 to
+>= 0.65 under a peptide-grouped splitter (`src/verify/promote_gnn.py`), precisely because 0.85
+was unreachable relative to even the leaky RF ceiling (0.831) and dramatically unreachable
+relative to the honest peptide-grouped baseline (0.6058 certified). Spending compute on richer
 GNN node features before the promotion gates are re-baselined against an honest number is
 premature.
 

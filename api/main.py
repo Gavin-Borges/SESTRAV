@@ -55,7 +55,7 @@ _ZENODO_DOI: str | None = None
 try:
     _APP_VERSION = version("sestrav")
 except PackageNotFoundError:  # pragma: no cover - only when run from an uninstalled tree
-    _APP_VERSION = "2.1.0"
+    _APP_VERSION = "2.0.3"
 
 
 # ---------------------------------------------------------------------------
@@ -303,13 +303,13 @@ def model_card() -> ModelCard:
         contamination_disclosure=(
             "SARS-CoV-2 and Influenza A are among the nine viruses this model is TRAINED on; "
             "they are not a held-out cohort. Only 16 named gold-standard epitopes are excluded "
-            "from the training manifold. Cross-validation folds are stratified but NOT grouped "
-            "by peptide, so a peptide appearing under more than one HLA allele can be split "
-            "across the train/test boundary: 71.0% of held-out rows share their exact peptide "
-            "with the training fold. Reported cross-validation metrics are therefore inflated "
-            "relative to a peptide-grouped estimate (pooled AUC-PR 0.8347 ungrouped vs 0.6092 "
-            "grouped). See docs/claims_register.md D15 for the measured effect on each metric, "
-            "and the leave-one-virus-out results for the one evaluation this does not affect."
+            "from the training manifold. Cross-validation folds ARE peptide-grouped as of "
+            "2026-08-10, so no peptide appears on both sides of a fold boundary: certified "
+            "pooled AUC-PR 0.6058, per-virus within-CV mean AUC-ROC 0.658. Cross-validation "
+            "metrics published before that date were computed under an ungrouped splitter in "
+            "which 71.1% of held-out rows shared their exact peptide with the training fold, "
+            "and are retracted as inflated (pooled AUC-PR 0.8347 ungrouped vs 0.6092 grouped). "
+            "See docs/claims_register.md D15 for the full remediation record."
         ),
     )
 

@@ -58,7 +58,16 @@ _Last updated: 2026-08._
 
 - **Pathogen expansion.** Curate IEDB-derived training data for additional
   oncogenic viruses (e.g. HBV, HCV, KSHV) and add the corresponding proteomes.
-  Target: AUC-PR >= 0.80 on new taxa without regression on HPV/EBV.
+  Target: **pooled AUC-PR >= 0.65 under peptide-grouped 5-fold CV**
+  (`src.ml_utils.PeptideGroupedKFold`) on new taxa, without regression on
+  HPV/EBV. **Re-anchored 2026-08-10.** This gate previously read ">= 0.80" with
+  no splitter stated; that threshold was set against the pre-remediation
+  ungrouped baseline (pooled AUC-PR 0.8312), which is retracted as
+  peptide-leakage-inflated (`docs/claims_register.md` D15). Against the current
+  certified peptide-grouped baseline of 0.6058, a 0.80 target was not a stretch
+  goal but an unreachable one. 0.65 is set as a meaningful improvement over the
+  current baseline on the honest scale. **Always state the splitter when quoting
+  this gate** - a number without one is not comparable across the D15 boundary.
 - **Pan-allele modeling.** Integrate allele-aware pocket pseudo-sequence features
   to improve allele-stratified recall.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
@@ -70,10 +79,28 @@ _Last updated: 2026-08._
 ## Longer term (9-18 months)
 
 - **Deep-learning promotion.** ANN/GNN tracks remain optional benchmarks until they
-  meet published quantitative gates (sufficient multi-virus training data,
-  5-fold CV AUC-PR >= 0.85, cross-run SD < 0.02, calibration ECE < 0.05, and
-  interpretability via SHAP/surrogate). On passing, a track may be promoted to a
-  second canonical model with its own model card.
+  meet published quantitative gates. The canonical, machine-checked definitions live
+  in `src/verify/promote_gnn.py`; this list mirrors them and must stay in sync:
+  - Gate 1 - Generalization: **peptide-grouped 5-fold CV AUC-PR >= 0.65** on the full
+    training dataset (**re-anchored 2026-08-10**, was `>= 0.85` with no splitter
+    stated; see below).
+  - Gate 2 - Stability: cross-fold AUC-PR std **<= 0.02** across 5 CV folds.
+  - Gate 3 - Latency: GNN CPU inference <= 2x RF CPU inference (per batch).
+  - Gate 4 - Calibration: Expected Calibration Error (ECE) < 0.05.
+  - Gate 5 - Escape sensitivity: correctly differentiates >= 80% of IEDB
+    gold-standard epitopes from decoys.
+
+  On passing all five, a track may be promoted to a second canonical model with its
+  own model card. **Two corrections logged 2026-08-10:** (1) the 0.85 AUC-PR
+  threshold was anchored to the pre-remediation ungrouped RF baseline (0.8312), which
+  is retracted as peptide-leakage-inflated (`docs/claims_register.md` D15); against
+  the certified peptide-grouped RF baseline of 0.6058 it was unreachable rather than
+  ambitious, so it is re-anchored to 0.65 on the honest scale, matching the pathogen
+  expansion gate above. Any promotion candidate must be measured under
+  `src.ml_utils.PeptideGroupedKFold` for the comparison to be meaningful. (2) This
+  list previously omitted Gate 5 entirely and stated Gate 2 as `< 0.02` where the
+  code enforces `<= 0.02`; both are corrected here against
+  `src/verify/promote_gnn.py`.
 - **Wet-lab validation (contingent on partnership).** Pre-register and execute an
   IFN-gamma ELISpot validation comparing SESTRAV-ranked epitopes against binding-only
   controls across HPV16/HPV18/EBV.

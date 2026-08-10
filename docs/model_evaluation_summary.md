@@ -3,41 +3,48 @@
 ## v5 Canonical Track: 31-Feature RF (Trained 2026-07-04)
 
 > **Status:** Current production model. Dataset: v5, 35,597 active rows (51,185 total),
-> 5-fold stratified OOF. Per-virus within-CV (below) regenerated session 70 (2026-07-10) on
-> the current dataset. Recomputation is DONE (2026-07-11): the fragile pooled "same-pathogen
-> AUC-ROC 0.9368" headline from the e6aafe2 build (2026-07-04) has been RETIRED. The canonical
-> same-pathogen discrimination metric is now the reproducible per-virus within-CV table (mean
-> AUC-ROC 0.751; `results/per_virus_eval_v5_mode31.csv`).
+> **5-fold peptide-grouped OOF (re-baselined 2026-08-10, closing `docs/claims_register.md` D15).**
+> Per-virus within-CV (below) regenerated 2026-08-10 under the grouped splitter. Two
+> retractions are now folded in: the fragile pooled "same-pathogen AUC-ROC 0.9368" headline
+> from the e6aafe2 build (2026-07-04) was RETIRED 2026-07-11 as decoy-inflated, and the
+> ungrouped figures that replaced it (per-virus mean 0.751, pooled 0.8312, pooled-honest
+> 0.712) were retracted 2026-08-10 as peptide-leakage-inflated. The canonical
+> same-pathogen discrimination metric is the peptide-grouped per-virus within-CV table
+> (mean AUC-ROC **0.658**; `results/per_virus_eval_v5_mode31.csv`).
 > Model: `models/rf_31feature_integrated.joblib` (retrained)
 > OOF predictions: `models/rf_oof_predictions.csv`, `models/rf_oof_predictions_mode31.csv`
 
 | Evaluation context | AUC-PR | AUC-ROC | Notes |
 |---|---|---|---|
-| Within-virus (same-pathogen discrimination) | see per-virus table | **0.751** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses (`results/per_virus_eval_v5_mode31.csv`) |
-| Pooled cross-validation (whole v5 corpus) | **0.8312** | - | **Correction (2026-08-09):** this row previously read "Self-proteome Gate 1, AUC-PR 0.8897, Gate 1 threshold protocol". That was wrong on two counts: 0.8897 is the pooled `auc_pr` from an earlier (2026-06-26) v5 build, not the current 35,597-row corpus (which reports 0.8312 for the same metric), and no self-proteome-vs-viral evaluation artifact exists in this repository - "Gate 1" is a GNN promotion threshold (`src/verify/promote_gnn.py`), unrelated to this RF metric. This pooled figure is also leakage-inflated (folds stratified but not grouped by peptide, `docs/claims_register.md` D15). |
+| Within-virus (same-pathogen discrimination) | see per-virus table | **0.658** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses, peptide-grouped (`results/per_virus_eval_v5_mode31.csv`). Prior ungrouped 0.751 retracted. |
+| Pooled cross-validation (whole v5 corpus) | **0.6058** | **0.8137** | Peptide-grouped, re-baselined 2026-08-10 (`models/v5/training_results_mode31.csv`). **Two superseded predecessors:** this row once read "Self-proteome Gate 1, AUC-PR 0.8897, Gate 1 threshold protocol" - wrong on two counts (0.8897 is the pooled `auc_pr` of an earlier 2026-06-26 v5 build, and no self-proteome-vs-viral evaluation artifact exists here; "Gate 1" is a GNN promotion threshold, `src/verify/promote_gnn.py`, unrelated to this RF metric). It then read 0.8312, which was itself peptide-leakage-inflated (D15) and is now retracted in favour of the grouped 0.6058. The same ledger also carries `rf_cv_mean_no_vaccinia` (AUC-PR 0.7328 / AUC-ROC 0.6702), an OOF re-slice excluding the vaccinia bloc from validation - not a refit on a vaccinia-free corpus. |
 
-[^retracted]: The previously reported pooled same-pathogen AUC-ROC 0.9368 was decoy-inflated
-(it only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel, are
-mixed in as if they were same-pathogen negatives) and is RETRACTED (2026-07-11). The honest
-(decoy-corrected) pooled same-pathogen ROC on real IEDB negatives (origin in {tested_negative,
-iedb_api}) is 0.712. The pooled same-pathogen AUC-PR is a base-rate artifact (8003 positive vs
-1851 negative, about 81% positive) and is NOT reported as a headline. The canonical, reproducible
-same-pathogen metric is the per-virus within-CV table below (mean AUC-ROC 0.751), from
-`scripts/evaluate_per_virus.py`. **Correction (2026-08-09):** "honest" above means decoy-corrected
-only. Both 0.712 and 0.751 are separately peptide-leakage-exposed and reproduce lower (0.5989 and
-0.6587) under a peptide-grouped splitter - see `docs/claims_register.md` D15, and D12 which this
-footnote records, now marked superseded-in-part by D15.
+[^retracted]: Two successive retractions apply to this figure, and they are different defects.
+**(1) Decoy inflation (2026-07-11):** the previously reported pooled same-pathogen AUC-ROC
+0.9368 only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel,
+are mixed in as if they were same-pathogen negatives; RETRACTED. **(2) Peptide leakage
+(2026-08-10, D15):** the decoy-corrected figures that replaced it were computed under a
+splitter that stratified but did not group by peptide, and are themselves retracted - pooled
+honest same-pathogen ROC 0.712 -> **0.602**, per-virus within-CV mean 0.751 -> **0.658**.
+The current figures are decoy-corrected AND peptide-grouped. The pooled same-pathogen AUC-PR
+(now 0.8711) remains a base-rate artifact (8003 positive vs 1851 negative, about 81% positive)
+and is NOT reported as a headline. The canonical, reproducible same-pathogen metric is the
+per-virus within-CV table below (mean AUC-ROC 0.658), from `scripts/evaluate_per_virus.py`.
+See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D15).
 
-**Per-virus within-CV results (Amendment 6 thresholds; regenerated session 70, 2026-07-10, on the 35,597-row v5 dataset):**
+**Per-virus within-CV results (Amendment 6 thresholds; regenerated 2026-08-10 under the peptide-grouped splitter, on the 35,597-row v5 dataset):**
 
 | Virus | AUC-ROC | Threshold | Status |
 |---|---|---|---|
-| HPV | 0.561 | >= 0.58 | FAIL |
-| EBV | 0.790 | >= 0.57 | PASS (post B*27 conflict quarantine) |
+| HPV | 0.482 | >= 0.58 | FAIL |
+| EBV | 0.711 | >= 0.57 | PASS (post B*27 conflict quarantine) |
 
-> **Note:** HPV within-CV fell from 0.598 (e6aafe2 snapshot) to 0.561 on the current dataset and
-> now falls below the 0.58 Amendment-6 threshold, consistent with the manuscript's characterization
-> of HPV as an active generalization failure. EBV rose from 0.667 to 0.790.
+> **Note:** HPV within-CV fell from 0.598 (e6aafe2 snapshot) to 0.561 on the ungrouped
+> 35,597-row build, and to **0.482** under the peptide-grouped splitter (2026-08-10) - further
+> below the 0.58 Amendment-6 threshold, and consistent with the manuscript's characterization
+> of HPV as an active generalization failure. EBV rose from 0.667 to 0.790 ungrouped, and sits
+> at **0.711** peptide-grouped, still clearing its 0.57 threshold. Prior ungrouped values
+> (HPV 0.561, EBV 0.790) are retracted per `docs/claims_register.md` D15.
 
 > **Note:** v3/v4 sections below are historical. The v5 31-feature RF is the canonical
 > production scorer. All public-facing comparisons should use v5 figures.
@@ -156,6 +163,13 @@ For exact unrounded synced values, see:
 Antigen processing features (netchop_score, tap_score) add +0.022 AUC-PR above `full_31`, confirming
 independent proteasomal and TAP transport signal. The `full_33` model is the best v3 result and the
 recommended production track where antigen processing cache is available.
+
+> **Do not confuse `full_33`'s AUC-ROC 0.751 in the table above with the retracted v5 per-virus
+> within-CV mean of 0.751.** They are numerically identical by coincidence and are entirely
+> different quantities: this one is a v3 unweighted feature-ablation AUC-ROC over n=1,004, and
+> is NOT affected by the D15 peptide-grouping remediation (which re-baselined the v5 corpus
+> only). The v5 per-virus mean is now 0.658. This table is v3-era throughout and was not
+> re-measured under the peptide-grouped splitter.
 
 ---
 

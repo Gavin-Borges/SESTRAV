@@ -8,6 +8,113 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING (reported metrics): peptide-level CV leakage remediated and every certified v5
+  number re-baselined** (`docs/claims_register.md` D15, Phase 0 of
+  `docs/proposals/2026_feature_upgrade_roadmap.md`). The leakage disclosed in the audit below
+  is now closed at the source rather than only documented.
+  - `src/ml_utils.py` gains **`PeptideGroupedKFold`**, a sibling of `MultiStratifiedKFold`
+    sharing its composite stratification key (label|origin|supertype|length) but holding every
+    row of a given peptide in exactly one fold. A separate class rather than a `groups=` kwarg,
+    because `StratifiedKFold` raises on sparse strata while `StratifiedGroupKFold` only warns -
+    one `min_stratum_size` knob cannot mean the same thing for both.
+  - **`_bin_origin` now recognizes `iedb_api` as a real negative**, matching
+    `scripts/build_dataset_v5.py` and `scripts/analyze_hiv1_binding_bias.py`. `src/ml_utils.py`
+    was the only site that did not. This was the root cause of the silent label-only
+    stratification fallback firing on *every* v5 split: it moved the rarest composite stratum
+    from 2 rows to 6. Fixing it is metric-neutral (ungrouped AUC-PR 0.8347 -> 0.8343, inside
+    fold noise), which is how it was verified in isolation before anything else landed.
+  - The single global `min_stratum_size` pre-check is replaced by an explicit **coarsening
+    ladder** (label|origin|supertype|length -> ... -> label) that records the rung actually used
+    as `.stratification_components_` and prints it, and **raises** rather than degrading further
+    if even label-only stratification is too sparse. Degradation is no longer silent.
+  - `MultiStratifiedKFold(shuffle=False)` no longer raises (`random_state` was forwarded to
+    sklearn unconditionally).
+  - `src/train_classifier.py` gains `--cv-group-by {none,peptide}` (**default `peptide`**) and
+    `--no-fold-impute`, threaded through `train_models`/`_cross_validate` as keyword-only
+    parameters. The **Python API defaults to legacy behavior** (`cv_group_by=None`,
+    `fold_impute=False`) so `src/cli.py`, `src/bias_skew_finalization.py`,
+    `scripts/regenerate_shareout_pngs.py` and the Colab notebook are unchanged; the **CLI
+    defaults to honest**, because the CLI is what produces certified artifacts.
+  - **The shipped model artifact and its operating point both changed, and both were also
+    stale before this run.** `models/v5/model_artifact_checksums.json` and
+    `models/v5/optimal_thresholds.json` were last written by `58bbc15` (2026-06-26), i.e. against
+    the *earlier, smaller* v5 build - not the 35,597-row corpus shipped since `d3972f7`
+    (2026-07-05). Regenerating them here corrects that drift as well as reflecting the grouped
+    splitter. `rf_31feature_integrated.joblib` moves sha256 `a5cec4c7...` -> `e2acd332...` and
+    62,716,233 -> 128,089,513 bytes (the size roughly doubles because the 2026-06-26 manifest
+    described a model trained on the pre-merge corpus, so this is a corpus-driven change, not a
+    hyperparameter one; `n_estimators` is 200 in both). **The v5 operating-point ledger moves materially, and
+    a THIRD copy is stale:** `models/v5/optimal_thresholds.json` goes from `threshold` 0.25
+    (precision 0.730 / recall 0.846 / F1 0.784) to **0.329 (precision 0.516 / recall 0.664 /
+    F1 0.581)**. That F1 drop is the expected consequence of picking an operating point on honest,
+    non-leaked out-of-fold predictions - the earlier one was tuned on leakage-inflated scores.
+    **This is NOT the file production reads.** `config.yaml:86` (`thresholds_path`) points at
+    `models/optimal_thresholds.json`, and `functions/stage4_immunogenicity_scoring.py` resolves
+    `optimal_thresholds.json` under the configured model dir - i.e. the root copy, which this run
+    did not regenerate and which sits at a third value again (`threshold` 0.325 / F1 0.732).
+    **Production scoring is therefore still on a pre-remediation operating point.** Regenerating
+    the root copy is deliberately left as a separate, owner-visible step rather than folded into
+    this re-baseline, because it changes shortlist sizes for every downstream consumer.
+  - **Antigen-processing median imputation moved inside the fold** for feature modes 33/35
+    (`src/features.py` `load_antigen_processing_cache(..., impute=False)` plus
+    `antigen_processing_cache_medians()`). The whole-cache median leaked held-out peptides into
+    the training features. Modes 21/30/31/50/166 are provably unaffected - mode-31 OOF scores
+    are bit-identical across the flag (max abs diff 0.0). The final full-pool refit still uses
+    whole-cache medians, since the full pool is that model's own training set, so the shipped
+    `.joblib` is unchanged by this repair.
+  - **Certified ledgers regenerated** under the grouped splitter. `models/v5/training_results_mode31.csv`:
+    RF **AUC-ROC 0.9429 -> 0.8137**, **AUC-PR 0.8312 -> 0.6058** (XGB 0.9096 -> 0.8093,
+    0.7672 -> 0.5597). `models/v5/training_results_ablation.csv` retrained across modes
+    21/31/33/35 (AUC-PR 0.8158 -> 0.5047, 0.8312 -> 0.6058, 0.8313 -> 0.6085, 0.8311 -> 0.6069).
+    `results/per_virus_eval_v5_mode31.csv` mean AUC-ROC **0.751 -> 0.658**.
+    `results/pooled_honest_same_pathogen.csv` **0.712 -> 0.6015** ROC / 0.917 -> 0.8711 PR.
+    `results/loo_binding_confound_decomposition.csv` regenerated (R1/R2/transfer-gap means
+    0.751/0.654/0.191 -> 0.658/0.551/0.088); its `loo_cross_virus` column is unchanged at 0.463,
+    confirming that column was never exposed to this defect.
+  - **New `*_no_vaccinia` columns** on the training-results ledgers: an OOF re-slice with the
+    `Orthopoxvirus vaccinia` bloc (77.8% of active negatives) dropped from validation, at zero
+    extra model fits. Mode-31 RF AUC-PR 0.7328 / AUC-ROC 0.6702. **This is not the same quantity
+    as a corpus refit without vaccinia** (`results/cv_leakage_audit.csv`,
+    `peptide_grouped_splitter_no_vaccinia`, AUC-PR 0.7693 / AUC-ROC 0.7427) - the re-slice scores
+    the shipped model on target-virus rows, the refit answers how much of the headline the bloc
+    accounts for. Both move the same way (AUC-PR up, AUC-ROC down) but by different magnitudes,
+    so they are not interchangeable. AUC-PR rises partly mechanically, since dropping vaccinia
+    lifts the validation base rate from 0.226 to 0.568; AUC-ROC falls because the vaccinia decoys
+    were trivially separable and removing them leaves a harder negative set (AUC-ROC is
+    prevalence-invariant, so the base rate does not explain that fall).
+  - **Tier A deliberately not re-run.** Only 414 of its 704 peptides resolve to an active v5
+    row, so a grouped re-run would score a smaller, non-comparable field rather than correct
+    this one. `results/table3_tier_a_metrics.csv` (0.828) stands as a labeled 2026-05 /
+    30-feature / unweighted / 200-tree historical figure (D16), and
+    `scripts/verify_tier_a_provenance.py` still reproduces its certified cells.
+  - `scripts/audit_cv_leakage.py` gains `production_splitter_repaired` and
+    `production_grouped_splitter` arms that use the real `src.ml_utils` classes with full
+    composite-key arguments. The two original D15-anchor arms are **unchanged in code and still
+    reproduce 0.8347 / 0.6092 to 4 decimal places**; the repaired arms measure 0.8343 / 0.6079,
+    so the 0.0004-0.0014 deltas are demonstrably noise against the 0.0065-0.0229 fold standard
+    deviations. (The anchor arms are not bit-frozen: `_fold_overlap` passes the full composite-key
+    arguments, so the `_bin_origin` fix above shifted its per-fold overlap percentages, and the
+    reported overall peptide overlap moves 71.02% -> 71.05%. The AUC cells move only in the 7th
+    decimal.)
+- **GNN promotion Gate 1 re-anchored from AUC-PR >= 0.85 to >= 0.65** under a peptide-grouped
+  splitter (`src/verify/promote_gnn.py` `GATE1_AUC_PR_MIN`, mirrored in `ROADMAP.md` and
+  `docs/architecture/gnn_models.md`). The 0.85 threshold was set against the now-retracted
+  ungrouped RF baseline of 0.8312; against the certified 0.6058 it was unreachable rather than
+  ambitious. The `ROADMAP.md` gate list also previously omitted Gate 5 entirely and stated
+  Gate 2 as `< 0.02` where the code enforces `<= 0.02`; both corrected against the code.
+  The **pathogen-expansion gate** in `ROADMAP.md` is likewise re-anchored from `AUC-PR >= 0.80`
+  to `>= 0.65`, and both gates now state the splitter explicitly.
+- Public metric disclosures updated to the re-baselined figures with their retracted
+  predecessors named: `README.md`, `docs/paper.md` (Sections 2.4, 3.2-3.5, Tables 1/2/2b/3/3b),
+  `docs/model_evaluation_summary.md`, `docs/validation_summary.md`, `ARCHITECTURE.md`,
+  `USAGE.md`, `docs/data_registry.md`, `figures/captions.md`, and the live
+  `/model-info` (`api/main.py`) and Streamlit (`app/demo.py`) contamination disclosures.
+  `docs/model_cards/ann_30feature.md` and `xgb_30feature.md` gain the D15 disclosure they
+  previously lacked entirely (their v3-era numbers are labeled as not re-measured).
+  `ARCHITECTURE.md`'s description of the Tier A figure as "v3-era" is corrected to the
+  720-row root corpus at `69e0e5c` per D16's second correction.
+
 ### Added
 - **Peptide-level cross-validation leakage audit** (`scripts/audit_cv_leakage.py`, output
   `results/cv_leakage_audit.csv` with a provenance sidecar recording the dataset SHA-256,
@@ -17,7 +124,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   deduplicated on `(peptide, hla_allele)` rather than on peptide, and every
   `feature_mode=31` feature is a pure function of the peptide string, so rows sharing a
   peptide are feature-identical and land on opposite sides of a fold boundary: **71.0% of
-  held-out test rows have their exact peptide present in that fold's training set.** Holding
+  held-out test rows have their exact peptide present in that fold's training set** (as first
+  measured; the same figure reads 71.1% after the Phase 0 `_bin_origin` fix changed fold
+  composition - see the Changed entry above). Holding
   the RF configuration fixed at production's own settings (`n_estimators=200`,
   `random_state=42`, `class_weight=balanced`) and changing only the splitter moves AUC-PR
   from 0.8347 to 0.6092 (+0.2255, +37.0%). The production-splitter arm reproduces the
@@ -264,6 +373,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   AUC-PR 0.8897 is unaffected"). Both marked superseded in place with the corrected account rather
   than rewritten, since released entries record what was reported at the time.
 
+---
+
+> **Everything below this line was staged as `## [2.1.0] - 2026-08-07` and has been folded back
+> into `[Unreleased]` (2026-08-10).** No `v2.1.0` tag was ever pushed, and `CITATION.cff`'s
+> `date-released: 2026-08-07` predated the D15/D16 disclosure, so releasing it would have
+> shipped a version that structurally could not disclose findings already public on `main`.
+> The version identifier is back at `2.0.3` across `pyproject.toml`, `CITATION.cff`, `README.md`,
+> `USAGE.md`, and `api/main.py`. These entries are unreleased, not retracted - subsection
+> headings therefore repeat within `[Unreleased]`, and the block above this divider is the
+> Phase 0 work of 2026-08-10.
+
 ### Security
 - **PredIG Docker image pinned off the mutable `:latest` tag**
   (`scripts/run_predig_wrapper.py`). This wrapper was the last of four PredIG call sites
@@ -310,10 +430,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   stale. Replaced with a plain request to state known overlap against the current v5 dataset,
   noting that maintainers re-run a full overlap and contamination check before any merge, so
   an approximate answer does not block a submission.
-- **Leftover `2.0.3` version strings missed by the v2.1.0 bump** (`README.md`'s BibTeX
-  citation block, `USAGE.md`'s example `sestrav info` output, and `api/main.py`'s
-  `importlib.metadata` fallback constant for uninstalled/source runs) - all now read
-  `2.1.0`, matching `pyproject.toml`.
 - **Tier-1 `results/` silent-overwrite guard closed for LOO cross-virus benchmarks**
   (`scripts/run_loo_cross_virus_v4.py`, `scripts/run_loo_cross_virus_v5.py`).
   `--output-json`/`--output-csv` are now required with no default at both the
@@ -358,8 +474,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   one planned path, and the module docstring's stale module count is
   corrected. All 19 modules using this pattern now delegate to one
   implementation instead of 13 delegating and 6 carrying their own copy.
-
-## [2.1.0] - 2026-08-07
 
 ### Security
 - **Fail-closed freshness gate for the committed SBOM artifacts**

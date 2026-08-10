@@ -29,11 +29,17 @@ The dashed horizontal line marks random-chance performance (AUC-ROC = 0.5).
 Pathogens are ordered by descending LOO AUC-ROC. Across all nine pathogens,
 LOO performance is uniformly lower than within-virus CV, and for six of nine
 pathogens LOO falls at or below chance, indicating that within-virus predictive
-signal does not transfer to unseen pathogens. HIV-1 is a notable case: strong
-within-virus performance (AUC-ROC = 0.894) collapses to anti-predictive
-performance under LOO (AUC-ROC = 0.162), i.e. below chance.
+signal does not transfer to unseen pathogens. HIV-1 is a notable case:
+substantially higher within-virus performance (AUC-ROC = 0.663) collapses to
+anti-predictive performance under LOO (AUC-ROC = 0.162), i.e. below chance.
 
-Per-pathogen values plotted (within-virus CV / LOO AUC-ROC):
-CMV 0.819 / 0.633; HBV 0.708 / 0.556; HCV 0.575 / 0.528; EBV 0.790 / 0.496;
-IAV 0.856 / 0.488; HPV 0.561 / 0.468; SARS-CoV-2 0.699 / 0.462;
-DENV 0.859 / 0.372; HIV-1 0.894 / 0.162.
+Per-pathogen values plotted (within-virus CV / LOO AUC-ROC). Within-virus CV
+re-baselined 2026-08-10 under a peptide-grouped splitter (docs/claims_register.md
+D15); LOO is unaffected, each virus already being held out of training entirely:
+CMV 0.743 / 0.633; HBV 0.656 / 0.556; HCV 0.548 / 0.528; EBV 0.711 / 0.496;
+IAV 0.697 / 0.488; HPV 0.482 / 0.468; SARS-CoV-2 0.616 / 0.462;
+DENV 0.805 / 0.372; HIV-1 0.663 / 0.162.
+
+Retracted (prior, ungrouped and peptide-leakage-inflated) within-virus CV values:
+CMV 0.819; HBV 0.708; HCV 0.575; EBV 0.790; IAV 0.856; HPV 0.561;
+SARS-CoV-2 0.699; DENV 0.859; HIV-1 0.894.
