@@ -182,7 +182,7 @@
   {
     "License": "MIT",
     "Name": "fastapi",
-    "Version": "0.139.2"
+    "Version": "0.141.1"
   },
   {
     "License": "BSD License",
@@ -237,7 +237,7 @@
   {
     "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.157.1"
+    "Version": "6.165.0"
   },
   {
     "License": "BSD-3-Clause",
@@ -277,7 +277,7 @@
   {
     "License": "Apache License 2.0",
     "Name": "keras",
-    "Version": "3.15.0"
+    "Version": "3.15.1"
   },
   {
     "License": "BSD License",
@@ -707,7 +707,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "uvicorn",
-    "Version": "0.51.0"
+    "Version": "0.52.1"
   },
   {
     "License": "BSD-2-Clause",

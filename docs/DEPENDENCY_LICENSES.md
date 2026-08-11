@@ -36,7 +36,7 @@
 | docutils                              | 0.22.4      | BSD License; GNU General Public License (GPL); Public Domain                                        |
 | dpath                                 | 2.2.0       | MIT License                                                                                         |
 | et_xmlfile                            | 2.0.0       | MIT License                                                                                         |
-| fastapi                               | 0.139.2     | MIT                                                                                                 |
+| fastapi                               | 0.141.1     | MIT                                                                                                 |
 | fastjsonschema                        | 2.22.1      | BSD License                                                                                         |
 | filelock                              | 3.32.0      | MIT                                                                                                 |
 | fonttools                             | 4.63.0      | MIT                                                                                                 |
@@ -47,7 +47,7 @@
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.157.1     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.165.0     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
@@ -55,7 +55,7 @@
 | jsonschema                            | 4.26.0      | MIT                                                                                                 |
 | jsonschema-specifications             | 2025.9.1    | MIT                                                                                                 |
 | jupyter_core                          | 5.9.1       | BSD-3-Clause                                                                                        |
-| keras                                 | 3.15.0      | Apache License 2.0                                                                                  |
+| keras                                 | 3.15.1      | Apache License 2.0                                                                                  |
 | kiwisolver                            | 1.5.0       | BSD License                                                                                         |
 | llvmlite                              | 0.48.0      | BSD-2-Clause AND Apache-2.0 WITH LLVM-exception                                                     |
 | markdown-it-py                        | 4.2.0       | MIT License                                                                                         |
@@ -342,7 +342,7 @@
 | typing-inspection                     | 0.4.2       | MIT                                                                                                 |
 | typing_extensions                     | 4.16.0      | PSF-2.0                                                                                             |
 | urllib3                               | 2.7.0       | MIT                                                                                                 |
-| uvicorn                               | 0.51.0      | BSD-3-Clause                                                                                        |
+| uvicorn                               | 0.52.1      | BSD-3-Clause                                                                                        |
 | wrapt                                 | 2.3.0       | BSD-2-Clause                                                                                        |
 | xgboost                               | 3.2.0       | Apache Software License                                                                             |
 | xxhash                                | 3.8.1       | BSD-2-Clause                                                                                        |
