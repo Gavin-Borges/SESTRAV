@@ -155,9 +155,15 @@ omit = ["*/tests/*", "*/__init__.py"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# Honest hard floor: the suite measured 34.37% branch-inclusive coverage on 2026-06-22
-# (see docs/claims_register.md), a hair under this floor. This gate prevents
-# regressions and is local-DX only, not a CI/badge gate. It is deliberately NOT
+# Honest hard floor. Corrected 2026-08-11: this comment previously read "the suite
+# measured 34.37% branch-inclusive coverage on 2026-06-22 ... a hair under this
+# floor". Both halves were retracted on 2026-08-08 (20687e0) - the figure was wrong
+# by 13.5 points and the direction was backwards. The measurement is 47.88%
+# branch-inclusive (2026-08-08), so this floor is CLEARED, not missed. CHANGELOG.md
+# recorded that correction as landing in three named locations; this config comment
+# was a fourth site and was missed. See docs/claims_register.md D6.
+# This gate prevents regressions and is local-DX only, not a CI/badge gate. The
+# CI-enforced gate is fail_under = 95 in .coveragerc.library. It is deliberately NOT
 # the OpenSSF Silver target of 80%;
 # raising it is tracked as a coverage ratchet in ROADMAP.md and must only move
 # up as real tests land - never by padding.
