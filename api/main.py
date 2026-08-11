@@ -298,7 +298,11 @@ def model_card() -> ModelCard:
         name="SESTRAV Random Forest",
         version=_APP_VERSION,
         feature_mode="31-feature integrated (20 physicochemical + 10 per-allele MHCflurry + peptide_length)",
-        training_dataset="immunogenicity_dataset_v5.csv (IEDB + VDJdb + central-tolerance hard decoys, 35,597 active rows / 51,185 total)",
+        training_dataset=(
+            "immunogenicity_dataset_v5.csv (IEDB + VDJdb; 35,597 active rows / 51,185 total). "
+            "The 5,000 self-proteome central-tolerance decoys in the file are quarantined and "
+            "absent from this model's training pool (docs/claims_register.md D19)."
+        ),
         cv_folds=5,
         contamination_disclosure=(
             "SARS-CoV-2 and Influenza A are among the nine viruses this model is TRAINED on; "

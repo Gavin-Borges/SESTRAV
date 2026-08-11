@@ -58,7 +58,8 @@ OUTPUT_DIR_REQUIRED_ENTRY_POINTS = [
     "src.gnn_benchmark",
     "src.ablation_study",
     # Writes into results/, not models/: the 3 tracked H2 Tier A artifacts,
-    # one of which backs the certified R10 = 0.9494 result in README.md.
+    # one of which backs the certified R10 = 1.0588 result in README.md. The
+    # R10 = 0.9494 figure this comment used to name is VOID (claims_register D17).
     "src.h2_tier_a_evaluation",
     # Tier-1 #7: 3 calibration artifacts, one of them the tracked
     # results/calibration_metrics.csv.

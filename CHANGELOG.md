@@ -9,6 +9,96 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **The retracted-token sweep never scanned 19 of the 45 markdown files under `docs/`, including
+  all five model cards and the Phase 0 roadmap.** `live_doc_globs` used `docs/*.md`, and
+  `pathlib.glob` does not cross a path separator, so everything in `docs/model_cards/`,
+  `docs/proposals/`, `docs/architecture/`, `docs/data/`, `docs/pipeline/`, `docs/external_testing/`
+  and `docs/outreach/` was invisible while the harness reported PASS on every token. Widened to
+  `docs/**/*.md`.
+  - **`docs/paper.md` was separately whitelisted out entirely, on a false premise.** Its exemption
+    read "SUPERSEDED preprint - banner-flagged, body frozen". The file carries no SUPERSEDED banner,
+    its front matter reads `status: manuscript draft` with `last_updated: 2026-08-10`, and both D18
+    item (3) and D19 landed corrections in it at `96ab220`. (D17 did **not** touch it - an earlier
+    draft of this entry said it did, and that claim was retracted after checking
+    `git log -- docs/paper.md`.)
+  - **The gap was measured, not asserted, and it was not theoretical.** Under the exemption the
+    three D11 LOO tokens - `0.870`, `0.824`, `0.784` - each reported **"0 occurrence(s)" PASS**,
+    because their only live occurrences sit in that one file. The harness was certifying a vacuous
+    check. With `paper.md` scanned they report 2/1/1 occurrences and still PASS, all in genuine
+    retraction context. Verified by A/B against the real sweep, then the probe was reverted and the
+    file re-checked by sha256.
+  - Widening the glob immediately surfaced **seven live citations of the void R10 = 0.9494**
+    (D17); narrowing the false-PASS marker below surfaced **three more**, ten in total. A
+    subsequent hand sweep of the same two documents found **seven live citations of the
+    D15-retracted within-virus mean 0.751**. **The harness could not have found those seven, and
+    that is a finding in itself:** `0.751` has no `[[token]]` in `retracted.toml`, and neither
+    does any other member of the D15-retracted family (`0.712`, `0.8312`, `0.9429`). An earlier
+    draft of this entry credited the glob widening with surfacing them; that is mechanically
+    impossible and is retracted. All ten-plus-seven sit in two **gitignored, untracked** planning
+    documents - LinkedIn "About" copy, a proposed article title, a draft manuscript abstract, and
+    interview talking points. **No tracked reader-facing document carried either number as
+    a live claim.** Two tracked *code* comments did name a retracted figure as "certified", and
+    both are corrected here: `tests/test_entry_point_help_smoke.py` (0.9494, void per D17) and
+    `scripts/audit_cv_leakage.py` (0.751 and 0.712, retracted by D15). An earlier draft of this
+    entry conceded only the first, which made the sentence false as written. All corrected
+    locally; the null-result narrative is unaffected, since the corrected R10 = 1.0588 still fails
+    the R10 >= 2.0 gate.
+    - Worth recording: the first correction pass caught only 3 of the 10 R10 sites and none of the
+      0.751 sites, and then **asserted in a banner that the file had been corrected** - a false
+      all-clear on exactly the axis it was not. The adversarial audit found the remainder. A
+      partial fix advertised as complete is worse than no fix.
+  - **A real false-PASS marker was found and narrowed: `"not report"` -> `"do not report"`.** The
+    old form matched innocuous prose - "a benchmark **not report**ed by any published MHC-I
+    predictor" - and was single-handedly rescuing three of those live void-R10 citations, so the
+    harness printed "all in retraction context" over a genuine leak.
+  - `"amendment"` and `"inflat"` were briefly added to `markers` to guard a hypothetical false-FAIL,
+    then **reverted** once measured: zero occurrences anywhere depended on either, so they were
+    pure gate relaxation buying nothing. The asymmetry is the lesson - a false FAIL is loud and
+    self-correcting, a false PASS is silent. Speculative markers are not worth their cost.
+- **D19's "two live code docstrings" follow-up is closed, and its enumeration was incomplete.**
+  Both named sites were corrected (`scripts/compute_pooled_honest_metric.py`'s docstring and inline
+  comment; `src/train_classifier.py`'s `_excluded_bloc_cv_metrics` docstring). **The D19
+  enumeration was incomplete, and a repo-wide sweep found two classes, not one.**
+  - **Class 1 - wording (the vaccinia bloc called a decoy), ten sites:**
+    `scripts/audit_cv_leakage.py` `_vaccinia_ablation`; four in
+    `docs/proposals/2026_feature_upgrade_roadmap.md`; **`README.md`'s per-virus footnote** - the
+    front door - which read "the trivially separable vaccinia decoys" while attached to the
+    *current* certified 0.733 / 0.670; `README.md`'s 0.9368 retraction note;
+    `docs/model_evaluation_summary.md`; `docs/validation_summary.md`; and
+    `docs/model_cards/rf_31feature_integrated.md`.
+  - **Class 2 - substance: self-proteome decoys asserted to be inside the SCORED pool.** This is
+    D19's root claim rather than its wording tail, and it sits on the most-read surfaces.
+    `ARCHITECTURE.md` described the 35,597-row active set as "central-tolerance self-binder plus
+    IEDB viral negatives" and explained the certified 0.658 as caused by "the hard decoys";
+    `README.md` billed Paradigm 2 as a "hard-decoy generalization set" including
+    "central-tolerance decoys"; and `docs/model_cards/rf_31feature_integrated.md` said the negative
+    class behind the certified 0.8137 / 0.6058 is "dominated by central-tolerance self-peptides",
+    citing 8,811 all-negative `Self` rows. **All 8,811 are quarantined and zero reach the active
+    pool**, verified by the same crosstab D19 used. The corpus-construction and LOO-training
+    statements that legitimately DO include the 5,000 decoys were left alone, exactly as D19 ruled.
+  - **Class 3 - a withdrawn argument.** `docs/proposals/2026_feature_upgrade_roadmap.md` Section
+    4.6 rejected `feature_mode=35` partly on a "structural reason": that `generate_hard_decoys.py`
+    builds most hard negatives from the human self-proteome, so an is-this-human feature would
+    predict "negative" by construction. **Withdrawn** - `scripts/audit_cv_leakage.py` scores on
+    `_load_active()`, which drops every quarantined row, so *zero* self-proteome decoys sit in the
+    frame that produced the cited 0.6055. The null result stands on its own evidence; the
+    explanation offered for it did not. That section's ablation citation was corrected in the same
+    pass: it read "ungrouped ... -0.0002" and is now the peptide-grouped 0.6085 -> 0.6069 =
+    **-0.0016** (`models/v5/training_results_ablation.csv`, regenerated under `PeptideGroupedKFold`
+    at `30f1b76`).
+  - **Ten is the wording-class count; no cross-class total is certified**, deliberately. Three
+    successive counts (five, then seven, then ten) were each wrong, every time because the sweep
+    was scoped to the sites a prior report named instead of being run repo-wide. **The durable finding is that no mechanical gate covers either
+    class:** the harness matches retracted *numbers*, and neither "decoy" nor a false claim about
+    what a pool contains is a number. Compositional claims should be bound to a crosstab the way
+    figures are bound to CSV cells.
+  - Left alone deliberately: `scripts/generate_hard_decoys.py` and the `prepare_features_35`
+    docstring's "hard decoys" both refer to the genuine self-proteome decoy set, which **is**
+    synthetic. Only the *Orthopoxvirus vaccinia* bloc was ever mislabelled.
+- **A stale internal comment in `tests/test_entry_point_help_smoke.py` named R10 = 0.9494 as the
+  "certified" result.** It is void (D17); README certifies 1.0588. Corrected. `tests/` is outside
+  `live_doc_globs`, which is why the sweep never saw it.
+
 - **`results/h2_tier_a_summary.md` now states WHY its ungrouped splitter is harmless**, closing the
   item the prior session plan called "the largest remaining honesty gap". That framing turned out to
   overstate it: `src/h2_tier_a_evaluation.py` already emitted the splitter name into the artifact, so
@@ -67,6 +157,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     `min_subgroup_f1: 0.0`, despite "maximize minimum subgroup F1" being its stated primary
     objective. Regenerating the root operating point remains out of scope here.
 
+### Disclosed, not fixed
+- **`results/freeze_status.json` is a tracked freeze-governance artifact that still carries the
+  VOID H2 ratios and the placeholder input hash.** It records `h2.r10 = 0.9493670886075949`,
+  `h2.r25 = 1.0207514198339884`, and `inputs.binding_matrix_path.sha256 = c7bb5ea1...` - the
+  all-zeros placeholder D17 identified as the root cause, superseded by `78aa3db8...`.
+  - **Scoped precisely:** its `h2.status` already reads `"NOT SUPPORTED"`, which matches the
+    corrected decision, so the recorded *conclusion* is not wrong - only the two ratios and the
+    hash. Its `"valid": true` is **not** a scientific certification either:
+    `src/final_validation_report.py:217` hardcodes it on the success path (`false` only in the
+    exception handler), so it means "the generator run completed". An earlier draft of this entry
+    called it "certifying a void result as valid"; that over-read the field and is retracted.
+  - It is written by the same `src/final_validation_report.py` as
+    `results/final_validation_report.md`; because D17's remediation hand-patched that report rather
+    than re-running the generator (a deliberate choice, to avoid disturbing unrelated certified
+    artifacts the same script writes), this JSON was never updated and the omission was never
+    disclosed until now.
+  - **It evades the retracted-token sweep twice over:** `live_doc_globs` matches only `.md`, so no
+    `.json` artifact is ever scanned; and the value is stored at full precision, so the 4-decimal
+    token `0.9494` would not match as a substring even if it were.
+  - Deliberately **not** hand-edited: `results/` artifacts are script-generated and the standing
+    rule is regenerate-or-annotate, never hand-patch. Regeneration also rewrites
+    `gold_standard_validation.csv` and `baseline_comparison.csv`, so it is not a drive-by edit.
+    **Owner decision required:** regenerate, or annotate the file as historical.
+
 ### Changed
 - **CORRECTED: `docs/paper.md` attributed the pooled figure's inflation to self-proteome hard
   decoys; the pooled background contains none** (`docs/claims_register.md` **D19**). No reported
@@ -88,8 +202,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     `n_neg_real = 21432, n_neg_decoy = 0`. They are *out-of-panel*, not synthetic - which is a
     different and weaker claim than the one being retracted, and the honest one. The error was
     inherited from `scripts/compute_pooled_honest_metric.py`'s docstring and
-    `src/train_classifier.py`'s comments, both of which call this a "hard-decoy panel"; correcting
-    those generators is left as a separate, tracked follow-up rather than folded in here.
+    `src/train_classifier.py`'s comments, both of which call this a "hard-decoy panel". **Both
+    were corrected on 2026-08-10** - see the D19 closure entry above; this sentence described them
+    as a deferred follow-up and that is no longer true.
   - **The allele-matched non-binders do not explain the pooled-vs-per-virus gap** and the
     manuscript no longer claims they do. They sit on both sides of the comparison and are a far
     larger share of most per-virus negative sets (Table 3b: 0.988 DENV, 0.920 HIV-1) than of the

@@ -174,11 +174,17 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
-- **Within-virus generalization set** (v5, 35,597 active rows / 51,185 total; central-tolerance
-  self-binder plus IEDB viral negatives): canonical `mode_31` per-virus within-CV mean AUC-ROC
+- **Within-virus generalization set** (v5, 35,597 active rows / 51,185 total; of the 27,542
+  active negatives in the corpus, 21,432 are an out-of-panel *Orthopoxvirus vaccinia* bloc
+  (77.8%), 3,112 are synthetic allele-matched non-binders, and 2,998 are other IEDB
+  assay-derived negatives. Reproduce as `negative_origin` value counts over the
+  `is_quarantined == False & label == 0` rows of `data/immunogenicity_dataset_v5.csv`; note the
+  scored OOF frame `models/v5/rf_oof_predictions_mode31.csv` carries 27,534, eight fewer):
+  canonical `mode_31` per-virus within-CV mean AUC-ROC
   **0.658** over nine viruses (`results/per_virus_eval_v5_mode31.csv`), and pooled CV AUC-PR
   **0.6058** (`models/v5/training_results_mode31.csv`). This same-pathogen number is
-  lower by design because the hard decoys remove the binding-equals-immunogenic shortcut; the
+  lower by design because the task is harder - **not** because of self-proteome hard decoys:
+  all 5,000 of those are quarantined and none reaches this 35,597-row active pool (D19); the
   pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
   (required whenever these figures are quoted, `docs/claims_register.md` D15 - remediated
   2026-08-10):** these are measured under a **peptide-grouped** splitter
@@ -283,7 +289,13 @@ forward work rather than shipped capability.
 
 - **Training data:** `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total),
   derived from curated IEDB-linked immunogenicity evidence plus hard, self-proteome
-  central-tolerance decoy negatives. Provenance is documented in `docs/data_registry.md`.
+  central-tolerance decoy negatives. **All 5,000 self-proteome decoys are quarantined**, so they
+  are present in the 51,185-row file but absent from the 35,597-row active pool that the pooled
+  and per-virus v5 cross-validation metrics are measured on. **The LOO evaluation is the
+  deliberate exception:** `scripts/run_loo_cross_virus_v5.py` partitions `source_type == "Self"`
+  out *before* the quarantine filter and includes all 5,000 in LOO training regardless, so the
+  certified LOO mean 0.463 does train on them (D19). The Tier A figures are measured on a
+  different 704-peptide field entirely. Provenance is in `docs/data_registry.md`.
 - **Binding matrix:** `models/peptide_binding_matrix_v5.csv` provides per-allele MHCflurry
   scores for the 10-allele panel.
 - **Quarantine mechanism:** rows with intra-supertype label conflicts that the

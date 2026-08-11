@@ -21,7 +21,8 @@
 
 [^retracted]: Two successive retractions apply to this figure, and they are different defects.
 **(1) Decoy inflation (2026-07-11):** the previously reported pooled same-pathogen AUC-ROC
-0.9368 only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel,
+0.9368 only reproduces when easy negatives - the synthetic allele-matched non-binders and the
+out-of-panel vaccinia bloc (which is assay-confirmed, not synthetic - D19) -
 are mixed in as if they were same-pathogen negatives; RETRACTED. **(2) Peptide leakage
 (2026-08-10, D15):** the decoy-corrected figures that replaced it were computed under a
 splitter that stratified but did not group by peptide, and are themselves retracted - pooled
