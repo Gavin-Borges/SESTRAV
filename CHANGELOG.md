@@ -123,13 +123,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Two rotten `src/train_classifier.py` line citations re-anchored by symbol, across nine sites in
   seven tracked files.** Both were correct when written and drifted silently as the file grew; this
   is the failure mode recorded in the prior entry as having recurred three times.
-  - `:781-786` (cited for the `rf_oof_predictions*.csv` writes) - the real writes are at **941/946**.
+  - `:781-786` (cited for the `rf_oof_predictions*.csv` writes) - the real writes were at
+    **941/946** *as of this commit*. **They moved again in the very next commit** - `42de845` is
+    a direct child of this one (`git rev-list --parents` confirms the single parent) and made a net
+    +3 change upstream of them (four lines added, one removed), putting the writes at 944/949 and
+    `gs_mask` at 678. That is exactly the recurrence this entry predicts, one commit later.
+    **Every citing site outside this changelog is now symbol-anchored with no line number**; the
+    numbers retained here are historical record, not citations.
+    - Worth recording how the count above was first got wrong: an earlier draft said "three commits
+      later", read off `git log --oneline`, which is date-ordered and interleaved two dependabot
+      merges that are **not ancestors** of `42de845`. Commit distance is an ancestry question and
+      needs an ancestry-aware instrument (`git rev-list --count A..B`). Same shape as the
+      `resave_checkpoint.py` error in this same pass: an instrument that could not answer the
+      question it was asked.
     This one is **load-bearing**: it is the code-traced provenance chain D15 uses to establish the
     Tier A leakage exposure, so a reader following it landed on unrelated sample-weight code. Five
     citing sites, not the two previously recorded: `docs/claims_register.md` (D15 **and** the
     Section 2 Tier A row), `docs/proposals/2026_feature_upgrade_roadmap.md`,
     `scripts/audit_cv_leakage.py`, and `CHANGELOG.md`.
-  - `:555` (cited for the `GOLD_STANDARD_EPITOPES` exclusion) - the real `gs_mask` line is **675**.
+  - `:555` (cited for the `GOLD_STANDARD_EPITOPES` exclusion) - the real `gs_mask` line was
+    **675** *as of this commit*, and moved to 678 at `42de845`. Now symbol-anchored.
     Four citing sites: `docs/holdout_and_qc_policy.md`, both RF model cards, and `CHANGELOG.md`.
   - Each now names the **symbol** as well as the line, so the next drift is detectable by reading
     rather than silent. A mechanical gate for this class is still worth building: note that a naive
@@ -515,7 +528,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   v5-coverage figures below were also mispaired and are corrected in the second note. Original
   text retained for the record:]
   The SESTRAV arm of the Tier A external benchmark is the `rf_oof_score` column, which traces
-  to the same ungrouped OOF output as everything else (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`, lines 941/946) ->
+  to the same ungrouped OOF output as everything else (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) ->
   `src/prepare_external_validation_inputs.py:100` -> `scripts/run_tier_a_benchmarks.py:269`),
   so Tier A was never an independent held-out field. Measured on the 414 field peptides
   resolvable to an active (non-quarantined) v5 row, changing only the splitter moves AUC-PR
@@ -583,7 +596,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   lines above it. Replaced with the true v5 posture and the D15 splitter disclosure.
 - **16-peptide holdout scope corrected, not "Tier A/B quarantine."** `GOLD_STANDARD_EPITOPES`
   (`src/iedb_data_loader.py:24`) excludes exactly 16 peptides from training
-  (`src/train_classifier.py` (the `gs_mask` gold-standard exclusion in `train_models`, line 675)); `docs/holdout_and_qc_policy.md`, both RF model cards, and
+  (`src/train_classifier.py` (the `gs_mask` gold-standard exclusion in `train_models`)); `docs/holdout_and_qc_policy.md`, both RF model cards, and
   `docs/paper.md` all overstated this as "Tier A and Tier B Gold Standard validation peptides
   ... strictly excluded" / "permanently quarantined." 414 of the 704 Tier A peptides are
   present in the v5 training corpus (D16). This is the root cause of D16's "the SESTRAV Tier A

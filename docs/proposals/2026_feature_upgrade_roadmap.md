@@ -33,9 +33,11 @@ peptide-grouped splitter moves AUC-PR from 0.8347 to 0.6092 - a +0.2255 (+37.0%)
 attributable to leakage alone, not to any modeling choice. The two figures this project has cited
 as the leakage-honest antidote to the retracted pooled 0.9368/0.7678 (`docs/claims_register.md`
 D12) turn out to be downstream consumers of the same leaky OOF predictions and are themselves
-measurably, if less severely, inflated: the per-virus mean (certified 0.751) reproduces at 0.7512
+measurably, if less severely, inflated: the per-virus mean (then-certified 0.751, since
+RETRACTED by D15) reproduces at 0.7512
 under the production splitter versus 0.6587 peptide-grouped (+14.0%), and the pooled honest
-same-pathogen figure (certified 0.712) reproduces at 0.7124 versus 0.5989 peptide-grouped
+same-pathogen figure (then-certified 0.712, since RETRACTED by D15) reproduces at 0.7124
+versus 0.5989 peptide-grouped
 (+19.0%) - see Section 2. The Tier A external benchmark is exposed by the same chain but the
 leakage effect there is small (AUC-PR -0.0176 on the measurable subset); its real problem is that
 the certified 0.828 is a **2026-05, 30-feature, unweighted, 200-tree** measurement mislabeled as
@@ -176,7 +178,9 @@ viruses - contributes 21,432 active rows, all label=0, 77.8% of all active negat
 | **Leakage-attributable inflation** | **+0.2255 (+37.0%)** | **+0.1310** |
 
 The production-splitter reproduction lands within 0.0035 AUC-PR / 0.0011 AUC-ROC of the certified
-ledger cell (`models/v5/training_results_mode31.csv`: AUC-PR 0.8312, AUC-ROC 0.9429) - the
+ledger cell (`models/v5/training_results_mode31.csv`, **as it stood before Phase 0**: AUC-PR
+0.8312, AUC-ROC 0.9429 - both RETRACTED as peptide-leakage-inflated per D15; that file now holds
+0.6058 / 0.8137) - the
 residual gap is CV-fold-shuffle variance between independent runs (same `random_state`, same
 estimator count), not a modeling-choice difference, and is small enough that the reproduction is
 treated as validated.
@@ -208,14 +212,15 @@ assay-confirmed negatives (`database_source = IEDB`), not decoys; the honest ter
 cited two figures as the leakage-free antidote to the retracted pooled 0.9368/0.7678
 (`docs/claims_register.md` D12): the per-virus mean AUC-ROC (`results/per_virus_eval_v5_mode31.csv`,
 0.751) and the pooled honest same-pathogen AUC-ROC (`results/pooled_honest_same_pathogen.csv`,
-Def A, 0.712). Both are computed from `models/v5/rf_oof_predictions_mode31.csv`, which is written
+Def A, 0.712). **Both figures are RETRACTED by D15** - those two files now hold **0.658** and
+**0.6015** respectively, so do not read 0.751/0.712 as their current contents. Both are computed from `models/v5/rf_oof_predictions_mode31.csv`, which is written
 by the same `MultiStratifiedKFold` path as the pooled headline - not an independent splitter.
 Reproducing both under a matched peptide-grouped splitter (same RF config as above):
 
 | Metric | Production splitter | Peptide-grouped | Inflation |
 |---|---|---|---|
-| Per-virus mean AUC-ROC (9 target viruses) | 0.7512 +/- 0.1168 (certified: 0.751) | 0.6587 +/- 0.0908 | +0.0925 (+14.0%) |
-| Pooled honest same-pathogen AUC-ROC (Def A) | 0.7124 (certified: 0.712) | 0.5989 | +0.1135 (+19.0%) |
+| Per-virus mean AUC-ROC (9 target viruses) | 0.7512 +/- 0.1168 (then-certified 0.751, RETRACTED D15) | 0.6587 +/- 0.0908 | +0.0925 (+14.0%) |
+| Pooled honest same-pathogen AUC-ROC (Def A) | 0.7124 (then-certified 0.712, RETRACTED D15) | 0.5989 | +0.1135 (+19.0%) |
 
 The production-splitter reproductions match the certified figures almost exactly, validating the
 methodology. Both correctives carry real, non-trivial leakage inflation - smaller than the pooled
@@ -227,7 +232,7 @@ peptides from training.
 
 **The Tier A external benchmark is exposed by the same chain, but the leakage effect there is
 small.** The SESTRAV arm of Tier A is the `rf_oof_score` column, which traces to the same ungrouped
-OOF output (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`, lines 941/946) -> `src/prepare_external_validation_inputs.py:100` ->
+OOF output (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) -> `src/prepare_external_validation_inputs.py:100` ->
 `scripts/run_tier_a_benchmarks.py:269`), so Tier A is not an independent held-out field. Measured on
 the 414 field peptides resolvable to an active (non-quarantined) v5 row, changing only the
 splitter:
@@ -545,8 +550,10 @@ of the additions below ship.
 
 Phase 0 step 6 restates the project's certified headline result downward by roughly 0.23 AUC-PR
 (or 0.07 if reported net of the vaccinia bloc instead), and also restates the two figures this
-project has been citing as the leakage-honest corrective - the per-virus mean (0.751 -> 0.659,
--0.09) and the pooled honest same-pathogen figure (0.712 -> 0.599, -0.11) - both downward by a
+project has been citing as the leakage-honest corrective - both RETRACTED by D15 - the
+per-virus mean (0.751 -> 0.658 as finally measured,
+-0.09) and the pooled honest same-pathogen figure (0.712 -> 0.6015 as finally measured, -0.11)
+- both downward by a
 smaller but still material amount. The Tier A headline (0.828) moves far less on leakage grounds
 (-0.0176 AUC-PR on the measurable subset) but carries a separate, arguably harder problem: it is
 a 2026-05, 30-feature, unweighted, 200-tree measurement mislabeled as the canonical v5 `mode_31`
