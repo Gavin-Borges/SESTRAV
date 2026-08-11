@@ -1,0 +1,117 @@
+{
+  "_comment": "Pinned content for the path:NNN citations this gate CHECKS - not for every citation in the tree. Most live in historical ledgers (see EXEMPT_CITING_FILES) and are deliberately absent here; the gate prints both counts on every check run. Written by scripts/check_doc_line_citations.py --update. Each 'pinned' array is the text the cited line(s) held when the entry was last confirmed by a human. If an edit moves those lines, the pinned text stops matching and CI reports DRIFTED. Review every pinned-text change in the diff: it is either a citation you deliberately repointed, or a rot you just hid.",
+  "citations": [
+    {
+      "citing": "docs/holdout_and_qc_policy.md",
+      "target": "src/iedb_data_loader.py",
+      "lines": "24",
+      "pinned": [
+        "GOLD_STANDARD_EPITOPES = ["
+      ]
+    },
+    {
+      "citing": "docs/model_cards/rf_30feature.md",
+      "target": "src/iedb_data_loader.py",
+      "lines": "24",
+      "pinned": [
+        "GOLD_STANDARD_EPITOPES = ["
+      ]
+    },
+    {
+      "citing": "docs/model_cards/rf_31feature_integrated.md",
+      "target": "src/iedb_data_loader.py",
+      "lines": "24",
+      "pinned": [
+        "GOLD_STANDARD_EPITOPES = ["
+      ]
+    },
+    {
+      "citing": "docs/proposals/2026_feature_upgrade_roadmap.md",
+      "target": "scripts/run_tier_a_benchmarks.py",
+      "lines": "269",
+      "pinned": [
+        "(\"SESTRAV RF\", \"rf_oof_score\"),"
+      ]
+    },
+    {
+      "citing": "docs/proposals/2026_feature_upgrade_roadmap.md",
+      "target": "src/prepare_external_validation_inputs.py",
+      "lines": "100",
+      "pinned": [
+        "oof_path = os.path.join(root, \"models\", \"rf_oof_predictions.csv\")"
+      ]
+    },
+    {
+      "citing": "docs/security_compliance.md",
+      "target": "scripts/run_predig_wrapper.py",
+      "lines": "124",
+      "pinned": [
+        "subprocess.run(cmd, check=True)"
+      ]
+    },
+    {
+      "citing": "docs/security_compliance.md",
+      "target": "scripts/run_prime_wrapper.py",
+      "lines": "110",
+      "pinned": [
+        "subprocess.run(cmd, check=True)"
+      ]
+    },
+    {
+      "citing": "docs/security_compliance.md",
+      "target": "tests/test_graph_builder.py",
+      "lines": "47",
+      "pinned": [
+        "torch.save(dist, tmp_path / \"PEP_dist.pt\") # nosec B614 - test fixture, trusted tensor"
+      ]
+    },
+    {
+      "citing": "docs/security_compliance.md",
+      "target": "tests/test_sestrav_evaluator_extended.py",
+      "lines": "178",
+      "pinned": [
+        "torch.save(state, chk) # nosec B614 - test fixture, trusted tensor"
+      ]
+    },
+    {
+      "citing": "docs/security_compliance.md",
+      "target": "tests/test_sestrav_evaluator_extended.py",
+      "lines": "189",
+      "pinned": [
+        "torch.save(state, chk) # nosec B614 - test fixture, trusted tensor"
+      ]
+    },
+    {
+      "citing": "scripts/audit_cv_leakage.py",
+      "target": "scripts/run_tier_a_benchmarks.py",
+      "lines": "269",
+      "pinned": [
+        "(\"SESTRAV RF\", \"rf_oof_score\"),"
+      ]
+    },
+    {
+      "citing": "scripts/audit_cv_leakage.py",
+      "target": "src/prepare_external_validation_inputs.py",
+      "lines": "100",
+      "pinned": [
+        "oof_path = os.path.join(root, \"models\", \"rf_oof_predictions.csv\")"
+      ]
+    },
+    {
+      "citing": "scripts/audit_cv_leakage.py",
+      "target": "src/prepare_external_validation_inputs.py",
+      "lines": "122",
+      "pinned": [
+        "oof_rf = oof_rf.drop_duplicates(subset=[\"peptide\"], keep=\"first\")[[\"peptide\", \"score\"]].rename("
+      ]
+    },
+    {
+      "citing": "tests/test_data_bias_audit_guard.py",
+      "target": ".gitignore",
+      "lines": "259",
+      "pinned": [
+        "!results/data_bias_audit.md"
+      ]
+    }
+  ]
+}

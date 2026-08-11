@@ -315,7 +315,7 @@ def _tier_a_ab(active: pd.DataFrame) -> list[dict]:
 
     Method: score each Tier A peptide with the OOF value from the v5 row(s) carrying that
     peptide, taking the first occurrence to mirror the drop_duplicates(keep="first") in
-    `prepare_external_validation_inputs.py:122`, then evaluate with the repo's own shared
+    `src/prepare_external_validation_inputs.py:122`, then evaluate with the repo's own shared
     `src.evaluate_metrics.evaluate` so the numbers are directly comparable to
     `results/table3_tier_a_metrics.csv`. Labels come from the Tier A field, not from v5.
 
