@@ -48,7 +48,7 @@ logger = logging.getLogger("sestrav.batch_runner")
 #   21  -> sequence-only legacy            (models/<backend>_21feature_legacy.*)
 #   30  -> multi-allele legacy             (models/<backend>_30feature_integrated.*)
 #   31  -> canonical production (config.yaml feature_mode: 31)
-#   33  -> extended (+ netchop/tap)
+#   33  -> extended (+ netchop/tap; MOCK scores, not real NetChop/TAPreg - D18)
 #   35  -> tolerance-aware (+ self-similarity)
 #   50  -> expanded multi-allele
 # Modes 51/166 and the string modes "30_esm"/"30_graph" exist in train_classifier.py

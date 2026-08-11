@@ -5,8 +5,9 @@ train_classifier / ann_benchmark / train_gnn / gnn_benchmark /
 compute_ann_baseline_summary / ablation_study line already closed for models/.
 Found by the claims-auditor while gating that line's last PR, and higher
 severity than any single instance in it: results/h2_tier_a_summary.md is the
-certified R10=0.9494 binding source in docs/claims_register.md, not just a
-training artifact. scripts/run_analysis.py is the third instance in this same
+certified R10 binding source in docs/claims_register.md (R10 = 1.0588 as of
+the 2026-08-10 D17 regeneration; previously 0.9494, retracted as void), not
+just a training artifact. scripts/run_analysis.py is the third instance in this same
 results/ sub-line; its tests live in test_run_analysis_results_guard.py
 instead, split out because importing it pulls in `shap`, which crashes the
 Python process natively on at least one Windows dev machine in this project
@@ -95,14 +96,14 @@ def test_final_validation_guard_passes_on_an_empty_directory(tmp_path):
 
 
 def test_final_validation_guard_refuses_to_clobber_the_certified_ledger_file(tmp_path):
-    """h2_tier_a_summary.md is the certified R10=0.9494 binding source - this is the case."""
+    """h2_tier_a_summary.md is the certified R10 binding source - this is the case."""
     sentinel = tmp_path / "h2_tier_a_summary.md"
-    sentinel.write_text("R10: 0.9494")
+    sentinel.write_text("R10: 1.0588")
 
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         guard_final_validation(str(tmp_path), "expansion_v4", "4.0.0", allow_overwrite=False)
 
-    assert "0.9494" in sentinel.read_text()
+    assert "1.0588" in sentinel.read_text()
 
 
 def test_final_validation_guard_catches_a_tagged_alias_too(tmp_path):

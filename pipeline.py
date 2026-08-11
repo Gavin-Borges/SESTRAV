@@ -44,6 +44,7 @@ def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, regis
     model_path = registry.resolve_model(config.model_path.name)
     mc_dropout = config.mc_dropout
     calibration_path = str(config.calibration_path) if config.calibration_path else None
+    thresholds_path = str(config.thresholds_path) if config.thresholds_path else None
 
     peptides_df = generate_peptides(fasta_path, proteome_id, peptide_lengths=lengths)
     binding_df = predict_binding(peptides_df, proteome_id, alleles=alleles)
@@ -57,6 +58,7 @@ def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, regis
         calibrate=True,
         mc_dropout=mc_dropout,
         calibration_path=calibration_path,
+        thresholds_path=thresholds_path,
     )
     plot_immunogenicity_scores(ranked_df, proteome_id)
 

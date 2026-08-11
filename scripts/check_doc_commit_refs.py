@@ -110,7 +110,7 @@ COMMIT_CONTEXT_RE = re.compile(
 #               dependencies", "MHCflurry 2.2.1 (pinned)"), suppressing 37
 #               lines. Requiring a sha/digest/commit/version/tag qualifier - or
 #               "pinned to/at/by" - drops that to 4 while still excluding
-#               docs/SCORECARD_REMEDIATION.md:102 ("SHA pinned: <sha>"), the
+#               docs/SCORECARD_REMEDIATION.md's "SHA pinned: <sha>" line, the
 #               only tracked line in the repo that depends on this rule.
 #   "upstream"  is not a substring of any other English word; the leading \b is
 #               belt-and-braces and changes nothing (15 lines either way).

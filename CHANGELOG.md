@@ -8,7 +8,383 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+- **The retracted-token sweep never scanned 19 of the 45 markdown files under `docs/`, including
+  all five model cards and the Phase 0 roadmap.** `live_doc_globs` used `docs/*.md`, and
+  `pathlib.glob` does not cross a path separator, so everything in `docs/model_cards/`,
+  `docs/proposals/`, `docs/architecture/`, `docs/data/`, `docs/pipeline/`, `docs/external_testing/`
+  and `docs/outreach/` was invisible while the harness reported PASS on every token. Widened to
+  `docs/**/*.md`.
+  - **`docs/paper.md` was separately whitelisted out entirely, on a false premise.** Its exemption
+    read "SUPERSEDED preprint - banner-flagged, body frozen". The file carries no SUPERSEDED banner,
+    its front matter reads `status: manuscript draft` with `last_updated: 2026-08-10`, and both D18
+    item (3) and D19 landed corrections in it at `96ab220`. (D17 did **not** touch it - an earlier
+    draft of this entry said it did, and that claim was retracted after checking
+    `git log -- docs/paper.md`.)
+  - **The gap was measured, not asserted, and it was not theoretical.** Under the exemption the
+    three D11 LOO tokens - `0.870`, `0.824`, `0.784` - each reported **"0 occurrence(s)" PASS**,
+    because their only live occurrences sit in that one file. The harness was certifying a vacuous
+    check. With `paper.md` scanned they report 2/1/1 occurrences and still PASS, all in genuine
+    retraction context. Verified by A/B against the real sweep, then the probe was reverted and the
+    file re-checked by sha256.
+  - Widening the glob immediately surfaced **seven live citations of the void R10 = 0.9494**
+    (D17); narrowing the false-PASS marker below surfaced **three more**, ten in total. A
+    subsequent hand sweep of the same two documents found **seven live citations of the
+    D15-retracted within-virus mean 0.751**. **The harness could not have found those seven, and
+    that is a finding in itself:** `0.751` has no `[[token]]` in `retracted.toml`, and neither
+    does any other member of the D15-retracted family (`0.712`, `0.8312`, `0.9429`). An earlier
+    draft of this entry credited the glob widening with surfacing them; that is mechanically
+    impossible and is retracted. All ten-plus-seven sit in two **gitignored, untracked** planning
+    documents - LinkedIn "About" copy, a proposed article title, a draft manuscript abstract, and
+    interview talking points. **No tracked reader-facing document carried either number as
+    a live claim.** Two tracked *code* comments did name a retracted figure as "certified", and
+    both are corrected here: `tests/test_entry_point_help_smoke.py` (0.9494, void per D17) and
+    `scripts/audit_cv_leakage.py` (0.751 and 0.712, retracted by D15). An earlier draft of this
+    entry conceded only the first, which made the sentence false as written. All corrected
+    locally; the null-result narrative is unaffected, since the corrected R10 = 1.0588 still fails
+    the R10 >= 2.0 gate.
+    - Worth recording: the first correction pass caught only 3 of the 10 R10 sites and none of the
+      0.751 sites, and then **asserted in a banner that the file had been corrected** - a false
+      all-clear on exactly the axis it was not. The adversarial audit found the remainder. A
+      partial fix advertised as complete is worse than no fix.
+  - **A real false-PASS marker was found and narrowed: `"not report"` -> `"do not report"`.** The
+    old form matched innocuous prose - "a benchmark **not report**ed by any published MHC-I
+    predictor" - and was single-handedly rescuing three of those live void-R10 citations, so the
+    harness printed "all in retraction context" over a genuine leak.
+  - `"amendment"` and `"inflat"` were briefly added to `markers` to guard a hypothetical false-FAIL,
+    then **reverted** once measured: zero occurrences anywhere depended on either, so they were
+    pure gate relaxation buying nothing. The asymmetry is the lesson - a false FAIL is loud and
+    self-correcting, a false PASS is silent. Speculative markers are not worth their cost.
+- **D19's "two live code docstrings" follow-up is closed, and its enumeration was incomplete.**
+  Both named sites were corrected (`scripts/compute_pooled_honest_metric.py`'s docstring and inline
+  comment; `src/train_classifier.py`'s `_excluded_bloc_cv_metrics` docstring). **The D19
+  enumeration was incomplete, and a repo-wide sweep found two classes, not one.**
+  - **Class 1 - wording (the vaccinia bloc called a decoy), ten sites:**
+    `scripts/audit_cv_leakage.py` `_vaccinia_ablation`; four in
+    `docs/proposals/2026_feature_upgrade_roadmap.md`; **`README.md`'s per-virus footnote** - the
+    front door - which read "the trivially separable vaccinia decoys" while attached to the
+    *current* certified 0.733 / 0.670; `README.md`'s 0.9368 retraction note;
+    `docs/model_evaluation_summary.md`; `docs/validation_summary.md`; and
+    `docs/model_cards/rf_31feature_integrated.md`.
+  - **Class 2 - substance: self-proteome decoys asserted to be inside the SCORED pool.** This is
+    D19's root claim rather than its wording tail, and it sits on the most-read surfaces.
+    `ARCHITECTURE.md` described the 35,597-row active set as "central-tolerance self-binder plus
+    IEDB viral negatives" and explained the certified 0.658 as caused by "the hard decoys";
+    `README.md` billed Paradigm 2 as a "hard-decoy generalization set" including
+    "central-tolerance decoys"; and `docs/model_cards/rf_31feature_integrated.md` said the negative
+    class behind the certified 0.8137 / 0.6058 is "dominated by central-tolerance self-peptides",
+    citing 8,811 all-negative `Self` rows. **All 8,811 are quarantined and zero reach the active
+    pool**, verified by the same crosstab D19 used. The corpus-construction and LOO-training
+    statements that legitimately DO include the 5,000 decoys were left alone, exactly as D19 ruled.
+  - **Class 3 - a withdrawn argument.** `docs/proposals/2026_feature_upgrade_roadmap.md` Section
+    4.6 rejected `feature_mode=35` partly on a "structural reason": that `generate_hard_decoys.py`
+    builds most hard negatives from the human self-proteome, so an is-this-human feature would
+    predict "negative" by construction. **Withdrawn** - `scripts/audit_cv_leakage.py` scores on
+    `_load_active()`, which drops every quarantined row, so *zero* self-proteome decoys sit in the
+    frame that produced the cited 0.6055. The null result stands on its own evidence; the
+    explanation offered for it did not. That section's ablation citation was corrected in the same
+    pass: it read "ungrouped ... -0.0002" and is now the peptide-grouped 0.6085 -> 0.6069 =
+    **-0.0016** (`models/v5/training_results_ablation.csv`, regenerated under `PeptideGroupedKFold`
+    at `30f1b76`).
+  - **Ten is the wording-class count; no cross-class total is certified**, deliberately. Three
+    successive counts (five, then seven, then ten) were each wrong, every time because the sweep
+    was scoped to the sites a prior report named instead of being run repo-wide. **The durable finding is that no mechanical gate covers either
+    class:** the harness matches retracted *numbers*, and neither "decoy" nor a false claim about
+    what a pool contains is a number. Compositional claims should be bound to a crosstab the way
+    figures are bound to CSV cells.
+  - Left alone deliberately: `scripts/generate_hard_decoys.py` and the `prepare_features_35`
+    docstring's "hard decoys" both refer to the genuine self-proteome decoy set, which **is**
+    synthetic. Only the *Orthopoxvirus vaccinia* bloc was ever mislabelled.
+- **A stale internal comment in `tests/test_entry_point_help_smoke.py` named R10 = 0.9494 as the
+  "certified" result.** It is void (D17); README certifies 1.0588. Corrected. `tests/` is outside
+  `live_doc_globs`, which is why the sweep never saw it.
+
+- **`results/h2_tier_a_summary.md` now states WHY its ungrouped splitter is harmless**, closing the
+  item the prior session plan called "the largest remaining honesty gap". That framing turned out to
+  overstate it: `src/h2_tier_a_evaluation.py` already emitted the splitter name into the artifact, so
+  D15's disclosure duty was met. What was missing was the justification - a reader could not tell a
+  benign ungrouped splitter from a D15-class defect. The generator now emits, alongside the splitter
+  line, that the v3 corpus is **1,004 rows over 1,004 unique peptides** (verified directly, not
+  carried over from D17), so no peptide can straddle a fold boundary and a grouped re-run is a no-op.
+  Written at the generator rather than into the artifact so the two cannot drift apart.
+  **Regenerating produced a 6-line diff and zero numeric change** - both H2 CSVs are bit-identical,
+  which independently re-confirms the D17 corrected values reproduce.
+  - **That 6-line insertion immediately broke a live citation, and the incident is worth recording:**
+    it shifted the R10 row in the generated summary from line 17 to line 23, and
+    `docs/Wet_Lab_Protocol_v1.md` cited `results/h2_tier_a_summary.md:17` for its powering prior -
+    so a reader following it landed on the integrated-arm ISSR@10 instead of the ratio, **in a
+    pre-registration document**. Caught before commit and fixed by de-line-numbering the citation
+    (it now names the "Enrichment ratios" anchor, with a note that generated files shift whenever
+    the template changes). This is the **tenth** instance of line-citation rot handled here, and it
+    was created by the same commit that fixes the other nine - which is the strongest available
+    argument that prose discipline is not sufficient and a mechanical, symbol-anchored gate is
+    needed. Generated artifacts are the sharpest case: their line numbers move whenever a generator
+    template changes, so they should never be cited by line at all.
+- **Two rotten `src/train_classifier.py` line citations re-anchored by symbol, across nine sites in
+  seven tracked files.** Both were correct when written and drifted silently as the file grew; this
+  is the failure mode recorded in the prior entry as having recurred three times.
+  - `:781-786` (cited for the `rf_oof_predictions*.csv` writes) - the real writes were at
+    **941/946** *as of this commit*. **They moved again in the very next commit** - `42de845` is
+    a direct child of this one (`git rev-list --parents` confirms the single parent) and made a net
+    +3 change upstream of them (four lines added, one removed), putting the writes at 944/949 and
+    `gs_mask` at 678. That is exactly the recurrence this entry predicts, one commit later.
+    **Every citing site outside this changelog is now symbol-anchored with no line number**; the
+    numbers retained here are historical record, not citations.
+    - Worth recording how the count above was first got wrong: an earlier draft said "three commits
+      later", read off `git log --oneline`, which is date-ordered and interleaved two dependabot
+      merges that are **not ancestors** of `42de845`. Commit distance is an ancestry question and
+      needs an ancestry-aware instrument (`git rev-list --count A..B`). Same shape as the
+      `resave_checkpoint.py` error in this same pass: an instrument that could not answer the
+      question it was asked.
+    This one is **load-bearing**: it is the code-traced provenance chain D15 uses to establish the
+    Tier A leakage exposure, so a reader following it landed on unrelated sample-weight code. Five
+    citing sites, not the two previously recorded: `docs/claims_register.md` (D15 **and** the
+    Section 2 Tier A row), `docs/proposals/2026_feature_upgrade_roadmap.md`,
+    `scripts/audit_cv_leakage.py`, and `CHANGELOG.md`.
+  - `:555` (cited for the `GOLD_STANDARD_EPITOPES` exclusion) - the real `gs_mask` line was
+    **675** *as of this commit*, and moved to 678 at `42de845`. Now symbol-anchored.
+    Four citing sites: `docs/holdout_and_qc_policy.md`, both RF model cards, and `CHANGELOG.md`.
+  - Each now names the **symbol** as well as the line, so the next drift is detectable by reading
+    rather than silent. A mechanical gate for this class is still worth building: note that a naive
+    exists-plus-EOF checker finds **none** of these, because every rotten citation still points at a
+    real file and a line that exists - the rot is semantic, so the check must be symbol-anchored.
+- **`config.yaml`'s `thresholds_path` was dead config - nothing read it.** The key was declared on
+  `SestravConfig` (`src/core/config.py`) and set in `config.yaml`, and `SestravConfig.load()`
+  populated it correctly, but no consumer ever asked for it:
+  `functions/stage4_immunogenicity_scoring.py` located `optimal_thresholds.json` purely by
+  convention from the model's directory. **Repointing `thresholds_path` was therefore a silent
+  no-op, while repointing `model_path` silently moved the operating point with it** - the opposite
+  of what the two keys look like they do.
+  - Added `_resolve_thresholds_path(model_dir, thresholds_path=None)`, mirroring the preference
+    order the adjacent `_resolve_calibrator_path` has always used: an explicit config path when it
+    exists, else the model-directory copy. Threaded through `score_immunogenicity` and passed from
+    `pipeline.py` exactly as `calibration_path` already was. `src/cli.py` passes neither and so
+    keeps the model-dir fallback unchanged.
+  - **No behavior change, asserted rather than assumed:** under the live config both the old
+    convention and the new resolver return `models/optimal_thresholds.json`, so no score, threshold,
+    or shortlist moves. Four unit tests pin the resolver, including that a configured-but-missing
+    path does not mask the model-dir copy, and that an explicit path actually drives the cut.
+  - **Deliberately NOT changed** (each a separate, owner-visible decision): `_apply_thresholds`
+    still silently no-ops when no thresholds file is found, including under `freeze_mode`; and the
+    shipped root file still carries the leakage-era `overall_f1: 0.7316` alongside
+    `min_subgroup_f1: 0.0`, despite "maximize minimum subgroup F1" being its stated primary
+    objective. Regenerating the root operating point remains out of scope here.
+
+### Disclosed, not fixed
+- **`results/freeze_status.json` is a tracked freeze-governance artifact that still carries the
+  VOID H2 ratios and the placeholder input hash.** It records `h2.r10 = 0.9493670886075949`,
+  `h2.r25 = 1.0207514198339884`, and `inputs.binding_matrix_path.sha256 = c7bb5ea1...` - the
+  all-zeros placeholder D17 identified as the root cause, superseded by `78aa3db8...`.
+  - **Scoped precisely:** its `h2.status` already reads `"NOT SUPPORTED"`, which matches the
+    corrected decision, so the recorded *conclusion* is not wrong - only the two ratios and the
+    hash. Its `"valid": true` is **not** a scientific certification either:
+    `src/final_validation_report.py:217` hardcodes it on the success path (`false` only in the
+    exception handler), so it means "the generator run completed". An earlier draft of this entry
+    called it "certifying a void result as valid"; that over-read the field and is retracted.
+  - It is written by the same `src/final_validation_report.py` as
+    `results/final_validation_report.md`; because D17's remediation hand-patched that report rather
+    than re-running the generator (a deliberate choice, to avoid disturbing unrelated certified
+    artifacts the same script writes), this JSON was never updated and the omission was never
+    disclosed until now.
+  - **It evades the retracted-token sweep twice over:** `live_doc_globs` matches only `.md`, so no
+    `.json` artifact is ever scanned; and the value is stored at full precision, so the 4-decimal
+    token `0.9494` would not match as a substring even if it were.
+  - Deliberately **not** hand-edited: `results/` artifacts are script-generated and the standing
+    rule is regenerate-or-annotate, never hand-patch. Regeneration also rewrites
+    `gold_standard_validation.csv` and `baseline_comparison.csv`, so it is not a drive-by edit.
+    **Owner decision required:** regenerate, or annotate the file as historical.
+
 ### Changed
+- **CORRECTED: `docs/paper.md` attributed the pooled figure's inflation to self-proteome hard
+  decoys; the pooled background contains none** (`docs/claims_register.md` **D19**). No reported
+  number changes - only the stated explanation for one.
+  - **Verified false.** All 5,000 `self_proteome_decoy` rows in `data/immunogenicity_dataset_v5.csv`
+    carry `is_quarantined = True` (crosstab, zero exceptions). `_filter_quarantined`
+    (`src/train_classifier.py`) drops them right after the corpus read in `train_models`, and no
+    unfiltered re-read occurs before the `training_results_mode{N}.csv` write - so both the OOF
+    frame and the cited results file are computed on the filtered pool.
+    `models/v5/rf_oof_predictions_mode31.csv` contains **zero** such rows.
+  - **What actually dominates the pooled negative background:** of 27,534 negatives, **21,432
+    (77.8%) are *Orthopoxvirus vaccinia*** - outside the nine-virus target panel, carried under
+    `negative_origin = tested_negative` - and **3,112 (11.3%) are `allele_matched_nonbinder`**.
+    Only **1,851** are same-pathogen `iedb_api` negatives (the 1,956 `iedb_api` rows include 105
+    RSV); across the nine target viruses the real-negative pool is **2,201**.
+  - **The vaccinia rows are NOT decoys, and an intermediate draft of this entry wrongly called
+    them one.** They are genuine IEDB tier-1 assay records (21,432/21,432 `database_source = IEDB`;
+    21,425 ELISPOT + 7 multimer), and `results/per_virus_eval_v5_mode31.csv` reports them as
+    `n_neg_real = 21432, n_neg_decoy = 0`. They are *out-of-panel*, not synthetic - which is a
+    different and weaker claim than the one being retracted, and the honest one. The error was
+    inherited from `scripts/compute_pooled_honest_metric.py`'s docstring and
+    `src/train_classifier.py`'s comments, both of which call this a "hard-decoy panel". **Both
+    were corrected on 2026-08-10** - see the D19 closure entry above; this sentence described them
+    as a deferred follow-up and that is no longer true.
+  - **The allele-matched non-binders do not explain the pooled-vs-per-virus gap** and the
+    manuscript no longer claims they do. They sit on both sides of the comparison and are a far
+    larger share of most per-virus negative sets (Table 3b: 0.988 DENV, 0.920 HIV-1) than of the
+    pooled background (0.113), so if anything they inflate the per-virus side more. Only the
+    vaccinia term is both unique to the pooled side and measured.
+  - **The inflation was already measured, in the very file the paper cites.** Re-slicing the same
+    out-of-fold predictions without vaccinia gives AUC-ROC **0.670** (`rf_cv_mean_no_vaccinia`)
+    against 0.814 pooled. The manuscript now quotes that instead of asserting inflation
+    unquantified. AUC-PR moves the *other* way on the re-slice (0.606 -> 0.733) purely because
+    dropping 78% of the negatives raises the base rate - a prevalence effect, flagged in the text
+    so it is not misread as better discrimination.
+  - **Two carry-caveats preserved:** the re-slice re-partitions existing predictions rather than
+    refitting, so it is **not** the corpus-refit counterpart in `results/cv_leakage_audit.csv`
+    (0.7693 / 0.7427); and the paper's own Methods already stated the correct composition
+    elsewhere, so the document previously contradicted itself.
+  - This is a D12-class error inverted - attributing decoy inflation to an absent decoy category
+    while the categories actually present went unnamed, despite
+    `scripts/compute_pooled_honest_metric.py`'s docstring already naming them.
+  - **Three sites corrected, and five deliberately left alone.** A sweep found the same wording in
+    a Discussion paragraph that also cites the pooled 0.81 figure, so three sites were corrected,
+    not two. The manuscript's other self-proteome statements (LOO training set, corpus
+    construction, dedup priority) are **correct**: `scripts/run_loo_cross_virus_v5.py` separates
+    `source_type == "Self"` rows *before* the quarantine filter and applies that filter to viral
+    rows only - "Self-proteome decoys are quarantined by design ... but are always included in
+    training regardless of quarantine status". LOO training genuinely includes all 5,000. Only the
+    `train_classifier.py` pooled path drops them, so the defect is scoped to the pooled figure.
+- **`docs/paper.md` now carries the D18 mock-antigen-processing disclosure, closing D18 item (3)**
+  - the last surface where mode-33 numbers were presented with no mock qualifier. It was scheduled
+  for the manuscript submission pass; it is closed here instead because D19 required editing the
+  same Results section, and leaving a known disclosure gap in a paragraph being touched anyway
+  would have been indefensible. The D18 register row has been updated to say CLOSED rather than
+  STILL OPEN, so the register and this changelog agree.
+  The manuscript contained zero occurrences of "mock", "NetChop", or "TAPreg" before this change.
+  Added: a bold-lead caveat after Table 1 in the paper's established house style (matching the D15
+  precedents in the same section), a `MOCK features - see below` marker on Table 1's mode-33 row,
+  and an amended Methods 2.5, which had justified excluding mode-33 from LOO on cache-*availability*
+  grounds. That rationale is retained as the original reason - the mock status was established later
+  and is now stated as an additional, after-the-fact ground, not retrofitted as the decisive one.
+  The YAML front matter's blanket "all reported numbers are current and claims-audited" was
+  reconciled: it now names **three** qualifications (Tier A, D18, D19) as an explicitly open list
+  ("at least these three"), scopes the currency claim to the v5 cross-validation figures, and
+  discloses that the Section 3.2 calibration ECE pair binds to a gitignored path and is therefore
+  not reader-reproducible pending promotion to a tracked artifact.
+- **The `feature_mode=33` code surfaces now disclose that the antigen-processing features are MOCK**
+  (`docs/claims_register.md` **D18**, items (1) and (2), previously recorded there as open).
+  - `src/features.py`: the `FEATURE_COLUMNS_33` comment no longer describes the features as
+    "orthogonal ... (NetChop 3.1, TAPreg)"; it now states they are mock, not reproducible, and
+    circular as evidence for proteasomal cleavage preference. `load_antigen_processing_cache`'s
+    docstring carries the same warning.
+  - `src/train_classifier.py`: **the `--feature-mode` `--help` text no longer reads
+    "33 (31+NetChop+TAPreg)"** - the string a user sees now names the scores as MOCK and cites D18.
+    The `--antigen-processing-cache` help, the printed `mode_label`, and `prepare_features_33`'s
+    docstring were given the same disclosure.
+  - **The "deterministic" mischaracterization is corrected** at all four
+    `scripts/precompute_antigen_processing.py` sites and in `docs/limitations_statement_v1.md`.
+    The mocks are stable *within* one process but differ *between* processes, because the
+    generators use `hash()`, which CPython salts per process; re-running the script therefore does
+    not reproduce the shipped `data/antigen_processing_cache.csv`. Empirically confirmed: three
+    processes scoring `SIINFEKL` gave netchop means 0.43625 / 0.42000 / 0.42750. Those specific
+    figures are single draws and will not themselves reproduce; the disagreement, not the values,
+    is the evidence. The reproducible statement is analytic, not sampled: for `SIINFEKL` the
+    generator's netchop mean has exact support `[0.36875, 0.45875]` on a `0.00125` lattice, and
+    every value quoted in D18 lies inside it.
+  - **Deliberately NOT changed:** `src/features.py`'s ESM-2 fallback also says "deterministic mock
+    vector", and that claim is accurate - it seeds `numpy.random.default_rng` from a
+    `hashlib.sha256` digest, which is stable across processes. Different generator, different
+    guarantee; the correction is scoped to the antigen-processing mock only.
+  - **Two further surfaces found by the adversarial pass on this very diff, in the retraction
+    ledger itself** (`docs/claims_register.md` Section 3, Biological Accuracy Claims - both dated
+    `2026-06-18`, both still listed as *approved corrective language*, neither carrying a mock
+    note). Both are now amended in place under disclosure rather than silently edited:
+    - The MHCflurry row asserted "NetChop 3.1 and TAPreg features provide **orthogonal**,
+      tool-independent processing signals" - verbatim the clause D18 retracts, and verbatim the
+      word this same commit removed from `src/features.py`. Retracted; first sentence retained.
+    - The Rock & Goldberg 1999 row asserted "**Predicted via NetChop 3.1** (Nielsen et al. 2005)".
+      The pipeline does not predict via NetChop 3.1. Retracted and replaced with language that
+      also names the circularity.
+    - Both rows' `Location` pointers (`docs/paper.md` Section 2.2; `docs/feature_glossary.md`) were
+      already orphaned - neither file still contains the clause - and are now marked historical.
+  - `docs/model_cards/rf_33feature_integrated.md`'s cache note called the values "high-fidelity
+    mock scores calibrated to literature ranges"; that overstates a hand-coded rule plus `hash()`
+    jitter and carried no non-reproducibility note. Corrected, and the pre-existing non-ASCII
+    `U+2248` / `U+00A7` characters on that line replaced per `.claude/rules/encoding.md`.
+  - `docs/proposals/2026_feature_upgrade_roadmap.md`'s D18 note still read "Code surfaces still
+    present the features as real" in the present tense - the doc D18 names as its own remedy
+    tracker. Updated, while keeping the distinction that **disclosure is not repair**: the mock
+    still feeds `data/antigen_processing_cache.csv` and the actual fix remains Phase 1 step 8.
+  - `scripts/batch_experiment_runner.py`'s mode-33 comment given the same note.
+  - **A citation this commit invalidated itself:** D18 cited
+    `scripts/precompute_antigen_processing.py:139,148` for the `mock_fallback=True` call sites, but
+    this commit's own edits shifted them to 144/153. Re-anchored by symbol as well as line.
+  - **KNOWN, PRE-EXISTING, NOT FIXED HERE - two `file.py:NNN` citations into
+    `src/train_classifier.py` were already wrong before this commit** and are shifted further by
+    it. Recorded rather than silently carried: (a) `docs/holdout_and_qc_policy.md:20` cites `:555`
+    for the `GOLD_STANDARD_EPITOPES` exclusion; the real site is the `gs_mask = ...isin(...)` line
+    (671 before this commit, 675 after). (b) `docs/claims_register.md` D15,
+    `docs/proposals/2026_feature_upgrade_roadmap.md:227`, `scripts/audit_cv_leakage.py:307`, and an
+    earlier `CHANGELOG.md` entry all cite `:781-786` for where `rf_oof_predictions*.csv` is
+    written; the real writes are at 934/939 before this commit, 941/946 after. **(b) is
+    load-bearing** - it is the code-traced provenance chain D15 uses to establish the Tier A
+    leakage exposure, so a reader following it lands on unrelated code. Left for a dedicated pass
+    rather than widened into this one. **This is the third instance of the same failure mode**
+    (line-number citations rotting as files change), so the fix worth making is systemic: anchor
+    by symbol, and add a CI check that resolves `file.py:NNN` citations in tracked docs the way
+    `scripts/check_doc_commit_refs.py` already resolves commit SHAs.
+  - Item (3) of D18 remains open, and is **understated in the original row**: `docs/paper.md`
+    carries **three** mode-33 surfaces with no mock note (ablation prose, the Table 1 row, and the
+    imputation-coverage sentence), not one. Note that exposure is a *missing disclosure, not a
+    false attribution* - `docs/paper.md` never names NetChop or TAPreg. Deferred to the manuscript
+    submission pass. No model, feature value, metric, or test-assertion changes anywhere in this
+    entry; verified by an AST comparison showing all **four** touched `.py` files
+    (`src/features.py`, `src/train_classifier.py`, `scripts/precompute_antigen_processing.py`,
+    `scripts/batch_experiment_runner.py`) differ from their prior state only in
+    comment/docstring/string-literal text.
+- **RETRACTED: the H2 Tier A primary-hypothesis result R10 = 0.9494 is VOID** (`docs/claims_register.md`
+  **D17**). The binding-only arm of that comparison was computed against an **all-zeros binding
+  matrix**, so the denominator was a constant, not a baseline.
+  - Three independent signatures of a constant score vector in `results/h2_tier_a_fold_metrics.csv`:
+    for `method == binding_only_max`, `auc_roc` is **exactly 0.5000 with std 0.0 in all five folds and every subgroup that has both classes**; `auc_pr`
+    equals the fold base rate exactly (146/192, 146/191); `ndcg_10` equals `auc_pr` to within
+    floating-point rounding.
+  - Root cause is `f360b90`, which introduced the placeholder. `37d1d67` (2026-06-18) is the FIX,
+    and states it in its own message: "peptide_binding_matrix_v3.csv was an all-zeros placeholder
+    since commit f360b90." The H2 artifact was generated against the placeholder.
+  - **The integrated arm was degraded by the same file** - `prepare_features_30` sources 10 of its
+    30 features from it, so the "integrated model" ran with 10 dead features.
+  - **Corrected by controlled re-run** (identical script, data, model and seed; only the matrix
+    differs): binding-only AUC-ROC **0.6636** / ISSR@10 **0.8947**; integrated AUC-ROC **0.7563** /
+    ISSR@10 **0.9474**; **R10 = 1.0588** (95% CI [0.9778, 1.1220], sign-flip p = 0.1875);
+    **R25 = 1.0331**. Verification control: re-running against the `f360b90` matrix reproduces the
+    pre-regeneration `results/h2_tier_a_summary.csv` **byte-for-byte**, establishing the matrix as
+    the sole cause.
+  - **The H2 decision is UNCHANGED: NOT SUPPORTED.** Note the correction moves R10 *upward* past
+    1.0 - the void artifact reported a lower ratio than a valid measurement does.
+  - **Not a D15 leakage defect.** The v3 corpus is 1,004 rows / 1,004 unique peptides, so
+    `StratifiedKFold` is already peptide-disjoint on it and a grouped re-run would be a no-op.
+  - `docs/Wet_Lab_Protocol_v1.md` pre-registered 0.9494 as its powering prior and is marked
+    **do not run, submit, or cite until re-derived**. A separate error corrected in the same pass:
+    three of this repo's own annotations had conflated the H2 computational gate (R10 >= 2.0) with
+    that protocol's Primary criterion, which pre-commits **no fixed multiple** and instead requires
+    R10 > 1.0 with a bootstrap CI lower bound above 1.0. The corrected figure passes the first and
+    fails the second (0.9778), so the disclosed null stands - on the protocol's own terms.
+  - **Regenerated 2026-08-10:** `results/h2_tier_a_*` and `results/final_validation_report.md` now
+    carry the corrected values, reproducing the figures above byte-for-byte. The corrected R10 is
+    bound in the local claims manifest against `results/h2_tier_a_summary.csv`.
+- **DISCLOSED: the `feature_mode=33` antigen-processing features are MOCK, not NetChop 3.1 / TAPreg
+  output** (`docs/claims_register.md` **D18**). `scripts/precompute_antigen_processing.py` calls both
+  predictors with `mock_fallback=True`, which short-circuits before any network call.
+  - **The values are not reproducible**: the generators use `hash()`, which CPython salts per
+    process and the original seed was never recorded, so the shipped
+    `data/antigen_processing_cache.csv` cannot be reproduced.
+  - **Two biological inferences retracted.** `netchop_score` ranking first was cited as "confirming
+    independent proteasomal processing signal" and as consistent with Rock & Goldberg 1999. The
+    generator **already assumes** hydrophobic/basic C-terminal cleavage preference, so its
+    importance cannot be evidence *for* that mechanism - the inference is circular. Same error
+    class as D13. Corroboration: under the v5 peptide-grouped splitter, mode 33 exceeds mode 31 by
+    **+0.0027 AUC-PR** (0.6085 vs 0.6058).
+  - **"Best v3 model" and "recommended for production" designations withdrawn** across
+    `docs/data_registry.md` AD-9 (a LOCKED row, amended under disclosure rather than silently
+    edited), `docs/model_evaluation_summary.md`, and both the 31- and 33-feature model cards.
+    **`mode_31` remains the canonical production track.**
+  - Disclosure was partial, not absent - `docs/limitations_statement_v1.md` and the 33-card's cache
+    note named the mock - but seven further tracked surfaces presented it as real, including
+    `README.md` and `ARCHITECTURE.md`, and the 33-card's own feature schema cited Nielsen 2005 and
+    Peters 2003 for values neither tool produced. All are now corrected.
+  - Still open: `docs/limitations_statement_v1.md` and `scripts/precompute_antigen_processing.py`
+    describe the mock as "deterministic", which the per-process salting refutes.
 - **BREAKING (reported metrics): peptide-level CV leakage remediated and every certified v5
   number re-baselined** (`docs/claims_register.md` D15, Phase 0 of
   `docs/proposals/2026_feature_upgrade_roadmap.md`). The leakage disclosed in the audit below
@@ -152,7 +528,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   v5-coverage figures below were also mispaired and are corrected in the second note. Original
   text retained for the record:]
   The SESTRAV arm of the Tier A external benchmark is the `rf_oof_score` column, which traces
-  to the same ungrouped OOF output as everything else (`src/train_classifier.py:781-786` ->
+  to the same ungrouped OOF output as everything else (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) ->
   `src/prepare_external_validation_inputs.py:100` -> `scripts/run_tier_a_benchmarks.py:269`),
   so Tier A was never an independent held-out field. Measured on the 414 field peptides
   resolvable to an active (non-quarantined) v5 row, changing only the splitter moves AUC-PR
@@ -220,7 +596,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   lines above it. Replaced with the true v5 posture and the D15 splitter disclosure.
 - **16-peptide holdout scope corrected, not "Tier A/B quarantine."** `GOLD_STANDARD_EPITOPES`
   (`src/iedb_data_loader.py:24`) excludes exactly 16 peptides from training
-  (`src/train_classifier.py:555`); `docs/holdout_and_qc_policy.md`, both RF model cards, and
+  (`src/train_classifier.py` (the `gs_mask` gold-standard exclusion in `train_models`)); `docs/holdout_and_qc_policy.md`, both RF model cards, and
   `docs/paper.md` all overstated this as "Tier A and Tier B Gold Standard validation peptides
   ... strictly excluded" / "permanently quarantined." 414 of the 704 Tier A peptides are
   present in the v5 training corpus (D16). This is the root cause of D16's "the SESTRAV Tier A

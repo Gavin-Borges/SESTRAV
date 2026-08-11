@@ -17,7 +17,7 @@
 - **Source:** IEDB (curated exports, v3 dataset, 2.0.0-alpha schema).
 - **Composition:** EBV 68.1%, HPV16 30.9%, HPV11 1.0%. 9-mers 64.7%.
 - **Label quality:** IEDB labels represent population-average responses across heterogeneous assay types, donor backgrounds, and stimulation conditions. Labels do not represent allele-specific or donor-specific immunogenicity.
-- **Holdout Policy (SCOPE CORRECTED 2026-08-08):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the training pool (`src/train_classifier.py:555`). This is a 16-peptide exclusion, **not** the "strict exclusion of Tier A and Tier B Gold Standard validation peptides" this card previously claimed - 414 of the 704 Tier A peptides are present in the v5 training corpus. See `docs/claims_register.md` D16.
+- **Holdout Policy (SCOPE CORRECTED 2026-08-08):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py:24`) are excluded from the training pool (the `gs_mask` gold-standard exclusion in `train_models`, `src/train_classifier.py`). This is a 16-peptide exclusion, **not** the "strict exclusion of Tier A and Tier B Gold Standard validation peptides" this card previously claimed - 414 of the 704 Tier A peptides are present in the v5 training corpus. See `docs/claims_register.md` D16.
 - **Biases:** Taxonomic bias toward EBV anchor motifs; length bias toward 9-mers. Inverse-frequency sample weights applied at training time.
 
 ## Evaluation and Performance
@@ -32,11 +32,11 @@
 - **Subgroup:** HPV16 subgroup AUC-PR lower than EBV; 9-mer subgroup AUC-PR above PredIG baseline. Reproduce with `python scripts/scoring_error_audit.py` (writes
   `results/scoring_error_audit.md`, a generated artifact that is not tracked in this
   repository).
-- **Cross-virus transfer:** EBV→HPV16 AUC-PR 0.742; HPV16→EBV 0.711. HBV/HCV transfer: not validated.
+- **Cross-virus transfer:** EBV->HPV16 AUC-PR 0.742; HPV16->EBV 0.711. HBV/HCV transfer: not validated.
 
 ## Limitations
 - **Feature_mode=30 is legacy.** The 30-feature model omits `peptide_length`, causing systematic underperformance on 8-mer peptides (zero-imputed p7/p8 positions indistinguishable from noise without length context). Use `rf_31feature_integrated.joblib` for all new work.
 - **No allele-specific predictions.** Population-average allele features only. Allele-aware training requires v4 dataset.
 - **Cross-family generalization unvalidated.** HBV and HCV are exploratory. Cross-virus validation pending v4 training data.
 - **TCR contact approximation.** p4-p8 features are a length-agnostic proxy, validated primarily for HLA-A*02:01 canonical 9-mers (Chowell et al. 2015). 8-mer/10-mer non-canonical binding registers carry additional uncertainty.
-- **No antigen processing in training.** NetChop and TAPreg scores are pipeline outputs but not training features in this model. `feature_mode=33` (in development) adds them.
+- **No antigen processing in training.** Cleavage and transport scores are pipeline outputs but not training features in this model. `feature_mode=33` adds them - but note the shipped cache holds **MOCK** values, not real NetChop 3.1 / TAPreg output (`docs/claims_register.md` D18).

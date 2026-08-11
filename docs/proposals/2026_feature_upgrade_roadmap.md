@@ -33,9 +33,11 @@ peptide-grouped splitter moves AUC-PR from 0.8347 to 0.6092 - a +0.2255 (+37.0%)
 attributable to leakage alone, not to any modeling choice. The two figures this project has cited
 as the leakage-honest antidote to the retracted pooled 0.9368/0.7678 (`docs/claims_register.md`
 D12) turn out to be downstream consumers of the same leaky OOF predictions and are themselves
-measurably, if less severely, inflated: the per-virus mean (certified 0.751) reproduces at 0.7512
+measurably, if less severely, inflated: the per-virus mean (then-certified 0.751, since
+RETRACTED by D15) reproduces at 0.7512
 under the production splitter versus 0.6587 peptide-grouped (+14.0%), and the pooled honest
-same-pathogen figure (certified 0.712) reproduces at 0.7124 versus 0.5989 peptide-grouped
+same-pathogen figure (then-certified 0.712, since RETRACTED by D15) reproduces at 0.7124
+versus 0.5989 peptide-grouped
 (+19.0%) - see Section 2. The Tier A external benchmark is exposed by the same chain but the
 leakage effect there is small (AUC-PR -0.0176 on the measurable subset); its real problem is that
 the certified 0.828 is a **2026-05, 30-feature, unweighted, 200-tree** measurement mislabeled as
@@ -50,7 +52,7 @@ this repository holds itself to a claims register (`docs/claims_register.md`) pr
 that class of mistake before it reaches a document.
 
 **Recommendation:** treat this as a two-phase program. Phase 0 repairs the evaluation harness
-(grouped CV, a fold-disjointness test, a vaccinia-decoy accounting fix). Phases 1-3 then execute
+(grouped CV, a fold-disjointness test, a vaccinia-bloc accounting fix). Phases 1-3 then execute
 the feature work, re-ranked against the honest baseline. Sections 2-4 give the evidence; Section
 5 gives the phased plan.
 
@@ -176,7 +178,9 @@ viruses - contributes 21,432 active rows, all label=0, 77.8% of all active negat
 | **Leakage-attributable inflation** | **+0.2255 (+37.0%)** | **+0.1310** |
 
 The production-splitter reproduction lands within 0.0035 AUC-PR / 0.0011 AUC-ROC of the certified
-ledger cell (`models/v5/training_results_mode31.csv`: AUC-PR 0.8312, AUC-ROC 0.9429) - the
+ledger cell (`models/v5/training_results_mode31.csv`, **as it stood before Phase 0**: AUC-PR
+0.8312, AUC-ROC 0.9429 - both RETRACTED as peptide-leakage-inflated per D15; that file now holds
+0.6058 / 0.8137) - the
 residual gap is CV-fold-shuffle variance between independent runs (same `random_state`, same
 estimator count), not a modeling-choice difference, and is small enough that the reproduction is
 treated as validated.
@@ -186,23 +190,37 @@ spanning CV folds) and refers to a "grouped-CV guard" - that guard does not exis
 no test in `tests/` asserts fold disjointness by peptide. This roadmap's Phase 0 (Section 5)
 closes that gap.
 
-**Vaccinia decoy bloc.** Excluding `Orthopoxvirus vaccinia` from the peptide-grouped evaluation
+> **Closed 2026-08-10 (Phase 0, `30f1b76`).** Both clauses above are now false and are retained
+> only as the historical statement of the gap. The guard exists as
+> `PeptideGroupedKFold` (`src/ml_utils.py`), and fold disjointness is asserted at two layers:
+> `tests/test_ml_utils.py::test_peptide_grouped_kfold_folds_are_peptide_disjoint` on the splitter,
+> and `tests/test_train_classifier.py` on the OOF frame that `_cross_validate` actually emits. A
+> paired negative control
+> (`tests/test_ml_utils.py::test_multi_stratified_kfold_can_leak_peptides_across_folds`) proves the
+> splitter-layer fixture would expose a regression rather than passing vacuously. That control
+> pairs with the splitter layer only; the pipeline-layer test uses its own fixture.
+
+**Vaccinia bloc.** Excluding `Orthopoxvirus vaccinia` from the peptide-grouped evaluation
 moves AUC-PR from 0.6092 to 0.7693 (+0.1601) while AUC-ROC falls 0.8130 -> 0.7427. The pooled
 headline metric, as currently computed, is substantially a measure of "can the model recognise
 vaccinia peptides," not of virus-immunogenicity discrimination across the nine target pathogens.
+This heading read "Vaccinia decoy bloc" until 2026-08-10. Those 21,432 rows are genuine IEDB
+assay-confirmed negatives (`database_source = IEDB`), not decoys; the honest term is
+*out-of-panel*. See `docs/claims_register.md` D19.
 
 **The "honest" correctives are also leakage-inflated, just less severely.** This project has
 cited two figures as the leakage-free antidote to the retracted pooled 0.9368/0.7678
 (`docs/claims_register.md` D12): the per-virus mean AUC-ROC (`results/per_virus_eval_v5_mode31.csv`,
 0.751) and the pooled honest same-pathogen AUC-ROC (`results/pooled_honest_same_pathogen.csv`,
-Def A, 0.712). Both are computed from `models/v5/rf_oof_predictions_mode31.csv`, which is written
+Def A, 0.712). **Both figures are RETRACTED by D15** - those two files now hold **0.658** and
+**0.6015** respectively, so do not read 0.751/0.712 as their current contents. Both are computed from `models/v5/rf_oof_predictions_mode31.csv`, which is written
 by the same `MultiStratifiedKFold` path as the pooled headline - not an independent splitter.
 Reproducing both under a matched peptide-grouped splitter (same RF config as above):
 
 | Metric | Production splitter | Peptide-grouped | Inflation |
 |---|---|---|---|
-| Per-virus mean AUC-ROC (9 target viruses) | 0.7512 +/- 0.1168 (certified: 0.751) | 0.6587 +/- 0.0908 | +0.0925 (+14.0%) |
-| Pooled honest same-pathogen AUC-ROC (Def A) | 0.7124 (certified: 0.712) | 0.5989 | +0.1135 (+19.0%) |
+| Per-virus mean AUC-ROC (9 target viruses) | 0.7512 +/- 0.1168 (then-certified 0.751, RETRACTED D15) | 0.6587 +/- 0.0908 | +0.0925 (+14.0%) |
+| Pooled honest same-pathogen AUC-ROC (Def A) | 0.7124 (then-certified 0.712, RETRACTED D15) | 0.5989 | +0.1135 (+19.0%) |
 
 The production-splitter reproductions match the certified figures almost exactly, validating the
 methodology. Both correctives carry real, non-trivial leakage inflation - smaller than the pooled
@@ -214,7 +232,7 @@ peptides from training.
 
 **The Tier A external benchmark is exposed by the same chain, but the leakage effect there is
 small.** The SESTRAV arm of Tier A is the `rf_oof_score` column, which traces to the same ungrouped
-OOF output (`src/train_classifier.py:781-786` -> `src/prepare_external_validation_inputs.py:100` ->
+OOF output (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) -> `src/prepare_external_validation_inputs.py:100` ->
 `scripts/run_tier_a_benchmarks.py:269`), so Tier A is not an independent held-out field. Measured on
 the 414 field peptides resolvable to an active (non-quarantined) v5 row, changing only the
 splitter:
@@ -318,6 +336,27 @@ protein context already available via `docs/antigen_accessions.md`, and correct 
 This converts a scientific-integrity liability into whatever real signal the PSSM approach
 actually carries - which should be measured honestly (peptide-grouped) rather than assumed.
 
+> **Partly actioned 2026-08-10 (`docs/claims_register.md` D18).** The documentation half is done:
+> the mock is now disclosed at every tracked **documentation** surface that presented it as real,
+> and the model card has been corrected. ~~**Code surfaces still present the features as real**~~
+> **UPDATE (2026-08-10, later the same day): the code-disclosure surfaces are now CLOSED too.**
+> `src/features.py` (the `FEATURE_COLUMNS_33` comment, which no longer calls them "orthogonal",
+> and `load_antigen_processing_cache`'s docstring) and `src/train_classifier.py` (the
+> `--feature-mode` `--help` text, which no longer reads "31+NetChop+TAPreg", plus the
+> `--antigen-processing-cache` help, the printed `mode_label`, and `prepare_features_33`'s
+> docstring) all now state the scores are mock and non-reproducible. The step-8 wording above
+> ("documented as real ... correct the model card") is therefore satisfied, and is retained as the
+> historical statement of what the gap was. **Disclosure is not repair:** the code half of the
+> *remedy* is still NOT done - the mock still feeds `data/antigen_processing_cache.csv` and remains
+> Phase 1 step 8. Two corrections to the paragraph
+> above, both established while writing D18. (1) Wiring in `src/antigen_processing.py` is **not a
+> like-for-like repair**: by its own docstring it emits *proxy* scores, "not tool-call wrappers to
+> NetChop or NetCTL", and it produces `erap_score` (ERAP N-terminal trimming), a different
+> biological quantity from `netchop_score` (proteasomal C-terminal cleavage). (2) The mock is not
+> merely unstable across processes - because `hash()` is per-process salted and the original
+> `PYTHONHASHSEED` was never recorded, **the shipped cache cannot be reproduced**, which makes
+> replacement, not repair, the only route.
+
 ### 4.3 Prototype: agretope/epitope (P2/P9 vs P4-P8) disconnect ratio
 
 The repo's own design choice supports this as the most promising *novel* signal on the list:
@@ -361,15 +400,25 @@ not on the pooled embedding matrix.
 
 Already implemented as `feature_mode=35` and already measured in this audit: peptide-grouped
 AUC-PR 0.6055 vs 0.6092 for mode 31 (-0.0037, `results/cv_leakage_audit.csv`, metric `mode35_
-grouped_auc_pr`), consistent in direction with the certified ungrouped ablation (`models/v5/
-training_results_ablation.csv`: 33 -> 35 is -0.0002). Beyond the null result, there is a structural reason
-this feature cannot generalise on the current dataset: `scripts/generate_hard_decoys.py` builds
-the majority of hard negatives *by sampling the human self-proteome*. A "is this peptide human"
-feature therefore predicts "negative" largely by construction of the decoy set, not by learned
-immunological tolerance. The self-similarity implementation is also binary (exact 9-mer match
+grouped_auc_pr`), consistent in direction with the certified peptide-grouped ablation (`models/v5/
+training_results_ablation.csv`, regenerated under `PeptideGroupedKFold` on 2026-08-10: AUC-PR
+0.6085 at mode 33 -> 0.6069 at mode 35, i.e. **-0.0016**; this parenthetical read "ungrouped ...
+-0.0002" until 2026-08-10 and was wrong on both counts). This section previously added a "structural
+reason" on top of that null result: that `scripts/generate_hard_decoys.py` builds the majority of
+hard negatives *by sampling the human self-proteome*, so a "is this peptide human" feature would
+predict "negative" by construction of the decoy set rather than by learned immunological
+tolerance. **That reasoning is WITHDRAWN (2026-08-10).** It cannot apply to the measurement it was
+attached to: `scripts/audit_cv_leakage.py` scores on `_load_active()`, which drops every
+quarantined row, and all 5,000 `self_proteome_decoy` rows are quarantined - so **zero** of them are
+present in the frame that produced 0.6055. The confound would bite only on a corpus that admitted
+them, which this one does not. The null result stands on its own evidence; the explanation offered
+for it did not. (This is the same class of error as D19: asserting a property of a scored
+background without checking what that background actually contains.)
+The self-similarity implementation is also binary (exact 9-mer match
 only, not graded identity - the code's own docstring says partial-identity alignment "would be
-too slow") which caps its ceiling even where it is not confounded. Revisit only on a dataset
-whose negative class is assay-derived rather than decoy-generated from the human proteome.
+too slow") which caps its ceiling. That binary ceiling, not a decoy confound, is the live
+limitation - revisit if the feature is reimplemented with graded identity, or on a corpus that
+actually admits self-proteome negatives into the scored pool.
 
 ### 4.7 Defer: AlphaFold3/Boltz-1 pLDDT + ESM-3/ESM-C GINEConv features
 
@@ -398,6 +447,22 @@ of the additions below ship.
 
 ### Phase 0 - Repair the instrument (blocking; nothing in Phases 1-3 is measurable before this)
 
+> **EXECUTED 2026-08-10 (`30f1b76`, merged via PR #233). All six steps below have landed**, step 6
+> with one declared carve-out (Tier A, see its row), verified
+> against the tree rather than the commit message. The imperative wording is preserved as the
+> historical statement of the work; two of its factual assertions are now false (step 2's "fires on
+> every v5 split", step 3's "`tests/` has no assertion today"). How the landed form differs from
+> what was proposed:
+>
+> | Step | As landed |
+> |---|---|
+> | 1 | `PeptideGroupedKFold` (`src/ml_utils.py`), threaded through `_cross_validate`. **The `src/train_classifier.py` CLI defaults to grouped**; the *Python API* keeps `cv_group_by=None` so the four indirect callers are untouched. `sestrav validate` via `src/cli.py` therefore still yields an ungrouped number and has no knob of its own. (There is no `sestrav train` subcommand; the CLI exposes `predict`, `validate`, `benchmark`, `info`.) |
+> | 2 | Both offered remedies, in modified form: an explicit coarsening ladder that records the rung as `.stratification_components_` **and** raises rather than degrading further. Root cause was `_bin_origin` not recognising `iedb_api`. Note the second remedy was not taken literally as proposed: label-only remains a *reachable* rung, and the raise fires only when label-only is itself too sparse. What changed is that degradation is no longer silent. |
+> | 3 | Asserted at two layers (splitter and emitted OOF frame) plus a paired negative control proving the fixture would expose a regression. |
+> | 4 | First option taken: a vaccinia-excluded re-slice reported alongside the pooled metric. The vaccinia bloc was **not** repartitioned. The re-slice is not the corpus-refit counterpart in `results/cv_leakage_audit.csv` and must not be conflated with it. |
+> | 5 | Mechanism spans `src/features.py` (an `impute=` flag) and `src/train_classifier.py` (the in-fold median arithmetic), gated to modes 33/35. The final full-pool refit still uses whole-cache medians, correctly: the full pool is that model's own training set. |
+> | 6 | Done across `results/`, `models/v5/`, the model cards, `docs/claims_register.md` D15 and `CHANGELOG.md`. **Tier A deliberately not re-run** (only 414 of 704 peptides resolve to an active v5 row); 0.828 stands as a labeled historical figure per D16. |
+
 1. **Add a peptide-grouped splitter.** Extend `src/ml_utils.py` with a grouped mode built on
    `sklearn.model_selection.StratifiedGroupKFold`, reusing the existing
    `make_stratification_key` for the label/origin/supertype/length composite while peptide
@@ -411,8 +476,9 @@ of the additions below ship.
    disjoint - add one, closing the gap `STATE.md` already flags as an unimplemented "grouped-CV
    guard."
 4. **Report the vaccinia-excluded metric alongside the pooled metric**, or move the vaccinia
-   decoy bloc to a declared decoy-only partition, so the headline number is not 60% one non-
-   target pathogen.
+   bloc to a declared out-of-panel partition, so the headline number is not 60% one non-
+   target pathogen. (This read "vaccinia decoy bloc ... decoy-only partition" until
+   2026-08-10; those rows are assay-confirmed negatives, not decoys - D19.)
 5. **Move antigen-processing imputation inside the fold** (`src/features.py`).
 6. **Re-baseline every certified number that depends on the ungrouped splitter.** This step
    touches `docs/claims_register.md`, `results/`, the model cards, and `STATE.md`, and is gated
@@ -461,14 +527,33 @@ of the additions below ship.
 - Re-run `python scripts/audit_cv_leakage.py` after Phase 0 lands and confirm the production
   training path now reports the grouped number by default.
 
+> **Phase 0 arm of this checklist is discharged (2026-08-10).** The fold-disjointness test exists
+> (named in the closure note in Section 2) and `scripts/audit_cv_leakage.py` carries a
+> `production_grouped_splitter` arm bound to `PeptideGroupedKFold`. The remaining bullets stay
+> live: they are the standing gate for the Phases 1-3 feature work, which has not started.
+
 ---
 
 ## 7. Standing decision for the repository owner
 
+> **RESOLVED AND EXECUTED 2026-08-10.** This section is retained as the analysis that framed the
+> decision; it is no longer an open question. The re-baseline was carried out (`30f1b76`) and
+> published (PR #233), so the closing sentence below - "it does not itself alter any published
+> claim ... a decision for the repository owner" - is now historically inverted and must not be
+> read as live guidance. Two further notes for accuracy: the figures projected here were
+> estimates, and the measured outcomes differ slightly (per-virus mean landed at **0.658**, not
+> 0.659; pooled honest same-pathogen at **0.6015**, not 0.599). The Tier A constraint stated in
+> the second half of this section **survives unchanged** and remains the live reason 0.828 was not
+> re-run: the v5 mode-31 model has never been evaluated on the full 704-peptide field and cannot
+> be. What remains genuinely open is not the re-baseline but its downstream sequencing, which is
+> tracked in `CHANGELOG.md` `[Unreleased]` and `docs/claims_register.md` rather than here.
+
 Phase 0 step 6 restates the project's certified headline result downward by roughly 0.23 AUC-PR
 (or 0.07 if reported net of the vaccinia bloc instead), and also restates the two figures this
-project has been citing as the leakage-honest corrective - the per-virus mean (0.751 -> 0.659,
--0.09) and the pooled honest same-pathogen figure (0.712 -> 0.599, -0.11) - both downward by a
+project has been citing as the leakage-honest corrective - both RETRACTED by D15 - the
+per-virus mean (0.751 -> 0.658 as finally measured,
+-0.09) and the pooled honest same-pathogen figure (0.712 -> 0.6015 as finally measured, -0.11)
+- both downward by a
 smaller but still material amount. The Tier A headline (0.828) moves far less on leakage grounds
 (-0.0176 AUC-PR on the measurable subset) but carries a separate, arguably harder problem: it is
 a 2026-05, 30-feature, unweighted, 200-tree measurement mislabeled as the canonical v5 `mode_31`

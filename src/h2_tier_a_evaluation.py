@@ -171,8 +171,10 @@ def _guard_output_dir(output_dir: str, allow_overwrite: bool) -> None:
         flag="--output-dir",
         api_hint="run_h2_tier_a(..., allow_overwrite=True)",
         detail=(
-            ": h2_tier_a_summary.md is the source behind the "
-            "certified R10 = 0.9494 H2 Tier A null result reported in README.md"
+            ": h2_tier_a_summary.md is the source behind the H2 Tier A primary-hypothesis "
+            "result reported in README.md. The previously certified R10 = 0.9494 is RETRACTED "
+            "as void (docs/claims_register.md D17): it was computed against an all-zeros "
+            "binding matrix, so the binding-only arm was a constant"
         ),
     )
 
@@ -389,6 +391,12 @@ def run_h2_tier_a(
 - Integrated model template: `{model_path}`
 - Binding matrix: `{binding_matrix_path}`
 - CV: StratifiedKFold(n_splits={n_splits}, shuffle=True, random_state={random_state})
+- Splitter note: this is a label-only (ungrouped) splitter, but it is **peptide-disjoint
+  on this corpus by construction** - the v3 dataset is 1,004 rows over 1,004 unique
+  peptides, so no peptide can straddle a fold boundary and a peptide-grouped re-run
+  would be a no-op. This figure is therefore NOT exposed to the D15 leakage defect
+  (`docs/claims_register.md` D15, D17); the disclosure is stated here rather than left
+  for a reader to infer from the splitter name.
 - Gold-standard peptides held out before CV: `{int(gs_mask.sum())}`
 
 ## Fold-aggregated metrics (mean +/- std)
@@ -440,8 +448,10 @@ if __name__ == "__main__":
         required=True,
         help="Directory for H2 Tier A outputs. No default: this evaluation writes 3 "
         "tracked release artifacts into it, including h2_tier_a_summary.md, the source "
-        "behind the certified R10 = 0.9494 result in README.md, so it refuses to guess "
-        "a destination.",
+        "behind the H2 Tier A primary-hypothesis result in README.md, so it refuses to "
+        "guess a destination. Note the previously certified R10 = 0.9494 is RETRACTED as "
+        "void (docs/claims_register.md D17): it was computed against an all-zeros binding "
+        "matrix.",
     )
     parser.add_argument(
         "--cv-folds",

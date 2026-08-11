@@ -182,10 +182,30 @@ def _apply_calibration(scores, model_dir, calibration_path=None):
     return calibrated, True
 
 
-def _apply_thresholds(features_df, model_dir):
+def _resolve_thresholds_path(model_dir, thresholds_path=None):
+    """Return an existing optimal-thresholds path, or None if none is available.
+
+    Preference order mirrors ``_resolve_calibrator_path``:
+      1. an explicit ``thresholds_path`` (from config), if it exists;
+      2. ``optimal_thresholds.json`` alongside the model.
+
+    Before this resolver existed, ``config.yaml``'s ``thresholds_path`` key was
+    read by nothing at all - the file was located purely by convention from the
+    model directory, so repointing the config key was a silent no-op while
+    repointing ``model_path`` silently moved the operating point with it.
+    """
+    if thresholds_path and os.path.isfile(thresholds_path):
+        return thresholds_path
+    candidate = os.path.join(model_dir, "optimal_thresholds.json")
+    if os.path.isfile(candidate):
+        return candidate
+    return None
+
+
+def _apply_thresholds(features_df, model_dir, thresholds_path=None):
     """Add binary immunogenic column using exported optimal thresholds."""
-    thresh_path = os.path.join(model_dir, "optimal_thresholds.json")
-    if not os.path.isfile(thresh_path):
+    thresh_path = _resolve_thresholds_path(model_dir, thresholds_path)
+    if thresh_path is None:
         return
     with open(thresh_path) as f:
         thresholds = json.load(f)
@@ -210,6 +230,7 @@ def score_immunogenicity(
     mc_dropout=False,
     freeze_mode=False,
     calibration_path=None,
+    thresholds_path=None,
 ):
     """
     Score each peptide's immunogenicity.
@@ -227,6 +248,9 @@ def score_immunogenicity(
         freeze_mode: raise on any missing artifact or model incompatibility
         calibration_path: explicit calibrator path (from config); when unset,
                      the model directory is searched for a calibrator artifact
+        thresholds_path: explicit optimal-thresholds path (from config); when
+                     unset, the model directory is searched for
+                     optimal_thresholds.json
 
     Returns:
         (ranked_df, model) tuple.
@@ -334,7 +358,7 @@ def score_immunogenicity(
             pseudo_labels = np.zeros(len(features_df), dtype=int)
 
         if np.unique(pseudo_labels).size < 2:
-            # Single-class pseudo-labels → RandomForest would return shape (n,1)
+            # Single-class pseudo-labels -> RandomForest would return shape (n,1)
             # and [:, 1] would raise IndexError. Assign a constant score instead.
             features_df["immunogenicity_score"] = 0.0
             print(
@@ -362,7 +386,7 @@ def score_immunogenicity(
         if was_calibrated:
             features_df["calibrated_score"] = cal_scores
 
-    _apply_thresholds(features_df, model_dir)
+    _apply_thresholds(features_df, model_dir, thresholds_path)
 
     # Use deterministic contiguous ranking (1..N) based on score ordering.
     # Prefer calibrated_score when available (Platt calibration is monotonic,

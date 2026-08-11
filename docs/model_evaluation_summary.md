@@ -21,7 +21,8 @@
 
 [^retracted]: Two successive retractions apply to this figure, and they are different defects.
 **(1) Decoy inflation (2026-07-11):** the previously reported pooled same-pathogen AUC-ROC
-0.9368 only reproduces when synthetic / cross-pathogen decoys, including the vaccinia panel,
+0.9368 only reproduces when easy negatives - the synthetic allele-matched non-binders and the
+out-of-panel vaccinia bloc (which is assay-confirmed, not synthetic - D19) -
 are mixed in as if they were same-pathogen negatives; RETRACTED. **(2) Peptide leakage
 (2026-08-10, D15):** the decoy-corrected figures that replaced it were computed under a
 splitter that stratified but did not group by peptide, and are themselves retracted - pooled
@@ -53,7 +54,7 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 
 ## v2 Extended Track: 33-Feature Integrated (Trained 2026-06-18)
 
-> **Status:** Best current v3 model. Dataset: v3 n=1004 peptides, 76.6% positive, 5-fold OOF.
+> **Status:** ~~Best current v3 model.~~ **"Best current v3 model" RETRACTED 2026-08-10 (`docs/claims_register.md` D18)** - the margin was measured on mock antigen-processing features; `mode_31` remains the canonical production track. Dataset: v3 n=1004 peptides, 76.6% positive, 5-fold OOF.
 > Sample weights applied (virus_weight=0.5, length_weight=0.5).
 > Models: `models/rf_33feature_integrated.joblib`, `models/xgb_33feature_integrated.joblib`
 > Features: 20 physico (p4-p8) + 10 binding (MHCflurry) + peptide_length + netchop_score + tap_score
@@ -65,9 +66,11 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 | **ISSR@10** | **0.9158 ± 0.042** | 0.8842 ± 0.052 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
 | **ISSR@25** | 0.9102 ± 0.038 | 0.8816 ± 0.024 | Fraction of the top-25% ranked peptides that are true positives (precision within the top quartile) |
 
-> **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** - best single-number unweighted
-> result for SESTRAV on v3. Improvement over feature_mode=31 unweighted (0.864): +0.022 AUC-PR.
-> Top feature: netchop_score (RF importance=0.118), confirming independent proteasomal processing signal.
+> **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** - highest single-number
+> unweighted result for SESTRAV on v3, **but measured on mock antigen-processing features (D18) and
+> therefore not a real-predictor result.** Improvement over feature_mode=31 unweighted (0.864):
+> +0.022 AUC-PR - likewise a mock-feature gain.
+> Top feature: netchop_score (RF importance=0.118). **The clause "confirming independent proteasomal processing signal" is RETRACTED (2026-08-10, `docs/claims_register.md` D18):** `netchop_score` is a locally generated mock value, not NetChop 3.1 output, and its generator already assumes the cleavage preference the clause claimed to confirm.
 
 ---
 
@@ -163,6 +166,14 @@ For exact unrounded synced values, see:
 Antigen processing features (netchop_score, tap_score) add +0.022 AUC-PR above `full_31`, confirming
 independent proteasomal and TAP transport signal. The `full_33` model is the best v3 result and the
 recommended production track where antigen processing cache is available.
+
+> **RETRACTED (2026-08-10, `docs/claims_register.md` D18).** All three claims in the paragraph above
+> are withdrawn. `netchop_score` and `tap_score` are locally generated MOCK values, not NetChop 3.1
+> or TAPreg output, so the +0.022 gain "confirms" no proteasomal or TAP transport signal - the
+> generator already encodes those preferences, making the inference circular. The "best v3 result"
+> and "recommended production track" designations are withdrawn with it: under the certified v5
+> peptide-grouped splitter, mode 33 exceeds mode 31 by **+0.0027 AUC-PR** (0.6085 vs 0.6058), and
+> **`mode_31` remains the canonical production track.**
 
 > **Do not confuse `full_33`'s AUC-ROC 0.751 in the table above with the retracted v5 per-virus
 > within-CV mean of 0.751.** They are numerically identical by coincidence and are entirely

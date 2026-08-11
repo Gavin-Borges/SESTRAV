@@ -4,9 +4,10 @@ Tier-1 instance of the results/ silent-overwrite defect class. --output-dir
 defaulted to "results" with no guard, so a bare
 `python -m src.h2_tier_a_evaluation` rewrote three git-tracked release
 artifacts in place. One of them, results/h2_tier_a_summary.md, is the source
-behind the certified R10 = 0.9494 H2 Tier A null result reported in README.md,
-so a silent rewrite could change a published number with no commit showing a
-science change.
+behind the certified R10 H2 Tier A null result reported in README.md (R10 =
+1.0588 as of the 2026-08-10 D17 regeneration; previously 0.9494, retracted as
+void), so a silent rewrite could change a published number with no commit
+showing a science change.
 
 These cover the same ground as the guard tests for the other entry points in
 this line: planned-path enumeration, the guard's own behaviour, that the guard

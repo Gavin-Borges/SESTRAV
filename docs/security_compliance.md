@@ -67,13 +67,13 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 
 | Location | Context | Disposition |
 |----------|---------|-------------|
-| `resave_checkpoint.py:61` | `torch.save(ckpt, path)` - internal maintenance script saving trusted model state | Acceptable: script not exposed to user input; data is internally generated |
-| `resave_checkpoint.py:355` | `torch.save(new_ckpt, output_path)` - same script | Acceptable: same rationale |
-| `tests/test_graph_builder.py:48` | `torch.save(dist, tmp_path / "PEP_dist.pt")` - test fixture writing a known tensor | `# nosec B614` added 2026-06-18 |
-| `tests/test_sestrav_evaluator_extended.py:165` | `torch.save(state, chk)` - test fixture writing known state dict | `# nosec B614` added 2026-06-18 |
-| `tests/test_sestrav_evaluator_extended.py:175` | `torch.save(state, chk)` - second test fixture in same file | `# nosec B614` added 2026-06-18 |
+| `scripts/resave_checkpoint.py:61` (2026-06-18 scan; now line 63) | `torch.save(ckpt, path)` - internal maintenance script saving trusted model state | Acceptable: script not exposed to user input; data is internally generated. **Reproducibility caveat (2026-08-11): this file is gitignored** (`.gitignore:366`, "Legacy pipeline configs and checkpoint utilities"), so it is absent from a fresh clone and a reader cannot reproduce these two findings without the local working tree. |
+| `scripts/resave_checkpoint.py:355` (2026-06-18 scan; now line 357) | `torch.save(new_ckpt, output_path)` - same script | Same rationale, and the same gitignored-reproducibility caveat as the row above. |
+| `tests/test_graph_builder.py:48` (2026-06-18 scan; now line 47) | `torch.save(dist, tmp_path / "PEP_dist.pt")` - test fixture writing a known tensor | `# nosec B614` added 2026-06-18 |
+| `tests/test_sestrav_evaluator_extended.py:165` (2026-06-18 scan; now line 178) | `torch.save(state, chk)` - test fixture writing known state dict | `# nosec B614` added 2026-06-18 |
+| `tests/test_sestrav_evaluator_extended.py:175` (2026-06-18 scan; now line 189) | `torch.save(state, chk)` - second test fixture in same file | `# nosec B614` added 2026-06-18 |
 
-**Action:** The two `resave_checkpoint.py` findings are accepted as tolerable operational risk (`torch.save` is necessary for checkpoint maintenance; the file is not reachable from user-facing CLI paths). No `# nosec` added there to preserve visibility; document will be updated if the threat model changes.
+**Action:** The two `scripts/resave_checkpoint.py` findings are accepted as tolerable operational risk (`torch.save` is necessary for checkpoint maintenance; the file is not reachable from user-facing CLI paths). **Corrected 2026-08-11:** this paragraph previously said "No `# nosec` added there to preserve visibility". That is false - both call sites carry `# nosec B614` (now at lines 63 and 357). The document will be updated if the threat model changes.
 
 ### Semgrep (`semgrep scan --config p/python`)
 
@@ -81,8 +81,8 @@ Run 2026-06-18 (Day 5) with semgrep 1.167.0. **2 findings, both false positives 
 
 | Location | Rule | Finding | Disposition |
 |----------|------|---------|-------------|
-| `scripts/run_predig_wrapper.py:101` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` is a Docker invocation list | **False positive.** `cmd` is a Python list (no `shell=True`); list-form subprocess is not shell-injectable. This is a Docker wrapper script for PredIG, not reachable from user-facing endpoints. |
-| `scripts/run_prime_wrapper.py:95` | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale - list-form subprocess, paths are internally constructed, not from untrusted user input. |
+| `scripts/run_predig_wrapper.py:101` (2026-06-18 scan; now line 124) | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` is a Docker invocation list | **False positive.** `cmd` is a Python list (no `shell=True`); list-form subprocess is not shell-injectable. This is a Docker wrapper script for PredIG, not reachable from user-facing endpoints. |
+| `scripts/run_prime_wrapper.py:95` (2026-06-18 scan; now line 110) | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale - list-form subprocess, paths are internally constructed, not from untrusted user input. |
 
 **Action:** No code changes required. Both scripts are researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either script ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
 

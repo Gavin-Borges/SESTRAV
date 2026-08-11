@@ -14,6 +14,7 @@ import pandas as pd
 from functions.stage4_immunogenicity_scoring import (
     _apply_calibration,
     _apply_thresholds,
+    _resolve_thresholds_path,
     _sanitize_name,
 )
 
@@ -46,6 +47,52 @@ def test_apply_thresholds_uses_threshold_key(tmp_path):
     df = pd.DataFrame({"immunogenicity_score": [0.2, 0.5, 0.8]})
     _apply_thresholds(df, str(tmp_path))
     assert df["immunogenic"].tolist() == [0, 1, 1]  # >= threshold is positive
+
+
+def test_resolve_thresholds_path_prefers_explicit_config_path(tmp_path):
+    """An explicit config path wins over the model-dir convention.
+
+    Before this resolver existed, config.yaml's ``thresholds_path`` was read by
+    nothing: the file was located purely by convention from the model directory,
+    so repointing the config key was a silent no-op.
+    """
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    (model_dir / "optimal_thresholds.json").write_text(json.dumps({"threshold": 0.5}))
+    explicit = tmp_path / "elsewhere.json"
+    explicit.write_text(json.dumps({"threshold": 0.9}))
+
+    assert _resolve_thresholds_path(str(model_dir), str(explicit)) == str(explicit)
+
+
+def test_resolve_thresholds_path_falls_back_to_model_dir(tmp_path):
+    """With no explicit path, behaviour is identical to the pre-fix convention."""
+    convention = tmp_path / "optimal_thresholds.json"
+    convention.write_text(json.dumps({"threshold": 0.5}))
+
+    assert _resolve_thresholds_path(str(tmp_path), None) == str(convention)
+    # A configured path that does not exist must not mask the model-dir copy.
+    assert _resolve_thresholds_path(str(tmp_path), str(tmp_path / "missing.json")) == str(
+        convention
+    )
+
+
+def test_resolve_thresholds_path_returns_none_when_nothing_exists(tmp_path):
+    assert _resolve_thresholds_path(str(tmp_path), None) is None
+
+
+def test_apply_thresholds_honours_explicit_path(tmp_path):
+    """The explicit path actually drives the cut, not just the resolver."""
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    (model_dir / "optimal_thresholds.json").write_text(json.dumps({"threshold": 0.5}))
+    explicit = tmp_path / "elsewhere.json"
+    explicit.write_text(json.dumps({"threshold": 0.9}))
+
+    df = pd.DataFrame({"immunogenicity_score": [0.6, 0.95]})
+    _apply_thresholds(df, str(model_dir), str(explicit))
+    # Under the model-dir copy (0.5) both rows would be positive.
+    assert df["immunogenic"].tolist() == [0, 1]
 
 
 def test_apply_thresholds_falls_back_to_f1_threshold_key(tmp_path):

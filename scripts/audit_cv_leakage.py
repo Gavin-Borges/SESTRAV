@@ -56,10 +56,12 @@ N_ESTIMATORS = 200
 
 # Same 9-virus target set and real-negative-origin filter as
 # scripts/compute_pooled_honest_metric.py, reused here so this audit can
-# directly test whether results/per_virus_eval_v5_mode31.csv (mean 0.751) and
-# results/pooled_honest_same_pathogen.csv (0.712) - both downstream consumers
-# of the same MultiStratifiedKFold-derived models/v5/rf_oof_predictions_mode31.csv -
-# share the same leakage exposure as the pooled mode31_auc_pr headline.
+# directly test whether results/per_virus_eval_v5_mode31.csv (mean 0.751 as certified
+# when this audit was written; RETRACTED by D15 and re-baselined to 0.658) and
+# results/pooled_honest_same_pathogen.csv (0.712; likewise retracted, now 0.6015) -
+# both downstream consumers of the same MultiStratifiedKFold-derived
+# models/v5/rf_oof_predictions_mode31.csv - share the same leakage exposure as the
+# pooled mode31_auc_pr headline.
 TARGET_VIRUSES = {"CMV", "DENV", "EBV", "HBV", "HCV", "HIV-1", "HPV", "IAV", "SARS-CoV-2"}
 REAL_NEG_ORIGIN = "iedb_api"
 MIN_VIRUS_SIZE = 20
@@ -241,8 +243,9 @@ def _splitter_ab(active: pd.DataFrame) -> list[dict]:
 
 
 def _per_virus_and_pooled_honest_ab(active: pd.DataFrame) -> list[dict]:
-    """Test whether the certified per-virus (0.751) and pooled-honest (0.712) figures -
-    both computed downstream of the same MultiStratifiedKFold OOF predictions as the
+    """Test whether the then-certified per-virus (0.751) and pooled-honest (0.712) figures -
+    RETRACTED by D15 (2026-08-10) and re-baselined to 0.658 / 0.6015, and both computed
+    downstream of the same MultiStratifiedKFold OOF predictions as the
     pooled mode31_auc_pr headline - share its leakage exposure, under a matched
     (n_estimators=200) production vs peptide-grouped comparison."""
     X = prepare_features_31(active, str(BINDING_MATRIX_PATH))
@@ -304,7 +307,7 @@ def _tier_a_ab(active: pd.DataFrame) -> list[dict]:
 
     Why this exists: the SESTRAV arm of Tier A is the `rf_oof_score` column, which
     traces to the same ungrouped `MultiStratifiedKFold` OOF output as everything else
-    audited here (`src/train_classifier.py:781-786` writes both
+    audited here (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) writes both
     `models/rf_oof_predictions.csv` and `models/rf_oof_predictions_mode31.csv` from one
     `_cross_validate` call; `src/prepare_external_validation_inputs.py:100` reads the
     former; `scripts/run_tier_a_benchmarks.py:269` scores it). Tier A is therefore not an
@@ -312,7 +315,7 @@ def _tier_a_ab(active: pd.DataFrame) -> list[dict]:
 
     Method: score each Tier A peptide with the OOF value from the v5 row(s) carrying that
     peptide, taking the first occurrence to mirror the drop_duplicates(keep="first") in
-    `prepare_external_validation_inputs.py:122`, then evaluate with the repo's own shared
+    `src/prepare_external_validation_inputs.py:122`, then evaluate with the repo's own shared
     `src.evaluate_metrics.evaluate` so the numbers are directly comparable to
     `results/table3_tier_a_metrics.csv`. Labels come from the Tier A field, not from v5.
 
@@ -403,7 +406,8 @@ def _feature_mode_ab(active: pd.DataFrame) -> list[dict]:
 
 
 def _vaccinia_ablation(active: pd.DataFrame) -> list[dict]:
-    """Peptide-grouped mode-31 AUC-PR/AUC-ROC with the Orthopoxvirus vaccinia decoy bloc excluded."""
+    """Peptide-grouped mode-31 AUC-PR/AUC-ROC with the out-of-panel Orthopoxvirus vaccinia
+    negative bloc excluded. Those rows are real IEDB assay negatives, not decoys (D19)."""
     mask = (active["virus"] != "Orthopoxvirus vaccinia").to_numpy()
     subset = active[mask].reset_index(drop=True)
     X = prepare_features_31(subset, str(BINDING_MATRIX_PATH))

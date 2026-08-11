@@ -99,7 +99,7 @@ SESTRAV proceeds through six computational stages under a reproducible Snakemake
 | 2. MHC binding | Peptides + allele panel | MHCflurry 2.2.1 presentation scores, 10 HLA alleles (pinned, CI-gated) | `{proteome}_binding.csv` |
 | 3. Feature extraction | Binding CSV | `src/features.py`: 20 physicochemical properties at p4-p8 + 10 per-allele binding + peptide length | `{proteome}_features.csv` |
 | 4. Immunogenicity scoring | Features + serialized model | RF / XGBoost ensemble; SHAP attribution; conformal intervals | `{proteome}_ranked.csv` |
-| 5. Antigen processing (optional) | Peptides | NetChop 3.1 cleavage + TAPreg transport scores joined as features (`mode_33`) | extended feature cache |
+| 5. Antigen processing (optional) | Peptides | Cleavage + transport scores joined as features (`mode_33`). **The shipped cache holds MOCK values, not real NetChop 3.1 / TAPreg output** (`docs/claims_register.md` D18) | extended feature cache |
 | 6. GNN benchmark (optional, research) | Peptide graphs + ESM-2 cache | GINEConv + ESM-2 scoring, fused with mode-31 features | GNN OOF predictions, eval JSON |
 
 ```mermaid
@@ -108,7 +108,7 @@ graph LR
     B -->|S2| C("MHC Binding<br/>MHCflurry, 10-allele panel")
     C -->|S3| D("Feature Extraction<br/>20 physico + 10 binding + length")
     D -->|S4| E("Immunogenicity Scoring<br/>RF / XGBoost ensemble")
-    E -.->|S5 optional| F("Antigen Processing<br/>NetChop / TAPreg")
+    E -.->|S5 optional| F("Antigen Processing<br/>cleavage / transport<br/>MOCK scores - D18")
     E -.->|S6 optional, research| G("GNN Benchmark<br/>GINEConv + ESM-2")
     E --> H("Ranked Output<br/>+ SHAP, freeze-mode governed")
     F --> H
@@ -137,7 +137,7 @@ peptide length, which acts as a critical mediating variable.
 | Track | Features | Composition | Role |
 |---|---|---|---|
 | Canonical (`mode_31`) | 31 | 20 physicochemical (p4-p8) + 10 binding + length | Default production track |
-| Extended (`mode_33`) | 33 | 31 + NetChop + TAPreg antigen processing | Antigen-processing tier |
+| Extended (`mode_33`) | 33 | 31 + antigen processing (**MOCK** cleavage/transport scores, not real NetChop/TAPreg - D18) | Antigen-processing tier |
 | Legacy (`mode_30`) | 30 | 20 physicochemical + 10 binding (no length) | Historical comparator |
 | Legacy (`mode_21`) | 21 | Sequence-only physicochemical (binding excluded) | Historical comparator |
 | Expanded (`mode_50`) | 50 | 40 physicochemical + 10 binding | Extended evaluation |
@@ -174,11 +174,17 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.
-- **Within-virus generalization set** (v5, 35,597 active rows / 51,185 total; central-tolerance
-  self-binder plus IEDB viral negatives): canonical `mode_31` per-virus within-CV mean AUC-ROC
+- **Within-virus generalization set** (v5, 35,597 active rows / 51,185 total; of the 27,542
+  active negatives in the corpus, 21,432 are an out-of-panel *Orthopoxvirus vaccinia* bloc
+  (77.8%), 3,112 are synthetic allele-matched non-binders, and 2,998 are other IEDB
+  assay-derived negatives. Reproduce as `negative_origin` value counts over the
+  `is_quarantined == False & label == 0` rows of `data/immunogenicity_dataset_v5.csv`; note the
+  scored OOF frame `models/v5/rf_oof_predictions_mode31.csv` carries 27,534, eight fewer):
+  canonical `mode_31` per-virus within-CV mean AUC-ROC
   **0.658** over nine viruses (`results/per_virus_eval_v5_mode31.csv`), and pooled CV AUC-PR
   **0.6058** (`models/v5/training_results_mode31.csv`). This same-pathogen number is
-  lower by design because the hard decoys remove the binding-equals-immunogenic shortcut; the
+  lower by design because the task is harder - **not** because of self-proteome hard decoys:
+  all 5,000 of those are quarantined and none reaches this 35,597-row active pool (D19); the
   pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
   (required whenever these figures are quoted, `docs/claims_register.md` D15 - remediated
   2026-08-10):** these are measured under a **peptide-grouped** splitter
@@ -283,7 +289,13 @@ forward work rather than shipped capability.
 
 - **Training data:** `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total),
   derived from curated IEDB-linked immunogenicity evidence plus hard, self-proteome
-  central-tolerance decoy negatives. Provenance is documented in `docs/data_registry.md`.
+  central-tolerance decoy negatives. **All 5,000 self-proteome decoys are quarantined**, so they
+  are present in the 51,185-row file but absent from the 35,597-row active pool that the pooled
+  and per-virus v5 cross-validation metrics are measured on. **The LOO evaluation is the
+  deliberate exception:** `scripts/run_loo_cross_virus_v5.py` partitions `source_type == "Self"`
+  out *before* the quarantine filter and includes all 5,000 in LOO training regardless, so the
+  certified LOO mean 0.463 does train on them (D19). The Tier A figures are measured on a
+  different 704-peptide field entirely. Provenance is in `docs/data_registry.md`.
 - **Binding matrix:** `models/peptide_binding_matrix_v5.csv` provides per-allele MHCflurry
   scores for the 10-allele panel.
 - **Quarantine mechanism:** rows with intra-supertype label conflicts that the
@@ -378,7 +390,7 @@ contributor lands. Progress is tracked in `ROADMAP.md`; full criteria mapping is
 | `src/gnn/` | GNN graph builder (`graph_builder.py`) and models (`models.py`) |
 | `src/train_gnn.py` | GNN training (v1 dense-adjacency and v2.3 GINEConv paths) |
 | `src/verify/promote_gnn.py` | Five-gate GNN promotion check |
-| `src/antigen_processing.py` | NetChop / TAPreg antigen-processing features (mode 33) |
+| `src/antigen_processing.py` | Literature-transcribed ERAP/TAP PSSM proxy scores. **NOT wired into any build** - imported only by its own test, and it emits `erap_score` (N-terminal trimming), not `netchop_score`. Mode 33 reads `data/antigen_processing_cache.csv` instead, which holds MOCK values (D18) |
 | `src/evaluate_metrics.py` | AUC-PR, AUC-ROC, ISSR/precision/recall/NDCG at top-k |
 | `src/shap_analysis.py`, `src/statistical_bootstrap.py` | Interpretability and CI estimation |
 | `src/release_bundle.py` | SHA-256 release manifests |
