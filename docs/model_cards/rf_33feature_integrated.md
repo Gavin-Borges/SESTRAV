@@ -13,7 +13,7 @@
   - `tap_score`: **MOCK** TAP transport affinity score. Named for TAPreg (Peters et al. 2003) but **not produced by it** - same disclosure.
 - **Output:** Continuous probability [0.0-1.0] representing population-level likelihood of T-cell activation. Does not represent allele-specific or donor-specific immunogenicity.
 - **Extends:** `rf_31feature_integrated.joblib` (canonical, feature_mode=31)
-- **Prerequisite:** Antigen processing cache at `data/antigen_processing_cache.csv` (1,004 rows, pre-computed via `scripts/precompute_antigen_processing.py`)
+- **Prerequisite:** Antigen processing cache at `data/antigen_processing_cache.csv` (**29,299 rows** as tracked today; pre-computed via `scripts/precompute_antigen_processing.py`). *Corrected 2026-08-11: this read "1,004 rows", which was accurate only at the v3 generation (`0e1ff88`, 2026-06-18) and matched the 1,004-peptide v3 corpus. The cache was expanded the next day and has been 29,299 rows since `dcbb1b1` (2026-06-26). The v3 figures on this card remain v3-scoped.*
 
 ## Intended Use
 - **Primary Domain (trained):** EBV (B95-8 strain) and HPV 16/18 - identical to feature_mode=31.
@@ -74,7 +74,7 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 
 ## Limitations
 1. **Mock antigen processing scores.** Current v3 cache uses mock scores due to DTU API unavailability and TAPreg VPN restriction. Performance metrics reflect mock-score quality, not live API output. Live query validation is pending.
-2. **Binding feature marginal redundancy.** Identical to feature_mode=31: all bind_* features are 0.0 RF importance in v3. Hard decoys (v4) are expected to restore binding utility.
+2. **Binding feature marginal redundancy - RETRACTED 2026-08-11 (D17).** This read: "Identical to feature_mode=31: all bind_* features are 0.0 RF importance in v3. Hard decoys (v4) are expected to restore binding utility." The observation of 0.0 importance is real; the explanation was not. Those zeros come from the all-zeros v3 binding-matrix placeholder (`f360b90`, fixed at `37d1d67`), so they are a data defect rather than evidence of redundancy, and hard decoys were never the remedy. This card incorporated the 31-feature card's explanation by reference; that explanation is now withdrawn there too.
 3. **Cache dependency.** Model cannot be invoked without a pre-computed antigen processing cache. Use `scripts/precompute_antigen_processing.py` with `--resume` to build the cache incrementally.
 4. **No allele-specific predictions.** Population-average features only.
 5. **TCR contact approximation.** p4-p8 physicochemical proxy, validated for HLA-A*02:01 9-mers primarily (Chowell et al. 2015).
@@ -82,7 +82,7 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 
 ## Provenance
 - MHCflurry version: 2.2.1
-- Antigen processing cache: `data/antigen_processing_cache.csv` (1,004 rows, 0 NaN; mock scores - see limitations)
+- Antigen processing cache: `data/antigen_processing_cache.csv` (**29,299 rows** as tracked today, 0 NaN; mock scores - see limitations). *Corrected 2026-08-11: previously "1,004 rows" - true at the v3 generation (`0e1ff88`), stale since `dcbb1b1`.*
 - Feature schema: `feature_mode=33`, `FEATURE_COLUMNS_33` in `src/features.py`
 - Training script: `src/train_classifier.py --feature-mode 33 --sample-weights`
 - Training artifacts: `models/training_results.csv`, `models/feature_importances.csv`

@@ -296,7 +296,7 @@ flagged as such - do not cite them as certified numbers.
 | Feature | Honest AUC-PR delta | Compute / latency overhead | Dependency footprint & OpenSSF risk | Verdict |
 |---|---|---|---|---|
 | 5D Z-scale / 8D VHSE descriptors | **+0.0096 (measured, mode 50 proxy)** | None - lookup-table swap, no inference-time cost change | Zero new dependencies. No supply-chain surface. | **Adopt** |
-| N/C-terminal flanking + ERAAP trimming (real, replacing the mode-33 mock) | Estimated, not yet measured (repair, not new feature) | Requires source-protein flank sequence at inference time; one extra PSSM evaluation per peptide, cacheable | Zero new dependencies - `src/antigen_processing.py` already implements the real PSSMs (Keller 2020, Doytchinova 2004); the change is wiring, not a new library | **Adopt as repair** |
+| N/C-terminal flanking + ERAAP trimming (**proxy**, replacing the mode-33 mock) | Estimated, not yet measured (replacement, not repair) | Requires source-protein flank sequence at inference time; one extra PSSM evaluation per peptide, cacheable | Zero new dependencies - but **CORRECTED 2026-08-11: this cell previously read "`src/antigen_processing.py` already implements the real PSSMs (Keller 2020, Doytchinova 2004); the change is wiring, not a new library". That is false**, and the retraction block in Section 4.2 below already said so without this row being updated. By its own docstring the module emits *proxy* scores, "not tool-call wrappers to NetChop or NetCTL", and says those matrix weights "should be replaced by" the published log-odds matrices - i.e. they are not them. It also emits `erap_score` (ERAP N-terminal trimming), a different biological quantity from `netchop_score` (proteasomal C-terminal cleavage). | **Adopt as replacement** (see Section 4.2 retraction) |
 | Agretope/epitope (P2/P9 vs P4-P8) disconnect ratio | Estimated; genuinely novel signal, not measured on this dataset | ~3x MHCflurry calls per peptide (alanine-scan mutants), cacheable in the existing binding-matrix pattern | Zero new dependencies | **Prototype** |
 | pMHC stability (t1/2, NetMHCstabpan) | Estimated from literature; orthogonal to affinity | External predictor call per peptide-allele pair; cacheable | DTU academic-license binary, non-redistributable; repo's one existing DTU integration (NetChop) is currently a silent mock (Section 4) - repeat risk is high without a hard-fail contract | **Gate** on a real (non-mock) integration |
 | ESM-2 embeddings + PCA for RF/XGB | Estimated; existing `30_esm` mode suggests limited RF headroom at this dataset size | Model forward pass per peptide (cacheable), PCA fit must be inside the fold | `transformers` not installed locally; `src/features.py` ESM loader currently falls back to a SHA256-seeded **random** vector on load failure - a silent-garbage pattern that must be fixed before this is trustworthy | **Research only** |
@@ -320,17 +320,22 @@ step-change. Implementation is a pure lookup-table addition with no new dependen
 inference-time cost change, which makes it the highest expected-value-per-engineering-hour item
 on this list.
 
-### 4.2 Adopt as repair: N/C-terminal flanking and ERAAP trimming
+### 4.2 Adopt as replacement: N/C-terminal flanking and ERAAP trimming
 
 This is not really a new-feature proposal once the codebase is read closely. `feature_mode=33`
 already ships `netchop_score`/`tap_score`, but `scripts/precompute_antigen_processing.py`
 computes them via `query_netchop(..., mock_fallback=True)` in `src/external_predictors.py`,
 whose own script comment states the values "are NOT real NetChop 3.1 / TAPreg predictions" and
 whose generator uses `hash(char + pep)` - unstable across processes unless `PYTHONHASHSEED` is
-pinned. Meanwhile `src/antigen_processing.py` contains a real ERAP/TAP PSSM implementation
-(transcribed from Keller 2020 and Doytchinova 2004) that `src/train_classifier.py` never
-imports - dead code sitting next to a mock that is documented as real in `docs/model_cards/
-rf_33feature_integrated.md`. The correct 2026 upgrade path is to retire the mock, wire the real
+pinned. Meanwhile `src/antigen_processing.py` contains an ERAP/TAP PSSM **proxy** implementation
+(**corrected 2026-08-11: this read "a real ERAP/TAP PSSM implementation"**; the module's own
+docstring calls its outputs *proxy* scores and says those weights "should be replaced by" the published log-odds
+matrices, so "real" is false here exactly as it was at the Section 3 trade-off table and at Phase 1
+step 8) that `src/train_classifier.py` never
+imports - dead code sitting next to a mock that WAS documented as real in `docs/model_cards/
+rf_33feature_integrated.md` (corrected 2026-08-11: that card now documents the values as MOCK
+in eleven places, from D18's 2026-08-10 pass; this sentence's present tense was left standing
+when the three neighbouring 'real PSSM' claims were corrected). The correct 2026 upgrade path is to retire the mock, wire the proxy
 PSSM code into the mode-33 build, add genuine N/C-terminal flanking probability using source-
 protein context already available via `docs/antigen_accessions.md`, and correct the model card.
 This converts a scientific-integrity liability into whatever real signal the PSSM approach
@@ -494,10 +499,28 @@ of the additions below ship.
    define a new additive `FEATURE_COLUMNS_36` (5D x 5 positions + 10 binding + length), dispatch
    it in `train_classifier.py`'s mode selection, and register it in `VALID_FEATURE_MODES`
    (`scripts/batch_experiment_runner.py`). A/B against modes 31 and 50 under grouped CV.
-8. Wire `src/antigen_processing.py`'s real PSSMs into the `feature_mode=33` build, retire the
-   `external_predictors` mock path, regenerate `data/antigen_processing_cache.csv` with a
-   provenance sidecar (mirroring `models/peptide_binding_matrix_v5.provenance.json`), and correct
-   `docs/model_cards/rf_33feature_integrated.md`.
+8. **CORRECTED 2026-08-11 - this step rested on a false premise as previously written.** It read "Wire
+   `src/antigen_processing.py`'s **real PSSMs** into the `feature_mode=33` build". There are no real
+   PSSMs in that module: it emits *proxy* scores by its own docstring, which says those weights
+   "should be replaced by" the published log-odds matrices - i.e. they are not them - and it
+   produces `erap_score` (N-terminal trimming), not
+   `netchop_score` (C-terminal cleavage). Section 4.2's retraction block established this; the step
+   text was never updated to match.
+   **What the step actually is:** replace the `external_predictors` mock path with the deterministic
+   literature-informed ERAP/TAP proxy, regenerate `data/antigen_processing_cache.csv` with a
+   provenance sidecar recording script + input sha256 (mirror `scripts/audit_cv_leakage.py`'s
+   `_write_provenance`, which captures both, rather than
+   `models/peptide_binding_matrix_v5.provenance.json`, which records no input checksum), and correct
+   `docs/model_cards/rf_33feature_integrated.md`. This buys reproducibility and honest naming; it
+   does NOT buy real antigen-processing predictions.
+   **Two decisions to settle before writing code:** (a) whether the columns keep the misnomer
+   `netchop_score` or are renamed to `erap_score` (a rename touches `FEATURE_COLUMNS_33`,
+   `ANTIGEN_PROCESSING_COLUMNS`, `src/train_classifier.py`, `src/external_predictors.py`,
+   `scripts/precompute_antigen_processing.py`, the cache header itself, six tracked test files
+   carrying the literal column name, and every doc surface. `config.yaml` names the cache path
+   and the feature mode but not the columns, so it is likely untouched. Enumerate before
+   starting: this list is indicative, not certified complete); (b) that this forces a retrain of v5 ablation modes 33 and 35 and a number resync
+   across roughly nine tracked surfaces. The canonical mode-31 figure (0.6058) is NOT affected.
 
 ### Phase 2 - Prototype the one genuinely novel signal (Section 4.3)
 
