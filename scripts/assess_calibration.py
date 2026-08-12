@@ -205,9 +205,22 @@ def _write_provenance(output_path: Path, oof_path: Path, result: pd.DataFrame) -
     except ValueError:
         oof_rel = oof_path.name
     pooled = result[result["scope"] == "pooled_all"].iloc[0]
+    try:
+        out_rel = output_path.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        out_rel = output_path.name
     provenance = {
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "script": "scripts/assess_calibration.py",
+        # The artifact's OWN hash, and an explicit pointer to it. Without these
+        # the integrity harness's provenance check cannot verify this sidecar at
+        # all: it looks for `sha256`/`checksum`, and it resolves the artifact
+        # from `file`/`artifact` before falling back to mangling the sidecar
+        # filename. Recording only the INPUT hash (oof_sha256, below) left the
+        # check with nothing to check, which is how it came to report zero PASS
+        # results across all 40 sidecars in the repo.
+        "artifact": out_rel,
+        "sha256": _sha256_file(output_path),
         "oof_path": oof_rel,
         "oof_sha256": _sha256_file(oof_path),
         "random_state": RANDOM_STATE,
@@ -219,7 +232,11 @@ def _write_provenance(output_path: Path, oof_path: Path, result: pd.DataFrame) -
         "n_rows_emitted": len(result),
     }
     provenance_path = _provenance_path(output_path)
-    provenance_path.write_text(json.dumps(provenance, indent=2), encoding="utf-8")
+    # newline="" keeps the LF that json.dumps produces, instead of letting the
+    # platform rewrite it to CRLF. Matches the eol=lf pin in .gitattributes, so
+    # the file git stores and the file on disk are the same bytes.
+    with provenance_path.open("w", encoding="utf-8", newline="") as fh:
+        fh.write(json.dumps(provenance, indent=2) + "\n")
     print(f"wrote {provenance_path}")
 
 
@@ -246,7 +263,14 @@ def main(argv: list[str] | None = None) -> int:
 
     result = run(oof_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(output_path, index=False)
+    # lineterminator is pinned to LF rather than left to the platform. pandas
+    # writes CRLF on Windows, git stores LF, and the sidecar records a sha256 of
+    # whichever one it happened to see - so an unpinned terminator makes the
+    # recorded hash platform-dependent and the provenance check unverifiable
+    # anywhere but the machine that wrote it. .gitattributes pins the same file
+    # from git's side; this pins it from the writer's side, so the two agree
+    # even before the file is ever committed.
+    result.to_csv(output_path, index=False, lineterminator="\n")
     _write_provenance(output_path, oof_path, result)
     print(f"wrote {output_path} ({len(result)} rows)")
 

@@ -11,3 +11,13 @@
 
 # Freeze-checked dataset must stay LF so its SHA-256 is identical across platforms/CI
 data/immunogenicity_dataset_v3.csv text eol=lf
+
+# Same reason, generalised 2026-08-12: any artifact whose sha256 is RECORDED in a
+# provenance sidecar must be byte-identical on every platform, or the integrity
+# harness's provenance check FAILs on a file that is perfectly correct. Measured
+# on this box: results/calibration_assessment_v5_mode31.csv is 1,712 bytes with
+# 13 CRs in the Windows working tree and 1,699 bytes with 0 CRs as a git blob,
+# because core.autocrlf=true rewrites on checkout. A hash taken from the working
+# tree is therefore a Windows-only hash. Pinning eol=lf makes the two agree.
+results/*.csv text eol=lf
+results/*.provenance.json text eol=lf
