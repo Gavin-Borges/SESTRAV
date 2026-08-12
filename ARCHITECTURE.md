@@ -164,13 +164,17 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
 - **Tier A labeled benchmark** (head-to-head against the field): a 30-feature, unweighted,
   200-tree RF configuration from 2026-05 - **not** the canonical `full_31`/`mode_31`
   production model, corrected 2026-08-09 (`docs/claims_register.md` D16) - scores
-  AUC-PR 0.828 (OOF, ungrouped by peptide and leakage-inflated, D15), a near-tie with the
+  AUC-PR 0.828 (OOF, 30-feature RF, D16), a near-tie with the
   best fully-trained external tool (BigMHC 0.822, which edges SESTRAV on top-decile
   precision, ISSR@10 0.917 vs 0.843; SESTRAV ranks 4th of 5 on that metric, behind
   binding-only 0.861 and MixMHCpred 2.2 0.847 as well - the AUC-PR lead does not extend to
-  top-decile precision). Because the out-of-fold arm is optimistic rather than conservative
-  (71.1% of held-out rows share their exact peptide with the training fold), this near-tie
-  cannot be read as SESTRAV being understated. The extended `full_33` configuration (0.840)
+  top-decile precision). This benchmark's 720-peptide corpus has zero duplicate peptides,
+  so the exact-peptide leakage mechanism found elsewhere in this project's v5 figures
+  (D15) is a structural no-op here and does not apply. A different, unquantified risk does
+  apply and has never been filtered for this benchmark: 32.1% of the 704-peptide scored
+  pool has a substring-level near-duplicate elsewhere in the pool. Whether this affected
+  the score is not established, so this near-tie should not be read as biased in either
+  direction (`docs/claims_register.md` D22). The extended `full_33` configuration (0.840)
   is reported separately under Release Tracks and is not part of the certified Tier-A
   field. PRIME and PredIG are compared on capabilities only; their metric head-to-head is
   not reproducible from a certified results file and is not reported.

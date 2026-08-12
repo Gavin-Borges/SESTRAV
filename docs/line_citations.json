@@ -26,22 +26,6 @@
       ]
     },
     {
-      "citing": "docs/proposals/2026_feature_upgrade_roadmap.md",
-      "target": "scripts/run_tier_a_benchmarks.py",
-      "lines": "269",
-      "pinned": [
-        "(\"SESTRAV RF\", \"rf_oof_score\"),"
-      ]
-    },
-    {
-      "citing": "docs/proposals/2026_feature_upgrade_roadmap.md",
-      "target": "src/prepare_external_validation_inputs.py",
-      "lines": "100",
-      "pinned": [
-        "oof_path = os.path.join(root, \"models\", \"rf_oof_predictions.csv\")"
-      ]
-    },
-    {
       "citing": "docs/security_compliance.md",
       "target": "scripts/run_predig_wrapper.py",
       "lines": "124",
@@ -79,22 +63,6 @@
       "lines": "189",
       "pinned": [
         "torch.save(state, chk) # nosec B614 - test fixture, trusted tensor"
-      ]
-    },
-    {
-      "citing": "scripts/audit_cv_leakage.py",
-      "target": "scripts/run_tier_a_benchmarks.py",
-      "lines": "269",
-      "pinned": [
-        "(\"SESTRAV RF\", \"rf_oof_score\"),"
-      ]
-    },
-    {
-      "citing": "scripts/audit_cv_leakage.py",
-      "target": "src/prepare_external_validation_inputs.py",
-      "lines": "100",
-      "pinned": [
-        "oof_path = os.path.join(root, \"models\", \"rf_oof_predictions.csv\")"
       ]
     },
     {

@@ -38,8 +38,13 @@ RETRACTED by D15) reproduces at 0.7512
 under the production splitter versus 0.6587 peptide-grouped (+14.0%), and the pooled honest
 same-pathogen figure (then-certified 0.712, since RETRACTED by D15) reproduces at 0.7124
 versus 0.5989 peptide-grouped
-(+19.0%) - see Section 2. The Tier A external benchmark is exposed by the same chain but the
-leakage effect there is small (AUC-PR -0.0176 on the measurable subset); its real problem is that
+(+19.0%) - see Section 2. The Tier A external benchmark does not carry the same exact-duplicate
+exposure: its 720-row corpus has zero duplicate peptides, so that mechanism is a structural no-op
+there, and the AUC-PR -0.0176 delta previously cited here as evidence of exposure in fact measures
+a different, hypothetical question - a fresh v5-trained model re-scoring the resolvable subset, not
+the certified pathway (`docs/claims_register.md` D22). A separate, unquantified risk applies
+instead: 32.1% of the 704-peptide scored pool has a substring-level near-duplicate elsewhere in the
+pool (D22). Tier A's real problem is that
 the certified 0.828 is a **2026-05, 30-feature, unweighted, 200-tree** measurement mislabeled as
 the canonical v5 `mode_31` figure (`docs/claims_register.md` D16) - a sound result for what it
 is, but not a description of the shipped model.
@@ -230,10 +235,18 @@ trains a fresh model per held-out virus with explicit virus-level partitioning
 (`scripts/run_loo_cross_virus_v5.py`), never uses `MultiStratifiedKFold`, and excludes gold-standard
 peptides from training.
 
-**The Tier A external benchmark is exposed by the same chain, but the leakage effect there is
-small.** The SESTRAV arm of Tier A is the `rf_oof_score` column, which traces to the same ungrouped
-OOF output (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) -> `src/prepare_external_validation_inputs.py:100` ->
-`scripts/run_tier_a_benchmarks.py:269`), so Tier A is not an independent held-out field. Measured on
+**CORRECTED 2026-08-11 (D22): the code-trace argument below is real code behavior today, but does
+not describe how the certified 0.828 was actually generated.** `results/external_validation_input.csv`
+and `results/table3_tier_a_metrics.csv` were each committed exactly once (`f360b90` 2026-05-23,
+`f5153152` 2026-06-21) and never regenerated, so the `rf_oof_score` merged into Tier A was never
+produced by re-running today's `train_classifier.py` pipeline; it traces instead to the 720-row,
+zero-duplicate-peptide `immunogenicity_dataset.csv` at `69e0e5c` (D16), on which the exact-duplicate
+leakage mechanism this chain would otherwise imply is a structural no-op. A different, unquantified
+risk applies instead: substring homology across 32.1% of the 704-peptide pool
+(`docs/claims_register.md` D22). The table below is unaffected by this correction - it was always a
+measurement of a fresh v5-trained model re-scoring the 414 resolvable Tier A peptides under two
+splitters (a hypothetical "if today's model scored these peptides" question), not a measurement of
+the certified pathway's own exposure. Measured on
 the 414 field peptides resolvable to an active (non-quarantined) v5 row, changing only the
 splitter:
 
@@ -577,10 +590,13 @@ project has been citing as the leakage-honest corrective - both RETRACTED by D15
 per-virus mean (0.751 -> 0.658 as finally measured,
 -0.09) and the pooled honest same-pathogen figure (0.712 -> 0.6015 as finally measured, -0.11)
 - both downward by a
-smaller but still material amount. The Tier A headline (0.828) moves far less on leakage grounds
-(-0.0176 AUC-PR on the measurable subset) but carries a separate, arguably harder problem: it is
+smaller but still material amount. The Tier A headline (0.828) does not carry the same
+exact-duplicate exposure: its 720-row corpus has zero duplicate peptides, and the -0.0176 AUC-PR
+delta previously cited here measures a fresh v5-trained model on the resolvable subset, not the
+certified pathway (`docs/claims_register.md` D22). It carries a separate, arguably harder problem
+instead: it is
 a 2026-05, 30-feature, unweighted, 200-tree measurement mislabeled as the canonical v5 `mode_31`
-result (D16). **Corrected 2026-08-09, and worth recording as a process note:** this paragraph
+result (D16), plus a disclosed, unquantified substring-homology risk (32.1% of the pool, D22). **Corrected 2026-08-09, and worth recording as a process note:** this paragraph
 previously asserted that 0.828 "cannot be regenerated from tracked inputs at all" - the first,
 since-retracted version of D16. That version was corrected twice: `a843385` (mislabeled, not
 irreproducible) and `dd5a356` (30-feature/unweighted/200-tree, not 31-feature/500-tree). This
