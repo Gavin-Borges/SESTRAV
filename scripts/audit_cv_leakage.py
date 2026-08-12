@@ -303,15 +303,20 @@ def _per_virus_and_pooled_honest_ab(active: pd.DataFrame) -> list[dict]:
 
 
 def _tier_a_ab(active: pd.DataFrame) -> list[dict]:
-    """Re-measure the Tier A external benchmark under both splitters.
+    """Re-measure a subset of Tier A peptides with a FRESH v5-trained model, not the certified pathway.
 
-    Why this exists: the SESTRAV arm of Tier A is the `rf_oof_score` column, which
-    traces to the same ungrouped `MultiStratifiedKFold` OOF output as everything else
-    audited here (`src/train_classifier.py` (the `rf_oof_predictions*.csv` writes in `train_models`) writes both
-    `models/rf_oof_predictions.csv` and `models/rf_oof_predictions_mode31.csv` from one
-    `_cross_validate` call; `src/prepare_external_validation_inputs.py:100` reads the
-    former; `scripts/run_tier_a_benchmarks.py:269` scores it). Tier A is therefore not an
-    independent held-out field, and its certified AUC-PR 0.828 carries the same exposure.
+    What this measures: whether a v5 mode-31 RF trained today, evaluated under two different
+    CV splitters, is splitter-sensitive when scoring the subset of Tier A peptides that
+    happen to resolve to an active v5 row - a hypothetical "if today's model scored these
+    peptides" question. This function trains fresh models on the CURRENT `active` (v5)
+    corpus via `_cv_auc` below; it never reads the certified `rf_oof_score` column that
+    `results/table3_tier_a_metrics.csv` actually reports, so its output is NOT a measurement
+    of that certified pathway's own leakage exposure and must not be cited as one
+    (`docs/claims_register.md` D22). The certified 0.828 was produced by a one-time 2026-05
+    run on a different, 720-row, zero-duplicate-peptide corpus (`immunogenicity_dataset.csv`
+    at `69e0e5c`, D16); the exact-duplicate leakage mechanism this function probes is a
+    structural no-op on that corpus. See D22 for the investigation and for the separate,
+    unquantified substring-homology risk that does apply to that corpus.
 
     Method: score each Tier A peptide with the OOF value from the v5 row(s) carrying that
     peptide, taking the first occurrence to mirror the drop_duplicates(keep="first") in

@@ -474,9 +474,14 @@ def append_finalize_report(
         sections.append(f"3. **Robustness note:** {v['rationale']}")
         sections.append(
             "4. **Boundary statement:** External tools evaluated with fully-trained models; "
-            "SESTRAV RF uses out-of-fold scoring. That is NOT a handicap on SESTRAV: its "
-            "folds are ungrouped by peptide, so the OOF arm is leakage-inflated rather "
-            "than conservative (docs/claims_register.md D15)."
+            "SESTRAV RF uses out-of-fold scoring. This benchmark's 720-peptide corpus has "
+            "zero duplicate peptides, so the exact-peptide leakage mechanism found "
+            "elsewhere in this project's v5 figures (docs/claims_register.md D15) is a "
+            "structural no-op here and does not apply. A different, unquantified risk "
+            "does apply and has never been filtered for this benchmark: 32.1% of the "
+            "704-peptide scored pool has a substring-level near-duplicate elsewhere in "
+            "the pool. Whether this affected the score is not established "
+            "(docs/claims_register.md D22)."
         )
         sections.append("")
 

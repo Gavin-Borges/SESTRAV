@@ -195,10 +195,13 @@ sign-off document that is not published in this repository.
 > (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698).
 >
 > **This comparison was previously described here as "conservative by construction" for
-> SESTRAV. That is withdrawn.** SESTRAV's cross-validation folds are stratified but not
-> grouped by peptide, so 71.0% of held-out rows share their exact peptide with the training
-> fold; the out-of-fold arm is optimistic, not handicapped, and the near-tie must not be read
-> as SESTRAV being understated (`docs/claims_register.md` D15). Separately, the 0.828 figure
+> SESTRAV. That is withdrawn, but not replaced with the opposite claim.** This benchmark's
+> 720-peptide corpus has zero duplicate peptides, so the exact-peptide cross-validation
+> leakage found elsewhere in this project is a structural no-op here (D16). A different,
+> unquantified risk applies instead - 32.1% of the 704-peptide scored pool has a
+> substring-level near-duplicate elsewhere in the pool, never filtered for this benchmark -
+> so the near-tie must not be read as biased in either direction
+> (`docs/claims_register.md` D22). Separately, the 0.828 figure
 > is a 30-feature, unweighted, 200-tree measurement from 2026-05, not the canonical
 > `mode_31` result (D16).
 

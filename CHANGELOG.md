@@ -9,6 +9,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **The Tier A external benchmark (0.828) was disclosed as peptide-leakage-exposed for four days on
+  a mechanism that does not apply to it. Ruled on and corrected across ~24 sites (claims register
+  D22).** D15 established real exact-duplicate CV leakage on the **v5** corpus and, by a code trace
+  through `src/prepare_external_validation_inputs.py`, extended that finding to the Tier A arm.
+  D16 had separately established that the Tier A figures come from a 2026-05 run against the
+  720-row root `immunogenicity_dataset.csv` at `69e0e5c`. Both could not be right: that corpus has
+  **720 rows and 720 unique peptides**, so an ungrouped splitter is already peptide-disjoint on it
+  and grouping is a mathematical no-op - the same argument the repo already accepts for the v3
+  corpus at `src/h2_tier_a_evaluation.py` and in D17.
+  - **The provenance was traced, not assumed.** `results/external_validation_input.csv` and
+    `results/table3_tier_a_metrics.csv` were each committed exactly once (`f360b90` 2026-05-23,
+    `f5153152` 2026-06-21) and never regenerated. The `rf_oof_score` column that actually feeds the
+    benchmark matches the small zero-duplicate corpus by scored population (704 = 720 minus the 16
+    `GOLD_STANDARD_EPITOPES`, exactly), by holdout-exclusion pattern, and by `n_estimators`
+    fingerprint (704/704 values are multiples of 1/200, versus 671/988 for the larger
+    duplicate-bearing OOF file sitting in the same commit's tree).
+  - **D15's own cited evidence for residual Tier A exposure measures a different question.**
+    The "-0.0176 AUC-PR" figure came from `scripts/audit_cv_leakage.py`'s `_tier_a_ab`, which trains
+    a **fresh model on the current v5 corpus** and re-scores a 414-peptide subset; it never reads
+    the certified `rf_oof_score` column. Its docstring claimed otherwise and has been corrected
+    (docstring only, no logic changed).
+  - **A different, previously undisclosed leakage channel was found and is now disclosed instead.**
+    Zero *exact* duplicates does not mean zero *near* duplicates. An all-pairs substring-containment
+    scan of the 704-peptide pool - the same containment test `src/h2_tier_a_evaluation.py` already
+    applies to its own corpus - found **185 overlapping pairs across 226 distinct peptides, 32.1%
+    of the pool**, at length differences of 1-3 residues and 77.8% same-label concordance,
+    consistent with the same epitope tested at different registration boundaries. **This is
+    disclosed as a real risk of unmeasured effect, not as proven leakage**: the historical fold
+    assignment is unrecoverable, so whether it moved the reported 0.828 cannot be established.
+    **0.828 is not void and is not corrected** - unlike the D17 all-zeros case.
+  - Corrected at `README.md`, `ARCHITECTURE.md`, `USAGE.md`, `docs/paper.md` (abstract, Section 2.4,
+    Section 3.5, front-matter status), `docs/model_cards/rf_30feature.md`,
+    `docs/model_cards/rf_31feature_integrated.md`, `docs/claims_register.md` (D22 plus D15's own
+    addendum and two Section 2 disclosure rows), `docs/proposals/2026_feature_upgrade_roadmap.md`,
+    and the two generator scripts `src/external_validation_fairness.py` /
+    `src/external_validation_finalize.py`, which would otherwise have re-emitted the retracted
+    claim into artifacts on their next run. **This supersedes the earlier `[Unreleased]` note
+    describing that code-trace as "the chain D15 uses to establish the Tier A leakage exposure".**
+    The ANN and XGB 30-feature cards are a deliberate exception - their language describes the
+    v3-era corpus, which D22 does not cover.
+- **`docs/paper.md` asserted that `allele_matched_nonbinder` decoys were "selected for low MHC
+  binding affinity". They are selected for HIGH affinity (claims register D21).** The sole tracked
+  generator, `scripts/generate_hard_decoys.py`, keeps only peptides scoring
+  `>= PRESENTATION_THRESHOLD` (0.5) and names the retained set `strong`; `--negative-origin` is a
+  cosmetic label with no effect on that filter. Measured directly: of the 218 such peptides carrying
+  a score in `models/peptide_binding_matrix_v5.csv`, the median max-per-allele presentation score is
+  **0.761** (range 0.503-0.982) - *higher* than the 0.705 median for true positives (n=7,037). Both
+  occurrences corrected; the replacement causal mechanism for the associated LOO AUC-ROC inflation
+  is deliberately **not** asserted, because the low-affinity story is now empirically excluded and
+  no verified alternative exists.
+- **Two tracked artifacts disagree on the `protein` annotation for an identical row set (claims
+  register D20, OPEN).** For the 693 HIV-1 `allele_matched_nonbinder` rows,
+  `data/immunogenicity_dataset_v5.csv` records `ViralProteome_HXB2` while
+  `models/v5/rf_oof_predictions_mode31.csv` records `SYNTH_<peptide>`; the OOF export carries the
+  same placeholder for 22,456 `tested_negative` and 7,655 `label=1` rows. Found when an audit and
+  the author each queried a different artifact and both got real, reproducible, disagreeing answers.
+  The manuscript no longer asserts source-protein provenance for these rows. **Root cause not
+  located; no generator fixed.**
+- Six further `docs/paper.md` defects closed, each contradicted by a tracked artifact: the
+  feature-importance split (stated 63.5/33.9/2.6, actual **55.8/41.7/2.5**, overstating binding
+  dominance by 7.7 points); an HIV-1 out-of-fold claim whose two figures reproduced nothing and
+  whose ranking **inverts** against assay-confirmed negatives, contradicting the paper's own
+  Section 3 six hundred lines away; a quarantine example citing "three HLA-B*27 EBV rows carrying
+  contradictory IEDB records" that does not exist in the shipped data (EBV's real 31 quarantined
+  rows are 27 `HLA class I` + 4 `HLA-B57`, and "contradictory IEDB records" is not a mechanism
+  anywhere in the codebase); two stated ranges that excluded their own extremes (class imbalance
+  "0.6:1 to 1.8:1" omitting HIV-1's **3.3:1**; decoy gap "0.03 to 0.23" omitting DENV's **0.37**,
+  reported two sentences later); and a methods claim that DeLong's paired test was used, when
+  `src/statistical_bootstrap.py`'s own docstring states paired bootstrap (N=10,000) was chosen
+  **instead of** DeLong precisely because DeLong's normality and independence assumptions are
+  violated here.
 - **The retracted-token sweep never scanned 19 of the 45 markdown files under `docs/`, including
   all five model cards and the Phase 0 roadmap.** `live_doc_globs` used `docs/*.md`, and
   `pathlib.glob` does not cross a path separator, so everything in `docs/model_cards/`,

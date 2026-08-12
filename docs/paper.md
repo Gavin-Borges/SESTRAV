@@ -2,7 +2,7 @@
 title: "SESTRAV: A Leave-One-Virus-Out Immunogenicity Benchmark Reveals Systematic Test Partition Contamination in Cross-Pathogen MHC Class I Prediction"
 target_journal: Bioinformatics (Oxford Academic)
 last_updated: 2026-08-10
-status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts - with a known exception: the calibration ECE pair in Section 3.2 cites _local/staging/calibration_assessment.csv, which is gitignored and does not ship, so those two figures are not reader-reproducible and are pending promotion to a tracked results/ artifact. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) was deliberately not re-measured under the grouped splitter and remains an ungrouped 2026-05 30-feature figure (D15/D16, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). See docs/claims_register.md for the full register
+status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts - with a known exception: the calibration ECE pair in Section 3.2 cites _local/staging/calibration_assessment.csv, which is gitignored and does not ship, so those two figures are not reader-reproducible and are pending promotion to a tracked results/ artifact. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) is a 2026-05 30-feature figure whose 720-peptide corpus has zero duplicate peptides, so peptide-grouping is a no-op on it and the D15 exact-duplicate leakage finding does not apply; it instead carries a disclosed, unquantified substring-homology risk (D16/D22, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). See docs/claims_register.md for the full register
 ---
 
 ## Abstract
@@ -33,11 +33,12 @@ A test set, a 30-feature out-of-fold Random Forest configuration (AUC-PR 0.828,
 unweighted, 200 trees, 2026-05) posted the highest point AUC-PR among
 fully-scored external tools - BigMHC (0.822, a statistical near-tie), the
 MHCflurry binding-only baseline (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno
-(0.698). We subsequently found that SESTRAV's cross-validation folds are
-stratified but not grouped by peptide, so 71.1% of held-out rows share their
-exact peptide with the training fold; the out-of-fold arm is therefore
-optimistic, not conservative, and the +0.028 margin over binding-only should be
-read with that inflation in mind rather than as a comparison favoring the
+(0.698). This benchmark's 720-peptide corpus has zero duplicate peptides, so the
+exact-peptide cross-validation leakage found and corrected elsewhere in this manuscript
+does not apply here; a separate, unquantified substring-homology risk does apply and has
+not been corrected for (32.1% of the scored pool has a near-duplicate peptide elsewhere
+in the pool), so the +0.028 margin over binding-only should be read as unquantified in
+either direction rather than as a comparison favoring either SESTRAV or the
 external tools. SESTRAV is available at https://github.com/Gavin-Borges/SESTRAV
 and installs from source.
 
@@ -372,10 +373,17 @@ exceeds 0.1 [18]. Precision at 10% recall was the secondary endpoint,
 corresponding to a practical vaccine peptide shortlisting threshold at which
 specificity is highly constrained. All per-virus AUC-ROC and AUC-PR point estimates
 carry 95% confidence intervals derived from 1,000-replicate bootstrap resampling of
-the held-out partition. Pairwise AUC-ROC comparisons on the same held-out partition
-used DeLong's paired test [19]; metric differences across independently
-constructed cross-validation partitions were not subjected to significance testing
-because the partitions are not exchangeable. Sixteen named canonical gold-standard
+the held-out partition (`results/per_virus_eval_v5_mode31.csv`); Tables 2 and 2b report
+the point estimates only, and the reader should consult that file for the interval on
+any individual cell. Pairwise comparisons between predictors on the same held-out
+partition used paired bootstrap resampling (N=10,000; `src/statistical_bootstrap.py`)
+rather than DeLong's paired test [19]: DeLong's test assumes normal AUC distributions
+and sample independence, both of which are violated for the nested and
+peptide-correlated model comparisons made here, and the paired bootstrap avoids that
+assumption while still preserving the joint covariance between the two predictors'
+scores. Metric differences across independently constructed cross-validation
+partitions were not subjected to significance testing because the partitions are not
+exchangeable. Sixteen named canonical gold-standard
 epitopes were excluded from the training pool in all cross-validation folds, as
 specified in Section 2.1. This exclusion is narrow: it prevents contamination of
 cross-validation estimates by those sixteen well-characterised epitopes, and it does
@@ -383,15 +391,15 @@ not make the external benchmark field unseen. Of the 704 peptides in the Tier A
 comparison, 414 are present in the training corpus.
 
 For the Tier A comparison specifically (Section 3.5, Table 4), which retains the
-pre-remediation, ungrouped splitter for the reasons given above: cross-validation folds
-are stratified but not grouped by peptide, so peptides recorded under more than one HLA
-allele may appear on both sides of a fold boundary; 71.1% of held-out rows share
-their exact peptide with the corresponding training fold. Because the feature vector
-is a deterministic function of the peptide sequence, such rows are feature-identical,
-and the Tier A cross-validation estimate is consequently optimistic relative
-to a peptide-grouped resampling scheme. The magnitude of this effect - both for Tier A
-and, historically, for the pooled/per-virus/external-comparison figures now
-remediated above - is documented in the project's claims register (entry D15).
+pre-remediation, ungrouped splitter for the reasons given above: its 720-row training
+corpus has zero duplicate peptides (`docs/claims_register.md` D16), so the exact-peptide
+leakage mechanism described in this section is a structural no-op there and grouping by
+peptide would not change the result. A different mechanism, substring homology between
+distinct peptides, has not been checked or corrected for on this corpus and affects 32.1%
+of the scored pool; whether it affected the reported score is not established, since the
+historical fold assignment cannot be recovered. Both the exact-duplicate finding above
+and the Tier A scope determination are documented in the project's claims register
+(entries D15 and D22 respectively).
 
 
 ### 2.5 Leave-One-Virus-Out Evaluation
@@ -474,10 +482,20 @@ each fold are available at https://github.com/Gavin-Borges/SESTRAV.
 The SESTRAV v5 immunogenicity dataset contains 51,185 total rows assembled from three
 primary sources: the Immune Epitope Database (IEDB), VDJdb, and the Los Alamos HIV
 Molecular Immunology Database. Following quality filtering, 35,597 rows are designated
-active for model training; quarantine filtering removed allele-conflicted entries
-including three HLA-B*27 EBV rows carrying contradictory IEDB records. Of all labelled
-peptide-HLA pairs in the active set, 96.8% carry alleles resolving to canonical
-four-digit HLA nomenclature. Full construction methodology is described in Section 2.1.
+active for model training; quarantine filtering removes rows for several reasons, most of
+them population-scope decisions - self-proteome and unidentified-source rows are excluded
+by design (8,811 and 4,577 rows respectively), and off-target or insufficiently-depth
+viruses are quarantined below fixed per-virus thresholds (Section 2.1). Within the nine
+target viruses' own labelled data, allele-ambiguity is the only quarantine mechanism that
+applies: a row is quarantined if its HLA field cannot be resolved to a single canonical
+four-digit subtype. For example, 27 of EBV's 31 quarantined rows report only the fully
+unresolved class annotation "HLA class I", and 4 report the ambiguous supertype "HLA-B57",
+which spans B*57:01 and B*57:03, subtypes with distinct clinical profiles that cannot be
+assumed from the supertype alone (`data/immunogenicity_dataset_v5.csv`, `is_quarantined`;
+`scripts/_dataset_utils.py`).
+Of all labelled peptide-HLA pairs in the active set, 96.8% carry alleles resolving to
+canonical four-digit HLA nomenclature. Full construction methodology is described in
+Section 2.1.
 
 
 ### 3.2 Within-Virus Cross-Validation Performance
@@ -648,7 +666,7 @@ Restricting negatives to assay-confirmed IEDB negatives removes the decoy-driven
 The three viruses whose training negatives contain no decoys (HBV, HCV, HPV) show identical
 within-CV and real-neg-only AUC-ROC, so their within-CV values were already decoy-free (and
 already weak, 0.48 to 0.66). For the decoy-bearing viruses the honest metric is lower by
-0.03 to 0.23, with CMV retaining the strongest honest discrimination (0.693 on 272 real
+0.03 to 0.37 (Table 2b), with CMV retaining the strongest honest discrimination (0.693 on 272 real
 negatives) and IAV (0.569) and EBV (0.556) retaining weak-to-moderate signal below their
 decoy-inflated headlines. HIV-1's real-neg-only AUC-ROC (0.432) falls below chance,
 consistent with its anti-predictive LOO result (0.162, Table 3) - both metrics now agree
@@ -680,13 +698,18 @@ To evaluate cross-virus transfer under a realistic deployment scenario, a leave-
 (LOO) benchmark was conducted (Section 2.5). For each of the nine eligible pathogens, a
 mode-31 RF was retrained from scratch on the remaining eight viruses combined with 5,000
 self-proteome hard decoys, then evaluated on the held-out virus. A critical methodological
-finding emerged in the construction of LOO test partitions: viral proteome decoys derived
-from allelotype-matched non-binding peptides (negative_origin = allele_matched_nonbinder;
-3,112 rows in v5) were included in test partitions under the initial LOO protocol. These
-decoys are viral-proteome peptides selected for low MHC binding affinity; they are
-trivially classified by the MHCflurry-dominated mode-31 feature set, which assigns them
-scores near zero independent of the held-out virus. Their inclusion in test partitions
-inflated LOO AUC-ROC by 0.25-0.50 points for viruses with large allele_nb populations:
+finding emerged in the construction of LOO test partitions: viral proteome decoys carrying
+the label negative_origin = allele_matched_nonbinder (3,112 rows in v5) were included in
+test partitions under the initial LOO protocol. Despite the label, these decoys are not
+low-affinity: of the 218 such peptides present in the tracked binding matrix
+(`models/peptide_binding_matrix_v5.csv`), the maximum per-allele MHCflurry presentation
+score has median 0.761 (range 0.503-0.982) - comparably high to, and on this sample
+higher than, the 0.705 median for true positives (n=7,037). The mechanism by which their
+inclusion inflated LOO AUC-ROC is therefore not simply "trivially rejected as low-affinity
+negatives", and is not further characterised here; the measured effect itself is
+well-established from the certified before/after comparison. Their inclusion in test
+partitions is associated with an inflation in LOO AUC-ROC of 0.25-0.50 points for
+viruses with large allele_nb populations:
 DENV (1,000 of 1,012 initial test negatives), EBV (300 of 380), IAV (445 of 564), and
 HIV-1 (693 of 753). All reported results use test partitions restricted to real
 IEDB assay-confirmed negatives only (negative_origin in {tested_negative, iedb_api};
@@ -855,12 +878,20 @@ checkpoints. **This RF arm was previously attributed here to the canonical mode-
 production model and described as conservative by construction; both attributions are
 corrected below (`docs/claims_register.md` D15, D16).** The evaluated configuration is a
 30-feature, unweighted, 200-tree model from 2026-05, predating the introduction of
-`feature_mode=31` by 26 days - it is not the production `mode_31` model. Its
-cross-validation folds are also stratified but not grouped by peptide, so the out-of-fold
-arm is optimistic rather than conservative: 71.1% of held-out rows in the certified
-cross-validation share their exact peptide with the training fold.
+`feature_mode=31` by 26 days - it is not the production `mode_31` model. Its training
+corpus (the 720-row root `immunogenicity_dataset.csv`) has zero duplicate peptides, so
+the exact-peptide leakage mechanism affecting this manuscript's v5 figures (Section 2.4,
+`docs/claims_register.md` D15) is a structural no-op here and does not apply to this
+benchmark (D22). A separate mechanism does apply and has not been corrected for: an
+all-pairs substring-containment scan of the 704-peptide scored pool found 226 peptides
+(32.1%) with a near-duplicate elsewhere in the pool, length differences of 1-3 residues,
+consistent with the same epitope tested at different registration boundaries. Whether
+this affected the reported AUC-PR is not established - the historical cross-validation
+fold assignment is not recoverable - but the risk was never measured or filtered for this
+benchmark, unlike the H2 gold-standard evaluation, which does filter its own corpus for
+substring overlap (`docs/claims_register.md` D22).
 
-**Table 4. External tool comparison on the shared Tier A test set (AUC-PR; out-of-fold, ungrouped by peptide and leakage-inflated (D15), for the 30-feature RF configuration; fully scored for external tools)**
+**Table 4. External tool comparison on the shared Tier A test set (AUC-PR; SESTRAV out-of-fold, 30-feature RF configuration, substring-homology risk disclosed but not corrected for (D22); external tools fully scored)**
 
 | Tool | AUC-PR | Evaluation type | n scored | Coverage |
 |---|---|---|---|---|
@@ -874,10 +905,12 @@ On the shared Tier A test set, the SESTRAV RF configuration above (AUC-PR 0.828)
 the highest point AUC-PR among a field of fully-scored external tools: BigMHC (0.822), the
 MHCflurry binding-only baseline (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698).
 The margin over the binding-only baseline (+0.028) was previously described as notable
-given an out-of-fold handicap; that framing is withdrawn. Because the out-of-fold arm is
-leakage-inflated rather than conservative, the near-tie with BigMHC cannot be read as
-SESTRAV being understated, and the margin over binding-only should be read as an upper
-bound. A peptide-grouped splitter is now used for every other v5 CV figure in this
+given an out-of-fold handicap; that framing is withdrawn, because out-of-fold scoring on
+a corpus with zero duplicate peptides is not a handicap in the way it would be on a
+duplicate-heavy corpus. Nor is it established to be an advantage: the substring-homology
+risk disclosed above (32.1% of the scored pool) is unquantified in its effect on this
+score, so neither the near-tie with BigMHC nor the margin over binding-only should be
+read as biased in a known direction. A peptide-grouped splitter is now used for every other v5 CV figure in this
 manuscript (Section 2.4), but is deliberately not applied to this Tier A field: n=414 of
 the 704 peptides resolve to an active, non-quarantined row of the current v5 production
 corpus; of the remaining 290, 236 are absent from v5 entirely and 54 appear only in
@@ -891,11 +924,14 @@ Against BigMHC, the strongest external tool, SESTRAV's advantage was not statist
 significant (paired AUC-PR difference +0.018, 95% CI -0.022 to +0.058, p = 0.37); on the
 shared benchmark the two are a statistical near-tie. Against the MHCflurry binding-only
 baseline, the advantage cleared zero by a narrow margin (paired AUC-PR difference +0.038,
-95% CI +0.002 to +0.071, p = 0.04). **Both tests were computed on the leakage-inflated OOF
-arm described above; the binding-only result in particular clears zero by only 0.0018 -
-its 95% CI lower bound sits just above zero within a 0.069-wide interval - so this
-significance finding should be treated as unconfirmed pending a paired bootstrap re-run
-under a peptide-grouped splitter.** (Paired-
+95% CI +0.002 to +0.071, p = 0.04). **Both tests were computed on the same OOF arm
+discussed above, whose substring-homology risk is disclosed but not corrected for; the
+binding-only result in particular clears zero by only 0.0018 - its 95% CI lower bound
+sits just above zero within a 0.069-wide interval - so this significance finding should
+be treated as narrow and unconfirmed rather than robust. A substring-aware re-run
+(excluding or grouping near-duplicate peptides across folds, as `h2_tier_a_evaluation.py`
+already does for its own corpus) has not been performed and would be needed to settle
+whether the finding is a genuine effect (`docs/claims_register.md` D22).** (Paired-
 bootstrap values are reproducible via the frozen Tier A scores; the summary is committed as
 results/tier_a_paired_bootstrap.csv and is regenerated by
 scripts/compute_tier_a_paired_bootstrap.py.)
@@ -969,14 +1005,25 @@ canonical 9-mer template.
 
 Binding signal dominates the mode-31 feature set. The ten MHCflurry 2.0
 antigen presentation scores account for the majority of discriminative
-information in the Random Forest; the 20 physicochemical descriptors at TCR
-contact positions provide marginal independent signal above the binding
-baseline. Mode-31 is therefore more accurately characterised as a discriminator
-of strong MHC binders from weaker ones, with a secondary physicochemical
-correction layer, than as an independent structural immunogenicity predictor.
+information in the Random Forest: 55.8% of total importance, against 41.7% for the
+20 physicochemical descriptors at TCR contact positions and 2.5% for peptide length
+(`models/v5/feature_importances.csv`). The dominance is cleanest stated by rank - the
+ten binding features occupy ranks 1 to 10 without exception, and every physicochemical
+descriptor falls below all of them - but the margin at that boundary is narrow: the
+weakest binding feature (`bind_B3501`, 4.27%) exceeds the strongest physicochemical one
+(`p8_vdw_volume`, 3.87%) by only 1.10x. The physicochemical block is also strongly
+bimodal, so its mean per-feature importance describes no feature in the set and should
+not be used to characterise the gap. Mode-31 remains best characterised as a
+discriminator of strong MHC binders from weaker ones, with a substantial secondary
+physicochemical component, rather than as an independent structural immunogenicity
+predictor.
+That characterisation is a reading of the importance structure, not a measurement of
+the increment above a pure binding baseline: Table 1 contains no binding-only arm, so
+that increment is not quantified here.
 
-Class imbalance varies substantially across the v5 active set, ranging from a
-0.6:1 positive-to-negative ratio for IAV to 1.8:1 for SARS-CoV-2. AUC-ROC is
+Class imbalance varies substantially across the nine target viruses, ranging from a
+0.6:1 positive-to-negative ratio for IAV to 3.3:1 for HIV-1
+(`results/per_virus_eval_v5_mode31.csv`). AUC-ROC is
 relatively insensitive to class balance across this range, but precision-recall
 metrics and positive predictive value would diverge considerably between virus
 cohorts, and performance figures should be interpreted with the per-virus class
@@ -995,13 +1042,14 @@ fails to transfer; both the within-virus and cross-virus estimates are weak.
 HPV is designated an active generalization failure and a priority case for
 dedicated training data collection.
 
-The LOO evaluation identified a systematic test partition flaw. Allelotype-matched
-non-binding viral proteome decoys (negative_origin = allele_matched_nonbinder)
-were included in test partitions in the v4 LOO protocol; these rows are viral-
-proteome peptides selected for low MHC binding affinity, which is trivially
-predicted by the MHCflurry features dominating mode-31. For DENV, 1,000 of 1,012
-test negatives were allele_matched_nonbinder rows, inflating AUC-ROC from the
-corrected 0.372 to the reported 0.870. After restricting test partition negatives
+The LOO evaluation identified a systematic test partition flaw. Viral proteome decoys
+labelled negative_origin = allele_matched_nonbinder were included in test partitions in
+the v4 LOO protocol. These decoys measure as high-affinity, not low-affinity, on the
+peptides for which a binding-matrix score is available (Section 3.3), so the mechanism
+by which they inflated AUC-ROC is not yet characterised; the effect itself is measured
+and certified. For DENV, 1,000 of 1,012 test negatives were allele_matched_nonbinder
+rows, and AUC-ROC moved from the corrected 0.372 to the reported 0.870 once they were
+included. After restricting test partition negatives
 to real IEDB assay-confirmed negatives (Amendment 7, results/loo_cross_virus_v5_clean.json),
 the apparent family-transfer signals for DENV (0.870 to 0.372), EBV (0.824 to 0.496),
 and IAV (0.784 to 0.488) are eliminated; all were artifacts of this partition flaw.
@@ -1009,15 +1057,36 @@ The corrected LOO AUC-ROC values for viruses with already-clean test partitions 
 HBV (0.556), HCV (0.528), HPV (0.468) - are modestly shifted but substantially
 unchanged, confirming that those values were not inflated.
 
-The HIV-1 anti-predictive result (LOO AUC-ROC 0.162) is a LOO-specific failure, not
-a global score inversion. The RF mode-31 model is binding-dominated: the ten MHC
-binding-affinity features account for 63.5% of total feature importance, against 33.9%
-for the twenty physicochemical descriptors and 2.6% for peptide length. Within
-cross-validation on the full training pool, the model nonetheless ranks HIV-1
-immunogenicity correctly (mean out-of-fold score: positive=0.714, negative=0.369), so
-the failure is not a property of the HIV-1 data in isolation. It emerges only when
-HIV-1 is excluded from training: the model inherits from the remaining eight viruses a
-prior that high MHCflurry binding predicts immunogenicity, whereas HIV-1
+The HIV-1 anti-predictive result (LOO AUC-ROC 0.162) is a severe LOO-specific
+amplification of a milder inversion already present within cross-validation against
+assay-confirmed negatives, not a uniquely LOO artifact. That within-CV inversion is
+narrow, and we state its width rather than only calling it provisional: on the n=60
+real-negative definition used throughout this paper its bootstrap 95% confidence
+interval is [0.370, 0.496] (4,000 resamples, both classes, seed 42), clearing chance by
+under 0.005, and on the narrower `iedb_api`-only cut (n=49, AUC-ROC 0.432) the interval
+[0.360, 0.505] includes 0.5 outright. The qualifier also matters: against the full
+negative set, which is 92% decoys, no inversion occurs (AUC-ROC 0.663, 95% CI
+[0.642, 0.682]; `results/per_virus_eval_v5_mode31.csv`).
+The RF mode-31 model is binding-dominated: the ten MHC binding-affinity
+features account for 55.8% of total feature importance, against 41.7%
+for the twenty physicochemical descriptors and 2.5% for peptide length
+(`models/v5/feature_importances.csv`). Within cross-validation on the full training pool
+the model does separate HIV-1 positives from the pooled negative set (mean out-of-fold
+score: positives 0.439 over n=2,516, all negatives 0.316 over n=753;
+`models/v5/rf_oof_predictions_mode31.csv`), but that separation is decoy-driven rather
+than evidence of genuine discrimination for this virus: 693 of those 753 negatives are
+allele-matched non-binder decoys (`negative_origin = allele_matched_nonbinder`), which
+are unassayed rather than experimentally confirmed, and against the 60 assay-confirmed
+negatives the ordering reverses (mean
+0.479, above the positives' 0.439; counts in
+`results/per_virus_eval_v5_mode31.csv`). Restated as a rank statistic those same 60 rows
+give the below-chance real-negative-only AUC-ROC of 0.432 reported above - the same fact
+in another form, not independent corroboration - and HIV-1 is one of the three viruses
+flagged above as low-real-negative and provisional at this sample size. The LOO failure
+is therefore not a property of the HIV-1 data in isolation, but neither does the
+within-CV figure rescue this virus. The LOO collapse emerges when HIV-1 is excluded from
+training: the model inherits from the remaining eight viruses a prior that high
+MHCflurry binding predicts immunogenicity, whereas HIV-1
 IEDB-confirmed negatives are enriched for high-affinity B-allele binders (B*08:01,
 B*27:05, and B*35:01 all show higher mean binding scores in HIV-1 confirmed-negative
 records than in confirmed-positive records). We therefore hypothesise that the
@@ -1026,8 +1095,9 @@ selection bias in HIV-1 IEDB studies, which frequently test high-affinity
 B-restricted candidate epitopes and confirm non-response, producing a negative set
 atypical of the other eight viruses and unlearnable from the remaining pool in LOO.
 This mechanism is offered as a hypothesis rather than a demonstrated fact: the score
-inversion is confined to the LOO setting and is not observed in the within-training
-out-of-fold data, and the per-allele binding enrichments in the HIV-1 negative set,
+inversion is far more severe in the LOO setting (0.162) than in the within-training
+out-of-fold data (0.432 against assay-confirmed negatives), rather than absent from the
+latter, and the per-allele binding enrichments in the HIV-1 negative set,
 though consistent in direction, are individually non-significant at the available
 negative sample size.
 
