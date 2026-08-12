@@ -9,6 +9,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **`docs/paper.md` Section 3.2 reported a calibration ECE pair that was stale, cited to a file
+  that did not contain it, and explained by a mechanism its own data refutes (claims register
+  D24).** The section claimed the isotonic layer improves global ECE "from about 0.028 to about
+  0.003" and that per-virus ECE improves for 8 of the 9 target viruses.
+  - **The pair was stale, and it was stale because nothing was bound to it.** It was computed
+    2026-07-11/12 against the pre-D15 out-of-fold scores. `30f1b76` ("re-baseline every certified
+    v5 number") regenerated `models/v5/rf_oof_predictions_mode31.csv` under the peptide-grouped
+    splitter and never reached this pair, because no integrity-manifest claim pointed at it.
+    Recomputed against the current artifact: raw pooled ECE is **0.060, not 0.028**, and per-virus
+    ECE improves for **1 of 9 (HBV only), not 8 of 9**.
+  - **The cited source never contained the numbers.** `_local/staging/calibration_assessment.csv`
+    is gitignored, so no reader could open it, and it holds only nine per-virus rows with no
+    pooled row. The previously planned remedy - promote that CSV - would therefore not have made
+    the pair reproducible, and is retracted.
+  - **The first replacement draft was itself wrong.** It attributed the low pooled ECE to the
+    out-of-panel rows being "trivially easy to calibrate". Two independent adversarial audits
+    caught it: those rows have `ece_cal` **0.140**. The real mechanism is **cancellation** - in
+    every score bin the target viruses are under-confident and the out-of-panel rows
+    over-confident, so the pooled 0.005 lands *below* both components (0.235 and 0.140) instead of
+    between them.
+  - **A fourth claim in the same paragraph was false and is corrected.** Isotonic calibration is
+    monotone *non-decreasing*, so it creates ties (10,119 distinct raw scores collapse to 274) and
+    is not AUC-preserving: pooled AUC-ROC moves 0.8136 to 0.8107. The manuscript's AUC-ROC values
+    are unaffected because they are computed on raw scores, which is now what the text says.
+  - **Remediation.** New `scripts/assess_calibration.py` cross-fits the calibration layer over
+    peptide-grouped folds and writes tracked `results/calibration_assessment_v5_mode31.csv` with a
+    provenance sidecar (`.gitignore` negations added so both actually ship). Five values are bound
+    in the integrity manifest, including the `off_panel` row that makes the cancellation argument
+    checkable. Section 3.2 now reports calibration as a limitation rather than a benefit.
+  - **Not fixed here:** `models/isotonic_calibrator.joblib` (2026-07-12, untracked) is still
+    fitted on the retired score distribution. Refitting changes deployed scoring behaviour and is
+    tracked as a separate decision.
+- **The integrity harness's citation check passed any `_local/` citation unconditionally while
+  still counting it as verified, and could not see data-file citations at all.** Its PASS line read
+  "622 prose citation(s) checked, all resolve to tracked files", which was false for five of them.
+  Two independent holes: the `_local/` guard passed such citations in *any* document, and the
+  citation regex matched only `.md`/`.py` targets, so `docs/paper.md`'s citation of a gitignored
+  `.csv` (the D24 defect above) was invisible for a second, unrelated reason. Fixing only the first
+  would not have caught D24. The `_local/` allowance is now scoped to provenance ledgers
+  (`docs/claims_register.md`, `docs/data_registry.md`, `CHANGELOG.md`) and fails closed everywhere
+  else; the regex is widened for `_local/` targets only, so the `data/*.csv` artifact references
+  the repo has already ruled false positives do not flood the check; and the PASS line now reports
+  resolved, pair-exempted and ledger-allowed counts separately. Adversarial selftest coverage went
+  from 35 to 42 cases, mutation-tested so each probe is proven to catch the specific regression it
+  claims to.
 - **The Tier A external benchmark (0.828) was disclosed as peptide-leakage-exposed for four days on
   a mechanism that does not apply to it. Ruled on and corrected across ~24 sites (claims register
   D22).** D15 established real exact-duplicate CV leakage on the **v5** corpus and, by a code trace

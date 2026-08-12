@@ -65,9 +65,11 @@ safely imported; it is not a sweep of everything that guards an artifact.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
+from scripts import assess_calibration as ac
 from scripts import compute_ann_baseline_summary as cabs
 from src import ablation_study as abst
 from src import ann_benchmark as ab
@@ -92,6 +94,12 @@ def _case(planned, guard, flag, api_hint, *, id, noun="artifact(s)", single_path
 # mutated into a different-but-similarly-prefixed call still fails - except
 # when api_hint is "" (the module omits the hint deliberately), where the
 # substring check is skipped rather than trivially passing on an empty string.
+# assess_calibration takes a file path rather than a directory, so its entry
+# builds the path itself. The basename is irrelevant to the contract (the guard
+# only cares that both planned writes are checked), but it is named here rather
+# than inlined twice so the planned/guard pair cannot drift apart.
+_ASSESS_CAL_CSV = "calibration_assessment_v5_mode31.csv"
+
 GUARDED_MODULES = [
     _case(
         lambda d: fvr.planned_validation_paths(d, "expansion_v4", "4.0.0"),
@@ -151,6 +159,13 @@ GUARDED_MODULES = [
         "",
         single_path=True,
         id="compute_ann_baseline_summary",
+    ),
+    _case(
+        lambda d: ac._planned_paths(Path(d) / _ASSESS_CAL_CSV),
+        lambda d, allow: ac._guard_output_path(Path(d) / _ASSESS_CAL_CSV, allow),
+        "--out",
+        "main(['--allow-overwrite'])",
+        id="assess_calibration",
     ),
 ]
 
