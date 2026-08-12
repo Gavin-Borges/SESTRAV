@@ -60,13 +60,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   is deliberately **not** asserted, because the low-affinity story is now empirically excluded and
   no verified alternative exists.
 - **Two tracked artifacts disagree on the `protein` annotation for an identical row set (claims
-  register D20, OPEN).** For the 693 HIV-1 `allele_matched_nonbinder` rows,
+  register D20 - root cause located and the generator fixed 2026-08-12, see the entry below; tracked
+  artifacts NOT regenerated, so the disagreement below is still observable in the committed tree).**
+  For the 693 HIV-1 `allele_matched_nonbinder` rows,
   `data/immunogenicity_dataset_v5.csv` records `ViralProteome_HXB2` while
   `models/v5/rf_oof_predictions_mode31.csv` records `SYNTH_<peptide>`; the OOF export carries the
   same placeholder for 22,456 `tested_negative` and 7,655 `label=1` rows. Found when an audit and
   the author each queried a different artifact and both got real, reproducible, disagreeing answers.
-  The manuscript no longer asserts source-protein provenance for these rows. **Root cause not
-  located; no generator fixed.**
+  The manuscript no longer asserts source-protein provenance for these rows.
+- **`docs/results_report.qmd` presented RETRACTED metrics as current results under a false
+  "Leakage-Proof" attestation (claims register D23).** The tracked, CI-rendered 2026-06-08 report
+  asserted `[x] Leakage-Proof CV splits: Implemented Leave-One-Protein-Out (LOPO) cross-validation to
+  isolate proteins`. False four ways: LOPO is not the splitter that produced its artifact (5-fold
+  `MultiStratifiedKFold`); that splitter is the *ungrouped* one D15 retracts; LOPO could not isolate
+  proteins anyway, because it groups on the `protein` column `train_models()` overwrites with
+  `SYNTH_<peptide>` for 97.9% of rows (D20), collapsing it to leave-one-*peptide*-out; and the run is
+  31-feature, not the "30-feature" it claims. Its Section 2 renders `models/training_results.csv`
+  live, which holds the D15-retracted AUC-ROC 0.9429 / AUC-PR 0.8312. **The durable finding is a gate
+  limit:** the source contained no retracted literal - the numbers are read from a CSV at render time
+  and exist only in rendered output - so no text-scanning gate could catch it, the same shape as
+  D17's `freeze_status.json` reaching run manifests through a generation step. **Severity bounded:**
+  CI renders but does not upload, deploy or publish (only the `.qmd` is tracked), so nothing reached a
+  public URL. Remediated by annotation, not rewriting: the document keeps its three numbered claims
+  verbatim and gains a four-point DO-NOT-CITE banner. The retracted-token sweep's glob was widened to
+  `docs/**/*.qmd`, which closes the `.qmd` gap but **not** the generated-output class.
+- **D20's root cause located and the generator fixed** (supersedes the "root cause not located; no
+  generator fixed" status this entry carried until 2026-08-12). `load_all_proteins()`
+  (`src/train_classifier.py`) hardcodes a FASTA list that is a **second source of truth alongside
+  `config.yaml`'s `proteome_files` map, and the two silently diverged**: the list named only the 4
+  EBV/HPV files, so peptides from the other target viruses could not resolve to a real parent
+  protein even though `config.yaml` registered their proteomes and `src/naming.py` carried their
+  canonical IDs. The 7 missing FASTAs are now read (78 -> 103 protein sequences), which resolves all
+  693/693 HIV-1 `ViralProteome_HXB2` rows (HIV-1 has 3,269 active rows in total, of which 2,006
+  resolve post-fix - the 693 figure is that one decoy subset, not the virus), and
+  `tests/test_train_classifier.py::test_config_proteomes_are_all_loaded`
+  FAILs if `config.yaml` ever registers a proteome the list omits. **Scope stated honestly: this is
+  not the explanation for the 97.9% placeholder rate** - 21,432 of those rows are
+  `Orthopoxvirus vaccinia`, which has no proteome FASTA in the repository, so 77.7% of active rows
+  still resolve to `SYNTH_` after the fix. Resolution on the population the mapper actually sees
+  rises 2.24% -> 22.32% (798 -> 7,945 of 35,597 rows). **No tracked artifact is regenerated**, so the
+  two-artifact disagreement remains observable in the committed tree; regeneration changes no CERTIFIED
+  metric (the column feeds no feature and no splitter) but is NOT change-free: it takes
+  `training_subgroup_metrics.csv`'s protein dimension from 31,656 to 22,592 rows and its computable
+  protein subgroups from 28 to 208. An open owner decision. Also disclosed: the
+  fix introduces 9 cross-virus mis-attributions by substring homology (on the 35,597 active rows the
+  mapper processes), and changes `--lopo` fold count 15,738 -> 11,111. See D20 for the full enumeration, including two tracked
+  `models/allele_aware/` exports and three `training_subgroup_metrics.csv` files an earlier sweep
+  missed.
 - Six further `docs/paper.md` defects closed, each contradicted by a tracked artifact: the
   feature-importance split (stated 63.5/33.9/2.6, actual **55.8/41.7/2.5**, overstating binding
   dominance by 7.7 points); an HIV-1 out-of-fold claim whose two figures reproduced nothing and

@@ -107,6 +107,48 @@ def test_load_all_proteins_mocked(tmp_path):
     assert "VE6_HPV16" in proteins or "VE2_HPV16" in proteins or "GP350_EBVB9" in proteins
 
 
+def test_config_proteomes_are_all_loaded():
+    """Every proteome config.yaml registers must be in load_all_proteins' list.
+
+    docs/claims_register.md D20: load_all_proteins() keeps a hardcoded FASTA
+    list that is a SECOND source of truth alongside config.yaml's
+    `proteome_files` map. It silently diverged - config.yaml registered 8
+    proteomes while the loader named only the 4 EBV/HPV files, so peptides from
+    every other target virus could not resolve to a real parent protein. No
+    test caught it: the coverage test above asserts only that SOME EBV/HPV name
+    loaded, which was true before and after the defect.
+
+    This pins the direction that actually broke. It deliberately does NOT
+    assert set equality: the loader is a strict superset, because
+    DENV2_NGC_panel1.fasta and both *_uniprot_reviewed.fasta files are absent
+    from config.yaml, and sourcing the loader from config alone would drop 3 of
+    its 11 files. So a proteome added to config.yaml and forgotten here FAILs,
+    which is the regression this guards; extra files in the loader are legal.
+    """
+    import inspect
+    import re
+
+    import yaml
+
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    with open(os.path.join(repo_root, "config.yaml"), "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    configured = {
+        p.replace("\\", "/") for p in (config.get("proteome_files") or {}).values()
+    }
+    assert configured, "config.yaml declares no proteome_files - test would be vacuous"
+
+    source = inspect.getsource(load_all_proteins)
+    listed = set(re.findall(r'"([^"]+\.fasta)"', source))
+    assert listed, "no .fasta paths found in load_all_proteins - did the list move?"
+
+    missing = sorted(configured - listed)
+    assert not missing, (
+        "config.yaml registers proteome(s) that load_all_proteins does not read, so "
+        f"their peptides can only resolve to SYNTH_<peptide> (D20): {missing}"
+    )
+
+
 def test_lopo_cross_validate():
     # Setup mock features DataFrame
     np.random.seed(42)
