@@ -105,7 +105,12 @@ def _build_features(
     if model_n_features == 50:
         return prepare_features_50(df, binding_matrix_path)
     raise ValueError(
-        f"Unsupported model feature count: {model_n_features}. Expected 21, 30, or 50."
+        f"Unsupported model feature count: {model_n_features}. Expected 21, 30, or 50. "
+        "H2 Tier A is a v3-corpus evaluation and its certified result comes from the "
+        "30-feature model; a 31-feature model is NOT simply a newer drop-in here, since "
+        "scoring the v3 corpus with it would produce numbers that diverge from the "
+        "certified H2 ledger (docs/claims_register.md D17). Pass --model-path explicitly "
+        "if you intend a non-certified configuration."
     )
 
 
@@ -446,19 +451,34 @@ def run_h2_tier_a(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run SESTRAV H2 Tier A evaluation")
+    # These three defaults are the V3 TRIPLE, and that is deliberate - do not
+    # "modernise" them to v4/v5 or to the canonical mode-31 model. H2 Tier A is
+    # a v3-corpus evaluation by design: v3 is 1,004 rows over 1,004 UNIQUE
+    # peptides, which is exactly why peptide-grouping is a no-op here and why
+    # the D15 leakage defect never touched this result. Two mechanical
+    # stale-reference sweeps previously bumped them anyway - 906643d moved
+    # --data to v4, 710d311 moved --model-path to the 31-feature model and
+    # --binding-matrix to v4 - and the result was an entry point that could not
+    # run at all: _build_features supports 21/30/50 features and raises on 31,
+    # so a bare invocation died before scoring anything. The v4 dataset is also
+    # untracked, so that default could never resolve in a fresh clone. Restored
+    # 2026-08-13 to the configuration that produced, and reproduces, the
+    # certified artifacts in results/ (see h2_tier_a_summary.md's Inputs block,
+    # which records these same three paths). Pinned by
+    # tests/test_h2_tier_a_results_guard.py::test_cli_defaults_are_the_certified_v3_triple.
     parser.add_argument(
         "--data",
-        default="data/immunogenicity_dataset_v4.csv",
+        default="data/immunogenicity_dataset_v3.csv",
         help="Path to labeled immunogenicity dataset CSV",
     )
     parser.add_argument(
         "--model-path",
-        default="models/rf_31feature_integrated.joblib",
+        default="models/rf_30feature_integrated.joblib",
         help="Path to integrated model .joblib used as CV template",
     )
     parser.add_argument(
         "--binding-matrix",
-        default="models/peptide_binding_matrix_v4.csv",
+        default="models/peptide_binding_matrix_v3.csv",
         help="Path to per-allele binding matrix CSV",
     )
     parser.add_argument(

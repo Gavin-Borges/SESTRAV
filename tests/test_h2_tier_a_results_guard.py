@@ -20,6 +20,7 @@ regression was live.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -210,4 +211,103 @@ def test_cli_actually_threads_allow_overwrite_into_run_h2_tier_a():
     call_block = source[call_start : source.index("    )", call_start)]
     assert "allow_overwrite=args.allow_overwrite," in call_block, (
         "__main__ parses --allow-overwrite but never forwards it to run_h2_tier_a"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Input defaults: the v3 triple
+# ---------------------------------------------------------------------------
+
+# H2 Tier A is a v3-corpus evaluation by design (1,004 rows over 1,004 unique
+# peptides - which is precisely why peptide-grouping is a no-op here and why the
+# D15 leakage defect never touched this result). Two mechanical stale-reference
+# sweeps modernised these defaults to v4 anyway (906643d, 710d311), which left
+# the entry point unable to run at all: _build_features supports 21/30/50
+# features and raises on the 31-feature model, so a bare invocation died before
+# scoring. This pins the restored defaults against the next such sweep. The
+# expected values are also what results/h2_tier_a_summary.md records in its own
+# Inputs block, so a change here without regenerating that artifact is a
+# divergence between the certified figure and the command that reproduces it.
+CERTIFIED_V3_DEFAULTS = {
+    "--data": "data/immunogenicity_dataset_v3.csv",
+    "--model-path": "models/rf_30feature_integrated.joblib",
+    "--binding-matrix": "models/peptide_binding_matrix_v3.csv",
+}
+
+
+def _argparse_default_for(source: str, flag: str) -> str:
+    """Return the `default=` literal argparse is configured with for `flag`.
+
+    Read from source rather than from --help, because these arguments carry
+    plain help strings with no %(default)s and the parser is built inline in
+    __main__, so neither the help output nor an import exposes the values.
+    Same read-the-source approach the allow-overwrite wiring test uses.
+    """
+    marker = f'"{flag}",'
+    start = source.index(marker)
+    block = source[start : source.index(")", start)]
+    match = re.search(r'default="([^"]+)"', block)
+    assert match, f"no default= found in the add_argument block for {flag}"
+    return match.group(1)
+
+
+@pytest.mark.parametrize("flag,expected", sorted(CERTIFIED_V3_DEFAULTS.items()))
+def test_cli_defaults_are_the_certified_v3_triple(flag, expected):
+    source = (REPO_ROOT / "src" / "h2_tier_a_evaluation.py").read_text(encoding="utf-8")
+    assert _argparse_default_for(source, flag) == expected, (
+        f"{flag} no longer defaults to {expected}. H2 Tier A is a v3-corpus "
+        "evaluation; do not modernise these to v4/v5 or to the canonical mode-31 "
+        "model without regenerating results/h2_tier_a_summary.md and re-certifying "
+        "the R10 figure README.md cites."
+    )
+
+
+@pytest.mark.parametrize("flag,expected", sorted(CERTIFIED_V3_DEFAULTS.items()))
+def test_default_inputs_are_tracked_files(flag, expected):
+    """A default naming an untracked path cannot resolve in a fresh clone.
+
+    --data defaulted to data/immunogenicity_dataset_v4.csv, which is gitignored,
+    so the documented bare invocation was unrunnable for anyone who had not
+    built that corpus locally. Model .joblib files are gitignored by design, so
+    only the two data inputs are checked for tracking.
+    """
+    if expected.endswith(".joblib"):
+        pytest.skip("model artifacts are gitignored by design")
+    result = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", expected],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert result.returncode == 0, f"{flag} defaults to {expected}, which is not tracked"
+
+
+def test_default_model_feature_count_is_actually_supported():
+    """The default must not name a model _build_features cannot consume.
+
+    This is the regression that actually bit: --model-path was swept to the
+    31-feature canonical model while _build_features only ever supported
+    21/30/50, so `python -m src.h2_tier_a_evaluation --output-dir ...` raised
+    ValueError before scoring anything.
+
+    Both sides are read from the live source, deliberately. Comparing the
+    module's real default against the module's real branch list is what makes
+    this catch the mismatch whichever side moves; checking the expected-value
+    constant above would only compare the test file to itself.
+    """
+    source = (REPO_ROOT / "src" / "h2_tier_a_evaluation.py").read_text(encoding="utf-8")
+    supported = {
+        int(n)
+        for n in re.findall(r"if model_n_features == (\d+):", source)
+    }
+    assert supported, "could not find _build_features' supported feature counts"
+
+    default_model = _argparse_default_for(source, "--model-path")
+    match = re.search(r"rf_(\d+)feature", default_model)
+    assert match, f"could not read a feature count out of {default_model}"
+    feature_count = int(match.group(1))
+    assert feature_count in supported, (
+        f"the default model {default_model} carries {feature_count} features, but "
+        f"_build_features only supports {sorted(supported)} - a bare invocation "
+        "would raise ValueError before scoring anything"
     )
