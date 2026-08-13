@@ -781,7 +781,16 @@ def train_gnn_v2(
 
     # Post-hoc Platt calibration - fit logistic regression on raw OOF sigmoid scores
     # to correct overconfidence without altering rank order (Platt 1999).
-    platt = LogisticRegression(C=1.0, max_iter=1000)
+    # solver="liblinear" pinned deliberately, not left at the sklearn default
+    # (lbfgs): on this single-feature, strictly-convex problem both solvers
+    # converge to the same global optimum, but lbfgs's scipy backend
+    # (_lbfgsb_py) crashes with Windows fatal exception 0xc06d007f on this
+    # environment 100% of the time, immediately after the OOF file is saved -
+    # the same exception class as the documented src.shap_analysis DLL crash.
+    # Verified 2026-08-13: reproduced twice, including with
+    # KMP_DUPLICATE_LIB_OK=TRUE, so it is not the common OpenMP duplicate-
+    # runtime cause; liblinear avoids the code path entirely.
+    platt = LogisticRegression(C=1.0, max_iter=1000, solver="liblinear")
     raw_scores = oof_df["gnn_oof_score"].values.reshape(-1, 1)
     platt.fit(raw_scores, oof_df["label"].values)
     oof_df["gnn_oof_score"] = platt.predict_proba(raw_scores)[:, 1]
