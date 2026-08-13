@@ -128,16 +128,57 @@ def _mc_dropout_predict(pt_model, X_tensor, n_passes=50):
     return preds.mean(axis=0), preds.std(axis=0)
 
 
-def _resolve_calibrator_path(model_dir, calibration_path=None):
+#: The nine target viruses with genuine positive labels in the training corpus
+#: (decoy-only viruses, e.g. Orthopoxvirus vaccinia, are excluded). Mirrors
+#: scripts/fit_calibrator.py's TARGET_VIRUSES; duplicated rather than imported
+#: because every script in this repo that needs this list declares its own
+#: copy (scripts/audit_cv_leakage.py, scripts/fit_per_virus_calibrator.py,
+#: scripts/compute_pooled_honest_metric.py all do the same). Used here only to
+#: decide the log label ("known off-panel" vs "unrecognised") - artifact
+#: ABSENCE, not list membership, is what actually triggers the global
+#: fallback, so a caller never needs to keep this list in sync with whatever
+#: per-virus calibrators happen to be deployed.
+TARGET_VIRUSES = (
+    "CMV",
+    "DENV",
+    "EBV",
+    "HBV",
+    "HCV",
+    "HIV-1",
+    "HPV",
+    "IAV",
+    "SARS-CoV-2",
+)
+
+#: Where a promoted set of per-virus calibrators would live. Does not exist by
+#: default - no per-virus calibrator has been promoted (see A1-promote in the
+#: open-item register). Its absence is exactly what makes every virus "unknown/
+#: off-panel" today: the resolver below falls back to the global calibrator
+#: whenever the specific file is missing, with no separate on/off-panel branch.
+DEFAULT_PER_VIRUS_CALIBRATION_DIR = "models/calibration/per_virus"
+
+
+def _resolve_calibrator_path(model_dir, calibration_path=None, virus=None, per_virus_dir=None):
     """Return an existing calibrator path, or None if none is available.
 
     Preference order:
-      1. an explicit ``calibration_path`` (from config), if it exists;
-      2. an isotonic calibrator alongside the model (isotonic_calibrator.joblib);
-      3. the legacy Platt calibrator (platt_calibrator.joblib).
+      1. an explicit ``calibration_path`` (from config), if it exists - wins
+         regardless of ``virus``, matching the pre-existing override contract;
+      2. a per-virus calibrator at ``per_virus_dir/<sanitized virus>.joblib``,
+         if ``virus`` is given and that specific file exists. Whether ``virus``
+         is one of TARGET_VIRUSES is NOT checked here - the fallback below
+         fires from file absence alone, so an unrecognised name behaves
+         identically to a recognised-but-not-yet-promoted one;
+      3. an isotonic calibrator alongside the model (isotonic_calibrator.joblib);
+      4. the legacy Platt calibrator (platt_calibrator.joblib).
     """
     if calibration_path and os.path.isfile(calibration_path):
         return calibration_path
+    if virus:
+        pv_dir = per_virus_dir or DEFAULT_PER_VIRUS_CALIBRATION_DIR
+        pv_candidate = os.path.join(pv_dir, f"{_sanitize_name(virus)}.joblib")
+        if os.path.isfile(pv_candidate):
+            return pv_candidate
     for name in ("isotonic_calibrator.joblib", "platt_calibrator.joblib"):
         candidate = os.path.join(model_dir, name)
         if os.path.isfile(candidate):
@@ -145,7 +186,7 @@ def _resolve_calibrator_path(model_dir, calibration_path=None):
     return None
 
 
-def _apply_calibration(scores, model_dir, calibration_path=None):
+def _apply_calibration(scores, model_dir, calibration_path=None, virus=None, per_virus_dir=None):
     """Apply an available calibrator; return (calibrated_scores, applied_bool).
 
     Supports two calibrator types and dispatches on the loaded object:
@@ -153,13 +194,23 @@ def _apply_calibration(scores, model_dir, calibration_path=None):
         raw score in [0, 1] directly to a calibrated probability;
       - Platt (exposes ``.predict_proba``): maps logits of the score.
 
+    ``virus``/``per_virus_dir`` select a per-virus calibrator when one has been
+    promoted for that virus (see _resolve_calibrator_path); passing neither
+    reproduces the pre-existing global-only behaviour exactly. A virus with no
+    promoted calibrator - including every virus today, since none has been
+    promoted yet - transparently falls back to the global calibrator.
+
     The raw scores are returned unchanged when no calibrator is present or the
     verified-loader is unavailable. Output is clipped to [0, 1] and NaNs are
     replaced with the corresponding raw score as a safety guard.
     """
-    cal_path = _resolve_calibrator_path(model_dir, calibration_path)
+    cal_path = _resolve_calibrator_path(model_dir, calibration_path, virus, per_virus_dir)
     if cal_path is None or load_verified_joblib is None:
         return scores, False
+
+    pv_dir = per_virus_dir or DEFAULT_PER_VIRUS_CALIBRATION_DIR
+    is_per_virus = virus and cal_path == os.path.join(pv_dir, f"{_sanitize_name(virus)}.joblib")
+    scope = f"per-virus:{virus}" if is_per_virus else "global"
 
     calibrator = load_verified_joblib(cal_path, required_checksum=True)
     raw = np.asarray(scores, dtype=np.float64)
@@ -178,7 +229,7 @@ def _apply_calibration(scores, model_dir, calibration_path=None):
     # any non-finite entry, then clip into the valid probability range.
     calibrated = np.where(np.isfinite(calibrated), calibrated, raw)
     calibrated = np.clip(calibrated, 0.0, 1.0)
-    print(f"[Stage 4] Applied {label} calibration")
+    print(f"[Stage 4] Applied {label} calibration ({scope})")
     return calibrated, True
 
 
@@ -231,6 +282,8 @@ def score_immunogenicity(
     freeze_mode=False,
     calibration_path=None,
     thresholds_path=None,
+    virus=None,
+    per_virus_calibration_dir=None,
 ):
     """
     Score each peptide's immunogenicity.
@@ -251,6 +304,16 @@ def score_immunogenicity(
         thresholds_path: explicit optimal-thresholds path (from config); when
                      unset, the model directory is searched for
                      optimal_thresholds.json
+        virus:       which virus this proteome represents, if known (e.g.
+                     "SARS-CoV-2"). Selects a per-virus calibrator when one has
+                     been promoted for it; unset, unrecognised, or off-panel
+                     values all fall back to the global calibrator identically
+                     - there is no separate error path for "off-panel".
+        per_virus_calibration_dir: directory to search for
+                     ``<virus>.joblib`` calibrators; defaults to
+                     DEFAULT_PER_VIRUS_CALIBRATION_DIR, which does not exist
+                     until a per-virus calibrator is promoted (see the
+                     open-item register's A1-promote).
 
     Returns:
         (ranked_df, model) tuple.
@@ -381,7 +444,11 @@ def score_immunogenicity(
 
     if calibrate:
         cal_scores, was_calibrated = _apply_calibration(
-            features_df["immunogenicity_score"].values, model_dir, calibration_path
+            features_df["immunogenicity_score"].values,
+            model_dir,
+            calibration_path,
+            virus,
+            per_virus_calibration_dir,
         )
         if was_calibrated:
             features_df["calibrated_score"] = cal_scores

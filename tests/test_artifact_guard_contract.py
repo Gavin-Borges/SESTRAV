@@ -71,7 +71,9 @@ import pytest
 
 from scripts import assess_calibration as ac
 from scripts import compute_ann_baseline_summary as cabs
+from scripts import fit_final_per_virus_calibrators as ffpvc
 from scripts import fit_per_virus_calibrator as fpvc
+from scripts.fit_calibrator import TARGET_VIRUSES
 from src import ablation_study as abst
 from src import ann_benchmark as ab
 from src import bias_skew_finalization as bsf
@@ -174,6 +176,13 @@ GUARDED_MODULES = [
         "--out-dir",
         "main(['--allow-overwrite'])",
         id="fit_per_virus_calibrator",
+    ),
+    _case(
+        lambda d: ffpvc._planned_paths(Path(d), list(TARGET_VIRUSES)),
+        lambda d, allow: ffpvc._guard_output_dir(Path(d), list(TARGET_VIRUSES), allow),
+        "--out-dir",
+        "main(['--allow-overwrite'])",
+        id="fit_final_per_virus_calibrators",
     ),
 ]
 
