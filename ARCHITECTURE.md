@@ -267,12 +267,18 @@ only from this v1 path; the v2 PyG path has no spatial builder at all.
   paired comparison; `fold` and `splitter` are per-row rather than in a sidecar so
   provenance cannot be separated from the scores it describes.
 
-On v4 data the v2.3 GNN reported mean-fold AUC-PR 0.7281. That figure predates the
-2026-08-12 peptide-grouping repair and was produced by the ungrouped splitter the GNN
-track ran until then, so it carries the exact-peptide leakage that D15 documents and is
-**not comparable to any peptide-grouped figure**, including the current production RF
-baseline (0.6058, v5, peptide-grouped). It is retained only as a labeled historical
-measurement, and the GNN remains a research track rather than the canonical scorer.
+On v4 data the v2.3 GNN once reported a mean-fold AUC-PR of 0.7281. **That figure is
+RETRACTED as unreproducible, not merely superseded** (2026-08-12 re-audit): the tracked
+out-of-fold artifact described below carries no `fold` column at all, so no per-fold
+statistic can ever be recomputed from it, and `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb`
+- the notebook cited as its retrain provenance - has never been executed (every cell shows
+`execution_count: null`, no saved outputs). The number traces to a real one-off A100 run
+(commit `851d4fd`, 2026-06-24) whose training log was never committed, so it survives only
+as a hand-transcription with nothing left to check it against. The pooled AUC-PR from that
+same run, 0.7160, is the one figure that does reproduce (see below) and remains a labeled
+historical measurement under the same D15 ungrouped-splitter caveat, **not comparable to
+any peptide-grouped figure**, including the current production RF baseline (0.6058, v5,
+peptide-grouped); the GNN remains a research track rather than the canonical scorer.
 
 The tracked out-of-fold artifact `models/gnn_oof_predictions.csv` is from that same v4
 era: 14,637 rows over 11,779 unique peptides, carrying the old three-column schema and a

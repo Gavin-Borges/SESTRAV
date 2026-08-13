@@ -95,8 +95,11 @@ _Last updated: 2026-08._
     dropped, since dropping them shrinks the std.
   - Gate 3 - Latency: GNN CPU inference <= 2x RF CPU inference (per batch).
   - Gate 4 - Calibration: Expected Calibration Error (ECE) < 0.05.
-  - Gate 5 - Escape sensitivity: correctly differentiates >= 80% of IEDB
-    gold-standard epitopes from decoys.
+  - Gate 5 - Escape sensitivity: >= 80% of ALL out-of-fold positives score
+    above the median out-of-fold negative, pool-wide - despite its name, NOT
+    restricted to IEDB gold-standard epitopes (both training entry points
+    exclude those from the pool before any fold is built; see
+    `docs/claims_register.md` D26).
 
   The scorecard can be exercised without side effects: `python -m src.verify.promote_gnn
   --dry-run` evaluates all five gates and reports the mutations that would follow,

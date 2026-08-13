@@ -13,8 +13,13 @@ Gate definitions (all must pass):
   Gate 2 - Stability:        Cross-fold AUC-PR std <= 0.02 across 5 CV folds.
   Gate 3 - Latency:          GNN CPU inference <= 2× RF CPU inference (per batch).
   Gate 4 - Calibration:      Expected Calibration Error (ECE) < 0.05.
-  Gate 5 - Escape Sensitivity: GNN correctly differentiates >= 80% of IEDB
-                               gold-standard epitopes from decoys.
+  Gate 5 - Escape Sensitivity: >= 80% of ALL out-of-fold positives score above
+                               the median out-of-fold negative, pool-wide.
+                               Despite the name, this is NOT restricted to IEDB
+                               gold-standard epitopes - both training entry
+                               points mask them out of the pool before any CV
+                               fold is built, so none reach this gate. See
+                               docs/claims_register.md D26.
 
 Run `python -m src.verify.promote_gnn --dry-run` to evaluate the scorecard
 without touching config.yaml or the checksum manifest.
@@ -439,11 +444,16 @@ def gate4_calibration(df: pd.DataFrame) -> GateResult:
 
 
 def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
-    """Fraction of IEDB gold-standard epitopes scored above median decoy score >= 0.80.
+    """Fraction of ALL OOF positives scored above the median OOF negative >= 0.80.
 
     Requires the OOF file to contain both positive (label=1) and negative
-    (label=0) rows.  The gate checks that the model rank-orders positives over
-    negatives at the 80% sensitivity level.
+    (label=0) rows. The gate checks that the model rank-orders positives over
+    negatives at the 80% sensitivity level, pool-wide - despite the gate's
+    name, this is NOT restricted to IEDB gold-standard epitopes. Both GNN
+    training entry points (train_gnn(), train_gnn_v2() in src/train_gnn.py)
+    mask GOLD_STANDARD_EPITOPES out of the training pool before any CV fold
+    is built, so no gold-standard peptide ever reaches this OOF frame. See
+    docs/claims_register.md D26.
     """
     positives = df[df["label"] == 1]["gnn_oof_score"].values
     negatives = df[df["label"] == 0]["gnn_oof_score"].values
