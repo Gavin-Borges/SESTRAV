@@ -3,7 +3,10 @@
 
 Step 8 of the results/ silent-overwrite defect-class repair line. This module
 has exactly ONE git-tracked artifact at risk: results/data_bias_audit.md
-(un-ignored at .gitignore:259). A bare `python -m src.data_bias_audit
+(un-ignored by the explicit `!results/data_bias_audit.md` negation in
+.gitignore - cited by the negation itself rather than by line number, because
+the line moved from 259 to 263 when 6e75fda added four negations above it and
+the pinned citation drifted). A bare `python -m src.data_bias_audit
 --source-data-dir ...` rewrote it in place before this fix, because
 --provenance-csv, --audit-csv and --audit-md all defaulted into results/ with
 no guard.

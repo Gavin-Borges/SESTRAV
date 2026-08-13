@@ -72,14 +72,6 @@
       "pinned": [
         "oof_rf = oof_rf.drop_duplicates(subset=[\"peptide\"], keep=\"first\")[[\"peptide\", \"score\"]].rename("
       ]
-    },
-    {
-      "citing": "tests/test_data_bias_audit_guard.py",
-      "target": ".gitignore",
-      "lines": "259",
-      "pinned": [
-        "!results/data_bias_audit.md"
-      ]
     }
   ]
 }
