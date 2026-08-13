@@ -320,12 +320,20 @@ def _time_model_ms_v2(predict_fn, batch, warmup: int, reps: int) -> float:
     return float(np.median(times))
 
 
-def gate3_latency() -> GateResult:
+def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
     """GNN CPU inference latency <= GATE3_LATENCY_FACTOR × RF latency.
 
     Uses a fixed synthetic batch of LATENCY_BATCH_SIZE 9-mer sequences so the
     measurement is reproducible without any real dataset access.
     Uses GraphPredictorV2 (GINEConv + ESM-2, 320-dim node features).
+
+    `checkpoint_path` scores an alternative checkpoint instead of the tracked
+    GNN_CHECKPOINT (see check_promotion_gates). Its sibling `gnn_config.json`
+    - written alongside every checkpoint by src/train_gnn.py in the same
+    --model-dir - is read from `checkpoint_path.parent / "gnn_config.json"`
+    rather than the tracked GNN_CONFIG, so node_dim and num_continuous_features
+    stay matched to the checkpoint actually being timed (GNN rule 8: these must
+    agree with the saved state dict or this gate loads the wrong architecture).
     """
     import torch
     from torch_geometric.data import Data, Batch
@@ -360,11 +368,13 @@ def gate3_latency() -> GateResult:
     rf_latency_ms = float(np.median(rf_times))
 
     # --- GNN v2.1 benchmark ---
-    if not GNN_CHECKPOINT.exists():
+    checkpoint = GNN_CHECKPOINT if checkpoint_path is None else Path(checkpoint_path)
+    config_source = GNN_CONFIG if checkpoint_path is None else checkpoint.parent / "gnn_config.json"
+    if not checkpoint.exists():
         return GateResult(
             name="Gate 3 - Latency",
             passed=False,
-            value="GNN checkpoint not found",
+            value=f"GNN checkpoint not found: {checkpoint}",
             threshold=f"<= {GATE3_LATENCY_FACTOR}× RF latency",
         )
 
@@ -375,8 +385,8 @@ def gate3_latency() -> GateResult:
     node_dim = 320  # default (t6 ESM-2)
     num_features = len(TRAIN_FEATURE_COLUMNS)  # default: 21 physico-only
     pooling = "mean"  # default readout (v2.1-v2.3); v2.4 may use attention
-    if GNN_CONFIG.exists():
-        with GNN_CONFIG.open() as _fh:
+    if config_source.exists():
+        with config_source.open() as _fh:
             _cfg = _json.load(_fh)
             node_dim = _cfg.get("node_dim", 320)
             num_features = _cfg.get("num_continuous_features", num_features)
@@ -386,7 +396,7 @@ def gate3_latency() -> GateResult:
         num_continuous_features=num_features, node_dim=node_dim, pooling=pooling
     ).to(device)
     # weights_only=True prevents arbitrary code execution during checkpoint load
-    state = torch.load(GNN_CHECKPOINT, map_location="cpu", weights_only=True)
+    state = torch.load(checkpoint, map_location="cpu", weights_only=True)
     gnn_model.load_state_dict(state)
     gnn_model.eval()
 
@@ -489,20 +499,25 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
 # ---------------------------------------------------------------------------
 
 
-def check_promotion_gates(oof_path: Path | None = None) -> bool:
+def check_promotion_gates(oof_path: Path | None = None, checkpoint_path: Path | None = None) -> bool:
     logger.info("=" * 60)
     logger.info("SESTRAV GNN Promotion Scorecard - 5 Gates")
     logger.info("=" * 60)
 
-    if not GNN_CHECKPOINT.exists():
+    checkpoint = GNN_CHECKPOINT if checkpoint_path is None else Path(checkpoint_path)
+    if not checkpoint.exists():
         logger.error(
-            f"Checkpoint {GNN_CHECKPOINT} not found. "
+            f"Checkpoint {checkpoint} not found. "
             "Execute full GNN training (src/train_gnn.py) before promotion."
         )
         return False
 
     if oof_path is not None:
         logger.info("Scoring OOF frame: %s (overrides the default %s)", oof_path, OOF_PATH)
+    if checkpoint_path is not None:
+        logger.info(
+            "Scoring checkpoint: %s (overrides the default %s)", checkpoint_path, GNN_CHECKPOINT
+        )
 
     try:
         df = _load_oof(oof_path)
@@ -531,7 +546,7 @@ def check_promotion_gates(oof_path: Path | None = None) -> bool:
 
     # Gate 3 requires loading real models
     try:
-        r3 = gate3_latency()
+        r3 = gate3_latency(checkpoint_path)
     except Exception as exc:  # noqa: BLE001 - top-level promotion gate; must catch all failures to log and exit non-zero
         logger.error(f"gate3_latency raised unexpectedly: {exc}")
         r3 = GateResult(name="Gate 3 - Latency", passed=False, value=str(exc), threshold="-")
@@ -562,7 +577,9 @@ def check_promotion_gates(oof_path: Path | None = None) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def promote_model(dry_run: bool = False, oof_path: Path | None = None) -> None:
+def promote_model(
+    dry_run: bool = False, oof_path: Path | None = None, checkpoint_path: Path | None = None
+) -> None:
     """Mutates config.yaml and model_artifact_checksums.json iff all gates pass.
 
     dry_run runs the identical scorecard and reports exactly which mutations
@@ -575,8 +592,32 @@ def promote_model(dry_run: bool = False, oof_path: Path | None = None) -> None:
     put through the scorecard without first overwriting the tracked
     models/gnn_oof_predictions.csv. It selects the INPUT only; it does not
     relax any gate and does not change where a successful promotion writes.
+
+    checkpoint_path scores an alternative checkpoint (Gate 3 latency, and the
+    SHA-256 shown here) the same way oof_path scores an alternative OOF frame.
+    It closes A2-gap: before this parameter existed, a real (dry_run=False)
+    promotion always certified whatever file happened to already sit at
+    GNN_CHECKPOINT, with nothing tying that file to whatever OOF/checkpoint had
+    actually just been scored via --oof. Only meaningful combined with
+    dry_run=True - combining it with dry_run=False is refused below rather than
+    silently promoting a scratch checkpoint from a gitignored path, or silently
+    re-certifying a stale/different file at the canonical path. To promote a
+    passing scratch candidate for real: copy it to GNN_CHECKPOINT (and its
+    sibling gnn_config.json/gnn_scaler.joblib) yourself, then call this
+    function again with dry_run=False and no override, so it certifies
+    exactly the file it just copied.
     """
-    if not check_promotion_gates(oof_path):
+    if checkpoint_path is not None and not dry_run:
+        raise ValueError(
+            "checkpoint_path is only valid combined with dry_run=True. A real promotion "
+            "always certifies GNN_CHECKPOINT so the file that gets certified is never "
+            "silently different from the file at the canonical path - copy the scored "
+            "checkpoint (and its sibling gnn_config.json/gnn_scaler.joblib) to "
+            f"{GNN_CHECKPOINT} yourself first, then call promote_model(dry_run=False) with "
+            "no checkpoint_path override."
+        )
+
+    if not check_promotion_gates(oof_path, checkpoint_path):
         logger.error("Model failed promotion gates. config.yaml will NOT be modified.")
         return
 
@@ -586,12 +627,19 @@ def promote_model(dry_run: bool = False, oof_path: Path | None = None) -> None:
         logger.info("Promoting Structural GNN to canonical pipeline...")
 
     # Secure SHA-256 (native Python; no shell=True, no subprocess) - read-only.
-    gnn_sha256 = _sha256_file(GNN_CHECKPOINT)
+    scored_checkpoint = GNN_CHECKPOINT if checkpoint_path is None else Path(checkpoint_path)
+    gnn_sha256 = _sha256_file(scored_checkpoint)
     logger.info(f"Checkpoint SHA-256: {gnn_sha256}")
 
     if dry_run:
         logger.info(f"DRY RUN: would set model_path -> {GNN_CHECKPOINT} in {CONFIG_PATH}")
         logger.info(f"DRY RUN: would record {GNN_CHECKPOINT} in {CHECKSUM_FILE}")
+        if checkpoint_path is not None:
+            logger.info(
+                f"DRY RUN: the SHA-256 above is {scored_checkpoint}'s, not the canonical "
+                f"path's - a real promotion still certifies {GNN_CHECKPOINT} and would only "
+                "match this SHA-256 if that file is copied there first."
+            )
         logger.info("DRY RUN complete: config.yaml and the checksum manifest are unchanged.")
         return
 
@@ -638,9 +686,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "overwriting the tracked artifact. Selects the input only - it does not "
         "relax a gate or change where a promotion writes.",
     )
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        metavar="PTH",
+        help="Score this checkpoint (Gate 3 latency + the displayed SHA-256) "
+        f"instead of the default {GNN_CHECKPOINT}. Its sibling gnn_config.json "
+        "is read from the same directory. Only valid with --dry-run - refused "
+        "otherwise, so a real promotion can never silently certify a file "
+        "different from the one just scored.",
+    )
     return parser
 
 
 if __name__ == "__main__":
     _args = _build_arg_parser().parse_args()
-    promote_model(dry_run=_args.dry_run, oof_path=_args.oof)
+    promote_model(dry_run=_args.dry_run, oof_path=_args.oof, checkpoint_path=_args.checkpoint)

@@ -332,7 +332,7 @@ def test_main_forwards_oof_into_promote_model():
 def test_promote_model_threads_oof_path_into_check_promotion_gates():
     seen: dict[str, object] = {}
 
-    def _capture(oof_path=None):
+    def _capture(oof_path=None, checkpoint_path=None):
         seen["oof_path"] = oof_path
         return False  # gates fail, so nothing is written
 
@@ -387,6 +387,103 @@ def test_load_oof_reads_the_override_and_leaves_the_default_untouched(tmp_path):
     assert overridden["gnn_oof_score"].iloc[0] == 0.91
     assert len(default) == 2, "passing no override must still read OOF_PATH"
     assert tracked.read_text() == "label,gnn_oof_score\n1,0.11\n0,0.12\n"
+
+
+# ---------------------------------------------------------------------------
+# --checkpoint: scoring a scratch checkpoint without dirtying the tracked
+# artifact (A2-gap). Mirrors --oof exactly, plus one thing --oof does not need:
+# a real (dry_run=False) promotion must refuse the override outright, or it
+# would reproduce the exact gap it exists to close - a promotion certifying a
+# file different from the one just scored via --dry-run.
+# ---------------------------------------------------------------------------
+
+
+def test_cli_exposes_checkpoint_and_defaults_it_to_none():
+    parser = pgnn._build_arg_parser()
+    assert parser.parse_args([]).checkpoint is None
+    assert parser.parse_args(["--checkpoint", "models/scratch/run/gnn.pth"]).checkpoint == Path(
+        "models/scratch/run/gnn.pth"
+    )
+
+
+def test_main_forwards_checkpoint_into_promote_model():
+    """Advertising and parsing the flag is not the same as wiring it."""
+    source = (Path(pgnn.__file__)).read_text(encoding="utf-8")
+    call_start = source.index("    promote_model(")
+    call_block = source[call_start : source.index(")", call_start)]
+    assert "checkpoint_path=_args.checkpoint" in call_block, (
+        "__main__ parses --checkpoint but never forwards it to promote_model"
+    )
+
+
+def test_promote_model_threads_checkpoint_path_into_check_promotion_gates():
+    seen: dict[str, object] = {}
+
+    def _capture(oof_path=None, checkpoint_path=None):
+        seen["checkpoint_path"] = checkpoint_path
+        return False  # gates fail, so nothing is written
+
+    with patch("src.verify.promote_gnn.check_promotion_gates", _capture):
+        promote_model(dry_run=True, checkpoint_path=Path("models/scratch/run/gnn.pth"))
+
+    assert seen["checkpoint_path"] == Path("models/scratch/run/gnn.pth")
+
+
+def test_check_promotion_gates_threads_checkpoint_path_into_gate3_latency():
+    seen: dict[str, object] = {}
+
+    def _capture(checkpoint_path=None):
+        seen["checkpoint_path"] = checkpoint_path
+        return _passing_gate("Gate 3")
+
+    with (
+        patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
+        patch("src.verify.promote_gnn.gate1_generalization", return_value=_passing_gate("Gate 1")),
+        patch("src.verify.promote_gnn.gate2_stability", return_value=_passing_gate("Gate 2")),
+        patch("src.verify.promote_gnn.gate4_calibration", return_value=_passing_gate("Gate 4")),
+        patch(
+            "src.verify.promote_gnn.gate5_escape_sensitivity", return_value=_passing_gate("Gate 5")
+        ),
+        patch("src.verify.promote_gnn.gate3_latency", _capture),
+    ):
+        checkpoint = _mock_path(exists=True)
+        check_promotion_gates(checkpoint_path=checkpoint)
+
+    assert seen["checkpoint_path"] is checkpoint
+
+
+def test_check_promotion_gates_existence_check_uses_the_override_not_the_default():
+    """The override must win even when the tracked default also exists.
+
+    Same shape as test_load_oof_reads_the_override_and_leaves_the_default_untouched:
+    an implementation that checks GNN_CHECKPOINT.exists() unconditionally would
+    still PASS a test where only the default is missing, because the override
+    would only be exercised on the error path.
+    """
+    with (
+        patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
+        patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
+    ):
+        result = check_promotion_gates(checkpoint_path=_mock_path(exists=False))
+    assert result is False, "a missing override checkpoint must fail even though the default exists"
+
+
+def test_promote_model_refuses_checkpoint_path_combined_with_a_real_promotion():
+    """This is the combination A2-gap describes: scoring a scratch checkpoint but
+    about to write GNN_CHECKPOINT's SHA-256, which may be a different, stale, or
+    absent file. Must raise loudly rather than silently certify the wrong file -
+    'a false FAIL is loud and self-correcting; a false PASS is silent.'
+    """
+    import pytest
+
+    with pytest.raises(ValueError, match="only valid combined with dry_run=True"):
+        promote_model(dry_run=False, checkpoint_path=Path("models/scratch/run/gnn.pth"))
+
+
+def test_promote_model_allows_checkpoint_path_with_dry_run():
+    """The one valid combination must not be caught by the same guard."""
+    with patch("src.verify.promote_gnn.check_promotion_gates", return_value=False):
+        promote_model(dry_run=True, checkpoint_path=Path("models/scratch/run/gnn.pth"))  # no raise
 
 
 # ---------------------------------------------------------------------------
