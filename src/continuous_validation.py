@@ -25,6 +25,8 @@ import os
 import pathlib
 from typing import Callable, Optional, Sequence
 
+from src.artifact_integrity import model_provenance_fields, write_provenance_sidecar
+
 # ---------------------------------------------------------------------------
 # Constants (Part 11 spec)
 # ---------------------------------------------------------------------------
@@ -213,6 +215,12 @@ def run(
 
     ``score_fn`` is injectable so tests can drive the comparison/alerting logic
     without a trained model. Returns a process exit code (0 = handled).
+
+    When ``model_path`` is set, the persisted metrics and a ``.provenance.json``
+    sidecar for each output record ``model_path``/``model_sha256`` (via
+    ``src.artifact_integrity.model_provenance_fields``), so a benchmark
+    snapshot stays verifiable against the exact model bytes that produced it
+    even if the (untracked, gitignored) model file is later overwritten.
     """
     scorer: Callable[..., dict] = score_fn or score_iedb_export
     today = today or _dt.date.today().isoformat()
@@ -226,16 +234,42 @@ def run(
     metrics = scorer(df, model_path, binding_matrix_path)
     print(f"AUC-PR on fresh IEDB export: {metrics['auc_pr']:.4f}")
 
+    # Record which model produced this score, and its own sha256, into the
+    # persisted metrics so a later in-place overwrite of model_path cannot
+    # silently invalidate this benchmark snapshot (see the TSNAdb 0.99
+    # incident, D-series, 2026-08-12: a benchmark script recorded no model
+    # hash, the model was later overwritten, and the figure became
+    # permanently unreproducible). Guarded on model_path being set because
+    # tests inject score_fn without passing a real model_path.
+    model_fields: dict = {}
+    if model_path:
+        model_fields = model_provenance_fields(model_path)
+        metrics.update(model_fields)
+
     baselines = load_baseline(baseline_path)
     result = compute_regression(metrics["auc_pr"], baseline_auc_pr(baselines))
     metrics["regression"] = result
 
     # Part 11 step 6: persist results to results/continuous_validation/.
+    # newline="" pins LF endings so json.dumps's own LF is not rewritten to
+    # CRLF on Windows - otherwise the sha256 a provenance sidecar records
+    # below would be a Windows-only hash that disagrees with the git blob
+    # (see .gitattributes results/continuous_validation/*.json eol=lf pin).
     out_dir = pathlib.Path(results_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = json.dumps({"date": today, **metrics}, indent=2)
-    (out_dir / f"benchmark_{today}.json").write_text(payload, encoding="utf-8")
-    (out_dir / "benchmark_latest.json").write_text(payload, encoding="utf-8")
+    dated_path = out_dir / f"benchmark_{today}.json"
+    latest_path = out_dir / "benchmark_latest.json"
+    dated_path.write_text(payload, encoding="utf-8", newline="")
+    latest_path.write_text(payload, encoding="utf-8", newline="")
+
+    if model_fields:
+        write_provenance_sidecar(
+            dated_path, script="src/continuous_validation.py", extra=model_fields
+        )
+        write_provenance_sidecar(
+            latest_path, script="src/continuous_validation.py", extra=model_fields
+        )
 
     if result["baseline_auc_pr"] is None:
         print("No stored baseline - recording current value as the seed baseline.")

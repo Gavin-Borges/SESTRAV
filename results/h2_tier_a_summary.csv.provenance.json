@@ -1,0 +1,8 @@
+{
+  "generated_utc": "2026-08-13T04:05:56+00:00",
+  "script": "src/h2_tier_a_evaluation.py",
+  "artifact": "results/h2_tier_a_summary.csv",
+  "sha256": "aeaca52894fa1e41f51df2f358987d2d7f887bf2bc4b4b5c64492852e96d9c18",
+  "model_path": "models/rf_30feature_integrated.joblib",
+  "model_sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3"
+}

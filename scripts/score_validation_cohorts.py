@@ -29,7 +29,11 @@ if PROJECT_ROOT not in sys.path:
 
 from src.features import compute_features_for_dataset, FEATURE_COLUMNS_31
 from src.evaluate_metrics import evaluate, issr_at_k
-from src.artifact_integrity import load_verified_joblib
+from src.artifact_integrity import (
+    load_verified_joblib,
+    model_provenance_fields,
+    write_provenance_sidecar,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -155,8 +159,32 @@ def run_evaluation(cohort_path, scored_output, name):
 
     # Save scored output
     os.makedirs(os.path.dirname(scored_output), exist_ok=True)
-    features_df.to_csv(scored_output, index=False)
+    # lineterminator is pinned to LF rather than left to the platform (pandas
+    # writes CRLF on Windows) so the sidecar's recorded sha256 is reproducible
+    # across machines - same reasoning as scripts/assess_calibration.py.
+    features_df.to_csv(scored_output, index=False, lineterminator="\n")
     print(f"Scored results saved to: {scored_output}")
+
+    # Record which model/calibrator artifacts produced this file. Both are
+    # untracked and gitignored, so without this, a later overwrite of either
+    # makes the scored output permanently unverifiable - the same gap that
+    # produced the retracted 0.99 tsnadb_crossdomain figure (D-series,
+    # 2026-08-12). Calibrator fields are recorded even when calibration was
+    # not applied (calibrator_sha256 is then None) so the sidecar always shows
+    # what was and wasn't used, distinguished by key prefix so neither
+    # artifact's fields can silently overwrite the other's.
+    calibrator_fields = model_provenance_fields(CALIBRATOR_PATH)
+    provenance_sidecar = write_provenance_sidecar(
+        scored_output,
+        script="scripts/score_validation_cohorts.py",
+        extra={
+            **model_provenance_fields(MODEL_PATH),
+            "calibrator_path": calibrator_fields["model_path"],
+            "calibrator_sha256": calibrator_fields["model_sha256"],
+            "calibrated": calibrated,
+        },
+    )
+    print(f"Provenance written to {provenance_sidecar}")
 
     # 5. Calculate Metrics and Bootstrap CIs
     y_true = features_df["label"].values
@@ -226,6 +254,18 @@ def main():
                     f"{r['issr_10']:.4f} `[{r['issr_10_ci'][0]:.4f}, {r['issr_10_ci'][1]:.4f}]` | {target_met} |\n"
                 )
             f.write("\n*Note: Bootstrap intervals estimated via N=2,000 resamples.*\n")
+            model_fields = model_provenance_fields(MODEL_PATH)
+            calibrator_fields = model_provenance_fields(CALIBRATOR_PATH)
+            model_sha_prefix = (model_fields["model_sha256"] or "MISSING")[:12]
+            calibrator_sha = calibrator_fields["model_sha256"]
+            calibrator_sha_prefix = calibrator_sha[:12] if calibrator_sha else "not applied"
+            f.write(
+                f"\n*Scoring model: `{model_fields['model_path']}` (sha256 `{model_sha_prefix}...`). "
+                f"Calibrator: `{calibrator_fields['model_path']}` (sha256 `{calibrator_sha_prefix}"
+                f"{'...' if calibrator_sha else ''}`). Full artifact provenance, including complete "
+                "hashes, is recorded in the `.provenance.json` sidecar next to each per-cohort scored "
+                "CSV in `results/`.*\n"
+            )
         print(f"\n[SUCCESS] Wrote Stage 3 results log to: {log_path}")
 
 

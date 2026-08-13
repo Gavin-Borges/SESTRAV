@@ -238,14 +238,18 @@ __marimo__/
 results/*
 !results/final_validation_report.md
 !results/h2_tier_a_summary.csv
+!results/h2_tier_a_summary.csv.provenance.json
 !results/h2_tier_a_summary.md
 !results/h2_tier_a_fold_metrics.csv
+!results/h2_tier_a_fold_metrics.csv.provenance.json
 !results/gold_standard_validation.csv
 !results/baseline_comparison.csv
+!results/baseline_comparison.csv.provenance.json
 # v2 diagnostic artifacts (evidence for release)
 !results/multi_run_stability_report.md
 # Cross-domain and LOO benchmark results
 !results/tsnadb_crossdomain_benchmark.json
+!results/tsnadb_crossdomain_benchmark.json.provenance.json
 !results/loo_cross_virus_v4.json
 !results/loo_cross_virus_v4.csv
 !results/loo_cross_virus_v5.json

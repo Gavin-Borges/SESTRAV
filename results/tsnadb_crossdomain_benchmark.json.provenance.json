@@ -1,0 +1,8 @@
+{
+  "generated_utc": "2026-08-13T03:46:41+00:00",
+  "script": "scripts/eval_tsnadb_crossdomain.py",
+  "artifact": "results/tsnadb_crossdomain_benchmark.json",
+  "sha256": "c0d014da0c1d83af0854efc1afea6d3db4fbf5ec616b557ab2ca72417ff78f81",
+  "model_path": "models/rf_31feature_integrated.joblib",
+  "model_sha256": "e2acd33228f2270ca0cde5af4605359c83faadae8f3f5b1f9147132f26d80c3f"
+}

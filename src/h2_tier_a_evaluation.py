@@ -24,7 +24,11 @@ from sklearn.model_selection import StratifiedKFold
 from scipy.stats import false_discovery_control
 
 from src.artifact_guard import guard_planned_paths, planned_paths_under
-from src.artifact_integrity import load_verified_joblib
+from src.artifact_integrity import (
+    load_verified_joblib,
+    model_provenance_fields,
+    write_provenance_sidecar,
+)
 from src.evaluate_metrics import evaluate
 from src.features import BINDING_ALLELE_COLUMNS
 from src.train_classifier import prepare_features, prepare_features_30, prepare_features_50
@@ -214,6 +218,7 @@ def run_h2_tier_a(
     subgroup_columns = [c for c in ["virus", "strain"] if c in train_pool.columns]
 
     template_model = load_verified_joblib(model_path, required_checksum=True)
+    model_prov = model_provenance_fields(model_path)
     model_n_features = getattr(template_model, "n_features_in_", None)
     if model_n_features is None:
         raise ValueError(f"Model at {model_path} does not expose n_features_in_.")
@@ -345,6 +350,7 @@ def run_h2_tier_a(
                 "ratio_ci_low_gte_2": ci_supports_h2,
                 "h2_supported_ratio_gte_2_and_stable": h2_supported,
                 "model_path": model_path,
+                "model_sha256": model_prov["model_sha256"],
                 "feature_count": model_n_features,
                 "n_total_labeled": len(df),
                 "n_train_pool_after_gold_standard_holdout": len(train_pool),
@@ -365,6 +371,7 @@ def run_h2_tier_a(
     summary_df["ratio_ci_low_gte_2"] = np.nan
     summary_df["h2_supported_ratio_gte_2_and_stable"] = np.nan
     summary_df["model_path"] = model_path
+    summary_df["model_sha256"] = model_prov["model_sha256"]
     summary_df["feature_count"] = model_n_features
     summary_df["n_total_labeled"] = len(df)
     summary_df["n_train_pool_after_gold_standard_holdout"] = len(train_pool)
@@ -376,8 +383,19 @@ def run_h2_tier_a(
     summary_csv = os.path.join(output_dir, "h2_tier_a_summary.csv")
     summary_md = os.path.join(output_dir, "h2_tier_a_summary.md")
 
-    fold_df.to_csv(fold_csv, index=False)
-    full_summary_df.to_csv(summary_csv, index=False)
+    fold_df.to_csv(fold_csv, index=False, lineterminator="\n")
+    full_summary_df.to_csv(summary_csv, index=False, lineterminator="\n")
+
+    write_provenance_sidecar(
+        fold_csv,
+        script="src/h2_tier_a_evaluation.py",
+        extra=model_prov,
+    )
+    write_provenance_sidecar(
+        summary_csv,
+        script="src/h2_tier_a_evaluation.py",
+        extra=model_prov,
+    )
 
     decision_line = "SUPPORTED" if h2_supported else "NOT SUPPORTED"
     stability_line = (
@@ -388,7 +406,7 @@ def run_h2_tier_a(
 
 ## Inputs
 - Dataset: `{data_path}`
-- Integrated model template: `{model_path}`
+- Integrated model template: `{model_path}` (sha256: `{model_prov["model_sha256"]}`)
 - Binding matrix: `{binding_matrix_path}`
 - CV: StratifiedKFold(n_splits={n_splits}, shuffle=True, random_state={random_state})
 - Splitter note: this is a label-only (ungrouped) splitter, but it is **peptide-disjoint

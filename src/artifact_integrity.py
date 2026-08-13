@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Iterable
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_CHECKSUM_MANIFEST = "model_artifact_checksums.json"
 
 
@@ -152,3 +153,66 @@ def load_verified_joblib(
 
     verify_artifact_checksum(path, manifest_path=manifest_path, required=required_checksum)
     return joblib_load(path)
+
+
+def _relative_to_project_root(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
+def write_provenance_sidecar(
+    output_path: str | Path,
+    *,
+    script: str,
+    extra: dict[str, object] | None = None,
+) -> Path:
+    """Write a `<output>.provenance.json` sidecar recording the output's own sha256.
+
+    Mirrors the pattern proven in `scripts/assess_calibration.py` (the one
+    sidecar that already PASSes `_local/integrity/integrity_check.py`'s
+    provenance check): `artifact` + `sha256` are the two fields that check
+    resolves and verifies, and the file is written with `newline=""` so the
+    LF that `json.dumps` produces is not rewritten to CRLF on Windows - the
+    hash recorded must match the hash git stores under the `results/*.provenance.json`
+    `eol=lf` pin in `.gitattributes`, or the check fails on a byte-identical file.
+
+    `extra` is for anything the artifact's reproducibility depends on but that
+    isn't captured by the artifact's own bytes - for a script that scores an
+    untracked, gitignored model file, that means the model's own path and
+    sha256, recorded here specifically because the model can be silently
+    overwritten in place after the benchmark ran (see the TSNAdb 0.99
+    incident, D-series, 2026-08-12: the model that produced it was overwritten
+    with no checksum captured, making the figure permanently unreproducible).
+    Pass `{"model_path": ..., "model_sha256": ...}` for that case.
+    """
+    output_path = Path(output_path)
+    payload: dict[str, object] = {
+        "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "script": script,
+        "artifact": _relative_to_project_root(output_path),
+        "sha256": sha256_file(output_path),
+    }
+    if extra:
+        payload.update(extra)
+    sidecar_path = output_path.with_suffix(output_path.suffix + ".provenance.json")
+    with sidecar_path.open("w", encoding="utf-8", newline="") as fh:
+        fh.write(json.dumps(payload, indent=2) + "\n")
+    return sidecar_path
+
+
+def model_provenance_fields(model_path: str | Path) -> dict[str, object]:
+    """Return `{model_path, model_sha256}` for embedding in a benchmark's own
+    provenance sidecar via `write_provenance_sidecar`'s `extra` argument.
+
+    `model_sha256` is `None` when the model file is not present locally (it is
+    gitignored in this repo) rather than raising, matching how
+    `check_provenance` treats a missing referenced artifact as a benign SKIP,
+    not a FAIL.
+    """
+    model_path = Path(model_path)
+    return {
+        "model_path": _relative_to_project_root(model_path),
+        "model_sha256": sha256_file(model_path) if model_path.is_file() else None,
+    }

@@ -21,3 +21,19 @@ data/immunogenicity_dataset_v3.csv text eol=lf
 # tree is therefore a Windows-only hash. Pinning eol=lf makes the two agree.
 results/*.csv text eol=lf
 results/*.provenance.json text eol=lf
+# Added 2026-08-12 (accuracy_science_plan item 3): a benchmark script's PRIMARY
+# .json output can also carry a recorded self-hash now (see
+# src.artifact_integrity.write_provenance_sidecar), not just its sidecar - the
+# provenance.json glob above does not cover it. Same eol=lf reasoning applies.
+results/*.json text eol=lf
+
+# Added 2026-08-12 (continuous_validation provenance): results/*.json above is
+# a single-segment glob and does NOT match paths one directory deeper - verified
+# with `git check-attr eol -- results/continuous_validation/benchmark_latest.json`,
+# which returned "eol: unspecified" before this line was added.
+# src/continuous_validation.py writes its benchmark JSON and provenance
+# sidecars under results/continuous_validation/, so that subtree needs its own
+# eol=lf pin or the sha256 recorded in each sidecar would be a Windows-only
+# hash, same failure mode as the incident referenced above.
+results/continuous_validation/*.json text eol=lf
+results/continuous_validation/*.provenance.json text eol=lf

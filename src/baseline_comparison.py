@@ -33,7 +33,12 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from src.artifact_guard import guard_planned_paths, planned_paths_under
-from src.artifact_integrity import load_verified_joblib, verify_artifact_checksum
+from src.artifact_integrity import (
+    load_verified_joblib,
+    model_provenance_fields,
+    verify_artifact_checksum,
+    write_provenance_sidecar,
+)
 from src.features import FEATURE_COLUMNS, FEATURE_COLUMNS_30, TRAIN_FEATURE_COLUMNS
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
 from src.naming import proteome_id_candidates, resolve_model_path
@@ -194,6 +199,37 @@ def _rank_and_evaluate(df, score_col, gs_peptides, label):
     }
 
 
+def _rf_model_candidates(model_dir):
+    """Candidate RF model paths, newest-schema first.
+
+    Module-level (not nested in compare_methods()) so __main__ can re-resolve
+    the same candidate list cheaply after scoring, to learn which path was
+    actually loaded and record its provenance - without compare_methods()
+    having to return anything beyond the results DataFrame it already returns
+    to its other two callers (final_validation_report.py, run_analysis.py).
+    """
+    return [
+        resolve_model_path(os.path.join(model_dir, "rf_30feature_integrated.joblib")),
+        resolve_model_path(os.path.join(model_dir, "rf_21feature_legacy.joblib")),
+    ]
+
+
+def _xgb_model_candidates(model_dir):
+    """Candidate XGBoost model paths, newest-schema first. See _rf_model_candidates."""
+    return [
+        resolve_model_path(os.path.join(model_dir, "xgb_30feature_integrated.joblib")),
+        resolve_model_path(os.path.join(model_dir, "xgb_21feature_legacy.joblib")),
+    ]
+
+
+def _first_existing_path(paths):
+    """Return the first existing path in `paths`, or None."""
+    for path in paths:
+        if os.path.isfile(path):
+            return path
+    return None
+
+
 def compare_methods(
     results_dir,
     model_dir="models",
@@ -203,23 +239,13 @@ def compare_methods(
     """Run the 3-way comparison on each virus and combined."""
 
     def _load_optional(paths):
-        for path in paths:
-            if os.path.isfile(path):
-                return load_verified_joblib(path, required_checksum=True), path
-        return None, None
+        path = _first_existing_path(paths)
+        if path is None:
+            return None, None
+        return load_verified_joblib(path, required_checksum=True), path
 
-    rf_model, rf_path = _load_optional(
-        [
-            resolve_model_path(os.path.join(model_dir, "rf_30feature_integrated.joblib")),
-            resolve_model_path(os.path.join(model_dir, "rf_21feature_legacy.joblib")),
-        ]
-    )
-    xgb_model, xgb_path = _load_optional(
-        [
-            resolve_model_path(os.path.join(model_dir, "xgb_30feature_integrated.joblib")),
-            resolve_model_path(os.path.join(model_dir, "xgb_21feature_legacy.joblib")),
-        ]
-    )
+    rf_model, rf_path = _load_optional(_rf_model_candidates(model_dir))
+    xgb_model, xgb_path = _load_optional(_xgb_model_candidates(model_dir))
 
     if rf_path:
         print(f"[Baseline] Loaded RF model: {rf_path}")
@@ -433,7 +459,39 @@ if __name__ == "__main__":
     results = compare_methods(args.results_dir, args.model_dir)
 
     out_path = os.path.join(args.results_dir, "baseline_comparison.csv")
-    results.to_csv(out_path, index=False)
+    # lineterminator is pinned to LF rather than left to the platform. pandas
+    # writes CRLF on Windows, git stores LF (.gitattributes pins results/*.csv
+    # eol=lf), and the provenance sidecar below records a sha256 of whichever
+    # one it happened to see - an unpinned terminator would make the recorded
+    # hash platform-dependent and unverifiable anywhere but the machine that
+    # wrote it. Matches scripts/assess_calibration.py's established pattern.
+    results.to_csv(out_path, index=False, lineterminator="\n")
     print(f"\nResults saved to {out_path}")
+
+    # Record which scoring model(s) produced this CSV. compare_methods() loads
+    # rf_model/xgb_model from untracked, gitignored .joblib files - if either is
+    # later overwritten in place, these numbers become unverifiable with no
+    # trace of what actually generated them (see the TSNAdb 0.99 retraction,
+    # D-series 2026-08-12, where exactly this happened to a different
+    # benchmark). The candidate lists are re-resolved here rather than
+    # threaded through compare_methods()'s return value, so its signature
+    # stays a plain DataFrame for its other two callers
+    # (final_validation_report.py, run_analysis.py). Re-resolution is just
+    # os.path.isfile() checks, not a reload, and the model files were not
+    # touched between the scoring call above and here.
+    model_provenance = {}
+    rf_used_path = _first_existing_path(_rf_model_candidates(args.model_dir))
+    if rf_used_path:
+        model_provenance["rf"] = model_provenance_fields(rf_used_path)
+    xgb_used_path = _first_existing_path(_xgb_model_candidates(args.model_dir))
+    if xgb_used_path:
+        model_provenance["xgb"] = model_provenance_fields(xgb_used_path)
+
+    sidecar = write_provenance_sidecar(
+        out_path,
+        script="src/baseline_comparison.py",
+        extra={"models": model_provenance},
+    )
+    print(f"Provenance written to {sidecar}")
 
     print_comparison(results)
