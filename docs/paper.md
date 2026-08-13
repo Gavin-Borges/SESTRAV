@@ -102,11 +102,12 @@ multi-pathogen, pan-allele panel with test negatives restricted to assay-confirm
 records, which is the protocol we adopt here.
 
 That transfer across pathogens is difficult is itself established rather than novel:
-Buckley et al. benchmarked eight published models on SARS-CoV-2 megapool peptides and
-found that none performed substantially better than random, or improved appreciably on
-HLA ligand prediction [27]. The present work generalises that result from one pathogen
-to a nine-pathogen panel, and its distinct contribution is methodological - the
-quantification of a test-partition contamination effect described below.
+Buckley et al. benchmarked nine published models on a compiled panel of assay-confirmed
+SARS-CoV-2 CD8+ T-cell epitopes and found that none performed substantially better than
+random, or improved appreciably on HLA ligand prediction [27]. The present work
+generalises that result from one pathogen to a nine-pathogen panel, and its distinct
+contribution is methodological - the quantification of a test-partition contamination
+effect described below.
 
 Here we present SESTRAV (Structural Epitope Scoring via TCR Recognition and
 Vaccinology), a computational workflow for MHC class I CD8+ T-cell immunogenicity
