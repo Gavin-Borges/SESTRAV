@@ -9,6 +9,74 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **The manuscript's central novelty claim was false, and so was a checkable claim about a
+  competitor (claims register D25).** The Abstract asserted, unhedged, that no published
+  immunogenicity predictor had reported a systematic leave-one-pathogen-out benchmark on
+  assay-confirmed negatives. Two published falsifiers, both verified by reading the primary
+  sources: **Bravi et al. (eLife 2023)** satisfies all four conjuncts - MHC class I,
+  leave-one-organism-out with per-fold retraining, strictly assay-confirmed IEDB negatives,
+  mean AUC 0.68 - and **TRAP (Genome Med 2023)** trains explicitly on non-SARS-CoV-2 and
+  non-vaccinia splits, its only gap being unassayed thymic self ligands among its negatives.
+  - **The durable lesson is the search method, not the claim.** Both falsifiers use different
+    vocabulary ("leave-one-organism-out", "cross-species manner"), so a phrase search on this
+    project's own coined term returned nothing. A negative claim searched only by its author's
+    phrasing reads as engineered to survive, and must be searched by concept.
+  - **The headline finding is also preempted.** Buckley et al. (2022) benchmarked eight models
+    on SARS-CoV-2 megapool peptides and found none beat random appreciably, so the mean LOO
+    AUC-ROC of 0.463 generalises that result rather than discovering it. The distinct
+    contribution is methodological: the quantified test-partition contamination effect.
+  - **A false statement about BigMHC, corrected in the same pass.** Section 1 said its
+    "training data composition was not fully disclosed". BigMHC discloses it explicitly
+    (1,580 positive / 5,293 negative, with the train/validation split, public Mendeley data
+    and a public GitHub repository). Replaced with the accurate criticism: its immunogenicity
+    training set is predominantly neoepitopes, 5,279 of 6,873 examples.
+  - All three novelty loci now describe the prior art and cite it ([25]-[27]) rather than
+    asserting a vacuum, since a negative literature claim can be falsified but never proven.
+- **`docs/paper.md` Section 3.2 reported a calibration ECE pair that was stale, cited to a file
+  that did not contain it, and explained by a mechanism its own data refutes (claims register
+  D24).** The section claimed the isotonic layer improves global ECE "from about 0.028 to about
+  0.003" and that per-virus ECE improves for 8 of the 9 target viruses.
+  - **The pair was stale, and it was stale because nothing was bound to it.** It was computed
+    2026-07-11/12 against the pre-D15 out-of-fold scores. `30f1b76` ("re-baseline every certified
+    v5 number") regenerated `models/v5/rf_oof_predictions_mode31.csv` under the peptide-grouped
+    splitter and never reached this pair, because no integrity-manifest claim pointed at it.
+    Recomputed against the current artifact: raw pooled ECE is **0.060, not 0.028**, and per-virus
+    ECE improves for **1 of 9 (HBV only), not 8 of 9**.
+  - **The cited source never contained the numbers.** `_local/staging/calibration_assessment.csv`
+    is gitignored, so no reader could open it, and it holds only nine per-virus rows with no
+    pooled row. The previously planned remedy - promote that CSV - would therefore not have made
+    the pair reproducible, and is retracted.
+  - **The first replacement draft was itself wrong.** It attributed the low pooled ECE to the
+    out-of-panel rows being "trivially easy to calibrate". Two independent adversarial audits
+    caught it: those rows have `ece_cal` **0.140**. The real mechanism is **cancellation** - in
+    every score bin the target viruses are under-confident and the out-of-panel rows
+    over-confident, so the pooled 0.005 lands *below* both components (0.235 and 0.140) instead of
+    between them.
+  - **A fourth claim in the same paragraph was false and is corrected.** Isotonic calibration is
+    monotone *non-decreasing*, so it creates ties (10,119 distinct raw scores collapse to 274) and
+    is not AUC-preserving: pooled AUC-ROC moves 0.8136 to 0.8107. The manuscript's AUC-ROC values
+    are unaffected because they are computed on raw scores, which is now what the text says.
+  - **Remediation.** New `scripts/assess_calibration.py` cross-fits the calibration layer over
+    peptide-grouped folds and writes tracked `results/calibration_assessment_v5_mode31.csv` with a
+    provenance sidecar (`.gitignore` negations added so both actually ship). Five values are bound
+    in the integrity manifest, including the `off_panel` row that makes the cancellation argument
+    checkable. Section 3.2 now reports calibration as a limitation rather than a benefit.
+  - **Not fixed here:** `models/isotonic_calibrator.joblib` (2026-07-12, untracked) is still
+    fitted on the retired score distribution. Refitting changes deployed scoring behaviour and is
+    tracked as a separate decision.
+- **The integrity harness's citation check passed any `_local/` citation unconditionally while
+  still counting it as verified, and could not see data-file citations at all.** Its PASS line read
+  "622 prose citation(s) checked, all resolve to tracked files", which was false for five of them.
+  Two independent holes: the `_local/` guard passed such citations in *any* document, and the
+  citation regex matched only `.md`/`.py` targets, so `docs/paper.md`'s citation of a gitignored
+  `.csv` (the D24 defect above) was invisible for a second, unrelated reason. Fixing only the first
+  would not have caught D24. The `_local/` allowance is now scoped to provenance ledgers
+  (`docs/claims_register.md`, `docs/data_registry.md`, `CHANGELOG.md`) and fails closed everywhere
+  else; the regex is widened for `_local/` targets only, so the `data/*.csv` artifact references
+  the repo has already ruled false positives do not flood the check; and the PASS line now reports
+  resolved, pair-exempted and ledger-allowed counts separately. Adversarial selftest coverage went
+  from 35 to 42 cases, mutation-tested so each probe is proven to catch the specific regression it
+  claims to.
 - **The Tier A external benchmark (0.828) was disclosed as peptide-leakage-exposed for four days on
   a mechanism that does not apply to it. Ruled on and corrected across ~24 sites (claims register
   D22).** D15 established real exact-duplicate CV leakage on the **v5** corpus and, by a code trace
@@ -60,13 +128,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   is deliberately **not** asserted, because the low-affinity story is now empirically excluded and
   no verified alternative exists.
 - **Two tracked artifacts disagree on the `protein` annotation for an identical row set (claims
-  register D20, OPEN).** For the 693 HIV-1 `allele_matched_nonbinder` rows,
+  register D20 - root cause located and the generator fixed 2026-08-12, see the entry below; tracked
+  artifacts NOT regenerated, so the disagreement below is still observable in the committed tree).**
+  For the 693 HIV-1 `allele_matched_nonbinder` rows,
   `data/immunogenicity_dataset_v5.csv` records `ViralProteome_HXB2` while
   `models/v5/rf_oof_predictions_mode31.csv` records `SYNTH_<peptide>`; the OOF export carries the
   same placeholder for 22,456 `tested_negative` and 7,655 `label=1` rows. Found when an audit and
   the author each queried a different artifact and both got real, reproducible, disagreeing answers.
-  The manuscript no longer asserts source-protein provenance for these rows. **Root cause not
-  located; no generator fixed.**
+  The manuscript no longer asserts source-protein provenance for these rows.
+- **`docs/results_report.qmd` presented RETRACTED metrics as current results under a false
+  "Leakage-Proof" attestation (claims register D23).** The tracked, CI-rendered 2026-06-08 report
+  asserted `[x] Leakage-Proof CV splits: Implemented Leave-One-Protein-Out (LOPO) cross-validation to
+  isolate proteins`. False four ways: LOPO is not the splitter that produced its artifact (5-fold
+  `MultiStratifiedKFold`); that splitter is the *ungrouped* one D15 retracts; LOPO could not isolate
+  proteins anyway, because it groups on the `protein` column `train_models()` overwrites with
+  `SYNTH_<peptide>` for 97.9% of rows (D20), collapsing it to leave-one-*peptide*-out; and the run is
+  31-feature, not the "30-feature" it claims. Its Section 2 renders `models/training_results.csv`
+  live, which holds the D15-retracted AUC-ROC 0.9429 / AUC-PR 0.8312. **The durable finding is a gate
+  limit:** the source contained no retracted literal - the numbers are read from a CSV at render time
+  and exist only in rendered output - so no text-scanning gate could catch it, the same shape as
+  D17's `freeze_status.json` reaching run manifests through a generation step. **Severity bounded:**
+  CI renders but does not upload, deploy or publish (only the `.qmd` is tracked), so nothing reached a
+  public URL. Remediated by annotation, not rewriting: the document keeps its three numbered claims
+  verbatim and gains a four-point DO-NOT-CITE banner. The retracted-token sweep's glob was widened to
+  `docs/**/*.qmd`, which closes the `.qmd` gap but **not** the generated-output class.
+- **D20's root cause located and the generator fixed** (supersedes the "root cause not located; no
+  generator fixed" status this entry carried until 2026-08-12). `load_all_proteins()`
+  (`src/train_classifier.py`) hardcodes a FASTA list that is a **second source of truth alongside
+  `config.yaml`'s `proteome_files` map, and the two silently diverged**: the list named only the 4
+  EBV/HPV files, so peptides from the other target viruses could not resolve to a real parent
+  protein even though `config.yaml` registered their proteomes and `src/naming.py` carried their
+  canonical IDs. The 7 missing FASTAs are now read (78 -> 103 protein sequences), which resolves all
+  693/693 HIV-1 `ViralProteome_HXB2` rows (HIV-1 has 3,269 active rows in total, of which 2,006
+  resolve post-fix - the 693 figure is that one decoy subset, not the virus), and
+  `tests/test_train_classifier.py::test_config_proteomes_are_all_loaded`
+  FAILs if `config.yaml` ever registers a proteome the list omits. **Scope stated honestly: this is
+  not the explanation for the 97.9% placeholder rate** - 21,432 of those rows are
+  `Orthopoxvirus vaccinia`, which has no proteome FASTA in the repository, so 77.7% of active rows
+  still resolve to `SYNTH_` after the fix. Resolution on the population the mapper actually sees
+  rises 2.24% -> 22.32% (798 -> 7,945 of 35,597 rows). **No tracked artifact is regenerated**, so the
+  two-artifact disagreement remains observable in the committed tree; regeneration changes no CERTIFIED
+  metric (the column feeds no feature and no splitter) but is NOT change-free: it takes
+  `training_subgroup_metrics.csv`'s protein dimension from 31,656 to 22,592 rows and its computable
+  protein subgroups from 28 to 208. An open owner decision. Also disclosed: the
+  fix introduces 9 cross-virus mis-attributions by substring homology (on the 35,597 active rows the
+  mapper processes), and changes `--lopo` fold count 15,738 -> 11,111. See D20 for the full enumeration, including two tracked
+  `models/allele_aware/` exports and three `training_subgroup_metrics.csv` files an earlier sweep
+  missed.
 - Six further `docs/paper.md` defects closed, each contradicted by a tracked artifact: the
   feature-importance split (stated 63.5/33.9/2.6, actual **55.8/41.7/2.5**, overstating binding
   dominance by 7.7 points); an HIV-1 out-of-fold claim whose two figures reproduced nothing and

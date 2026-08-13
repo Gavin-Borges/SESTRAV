@@ -163,6 +163,8 @@ def cmd_predict(args: argparse.Namespace) -> int:
         proteome_id,
         model_path=args.model,
         freeze_mode=False,
+        virus=args.virus,
+        per_virus_calibration_dir=args.per_virus_calibration_dir,
     )
     print(f"          {len(ranked_df)} peptides scored")
 
@@ -441,6 +443,23 @@ Examples:
         type=str,
         default=None,
         help="Feature mode override (default: from config.yaml)",
+    )
+    p_predict.add_argument(
+        "--virus",
+        type=str,
+        default=None,
+        help="Which virus this proteome represents (e.g. SARS-CoV-2), if known. "
+        "Selects a per-virus calibrator when one has been promoted for it. "
+        "Unset, unrecognised, or off-panel values all fall back to the global "
+        "calibrator identically - there is no separate error path.",
+    )
+    p_predict.add_argument(
+        "--per-virus-calibration-dir",
+        type=str,
+        default=None,
+        help="Directory to search for <virus>.joblib calibrators (default: "
+        "models/calibration/per_virus, which does not exist until a per-virus "
+        "calibrator is promoted).",
     )
 
     # validate

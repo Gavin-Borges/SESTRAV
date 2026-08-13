@@ -45,3 +45,26 @@ def test_validate_requires_model_dir(capsys):
         main(["validate", "--dataset", "does_not_matter.csv"])
     assert exc.value.code != 0
     assert "--model-dir" in capsys.readouterr().err
+
+
+def test_predict_exposes_virus_and_per_virus_calibration_dir_flags(capsys):
+    """A1-B: predict's --help must advertise both new flags."""
+    with pytest.raises(SystemExit) as exc:
+        main(["predict", "--help"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "--virus" in out
+    assert "--per-virus-calibration-dir" in out
+
+
+def test_cmd_predict_forwards_virus_flags_into_score_immunogenicity():
+    """Advertising and parsing the flags is not the same as wiring them."""
+    import inspect
+
+    import src.cli as cli_module
+
+    source = inspect.getsource(cli_module.cmd_predict)
+    call_start = source.index("score_immunogenicity(")
+    call_block = source[call_start : source.index(")", call_start)]
+    assert "virus=args.virus" in call_block
+    assert "per_virus_calibration_dir=args.per_virus_calibration_dir" in call_block

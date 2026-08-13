@@ -56,7 +56,26 @@ Exact means:
 | ANN optional | `src/ann_benchmark.py` | `requirements.txt` (`torch` is pinned there) | `<--model-dir>/ann_*.pt`, `<--model-dir>/ann_architecture_search.csv` (`--model-dir` is required and has no default) |
 | GNN optional | `src/gnn_benchmark.py` | `requirements.txt` plus the `gnn` extra (`pip install ".[gnn]"`) | `<--output-dir>/gnn_sequence_benchmark.csv`, `<--output-dir>/gnn_bipartite_benchmark.csv` (`--output-dir` is required and has no default) |
 | GNN training | `src/train_gnn.py` | `requirements.txt` plus the `gnn` extra | `<--model-dir>/structural_gnn_v2*.pth`, `<--model-dir>/gnn_config*.json`, plus `gnn_oof_predictions*.csv` in the **parent** of `--model-dir` (`--model-dir` is required and has no default) |
+| GNN promotion check | `src/verify/promote_gnn.py` | `requirements.txt` plus the `gnn` extra | Scorecard on stdout; `--dry-run` leaves `config.yaml` and `models/model_artifact_checksums.json` unwritten |
 | Colab optional | `notebooks/SESTRAV_Colab_Pipeline.py` | Colab + optional installs in notebook | Colab runtime outputs / exported artifacts |
+
+## GNN Training Track: Splitter and OOF Schema
+
+The `src/train_gnn.py` row above is the training track, not the Project 2 benchmark
+study, and its cross-validation contract changed on 2026-08-12:
+
+- Folds are **peptide-grouped and composite-stratified**
+  (`src.ml_utils.PeptideGroupedKFold` via `build_cv_splits`) at both training entry
+  points. The track previously used an ungrouped `StratifiedKFold`, which lets rows
+  sharing a peptide fall on both sides of a fold boundary (`docs/claims_register.md`
+  D15).
+- Each `gnn_oof_predictions*.csv` row is written by `build_oof_records` with the
+  schema `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. The former schema
+  was `peptide,label,gnn_oof_score`; a three-column frame is therefore a pre-repair
+  artifact and is rejected by promotion Gate 1.
+- The Project 2 GCN/GAT/bipartite figures quoted above come from the separate
+  benchmark study, not from this training track, and carry no splitter provenance of
+  this kind. Do not compare them with peptide-grouped numbers.
 
 ## Threshold and Calibration Lineage
 

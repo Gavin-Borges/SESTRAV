@@ -5,9 +5,46 @@ Builds a balanced mixed pool:
   Negatives (label=0): data/hard_decoys.csv                 (self-proteome binders)
 
 Computes MHCflurry presentation scores for the TSNAdb peptides (hard decoys are
-already present in models/peptide_binding_matrix_v4.csv), writes a cohort-local
-merged binding matrix, then scores the pool with the canonical v4 mode-31 RF.
+already present in models/peptide_binding_matrix_v5.csv), writes a cohort-local
+merged binding matrix, then scores the pool with the mode-31 RF at MODEL_PATH.
 Reports AUC-PR / AUC-ROC / ISSR@10/25 with 2,000-resample bootstrap CIs.
+
+WARNING - what this benchmark does and does not measure
+-------------------------------------------------------
+Read before quoting any number this script prints. See docs/data_registry.md
+AD-4 for the full disclosure; the short form:
+
+1. The negative arm can be training data. Every peptide in data/hard_decoys.csv
+   is also a label=0 row of data/immunogenicity_dataset_v4.csv, where no
+   is_quarantined column existed. Any v4-era model therefore memorized 100% of
+   the negatives scored here, and the resulting AUCs measure that memorization,
+   not cross-domain transfer. In v5 those rows are is_quarantined=True and are
+   dropped from the pooled training path, so only a v5 model gives a held-out
+   read. The figures recorded in results/tsnadb_crossdomain_benchmark.json
+   (generated 2026-06-21, AUC-ROC 0.9887 / AUC-PR 0.9909) are v4-era and are
+   RETRACTED on exactly this ground.
+
+2. MODEL_PATH is untracked and gitignored, so this script cannot pin what it
+   scored by the model's path alone - the file there today is byte-identical
+   to the v5 model, not the v4-era artifact that produced the retracted JSON
+   above, which no longer exists and was never checksummed. FIXED 2026-08-12:
+   every run now records the scoring model's own sha256 (`model_sha256`) in
+   both the output JSON and its `.provenance.json` sidecar via
+   `src.artifact_integrity.model_provenance_fields`/`write_provenance_sidecar`,
+   so a future model overwrite cannot silently invalidate a past figure the
+   way it did here.
+
+3. The inflation is NOT a binding-signal artifact. Both arms are pre-filtered to
+   strong binders (positives MHCf_rank <= 2%, decoys presentation_score >= 0.5),
+   so the binding channel is near chance on this pool and cannot explain a high
+   AUC. Do not reach for that explanation.
+
+BINDING_MATRIX_CACHE was v4 (the cache matching the now-retracted 0.9887/0.9909
+artifact) until 2026-08-12, when it was re-pointed at
+models/peptide_binding_matrix_v5.csv to regenerate honestly against the v5
+model - this is the production binding matrix config.yaml points at, so it is
+what the model actually sees in normal v5 scoring. The constant was renamed
+from BINDING_MATRIX_V4 at the same time so its name cannot go stale again.
 
 --output has no default: results/tsnadb_crossdomain_benchmark.json is a
 git-tracked artifact, so a bare invocation runs the full benchmark and prints
@@ -31,7 +68,11 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from src.artifact_integrity import load_verified_joblib
+from src.artifact_integrity import (
+    load_verified_joblib,
+    model_provenance_fields,
+    write_provenance_sidecar,
+)
 from src.evaluate_metrics import evaluate, issr_at_k
 from src.train_classifier import prepare_features_31
 
@@ -40,7 +81,7 @@ from src.train_classifier import prepare_features_31
 # ---------------------------------------------------------------------------
 TSNADB_COHORT = os.path.join(PROJECT_ROOT, "data", "tsnadb_crossdomain_cohort.csv")
 HARD_DECOYS = os.path.join(PROJECT_ROOT, "data", "hard_decoys.csv")
-BINDING_MATRIX_V4 = os.path.join(PROJECT_ROOT, "models", "peptide_binding_matrix_v4.csv")
+BINDING_MATRIX_CACHE = os.path.join(PROJECT_ROOT, "models", "peptide_binding_matrix_v5.csv")
 BINDING_MATRIX_OUT = os.path.join(PROJECT_ROOT, "data", "tsnadb_crossdomain_binding.csv")
 MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "rf_31feature_integrated.joblib")
 TRACKED_OUTPUT = os.path.join(PROJECT_ROOT, "results", "tsnadb_crossdomain_benchmark.json")
@@ -135,8 +176,8 @@ def main(argv: list[str] | None = None) -> None:
 
     # 2. Build merged binding matrix
     print("\n[2] Building binding matrix...")
-    bm_v4 = pd.read_csv(BINDING_MATRIX_V4)
-    bm_peps = set(bm_v4["peptide"])
+    bm_cache = pd.read_csv(BINDING_MATRIX_CACHE)
+    bm_peps = set(bm_cache["peptide"])
     missing = [p for p in pool["peptide"] if p not in bm_peps]
     print(
         f"    {len(missing):,} peptides need MHCflurry  "
@@ -145,9 +186,9 @@ def main(argv: list[str] | None = None) -> None:
 
     if missing:
         new_rows = predict_binding(missing)
-        bm_merged = pd.concat([bm_v4, new_rows], ignore_index=True)
+        bm_merged = pd.concat([bm_cache, new_rows], ignore_index=True)
     else:
-        bm_merged = bm_v4.copy()
+        bm_merged = bm_cache.copy()
 
     # Sanity gate: every pool peptide must be covered - guards the silent zero-vector trap
     covered = set(bm_merged["peptide"])
@@ -195,7 +236,7 @@ def main(argv: list[str] | None = None) -> None:
     result = {
         "benchmark": "tsnadb_crossdomain",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
-        "model": os.path.basename(MODEL_PATH),
+        **model_provenance_fields(MODEL_PATH),
         "feature_mode": 31,
         "n_pool": int(len(pool)),
         "n_positive": int(n_pos),
@@ -244,6 +285,13 @@ def main(argv: list[str] | None = None) -> None:
     }
 
     maybe_write_json(result, args.output)
+    if args.output:
+        sidecar = write_provenance_sidecar(
+            args.output,
+            script="scripts/eval_tsnadb_crossdomain.py",
+            extra=model_provenance_fields(MODEL_PATH),
+        )
+        print(f"Provenance written to {sidecar}")
 
 
 def maybe_write_json(result: dict, output_path: str | None) -> None:
@@ -252,12 +300,17 @@ def maybe_write_json(result: dict, output_path: str | None) -> None:
     Kept as its own function (rather than inlined at the end of main()) so
     the write-or-skip decision is testable without running the full
     MHCflurry/model-scoring pipeline that produces `result`.
+
+    Writes with newline="" so the LF json.dump produces is not rewritten to
+    CRLF on Windows - otherwise the sha256 a provenance sidecar records for
+    this file would be a Windows-only hash (see .gitattributes eol=lf pin).
     """
     if not output_path:
         return
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w") as fh:
+    with open(output_path, "w", encoding="utf-8", newline="") as fh:
         json.dump(result, fh, indent=2)
+        fh.write("\n")
     print(f"\nResults written to {output_path}")
 
 

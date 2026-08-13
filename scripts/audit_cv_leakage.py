@@ -469,9 +469,24 @@ def _write_provenance(output_path: Path, dataset_path: Path, n_rows: int) -> Non
         dataset_rel = dataset_path.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
         dataset_rel = dataset_path.name
+    try:
+        out_rel = output_path.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        out_rel = output_path.name
     provenance = {
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "script": "scripts/audit_cv_leakage.py",
+        # The artifact's OWN hash and an explicit pointer to it. Recording only
+        # the INPUT hash (dataset_sha256, below) leaves the integrity harness's
+        # provenance check with nothing to verify - it looks for `sha256` and
+        # resolves the artifact from `artifact`/`file`. Added 2026-08-12 with the
+        # same fix on scripts/assess_calibration.py. The committed sidecar still
+        # lacks these fields and will keep reporting SKIP (no-checksum) until
+        # this audit is next regenerated, which is deliberate: regenerating it
+        # means retraining, and this change exists so that regeneration does not
+        # silently re-create the gap.
+        "artifact": out_rel,
+        "sha256": _sha256_file(output_path),
         "dataset_path": dataset_rel,
         "dataset_sha256": _sha256_file(dataset_path),
         "random_state": RANDOM_STATE,

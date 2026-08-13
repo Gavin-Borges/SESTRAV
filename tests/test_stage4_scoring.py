@@ -202,6 +202,150 @@ def test_apply_calibration_isotonic_preferred_over_platt(monkeypatch, tmp_path):
     assert resolved.endswith("isotonic_calibrator.joblib")
 
 
+# ---------------------------------------------------------------------------
+# Per-virus calibration (A1-B). No per-virus calibrator has been promoted to
+# any real location - these tests exercise the resolver/dispatcher logic in
+# isolation with a tmp_path standing in for a promoted per_virus_dir. The
+# central property under test: an unrecognised or off-panel virus must behave
+# IDENTICALLY to no virus at all, because the fallback fires from file
+# ABSENCE, not from a virus allow-list.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_calibrator_path_per_virus_when_file_exists(tmp_path):
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    pv_dir = tmp_path / "per_virus"
+    pv_dir.mkdir()
+    (pv_dir / "SARS-CoV-2.joblib").write_bytes(b"stub")
+
+    resolved = s4._resolve_calibrator_path(
+        str(model_dir), virus="SARS-CoV-2", per_virus_dir=str(pv_dir)
+    )
+    assert resolved == str(pv_dir / "SARS-CoV-2.joblib")
+
+
+def test_resolve_calibrator_path_sanitizes_virus_for_the_filename(tmp_path):
+    """HIV-1 must resolve safely; the hyphen is allowed by _sanitize_name, but
+    the lookup must go through the same sanitizer as the writer or a promoted
+    file could silently never be found."""
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    pv_dir = tmp_path / "per_virus"
+    pv_dir.mkdir()
+    (pv_dir / "HIV-1.joblib").write_bytes(b"stub")
+
+    resolved = s4._resolve_calibrator_path(str(model_dir), virus="HIV-1", per_virus_dir=str(pv_dir))
+    assert resolved == str(pv_dir / "HIV-1.joblib")
+
+
+def test_resolve_calibrator_path_falls_back_to_global_when_per_virus_file_missing(tmp_path):
+    """No file for this virus -> falls through to the global lookup, same as
+    if virus had never been passed at all."""
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    (model_dir / "isotonic_calibrator.joblib").write_bytes(b"stub")
+    pv_dir = tmp_path / "per_virus"
+    pv_dir.mkdir()  # exists, but no matching file inside it
+
+    resolved = s4._resolve_calibrator_path(
+        str(model_dir), virus="SARS-CoV-2", per_virus_dir=str(pv_dir)
+    )
+    assert resolved == str(model_dir / "isotonic_calibrator.joblib")
+
+
+def test_resolve_calibrator_path_off_panel_virus_matches_no_virus_exactly(tmp_path):
+    """An unrecognised virus name is not a special case - it is simply a name
+    with no matching file, so it must resolve identically to virus=None."""
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    (model_dir / "isotonic_calibrator.joblib").write_bytes(b"stub")
+    pv_dir = tmp_path / "per_virus"
+    pv_dir.mkdir()
+    (pv_dir / "SARS-CoV-2.joblib").write_bytes(b"stub")  # a different virus is promoted
+
+    with_unknown_virus = s4._resolve_calibrator_path(
+        str(model_dir), virus="Nipah", per_virus_dir=str(pv_dir)
+    )
+    with_no_virus = s4._resolve_calibrator_path(str(model_dir), virus=None, per_virus_dir=str(pv_dir))
+    assert with_unknown_virus == with_no_virus == str(model_dir / "isotonic_calibrator.joblib")
+
+
+def test_resolve_calibrator_path_explicit_override_wins_over_per_virus(tmp_path):
+    """The pre-existing explicit-config-path contract is unaffected by virus:
+    it wins regardless, matching how it already wins over the global lookup."""
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    pv_dir = tmp_path / "per_virus"
+    pv_dir.mkdir()
+    (pv_dir / "SARS-CoV-2.joblib").write_bytes(b"stub")
+    explicit = tmp_path / "elsewhere.joblib"
+    explicit.write_bytes(b"stub")
+
+    resolved = s4._resolve_calibrator_path(
+        str(model_dir), calibration_path=str(explicit), virus="SARS-CoV-2", per_virus_dir=str(pv_dir)
+    )
+    assert resolved == str(explicit)
+
+
+def test_apply_calibration_per_virus_and_global_give_different_scores(monkeypatch, tmp_path):
+    """Functional proof the per-virus branch is actually exercised, not merely
+    resolved: two differently-fitted calibrators must produce different output
+    for the same raw scores."""
+    from sklearn.isotonic import IsotonicRegression
+
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    (model_dir / "isotonic_calibrator.joblib").write_bytes(b"stub")
+    pv_dir = tmp_path / "per_virus"
+    pv_dir.mkdir()
+    (pv_dir / "SARS-CoV-2.joblib").write_bytes(b"stub")
+
+    global_iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(
+        [0.0, 0.5, 1.0], [0.0, 0.1, 1.0]
+    )
+    per_virus_iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(
+        [0.0, 0.5, 1.0], [0.0, 0.9, 1.0]
+    )
+
+    def _fake_load(path, required_checksum=True):
+        return per_virus_iso if str(pv_dir) in str(path) else global_iso
+
+    monkeypatch.setattr(s4, "load_verified_joblib", _fake_load)
+
+    scores = np.array([0.5])
+    per_virus_out, per_virus_applied = s4._apply_calibration(
+        scores, str(model_dir), virus="SARS-CoV-2", per_virus_dir=str(pv_dir)
+    )
+    global_out, global_applied = s4._apply_calibration(scores, str(model_dir))
+
+    assert per_virus_applied is True and global_applied is True
+    assert per_virus_out[0] != global_out[0]
+    assert per_virus_out[0] == pytest.approx(0.9)
+    assert global_out[0] == pytest.approx(0.1)
+
+
+def test_apply_calibration_no_virus_arg_reproduces_pre_existing_behaviour(monkeypatch, tmp_path):
+    """Callers that never pass virus/per_virus_dir (every call site before A1-B)
+    must see byte-identical behaviour - this is the backward-compatibility
+    contract the whole feature is built on top of."""
+    from sklearn.isotonic import IsotonicRegression
+
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    (model_dir / "isotonic_calibrator.joblib").write_bytes(b"stub")
+    iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit([0.0, 1.0], [0.0, 1.0])
+    monkeypatch.setattr(s4, "load_verified_joblib", lambda p, required_checksum=True: iso)
+
+    scores = np.array([0.1, 0.5, 0.9])
+    out_old_call_shape, applied_old = s4._apply_calibration(scores, str(model_dir))
+    out_new_call_shape, applied_new = s4._apply_calibration(
+        scores, str(model_dir), calibration_path=None, virus=None, per_virus_dir=None
+    )
+    assert applied_old == applied_new is True
+    assert np.array_equal(out_old_call_shape, out_new_call_shape)
+
+
 def test_apply_calibration_explicit_path(monkeypatch, tmp_path):
     """An explicit calibration_path takes precedence over model-dir search."""
     from sklearn.isotonic import IsotonicRegression

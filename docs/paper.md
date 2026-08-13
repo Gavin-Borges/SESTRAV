@@ -2,7 +2,7 @@
 title: "SESTRAV: A Leave-One-Virus-Out Immunogenicity Benchmark Reveals Systematic Test Partition Contamination in Cross-Pathogen MHC Class I Prediction"
 target_journal: Bioinformatics (Oxford Academic)
 last_updated: 2026-08-10
-status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts - with a known exception: the calibration ECE pair in Section 3.2 cites _local/staging/calibration_assessment.csv, which is gitignored and does not ship, so those two figures are not reader-reproducible and are pending promotion to a tracked results/ artifact. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) is a 2026-05 30-feature figure whose 720-peptide corpus has zero duplicate peptides, so peptide-grouping is a no-op on it and the D15 exact-duplicate leakage finding does not apply; it instead carries a disclosed, unquantified substring-homology risk (D16/D22, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). See docs/claims_register.md for the full register
+status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts. The Section 3.2 calibration figures were corrected on 2026-08-12 (D24): the pair previously reported there was computed before the 2026-08-10 peptide-grouped re-baseline and did not survive it, and it cited a gitignored staging file that did not in fact contain it. Calibration is now assessed by scripts/assess_calibration.py, bound to results/calibration_assessment_v5_mode31.csv, and reported as a limitation rather than a benefit. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) is a 2026-05 30-feature figure whose 720-peptide corpus has zero duplicate peptides, so peptide-grouping is a no-op on it and the D15 exact-duplicate leakage finding does not apply; it instead carries a disclosed, unquantified substring-homology risk (D16/D22, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). See docs/claims_register.md for the full register
 ---
 
 ## Abstract
@@ -11,10 +11,12 @@ SESTRAV (Structural Epitope Scoring via TCR Recognition and Vaccinology) is a
 six-stage governed computational workflow for MHC class I CD8+ T-cell
 immunogenicity prediction, providing reproducible, auditable infrastructure for
 antigen prioritization across emerging pathogens. Binding affinity to MHC class I
-is necessary but not sufficient for T-cell activation, yet no published
-immunogenicity predictor has reported a systematic leave-one-pathogen-out (LOO)
-benchmark evaluating cross-virus transfer on assay-confirmed test negatives
-exclusively. SESTRAV trains a Random Forest on 35,597 quality-filtered
+is necessary but not sufficient for T-cell activation, yet cross-pathogen transfer
+is rarely benchmarked. Where held-out-pathogen evaluation has been reported it was a
+supplementary single-allele analysis [25] or a two-pathogen split whose negative set
+mixes assay-confirmed peptides with presumed-tolerised self ligands [26]. We report a
+nine-pathogen, pan-allele leave-one-virus-out (LOO) benchmark with test negatives
+restricted to assay-confirmed IEDB negatives. SESTRAV trains a Random Forest on 35,597 quality-filtered
 peptide-HLA pairs - 13,358 from nine human-pathogenic target viruses plus 22,239
 real IEDB-confirmed negative-background pairs from additional non-target species,
 dominated by Orthopoxvirus vaccinia (21,432 pairs, 60.2% of the active pool) -
@@ -72,8 +74,9 @@ introduced TCR-contact amino acid composition features and showed modest improve
 over binding-only baselines, but was evaluated on a single assay compilation without
 systematic cross-pathogen testing. BigMHC [5] applied deep learning
 transfer from large-scale MHC binding data to immunogenicity scoring and achieved
-strong performance on a curated benchmark, though training data composition was not
-fully disclosed and no leave-one-pathogen-out evaluation was reported. T-SCAPE
+strong performance on a curated benchmark, though its immunogenicity training set is
+predominantly neoepitopes (5,279 of 6,873 experimentally validated examples) and no
+leave-one-pathogen-out evaluation was reported. T-SCAPE
 [6] developed a statistical immunogenicity scoring framework
 demonstrating improvement over binding tools, but similarly confined its validation to
 within-pathogen experimental data. Across these tools, the evaluation paradigm is
@@ -85,10 +88,26 @@ exists. For emerging or rare viruses, a predictor must generalize from immunogen
 patterns learned on other pathogens, a zero-shot transfer task that within-pathogen
 cross-validation cannot measure. Stratifying test peptides by fold rather than by
 pathogen conflates discriminating among peptides of an already-characterized virus with
-discriminating entirely unseen peptides from a new one. To our knowledge, no published
-MHC class I immunogenicity predictor has reported a systematic leave-one-virus-out
-(LOO) benchmark in which a separate model is retrained for each held-out pathogen and
-evaluated solely on that pathogen's labelled data.
+discriminating entirely unseen peptides from a new one.
+
+Cross-validation in this field is most often random, or stratified by HLA allele or by
+study: PRIME2.0 reports leave-one-allele-out and leave-one-study-out cross-validation
+[20]. Pathogen-level holdout has been reported, but narrowly. Bravi et al. performed
+leave-one-organism-out cross-validation for a single-allele generative model as a
+supplementary robustness check, reporting a mean AUC of 0.68 on assay-confirmed
+negatives [25]. TRAP trained separate models excluding SARS-CoV-2 and vaccinia virus
+respectively, but its negative set combines assay-confirmed pathogen negatives with
+thymically expressed self ligands that were never assay-tested [26]. Neither reports a
+multi-pathogen, pan-allele panel with test negatives restricted to assay-confirmed
+records, which is the protocol we adopt here.
+
+That transfer across pathogens is difficult is itself established rather than novel:
+Buckley et al. benchmarked nine published models on a compiled panel of assay-confirmed
+SARS-CoV-2 CD8+ T-cell epitopes and found that none performed substantially better than
+random, or improved appreciably on HLA ligand prediction [27]. The present work
+generalises that result from one pathogen to a nine-pathogen panel, and its distinct
+contribution is methodological - the quantification of a test-partition contamination
+effect described below.
 
 Here we present SESTRAV (Structural Epitope Scoring via TCR Recognition and
 Vaccinology), a computational workflow for MHC class I CD8+ T-cell immunogenicity
@@ -104,8 +123,9 @@ protein language model embeddings [8] is evaluated as a research
 component. We evaluate SESTRAV under within-virus stratified cross-validation and, as
 the primary generalization benchmark, a virus-level LOO protocol in which a separate
 Random Forest was retrained for each of the nine pathogens on data from the remaining
-eight viruses combined with human self-proteome hard decoys, then evaluated on the
-held-out pathogen using exclusively real IEDB assay-confirmed negatives. We report two
+eight viruses, together with the out-of-panel negative background and human
+self-proteome hard decoys, then evaluated on the held-out pathogen using exclusively
+real IEDB assay-confirmed negatives. We report two
 findings: first, we identify and correct a systematic test partition flaw in which
 allelotype-matched non-binding viral proteome decoys in LOO test sets artificially
 inflate AUC-ROC by 0.25-0.50 points for the affected pathogens; second, after
@@ -411,8 +431,8 @@ to an entirely unseen pathogen - the realistic deployment scenario for emerging-
 surveillance - a virus-level leave-one-out (LOO) evaluation was conducted. This design
 is conceptually related to leave-one-out cross-validation at the sample level, but
 here the unit of exclusion is the complete labelled set for one virus, not a single
-peptide. To our knowledge, no published MHC class I immunogenicity predictor has
-reported a systematic virus-level LOO benchmark.
+peptide. Pathogen-level holdout has precedent in this field but not at panel scale on
+assay-confirmed negatives alone; Section 1 states the position and cites it [25,26].
 
 **Eligibility criteria.** A pathogen was eligible for inclusion in the LOO evaluation
 if its representation in the v5 active dataset met a minimum class-balance requirement:
@@ -425,14 +445,26 @@ Epstein-Barr virus (EBV), hepatitis B virus (HBV), hepatitis C virus (HCV), HIV-
 human papillomavirus (HPV), influenza A virus (IAV), and SARS-CoV-2.
 
 **Fold construction.** Nine LOO folds were defined, one per eligible pathogen. In each
-fold, the training set comprised all active rows from the eight non-held-out pathogens,
-augmented with human self-peptide decoys (rows with source_type = "Self") drawn from
-the v5 dataset. Self-peptide decoys were included in training in all nine folds and
-were never assigned to any test set. The test set for each fold comprised all active
-rows from the held-out pathogen exclusively. No random subsampling was applied; the
-full active row complement for each pathogen was used in both training and evaluation.
-The training set further included 5,000 human self-proteome hard decoys in all nine
-folds.
+fold, the training set comprised all active rows from the eight non-held-out pathogens
+together with the out-of-panel negative-background rows described in Section 2.1, and
+was augmented with the 5,000 human self-peptide decoys (rows with source_type = "Self")
+drawn from the v5 dataset. Those 5,000 decoys are a single set, included in training in
+all nine folds and never assigned to any test set. The out-of-panel bloc is the larger
+part of the viral training pool and is not incidental: in the CMV fold, for example,
+22,239 of the 34,243 active viral training rows (65%) come from species outside the
+nine-pathogen panel, chiefly Orthopoxvirus vaccinia (the fold total is n_train_viral in
+results/loo_cross_virus_v5_clean.csv; the out-of-panel count is the off_panel scope of
+results/calibration_assessment_v5_mode31.csv and is derivable from
+data/immunogenicity_dataset_v5.csv). Descriptions of LOO training as fitting on
+"the remaining eight viruses" therefore refer to the panel composition, not to the
+whole training pool.
+
+The test set for each fold comprised the active rows from the held-out pathogen, with
+one deliberate exclusion described below: allele-matched non-binder decoys derived from
+the held-out virus were withheld from the test partition. That exclusion is substantial
+in six of the nine folds, ranging from 300 rows (CMV, EBV) to 1,000 (DENV), and is zero
+for HBV, HCV and HPV (n_allele_nb_excluded in results/loo_cross_virus_v5_clean.csv).
+No random subsampling was applied.
 
 **Contamination control.** To prevent data leakage from canonical benchmark epitopes
 into the training procedure, any peptide appearing in the GOLD_STANDARD_EPITOPES set
@@ -485,7 +517,12 @@ Molecular Immunology Database. Following quality filtering, 35,597 rows are desi
 active for model training; quarantine filtering removes rows for several reasons, most of
 them population-scope decisions - self-proteome and unidentified-source rows are excluded
 by design (8,811 and 4,577 rows respectively), and off-target or insufficiently-depth
-viruses are quarantined below fixed per-virus thresholds (Section 2.1). Within the nine
+viruses are quarantined below fixed per-virus thresholds (Section 2.1). The 8,811
+self-proteome rows counted here are those carrying virus = "Self", which is a wider set
+than the 5,000 UniProt-derived hard decoys added to LOO training in Section 2.5
+(source_type = "Self"): the remaining 3,811 are human self-peptides drawn from IEDB
+assay records. All 8,811 are quarantined, so neither subset enters within-virus
+cross-validation. Within the nine
 target viruses' own labelled data, allele-ambiguity is the only quarantine mechanism that
 applies: a row is quarantined if its HLA field cannot be resolved to a single canonical
 four-digit subtype. For example, 27 of EBV's 31 quarantined rows report only the fully
@@ -502,9 +539,11 @@ Section 2.1.
 
 The canonical mode-31 Random Forest classifier (20 physicochemical descriptors at
 TCR-contact positions p4-p8, 10 allele-stratified MHCflurry 2.0 presentation scores,
-and peptide length) was trained on all 35,597 active v5 rows under peptide-grouped 5-fold
+and peptide length) was cross-validated on 35,555 rows under peptide-grouped 5-fold
 cross-validation (`src.ml_utils.PeptideGroupedKFold`, re-baselined 2026-08-10, closing
-`docs/claims_register.md` D15 - see below). The pooled mixed-background out-of-fold
+`docs/claims_register.md` D15 - see below). That pool is the 35,597 active v5 rows less the
+42 gold-standard holdout rows withheld from training by the contamination control of Section
+2.2 (EBV 37, HPV 5); the production model was subsequently refitted on all 35,597. The pooled mixed-background out-of-fold
 performance was AUC-ROC 0.814 and AUC-PR 0.606 (models/v5/training_results_mode31.csv),
 reflecting discrimination between immunogenic viral peptides and a mixed negative
 background when all nine viruses contribute jointly to training. **That background is
@@ -682,22 +721,39 @@ n=12. We accordingly lead per-virus quality assessment with the real-neg-only AU
 its real-negative count, flagging DENV (n=12), HIV-1 (n=60), and EBV (n=72) as
 low-real-negative and provisional.
 
-Score calibration. The production scorer applies a cross-validated isotonic calibration layer
-fitted on out-of-fold predictions. Across the pooled active set, the isotonic layer improves
-the global Expected Calibration Error (ECE) from about 0.028 to about 0.003, and per-virus ECE
-improves for 8 of the 9 target viruses (all except IAV, whose per-virus ECE change is within
-noise; _local/staging/calibration_assessment.csv). Because isotonic calibration is a monotonic
-transform of the score, it leaves the rank ordering of predictions - and therefore every
-AUC-ROC reported in this section - unchanged; it improves only the reliability of the
-probability estimates used for shortlisting.
+Score calibration. The production scorer applies an isotonic calibration layer fitted on
+out-of-fold predictions. We assess it by cross-fitting that layer over peptide-grouped folds,
+so that no row is calibrated by a model that saw its peptide
+(results/calibration_assessment_v5_mode31.csv). Pooled over all 35,555 out-of-fold rows the
+layer appears to reduce the Expected Calibration Error (ECE) from 0.060 to 0.005, but that
+pooled figure is an artifact of cancellation and is not evidence of reliability. The pool
+mixes two populations that are miscalibrated in opposite directions: in every score bin the
+nine target viruses are under-confident while the 22,239 out-of-panel rows (62.5% of the pool,
+carrying 18 positives between them) are over-confident, so the two errors offset. Assessed
+separately neither population is well calibrated - the out-of-panel rows reach ECE 0.140 - and
+the pooled value is therefore lower than either of its components rather than intermediate
+between them. On the nine target viruses (n = 13,316), which is the population these results
+are about, calibration does not improve at all: ECE moves from 0.227 to 0.235, and of the nine
+only HBV improves individually. We therefore report calibration as a current limitation rather
+than a benefit. The out-of-panel ECE is itself a degenerate statistic at a positive rate of
+0.0008, where it reduces to little more than the mean predicted score; we quote it only to
+characterise the pooled figure, not as a calibration result in its own right. This is the
+pooled-versus-panel distinction recorded for the mixed-background discrimination figure
+(docs/claims_register.md D19), one level deeper: there the pooled figure was dominated by an
+easier subpopulation, whereas here it is lower than both subpopulations. Finally, isotonic
+calibration is monotone non-decreasing rather than strictly monotonic: it preserves the weak
+ordering of scores but collapses distinct scores into ties, so it is not AUC-preserving. The
+AUC-ROC values reported in this section are computed on raw out-of-fold scores and are
+unaffected by calibration for that reason.
 
 
 ### 3.3 Leave-One-Virus-Out Generalization and Test Partition Validity
 
 To evaluate cross-virus transfer under a realistic deployment scenario, a leave-one-virus-out
 (LOO) benchmark was conducted (Section 2.5). For each of the nine eligible pathogens, a
-mode-31 RF was retrained from scratch on the remaining eight viruses combined with 5,000
-self-proteome hard decoys, then evaluated on the held-out virus. A critical methodological
+mode-31 RF was retrained from scratch on the remaining eight viruses, the out-of-panel
+negative background, and 5,000 self-proteome hard decoys, then evaluated on the held-out
+virus (Section 2.5 gives the pool composition). A critical methodological
 finding emerged in the construction of LOO test partitions: viral proteome decoys carrying
 the label negative_origin = allele_matched_nonbinder (3,112 rows in v5) were included in
 test partitions under the initial LOO protocol. Despite the label, these decoys are not
@@ -1261,3 +1317,9 @@ Immunology Database data are available at https://www.hiv.lanl.gov/content/immun
 23. Marzella DF, Parizi FM, van Tilborg D, Renaud N, Koelman JFM, Hekkelman ML, de Ridder D, Abreu R, de Bruijn R, Xue LC, Bonvin AMJJ. PANDORA: A Fast, Anchor-Restrained Modelling Protocol for Peptide:MHC Complexes. Front Immunol. 2022;13:878762. doi:10.3389/fimmu.2022.878762
 
 24. Gonzalez-Galarza FF, McCabe A, Santos EJMD, Jones J, Takeshita L, Ortega-Rivera ND, et al. Allele frequency net database (AFND) 2020 update: gold-standard data classification, open access genotype data and new query tools. Nucleic Acids Res. 2020;48(D1):D783-D788. doi:10.1093/nar/gkz1029
+
+25. Bravi B, Di Gioacchino A, Fernandez-de-Cossio-Diaz J, Walczak AM, Mora T, Cocco S, et al. A transfer-learning approach to predict antigen immunogenicity and T-cell receptor specificity. eLife. 2023;12:e85126. doi:10.7554/eLife.85126
+
+26. Lee CH, Huh J, Buckley PR, Jang M, Pereira Pinho M, Fernandes RA, et al. A robust deep learning workflow to predict CD8+ T cell epitopes. Genome Med. 2023;15:70. doi:10.1186/s13073-023-01225-z
+
+27. Buckley PR, Lee CH, Ma R, Woodhouse I, Woo J, Tsvetkov VO, et al. Evaluating performance of existing computational models in predicting CD8+ T cell pathogenic epitopes and cancer neoantigens. Brief Bioinform. 2022;23(3):bbac141. doi:10.1093/bib/bbac141

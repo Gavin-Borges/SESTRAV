@@ -1,6 +1,6 @@
 ---
 title: "SESTRAV Model Performance and Reproducibility Report"
-subtitle: "LOPO Validation, Statistical Consensus, and Explainability Analysis"
+subtitle: "HISTORICAL 2026-06-08 SNAPSHOT - reports RETRACTED metrics, see banner"
 author: "SESTRAV Pair-Programming Agent"
 date: "2026-06-08"
 format:
@@ -11,19 +11,68 @@ format:
     embed-resources: true
 ---
 
+> **HISTORICAL DOCUMENT - DO NOT CITE ANY FIGURE BELOW. Dated 2026-06-08, superseded on
+> four independent grounds (claims register D23).**
+>
+> 1. **The metrics it renders are RETRACTED.** Section 2 reads `models/training_results.csv`
+>    live at render time, which holds AUC-ROC **0.9429** / AUC-PR **0.8312** - both retracted by
+>    **D15** as peptide-leakage-inflated. The certified replacements are AUC-ROC **0.8137** /
+>    AUC-PR **0.6058** (`models/v5/training_results_mode31.csv`). Because those numbers are read
+>    from a CSV at render time rather than written into this document, the repository's
+>    retracted-token sweep could not see them: it scans source text for literals, and until this
+>    banner was added there was no literal here to match. The two figures quoted above are the
+>    first occurrences in this file, written deliberately so the sweep now has something to find.
+> 2. **This is not a LOPO run.** The artifact it renders was produced by 5-fold
+>    `MultiStratifiedKFold`, not `LeaveOneGroupOut` - evidenced by the matching out-of-fold export
+>    `models/rf_oof_predictions.csv` (Section 3's input), whose `fold` column holds only 1..5,
+>    where LOPO would have emitted one fold per protein group. The
+>    `--lopo` flag is opt-in, is named in no tracked workflow or config, and produced none of the
+>    tracked artifacts. Every "LOPO" label applied to THESE RESULTS is therefore a mislabel (the banner's own references to LOPO, including this one, describe the claim rather than assert it).
+> 3. **LOPO would not have delivered protein isolation anyway (D20).** It groups on the
+>    `protein` column that `train_models()` overwrites, which is `SYNTH_<peptide>` for 97.9% of
+>    rows. That key is the peptide itself, so LOPO collapses to leave-one-*peptide*-out and
+>    peptides genuinely sharing a parent protein land in *different* folds - the opposite of
+>    protein isolation. It incidentally provides exact-peptide isolation (the weaker D15
+>    guarantee) under a stronger label. This remains true after D20's fix: 77.7% of active rows
+>    still resolve to `SYNTH_`.
+> 4. **It mislabels the feature count.** Section 2 called this a "30-feature" run; the artifact is a
+>    **31-feature** run - `models/feature_importances.csv` has 31 rows and
+>    `models/rf_oof_predictions.csv` carries `feature_mode = 31`. Those two and the rendered
+>    `models/training_results.csv` were all written by the same commit `d3972f7`, and that OOF
+>    export's fold-mean reproduces, to six decimals, the same retracted pair quoted in ground 1
+>    above - so all three files are one run, and it is a 31-feature one.
+>
+> Retained as the dated record of what was believed on 2026-06-08, with its three numbered claims
+> verbatim and its compliance matrix unchanged apart from item 4. **Four strings WERE replaced, so
+> "unrewritten" would be false:** this subtitle, this list's lead-in sentence, Section 2's
+> "30-feature ... LOPO" label, and compliance item 4 - which is itself part of the matrix, so the
+> matrix is not wholly verbatim either. Each is quoted in D23. Three further lines (the numbered
+> claims) were left intact and only annotated. For current certified metrics see
+> `docs/model_evaluation_summary.md` and the claims register.
+
 ## 1. Executive Summary
 
 This report documents the results of Phase 3 and Phase 4 of the SESTRAV ML model engineering workflow.
-To prevent training leakages, we implemented:
-1. A **peptide-to-parent-protein mapper** using the panel8 FASTA sequences.
-2. A **Leave-One-Protein-Out (LOPO)** cross-validation split strategy to ensure that no peptides belonging to the same protein span the training and validation splits.
-3. A **paired bootstrap significance test** (N=10,000 resamples) to compare performance between classifiers.
+At the time of writing, the following were believed to prevent training leakage. **All three claims below are false as stated - see the banner
+above and item 3's own note. They are preserved verbatim as the historical record, not restated as
+current fact.**
+1. A **peptide-to-parent-protein mapper** using the panel8 FASTA sequences. *(Resolved 798 of the
+   35,597 rows it actually processed - 2.24%, EBV/HPV only - so it was not a working leakage
+   control: D20.)*
+2. A **Leave-One-Protein-Out (LOPO)** cross-validation split strategy to ensure that no peptides belonging to the same protein span the training and validation splits. *(Not the splitter that produced these results, and degenerate even if it had been: D20.)*
+3. A **paired bootstrap significance test** (N=10,000 resamples) to compare performance between classifiers. *(The test is real, but this line is wrong twice: Section 3 below states N = 1,000 and its code cell runs `n_resamples=1000`, never 10,000; and a significance test is not a leakage control, so it does not belong in this list at all.)*
 
 ---
 
 ## 2. Cross-Validation Performance Metrics
 
-Below are the results of the 30-feature Leave-One-Protein-Out (LOPO) cross-validation evaluation for both RandomForest and XGBoost classifiers.
+Below are the results of the cross-validation evaluation for both RandomForest and
+XGBoost classifiers. **The original sentence here said "30-feature ... Leave-One-Protein-Out (LOPO)";
+both labels are wrong.** The file it renders is a 31-feature run - `models/feature_importances.csv`
+has 31 rows and `models/rf_oof_predictions.csv` carries `feature_mode = 31`, all three written by
+the same commit `d3972f7`. **These are RETRACTED figures (D15) from a 5-fold `MultiStratifiedKFold` run,
+not LOPO - do not cite them.** The table is rendered live from
+`models/training_results.csv` and is reproduced only to document what this 2026-06-08 report showed.
 
 ```{python}
 #| echo: false
@@ -122,5 +171,5 @@ Compliance matrix for the publication-grade pipeline:
 1. **[x] Source Control & Versioning**: All scripts, environments, and pipeline definitions are tracked in Git.
 2. **[x] Immutable Ingest Validation**: Dataset checks are governed by QC gate scripts enforcing hashes.
 3. **[x] Isolated Environments**: Conda and requirements file definitions freeze packages.
-4. **[x] Leakage-Proof CV splits**: Implemented Leave-One-Protein-Out (LOPO) cross-validation to isolate proteins.
+4. **[ ] Leakage-Proof CV splits**: ~~Implemented Leave-One-Protein-Out (LOPO) cross-validation to isolate proteins.~~ **RETRACTED (D15, D20).** This box was checked in error on three counts: the results here came from `MultiStratifiedKFold`, not LOPO; that splitter was *ungrouped*, which is the D15 peptide-leakage defect itself; and LOPO would not have isolated proteins regardless, because it groups on an overwritten column that is `SYNTH_<peptide>` for 97.9% of rows. The certified leakage control is `PeptideGroupedKFold` (`--cv-group-by peptide`, the current default), shipped 2026-08-10 in Phase 0.
 5. **[x] Reproducibility Manifest**: Generates metadata capturing pipeline states and code commit.

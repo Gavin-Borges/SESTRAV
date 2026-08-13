@@ -2,7 +2,7 @@
 
 ## Inputs
 - Dataset: `data/immunogenicity_dataset_v3.csv`
-- Integrated model template: `models/rf_30feature_integrated.joblib`
+- Integrated model template: `models/rf_30feature_integrated.joblib` (sha256: `9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3`)
 - Binding matrix: `models/peptide_binding_matrix_v3.csv`
 - CV: StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 - Splitter note: this is a label-only (ungrouped) splitter, but it is **peptide-disjoint

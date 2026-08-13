@@ -312,12 +312,86 @@ def prepare_features_166(df, binding_matrix_path):
 
 
 def load_all_proteins():
-    """Parse panel8 proteome FASTAs and full UniProt FASTAs to get protein name -> sequence mapping."""
+    """Parse panel8/panel4/panel1 proteome FASTAs and full UniProt FASTAs to get protein name -> sequence mapping.
+
+    THIS LIST IS A SECOND SOURCE OF TRUTH AND IT ONCE DIVERGED (D20).
+    config.yaml's `proteome_files` map registers 8 of these files
+    independently, and this hardcoded list drifted out of step with it:
+    through 2026-08-12 it named only the 4 EBV/HPV files, so peptides from the
+    other target viruses could never resolve to a real parent protein no
+    matter what config.yaml said. It is NOT the case that those proteomes were
+    unused elsewhere - config.yaml registered them and src/naming.py carried
+    their canonical IDs, which is why the gap survived review. The
+    config -> loader direction is pinned mechanically by
+    tests/test_train_classifier.py::test_config_proteomes_are_all_loaded (only
+    that direction: extra files here are legal, so the gate is deliberately not
+    a two-way sync);
+    config.yaml is deliberately NOT read directly here, because it is not a
+    superset - DENV2_NGC_panel1.fasta and both *_uniprot_reviewed.fasta files
+    are absent from it, so sourcing this list from config alone would silently
+    drop 3 of the 11 files.
+
+    Scope of the pre-fix defect, stated precisely: it affects 12,339 of 35,597
+    active rows (34.7%) belonging to the 7 newly-covered viruses, of which
+    7,139 (57.9%) now resolve, PLUS 8 rows in two viruses this list still does
+    not cover (YFV 4, ZIKV 4) that now resolve to DENV's POLG_DEN27 by
+    cross-species homology - see the mis-attribution note below. It is NOT the
+    explanation for the 97.9% SYNTH_ rate in the shipped
+    models/rf_oof_predictions_mode31.csv: 21,432 of those rows are
+    Orthopoxvirus vaccinia, which has no proteome FASTA in this repository at
+    all, so 77.7% of active rows still resolve to SYNTH_ after this fix.
+
+    The human proteome (data/proteomes/human_uniprot_UP000005640.fasta) is
+    deliberately NOT included, for two reasons, in this order.
+    (1) COST: the consuming scan - in train_models, not in this function - is
+    O(rows x proteins) and iterates every ROW rather than every unique peptide,
+    with no memoisation, so adding a file of 20,416 sequences to this list's 103
+    dominates the runtime. An earlier version of this docstring called that
+    "impractically slow"; that was an unmeasured assertion and is retracted. No
+    figure is substituted, because no recorded measurement exists to cite -
+    treat the cost as unquantified, and reason (2) as the sufficient one.
+    (2) IT WOULD DO ACTIVE HARM, not merely add weight. An earlier version of
+    this docstring claimed "every row it could serve is a Self row", which is
+    FALSE and is retracted: no Self row reaches the scan (all 8,811 are dropped
+    by _filter_quarantined() at the top of train_models, before this function is
+    called), but 109 active rows across 35 distinct peptides DO carry a peptide
+    present in the human proteome - 103 Orthopoxvirus vaccinia, 2 DENV, 2 EBV,
+    1 Human betaherpesvirus 6B, 1 SARS-CoV-2. Those 103 vaccinia rows correctly
+    fall to SYNTH_ today; wiring in the human proteome would hand them a human
+    parent protein by substring homology, which is the same mis-attribution
+    channel documented below. So the exclusion is a correctness decision, not
+    just a performance one.
+
+    SECOND LATENT HAZARD IN THIS LIST, disclosed because the sync gate does not
+    cover it: these 11 files hold 107 FASTA records but this function returns
+    103 keys, because `proteins[name] = ...` below silently overwrites on
+    duplicate protein names. Four HPV16 entries (VE2/VE5/VE6/VE7_HPV16) appear
+    in both HPV16_18_panel8.fasta and HPV16_uniprot_reviewed.fasta, and the
+    later file in this list wins. No stated figure is wrong - the code uses
+    len(dict) - but a future *_uniprot_reviewed.fasta added here could shadow a
+    panel entry with no warning. Order in this list is therefore semantic, not
+    cosmetic.
+
+    KNOWN LIMITATION OF THIS MAPPER, disclosed rather than left to be found:
+    the scan is virus-agnostic - it takes the first sequence containing the
+    peptide, with no check that the protein belongs to the row's own virus. On
+    the active corpus that mis-attributes 9 rows (8 distinct peptides): YFV and
+    ZIKV to DENV's POLG_DEN27 (genuine flavivirus homology) and one IAV row to
+    HIV-1 NEF_HV1H2 (an exact 10-mer match, PLTFGWCYKL - too long to be
+    coincidence, most likely a mislabelled source row; no cause is asserted).
+    """
     fasta_files = [
         "data/proteomes/EBV_B95_8_panel8.fasta",
         "data/proteomes/HPV16_18_panel8.fasta",
         "data/proteomes/EBV_B95_8_uniprot_reviewed.fasta",
         "data/proteomes/HPV16_uniprot_reviewed.fasta",
+        "data/proteomes/CMV_AD169_panel4.fasta",
+        "data/proteomes/DENV2_NGC_panel1.fasta",
+        "data/proteomes/HBV_ayw_panel4.fasta",
+        "data/proteomes/HCV_1a_panel4.fasta",
+        "data/proteomes/HIV1_HXB2_panel4.fasta",
+        "data/proteomes/IAV_PR8_panel4.fasta",
+        "data/proteomes/SARSCOV2_wuhan1_panel4.fasta",
     ]
     proteins = {}
     for fpath in fasta_files:

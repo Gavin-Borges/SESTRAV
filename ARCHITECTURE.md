@@ -48,7 +48,7 @@ all driven by the same Snakemake workflow.
 | Track | Model | Status | Role |
 |---|---|---|---|
 | Production | Random Forest / XGBoost ensemble on the 31-feature representation (`mode_31`) | Validated, maintained | Canonical immunogenicity scorer used for ranked output |
-| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (promotion gates not re-evaluated since the 2026-08-10 re-anchor) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
+| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (no out-of-fold-derived gate has a current status: the tracked OOF artifact predates the 2026-08-12 peptide-grouping repair and now fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
 
 Both tracks consume the same physicochemical feature pipeline and the same governed
 training data, which keeps comparisons fair and lets the GNN reuse the production
@@ -227,9 +227,11 @@ The GNN is the v2.0 forward architecture. Two implementations exist in `src/gnn/
 applies `adj @ (x @ W) + b` over a dense adjacency matrix; node features are 20-dim
 one-hot amino acids in `(batch, max_len=11, 20)` shape; two GCN blocks (20 -> 32 -> 64)
 are followed by global mean pooling and fused with a physicochemical dense block. The
-graph builder also supports an optional spatial adjacency
-(`build_spatial_adj`) that reads pre-computed pairwise distance matrices when a structural
-cache is present, falling back to the chain graph otherwise.
+graph builder also carries an optional spatial adjacency (`GraphBuilder.build_spatial_adj`)
+that reads a pre-computed pairwise distance matrix per peptide from
+`structural_cache_dir` and falls back to the chain graph when none is cached. **It is off
+in the shipped configuration** (`use_spatial_adj: false` in `config.yaml`) and is reachable
+only from this v1 path; the v2 PyG path has no spatial builder at all.
 
 ### 6.2 v2.3 (production-candidate research track)
 
@@ -239,7 +241,10 @@ cache is present, falling back to the chain graph otherwise.
 - **Node features:** pre-computed ESM-2 per-residue embeddings (canonical
   `facebook/esm2_t12_35M_UR50D`, 480-dim), produced by
   `scripts/precompute_esm2_embeddings.py` and cached. ESM-2 is never run per batch.
-- **Graph topology:** a per-residue chain graph. Inputs are PyG `Data`/`Batch` objects
+- **Graph topology:** a 1D per-residue chain graph with self-loops
+  (`GraphBuilder.build_pyg_chain_graph`) - each residue is linked only to its sequence
+  neighbours and itself. There is no peptide-MHC contact edge and no spatial adjacency on
+  this path. Inputs are PyG `Data`/`Batch` objects
   with `x` (flat node embeddings), `edge_index` (batch-offset chain edges),
   `edge_attr` (one-hot self-loop / forward / backward), and `physico` (the mode-31
   features). Graphs are variable-length: only real residues become nodes, so
@@ -248,44 +253,89 @@ cache is present, falling back to the chain graph otherwise.
   by mean or attentional aggregation over residue nodes.
 - **Fusion:** the graph embedding is concatenated with the encoded mode-31 features and
   passed through an MLP head to a single immunogenicity logit.
+- **Cross-validation:** folds are peptide-grouped and composite-stratified
+  (`src.ml_utils.PeptideGroupedKFold`, constructed by `build_cv_splits` in
+  `src/train_gnn.py`) at both the v1 and the v2 training entry point, so no peptide
+  appears on both sides of a fold boundary. The GNN track ran an ungrouped
+  `StratifiedKFold` until 2026-08-12; this is the D15 repair that Phase 0 applied to
+  `src/train_classifier.py` finally reaching the second model track.
+- **OOF artifact schema:** `build_oof_records` writes one self-describing row per
+  held-out example - `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. It was
+  previously `peptide,label,gnn_oof_score`. `hla_allele` is written when the corpus
+  supplies it, because `(peptide, hla_allele)` is the v5 dedup key and is what joins
+  the GNN frame one-to-one against `models/v5/rf_oof_predictions_mode31.csv` for a
+  paired comparison; `fold` and `splitter` are per-row rather than in a sidecar so
+  provenance cannot be separated from the scores it describes.
 
-On v4 data the v2.3 GNN reaches mean-fold AUC-PR 0.7281. That figure is not comparable to the current production RF baseline (0.6058): it is a v4-corpus, ungrouped-splitter measurement, whereas the RF figure is v5 and peptide-grouped. It is
-therefore a research track, not the canonical scorer.
+On v4 data the v2.3 GNN once reported a mean-fold AUC-PR of 0.7281. **That figure is
+RETRACTED as unreproducible, not merely superseded** (2026-08-12 re-audit): the tracked
+out-of-fold artifact described below carries no `fold` column at all, so no per-fold
+statistic can ever be recomputed from it, and `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb`
+- the notebook cited as its retrain provenance - has never been executed (every cell shows
+`execution_count: null`, no saved outputs). The number traces to a real one-off A100 run
+(commit `851d4fd`, 2026-06-24) whose training log was never committed, so it survives only
+as a hand-transcription with nothing left to check it against. The pooled AUC-PR from that
+same run, 0.7160, is the one figure that does reproduce (see below) and remains a labeled
+historical measurement under the same D15 ungrouped-splitter caveat, **not comparable to
+any peptide-grouped figure**, including the current production RF baseline (0.6058, v5,
+peptide-grouped); the GNN remains a research track rather than the canonical scorer.
+
+The tracked out-of-fold artifact `models/gnn_oof_predictions.csv` is from that same v4
+era: 14,637 rows over 11,779 unique peptides, carrying the old three-column schema and a
+pooled AUC-PR of 0.7160. Having neither a `splitter` nor a `fold` column, it fails Gate 1
+by precondition and Gate 2 for want of fold identity (see 6.3). A v5 run of
+`src/train_gnn.py` under `PeptideGroupedKFold` is required before any OOF-derived gate can
+be called.
 
 ### 6.3 Promotion gates
 
 `src/verify/promote_gnn.py` enforces five gates before a GNN may mutate `config.yaml` and
 the checksum manifest to become canonical:
 
-| Gate | Criterion | v4 status |
+| Gate | Criterion | Status on the tracked v4 OOF artifact |
 |---|---|---|
-| 1. Discrimination | peptide-grouped 5-fold AUC-PR >= 0.65 | Not re-evaluated under the current gate (v4 figure 0.7281 predates both the 2026-08-10 re-anchor and the grouped splitter) |
-| 2. Stability | Cross-fold standard deviation <= 0.02 | Passed on v4/ungrouped; splitter-dependent, see note |
-| 3. Latency | Inference latency <= 2x the RF baseline | Pass (splitter-independent) |
-| 4. Calibration | Expected calibration error < 0.05 | Passed on v4/ungrouped; splitter-dependent, see note |
-| 5. Escape sensitivity | Escape-variant sensitivity >= 80% | Pass (splitter-independent) |
+| 1. Discrimination | peptide-grouped 5-fold AUC-PR >= 0.65, the grouped splitter enforced as a precondition | **FAIL by precondition** - the frame carries no `splitter` column, so no AUC-PR is computed |
+| 2. Stability | Per-fold AUC-PR standard deviation <= 0.02 across the CV folds | **FAIL by precondition** - the frame carries no `fold` column, so cross-fold spread is not measurable |
+| 3. Latency | Inference latency <= 2x the RF baseline | Pass (measured from the checkpoint, independent of the OOF frame) |
+| 4. Calibration | Expected calibration error < 0.05 | Passes numerically, but on v4/ungrouped scores; not a current status |
+| 5. Escape sensitivity | >= 80% of OOF positives score above the median OOF negative | Passes numerically, but on v4/ungrouped scores; not a current status |
 
-**No gate that depends on the cross-validation splitter has a current status.** Gates 3 and 5
-do not depend on it and pass. Gates 1, 2 and 4 are all computed from out-of-fold predictions, so
-the same caveat applies to each: on the RF the fold standard deviation moves from 0.0065
-(ungrouped) to 0.0229 (grouped), which would flip a Gate-2 pass into a failure, and Gate 4's ECE
-comes from the same OOF scores. **Gate 1's status is currently unknown, not failing.**
-The threshold was re-anchored 2026-08-10 from AUC-PR >= 0.85 to >= 0.65 under a peptide-grouped
-splitter (`src/verify/promote_gnn.py`, `docs/claims_register.md` D15), and the v4 figure of
-0.7281 was measured under neither the new threshold nor the grouped splitter, so it cannot be
-compared against the current gate in either direction. A v5 GNN run under
-`src.ml_utils.PeptideGroupedKFold` is required before Gate 1 can be called. The roadmap to clear
-it centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
+**Only Gate 3 has a status that survives the splitter repair.** Gates 1, 2, 4 and 5 are all
+computed from the out-of-fold frame, so all four are splitter-dependent - including Gate 5, which
+earlier revisions of this table described as splitter-independent. On the RF the fold standard
+deviation moves from 0.0065 (ungrouped) to 0.0229 (grouped), which would flip a Gate-2 pass into a
+failure, and Gates 4 and 5 read the same OOF scores.
+
+**Gate 1 now fails outright rather than being unknown.** `gate1_generalization` calls
+`grouped_splitter_violation` before anything else and refuses to score a frame that does not prove
+it was built under a peptide-grouped splitter, so the tracked v4 artifact fails without an AUC-PR
+being computed at all. This is a change of kind, not of degree: the threshold itself was
+re-anchored 2026-08-10 from AUC-PR >= 0.85 to >= 0.65 (`src/verify/promote_gnn.py`,
+`GATE1_AUC_PR_MIN`; `docs/claims_register.md` D15) and is **unchanged and absolute** - it is not
+scaled against any other model's score - but as of 2026-08-12 an unmarked frame no longer produces
+a number to compare against it. Gate 2 likewise no longer falls back to a leave-one-row-out
+jackknife when fold identity is missing; that fallback estimated the standard error of a single
+pooled AUC-PR rather than the spread across folds, and it referenced a `--save-fold-ids` flag on
+`train_gnn.py` that never existed.
+
+A v5 GNN run under `src.ml_utils.PeptideGroupedKFold` is therefore required before any
+OOF-derived gate can be called. The whole scorecard can be evaluated first without side effects
+via `python -m src.verify.promote_gnn --dry-run`, which reports the mutations that would follow
+while leaving `config.yaml` and `models/model_artifact_checksums.json` untouched. The roadmap to
+clear Gate 1 centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
 (t6 -> t12 -> t33).
 
 ### 6.4 Structural edges (in development, not active)
 
 The "structural" ambition of the project is to feed 3D peptide-HLA contact geometry into
-the graph. In v2.3 this is **not yet active**: the production-candidate GNN uses chain
-topology plus ESM-2 representations, not 3D coordinates. A spatial-graph builder for the
-PyG path and a PANDORA-derived distance cache are planned work, and SASA/torsion scalar
-features (RF modes 37/39) are a parallel, independent extension. These are documented as
-forward work rather than shipped capability.
+the graph. In v2.3 this is **not yet active**, and the statement is specific rather than
+hedged: the production-candidate GNN builds a 1D peptide chain graph with self-loops and
+no MHC nodes or edges, and its only structural signal is whatever ESM-2 has learned from
+sequence. The one adjacency builder that reads distances (`GraphBuilder.build_spatial_adj`)
+belongs to the v1 dense-adjacency path and is disabled by `use_spatial_adj: false` in
+`config.yaml`. A spatial-graph builder for the PyG path and a PANDORA-derived distance
+cache are planned work, and SASA/torsion scalar features (RF modes 37/39) are a parallel,
+independent extension. These are documented as forward work rather than shipped capability.
 
 ---
 
@@ -392,8 +442,8 @@ contributor lands. Progress is tracked in `ROADMAP.md`; full criteria mapping is
 | `src/features.py` | TCR-contact physicochemical feature extraction and sample weighting |
 | `src/train_classifier.py` | RF / XGBoost training, OOF evaluation, quarantine filtering |
 | `src/gnn/` | GNN graph builder (`graph_builder.py`) and models (`models.py`) |
-| `src/train_gnn.py` | GNN training (v1 dense-adjacency and v2.3 GINEConv paths) |
-| `src/verify/promote_gnn.py` | Five-gate GNN promotion check |
+| `src/train_gnn.py` | GNN training (v1 dense-adjacency and v2.3 GINEConv paths); peptide-grouped CV, writes the self-describing OOF artifact |
+| `src/verify/promote_gnn.py` | Five-gate GNN promotion check; `--dry-run` scores the gates without mutating `config.yaml` or the checksum manifest |
 | `src/antigen_processing.py` | Literature-transcribed ERAP/TAP PSSM proxy scores. **NOT wired into any build** - imported only by its own test, and it emits `erap_score` (N-terminal trimming), not `netchop_score`. Mode 33 reads `data/antigen_processing_cache.csv` instead, which holds MOCK values (D18) |
 | `src/evaluate_metrics.py` | AUC-PR, AUC-ROC, ISSR/precision/recall/NDCG at top-k |
 | `src/shap_analysis.py`, `src/statistical_bootstrap.py` | Interpretability and CI estimation |

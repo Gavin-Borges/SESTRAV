@@ -1,0 +1,16 @@
+{
+  "generated_utc": "2026-08-13T04:05:18+00:00",
+  "script": "src/baseline_comparison.py",
+  "artifact": "results/baseline_comparison.csv",
+  "sha256": "e7909ec0737bc538e5b272f0de95d17fdbcf77e70e9af08e46aeadb451a93b61",
+  "models": {
+    "rf": {
+      "model_path": "models/rf_30feature_integrated.joblib",
+      "model_sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3"
+    },
+    "xgb": {
+      "model_path": "models/xgb_30feature_integrated.joblib",
+      "model_sha256": "5be54358895a2e7b03e58bd35d88032995b5392f36bafbb11a09d7439dc30dcd"
+    }
+  }
+}

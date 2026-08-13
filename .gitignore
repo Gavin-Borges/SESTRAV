@@ -238,14 +238,18 @@ __marimo__/
 results/*
 !results/final_validation_report.md
 !results/h2_tier_a_summary.csv
+!results/h2_tier_a_summary.csv.provenance.json
 !results/h2_tier_a_summary.md
 !results/h2_tier_a_fold_metrics.csv
+!results/h2_tier_a_fold_metrics.csv.provenance.json
 !results/gold_standard_validation.csv
 !results/baseline_comparison.csv
+!results/baseline_comparison.csv.provenance.json
 # v2 diagnostic artifacts (evidence for release)
 !results/multi_run_stability_report.md
 # Cross-domain and LOO benchmark results
 !results/tsnadb_crossdomain_benchmark.json
+!results/tsnadb_crossdomain_benchmark.json.provenance.json
 !results/loo_cross_virus_v4.json
 !results/loo_cross_virus_v4.csv
 !results/loo_cross_virus_v5.json
@@ -287,6 +291,11 @@ results/*
 # Peptide-level CV leakage audit (docs/proposals/2026_feature_upgrade_roadmap.md, D15)
 !results/cv_leakage_audit.csv
 !results/cv_leakage_audit.csv.provenance.json
+# Calibration assessment (docs/paper.md Section 3.2 cites this for the ECE pair, D24).
+# The figures it replaces were cited to a gitignored staging file, so this artifact
+# MUST stay reader-visible; regenerate with scripts/assess_calibration.py.
+!results/calibration_assessment_v5_mode31.csv
+!results/calibration_assessment_v5_mode31.csv.provenance.json
 # Honest pooled same-pathogen metric (claims_register D12/D15 cite 0.712 against this
 # file, so it has to be reader-visible; 277 bytes, regenerate with
 # scripts/compute_pooled_honest_metric.py)

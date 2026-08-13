@@ -13,6 +13,10 @@ Usage:
 replaced unless --allow-overwrite is passed. The guard also covers the OOF
 predictions written into the PARENT of --model-dir, because a run training into
 models/gnn writes models/gnn_oof_predictions*.csv one level up.
+
+Cross-validation is peptide-grouped (src.ml_utils.PeptideGroupedKFold) at both
+call sites, and every OOF row records its fold and the splitter that produced
+it. See GNN_CV_SPLITTER for why the provenance lives in the rows.
 """
 
 import os
@@ -26,10 +30,10 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import joblib
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
 from src.artifact_guard import guard_planned_paths
+from src.ml_utils import PeptideGroupedKFold
 from src.train_classifier import (
     _filter_quarantined,
     prepare_features,
@@ -134,6 +138,110 @@ def evaluate_model(model, dataloader, device):
             all_labels.extend(y.cpu().numpy())
 
     return np.array(all_labels), np.array(all_preds)
+
+
+# ---------------------------------------------------------------------------
+# Cross-validation: peptide-grouped, and self-describing in the OOF artifact
+# ---------------------------------------------------------------------------
+#
+# The GNN track ran an UNGROUPED StratifiedKFold until this repair. Every
+# feature_mode=31 feature is a pure function of the peptide string, and the v5
+# corpus is deduplicated on (peptide, hla_allele) rather than on peptide alone,
+# so two rows sharing a peptide are feature-identical: an ungrouped fold
+# boundary puts a held-out peptide's twin in the training set and turns the CV
+# number into a memorization estimate (docs/claims_register.md D15). Phase 0
+# re-baselined src/train_classifier.py under PeptideGroupedKFold; this is the
+# same repair reaching src/train_gnn.py.
+#
+# GNN_CV_SPLITTER is written into every OOF row so a downstream consumer can
+# prove which splitter produced a score instead of assuming. Consumers of the
+# artifact (src/verify/promote_gnn.py gate1_generalization) hardcode the CSV
+# path and nothing else, so a sidecar provenance file would be trivially
+# separable from the numbers it describes - by the time an OOF CSV is being
+# scored, a missing sidecar is indistinguishable from a sidecar that was never
+# written. A per-row column cannot be separated from the rows, survives
+# concatenation and filtering, and makes a mixed-provenance frame detectable
+# rather than silently averaged.
+GNN_CV_SPLITTER: str = "PeptideGroupedKFold"
+
+# Column carrying the splitter provenance marker in the OOF CSV.
+SPLITTER_COLUMN: str = "splitter"
+
+
+def build_cv_splits(
+    train_pool: pd.DataFrame,
+    y: np.ndarray,
+    n_splits: int = 5,
+    seed: int = 42,
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Return peptide-grouped, composite-stratified CV splits for the GNN track.
+
+    Mirrors how src/train_classifier.py's _cross_validate constructs and calls
+    PeptideGroupedKFold with cv_group_by="peptide": the same keyword set, the
+    same optional metadata columns, and the same printed record of which
+    stratification rung was actually used.
+
+    train_pool must be positionally aligned with y and with the feature matrix
+    (both training entry points reset_index(drop=True) before this is called),
+    because the returned indices index all three.
+    """
+    if "peptide" not in train_pool.columns:
+        raise ValueError(
+            "GNN cross-validation requires a 'peptide' column in the training pool: "
+            "without it there is no group to hold together and the split degenerates "
+            "to the ungrouped splitter that leaks peptides across folds "
+            "(docs/claims_register.md D15)."
+        )
+
+    splitter = PeptideGroupedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    splits = list(
+        splitter.split(
+            train_pool,
+            y,
+            negative_origin=train_pool["negative_origin"]
+            if "negative_origin" in train_pool.columns
+            else None,
+            hla_alleles=train_pool["hla_allele"] if "hla_allele" in train_pool.columns else None,
+            peptides=train_pool["peptide"],
+        )
+    )
+    components = getattr(splitter, "stratification_components_", None)
+    if components is not None:
+        print(
+            f"  {type(splitter).__name__}: {len(splits)} folds, "
+            f"stratified on {'|'.join(components)}, grouped by peptide"
+        )
+    return splits
+
+
+def build_oof_records(
+    train_pool: pd.DataFrame,
+    val_idx: np.ndarray,
+    val_labels: np.ndarray,
+    val_preds: np.ndarray,
+    fold: int,
+) -> list[dict]:
+    """One OOF record per held-out row, carrying fold identity and provenance.
+
+    'fold' makes a paired comparison against models/v5/rf_oof_predictions_mode31.csv
+    valid: that file already carries a per-row fold column, and a paired test
+    needs to know which rows were scored out-of-fold together. 'hla_allele' is
+    included when the corpus supplies it because (peptide, hla_allele) is the v5
+    dedup key - peptide alone does not uniquely identify a row, so it cannot
+    join the two OOF frames one-to-one.
+    """
+    has_allele = "hla_allele" in train_pool.columns
+    records: list[dict] = []
+    for i, idx_val in enumerate(val_idx):
+        record: dict = {"peptide": train_pool["peptide"].iloc[idx_val]}
+        if has_allele:
+            record["hla_allele"] = train_pool["hla_allele"].iloc[idx_val]
+        record["label"] = val_labels[i]
+        record["gnn_oof_score"] = val_preds[i]
+        record["fold"] = fold
+        record[SPLITTER_COLUMN] = GNN_CV_SPLITTER
+        records.append(record)
+    return records
 
 
 def set_seed(seed: int = 42) -> None:
@@ -271,12 +379,12 @@ def train_gnn(
             X_feats = X_feats.drop(columns=non_feat_cols)
     y = train_pool["label"].values
 
-    # 3. Stratified K-Fold CV
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+    # 3. Peptide-grouped, composite-stratified K-Fold CV (see GNN_CV_SPLITTER)
+    splits = build_cv_splits(train_pool, y, n_splits=5, seed=seed)
     fold_metrics = []
     oof_rows = []
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(X_feats, y), 1):
+    for fold, (train_idx, val_idx) in enumerate(splits, 1):
         print(f"\n--- Fold {fold} ---")
         df_train, df_val = train_pool.iloc[train_idx], train_pool.iloc[val_idx]
         X_train, X_val = X_feats.iloc[train_idx], X_feats.iloc[val_idx]
@@ -332,14 +440,7 @@ def train_gnn(
             f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f}"
         )
 
-        for i, idx_val in enumerate(val_idx):
-            oof_rows.append(
-                {
-                    "peptide": train_pool["peptide"].iloc[idx_val],
-                    "label": val_labels[i],
-                    "gnn_oof_score": val_preds[i],
-                }
-            )
+        oof_rows.extend(build_oof_records(train_pool, val_idx, val_labels, val_preds, fold))
 
     # Save OOF predictions
     oof_df = pd.DataFrame(oof_rows)
@@ -573,13 +674,13 @@ def train_gnn_v2(
             X_feats = X_feats.drop(columns=non_feat_cols)
     y = train_pool["label"].values
 
-    # 5-fold stratified CV
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+    # 5-fold peptide-grouped, composite-stratified CV (see GNN_CV_SPLITTER)
+    splits = build_cv_splits(train_pool, y, n_splits=5, seed=seed)
     fold_metrics = []
     oof_rows = []
     best_epoch_per_fold: list = []
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(X_feats, y), 1):
+    for fold, (train_idx, val_idx) in enumerate(splits, 1):
         print(f"\n--- Fold {fold} ---")
         df_train = train_pool.iloc[train_idx]
         df_val = train_pool.iloc[val_idx]
@@ -663,14 +764,7 @@ def train_gnn_v2(
             f"Fold {fold} - AUC-ROC: {m['auc_roc']:.4f} | AUC-PR: {m['auc_pr']:.4f} | ISSR@10: {m['issr_10']:.4f} | best_epoch: {best_epoch_this_fold} | val_auc_pr: {best_val_auc_pr:.4f}"
         )
 
-        for i, idx_val in enumerate(val_idx):
-            oof_rows.append(
-                {
-                    "peptide": train_pool["peptide"].iloc[idx_val],
-                    "label": val_labels[i],
-                    "gnn_oof_score": val_preds[i],
-                }
-            )
+        oof_rows.extend(build_oof_records(train_pool, val_idx, val_labels, val_preds, fold))
 
     # Save OOF predictions - pooling-tagged file always; canonical untagged only for mean-pool runs.
     # Mirrors the RF per-mode artifact pattern; prevents future experiments from silently
@@ -687,7 +781,16 @@ def train_gnn_v2(
 
     # Post-hoc Platt calibration - fit logistic regression on raw OOF sigmoid scores
     # to correct overconfidence without altering rank order (Platt 1999).
-    platt = LogisticRegression(C=1.0, max_iter=1000)
+    # solver="liblinear" pinned deliberately, not left at the sklearn default
+    # (lbfgs): on this single-feature, strictly-convex problem both solvers
+    # converge to the same global optimum, but lbfgs's scipy backend
+    # (_lbfgsb_py) crashes with Windows fatal exception 0xc06d007f on this
+    # environment 100% of the time, immediately after the OOF file is saved -
+    # the same exception class as the documented src.shap_analysis DLL crash.
+    # Verified 2026-08-13: reproduced twice, including with
+    # KMP_DUPLICATE_LIB_OK=TRUE, so it is not the common OpenMP duplicate-
+    # runtime cause; liblinear avoids the code path entirely.
+    platt = LogisticRegression(C=1.0, max_iter=1000, solver="liblinear")
     raw_scores = oof_df["gnn_oof_score"].values.reshape(-1, 1)
     platt.fit(raw_scores, oof_df["label"].values)
     oof_df["gnn_oof_score"] = platt.predict_proba(raw_scores)[:, 1]

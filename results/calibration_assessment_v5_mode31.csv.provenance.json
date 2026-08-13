@@ -1,0 +1,15 @@
+{
+  "generated_utc": "2026-08-12T23:03:00+00:00",
+  "script": "scripts/assess_calibration.py",
+  "artifact": "results/calibration_assessment_v5_mode31.csv",
+  "sha256": "4c2c2eadbe47b2cb800495a22cf9f1ae2f895f8a9cb208d4ae50d2936b490101",
+  "oof_path": "models/v5/rf_oof_predictions_mode31.csv",
+  "oof_sha256": "331b00a819dbdab28d8a8e5b261606af5a2b9fa14680276e4a1cb4969089595c",
+  "random_state": 42,
+  "n_splits": 5,
+  "splitter": "StratifiedGroupKFold(groups=peptide)",
+  "calibrator": "IsotonicRegression(out_of_bounds=clip, y_min=0.0, y_max=1.0)",
+  "in_sample": false,
+  "n_rows_assessed": 35555,
+  "n_rows_emitted": 12
+}
