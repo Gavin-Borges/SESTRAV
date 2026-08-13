@@ -429,7 +429,18 @@ def test_promote_model_threads_checkpoint_path_into_check_promotion_gates():
     assert seen["checkpoint_path"] == Path("models/scratch/run/gnn.pth")
 
 
-def test_check_promotion_gates_threads_checkpoint_path_into_gate3_latency():
+def test_check_promotion_gates_threads_checkpoint_path_into_gate3_latency(tmp_path):
+    """A real file, not a MagicMock: check_promotion_gates does
+    `Path(checkpoint_path)` for its own existence check before ever calling
+    gate3_latency, so a mock whose only configured behaviour is `.exists()`
+    gets silently discarded by that re-wrap - `Path(some_mock)` coerces to
+    SOMETHING path-like (platform-dependent what), not the original mock, and
+    the mock's `.exists.return_value` is never consulted again. On Windows
+    that coercion happens to degenerate to Path('.'), which trivially exists
+    (the cwd), so a MagicMock here would falsely PASS locally while failing
+    on Linux CI, where the coercion produces a nonexistent path instead -
+    caught for real in CI on this exact test before this fix.
+    """
     seen: dict[str, object] = {}
 
     def _capture(checkpoint_path=None):
@@ -446,26 +457,45 @@ def test_check_promotion_gates_threads_checkpoint_path_into_gate3_latency():
         ),
         patch("src.verify.promote_gnn.gate3_latency", _capture),
     ):
-        checkpoint = _mock_path(exists=True)
+        checkpoint = tmp_path / "structural_gnn_v2.pth"
+        checkpoint.write_bytes(b"stub")
         check_promotion_gates(checkpoint_path=checkpoint)
 
-    assert seen["checkpoint_path"] is checkpoint
+    assert seen["checkpoint_path"] == checkpoint
 
 
-def test_check_promotion_gates_existence_check_uses_the_override_not_the_default():
+def test_check_promotion_gates_existence_check_uses_the_override_not_the_default(tmp_path):
     """The override must win even when the tracked default also exists.
 
     Same shape as test_load_oof_reads_the_override_and_leaves_the_default_untouched:
     an implementation that checks GNN_CHECKPOINT.exists() unconditionally would
     still PASS a test where only the default is missing, because the override
     would only be exercised on the error path.
+
+    Real files, not MagicMocks: check_promotion_gates does Path(checkpoint_path)
+    for this existence check, which discards a mock's configured .exists()
+    behaviour and coerces to something else entirely (platform-dependent - on
+    Windows, Path(some_mock) degenerates to Path('.'), which trivially exists).
+    A MagicMock-based version of this test was caught doing exactly that: it
+    "passed" locally only because a downstream gate happened to also fail for
+    an unrelated reason (Gate 3 erroring on the coerced '.' path), not because
+    the guard under test ever fired. Asserting _load_oof was never called is
+    what actually proves the early-return guard fired, rather than merely
+    checking the final boolean, which can be False for the wrong reason too.
     """
+    default_checkpoint = tmp_path / "default.pth"
+    default_checkpoint.write_bytes(b"stub")
+    missing_override = tmp_path / "does_not_exist.pth"  # deliberately never created
+
+    load_oof_mock = MagicMock(return_value=_good_oof())
     with (
-        patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
-        patch("src.verify.promote_gnn._load_oof", return_value=_good_oof()),
+        patch.object(pgnn, "GNN_CHECKPOINT", default_checkpoint),
+        patch("src.verify.promote_gnn._load_oof", load_oof_mock),
     ):
-        result = check_promotion_gates(checkpoint_path=_mock_path(exists=False))
+        result = check_promotion_gates(checkpoint_path=missing_override)
+
     assert result is False, "a missing override checkpoint must fail even though the default exists"
+    load_oof_mock.assert_not_called()
 
 
 def test_promote_model_refuses_checkpoint_path_combined_with_a_real_promotion():
