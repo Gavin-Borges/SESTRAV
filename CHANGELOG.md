@@ -9,6 +9,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **The manuscript's central novelty claim was false, and so was a checkable claim about a
+  competitor (claims register D25).** The Abstract asserted, unhedged, that no published
+  immunogenicity predictor had reported a systematic leave-one-pathogen-out benchmark on
+  assay-confirmed negatives. Two published falsifiers, both verified by reading the primary
+  sources: **Bravi et al. (eLife 2023)** satisfies all four conjuncts - MHC class I,
+  leave-one-organism-out with per-fold retraining, strictly assay-confirmed IEDB negatives,
+  mean AUC 0.68 - and **TRAP (Genome Med 2023)** trains explicitly on non-SARS-CoV-2 and
+  non-vaccinia splits, its only gap being unassayed thymic self ligands among its negatives.
+  - **The durable lesson is the search method, not the claim.** Both falsifiers use different
+    vocabulary ("leave-one-organism-out", "cross-species manner"), so a phrase search on this
+    project's own coined term returned nothing. A negative claim searched only by its author's
+    phrasing reads as engineered to survive, and must be searched by concept.
+  - **The headline finding is also preempted.** Buckley et al. (2022) benchmarked eight models
+    on SARS-CoV-2 megapool peptides and found none beat random appreciably, so the mean LOO
+    AUC-ROC of 0.463 generalises that result rather than discovering it. The distinct
+    contribution is methodological: the quantified test-partition contamination effect.
+  - **A false statement about BigMHC, corrected in the same pass.** Section 1 said its
+    "training data composition was not fully disclosed". BigMHC discloses it explicitly
+    (1,580 positive / 5,293 negative, with the train/validation split, public Mendeley data
+    and a public GitHub repository). Replaced with the accurate criticism: its immunogenicity
+    training set is predominantly neoepitopes, 5,279 of 6,873 examples.
+  - All three novelty loci now describe the prior art and cite it ([25]-[27]) rather than
+    asserting a vacuum, since a negative literature claim can be falsified but never proven.
 - **`docs/paper.md` Section 3.2 reported a calibration ECE pair that was stale, cited to a file
   that did not contain it, and explained by a mechanism its own data refutes (claims register
   D24).** The section claimed the isotonic layer improves global ECE "from about 0.028 to about

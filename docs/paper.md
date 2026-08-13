@@ -11,10 +11,12 @@ SESTRAV (Structural Epitope Scoring via TCR Recognition and Vaccinology) is a
 six-stage governed computational workflow for MHC class I CD8+ T-cell
 immunogenicity prediction, providing reproducible, auditable infrastructure for
 antigen prioritization across emerging pathogens. Binding affinity to MHC class I
-is necessary but not sufficient for T-cell activation, yet no published
-immunogenicity predictor has reported a systematic leave-one-pathogen-out (LOO)
-benchmark evaluating cross-virus transfer on assay-confirmed test negatives
-exclusively. SESTRAV trains a Random Forest on 35,597 quality-filtered
+is necessary but not sufficient for T-cell activation, yet cross-pathogen transfer
+is rarely benchmarked. Where held-out-pathogen evaluation has been reported it was a
+supplementary single-allele analysis [25] or a two-pathogen split whose negative set
+mixes assay-confirmed peptides with presumed-tolerised self ligands [26]. We report a
+nine-pathogen, pan-allele leave-one-virus-out (LOO) benchmark with test negatives
+restricted to assay-confirmed IEDB negatives. SESTRAV trains a Random Forest on 35,597 quality-filtered
 peptide-HLA pairs - 13,358 from nine human-pathogenic target viruses plus 22,239
 real IEDB-confirmed negative-background pairs from additional non-target species,
 dominated by Orthopoxvirus vaccinia (21,432 pairs, 60.2% of the active pool) -
@@ -86,10 +88,25 @@ exists. For emerging or rare viruses, a predictor must generalize from immunogen
 patterns learned on other pathogens, a zero-shot transfer task that within-pathogen
 cross-validation cannot measure. Stratifying test peptides by fold rather than by
 pathogen conflates discriminating among peptides of an already-characterized virus with
-discriminating entirely unseen peptides from a new one. To our knowledge, no published
-MHC class I immunogenicity predictor has reported a systematic leave-one-virus-out
-(LOO) benchmark in which a separate model is retrained for each held-out pathogen and
-evaluated solely on that pathogen's labelled data.
+discriminating entirely unseen peptides from a new one.
+
+Cross-validation in this field is most often random, or stratified by HLA allele or by
+study: PRIME2.0 reports leave-one-allele-out and leave-one-study-out cross-validation
+[20]. Pathogen-level holdout has been reported, but narrowly. Bravi et al. performed
+leave-one-organism-out cross-validation for a single-allele generative model as a
+supplementary robustness check, reporting a mean AUC of 0.68 on assay-confirmed
+negatives [25]. TRAP trained separate models excluding SARS-CoV-2 and vaccinia virus
+respectively, but its negative set combines assay-confirmed pathogen negatives with
+thymically expressed self ligands that were never assay-tested [26]. Neither reports a
+multi-pathogen, pan-allele panel with test negatives restricted to assay-confirmed
+records, which is the protocol we adopt here.
+
+That transfer across pathogens is difficult is itself established rather than novel:
+Buckley et al. benchmarked eight published models on SARS-CoV-2 megapool peptides and
+found that none performed substantially better than random, or improved appreciably on
+HLA ligand prediction [27]. The present work generalises that result from one pathogen
+to a nine-pathogen panel, and its distinct contribution is methodological - the
+quantification of a test-partition contamination effect described below.
 
 Here we present SESTRAV (Structural Epitope Scoring via TCR Recognition and
 Vaccinology), a computational workflow for MHC class I CD8+ T-cell immunogenicity
@@ -413,8 +430,8 @@ to an entirely unseen pathogen - the realistic deployment scenario for emerging-
 surveillance - a virus-level leave-one-out (LOO) evaluation was conducted. This design
 is conceptually related to leave-one-out cross-validation at the sample level, but
 here the unit of exclusion is the complete labelled set for one virus, not a single
-peptide. To our knowledge, no published MHC class I immunogenicity predictor has
-reported a systematic virus-level LOO benchmark.
+peptide. Pathogen-level holdout has precedent in this field but not at panel scale on
+assay-confirmed negatives alone; Section 1 states the position and cites it [25,26].
 
 **Eligibility criteria.** A pathogen was eligible for inclusion in the LOO evaluation
 if its representation in the v5 active dataset met a minimum class-balance requirement:
@@ -1299,3 +1316,9 @@ Immunology Database data are available at https://www.hiv.lanl.gov/content/immun
 23. Marzella DF, Parizi FM, van Tilborg D, Renaud N, Koelman JFM, Hekkelman ML, de Ridder D, Abreu R, de Bruijn R, Xue LC, Bonvin AMJJ. PANDORA: A Fast, Anchor-Restrained Modelling Protocol for Peptide:MHC Complexes. Front Immunol. 2022;13:878762. doi:10.3389/fimmu.2022.878762
 
 24. Gonzalez-Galarza FF, McCabe A, Santos EJMD, Jones J, Takeshita L, Ortega-Rivera ND, et al. Allele frequency net database (AFND) 2020 update: gold-standard data classification, open access genotype data and new query tools. Nucleic Acids Res. 2020;48(D1):D783-D788. doi:10.1093/nar/gkz1029
+
+25. Bravi B, Di Gioacchino A, Fernandez-de-Cossio-Diaz J, Walczak AM, Mora T, Cocco S, et al. A transfer-learning approach to predict antigen immunogenicity and T-cell receptor specificity. eLife. 2023;12:e85126. doi:10.7554/eLife.85126
+
+26. Lee CH, Huh J, Buckley PR, Jang M, Pereira Pinho M, Fernandes RA, et al. A robust deep learning workflow to predict CD8+ T cell epitopes. Genome Med. 2023;15:70. doi:10.1186/s13073-023-01225-z
+
+27. Buckley PR, Lee CH, Ma R, Woodhouse I, Woo J, Tsvetkov VO, et al. Evaluating performance of existing computational models in predicting CD8+ T cell pathogenic epitopes and cancer neoantigens. Brief Bioinform. 2022;23(3):bbac141. doi:10.1093/bib/bbac141
