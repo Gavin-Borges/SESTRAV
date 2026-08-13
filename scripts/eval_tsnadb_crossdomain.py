@@ -6,8 +6,37 @@ Builds a balanced mixed pool:
 
 Computes MHCflurry presentation scores for the TSNAdb peptides (hard decoys are
 already present in models/peptide_binding_matrix_v4.csv), writes a cohort-local
-merged binding matrix, then scores the pool with the canonical v4 mode-31 RF.
+merged binding matrix, then scores the pool with the mode-31 RF at MODEL_PATH.
 Reports AUC-PR / AUC-ROC / ISSR@10/25 with 2,000-resample bootstrap CIs.
+
+WARNING - what this benchmark does and does not measure
+-------------------------------------------------------
+Read before quoting any number this script prints. See docs/data_registry.md
+AD-4 for the full disclosure; the short form:
+
+1. The negative arm can be training data. Every peptide in data/hard_decoys.csv
+   is also a label=0 row of data/immunogenicity_dataset_v4.csv, where no
+   is_quarantined column existed. Any v4-era model therefore memorized 100% of
+   the negatives scored here, and the resulting AUCs measure that memorization,
+   not cross-domain transfer. In v5 those rows are is_quarantined=True and are
+   dropped from the pooled training path, so only a v5 model gives a held-out
+   read. The figures recorded in results/tsnadb_crossdomain_benchmark.json
+   (generated 2026-06-21, AUC-ROC 0.9887 / AUC-PR 0.9909) are v4-era and are
+   RETRACTED on exactly this ground.
+
+2. MODEL_PATH is untracked and gitignored, so this script cannot pin what it
+   scored. The file there today is byte-identical to the v5 model, not the
+   v4-era artifact that produced the recorded JSON, which no longer exists.
+   Record the model checksum alongside any figure taken from this script.
+
+3. The inflation is NOT a binding-signal artifact. Both arms are pre-filtered to
+   strong binders (positives MHCf_rank <= 2%, decoys presentation_score >= 0.5),
+   so the binding channel is near chance on this pool and cannot explain a high
+   AUC. Do not reach for that explanation.
+
+BINDING_MATRIX_V4 is deliberately still v4: it is the cache that matches the
+recorded artifact. Re-point it at models/peptide_binding_matrix_v5.csv when
+regenerating against the v5 model.
 
 --output has no default: results/tsnadb_crossdomain_benchmark.json is a
 git-tracked artifact, so a bare invocation runs the full benchmark and prints

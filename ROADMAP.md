@@ -83,12 +83,24 @@ _Last updated: 2026-08._
   in `src/verify/promote_gnn.py`; this list mirrors them and must stay in sync:
   - Gate 1 - Generalization: **peptide-grouped 5-fold CV AUC-PR >= 0.65** on the full
     training dataset (**re-anchored 2026-08-10**, was `>= 0.85` with no splitter
-    stated; see below).
-  - Gate 2 - Stability: cross-fold AUC-PR std **<= 0.02** across 5 CV folds.
+    stated; see below). The splitter is a **hard precondition, not a footnote**:
+    `gate1_generalization` calls `grouped_splitter_violation` first, and an OOF frame
+    that does not carry a `splitter` column naming `PeptideGroupedKFold` on every row
+    fails the gate outright, with no AUC-PR computed and none printed. The 0.65
+    threshold is absolute, not relative to any other model's score.
+  - Gate 2 - Stability: cross-fold AUC-PR std **<= 0.02** across the CV folds,
+    computed per fold from the `fold` column the OOF artifact now carries. A frame
+    without that column fails, because cross-fold spread is not measurable without
+    per-row fold identity; folds containing a single class are reported rather than
+    dropped, since dropping them shrinks the std.
   - Gate 3 - Latency: GNN CPU inference <= 2x RF CPU inference (per batch).
   - Gate 4 - Calibration: Expected Calibration Error (ECE) < 0.05.
   - Gate 5 - Escape sensitivity: correctly differentiates >= 80% of IEDB
     gold-standard epitopes from decoys.
+
+  The scorecard can be exercised without side effects: `python -m src.verify.promote_gnn
+  --dry-run` evaluates all five gates and reports the mutations that would follow,
+  leaving `config.yaml` and `models/model_artifact_checksums.json` untouched.
 
   On passing all five, a track may be promoted to a second canonical model with its
   own model card. **Two corrections logged 2026-08-10:** (1) the 0.85 AUC-PR
@@ -100,7 +112,15 @@ _Last updated: 2026-08._
   `src.ml_utils.PeptideGroupedKFold` for the comparison to be meaningful. (2) This
   list previously omitted Gate 5 entirely and stated Gate 2 as `< 0.02` where the
   code enforces `<= 0.02`; both are corrected here against
-  `src/verify/promote_gnn.py`.
+  `src/verify/promote_gnn.py`. **A third correction logged 2026-08-12:** the GNN
+  track itself was still splitting with an ungrouped `StratifiedKFold` when the
+  re-anchor was written, so the gate asked for a peptide-grouped number that no GNN
+  run could produce. `src/train_gnn.py` now builds folds with
+  `src.ml_utils.PeptideGroupedKFold` (`build_cv_splits`) at both training entry
+  points and stamps `fold` and `splitter` onto every out-of-fold row
+  (`build_oof_records`). The tracked `models/gnn_oof_predictions.csv` predates that
+  repair, so it fails Gate 1 by precondition and Gate 2 for want of fold identity,
+  and **no GNN figure sourced from it is comparable to a peptide-grouped one**.
 - **Wet-lab validation (contingent on partnership).** Pre-register and execute an
   IFN-gamma ELISpot validation comparing SESTRAV-ranked epitopes against binding-only
   controls across HPV16/HPV18/EBV.
