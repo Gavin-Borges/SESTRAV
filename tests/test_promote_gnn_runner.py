@@ -301,6 +301,95 @@ def test_cli_exposes_dry_run_and_defaults_it_off():
 
 
 # ---------------------------------------------------------------------------
+# --oof: scoring a scratch OOF frame without dirtying the tracked artifact
+#
+# Without this override, OOF_PATH is a module constant with no CLI access, so a
+# scratch GNN run could only be scored by first overwriting
+# models/gnn_oof_predictions.csv - which is exactly the tracked artifact a
+# scratch run must not touch. The flag must therefore be advertised, parsed AND
+# forwarded; the first two without the third is a silent no-op.
+# ---------------------------------------------------------------------------
+
+
+def test_cli_exposes_oof_and_defaults_it_to_none():
+    parser = pgnn._build_arg_parser()
+    assert parser.parse_args([]).oof is None
+    assert parser.parse_args(["--oof", "models/scratch/run/oof.csv"]).oof == Path(
+        "models/scratch/run/oof.csv"
+    )
+
+
+def test_main_forwards_oof_into_promote_model():
+    """Advertising and parsing the flag is not the same as wiring it."""
+    source = (Path(pgnn.__file__)).read_text(encoding="utf-8")
+    call_start = source.index("    promote_model(")
+    call_block = source[call_start : source.index(")", call_start)]
+    assert "oof_path=_args.oof" in call_block, (
+        "__main__ parses --oof but never forwards it to promote_model"
+    )
+
+
+def test_promote_model_threads_oof_path_into_check_promotion_gates():
+    seen: dict[str, object] = {}
+
+    def _capture(oof_path=None):
+        seen["oof_path"] = oof_path
+        return False  # gates fail, so nothing is written
+
+    with patch("src.verify.promote_gnn.check_promotion_gates", _capture):
+        promote_model(oof_path=Path("models/scratch/run/oof.csv"))
+
+    assert seen["oof_path"] == Path("models/scratch/run/oof.csv")
+
+
+def test_check_promotion_gates_threads_oof_path_into_load_oof():
+    seen: dict[str, object] = {}
+
+    def _capture(oof_path=None):
+        seen["oof_path"] = oof_path
+        return _good_oof()
+
+    with (
+        patch.object(pgnn, "GNN_CHECKPOINT", _mock_path(exists=True)),
+        patch("src.verify.promote_gnn._load_oof", _capture),
+        patch("src.verify.promote_gnn.gate1_generalization", return_value=_passing_gate("Gate 1")),
+        patch("src.verify.promote_gnn.gate2_stability", return_value=_passing_gate("Gate 2")),
+        patch("src.verify.promote_gnn.gate4_calibration", return_value=_passing_gate("Gate 4")),
+        patch(
+            "src.verify.promote_gnn.gate5_escape_sensitivity", return_value=_passing_gate("Gate 5")
+        ),
+        patch("src.verify.promote_gnn.gate3_latency", return_value=_passing_gate("Gate 3")),
+    ):
+        check_promotion_gates(Path("models/scratch/run/oof.csv"))
+
+    assert seen["oof_path"] == Path("models/scratch/run/oof.csv")
+
+
+def test_load_oof_reads_the_override_and_leaves_the_default_untouched(tmp_path):
+    """The override must win even when the tracked default also exists.
+
+    An implementation that reads OOF_PATH unconditionally would still PASS a
+    test where the default is missing, because the override would only be
+    exercised on the error path. Both files exist here, with different content.
+    """
+    from src.verify.promote_gnn import _load_oof
+
+    tracked = tmp_path / "tracked_oof.csv"
+    tracked.write_text("label,gnn_oof_score\n1,0.11\n0,0.12\n")
+    scratch = tmp_path / "scratch_oof.csv"
+    scratch.write_text("label,gnn_oof_score\n1,0.91\n0,0.92\n1,0.93\n")
+
+    with patch.object(pgnn, "OOF_PATH", tracked):
+        overridden = _load_oof(scratch)
+        default = _load_oof()
+
+    assert len(overridden) == 3
+    assert overridden["gnn_oof_score"].iloc[0] == 0.91
+    assert len(default) == 2, "passing no override must still read OOF_PATH"
+    assert tracked.read_text() == "label,gnn_oof_score\n1,0.11\n0,0.12\n"
+
+
+# ---------------------------------------------------------------------------
 # promote_model - missing config.yaml is handled gracefully (warning only)
 # ---------------------------------------------------------------------------
 

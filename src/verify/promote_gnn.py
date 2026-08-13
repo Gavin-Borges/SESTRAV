@@ -123,13 +123,20 @@ def _sha256_file(filepath: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _load_oof() -> pd.DataFrame:
-    if not OOF_PATH.exists():
+def _load_oof(oof_path: Path | None = None) -> pd.DataFrame:
+    """Load an OOF prediction frame, defaulting to the tracked OOF_PATH.
+
+    `oof_path` is resolved at call time so a caller can score a scratch run
+    without touching the tracked artifact. Passing None keeps the historical
+    behaviour exactly, including for tests that patch the module constant.
+    """
+    path = OOF_PATH if oof_path is None else Path(oof_path)
+    if not path.exists():
         raise FileNotFoundError(
-            f"OOF predictions not found at {OOF_PATH}. "
+            f"OOF predictions not found at {path}. "
             "Run full GNN training (src/train_gnn.py) on the current dataset first."
         )
-    df = pd.read_csv(OOF_PATH)
+    df = pd.read_csv(path)
     required = {"label", "gnn_oof_score"}
     missing = required - set(df.columns)
     if missing:
@@ -482,7 +489,7 @@ def gate5_escape_sensitivity(df: pd.DataFrame) -> GateResult:
 # ---------------------------------------------------------------------------
 
 
-def check_promotion_gates() -> bool:
+def check_promotion_gates(oof_path: Path | None = None) -> bool:
     logger.info("=" * 60)
     logger.info("SESTRAV GNN Promotion Scorecard - 5 Gates")
     logger.info("=" * 60)
@@ -494,8 +501,11 @@ def check_promotion_gates() -> bool:
         )
         return False
 
+    if oof_path is not None:
+        logger.info("Scoring OOF frame: %s (overrides the default %s)", oof_path, OOF_PATH)
+
     try:
-        df = _load_oof()
+        df = _load_oof(oof_path)
     except (FileNotFoundError, ValueError) as exc:
         logger.error(str(exc))
         return False
@@ -552,7 +562,7 @@ def check_promotion_gates() -> bool:
 # ---------------------------------------------------------------------------
 
 
-def promote_model(dry_run: bool = False) -> None:
+def promote_model(dry_run: bool = False, oof_path: Path | None = None) -> None:
     """Mutates config.yaml and model_artifact_checksums.json iff all gates pass.
 
     dry_run runs the identical scorecard and reports exactly which mutations
@@ -560,8 +570,13 @@ def promote_model(dry_run: bool = False) -> None:
     can be exercised - on a candidate, in CI, or after a gate definition
     changes - without the side effect of repointing the production model_path
     and re-stamping the checksum manifest.
+
+    oof_path scores an alternative OOF frame, so a scratch training run can be
+    put through the scorecard without first overwriting the tracked
+    models/gnn_oof_predictions.csv. It selects the INPUT only; it does not
+    relax any gate and does not change where a successful promotion writes.
     """
-    if not check_promotion_gates():
+    if not check_promotion_gates(oof_path):
         logger.error("Model failed promotion gates. config.yaml will NOT be modified.")
         return
 
@@ -613,9 +628,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Evaluate every gate and report the mutations that would follow, "
         "without modifying config.yaml or model_artifact_checksums.json.",
     )
+    parser.add_argument(
+        "--oof",
+        type=Path,
+        default=None,
+        metavar="CSV",
+        help="Score this OOF predictions CSV instead of the default "
+        f"{OOF_PATH}. Lets a scratch run be put through the scorecard without "
+        "overwriting the tracked artifact. Selects the input only - it does not "
+        "relax a gate or change where a promotion writes.",
+    )
     return parser
 
 
 if __name__ == "__main__":
     _args = _build_arg_parser().parse_args()
-    promote_model(dry_run=_args.dry_run)
+    promote_model(dry_run=_args.dry_run, oof_path=_args.oof)
