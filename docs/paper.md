@@ -72,8 +72,9 @@ introduced TCR-contact amino acid composition features and showed modest improve
 over binding-only baselines, but was evaluated on a single assay compilation without
 systematic cross-pathogen testing. BigMHC [5] applied deep learning
 transfer from large-scale MHC binding data to immunogenicity scoring and achieved
-strong performance on a curated benchmark, though training data composition was not
-fully disclosed and no leave-one-pathogen-out evaluation was reported. T-SCAPE
+strong performance on a curated benchmark, though its immunogenicity training set is
+predominantly neoepitopes (5,279 of 6,873 experimentally validated examples) and no
+leave-one-pathogen-out evaluation was reported. T-SCAPE
 [6] developed a statistical immunogenicity scoring framework
 demonstrating improvement over binding tools, but similarly confined its validation to
 within-pathogen experimental data. Across these tools, the evaluation paradigm is

@@ -44,6 +44,7 @@ def _failing_gate(name: str) -> GateResult:
 
 
 def _good_oof() -> pd.DataFrame:
+    """An OOF frame in the schema src/train_gnn.py writes: fold + splitter included."""
     rng = np.random.default_rng(7)
     return pd.DataFrame(
         {
@@ -54,6 +55,8 @@ def _good_oof() -> pd.DataFrame:
                     rng.normal(0.1, 0.03, 60).clip(0, 1),
                 ]
             ),
+            "fold": np.tile(np.arange(1, 6), 24),
+            pgnn.SPLITTER_COLUMN: "PeptideGroupedKFold",
         }
     )
 
@@ -211,6 +214,90 @@ def test_promote_model_updates_config_when_gates_pass(tmp_path):
 
     updated = yaml.safe_load(config_path.read_text())
     assert updated["model_path"] == str(checkpoint)
+
+
+# ---------------------------------------------------------------------------
+# promote_model - --dry-run evaluates the gates without mutating anything
+#
+# Every case here forces gates-pass, because the interesting question is what
+# happens on the ONE path that writes. A dry run that only avoids writes when
+# the gates already blocked promotion would prove nothing.
+# ---------------------------------------------------------------------------
+
+
+def test_dry_run_leaves_config_yaml_unmodified(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    original = "model_path: models/rf_31feature_integrated.joblib\nseed: 42\n"
+    config_path.write_text(original)
+
+    checkpoint = tmp_path / "structural_gnn_v2.pth"
+    checkpoint.write_bytes(b"fake-weights")
+    checksum_path = tmp_path / "checksums.json"
+    mock_update = MagicMock()
+
+    with (
+        patch("src.verify.promote_gnn.check_promotion_gates", return_value=True),
+        patch.object(pgnn, "CONFIG_PATH", config_path),
+        patch.object(pgnn, "GNN_CHECKPOINT", checkpoint),
+        patch.object(pgnn, "CHECKSUM_FILE", checksum_path),
+        patch("src.artifact_integrity.update_checksum_manifest", mock_update),
+    ):
+        promote_model(dry_run=True)
+
+    assert config_path.read_text() == original
+    mock_update.assert_not_called()
+    assert not checksum_path.exists()
+
+
+def test_the_same_fixture_does_mutate_config_without_dry_run(tmp_path):
+    """Companion to the test above: proves the dry run is what prevented the write."""
+    import yaml
+
+    config_path = tmp_path / "config.yaml"
+    original = "model_path: models/rf_31feature_integrated.joblib\nseed: 42\n"
+    config_path.write_text(original)
+
+    checkpoint = tmp_path / "structural_gnn_v2.pth"
+    checkpoint.write_bytes(b"fake-weights")
+    checksum_path = tmp_path / "checksums.json"
+    mock_update = MagicMock()
+
+    with (
+        patch("src.verify.promote_gnn.check_promotion_gates", return_value=True),
+        patch.object(pgnn, "CONFIG_PATH", config_path),
+        patch.object(pgnn, "GNN_CHECKPOINT", checkpoint),
+        patch.object(pgnn, "CHECKSUM_FILE", checksum_path),
+        patch("src.artifact_integrity.update_checksum_manifest", mock_update),
+    ):
+        promote_model(dry_run=False)
+
+    assert config_path.read_text() != original
+    assert yaml.safe_load(config_path.read_text())["model_path"] == str(checkpoint)
+    mock_update.assert_called_once()
+
+
+def test_promote_model_defaults_to_writing_so_dry_run_must_be_explicit(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("model_path: old.pt\n")
+    checkpoint = tmp_path / "model.pth"
+    checkpoint.write_bytes(b"weights")
+
+    with (
+        patch("src.verify.promote_gnn.check_promotion_gates", return_value=True),
+        patch.object(pgnn, "CONFIG_PATH", config_path),
+        patch.object(pgnn, "GNN_CHECKPOINT", checkpoint),
+        patch.object(pgnn, "CHECKSUM_FILE", tmp_path / "checksums.json"),
+        patch("src.artifact_integrity.update_checksum_manifest", MagicMock()),
+    ):
+        promote_model()
+
+    assert config_path.read_text() != "model_path: old.pt\n"
+
+
+def test_cli_exposes_dry_run_and_defaults_it_off():
+    parser = pgnn._build_arg_parser()
+    assert parser.parse_args([]).dry_run is False
+    assert parser.parse_args(["--dry-run"]).dry_run is True
 
 
 # ---------------------------------------------------------------------------

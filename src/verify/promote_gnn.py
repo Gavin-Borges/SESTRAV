@@ -8,11 +8,16 @@ Gate definitions (all must pass):
   Gate 1 - Generalization:   GNN OOF AUC-PR >= 0.65 on full training dataset,
                              scored under a peptide-grouped splitter
                              (re-anchored 2026-08-10; see GATE1_AUC_PR_MIN).
+                             The splitter is a hard precondition, not a note:
+                             see grouped_splitter_violation.
   Gate 2 - Stability:        Cross-fold AUC-PR std <= 0.02 across 5 CV folds.
   Gate 3 - Latency:          GNN CPU inference <= 2× RF CPU inference (per batch).
   Gate 4 - Calibration:      Expected Calibration Error (ECE) < 0.05.
   Gate 5 - Escape Sensitivity: GNN correctly differentiates >= 80% of IEDB
                                gold-standard epitopes from decoys.
+
+Run `python -m src.verify.promote_gnn --dry-run` to evaluate the scorecard
+without touching config.yaml or the checksum manifest.
 
 Security hardening:
   - All torch.load calls use weights_only=True (prevents arbitrary code exec).
@@ -29,6 +34,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+import argparse
 import logging
 import time
 from typing import NamedTuple
@@ -63,6 +69,20 @@ GATE2_STD_MAX: float = 0.02
 GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2× RF latency
 GATE4_ECE_MAX: float = 0.05
 GATE5_SENSITIVITY_MIN: float = 0.80
+
+# Gate 1 splitter precondition.
+#
+# GATE1_AUC_PR_MIN is only meaningful for a score produced under a
+# peptide-grouped splitter. An OOF frame from an ungrouped run is not a weaker
+# generalization estimate, it is a different quantity: mode-31 features are a
+# pure function of the peptide string, so an ungrouped fold boundary leaves a
+# held-out peptide's feature-identical twin in the training set. Comparing such
+# a number against a threshold anchored on the peptide-grouped RF baseline
+# (0.6058) is a category error, so the frame must carry positive evidence of
+# its splitter. Absence of the marker fails the gate; it never waives it.
+SPLITTER_COLUMN: str = "splitter"
+GROUPED_SPLITTERS: frozenset[str] = frozenset({"PeptideGroupedKFold"})
+FOLD_COLUMN: str = "fold"
 
 # Latency benchmark settings
 LATENCY_BATCH_SIZE: int = 50
@@ -102,7 +122,7 @@ def _load_oof() -> pd.DataFrame:
     if not OOF_PATH.exists():
         raise FileNotFoundError(
             f"OOF predictions not found at {OOF_PATH}. "
-            "Run full GNN training on immunogenicity_dataset_v4.csv first."
+            "Run full GNN training (src/train_gnn.py) on the current dataset first."
         )
     df = pd.read_csv(OOF_PATH)
     required = {"label", "gnn_oof_score"}
@@ -112,9 +132,66 @@ def _load_oof() -> pd.DataFrame:
     return df
 
 
+def grouped_splitter_violation(df: pd.DataFrame) -> str | None:
+    """Why this OOF frame is not demonstrably peptide-grouped, or None if it is.
+
+    Positive evidence is required: the frame must carry a SPLITTER_COLUMN whose
+    every value names a splitter in GROUPED_SPLITTERS. A frame with no marker is
+    treated as ungrouped, because an unmarked frame is exactly the shape the
+    pre-repair GNN track emitted.
+    """
+    if SPLITTER_COLUMN not in df.columns:
+        return (
+            f"the frame carries no '{SPLITTER_COLUMN}' column, so there is no evidence it "
+            "was scored under a peptide-grouped splitter. Artifacts written before the "
+            "peptide-grouping repair have exactly this shape "
+            "(peptide,label,gnn_oof_score). Re-run src/train_gnn.py, which now splits "
+            "with src.ml_utils.PeptideGroupedKFold and stamps every OOF row"
+        )
+
+    observed = sorted({str(v).strip() for v in df[SPLITTER_COLUMN].dropna().unique()})
+    if not observed:
+        return (
+            f"the '{SPLITTER_COLUMN}' column is present but every value is null, which "
+            "records nothing about how the folds were built"
+        )
+
+    ungrouped = [name for name in observed if name not in GROUPED_SPLITTERS]
+    if ungrouped:
+        accepted = ", ".join(sorted(GROUPED_SPLITTERS))
+        return (
+            f"the frame is marked {ungrouped}, which is not a peptide-grouped splitter "
+            f"(accepted: {accepted}). Rows sharing a peptide can land on both sides of "
+            "an ungrouped fold boundary, and every mode-31 feature is a pure function of "
+            "the peptide string, so the resulting score is a memorization estimate "
+            "(docs/claims_register.md D15)"
+        )
+    return None
+
+
 def gate1_generalization(df: pd.DataFrame) -> GateResult:
-    """AUC-PR on OOF predictions >= GATE1_AUC_PR_MIN."""
+    """AUC-PR on OOF predictions >= GATE1_AUC_PR_MIN, under a peptide-grouped splitter.
+
+    The splitter precondition is checked FIRST and is not a warning: an
+    unmarked or ungrouped frame fails the gate without an AUC-PR ever being
+    reported, so a leakage-inflated number is never printed next to a threshold
+    it was not measured against.
+    """
     from sklearn.metrics import average_precision_score
+
+    threshold = f">= {GATE1_AUC_PR_MIN} under {'/'.join(sorted(GROUPED_SPLITTERS))}"
+
+    violation = grouped_splitter_violation(df)
+    if violation is not None:
+        logger.error(
+            "Gate 1 precondition FAILED - refusing to score this OOF frame: %s.", violation
+        )
+        return GateResult(
+            name="Gate 1 - Generalization (AUC-PR)",
+            passed=False,
+            value=f"NOT PEPTIDE-GROUPED: {violation}",
+            threshold=threshold,
+        )
 
     auc_pr = float(average_precision_score(df["label"], df["gnn_oof_score"]))
     passed = auc_pr >= GATE1_AUC_PR_MIN
@@ -122,55 +199,80 @@ def gate1_generalization(df: pd.DataFrame) -> GateResult:
         name="Gate 1 - Generalization (AUC-PR)",
         passed=passed,
         value=round(auc_pr, 4),
-        threshold=f">= {GATE1_AUC_PR_MIN}",
+        threshold=threshold,
     )
 
 
 def gate2_stability(df: pd.DataFrame) -> GateResult:
-    """Cross-fold AUC-PR std must not exceed GATE2_STD_MAX.
+    """Cross-fold AUC-PR std across CV folds must not exceed GATE2_STD_MAX.
 
-    If the OOF file contains a 'fold' column (emitted by train_gnn.py when
-    --save-fold-ids is set), we compute per-fold AUC-PRs.  Otherwise we
-    fall back to a jackknife leave-one-out estimate.
+    Requires the per-row FOLD_COLUMN that src/train_gnn.py now writes on every
+    run. An earlier version of this function documented a --save-fold-ids flag
+    on train_gnn.py to explain when that column appears; no such flag ever
+    existed, so the column was never present and the gate always took its
+    fallback branch. That fallback measured the std of leave-one-ROW-out
+    resamples of one pooled AUC-PR, which is a jackknife standard-error
+    estimate of a single number, not the spread of the per-fold scores this
+    gate is defined on - and it cost one full AUC-PR computation per row on a
+    35k-row frame. Both are gone: without fold identity, cross-fold stability
+    is not computable, and the gate says so instead of substituting a
+    different, smaller statistic that happens to pass.
     """
     from sklearn.metrics import average_precision_score
 
+    threshold = f"<= {GATE2_STD_MAX}"
+
+    if FOLD_COLUMN not in df.columns:
+        logger.error(
+            "Gate 2 FAILED - the OOF frame carries no '%s' column, so per-fold AUC-PRs "
+            "cannot be computed. Re-run src/train_gnn.py, which stamps fold identity on "
+            "every OOF row.",
+            FOLD_COLUMN,
+        )
+        return GateResult(
+            name="Gate 2 - Stability (AUC-PR std, per-fold)",
+            passed=False,
+            value=(
+                f"no '{FOLD_COLUMN}' column in the OOF frame; cross-fold stability is "
+                "not measurable without per-row fold identity"
+            ),
+            threshold=threshold,
+        )
+
     labels = df["label"].values
     scores = df["gnn_oof_score"].values
+    fold_ids = df[FOLD_COLUMN].values
 
-    if "fold" in df.columns:
-        fold_ids = df["fold"].values
-        folds = sorted(df["fold"].unique())
-        fold_auc_prs: list[float] = []
-        for fid in folds:
-            mask = fold_ids == fid
-            if labels[mask].sum() == 0:
-                continue  # skip folds with no positives
-            fold_auc_prs.append(float(average_precision_score(labels[mask], scores[mask])))
-        std = float(np.std(fold_auc_prs)) if len(fold_auc_prs) > 1 else 0.0
-        method = "per-fold"
-    else:
-        # Jackknife (leave-one-out) estimate of variance
-        n = len(labels)
-        loo_auc_prs: list[float] = []
-        for i in range(n):
-            mask = np.ones(n, dtype=bool)
-            mask[i] = False
-            if labels[mask].sum() == 0:
-                continue
-            try:
-                loo_auc_prs.append(float(average_precision_score(labels[mask], scores[mask])))
-            except Exception:
-                pass
-        std = float(np.std(loo_auc_prs)) if len(loo_auc_prs) > 1 else 0.0
-        method = "jackknife-LOO"
+    fold_auc_prs: list[float] = []
+    skipped: list[str] = []
+    for fid in sorted(df[FOLD_COLUMN].dropna().unique()):
+        mask = fold_ids == fid
+        # A fold with a single class has no defined AUC-PR; record it rather
+        # than dropping it silently, because dropping folds shrinks the std.
+        if labels[mask].sum() == 0 or labels[mask].sum() == mask.sum():
+            skipped.append(str(fid))
+            continue
+        fold_auc_prs.append(float(average_precision_score(labels[mask], scores[mask])))
 
+    if len(fold_auc_prs) < 2:
+        return GateResult(
+            name="Gate 2 - Stability (AUC-PR std, per-fold)",
+            passed=False,
+            value=(
+                f"only {len(fold_auc_prs)} scoreable fold(s) in the OOF frame "
+                f"(single-class folds skipped: {skipped or 'none'}); a std across folds "
+                "needs at least 2"
+            ),
+            threshold=threshold,
+        )
+
+    std = float(np.std(fold_auc_prs))
     passed = std <= GATE2_STD_MAX
     return GateResult(
-        name=f"Gate 2 - Stability (AUC-PR std, {method})",
+        name=f"Gate 2 - Stability (AUC-PR std, per-fold over {len(fold_auc_prs)} folds)",
         passed=passed,
         value=round(std, 4),
-        threshold=f"<= {GATE2_STD_MAX}",
+        threshold=threshold,
     )
 
 
@@ -378,7 +480,7 @@ def check_promotion_gates() -> bool:
     if not GNN_CHECKPOINT.exists():
         logger.error(
             f"Checkpoint {GNN_CHECKPOINT} not found. "
-            "Execute full GNN training on immunogenicity_dataset_v4.csv before promotion."
+            "Execute full GNN training (src/train_gnn.py) before promotion."
         )
         return False
 
@@ -440,17 +542,33 @@ def check_promotion_gates() -> bool:
 # ---------------------------------------------------------------------------
 
 
-def promote_model() -> None:
-    """Mutates config.yaml and model_artifact_checksums.json iff all gates pass."""
+def promote_model(dry_run: bool = False) -> None:
+    """Mutates config.yaml and model_artifact_checksums.json iff all gates pass.
+
+    dry_run runs the identical scorecard and reports exactly which mutations
+    would follow, then returns without writing anything. It exists so the gates
+    can be exercised - on a candidate, in CI, or after a gate definition
+    changes - without the side effect of repointing the production model_path
+    and re-stamping the checksum manifest.
+    """
     if not check_promotion_gates():
         logger.error("Model failed promotion gates. config.yaml will NOT be modified.")
         return
 
-    logger.info("Promoting Structural GNN to canonical pipeline...")
+    if dry_run:
+        logger.info("DRY RUN: all gates passed. No files will be written.")
+    else:
+        logger.info("Promoting Structural GNN to canonical pipeline...")
 
-    # Secure SHA-256 (native Python; no shell=True, no subprocess)
+    # Secure SHA-256 (native Python; no shell=True, no subprocess) - read-only.
     gnn_sha256 = _sha256_file(GNN_CHECKPOINT)
     logger.info(f"Checkpoint SHA-256: {gnn_sha256}")
+
+    if dry_run:
+        logger.info(f"DRY RUN: would set model_path -> {GNN_CHECKPOINT} in {CONFIG_PATH}")
+        logger.info(f"DRY RUN: would record {GNN_CHECKPOINT} in {CHECKSUM_FILE}")
+        logger.info("DRY RUN complete: config.yaml and the checksum manifest are unchanged.")
+        return
 
     # --- Update config.yaml ---
     if CONFIG_PATH.exists():
@@ -474,5 +592,20 @@ def promote_model() -> None:
         raise
 
 
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Evaluate the 5 canonical GNN promotion gates and, unless "
+        "--dry-run is passed, promote the checkpoint."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Evaluate every gate and report the mutations that would follow, "
+        "without modifying config.yaml or model_artifact_checksums.json.",
+    )
+    return parser
+
+
 if __name__ == "__main__":
-    promote_model()
+    _args = _build_arg_parser().parse_args()
+    promote_model(dry_run=_args.dry_run)
