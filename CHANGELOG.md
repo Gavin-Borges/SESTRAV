@@ -27,20 +27,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     hold**, so the manuscript states the asymmetry as a constraint on future explanations rather
     than as the explanation. 1,624 active positives carry the same signature, and on the
     leave-one-virus-out training pool it is associated with the positive class in five of the six
-    decoy-bearing folds, including DENV, EBV and IAV, which carry the largest published inflation.
+    decoy-bearing folds, including DENV, EBV and IAV, the three highest published LOO AUC-ROC
+    values that D11 retracted.
   - **Those five folds are not independent, and the manuscript now says so.** All 1,624 are HIV-1
     peptides, so the five are one virus's rows appearing in every training pool but their own, and
     the sole dissenting fold is HIV-1 itself, where the association vanishes only because holding
-    HIV-1 out removes every zero-vector positive from training. HIV-1 is also one of the four
-    largest decoy populations in the affected partitions and the paper's anti-predictive outlier,
-    so it is not a neutral control. Claims register D21 remains PARTIAL and the mechanism remains
-    uncharacterised.
+    HIV-1 out removes every zero-vector positive from training. HIV-1 is also the second-largest
+    of the affected decoy populations (693 of 753) and the paper's anti-predictive outlier, so it
+    is not a neutral control.
+  - **Measured against inflation rather than against published value, the dissent is sharper still.**
+    Inflation is published minus corrected LOO AUC-ROC across the two tracked LOO artifacts: DENV
+    +0.497, **HIV-1 +0.474**, EBV +0.328, IAV +0.297. HIV-1 carries the second-largest inflation of
+    any virus, so the two largest inflations sit on opposite sides of the zero-vector signature.
+    Claims register D21 remains PARTIAL and the mechanism remains uncharacterised.
 - **The Tier A paired-bootstrap lower bound was emphasised to a precision the procedure does not
   resolve.** `scripts/compute_tier_a_paired_bootstrap.py` creates a single `default_rng(SEED)` and
   threads it through both `paired_bootstrap` calls with BigMHC first, so the recorded bound is
-  conditional on call order. Measured across call orders and five reseedings it spans 0.0012 to
-  0.0026, a range 0.78x the margin by which it clears zero, with p below 0.05 throughout so no
-  conclusion changes. `docs/paper.md` Section 3.5 and the register's D15-b row now describe the
+  conditional on call order. Across 24 measured configurations (12 seeds x 2 call orders) the bound
+  spans at least 0.0012 to 0.0032 - a range wider than the 0.0018 margin by which it clears zero -
+  with p between 0.0308 and 0.0442, so no conclusion changes. The span is itself seed-set dependent
+  and must not be quoted as a fixed property; an earlier narrower measurement in this entry (0.0012
+  to 0.0026) was superseded within the same session by a wider sweep.
+  `docs/paper.md` Section 3.5 and the register's D15-b row now describe the
   bound instead of emphasising a single digit. The earlier `[Unreleased]` entry recording the
   original disclosure is left intact as the record of what was published at the time.
 - **A false statement about what `src/h2_tier_a_evaluation.py` does, in two tracked files.**
@@ -51,15 +59,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   groups near-duplicates across folds. The clause is withdrawn from both files. "Has not been
   performed" is correct and is retained, now stating that such a re-run would move the point
   estimate itself and not merely the interval.
-- **Three drifted line-number citations in the claims register's D22 and D17 rows**, all
+- **Five drifted line-number citations in the claims register's D22 and D17 rows**, all
   re-anchored to symbols per the repository's standing ban on `file.py:NNN` citations.
   `h2_tier_a_evaluation.py:202-209` was cited twice in D22 and once in D17 as where the
   substring-containment check runs, but that range now holds the output guard, data load and
   gold-standard mask setup; the check itself moved to the EXACT/SUBSTRING OVERLAP CHECK inside
   `run_h2_tier_a`. `h2_tier_a_evaluation.py:393-398` was cited as the v3 zero-duplicate argument
   but now points at provenance-sidecar writes; that argument lives in `run_h2_tier_a`'s report
-  template and in the module's CLI-defaults comment. These citations were invisible to CI because
-  `docs/claims_register.md` sits in `check_doc_line_citations.py`'s `EXEMPT_CITING_FILES`.
+  template and in the module's CLI-defaults comment. The fifth, in the same D22 cell, was
+  `scripts/audit_cv_leakage.py:305-377` for `_tier_a_ab`, which actually spans 305-382, so line 377
+  landed mid-dict-literal. These citations were invisible to CI because `docs/claims_register.md`
+  sits in `check_doc_line_citations.py`'s `EXEMPT_CITING_FILES`, which exempts 63 further citations
+  from the liveness gate - the size of the rot surface no gate is watching.
 - **`docs/paper.md` cited its references out of first-appearance order, which Vancouver style
   requires (claims register D25's own deferred note, "Fix that before submission").** D25 and D27
   appended three new references to the end of an already-drafted list instead of renumbering, so

@@ -757,12 +757,13 @@ virus (Section 2.5 gives the pool composition). A critical methodological
 finding emerged in the construction of LOO test partitions: viral proteome decoys carrying
 the label negative_origin = allele_matched_nonbinder (3,112 rows in v5) were included in
 test partitions under the initial LOO protocol. Despite the label, these decoys are not
-low-affinity: of the 218 such peptides present in the tracked binding matrix
-(`models/peptide_binding_matrix_v5.csv`), the maximum per-allele MHCflurry presentation
-score has median 0.761 (range 0.503-0.982) - comparably high to, and on this sample
+low-affinity: of the 218 such rows present in the tracked binding matrix
+(`models/peptide_binding_matrix_v5.csv`, covering 168 distinct peptides), the maximum
+per-allele MHCflurry presentation score has median 0.761 over rows and 0.740 over distinct
+peptides (range 0.503-0.982) - comparably high to, and on this sample
 higher than, the 0.712 median for true positives (n = 6,431 active rows; the all-rows
 figure is 0.705 over n = 7,037, but that base includes 606 quarantined rows, which the
-decoy sample does not). Those 218 peptides are not a random draw from the 3,112: the
+decoy sample does not). Those 218 rows are not a random draw from the 3,112: the
 binding matrix predates every decoy file and was never rebuilt, so matrix membership
 selects for peptides already present in the earlier corpus and biases this particular
 comparison upward. The mechanism by which their inclusion inflated LOO AUC-ROC is
@@ -781,8 +782,10 @@ rather than the negative one. Those five are not independent replications. Every
 1,624 is an HIV-1 peptide, so they are one virus's rows appearing in every training pool
 except their own, and the sole dissenting fold is HIV-1 itself, where the association
 disappears only because holding HIV-1 out removes every zero-vector positive from training.
-HIV-1 is also the second-largest of the affected decoy populations listed below, and is the
-anti-predictive outlier discussed in Section 4.2, so it is not a neutral control. Their inclusion in test
+HIV-1 is also the second-largest of the affected decoy populations listed below, is the
+anti-predictive outlier discussed in Section 4.2, and carries the second-largest measured
+inflation of any virus (+0.474 AUC-ROC, behind only DENV at +0.497), so it is not a neutral
+control. The two largest inflations therefore sit on opposite sides of this signature. Their inclusion in test
 partitions is associated with an inflation in LOO AUC-ROC of 0.25-0.50 points for
 viruses with large allele_nb populations:
 DENV (1,000 of 1,012 initial test negatives), EBV (300 of 380), IAV (445 of 564), and
