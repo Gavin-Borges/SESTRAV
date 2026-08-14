@@ -64,10 +64,16 @@ jobs:
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Build canonical results bundle (checksummed zip of tracked results/ artifacts)
+        # Stdlib-only (hashlib/json/zipfile) - no ML runtime deps needed. Lets a reader
+        # verify a published release's result artifacts byte-for-byte via the bundle's
+        # own manifest, independent of the sdist/wheel above.
+        run: python -m src.release_bundle --output-dir dist_release_bundle
+
       - name: Attest build provenance (keyless SLSA)
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
-          subject-path: "dist/*.tar.gz,dist/*.whl"
+          subject-path: "dist/*.tar.gz,dist/*.whl,dist_release_bundle/*.zip"
 
       - name: Publish GitHub Release with artifacts + checksums
         env:
@@ -75,6 +81,7 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             dist/*.tar.gz dist/*.whl dist/SHA256SUMS.txt \
+            dist_release_bundle/*.zip dist_release_bundle/*.manifest.json \
             --title "SESTRAV ${GITHUB_REF_NAME}" \
             --generate-notes \
             --verify-tag

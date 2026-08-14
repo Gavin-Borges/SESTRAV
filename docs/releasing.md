@@ -46,7 +46,10 @@ GitHub will then show your tags/commits as **Verified**.
 3. The **Release workflow** runs automatically and:
    - builds `dist/*.tar.gz` + `dist/*.whl`,
    - generates `SHA256SUMS.txt`,
-   - attaches a Sigstore provenance attestation,
+   - builds a checksummed results bundle (`src/release_bundle.py`: a zip + manifest of the
+     tracked canonical `results/*` artifacts, so a reader can verify a release's reported
+     numbers against the exact files that produced them),
+   - attaches a Sigstore provenance attestation covering the dist and results-bundle files,
    - creates the GitHub Release with all assets and auto-generated notes.
 
 4. **Update `SECURITY.md`** "Release Integrity & Verification" to record the first
