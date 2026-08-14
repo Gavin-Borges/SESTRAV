@@ -573,7 +573,7 @@ feature is a pure function of the peptide string (no allele-specific column ente
 31-feature vector), while the v5 corpus is deduplicated on (peptide, hla_allele), not on
 peptide alone; consequently the same peptide can appear on both sides of a fold boundary
 under a splitter that does not group by peptide. A leakage audit
-(`scripts/audit_cv_leakage.py`, `results/cv_leakage_audit.csv`) measured that 71.0% of
+(`scripts/audit_cv_leakage.py`, `results/cv_leakage_audit.csv`) measured that 71.1% of
 held-out rows under the (pre-remediation) production splitter had their exact peptide
 present in that fold's training set, and that holding the RF configuration fixed while
 switching only the splitter moved pooled mode-31 AUC-PR from 0.835 to 0.609 (-0.225). This
@@ -594,11 +594,15 @@ single Random Forest model family; models/v5/training_results_ablation.csv, re-b
 | 33           | + antigen processing (MOCK features - see below)  | 0.817   | 0.609  |
 | 35           | + self-similarity                                 | 0.814   | 0.607  |
 
-On the v5 build, approximately 11% of antigen-processing and self-similarity cache
-values are median-imputed; for modes 33/35 this imputation is now fit inside each CV fold
-on training rows only (`--no-fold-impute` reproduces the whole-cache-median pre-Phase-0
-behavior). The near-zero contribution of modes 33 and 35 over mode-31 should be read with
-this caveat in mind.
+On the v5 build, 12.6% of active (non-quarantined) training rows (4,502 of 35,597) have no
+entry in the antigen-processing cache and receive an imputed `netchop_score` and
+`tap_score`; for modes 33 and 35 that imputation is now fit inside each CV fold on training
+rows only (`--no-fold-impute` reproduces the whole-cache-median pre-Phase-0 behavior). The
+self-similarity features are mode-35 only and are not imputed at all: the same share of
+active rows is absent from the self-similarity cache and is filled with a constant 0.0,
+meaning no known self-match, which is fold-independent and so carries no leakage. The
+near-zero contribution of modes 33 and 35 over mode-31 should be read with this caveat in
+mind.
 
 **The mode-33 antigen-processing features are mock, not real tool output, and the mode-33
 row of Table 1 must be read accordingly.** The `netchop_score` and `tap_score` values in

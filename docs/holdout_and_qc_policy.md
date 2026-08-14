@@ -28,7 +28,7 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
   **AMENDED 2026-08-08 (D15):** stratification alone is NOT sufficient. `MultiStratifiedKFold`
   (`src/ml_utils.py`) accepts a `peptides=` argument but uses it only to bin length for
   stratification, never as a fold group, so rows sharing a peptide across different HLA alleles
-  land on opposite sides of the boundary - measured at 71.0% of held-out rows. Because every
+  land on opposite sides of the boundary - measured at 71.1% of held-out rows. Because every
   `feature_mode=31` feature is a pure function of the peptide string, those rows are
   feature-identical and the split leaks. **New certified runs must group by peptide** (see Phase 0
   of `docs/proposals/2026_feature_upgrade_roadmap.md`). This clause previously mandated the

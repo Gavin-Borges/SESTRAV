@@ -61,10 +61,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   estimate itself and not merely the interval.
 - **Five drifted line-number citations in the claims register's D22 and D17 rows**, all
   re-anchored to symbols per the repository's standing ban on `file.py:NNN` citations.
-  `h2_tier_a_evaluation.py:202-209` was cited twice in D22 and once in D17 as where the
+  `src/h2_tier_a_evaluation.py:202-209` was cited twice in D22 and once in D17 as where the
   substring-containment check runs, but that range now holds the output guard, data load and
   gold-standard mask setup; the check itself moved to the EXACT/SUBSTRING OVERLAP CHECK inside
-  `run_h2_tier_a`. `h2_tier_a_evaluation.py:393-398` was cited as the v3 zero-duplicate argument
+  `run_h2_tier_a`. `src/h2_tier_a_evaluation.py:393-398` was cited as the v3 zero-duplicate argument
   but now points at provenance-sidecar writes; that argument lives in `run_h2_tier_a`'s report
   template and in the module's CLI-defaults comment. The fifth, in the same D22 cell, was
   `scripts/audit_cv_leakage.py:305-377` for `_tier_a_ab`, which actually spans 305-382, so line 377
@@ -1667,7 +1667,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   (`_guard_data_bias_audit_cli`, the union of all 4 tracked-risk paths) placed above the
   `refresh_dataset` call, so a blocked run fails before paying the cost of parsing every IEDB xlsx
   file rather than after. `run_gold_standard_sensitivity`'s call in
-  `bias_skew_finalization.py:169` stays positional and unreordered; `allow_overwrite` was appended
+  `src/bias_skew_finalization.py:169` stays positional and unreordered; `allow_overwrite` was appended
   as a trailing keyword argument.
   Tests: `tests/test_data_bias_audit_guard.py` (31 cases) and
   `tests/test_gold_standard_sensitivity_guard.py` (16 cases) cover planned-path enumeration
