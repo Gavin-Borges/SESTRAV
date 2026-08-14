@@ -774,10 +774,15 @@ decoys (93.0% of active rows) have no entry in the binding matrix at all and the
 receive an all-zero binding-feature vector, against 0 of 22,467 tested_negative and 0 of
 1,963 iedb_api active rows. This is a gap in matrix coverage rather than in measured
 affinity, since the decoys were selected on a presentation-score threshold at generation.
-It does not by itself explain the inflation, and we do not present it as doing so: the same
-all-zero signature is carried by 1,624 active positives, and in five of the six
-decoy-bearing held-out folds it is associated with the positive class in the training pool
-rather than the negative one. Their inclusion in test
+It does not by itself explain the inflation, and we do not present it as doing so: 1,624
+active positives carry the same all-zero signature, and in five of the six decoy-bearing
+held-out folds that signature is associated with the positive class in the training pool
+rather than the negative one. Those five are not independent replications. Every one of the
+1,624 is an HIV-1 peptide, so they are one virus's rows appearing in every training pool
+except their own, and the sole dissenting fold is HIV-1 itself, where the association
+disappears only because holding HIV-1 out removes every zero-vector positive from training.
+HIV-1 is also the second-largest of the affected decoy populations listed below, and is the
+anti-predictive outlier discussed in Section 4.2, so it is not a neutral control. Their inclusion in test
 partitions is associated with an inflation in LOO AUC-ROC of 0.25-0.50 points for
 viruses with large allele_nb populations:
 DENV (1,000 of 1,012 initial test negatives), EBV (300 of 380), IAV (445 of 564), and

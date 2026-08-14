@@ -9,6 +9,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **A true-positive comparator in `docs/paper.md` Section 3.3 was computed on a contaminated
+  base.** The "0.705 median presentation score for true positives (n=7,037)" is taken over all
+  label-1 rows carrying a binding-matrix entry, including 606 quarantined rows, while the 3,112
+  allele-matched non-binder decoys it is compared against are entirely active. Like-for-like on
+  active rows the figure is 0.712 over n=6,431; the quarantined rows sit at median 0.618 and drag
+  the published value down, making the contrast look larger than it is. Both figures and both
+  bases are now stated. Also disclosed in the same passage: the 218 in-matrix decoys are a
+  selected rather than random subsample, because the binding matrix predates every decoy file and
+  was never rebuilt.
+- **A binding-matrix coverage asymmetry is now disclosed, and explicitly not offered as a
+  mechanism.** 2,894 of the 3,112 decoys (93.0% of active rows) have no binding-matrix entry and
+  receive an all-zero binding-feature vector, against 0 of 22,467 `tested_negative` and 0 of 1,963
+  `iedb_api` active rows. Recorded as a gap in matrix coverage rather than in measured affinity,
+  since the decoys were selected on a presentation-score threshold at generation.
+  - A "the model learns the all-zero block means negative" account was investigated and **does not
+    hold**, so the manuscript states the asymmetry as a constraint on future explanations rather
+    than as the explanation. 1,624 active positives carry the same signature, and on the
+    leave-one-virus-out training pool it is associated with the positive class in five of the six
+    decoy-bearing folds, including DENV, EBV and IAV, which carry the largest published inflation.
+  - **Those five folds are not independent, and the manuscript now says so.** All 1,624 are HIV-1
+    peptides, so the five are one virus's rows appearing in every training pool but their own, and
+    the sole dissenting fold is HIV-1 itself, where the association vanishes only because holding
+    HIV-1 out removes every zero-vector positive from training. HIV-1 is also one of the four
+    largest decoy populations in the affected partitions and the paper's anti-predictive outlier,
+    so it is not a neutral control. Claims register D21 remains PARTIAL and the mechanism remains
+    uncharacterised.
+- **The Tier A paired-bootstrap lower bound was emphasised to a precision the procedure does not
+  resolve.** `scripts/compute_tier_a_paired_bootstrap.py` creates a single `default_rng(SEED)` and
+  threads it through both `paired_bootstrap` calls with BigMHC first, so the recorded bound is
+  conditional on call order. Measured across call orders and five reseedings it spans 0.0012 to
+  0.0026, a range 0.78x the margin by which it clears zero, with p below 0.05 throughout so no
+  conclusion changes. `docs/paper.md` Section 3.5 and the register's D15-b row now describe the
+  bound instead of emphasising a single digit. The earlier `[Unreleased]` entry recording the
+  original disclosure is left intact as the record of what was published at the time.
+- **A false statement about what `src/h2_tier_a_evaluation.py` does, in two tracked files.**
+  `docs/paper.md` Section 3.5 and `docs/claims_register.md` both described the outstanding
+  substring-aware re-run as something that module "already does for its own corpus". It does not:
+  its EXACT/SUBSTRING OVERLAP CHECK inside `run_h2_tier_a` filters the train pool against the
+  16-peptide gold-standard holdout, and its splitter is an ungrouped `StratifiedKFold`, so it never
+  groups near-duplicates across folds. The clause is withdrawn from both files. "Has not been
+  performed" is correct and is retained, now stating that such a re-run would move the point
+  estimate itself and not merely the interval.
+- **Three drifted line-number citations in the claims register's D22 and D17 rows**, all
+  re-anchored to symbols per the repository's standing ban on `file.py:NNN` citations.
+  `h2_tier_a_evaluation.py:202-209` was cited twice in D22 and once in D17 as where the
+  substring-containment check runs, but that range now holds the output guard, data load and
+  gold-standard mask setup; the check itself moved to the EXACT/SUBSTRING OVERLAP CHECK inside
+  `run_h2_tier_a`. `h2_tier_a_evaluation.py:393-398` was cited as the v3 zero-duplicate argument
+  but now points at provenance-sidecar writes; that argument lives in `run_h2_tier_a`'s report
+  template and in the module's CLI-defaults comment. These citations were invisible to CI because
+  `docs/claims_register.md` sits in `check_doc_line_citations.py`'s `EXEMPT_CITING_FILES`.
 - **`docs/paper.md` cited its references out of first-appearance order, which Vancouver style
   requires (claims register D25's own deferred note, "Fix that before submission").** D25 and D27
   appended three new references to the end of an already-drafted list instead of renumbering, so
