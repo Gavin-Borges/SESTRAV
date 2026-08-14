@@ -448,7 +448,8 @@ structural information. Second, and more decisively: `src/verify/structural_gnn.
 fabricates idealised backbone coordinates (`generate_canonical_groove_coords`) rather than using
 real structures, and the GNN promotion Gate 1 threshold was re-anchored 2026-08-10 from AUC-PR >= 0.85 to
 >= 0.65 under a peptide-grouped splitter (`src/verify/promote_gnn.py`), precisely because 0.85
-was unreachable relative to even the leaky RF ceiling (0.831) and dramatically unreachable
+was unreachable relative to even the leaky, since-retracted RF ceiling (0.831, retracted as
+peptide-leakage-inflated per `docs/claims_register.md` D15) and dramatically unreachable
 relative to the honest peptide-grouped baseline (0.6058 certified). Spending compute on richer
 GNN node features before the promotion gates are re-baselined against an honest number is
 premature.
