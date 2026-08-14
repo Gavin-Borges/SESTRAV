@@ -22,5 +22,17 @@
       "path": "models/rf_30feature_integrated.joblib",
       "sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3"
     }
+  },
+  "historical_annotation": {
+    "status": "HISTORICAL - h2.r10/h2.r25 and inputs.binding_matrix_path.sha256 are STALE",
+    "reason": "Generated 2026-06-12 against models/peptide_binding_matrix_v3.csv while it was an all-zeros placeholder (commit f360b90 through 37d1d67). h2.r10/h2.r25 below are VOID - not a measurement of anything (docs/claims_register.md D17). Do not cite them.",
+    "corrected_values": {
+      "r10": 1.0588,
+      "r25": 1.0331,
+      "source": "results/h2_tier_a_summary.csv (regenerated 2026-08-10)"
+    },
+    "note_on_valid_field": "\"valid\": true above means only that the generator run completed (src/final_validation_report.py hardcodes it on the success path); it is not a scientific certification of the h2 ratios and was never intended to be one - see D17.",
+    "do_not_regenerate": "planned_validation_paths() publishes 10 artifacts atomically, including three H2 Tier A files deliberately regenerated 2026-08-10 to carry the corrected R10=1.0588. A naive regeneration of this file alone would not touch those, but running the full generator again risks silently reintroducing stale values elsewhere - annotate here instead (open-item register B1b).",
+    "annotated": "2026-08-13"
   }
 }
