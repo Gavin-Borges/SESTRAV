@@ -39,14 +39,85 @@ jobs:
         # Fail fast (before building) if the pushed tag does not match
         # pyproject.toml [project].version, so release artifacts can never be
         # mislabelled. Bump pyproject before tagging (see docs/releasing.md).
+        #
+        # CITATION.cff is checked here too. Until 2026-08-14 nothing in CI, the
+        # tests, the scripts or the integrity harness referenced that file at
+        # all, which is how the W6 "phantom release" happened: CITATION.cff
+        # advertised 2.1.0 dated 2026-08-07 while no such tag existed.
+        #
+        # CITATION.cff is YAML, but this step runs before any dependency is
+        # installed, so there is no YAML parser available. The two fields being
+        # read are top-level scalars, so a line-anchored regex over the raw text
+        # is sufficient and avoids taking a dependency purely to fail fast.
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          PKG=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          TAG="${GITHUB_REF_NAME#v}"
-          if [ "$PKG" != "$TAG" ]; then
-            echo "::error::Tag '${GITHUB_REF_NAME}' (version '${TAG}') does not match pyproject.toml version '${PKG}'. Bump pyproject.toml before tagging."
-            exit 1
-          fi
-          echo "Version check OK: pyproject=${PKG} tag=${GITHUB_REF_NAME}"
+          python - <<'PY'
+          import datetime
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          tag = os.environ["TAG_NAME"]
+          want = tag.removeprefix("v")
+          errors = []
+
+          pkg = tomllib.loads(
+              pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          )["project"]["version"]
+          if pkg != want:
+              errors.append(
+                  f"pyproject.toml version {pkg!r} does not match tag {tag!r}. "
+                  "Bump pyproject.toml before tagging."
+              )
+
+          cff_text = pathlib.Path("CITATION.cff").read_text(encoding="utf-8")
+
+          def scalar(field):
+              m = re.search(
+                  rf"^{re.escape(field)}:[ \t]*['\"]?([^'\"\s#]+)", cff_text, re.M
+              )
+              return m.group(1) if m else None
+
+          cff_version = scalar("version")
+          if cff_version is None:
+              errors.append("CITATION.cff has no top-level 'version:' field.")
+          elif cff_version != want:
+              errors.append(
+                  f"CITATION.cff version {cff_version!r} does not match tag {tag!r}. "
+                  "Update CITATION.cff before tagging."
+              )
+
+          cff_date = scalar("date-released")
+          today = datetime.datetime.now(datetime.UTC).date()
+          if cff_date is None:
+              errors.append("CITATION.cff has no top-level 'date-released:' field.")
+          else:
+              try:
+                  released = datetime.date.fromisoformat(cff_date)
+              except ValueError:
+                  errors.append(
+                      f"CITATION.cff date-released {cff_date!r} is not an ISO date."
+                  )
+              else:
+                  if released > today:
+                      errors.append(
+                          f"CITATION.cff date-released {cff_date} is in the future "
+                          f"(today is {today}). A release cannot be dated ahead of itself."
+                      )
+
+          for e in errors:
+              print(f"::error::{e}")
+          if errors:
+              sys.exit(1)
+
+          print(
+              f"Version check OK: tag={tag} pyproject={pkg} "
+              f"CITATION.cff={cff_version} date-released={cff_date}"
+          )
+          PY
 
       - name: Build sdist and wheel
         # setuptools build backend (see pyproject.toml [build-system]); building the
@@ -57,6 +128,43 @@ jobs:
         run: |
           pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/
+
+      - name: Verify the built wheel installs and imports (PRE-PUBLISH GATE)
+        # The last point at which a bad package is still recoverable. The
+        # post-upload smoke test in the publish job cannot serve this purpose:
+        # it runs AFTER gh-action-pypi-publish, and PyPI permanently refuses a
+        # re-upload of the same version, so a failure there burns the version
+        # number and leaves a broken release published for good.
+        #
+        # Installs WITH dependencies on purpose. The point is to prove that
+        # [project].dependencies is sufficient to import the package - an AST
+        # audit on 2026-08-14 found seven distributions imported at module scope
+        # in the packaged trees and declared nowhere, including biopython and
+        # mhcflurry, which `sestrav predict` reaches through stages 1 and 2.
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          python -m venv /tmp/relcheck
+          /tmp/relcheck/bin/python -m pip install --quiet --upgrade pip
+          /tmp/relcheck/bin/python -m pip install --quiet dist/*.whl
+          /tmp/relcheck/bin/python - <<'PY'
+          import os
+          import sys
+          import sestrav
+
+          expected = os.environ["TAG_NAME"].removeprefix("v")
+          if sestrav.__version__ != expected:
+              print(
+                  f"::error::installed sestrav {sestrav.__version__!r} does not match "
+                  f"tag {expected!r}"
+              )
+              sys.exit(1)
+          print("import sestrav OK", sestrav.__version__)
+          PY
+          /tmp/relcheck/bin/python -c "import functions.stage1_peptide_generation; print('import functions OK')"
+          /tmp/relcheck/bin/python -c "import src.cli; print('import src.cli OK')"
+          /tmp/relcheck/bin/sestrav --help > /dev/null
+          echo "sestrav --help OK"
 
       - name: Generate SHA-256 checksum manifest
         run: |
@@ -90,7 +198,14 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist-${{ github.ref_name }}
-          path: dist/
+          # Distributions ONLY. gh-action-pypi-publish runs `twine upload dist/*`
+          # unfiltered, and twine raises InvalidDistribution on any extension
+          # outside .whl/.tar.gz/.zip - so shipping dist/SHA256SUMS.txt through to
+          # the publish job would fail the upload. It is still attached to the
+          # GitHub Release above, which reads it from this job's own dist/.
+          path: |
+            dist/*.tar.gz
+            dist/*.whl
           retention-days: 1
 
   publish:
@@ -124,8 +239,33 @@ jobs:
           python-version: "3.13"
 
       - name: Smoke-test installation from PyPI
+        # Confirms PyPI actually serves the artifact. Importability is already
+        # proven by the PRE-PUBLISH GATE in the release job, so the job of this
+        # step is narrower - and it retries instead of failing on the first
+        # miss, because a fresh upload can take a little while to reach the CDN
+        # and a failure here is NOT fixable by re-running: the version is
+        # already published and PyPI will not accept it twice.
+        #
+        # `--no-deps` was removed on 2026-08-14. It could never have worked:
+        # `import sestrav` reaches src.features (pandas, numpy) and
+        # functions.stage1_peptide_generation imports biopython, so with no
+        # dependencies installed both probes raise ModuleNotFoundError.
         run: |
-          pip install --no-deps "sestrav==${GITHUB_REF_NAME#v}" --index-url https://pypi.org/simple/
-          python -c "import sestrav; print('sestrav import OK')"
+          VERSION="${GITHUB_REF_NAME#v}"
+          installed=""
+          for attempt in 1 2 3 4 5; do
+            if pip install "sestrav==${VERSION}" --index-url https://pypi.org/simple/; then
+              installed=yes
+              break
+            fi
+            echo "Attempt ${attempt}/5 failed; PyPI may not have propagated yet. Retrying in 30s."
+            sleep 30
+          done
+          if [ -z "$installed" ]; then
+            echo "::error::sestrav==${VERSION} is published but could not be installed from PyPI after 5 attempts."
+            exit 1
+          fi
+          python -c "import sestrav; print('sestrav import OK', sestrav.__version__)"
           python -c "import functions.stage1_peptide_generation; print('functions import OK')"
-          sestrav --help
+          sestrav --help > /dev/null
+          echo "sestrav --help OK"

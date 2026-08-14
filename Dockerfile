@@ -25,9 +25,28 @@ USER sestrav_user
 ENV PATH="/home/sestrav_user/.local/bin:${PATH}"
 ENV PYTHONUNBUFFERED=1
 
-# Copy source and config
+# Copy source and config.
+#
+# All THREE packaged trees must be copied. pyproject.toml declares
+# packages.find include = ["sestrav*", "src*", "functions*"], but setuptools can
+# only find what is in the build context: until 2026-08-14 this stage copied
+# src/ alone, so the image silently installed a third of the package. `sestrav
+# --help` still worked (the console script is src.cli:main), which is why the
+# docker.yml smoke test would not have caught it, but `import sestrav` failed
+# outright and `sestrav predict` died at stage 1, since src/cli.py cmd_predict
+# imports all four functions/stage*.py modules.
 COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
 COPY --chown=sestrav_user:sestrav_user src/ ./src/
+COPY --chown=sestrav_user:sestrav_user functions/ ./functions/
+COPY --chown=sestrav_user:sestrav_user sestrav/ ./sestrav/
+# config.yaml is copied for anyone running from /app, but note that the
+# INSTALLED package will not read it: src/cli.py:_read_config resolves
+# config.yaml relative to the package directory (site-packages), and the file
+# ships in neither the wheel nor an sdist because there is no MANIFEST.in and it
+# sits outside every declared package. _read_config swallows that as an empty
+# dict, so `sestrav info` reports no config rather than erroring. Tracked
+# separately - packaging config.yaml as package data is a wider change than this
+# image.
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
 
 # Install SESTRAV package
