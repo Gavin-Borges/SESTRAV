@@ -13,7 +13,7 @@
 
 ## Training Data
 - **Source:** IEDB (curated exports, mapped to dataset version `2.0.0-alpha` in `config.yaml`).
-- **Holdout Policy:** Any peptides within the defined Gold Standard Tier A and Tier B validation sets were strictly removed from the training manifold.
+- **Holdout Policy (SCOPE CORRECTED 2026-08-14):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py`) are excluded from the training pool by the `gs_mask` exclusion in `train_models` (`src/train_classifier.py`). This is a 16-peptide exclusion and nothing else. It is **not** the "strict removal of Tier A and Tier B Gold Standard validation peptides" this card previously claimed: a substantial share of the Tier A field is present in the training corpus, so Tier A is not a held-out benchmark for this model. This is the same claim `docs/claims_register.md` D16 retracted on both RF model cards on 2026-08-08; it survived here until the 2026-08-14 accuracy sweep.
 - **Biases Addressed:** Training was conducted using inverse-frequency sample weights (by length and taxonomy) to neutralize taxonomic and length representation skews.
 
 ## Evaluation and Performance
