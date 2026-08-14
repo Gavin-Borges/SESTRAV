@@ -13,8 +13,8 @@ immunogenicity prediction, providing reproducible, auditable infrastructure for
 antigen prioritization across emerging pathogens. Binding affinity to MHC class I
 is necessary but not sufficient for T-cell activation, yet cross-pathogen transfer
 is rarely benchmarked. Where held-out-pathogen evaluation has been reported it was a
-supplementary single-allele analysis [25] or a two-pathogen split whose negative set
-mixes assay-confirmed peptides with presumed-tolerised self ligands [26]. We report a
+supplementary single-allele analysis [1] or a two-pathogen split whose negative set
+mixes assay-confirmed peptides with presumed-tolerised self ligands [2]. We report a
 nine-pathogen, pan-allele leave-one-virus-out (LOO) benchmark with test negatives
 restricted to assay-confirmed IEDB negatives. SESTRAV trains a Random Forest on 35,597 quality-filtered
 peptide-HLA pairs - 13,358 from nine human-pathogenic target viruses plus 22,239
@@ -53,7 +53,7 @@ class I complexes for T-cell vaccine design had to be computationally prioritize
 before any virus-specific immunogenicity data existed. A typical coronavirus proteome
 generates on the order of 50,000 distinct 8-11 amino acid peptide candidates eligible
 for MHC class I presentation, a number that exceeds high-throughput experimental T-cell
-screening capacity by two to three orders of magnitude [1]. Identifying
+screening capacity by two to three orders of magnitude [3]. Identifying
 which of these peptides will elicit measurable CD8+ T-cell responses - peptide
 immunogenicity, as distinct from peptide-MHC binding affinity - is a prerequisite for
 rational antigen selection in vaccine development, pandemic preparedness surveillance,
@@ -63,21 +63,21 @@ abundant prior T-cell response data, but also for pathogens encountered for the 
 time.
 
 The dominant approach to MHC class I epitope prediction is binding affinity scoring.
-NetMHCpan 4.1 [2] and related pan-allele tools accurately predict
+NetMHCpan 4.1 [4] and related pan-allele tools accurately predict
 whether a peptide occupies the MHC class I groove, but binding is necessary and not
 sufficient for T-cell activation: a bound peptide must also survive proteasomal
 processing and TAP-mediated transport, adopt a conformation recognized by circulating
 T-cell receptors, and trigger productive TCR signaling at physiologically relevant
-kinetics [3]. Dedicated immunogenicity prediction tools attempt to
-model this additional selection. The IEDB immunogenicity predictor [4]
+kinetics [5]. Dedicated immunogenicity prediction tools attempt to
+model this additional selection. The IEDB immunogenicity predictor [6]
 introduced TCR-contact amino acid composition features and showed modest improvement
 over binding-only baselines, but was evaluated on a single assay compilation without
-systematic cross-pathogen testing. BigMHC [5] applied deep learning
+systematic cross-pathogen testing. BigMHC [7] applied deep learning
 transfer from large-scale MHC binding data to immunogenicity scoring and achieved
 strong performance on a curated benchmark, though its immunogenicity training set is
 predominantly neoepitopes (5,279 of 6,873 experimentally validated examples) and no
 leave-one-pathogen-out evaluation was reported. T-SCAPE
-[6] developed a statistical immunogenicity scoring framework
+[8] developed a statistical immunogenicity scoring framework
 demonstrating improvement over binding tools, but similarly confined its validation to
 within-pathogen experimental data. Across these tools, the evaluation paradigm is
 consistent: models are trained and tested on data drawn from the same set of pathogens.
@@ -92,19 +92,19 @@ discriminating entirely unseen peptides from a new one.
 
 Cross-validation in this field is most often random, or stratified by HLA allele or by
 study: PRIME2.0 reports leave-one-allele-out and leave-one-study-out cross-validation
-[20]. Pathogen-level holdout has been reported, but narrowly. Bravi et al. performed
+[9]. Pathogen-level holdout has been reported, but narrowly. Bravi et al. performed
 leave-one-organism-out cross-validation for a single-allele generative model as a
 supplementary robustness check, reporting a mean AUC of 0.68 on assay-confirmed
-negatives [25]. TRAP trained separate models excluding SARS-CoV-2 and vaccinia virus
+negatives [1]. TRAP trained separate models excluding SARS-CoV-2 and vaccinia virus
 respectively, but its negative set combines assay-confirmed pathogen negatives with
-thymically expressed self ligands that were never assay-tested [26]. Neither reports a
+thymically expressed self ligands that were never assay-tested [2]. Neither reports a
 multi-pathogen, pan-allele panel with test negatives restricted to assay-confirmed
 records, which is the protocol we adopt here.
 
 That transfer across pathogens is difficult is itself established rather than novel:
 Buckley et al. benchmarked nine published models on a compiled panel of assay-confirmed
 SARS-CoV-2 CD8+ T-cell epitopes and found that none performed substantially better than
-random, or improved appreciably on HLA ligand prediction [27]. The present work
+random, or improved appreciably on HLA ligand prediction [10]. The present work
 generalises that result from one pathogen to a nine-pathogen panel, and its distinct
 contribution is methodological - the quantification of a test-partition contamination
 effect described below.
@@ -114,12 +114,12 @@ Vaccinology), a computational workflow for MHC class I CD8+ T-cell immunogenicit
 prediction. SESTRAV was trained on labelled data for nine human-pathogenic target
 viruses, augmented with a real IEDB-confirmed negative background from additional
 non-target species quantified in Section 2.1, drawn from the Immune Epitope
-Database (IEDB; [1]), VDJdb, and the Los Alamos National Laboratory HIV molecular
+Database (IEDB; [3]), VDJdb, and the Los Alamos National Laboratory HIV molecular
 immunology database. The production model
 integrates physicochemical descriptors at TCR-contacting residue positions with
-allele-stratified MHC presentation scores from MHCflurry 2.0 [7];
+allele-stratified MHC presentation scores from MHCflurry 2.0 [11];
 a custom edge-conditioned graph convolutional network incorporating ESM-2 per-residue
-protein language model embeddings [8] is evaluated as a research
+protein language model embeddings [12] is evaluated as a research
 component. We evaluate SESTRAV under within-virus stratified cross-validation and, as
 the primary generalization benchmark, a virus-level LOO protocol in which a separate
 Random Forest was retrained for each of the nine pathogens on data from the remaining
@@ -167,12 +167,12 @@ flow (directed acyclic graph).*
 ### 2.1 Dataset Construction
 
 Positive immunogenic peptide-MHC class I (pMHC-I) pairs were curated from three
-established repositories. The primary source was the Immune Epitope Database (IEDB; [1]), queried for MHC class I-restricted CD8+ T-cell
+established repositories. The primary source was the Immune Epitope Database (IEDB; [3]), queried for MHC class I-restricted CD8+ T-cell
 assay records with a positive qualitative measurement outcome (any "Positive" grade).
-Additional positives were retrieved from VDJdb [9], a database linking
+Additional positives were retrieved from VDJdb [13], a database linking
 immunodominant viral epitopes to paired TCR alpha and beta CDR3 sequences. HIV-1
 epitopes were further supplemented from the LANL HIV Molecular Immunology Database
-[10], a curated repository of best-defined cytotoxic T-lymphocyte
+[14], a curated repository of best-defined cytotoxic T-lymphocyte
 responses.
 
 The dataset spans nine target viruses: cytomegalovirus (CMV), dengue virus (DENV),
@@ -234,7 +234,7 @@ evaluation (Section 2.5) or the per-virus tables in Section 3; they contribute o
 to the pooled within-CV background reported in Section 3.2.
 
 Population coverage of the ten-allele panel was estimated from allele frequencies
-in the Allele Frequency Net Database (AFND; [24]) across the five WHO super-populations
+in the Allele Frequency Net Database (AFND; [15]) across the five WHO super-populations
 (African, AFR; admixed American, AMR; East Asian, EAS; European, EUR; South Asian, SAS).
 Under a Hardy-Weinberg diploid assumption, the phenotypic frequency of an allele with
 haplotype frequency h is 1 - (1 - h)^2, and panel coverage - the fraction of individuals
@@ -246,7 +246,7 @@ East Asian populations.
 
 *Table S1. Estimated population coverage of the ten-allele panel across five WHO
 super-populations. Coverage is the fraction of individuals carrying at least one of the
-ten panel alleles, computed from AFND haplotype frequencies [24] under a Hardy-Weinberg
+ten panel alleles, computed from AFND haplotype frequencies [15] under a Hardy-Weinberg
 diploid assumption.*
 
 | WHO super-population | Panel coverage |
@@ -264,29 +264,29 @@ diploid assumption.*
 Each peptide was represented by a 31-dimensional feature vector (mode-31 in the
 SESTRAV feature taxonomy). Twenty physicochemical descriptors encoded four amino
 acid properties at five predicted TCR contact positions (p4-p8) following the
-residue-numbering convention of Chowell et al. [11]: Kyte-Doolittle
-hydrophobicity [12] (scale range -4.5 to +4.5), binary
+residue-numbering convention of Chowell et al. [16]: Kyte-Doolittle
+hydrophobicity [17] (scale range -4.5 to +4.5), binary
 aromaticity (1 for F, W, Y, or H; 0 for all other residues), van der Waals atomic
-volume [13], and formal charge at physiological pH (K, R = +1; D, E = -1;
+volume [18], and formal charge at physiological pH (K, R = +1; D, E = -1;
 all others = 0). Contact positions p4-p6 corresponded to residue indices 3, 4, and 5
 from the N-terminus; p7 and p8 were C-terminal-relative at indices L-3 and L-2, where
 L is peptide length. Positions that coincided with an earlier contact position or fell
 at the C-terminal anchor residue were zero-imputed to avoid double-counting. A total
 of 4 properties x 5 positions yielded the 20 physicochemical features.
 
-Ten MHC binding affinity features represented the MHCflurry 2.0 [7] antigen presentation probability score (a probability in [0, 1]) for each of the
+Ten MHC binding affinity features represented the MHCflurry 2.0 [11] antigen presentation probability score (a probability in [0, 1]) for each of the
 ten target HLA alleles. Scores were pre-computed offline for all unique peptides and
 stored in a peptide-allele binding matrix; peptides absent from the matrix received a
 score of zero. A single peptide length feature (integer amino acid count, range 8-11)
 completed the 31-feature vector.
 
-Pre-computed ESM-2 per-residue embeddings (facebook/esm2_t12_35M_UR50D; [14]; 480 dimensions) were cached offline as a peptide-to-tensor dictionary (30,687
+Pre-computed ESM-2 per-residue embeddings (facebook/esm2_t12_35M_UR50D; [19]; 480 dimensions) were cached offline as a peptide-to-tensor dictionary (30,687
 unique peptides; each entry a zero-padded tensor of shape 11 x 480). These embeddings
 serve as node features for the GNN variant of SESTRAV and were not used by the Random
 Forest classifier.
 
 The primary immunogenicity classifier was a Random Forest implemented in scikit-learn
-[15], configured with 200 decision trees (n_estimators = 200),
+[20], configured with 200 decision trees (n_estimators = 200),
 balanced class weights (class_weight = "balanced") to compensate for the
 positive-to-negative class ratio, and a fixed random seed (random_state = 42) for
 reproducibility; max_features defaulted to the square root of the feature dimension
@@ -307,7 +307,7 @@ execution (n_jobs = 1) was set to ensure platform-independent reproducibility ac
 CPU configurations; the production model was retrained on all 35,597 active training
 rows after cross-validation completed.
 
-A supplementary gradient-boosted tree classifier (XGBoost; [16]) was trained on
+A supplementary gradient-boosted tree classifier (XGBoost; [21]) was trained on
 identical feature matrices and cross-validation partitions. The configuration comprised
 200 boosting rounds (n_estimators = 200), binary logistic loss
 (objective = binary:logistic), the inverse negative-to-positive row count as the
@@ -319,11 +319,11 @@ both classifiers shared the same feature mode, cross-validation partitions, and
 gold-standard exclusion set.
 
 The GNN structural track implemented a two-layer graph convolutional network with
-edge-conditioned message passing as a custom PyTorch [17] nn.Module hierarchy.
+edge-conditioned message passing as a custom PyTorch [22] nn.Module hierarchy.
 Peptides were represented as directed chain graphs in which residue positions were
 nodes and edges encoded backbone connectivity through three one-hot classes: self-loop
 (position i to itself), forward (i to i+1), and backward (i+1 to i). Node features
-were the pre-computed ESM-2 per-residue embeddings (facebook/esm2_t12_35M_UR50D; [14]; 480 dimensions per residue) drawn from the offline cache described
+were the pre-computed ESM-2 per-residue embeddings (facebook/esm2_t12_35M_UR50D; [19]; 480 dimensions per residue) drawn from the offline cache described
 in Section 2.2; only real residue positions were materialised as graph nodes, with
 zero-padded cache entries excluded. The graph encoder applied two convolutional layers,
 each with batch normalisation and ReLU activation, projecting node representations from
@@ -369,8 +369,8 @@ the source of any reported evaluation figure. This OOF protocol is in contrast
 to the evaluation conditions under which external tools were assessed, as detailed
 below.
 
-Comparisons with external prediction tools - BigMHC [5], MixMHCpred 2.2 [20],
-DeepImmuno [21], and an MHCflurry 2.0 [7] binding-only baseline - were conducted on a
+Comparisons with external prediction tools - BigMHC [7], MixMHCpred 2.2 [9],
+DeepImmuno [23], and an MHCflurry 2.0 [11] binding-only baseline - were conducted on a
 shared 720-peptide Tier A benchmark set frozen on 2026-05-20, using a **2026-05, 30-feature,
 unweighted** SESTRAV configuration that predates both `feature_mode=31` and the
 peptide-grouped splitter described above (`docs/claims_register.md` D16). Each external
@@ -389,7 +389,7 @@ The primary performance metric was AUC-ROC, computed on balanced positive-and-ne
 subsets to decouple ranking ability from class composition effects. AUC-PR was the
 co-primary metric, reported alongside the dataset-specific positive rate in every
 comparison, because AUC-ROC becomes misleading when the positive fraction substantially
-exceeds 0.1 [18]. Precision at 10% recall was the secondary endpoint,
+exceeds 0.1 [24]. Precision at 10% recall was the secondary endpoint,
 corresponding to a practical vaccine peptide shortlisting threshold at which
 specificity is highly constrained. All per-virus AUC-ROC and AUC-PR point estimates
 carry 95% confidence intervals derived from 1,000-replicate bootstrap resampling of
@@ -397,7 +397,7 @@ the held-out partition (`results/per_virus_eval_v5_mode31.csv`); Tables 2 and 2b
 the point estimates only, and the reader should consult that file for the interval on
 any individual cell. Pairwise comparisons between predictors on the same held-out
 partition used paired bootstrap resampling (N=10,000; `src/statistical_bootstrap.py`)
-rather than DeLong's paired test [19]: DeLong's test assumes normal AUC distributions
+rather than DeLong's paired test [25]: DeLong's test assumes normal AUC distributions
 and sample independence, both of which are violated for the nested and
 peptide-correlated model comparisons made here, and the paired bootstrap avoids that
 assumption while still preserving the joint covariance between the two predictors'
@@ -432,7 +432,7 @@ surveillance - a virus-level leave-one-out (LOO) evaluation was conducted. This 
 is conceptually related to leave-one-out cross-validation at the sample level, but
 here the unit of exclusion is the complete labelled set for one virus, not a single
 peptide. Pathogen-level holdout has precedent in this field but not at panel scale on
-assay-confirmed negatives alone; Section 1 states the position and cites it [25,26].
+assay-confirmed negatives alone; Section 1 states the position and cites it [1,2].
 
 **Eligibility criteria.** A pathogen was eligible for inclusion in the LOO evaluation
 if its representation in the v5 active dataset met a minimum class-balance requirement:
@@ -1034,7 +1034,7 @@ structural discrimination at predicted TCR contact positions, not
 three-dimensional coordinates derived from crystallography or computational
 modelling. No structure prediction or molecular dynamics simulation is
 performed; structural claims throughout are dependent on the contact position
-assignment of Chowell et al. [11], which was derived from canonical 9-mer
+assignment of Chowell et al. [16], which was derived from canonical 9-mer
 crystal structure analyses and carries additional uncertainty when applied to
 8-mer and 10-mer binding registers.
 
@@ -1051,7 +1051,7 @@ repertoire compositions not represented in the screened cohort. The model
 therefore estimates a population-level signal and should not be interpreted as
 predicting individual-level response probability.
 
-The TCR contact position assignment follows the Chowell et al. [11]
+The TCR contact position assignment follows the Chowell et al. [16]
 convention of positions p4-p8 for canonical 9-mers. For 8-mer and 10-mer
 peptides, the C-terminal-relative index mapping used in SESTRAV - where p7 and
 p8 are computed as offsets from the peptide C-terminus - is an approximation
@@ -1169,7 +1169,7 @@ partitions for HBV, HCV, and SARS-CoV-2 would convert the current provisional
 LOO estimates into independently validated performance figures.
 
 Peptide stability at the MHC class I surface - quantified as complex half-life
-and available through NetMHCstabpan [22] - is the
+and available through NetMHCstabpan [26] - is the
 highest-priority candidate feature addition to the mode-31 feature set.
 Presentation probability and pMHC stability are biologically orthogonal: a
 weakly presented peptide may form a long-lived complex and sustain T-cell
@@ -1179,7 +1179,7 @@ requiring no new model architecture.
 
 GNN v5 training on the full dataset is deferred to a subsequent release pending
 GPU provisioning. This experiment will evaluate whether per-residue ESM-2 t12
-embeddings [14] and functionally motivated graph edges connecting
+embeddings [19] and functionally motivated graph edges connecting
 the p4-p8 contact subgraph provide discriminative lift beyond the RF mode-31
 baseline. Either outcome - lift or no lift - is informative and will be reported
 with ablation results rather than characterised as a research component without
@@ -1189,7 +1189,7 @@ HLA allele expansion to twelve additional alleles weighted by disease burden,
 including B*46:01 and A*30:01 for nasopharyngeal carcinoma and HBV cohorts
 prevalent in Asian populations, would address a systematic coverage gap in the
 current ten-allele panel. Template-based pMHC structural modelling via PANDORA
-[23] would provide three-dimensional anchor-position
+[27] would provide three-dimensional anchor-position
 geometry for contact weight refinement without full structure prediction, enabling
 empirically grounded replacement of the current Chowell approximation for
 non-canonical peptide lengths.
@@ -1270,56 +1270,56 @@ Immunology Database data are available at https://www.hiv.lanl.gov/content/immun
 
 ## References
 
-1. Vita R, Mahajan S, Overton JA, Dhanda SK, Martini S, Cantrell JR, et al. The Immune Epitope Database (IEDB): 2018 update. Nucleic Acids Res. 2019;47(D1):D339-D343. doi:10.1093/nar/gky1006
+1. Bravi B, Di Gioacchino A, Fernandez-de-Cossio-Diaz J, Walczak AM, Mora T, Cocco S, et al. A transfer-learning approach to predict antigen immunogenicity and T-cell receptor specificity. eLife. 2023;12:e85126. doi:10.7554/eLife.85126
 
-2. Reynisson B, Alvarez B, Paul S, Peters B, Nielsen M. NetMHCpan-4.1 and NetMHCIIpan-4.0: improved predictions of MHC antigen presentation by concurrent motif deconvolution and integration of MS MHC eluted ligand data. Nucleic Acids Res. 2020;48(W1):W449-W454. doi:10.1093/nar/gkaa379
+2. Lee CH, Huh J, Buckley PR, Jang M, Pereira Pinho M, Fernandes RA, et al. A robust deep learning workflow to predict CD8+ T cell epitopes. Genome Med. 2023;15:70. doi:10.1186/s13073-023-01225-z
 
-3. Rock KL, Goldberg AL. Degradation of cell proteins and the generation of MHC class I-presented peptides. Annu Rev Immunol. 1999;17:739-779. doi:10.1146/annurev.immunol.17.1.739
+3. Vita R, Mahajan S, Overton JA, Dhanda SK, Martini S, Cantrell JR, et al. The Immune Epitope Database (IEDB): 2018 update. Nucleic Acids Res. 2019;47(D1):D339-D343. doi:10.1093/nar/gky1006
 
-4. Calis JJA, Maybeno M, Greenbaum JA, Weiskopf D, De Silva AD, Sette A, et al. Properties of MHC class I presented peptides that enhance immunogenicity. PLoS Comput Biol. 2013;9(10):e1003266. doi:10.1371/journal.pcbi.1003266
+4. Reynisson B, Alvarez B, Paul S, Peters B, Nielsen M. NetMHCpan-4.1 and NetMHCIIpan-4.0: improved predictions of MHC antigen presentation by concurrent motif deconvolution and integration of MS MHC eluted ligand data. Nucleic Acids Res. 2020;48(W1):W449-W454. doi:10.1093/nar/gkaa379
 
-5. Albert BA, Yang Y, Shao XM, Singh D, Smith KN, Anagnostou V, et al. Deep neural networks predict class I major histocompatibility complex epitope presentation and transfer learn neoepitope immunogenicity. Nat Mach Intell. 2023;5:861-872. doi:10.1038/s42256-023-00694-6
+5. Rock KL, Goldberg AL. Degradation of cell proteins and the generation of MHC class I-presented peptides. Annu Rev Immunol. 1999;17:739-779. doi:10.1146/annurev.immunol.17.1.739
 
-6. Kim J, Jung N, Lee J, Cho NH, Noh J, Seok C. T-SCAPE: T cell immunogenicity scoring via cross-domain aided predictive engine. Sci Adv. 2025;11(49):eadz8759. doi:10.1126/sciadv.adz8759
+6. Calis JJA, Maybeno M, Greenbaum JA, Weiskopf D, De Silva AD, Sette A, et al. Properties of MHC class I presented peptides that enhance immunogenicity. PLoS Comput Biol. 2013;9(10):e1003266. doi:10.1371/journal.pcbi.1003266
 
-7. O'Donnell TJ, Rubinsteyn A, Laserson U. MHCflurry 2.0: improved pan-allele prediction of MHC class I-presented peptides by incorporating antigen processing. Cell Syst. 2020;11(1):42-48.e7. doi:10.1016/j.cels.2020.06.010
+7. Albert BA, Yang Y, Shao XM, Singh D, Smith KN, Anagnostou V, et al. Deep neural networks predict class I major histocompatibility complex epitope presentation and transfer learn neoepitope immunogenicity. Nat Mach Intell. 2023;5:861-872. doi:10.1038/s42256-023-00694-6
 
-8. Rives A, Meier J, Sercu T, Goyal S, Lin Z, Liu J, et al. Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences. Proc Natl Acad Sci USA. 2021;118(15):e2016239118. doi:10.1073/pnas.2016239118
+8. Kim J, Jung N, Lee J, Cho NH, Noh J, Seok C. T-SCAPE: T cell immunogenicity scoring via cross-domain aided predictive engine. Sci Adv. 2025;11(49):eadz8759. doi:10.1126/sciadv.adz8759
 
-9. Bagaev DV, Vroomans RMA, Samir J, Stervbo U, Rius C, Dolton G, et al. VDJdb in 2019: database extension, new analysis infrastructure and a T-cell receptor motif compendium. Nucleic Acids Res. 2020;48(D1):D1057-D1062. doi:10.1093/nar/gkz874
+9. Gfeller D, Schmidt J, Croce G, Guillaume P, Bobisse S, Genolet R, et al. Improved predictions of antigen presentation and TCR recognition with MixMHCpred2.2 and PRIME2.0 reveal potent SARS-CoV-2 CD8+ T-cell epitopes. Cell Syst. 2023;14(1):72-83.e5. doi:10.1016/j.cels.2022.12.002
 
-10. Mamrosh JL, David-Fung ES, Korber BTM, Brander C, Barouch D, de Boer R, et al. HIV Molecular Immunology 2025. Los Alamos, NM: Los Alamos National Laboratory, Theoretical Biology and Biophysics; 2025. LA-UR-25-30629. doi:10.2172/3007488
+10. Buckley PR, Lee CH, Ma R, Woodhouse I, Woo J, Tsvetkov VO, et al. Evaluating performance of existing computational models in predicting CD8+ T cell pathogenic epitopes and cancer neoantigens. Brief Bioinform. 2022;23(3):bbac141. doi:10.1093/bib/bbac141
 
-11. Chowell D, Krishna S, Becker PD, Cocita C, Shu J, Tan X, et al. TCR contact residue hydrophobicity is a hallmark of immunogenic CD8+ T cell epitopes. Proc Natl Acad Sci USA. 2015;112(14):E1754-E1762. doi:10.1073/pnas.1500973112
+11. O'Donnell TJ, Rubinsteyn A, Laserson U. MHCflurry 2.0: improved pan-allele prediction of MHC class I-presented peptides by incorporating antigen processing. Cell Syst. 2020;11(1):42-48.e7. doi:10.1016/j.cels.2020.06.010
 
-12. Kyte J, Doolittle RF. A simple method for displaying the hydropathic character of a protein. J Mol Biol. 1982;157(1):105-132. doi:10.1016/0022-2836(82)90515-0
+12. Rives A, Meier J, Sercu T, Goyal S, Lin Z, Liu J, et al. Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences. Proc Natl Acad Sci USA. 2021;118(15):e2016239118. doi:10.1073/pnas.2016239118
 
-13. Zamyatnin AA. Protein volume in solution. Prog Biophys Mol Biol. 1972;24:107-123. doi:10.1016/0079-6107(72)90005-3
+13. Bagaev DV, Vroomans RMA, Samir J, Stervbo U, Rius C, Dolton G, et al. VDJdb in 2019: database extension, new analysis infrastructure and a T-cell receptor motif compendium. Nucleic Acids Res. 2020;48(D1):D1057-D1062. doi:10.1093/nar/gkz874
 
-14. Lin Z, Akin H, Rao R, Hie B, Zhu Z, Lu W, et al. Evolutionary-scale prediction of atomic-level protein structure with a language model. Science. 2023;379(6637):1123-1130. doi:10.1126/science.ade2574
+14. Mamrosh JL, David-Fung ES, Korber BTM, Brander C, Barouch D, de Boer R, et al. HIV Molecular Immunology 2025. Los Alamos, NM: Los Alamos National Laboratory, Theoretical Biology and Biophysics; 2025. LA-UR-25-30629. doi:10.2172/3007488
 
-15. Pedregosa F, Varoquaux G, Gramfort A, Michel V, Thirion B, Grisel O, et al. Scikit-learn: machine learning in Python. J Mach Learn Res. 2011;12:2825-2830.
+15. Gonzalez-Galarza FF, McCabe A, Santos EJMD, Jones J, Takeshita L, Ortega-Rivera ND, et al. Allele frequency net database (AFND) 2020 update: gold-standard data classification, open access genotype data and new query tools. Nucleic Acids Res. 2020;48(D1):D783-D788. doi:10.1093/nar/gkz1029
 
-16. Chen T, Guestrin C. XGBoost: a scalable tree boosting system. In: Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining; 2016 Aug 13-17; San Francisco, CA. New York: ACM; 2016. p. 785-794. doi:10.1145/2939672.2939785
+16. Chowell D, Krishna S, Becker PD, Cocita C, Shu J, Tan X, et al. TCR contact residue hydrophobicity is a hallmark of immunogenic CD8+ T cell epitopes. Proc Natl Acad Sci USA. 2015;112(14):E1754-E1762. doi:10.1073/pnas.1500973112
 
-17. Paszke A, Gross S, Massa F, Lerer A, Bradbury J, Chanan G, et al. PyTorch: an imperative style, high-performance deep learning library. In: Advances in Neural Information Processing Systems 32. Red Hook, NY: Curran Associates; 2019. p. 8024-8035.
+17. Kyte J, Doolittle RF. A simple method for displaying the hydropathic character of a protein. J Mol Biol. 1982;157(1):105-132. doi:10.1016/0022-2836(82)90515-0
 
-18. Saito T, Rehmsmeier M. The precision-recall plot is more informative than the ROC plot when evaluating binary classifiers on imbalanced datasets. PLoS One. 2015;10(3):e0118432. doi:10.1371/journal.pone.0118432
+18. Zamyatnin AA. Protein volume in solution. Prog Biophys Mol Biol. 1972;24:107-123. doi:10.1016/0079-6107(72)90005-3
 
-19. DeLong ER, DeLong DM, Clarke-Pearson DL. Comparing the areas under two or more correlated receiver operating characteristic curves: a nonparametric approach. Biometrics. 1988;44(3):837-845. doi:10.2307/2531595
+19. Lin Z, Akin H, Rao R, Hie B, Zhu Z, Lu W, et al. Evolutionary-scale prediction of atomic-level protein structure with a language model. Science. 2023;379(6637):1123-1130. doi:10.1126/science.ade2574
 
-20. Gfeller D, Schmidt J, Croce G, Guillaume P, Bobisse S, Genolet R, et al. Improved predictions of antigen presentation and TCR recognition with MixMHCpred2.2 and PRIME2.0 reveal potent SARS-CoV-2 CD8+ T-cell epitopes. Cell Syst. 2023;14(1):72-83.e5. doi:10.1016/j.cels.2022.12.002
+20. Pedregosa F, Varoquaux G, Gramfort A, Michel V, Thirion B, Grisel O, et al. Scikit-learn: machine learning in Python. J Mach Learn Res. 2011;12:2825-2830.
 
-21. Li G, Iyer B, Prasath VBS, Ni Y, Salomonis N. DeepImmuno: deep learning-empowered prediction and generation of immunogenic peptides for T-cell immunity. Brief Bioinform. 2021;22(6):bbab160. doi:10.1093/bib/bbab160
+21. Chen T, Guestrin C. XGBoost: a scalable tree boosting system. In: Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining; 2016 Aug 13-17; San Francisco, CA. New York: ACM; 2016. p. 785-794. doi:10.1145/2939672.2939785
 
-22. Rasmussen M, Fenoy E, Harndahl M, Kristensen AB, Nielsen IK, Nielsen M, et al. Pan-specific prediction of peptide-MHC class I complex stability, a correlate of T cell immunogenicity. J Immunol. 2016;197(4):1517-1524. doi:10.4049/jimmunol.1600582
+22. Paszke A, Gross S, Massa F, Lerer A, Bradbury J, Chanan G, et al. PyTorch: an imperative style, high-performance deep learning library. In: Advances in Neural Information Processing Systems 32. Red Hook, NY: Curran Associates; 2019. p. 8024-8035.
 
-23. Marzella DF, Parizi FM, van Tilborg D, Renaud N, Koelman JFM, Hekkelman ML, de Ridder D, Abreu R, de Bruijn R, Xue LC, Bonvin AMJJ. PANDORA: A Fast, Anchor-Restrained Modelling Protocol for Peptide:MHC Complexes. Front Immunol. 2022;13:878762. doi:10.3389/fimmu.2022.878762
+23. Li G, Iyer B, Prasath VBS, Ni Y, Salomonis N. DeepImmuno: deep learning-empowered prediction and generation of immunogenic peptides for T-cell immunity. Brief Bioinform. 2021;22(6):bbab160. doi:10.1093/bib/bbab160
 
-24. Gonzalez-Galarza FF, McCabe A, Santos EJMD, Jones J, Takeshita L, Ortega-Rivera ND, et al. Allele frequency net database (AFND) 2020 update: gold-standard data classification, open access genotype data and new query tools. Nucleic Acids Res. 2020;48(D1):D783-D788. doi:10.1093/nar/gkz1029
+24. Saito T, Rehmsmeier M. The precision-recall plot is more informative than the ROC plot when evaluating binary classifiers on imbalanced datasets. PLoS One. 2015;10(3):e0118432. doi:10.1371/journal.pone.0118432
 
-25. Bravi B, Di Gioacchino A, Fernandez-de-Cossio-Diaz J, Walczak AM, Mora T, Cocco S, et al. A transfer-learning approach to predict antigen immunogenicity and T-cell receptor specificity. eLife. 2023;12:e85126. doi:10.7554/eLife.85126
+25. DeLong ER, DeLong DM, Clarke-Pearson DL. Comparing the areas under two or more correlated receiver operating characteristic curves: a nonparametric approach. Biometrics. 1988;44(3):837-845. doi:10.2307/2531595
 
-26. Lee CH, Huh J, Buckley PR, Jang M, Pereira Pinho M, Fernandes RA, et al. A robust deep learning workflow to predict CD8+ T cell epitopes. Genome Med. 2023;15:70. doi:10.1186/s13073-023-01225-z
+26. Rasmussen M, Fenoy E, Harndahl M, Kristensen AB, Nielsen IK, Nielsen M, et al. Pan-specific prediction of peptide-MHC class I complex stability, a correlate of T cell immunogenicity. J Immunol. 2016;197(4):1517-1524. doi:10.4049/jimmunol.1600582
 
-27. Buckley PR, Lee CH, Ma R, Woodhouse I, Woo J, Tsvetkov VO, et al. Evaluating performance of existing computational models in predicting CD8+ T cell pathogenic epitopes and cancer neoantigens. Brief Bioinform. 2022;23(3):bbac141. doi:10.1093/bib/bbac141
+27. Marzella DF, Parizi FM, van Tilborg D, Renaud N, Koelman JFM, Hekkelman ML, de Ridder D, Abreu R, de Bruijn R, Xue LC, Bonvin AMJJ. PANDORA: A Fast, Anchor-Restrained Modelling Protocol for Peptide:MHC Complexes. Front Immunol. 2022;13:878762. doi:10.3389/fimmu.2022.878762

@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **`docs/paper.md` cited its references out of first-appearance order, which Vancouver style
+  requires (claims register D25's own deferred note, "Fix that before submission").** D25 and D27
+  appended three new references to the end of an already-drafted list instead of renumbering, so
+  the Abstract cited [25] and [26] before [1] ever appeared. All 27 references and all 42 in-text
+  citation tokens were renumbered into strict first-appearance order in a single atomic pass.
+  - Verified by reconstruction rather than by spot check: applying the derived permutation to the
+    pre-renumber body reproduces the post-renumber body with a zero-line diff, which proves no
+    prose changed, no citation was dropped, added or remapped inconsistently, and no
+    number-to-source binding was touched. First-appearance order in the result is exactly 1..27.
+  - Three lookalike non-citation brackets - a `[0, 1]` normalized range and two confidence
+    intervals - were confirmed byte-identical, and the reference entries themselves were reordered,
+    not rewritten.
+  - Cross-document pointers that cited the old numbering by value were swept in the same pass
+    (`docs/claims_register.md` D25/D27, and this file). Where a pointer had to survive future
+    renumbering it now names the papers instead of their numbers.
 - **The manuscript's central novelty claim was false, and so was a checkable claim about a
   competitor (claims register D25).** The Abstract asserted, unhedged, that no published
   immunogenicity predictor had reported a systematic leave-one-pathogen-out benchmark on
@@ -21,16 +36,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     vocabulary ("leave-one-organism-out", "cross-species manner"), so a phrase search on this
     project's own coined term returned nothing. A negative claim searched only by its author's
     phrasing reads as engineered to survive, and must be searched by concept.
-  - **The headline finding is also preempted.** Buckley et al. (2022) benchmarked eight models
-    on SARS-CoV-2 megapool peptides and found none beat random appreciably, so the mean LOO
-    AUC-ROC of 0.463 generalises that result rather than discovering it. The distinct
-    contribution is methodological: the quantified test-partition contamination effect.
+  - **The headline finding is also preempted.** Buckley et al. (2022) benchmarked nine published
+    models on a compiled panel of assay-confirmed SARS-CoV-2 CD8+ T-cell epitopes and found none
+    beat random appreciably, so the mean LOO AUC-ROC of 0.463 generalises that result rather than
+    discovering it. The distinct contribution is methodological: the quantified test-partition
+    contamination effect.
+    - *Corrected 2026-08-14 (claims register D27): this entry said "eight models on SARS-CoV-2
+      megapool peptides". Both were checkably wrong against the primary source - the paper states
+      "we evaluated the performance of nine models", and "megapool" appears once, used informally
+      by the authors for their own compiled IEDB/VIPR dataset, not as an assay methodology. D27
+      corrected `docs/paper.md` and `docs/claims_register.md` on 2026-08-13 but did not sweep this
+      file.*
   - **A false statement about BigMHC, corrected in the same pass.** Section 1 said its
     "training data composition was not fully disclosed". BigMHC discloses it explicitly
     (1,580 positive / 5,293 negative, with the train/validation split, public Mendeley data
     and a public GitHub repository). Replaced with the accurate criticism: its immunogenicity
     training set is predominantly neoepitopes, 5,279 of 6,873 examples.
-  - All three novelty loci now describe the prior art and cite it ([25]-[27]) rather than
+  - All three novelty loci now describe the prior art and cite it (Bravi et al., Lee et al./TRAP,
+    and Buckley et al. 2022 - added as references [25]-[27], renumbered to [1], [2] and [10] by the
+    2026-08-14 first-appearance pass; named here rather than numbered so the pointer cannot rot again)
+    rather than
     asserting a vacuum, since a negative literature claim can be falsified but never proven.
 - **`docs/paper.md` Section 3.2 reported a calibration ECE pair that was stale, cited to a file
   that did not contain it, and explained by a mechanism its own data refutes (claims register
