@@ -37,3 +37,15 @@ results/*.json text eol=lf
 # hash, same failure mode as the incident referenced above.
 results/continuous_validation/*.json text eol=lf
 results/continuous_validation/*.provenance.json text eol=lf
+
+# Added 2026-08-13 (D24-resid, open-item register): the same failure mode, one
+# directory earlier in the chain. scripts/assess_calibration.py records this
+# file's OWN sha256 as `oof_sha256` in results/calibration_assessment_v5_mode31.csv's
+# provenance sidecar, but models/v5/*.csv had no eol pin, so that hash was taken
+# from the Windows-CRLF working tree (331b00a8...) rather than the actual LF git
+# blob (4862bd59...) a Linux clone or CI checkout would see - it would never
+# reproduce there. Scoped to this one file, not a models/v5/*.csv glob: no other
+# file in that directory is currently hashed into a provenance sidecar, and a
+# broader glob would risk invalidating hashes recorded elsewhere without the
+# corresponding audit this fix's own sidecar update performed.
+models/v5/rf_oof_predictions_mode31.csv text eol=lf
