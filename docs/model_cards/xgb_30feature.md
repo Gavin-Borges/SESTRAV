@@ -19,10 +19,11 @@
 ## Evaluation and Performance
 - **Leakage disclosure (added 2026-08-10, `docs/claims_register.md` D15).** The metrics below were computed under a splitter that stratifies but does **not** group by peptide. Because the feature vector is a pure function of the peptide string, peptides recorded under more than one HLA allele can land on both sides of a fold boundary as feature-identical rows. On the v5 corpus this effect was measured at +37.0% AUC-PR for the mode-31 RF (0.8347 ungrouped vs 0.6092 peptide-grouped); the v5 RF/XGB ledgers were re-baselined under a peptide-grouped splitter on 2026-08-10 (v5 mode-31 XGB: AUC-ROC 0.8093, AUC-PR 0.5597). **This card's numbers are v3-era and have NOT been re-measured under the grouped splitter**, so they should be read as optimistic, not conservative, and are not comparable to the current peptide-grouped v5 figures reported in `README.md` and `docs/paper.md`.
 - **Primary Metrics:** Evaluated via stratified 5-fold cross-validation (ungrouped by peptide - see disclosure above) on the v3 (2.0.0-alpha) dataset. Average metrics on unseen folds:
-  - AUC-ROC: ~0.67 (exact: 0.6650)
-  - AUC-PR: ~0.81 (exact: 0.8050)
-  - ISSR@10: ~0.87 (exact: 0.8650)
-  - ISSR@25: ~0.92 (exact: 0.9150)
+  - AUC-ROC: ~0.67 (representative: 0.665)
+  - AUC-PR: ~0.81 (representative: 0.805)
+  - ISSR@10: ~0.87 (representative: 0.865)
+  - ISSR@25: ~0.92 (representative: 0.915)
+- **Provenance caveat on the four figures above (added 2026-08-15, S2).** Two corrections in one pass. They were relabelled from "exact:" to "representative:" because that is what their own source says: they descend from the 3-decimal 30-feature table in `docs/model_evaluation_summary.md`, whose note reads "AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split." **They were also de-padded from 4 decimals back to the 3 the source actually carries** - they had been written as 0.6650 / 0.8050 / 0.8650 / 0.9150, which is the source's 0.665 / 0.805 / 0.865 / 0.915 with a trailing zero appended, giving a measured-to-4dp appearance the underlying run never supported. **No tracked 30-feature XGB cross-validation artifact exists**: a repository-wide sweep for these four literals returns only this card itself. Treat all four as v3-era, seed-dependent, and unbound.
 - **Score Resolution:** Unlike the Random Forest, which produces tied scores at 1.0 for a small fraction of peptides, the XGBoost model provides finer continuous score resolution.
 
 ## Limitations
