@@ -1207,13 +1207,21 @@ visibility, while a strongly predicted binder with rapid turnover may not. Addin
 stability half-life as an 11th binding feature is the most tractable extension
 requiring no new model architecture.
 
-GNN v5 training on the full dataset is deferred to a subsequent release pending
-GPU provisioning. This experiment will evaluate whether per-residue ESM-2 t12
-embeddings [19] and functionally motivated graph edges connecting
-the p4-p8 contact subgraph provide discriminative lift beyond the RF mode-31
-baseline. Either outcome - lift or no lift - is informative and will be reported
-with ablation results rather than characterised as a research component without
-supporting numbers.
+GNN v5 training on the full dataset, under a peptide-grouped cross-validation
+splitter, was completed and evaluated against a pre-registered promotion bar
+(pooled AUC-PR >= 0.65 with a paired-bootstrap 95% confidence interval excluding
+zero versus the RF mode-31 baseline). The result is a null on that bar: pooled
+AUC-PR reached 0.6458, missing the threshold by 0.0042, and cross-fold stability
+also failed the corresponding gate, though calibration, latency, and escape-sensitivity
+gates passed. AUC-PR was nonetheless significantly higher than the RF mode-31
+baseline (a paired-bootstrap delta with a 95% CI of [0.0286, 0.0520], excluding
+zero), indicating that the
+per-residue ESM-2 t12 embeddings [19] and the functionally motivated graph edges
+connecting the p4-p8 contact subgraph do provide discriminative lift, which did
+not clear the stricter pre-registered promotion bar. Consistent with this project's
+leakage-avoidance policy, this result is reported as-is rather than re-run with
+different hyperparameters against the same held-out set; the GNN remains a
+research track, not a promoted scorer.
 
 HLA allele expansion to twelve additional alleles weighted by disease burden,
 including B*46:01 and A*30:01 for nasopharyngeal carcinoma and HBV cohorts
