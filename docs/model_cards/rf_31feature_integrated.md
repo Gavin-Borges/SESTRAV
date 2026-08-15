@@ -15,9 +15,24 @@
 - **Superseded by:** ~~`rf_33feature_integrated.joblib` where antigen processing cache is available~~ **RETRACTED 2026-08-11 (D18). Nothing supersedes this model.** This card is the canonical production track (see the Version field above and Limitations 1 below). The mirror-image sentence on the 33-feature card - "Recommended over the 31-feature canonical model when the antigen processing cache is available" - was retracted on 2026-08-10 because mode 33's two extra features are locally generated MOCK scores, not NetChop 3.1 / TAPreg output. This half of the same recommendation was missed in that pass and is retracted here: it routed a reader from the canonical model to the mock-feature one, in the field a reader trusts most.
 
 ## Intended Use
-- **Primary Domain (trained):** EBV (B95-8 strain, 8 proteins) and HPV 16/18 (4 proteins each) - 8-11-mer peptides.
-- **Exploratory (not validated):** HBV (genotype D, ayw), HCV (genotype 1a). Model trained on EBV/HPV data; cross-family accuracy is exploratory pending v4 training. Treat HBV/HCV outputs as screening candidates only.
-- **Out-of-Scope:** Clinical diagnostic or therapeutic decision-making; allele-specific predictions; neoantigen immunogenicity scoring.
+
+> **ERA FENCE (added 2026-08-15, D4). The Intended Use and Training Data sections below are
+> v3-scoped and were accurate when written on 2026-06-18. They no longer describe the corpus this
+> model is actually trained on.** The deployed artifact was rebuilt on the v5 corpus in `e6aafe2`
+> (2026-07-03) and `config.yaml` names it canonical (`feature_mode: 31`, `dataset_version: 5.0.0`).
+> The Provenance section further down already says so, so the card currently contradicts itself
+> across its own length. **The most consequential stale claim is the HBV/HCV line: it is now
+> measurably false, not merely dated.** HBV and HCV are not held out of training and are not scored
+> by an EBV/HPV-only model - in the active v5 corpus HBV contributes 554 rows (325 positive) and HCV
+> 653 rows (333 positive), both of which exceed HPV's 323 rows (186 positive) and approach EBV's 696
+> (316 positive). "Pending v4 training" is doubly dead: v4 shipped 2026-06-20 and v5 superseded it
+> 2026-07-03. Per this repository's standing rule the v3-era figures below are annotated rather than
+> overwritten; for current per-virus performance see `results/per_virus_eval_v5_mode31.csv` and
+> `models/v5/training_results_mode31.csv`, not this section.
+
+- **Primary Domain (trained), v3-era statement:** EBV (B95-8 strain, 8 proteins) and HPV 16/18 (4 proteins each) - 8-11-mer peptides.
+- **Exploratory (not validated), v3-era statement - SUPERSEDED, see the era fence above:** HBV (genotype D, ayw), HCV (genotype 1a). Model trained on EBV/HPV data; cross-family accuracy is exploratory pending v4 training. Treat HBV/HCV outputs as screening candidates only.
+- **Out-of-Scope:** Clinical diagnostic or therapeutic decision-making; allele-specific predictions; neoantigen immunogenicity scoring. **(This bullet is NOT v3-scoped - it remains fully in force.)**
 
 ## Training Data
 - **Source:** IEDB (curated exports, v3 dataset `data/immunogenicity_dataset_v3.csv`, n=1,004 peptides).

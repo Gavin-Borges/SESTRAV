@@ -50,8 +50,32 @@
 > The paragraph immediately above and the addendum immediately below both predate this finding and
 > are retained only as the historical record of how the prior was understood at the time.
 >
+> **STATUS UPDATE (2026-08-15) - THE STOP-ORDER STANDS, BUT ONE OF ITS TWO CONDITIONS IS ALREADY
+> MET, AND THE HEADLINE ABOVE NAMES THE WRONG REASON FOR THE OTHER.** Recorded because a reader
+> chasing a done task is a real cost, and because "NOT POWERED UNTIL IT IS RE-DERIVED" promises a
+> lift that re-derivation cannot deliver.
+> **(1) Condition one is SATISFIED.** The corrected prior WAS regenerated into `results/h2_tier_a_*`
+> on 2026-08-10 (commit `095b327`). The tracked artifacts now carry R10 = 1.0588, R25 = 1.0331 and
+> the bootstrap 95% CI [0.9778, 1.1220], re-verified against `results/h2_tier_a_summary.csv` on
+> 2026-08-15. Nobody needs to regenerate anything.
+> **(2) Condition two is NOT satisfied and is the live one.** "Every figure below is re-derived from
+> it" has not happened: the body still leads with the void 0.9494 and retracts it in following
+> blockquotes rather than being rewritten around the corrected value. Until that rewrite, a reader
+> skimming the body meets the void figure first.
+> **(3) "NOT POWERED" is TRUE but INDEPENDENT of the prior, which the addendum headline obscures.**
+> Re-deriving R10 would not make this protocol powered, because the inputs a power calculation needs
+> have never existed anywhere in this repository: no target power (1-beta) is stated - this protocol
+> asks only that ACHIEVED power be reported post hoc - and there is no ELISpot response-rate prior,
+> no SFU variance or overdispersion estimate, and no intra-donor correlation for the nested
+> 10-donors-x-50-peptides design. Those are four missing inputs, not one stale number. **Read the
+> "NOT POWERED" declaration as permanent until those are sourced, not as pending a re-derivation
+> that has in fact already occurred.**
+> **Nothing here weakens the stop-order.** Do not run, submit, or cite this protocol.
+>
 > **ADDENDUM (2026-08-09), flagged not fixed - a substrate mismatch in that same prior.** The
-> R10=0.9494 computational prior binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
+> R10=0.9494 computational prior (**VOID per D17**, corrected value 1.0588 - see the addendum above;
+> the binding described here is recorded as the historical provenance trail, not as a live figure)
+> binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
 > `issr_10_ratio_integrated_over_binding` = 0.9493670886075949) and its rendered companion
 > `results/h2_tier_a_summary.md` (the `R10 = ISSR@10(integrated) / ISSR@10(binding-only)` line under
 > "Enrichment ratios"); it is also restated in `results/final_validation_report.md` under
