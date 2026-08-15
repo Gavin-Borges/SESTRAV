@@ -14,7 +14,7 @@
 
 ## Training Data
 - **Source:** IEDB (curated exports, `v2.0`).
-- **Holdout Policy:** Gold Standard Tier A and Tier B validation sets were excluded.
+- **Holdout Policy (SCOPE CORRECTED 2026-08-14):** the 16 named canonical epitopes in `GOLD_STANDARD_EPITOPES` (`src/iedb_data_loader.py`) are excluded from the training pool by the `gs_mask` exclusion in `src/ann_benchmark.py`. This is a 16-peptide exclusion and nothing else. It is **not** the exclusion of "Gold Standard Tier A and Tier B validation sets" this card previously claimed: a substantial share of the Tier A field is present in the training corpus, so Tier A is not a held-out benchmark for this model. This is the same claim `docs/claims_register.md` D16 retracted on both RF model cards on 2026-08-08; it survived here until the 2026-08-14 accuracy sweep.
 - **Optimization:** Evaluated over 14 distinct architectures via grid search; trained using BCEWithLogitsLoss with Adam optimization and early stopping.
 
 ## Evaluation and Performance

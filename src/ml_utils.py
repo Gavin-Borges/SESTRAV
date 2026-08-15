@@ -187,7 +187,7 @@ class MultiStratifiedKFold:
     """Cross-validation splitter stratified on label + negative_origin + HLA supertype + length.
 
     NOT peptide-grouped: rows sharing a peptide can land on opposite sides of
-    a fold boundary, and on the v5 corpus 71.0% of held-out rows have their
+    a fold boundary, and on the v5 corpus 71.1% of held-out rows have their
     exact peptide present in that fold's training set
     (docs/claims_register.md D15). Use PeptideGroupedKFold below for any
     certified generalization estimate; this class remains for reproducing

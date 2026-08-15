@@ -1,4 +1,6 @@
 {
+  "exempt_ledger_citation_ceiling": 63,
+  "_ratchet_comment": "Number of path:NNN citations currently inside EXEMPT_CITING_FILES. Their CONTENT is not checked (see the module docstring), so this blind spot is allowed to shrink but never to grow. A rise fails the gate. Lowering it is free and welcome: re-anchor a citation to its SYMBOL, which does not rot, then run --update.",
   "_comment": "Pinned content for the path:NNN citations this gate CHECKS - not for every citation in the tree. Most live in historical ledgers (see EXEMPT_CITING_FILES) and are deliberately absent here; the gate prints both counts on every check run. Written by scripts/check_doc_line_citations.py --update. Each 'pinned' array is the text the cited line(s) held when the entry was last confirmed by a human. If an edit moves those lines, the pinned text stops matching and CI reports DRIFTED. Review every pinned-text change in the diff: it is either a citation you deliberately repointed, or a rot you just hid.",
   "citations": [
     {

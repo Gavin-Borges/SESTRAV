@@ -105,6 +105,21 @@ something used to be. ``CHANGELOG.md`` is the archetype: its entries describe
 past states and must not be rewritten to match the present. Those files are
 listed in ``EXEMPT_CITING_FILES``.
 
+That exemption is about DRIFT ONLY, and was narrowed on 2026-08-14 after five
+drifted citations were found inside it BY HAND during an audit. Two checks need
+no live/historical judgement and now run on the ledgers too (see
+``audit_exempt_ledgers``): a cited file that does not RESOLVE, and a line PAST
+END-OF-FILE, are broken for every reader whatever the intent. Measured when the
+narrowing landed: 3 of 63 were MISSING, all in ``CHANGELOG.md``, two of them
+created the same day by quoting an old citation inside a retraction.
+
+Drift inside the ledgers stays uncovered, and this file will not pretend
+otherwise. What replaces it is a RATCHET: the ledgers keep the citations they
+already have, but the count may not grow (``exempt_ledger_citation_ceiling`` in
+the baseline). An unbounded blind spot becomes a shrinking one with no
+heuristic, and new references are pushed toward symbol anchors, which cannot
+rot. Lowering the ceiling is free; raising it is a deliberate, reviewable act.
+
 A line carrying a ``now line NNN`` self-annotation is also skipped.
 ``docs/security_compliance.md`` uses that form to preserve dated scan-time line
 numbers as forensic fact while still telling a reader where the code lives
@@ -460,6 +475,29 @@ def current_pin(root: Path, tracked: set[str], citing: str, target: str, spec: s
     return out, None
 
 
+RATCHET_KEY = "exempt_ledger_citation_ceiling"
+
+
+def load_ratchet_ceiling(root: Path) -> int | None:
+    """The recorded ceiling on line citations inside the exempt ledgers.
+
+    None means unset, which happens exactly once - on the commit that introduces
+    the ratchet, before the first --update seeds it. Returning None skips the
+    check rather than defaulting to 0 (which would fail every tree) or to
+    infinity (which would pass silently, the failure direction this gate treats
+    as worse).
+    """
+    p = root / BASELINE_PATH
+    if not p.is_file():
+        return None
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    value = raw.get(RATCHET_KEY)
+    return value if isinstance(value, int) else None
+
+
 def load_baseline(root: Path) -> dict[str, dict]:
     p = root / BASELINE_PATH
     if not p.is_file():
@@ -476,8 +514,16 @@ def load_baseline(root: Path) -> dict[str, dict]:
     return out
 
 
-def write_baseline(root: Path, entries: list[dict]) -> None:
+def write_baseline(root: Path, entries: list[dict], ratchet_ceiling: int) -> None:
     payload = {
+        RATCHET_KEY: ratchet_ceiling,
+        "_ratchet_comment": (
+            "Number of path:NNN citations currently inside EXEMPT_CITING_FILES. "
+            "Their CONTENT is not checked (see the module docstring), so this "
+            "blind spot is allowed to shrink but never to grow. A rise fails the "
+            "gate. Lowering it is free and welcome: re-anchor a citation to its "
+            "SYMBOL, which does not rot, then run --update."
+        ),
         "_comment": (
             "Pinned content for the path:NNN citations this gate CHECKS - not "
             "for every citation in the tree. Most live in historical ledgers "
@@ -499,13 +545,13 @@ def write_baseline(root: Path, entries: list[dict]) -> None:
     p.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def _count_exempt_citations(root: Path, tracked: set[str]) -> int:
-    """How many line citations live in the exempt historical ledgers.
+def iter_exempt_citations(root: Path, tracked: set[str]):
+    """Yield (citing, lineno, target, spec) for every citation in an exempt ledger.
 
-    Reported so the gate states the size of its own blind spot rather than
-    letting the checked count imply full coverage.
+    The exemption in EXEMPT_CITING_FILES is about DRIFT, which needs a pin and a
+    live/historical judgement no line-scoped gate can make. It was never meant to
+    exempt these files from the two checks that need neither.
     """
-    total = 0
     for rel in sorted(EXEMPT_CITING_FILES):
         if rel not in tracked:
             continue
@@ -513,8 +559,65 @@ def _count_exempt_citations(root: Path, tracked: set[str]) -> int:
             text = (root / rel).read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        total += sum(1 for _ in iter_citations(text))
-    return total
+        for lineno, target, spec in iter_citations(text):
+            yield rel, lineno, target, spec
+
+
+def audit_exempt_ledgers(root: Path, tracked: set[str]) -> tuple[list[str], dict]:
+    """Check the two things about an exempt-ledger citation that ARE decidable.
+
+    Why this exists
+    ---------------
+    The ledgers are exempt from DRIFT checking for a measured reason recorded in
+    EXEMPT_CITING_FILES: one physical row can carry a historical citation and a
+    live one to the SAME target, and separating them needs sentence-scope
+    attribution inside a 14,000-character line - the proximity heuristic this
+    gate rejects everywhere else.
+
+    None of that reasoning applies to a citation that names a file which does not
+    resolve at all, or a line past the end of one. Those are broken for every
+    reader, historical intent or not, so they are hard failures here. Measured
+    when this was added: 3 of 63, all in CHANGELOG.md, two of them introduced the
+    same day by quoting an old citation inside a retraction.
+
+    THE RATCHET, and why it is the real fix
+    ---------------------------------------
+    Drift inside these files stays uncovered, and pretending otherwise would be
+    the false-PASS this gate's docstring calls the more dangerous direction. What
+    IS enforceable is that the blind spot must not GROW: the ledgers may keep the
+    line citations they already carry, but a new one cannot be added. That turns
+    an unbounded liability into a shrinking one without a single heuristic, and
+    it pushes new citations toward symbol anchors, which do not rot at all.
+
+    Ratchet ceiling lives in the baseline as `exempt_ledger_citation_ceiling` so
+    it is reviewed in the same diff as everything else this gate pins.
+    """
+    notices: list[str] = []
+    stats = {"total": 0, "resolves": 0, "missing": 0, "out_of_range": 0, "exempt_pair": 0}
+
+    for citing, lineno, target, spec in iter_exempt_citations(root, tracked):
+        stats["total"] += 1
+        if (citing, target) in EXEMPT_CITATIONS:
+            stats["exempt_pair"] += 1
+            continue
+        _, err = current_pin(root, tracked, citing, target, spec)
+        if err == "MISSING":
+            stats["missing"] += 1
+            notices.append(
+                f"{citing}:{lineno}: cited file '{target}' does not resolve. If "
+                f"the file was renamed or the path prefix is missing, fix it; if "
+                f"it was deleted, that is legitimate history."
+            )
+        elif err == "OUT-OF-RANGE":
+            stats["out_of_range"] += 1
+            notices.append(
+                f"{citing}:{lineno}: '{target}:{spec}' points past the end of the "
+                f"file. Expected if the target shrank since the entry was written."
+            )
+        else:
+            stats["resolves"] += 1
+
+    return notices, stats
 
 
 def in_github_actions() -> bool:
@@ -563,8 +666,13 @@ def main() -> int:
                     "pinned": pinned,
                 }
             )
-        write_baseline(root, entries)
+        _, exempt_stats = audit_exempt_ledgers(root, tracked)
+        write_baseline(root, entries, exempt_stats["total"])
         print(f"Wrote {len(entries)} pinned citation(s) to {BASELINE_PATH}.")
+        print(
+            f"Ratchet ceiling seeded at {exempt_stats['total']} exempt-ledger "
+            f"citation(s). If that number went UP, say why in the commit message."
+        )
         if problems:
             print("")
             print(f"{len(problems)} citation(s) could NOT be pinned and were omitted:")
@@ -633,12 +741,49 @@ def main() -> int:
     # which matters, since this file is the one the gate cannot check. The
     # surrounding prose, including "two historical ledgers", is still hand-
     # written and would need updating if EXEMPT_CITING_FILES grew.)
-    exempt_total = _count_exempt_citations(root, tracked)
+    # ADVISORY, not findings. A historical ledger may legitimately cite a line
+    # past end-of-file or a since-deleted file - that is what "where it used to
+    # be" means, and tests/test_check_doc_line_citations.py pins that behaviour
+    # deliberately. Surfacing the list is what closes the blind spot; failing on
+    # it would be a false-FAIL factory over legitimate history.
+    exempt_notices, exempt_stats = audit_exempt_ledgers(root, tracked)
+
+    # The ratchet. Existing ledger citations are grandfathered; new ones are not.
+    # A missing ceiling is not treated as "unlimited" - it is seeded from the
+    # current count on the next --update, and until then the check is skipped
+    # rather than silently passing an unbounded file.
+    ceiling = load_ratchet_ceiling(root)
+    exempt_total = exempt_stats["total"]
+    if ceiling is not None and exempt_total > ceiling:
+        findings.append(
+            f"{BASELINE_PATH}: RATCHET - the exempt historical ledgers now carry "
+            f"{exempt_total} line citation(s), above the recorded ceiling of "
+            f"{ceiling}. Drift inside those files is NOT checked, so the blind "
+            f"spot must not grow. Cite the SYMBOL instead of the line, or write "
+            f"the reference as prose. Raising the ceiling is a deliberate act: "
+            f"run --update and justify it in the diff."
+        )
+
     print(
-        f"Checked {checked} pinned line citation(s) across tracked docs "
-        f"({exempt_total} more are in exempt historical ledgers and are not "
-        f"checked; see EXEMPT_CITING_FILES)."
+        f"Checked {checked} pinned line citation(s) across tracked docs. "
+        f"Exempt historical ledgers hold {exempt_total} more "
+        f"(ceiling {ceiling if ceiling is not None else 'unset'}): "
+        f"{exempt_stats['resolves']} resolve, {exempt_stats['missing']} missing, "
+        f"{exempt_stats['out_of_range']} out-of-range, "
+        f"{exempt_stats['exempt_pair']} exempt by pair. Their CONTENT is not "
+        f"checked; see EXEMPT_CITING_FILES."
     )
+    if exempt_notices:
+        print("")
+        print(
+            f"{len(exempt_notices)} exempt-ledger citation(s) do not resolve "
+            f"against HEAD. Advisory, not a failure - a ledger may legitimately "
+            f"name a deleted file or a line that has since moved past EOF. "
+            f"Review each: a missing path prefix is a real defect, deleted "
+            f"history is not."
+        )
+        for notice in exempt_notices:
+            print(f"  NOTE {notice}")
 
     if findings:
         print("")

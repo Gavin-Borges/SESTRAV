@@ -200,10 +200,13 @@ Interpretability is built in: a SHAP attribution artifact is committed alongside
 **No binding-versus-TCR-contact attribution split is currently reported.** The previously
 published "roughly 60% MHC binding / 40% TCR-contact" figure is RETRACTED
 (`docs/claims_register.md` D13): the committed `results/shap_values_rf.csv` has all ten
-`bind_*` columns at exactly zero, so it cannot support any such split. That traces to an
-upstream feature-pipeline regression between v1.0.0 and v2.0-rc1 rather than to the SHAP
-explainer, and current production training is unaffected - but no replacement split will be
-stated until a fresh SHAP run against current production data is committed.
+`bind_*` columns at exactly zero, so it cannot support any such split. That traces to a data
+artifact - the all-zeros `models/peptide_binding_matrix_v3.csv` placeholder propagated through
+model training in the v1.0.0 to v2.0-rc1 window - rather than to the SHAP explainer, and
+current production training is unaffected, but no replacement split will be stated until a
+fresh SHAP run against current production data is committed. **Corrected 2026-08-14:** this
+passage previously read "upstream feature-pipeline regression", a label D13's 2026-08-11
+amendment withdrew as mischaracterising a data artifact as a code regression.
 
 > Numbers in this document are the certified v5 figures (35,597-active-row dataset,
 > peptide-grouped CV as of 2026-08-10) that the README, `docs/model_evaluation_summary.md`, and
