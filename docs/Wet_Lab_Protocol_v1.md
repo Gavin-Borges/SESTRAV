@@ -195,6 +195,18 @@ $R_{10} = 0.9494$ - a null, reported honestly in `results/h2_tier_a_summary.md` 
   > bar well above the project's own estimate, so the reasoning for retiring the fixed multiple is
   > unchanged, but the specific multiplier stated here is wrong and must be restated as 1.889x on
   > regeneration.
+  > **CI METHOD MISMATCH (recorded 2026-08-15, not previously disclosed anywhere).** This criterion
+  > specifies a **bias-corrected** bootstrap interval. The computational interval quoted throughout
+  > this document, [0.9778, 1.1220], is **not** one: `src/h2_tier_a_evaluation.py` builds it from a
+  > plain `numpy.percentile` call on the resampled ratios, with no bias correction and no
+  > acceleration. So the corrected prior has never been evaluated against the interval this
+  > criterion actually asks for. **The direction of the conclusion is not in doubt** - a
+  > bias-corrected interval would have to lift the lower bound by more than 0.022 to clear 1.0, and
+  > the sign-flip p of 0.1875 points the same way - so the disclosed null stands either way. But the
+  > mismatch must be stated wherever that interval is measured against this bar, rather than carried
+  > silently. Either compute a BCa interval or restate the criterion as a percentile bootstrap; do
+  > not do the latter merely because it is easier, since it weakens a pre-registered bar after the
+  > fact.
 - **Secondary, and the outcome the disclosed prior predicts:** a CI that spans 1.0 corroborates
   the computational null. This is a **publishable, non-negative result** - it would be direct
   *in vitro* evidence about where the binding-immunogenicity specificity gap does and does not
