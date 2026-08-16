@@ -133,11 +133,20 @@ def _mc_dropout_predict(pt_model, X_tensor, n_passes=50):
 #: scripts/fit_calibrator.py's TARGET_VIRUSES; duplicated rather than imported
 #: because every script in this repo that needs this list declares its own
 #: copy (scripts/audit_cv_leakage.py, scripts/fit_per_virus_calibrator.py,
-#: scripts/compute_pooled_honest_metric.py all do the same). Used here only to
-#: decide the log label ("known off-panel" vs "unrecognised") - artifact
-#: ABSENCE, not list membership, is what actually triggers the global
-#: fallback, so a caller never needs to keep this list in sync with whatever
-#: per-virus calibrators happen to be deployed.
+#: scripts/compute_pooled_honest_metric.py all do the same).
+#:
+#: NOT READ BY THIS MODULE. Corrected 2026-08-15: this comment used to claim the
+#: tuple was "used here only to decide the log label (known off-panel vs
+#: unrecognised)". No such code exists or ever existed here - _apply_calibration
+#: computes its scope purely by comparing the resolved path against the per-virus
+#: path, and never consults this tuple. The tuple is documentation only, kept
+#: because it records which viruses have genuine positive labels.
+#:
+#: The half of the old comment that IS true, and is the actual contract: artifact
+#: ABSENCE, not list membership, triggers the global fallback, so a caller never
+#: needs to keep this list in sync with whatever per-virus calibrators happen to
+#: be deployed. tests/test_stage4_scoring.py pins that an off-panel virus behaves
+#: identically to virus=None; do not add an allow-list check against this tuple.
 TARGET_VIRUSES = (
     "CMV",
     "DENV",

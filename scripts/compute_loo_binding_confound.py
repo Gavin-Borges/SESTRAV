@@ -23,6 +23,9 @@ Reproduce:  python scripts/compute_loo_binding_confound.py --output results/loo_
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
+import hashlib
+import json
 import os
 
 import pandas as pd
@@ -38,6 +41,15 @@ def compute_decomposition() -> pd.DataFrame:
     loo = pd.read_csv(LOO_SRC).set_index("test_virus")
 
     rows = []
+    # Full-precision parallel record, kept ONLY to compute the Mean row.
+    # See the mean_row comment below for why this exists.
+    exact: dict[str, list[float]] = {
+        "within_all_neg": [],
+        "within_real_neg": [],
+        "loo_cross_virus": [],
+        "decoy_inflation": [],
+        "transfer_gap": [],
+    }
     for v in CANON:
         r1 = float(pv.loc[v, "auc_roc"])
         r2 = float(pv.loc[v, "auc_roc_real_neg_only"])
@@ -45,6 +57,11 @@ def compute_decomposition() -> pd.DataFrame:
         decoy_frac = float(pv.loc[v, "n_neg_decoy"]) / (
             float(pv.loc[v, "n_neg_real"]) + float(pv.loc[v, "n_neg_decoy"])
         )
+        exact["within_all_neg"].append(r1)
+        exact["within_real_neg"].append(r2)
+        exact["loo_cross_virus"].append(r3)
+        exact["decoy_inflation"].append(r1 - r2)
+        exact["transfer_gap"].append(r2 - r3)
         rows.append(
             {
                 "virus": v,
@@ -58,16 +75,67 @@ def compute_decomposition() -> pd.DataFrame:
         )
 
     tab = pd.DataFrame(rows)
+    # Mean is computed from the FULL-PRECISION values, then rounded once -
+    # matching this module's stated compute-then-round contract.
+    #
+    # Corrected 2026-08-15: this previously averaged tab[...], i.e. the
+    # already-rounded per-virus column, making it round-then-mean and quietly
+    # contradicting the docstring. It produced identical output on the current
+    # corpus (verified: all five means agree to 3dp either way), so nothing
+    # published was ever wrong - which is exactly what made it easy to miss.
+    # It was a latent divergence waiting for a corpus change to surface it, and
+    # the failure mode would have been a Mean cell drifting one unit in the last
+    # place for no reason visible in the table.
+    def _mean3(column: str) -> float:
+        values = exact[column]
+        return round(sum(values) / len(values), 3)
+
     mean_row = {
         "virus": "Mean",
-        "within_all_neg": round(tab["within_all_neg"].mean(), 3),
-        "within_real_neg": round(tab["within_real_neg"].mean(), 3),
-        "loo_cross_virus": round(tab["loo_cross_virus"].mean(), 3),
-        "decoy_inflation": round(tab["decoy_inflation"].mean(), 3),
-        "transfer_gap": round(tab["transfer_gap"].mean(), 3),
+        "within_all_neg": _mean3("within_all_neg"),
+        "within_real_neg": _mean3("within_real_neg"),
+        "loo_cross_virus": _mean3("loo_cross_virus"),
+        "decoy_inflation": _mean3("decoy_inflation"),
+        "transfer_gap": _mean3("transfer_gap"),
         "decoy_frac_neg": "",
     }
     return pd.concat([tab, pd.DataFrame([mean_row])], ignore_index=True)
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_sidecar(output_path: str) -> str:
+    """Record input digests alongside the artifact.
+
+    Added 2026-08-15. This artifact previously shipped with NO sidecar, so the
+    integrity harness reported it as "no checksum recorded" and nothing verified
+    it. Writing one only became safe once the CSV writer above pinned LF - see
+    that comment for why a sidecar written against CRLF bytes would have
+    recorded a digest no Linux checkout could reproduce.
+    """
+    sidecar_path = f"{output_path}.provenance.json"
+    payload = {
+        "generated_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "script": "scripts/compute_loo_binding_confound.py",
+        "artifact": output_path,
+        "sha256": _sha256_file(output_path),
+        "inputs": {
+            PV_SRC: _sha256_file(PV_SRC),
+            LOO_SRC: _sha256_file(LOO_SRC),
+        },
+        "viruses": CANON,
+        "rounding": "compute-then-round at 3dp, including the Mean row",
+    }
+    with open(sidecar_path, "w", encoding="utf-8", newline="\n") as handle:
+        json.dump(payload, handle, indent=2)
+        handle.write("\n")
+    return sidecar_path
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -96,8 +164,19 @@ def main(argv: list[str] | None = None) -> None:
         output_dir = os.path.dirname(args.output)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-        out.to_csv(args.output, index=False)
+        # lineterminator pinned to LF (added 2026-08-15, D24-resid). Without it
+        # this wrote CRLF on Windows, and the tracked artifact IS currently in
+        # that state: it carries an `eol=lf` .gitattributes pin, so `git status`
+        # reads clean, while its working-tree bytes differ from the LF blob by
+        # 11 CRLF pairs. That is the trap - the pin normalises on check-in and
+        # therefore HIDES the divergence rather than preventing it. Any sha256
+        # taken of the working tree would be a Windows-only value that no Linux
+        # clone or CI checkout could reproduce, which is precisely why the
+        # sidecar below could not safely be written before this line existed.
+        out.to_csv(args.output, index=False, lineterminator="\n")
+        sidecar = _write_sidecar(args.output)
         print(f"\nwrote {args.output}")
+        print(f"wrote {sidecar}")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@
 ![Version](https://img.shields.io/badge/version-2.0.3-informational?style=flat-square)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 
-**SESTRAV** is a dry-lab (purely computational) pipeline for prioritizing viral CD8+ T-cell epitopes by predicted immunogenicity, covering nine viral pathogens (CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2). It targets the specificity bottleneck that binding-only tools leave open: MHC binding is a weak proxy for T-cell immunogenicity, so SESTRAV scores peptides on the physicochemical structure of TCR-contact residues (positions p4-p8) in addition to multi-allele presentation.
+**SESTRAV** is a dry-lab (purely computational) pipeline for prioritizing viral CD8+ T-cell epitopes by predicted immunogenicity within a given pathogen, covering nine viral pathogens each trained and validated separately (CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2). It targets the specificity bottleneck that binding-only tools leave open: MHC binding is a weak proxy for T-cell immunogenicity, so SESTRAV combines multi-allele presentation scores with the physicochemical structure of TCR-contact residues (positions p4-p8) in a single trained classifier.
 
 The system is organized as two model tracks under a single reproducible Snakemake workflow:
 
@@ -25,15 +25,15 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 | Antigen processing as training features | `feature_mode=33` | ✓ | Partial | ✗ | Partial |
 | Graph Neural Network scorer | ✓ (v2.3 GINEConv+ESM-2; research/ensemble component) | ✗ | ✗ | ✗ | ✗ |
 | Pan-allele training | v5 active | Partial | ✓ | ✓ | ✓ |
-| Multi-virus support | 9 viruses (v5 active): CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited | Limited | Pan-pathogen | Tumor |
+| Multi-virus support | 9 viruses (v5 active), each a separately-validated within-virus panel - not cross-virus transfer, see LOO below: CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
 | AUC-PR on labeled benchmark (Tier A) | **0.828 (OOF, 30-feature, unweighted, 2026-05; not `mode_31` - see note below)** | not benchmarked | not benchmarked | N/A | N/A |
 
-*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated out-of-fold; external tools are fully scored on the same peptides. **That asymmetry does not favour the external tools as previously claimed here.** This Tier A arm's 720-peptide corpus has zero duplicate peptides (D16), so the exact-peptide leakage affecting the v5 figures below (D15) is a structural no-op here and does not apply. A different, unquantified risk does apply: 32.1% of the 704-peptide scored pool has a substring-level near-duplicate elsewhere in the pool, never filtered for this benchmark; whether it affected the score is not established (`docs/claims_register.md` D22). Every v5 cross-validation figure below is peptide-grouped as of 2026-08-10; this Tier A figure deliberately is not, and peptide-grouping would not address the substring-homology risk in any case (D16, D22). The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` reports pooled **peptide-grouped** cross-validation AUC-PR **0.6058** (re-baselined 2026-08-10, closing D15; the prior ungrouped figure 0.8312 was leakage-inflated and is retracted) and same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC **0.658**; prior ungrouped 0.751 retracted; the pooled AUC-ROC 0.9368 reported before that was separately decoy-inflated and is also retracted - see Paradigm 2 below). **0.828 is NOT a `full_31`/`mode_31` result** - it is a 30-feature, unweighted, 200-tree measurement from 2026-05, predating `feature_mode=31`'s introduction by 26 days (`docs/claims_register.md` D16); the extended `full_33` antigen-processing configuration is reported separately under Release Tracks and is not part of this certified field. Certified per-tool metrics and their scope boundaries: `results/table3_tier_a_metrics.csv` and `docs/claims_register.md`. (`results/external_benchmark_comparison.md` is a 2026-05-22 SESTRAV-vs-binding-only-only report carrying the same pre-D16 mislabel and an unresolved provenance gap - historical reference only, not a citable source for the 5-tool field above.)*
+*Tier A 704-peptide labeled benchmark. SESTRAV RF is evaluated out-of-fold; external tools are fully scored on the same peptides. **That asymmetry does not favour the external tools as previously claimed here.** This Tier A arm's 720-peptide corpus has zero duplicate peptides (D16), so the exact-peptide leakage affecting the v5 figures below (D15) is a structural no-op here and does not apply. A different, unquantified risk does apply: 32.1% of the 704-peptide scored pool has a substring-level near-duplicate elsewhere in the pool, never filtered for this benchmark; whether it affected the score is not established (`docs/claims_register.md` D22). Every v5 cross-validation figure below is peptide-grouped as of 2026-08-10; this Tier A figure deliberately is not, and peptide-grouping would not address the substring-homology risk in any case (D16, D22). The certified head-to-head field is in External Benchmark Results below - BigMHC (0.822), MHCflurry binding-only (0.800), MixMHCpred 2.2 (0.795), and DeepImmuno (0.698), all bound to `results/table3_tier_a_metrics.csv`; the closest external tool is BigMHC (0.822). PredIG and PRIME are compared on capabilities only: their metric head-to-head is not reproducible from a certified results file and is not reported. pVACtools targets a different problem domain (patient-specific tumor neoantigens from somatic variant calls) rather than published viral epitopes from proteome sequence, so the "(neoantigens)"/"Tumor"/"N/A" cells in its column above are not a head-to-head with the viral-epitope rows. Separately, on the harder v5 generalization set (35,597 active rows, 9 viruses), canonical `mode_31` reports pooled **peptide-grouped** cross-validation AUC-PR **0.6058** (re-baselined 2026-08-10, closing D15; the prior ungrouped figure 0.8312 was leakage-inflated and is retracted) and same-pathogen (within-virus) discrimination per-virus (mean within-CV AUC-ROC **0.658**; prior ungrouped 0.751 retracted; the pooled AUC-ROC 0.9368 reported before that was separately decoy-inflated and is also retracted - see Paradigm 2 below). **0.828 is NOT a `full_31`/`mode_31` result** - it is a 30-feature, unweighted, 200-tree measurement from 2026-05, predating `feature_mode=31`'s introduction by 26 days (`docs/claims_register.md` D16); the extended `full_33` antigen-processing configuration is reported separately under Release Tracks and is not part of this certified field. Certified per-tool metrics and their scope boundaries: `results/table3_tier_a_metrics.csv` and `docs/claims_register.md`. (`results/external_benchmark_comparison.md` is a 2026-05-22 SESTRAV-vs-binding-only-only report carrying the same pre-D16 mislabel and an unresolved provenance gap - historical reference only, not a citable source for the 5-tool field above.)*
 
 ---
 
-Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harder than predicting MHC binding. Binding-only approaches achieve AUC-PR ≈ 0.80 on the SESTRAV benchmark - yet most public tools stop there. SESTRAV bridges this gap by extracting physicochemical features from TCR-contact residues (positions p4-p8, following Chowell et al. 2015) and training ensemble classifiers on experimentally validated IEDB immunogenicity data.
+Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harder than predicting MHC binding. Most public tools stop at binding. SESTRAV trains ensemble classifiers on both multi-allele presentation scores and physicochemical features from TCR-contact residues (positions p4-p8, following Chowell et al. 2015), using experimentally validated IEDB immunogenicity data. **Reworded 2026-08-15: this passage previously said binding-only reaches AUC-PR 0.80 and that SESTRAV "bridges this gap" with physicochemical features.** That paired a directional claim with a number supporting the opposite direction. The 0.80 is an untrained max-presentation-score baseline on the 720-peptide Tier A benchmark, whose margin is already published as unquantified in either direction (`docs/claims_register.md` D22); and on the v5 grouped ablation the binding features are the larger measured contributor, not the smaller one (AUC-PR 0.505 to 0.606 on adding them - see ARCHITECTURE.md section 1). What physicochemistry adds over binding alone is not measured anywhere in this repository.
 
 > SESTRAV is a governed computational workflow for viral T-cell epitope prioritization (immunogenicity scoring over viral peptide candidates). It integrates six computational stages - proteome-scale peptide generation, multi-allele MHC binding prediction, TCR contact physicochemical feature extraction, antigen processing scoring, ensemble immunogenicity inference, and freeze-mode governed output - under a single reproducible Snakemake DAG with cryptographic dataset provenance. To our knowledge, no publicly available tool integrates antigen processing, physicochemical TCR features, and graph neural network scoring within an OpenSSF-compliant, auditable pipeline.
 
@@ -41,7 +41,7 @@ The canonical release uses a 31-feature model (20 physicochemical properties at 
 
 ## Background and Motivation
 
-Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by extracting features from TCR-contact residues (primarily positions p4-p8) and training classifiers on experimentally validated immunogenicity data from the IEDB.
+Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by training classifiers on both multi-allele presentation scores and TCR-contact physicochemical features (primarily positions p4-p8), using experimentally validated immunogenicity data from the IEDB. On the v5 grouped ablation the binding block is the larger measured contributor (AUC-PR 0.505 to 0.606 on adding it, `models/v5/training_results_ablation.csv`); how much the physicochemical block adds over a binding-only model is not measured here.
 
 This approach combines structural insights with multi-allele binding predictions to better discriminate true immunogenic epitopes.
 
@@ -184,7 +184,7 @@ graph LR
 3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-contact positions p4-p8 + 10 binding scores + peptide length = 31 features (canonical) or 33 with antigen processing tier.
 4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with SHAP interpretability and conformal prediction intervals.
 5. **Antigen Processing** *(optional, `feature_mode=33`)*: proteasomal cleavage + TAP transport scores as additional training features. **The shipped cache holds locally generated mock values, not real NetChop 3.1 / TAPreg output** - see Release Tracks above and `docs/claims_register.md` D18.
-6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph; promotion-gate status not current (the v4 evaluation predates the 2026-08-10 gate re-anchor and the peptide-grouped splitter; v5 retraining pending, ESM-2 cache complete at 27,376 peptides). See `ARCHITECTURE.md` for the gating policy that governs promotion to a canonical scorer.
+6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph. **v5 retraining under peptide-grouped CV completed 2026-08-13 with a null result**, not "pending": Gate 1 (pooled AUC-PR) 0.6458 vs the >=0.65 threshold, FAIL by 0.0042; Gate 2 (cross-fold std) FAIL; Gates 3-5 PASS. A real, statistically significant +0.0402 AUC-PR delta over the RF mode-31 baseline was measured nonetheless (95% CI [0.0286, 0.0520], excludes zero) - reported honestly alongside the gate miss per the pre-registered bar. The ESM-2 embedding cache used (`data/esm2_embeddings_t12_v5.pt`, gitignored/regenerable, not currently present on disk) held 30,687 keyed peptides with zero misses against the shipped corpus; the older "27,376 peptides" figure some docs still cite traces to a superseded pre-shipped-corpus snapshot and should not be restated. See `ARCHITECTURE.md` for the gating policy and `STATE.md`'s 2026-08-13 session entry for the full scorecard.
 
 **Input:** Viral proteome FASTA files (default: HPV16/18, EBV B95-8, HBV ayw, HCV 1a panels).
 **Output:** Ranked epitope candidates with immunogenicity scores, SHAP values, and visualizations.
@@ -387,7 +387,7 @@ See `scripts/README.md` for the external-validation utilities and workflow.
 * **ANN:** no extra install step - `torch` is already pinned in `requirements.txt`. Run `python -m src.ann_benchmark --help`.
 Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
 * **GNN v2.3 (research track):** `pip install ".[gnn]"` (from source; not published to PyPI), then `python -m src.train_gnn --help`.
-Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. Its v4 evaluation once reported a mean-fold AUC-PR of 0.7281; **that figure is RETRACTED as unreproducible (2026-08-12 re-audit), not merely superseded** - the tracked out-of-fold artifact (`models/gnn_oof_predictions.csv`) carries no fold column, so no per-fold statistic can be recomputed from anything in this repository, and the notebook cited as its retrain provenance has never been executed. The one number from that same run that does reproduce from the tracked artifact is the pooled AUC-PR, 0.7160 - itself produced by the ungrouped splitter carrying the D15 exact-peptide leakage, so it remains a labeled historical figure, not comparable to any peptide-grouped result. Promotion Gates 1 and 2 now FAIL by precondition against the tracked out-of-fold artifact, which is not marked peptide-grouped and carries no fold identity; v5 retraining is in progress (ESM-2 cache complete at 27,376 peptides; GPU training pending). The GNN remains a research track pending v5 evaluation. Pre-compute ESM-2 embeddings with `scripts/precompute_esm2_embeddings.py` before training.
+Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. Its v4 evaluation once reported a mean-fold AUC-PR of 0.7281; **that figure is RETRACTED as unreproducible (2026-08-12 re-audit), not merely superseded** - the tracked out-of-fold artifact (`models/gnn_oof_predictions.csv`) carries no fold column, so no per-fold statistic can be recomputed from anything in this repository, and the notebook cited as its retrain provenance has never been executed. The one number from that same run that does reproduce from the tracked artifact is the pooled AUC-PR, 0.7160 - itself produced by the ungrouped splitter carrying the D15 exact-peptide leakage, so it remains a labeled historical figure, not comparable to any peptide-grouped result. The v4 out-of-fold artifact above (`models/gnn_oof_predictions.csv`) is not marked peptide-grouped and carries no fold identity, so Gates 1 and 2 fail by precondition against it and it cannot be re-scored for those gates. **v5 retraining, on a peptide-grouped splitter with a proper ESM-2 cache (`data/esm2_embeddings_t12_v5.pt`, 30,687 keyed peptides, zero misses against the shipped corpus - not the stale "27,376" figure some older docs cite), completed 2026-08-13**: Gate 1 (pooled AUC-PR) 0.6458 vs threshold 0.65, FAIL by 0.0042; Gate 2 FAIL; Gates 3-5 PASS; but AUC-PR is +0.0402 over the RF mode-31 baseline, a real and statistically significant delta (95% CI [0.0286, 0.0520], excludes zero). Net result: a null result on the pre-registered AND-conjunction promotion bar, reported honestly alongside the genuine improvement underneath it - not re-run with different hyperparameters against the same held-out set, since that would be exactly the leakage this project flags on any other model. The GNN remains a research track, not a promoted scorer. See `STATE.md`'s 2026-08-13 session entry for the full scorecard and reproduction commands.
 
 ### 7. Google Colab
 
@@ -395,48 +395,82 @@ A Colab-ready script is available in `notebooks/SESTRAV_Colab_Pipeline.py`; see 
 
 ## Container Quick Start
 
-The Docker image does **not** include trained models. Build and then train:
+The Docker image does **not** include trained models, datasets, or the test suite.
 
 ```bash
 docker build -t sestrav:latest .
-docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
+```
+
+**The image's entrypoint is the `sestrav` CLI**, so everything after the image name is parsed as
+CLI arguments, not as a shell command. The CLI exposes four subcommands: `predict`, `validate`,
+`benchmark` and `info`.
+
+```bash
+docker run --rm sestrav:latest info
+```
+
+Running a Python module instead of the CLI requires overriding the entrypoint, and mounting the
+inputs the image does not carry:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/models:/app/models" \
+  -v "$(pwd)/data:/app/data:ro" \
+  --entrypoint python sestrav:latest \
   -m src.train_classifier --data data/immunogenicity_dataset_v5.csv \
   --model-dir models/local \
   --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 
-Run the pipeline with bind-mounted directories:
-
-```bash
-mkdir -p results
-docker run --rm \
-  -v "$(pwd)/models:/app/models" \
-  -v "$(pwd)/results:/app/results" \
-  sestrav:latest
-```
-
-Windows PowerShell:
+Windows PowerShell uses backtick continuations for the same command:
 
 ```powershell
-New-Item -ItemType Directory -Force results | Out-Null
 docker run --rm `
   -v "${PWD}/models:/app/models" `
-  -v "${PWD}/results:/app/results" `
-  sestrav:latest
+  -v "${PWD}/data:/app/data:ro" `
+  --entrypoint python sestrav:latest `
+  -m src.train_classifier --data data/immunogenicity_dataset_v5.csv `
+  --model-dir models/local `
+  --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 
-Container smoke test (recommended before release):
-
-```bash
-docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q --basetemp=tmp_pytest
-```
+> **Known limitations of the Docker image, recorded 2026-08-15. Read these before relying on it.**
+> The image cannot yet run the module command above end to end. `pyproject.toml` declares three
+> package trees (`sestrav*`, `src*`, `functions*`) while the Dockerfile copies only `src/`, and
+> several runtime imports are not declared as install dependencies. `python -m src.train_classifier`
+> fails on its module-level `from xgboost import XGBClassifier`, and `sestrav predict` fails first
+> on the `functions/` tree being absent. Were that tree present, it would then fail on **`biopython`**
+> (`from Bio import SeqIO`, module-level in the stage-1 module and reached before anything else on
+> that path), which is declared nowhere in `pyproject.toml`; then on `mhcflurry`, likewise
+> undeclared; and `matplotlib`, which the stage-4 module imports at module level, is declared only
+> in the `demo` extra. A fix for the packaging half
+> is written and awaiting review. Until it merges, **run from a source checkout rather than the
+> container.** `docker build` and `sestrav info` are unaffected.
+>
+> There is also **no pipeline entry point in this image.** `pipeline.py` is the standalone driver
+> for stages 1 to 4, and the Dockerfile does not copy it and the CLI does not wrap it; it ships
+> only in the Singularity image, whose `%runscript` invokes it. The full six-stage workflow is the
+> Snakemake DAG in `pipeline.smk`, which **neither** container image carries, so it runs from a
+> source checkout only. Earlier revisions of this section documented a bare
+> `docker run ... sestrav:latest` with no arguments as "run the pipeline". That command is
+> answered by the image's `CMD ["--help"]`, so it printed the help screen and **exited 0 without
+> running anything** - a silent false success. It has been removed rather than corrected, because
+> no argument list makes that image run the pipeline.
+>
+> The containerised pytest command previously shown here has been removed for the same reason: it
+> cannot work as documented. `tests/` is excluded from the build context by `.dockerignore`, and
+> `pytest` lives in the `dev` extra while the Dockerfile installs the package without extras.
+> Making it work needs a Dockerfile change (a dev install or a dedicated test stage), not a
+> documentation change.
 
 
 ### API & Demo Quick Start (Docker Compose)
 
 A two-service Docker Compose stack serves the FastAPI microservice and Streamlit demo
-from pre-trained model artifacts. Model binaries must be present in `models/` before
-launching.
+from pre-trained model artifacts, built from `Dockerfile.api` and `Dockerfile.demo`
+respectively - separate from the root `Dockerfile` described above, so this stack is
+unaffected by the packaging defect noted there. Model binaries must be present in
+`models/` before launching.
 
 ```bash
 # Build and launch both services

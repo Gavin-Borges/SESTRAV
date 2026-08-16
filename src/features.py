@@ -817,8 +817,14 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
 
 
 # ---------------------------------------------------------------------------
-# Antigen processing cache loader (feature_mode=33)
+# Self-similarity cache loader (feature_mode=35 only)
 # ---------------------------------------------------------------------------
+# Corrected 2026-08-15: this banner read "Antigen processing cache loader
+# (feature_mode=33)", which described neither the function below it nor its
+# feature mode - the real antigen-processing loader is further down. Mode 33 is
+# FEATURE_COLUMNS_31 + netchop/tap only and carries NO self-similarity feature;
+# a manuscript sentence asserting the opposite had to be retracted (S4), so the
+# mislabel is worth keeping fixed rather than treating as cosmetic.
 
 
 def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
@@ -881,6 +887,11 @@ def antigen_processing_cache_medians(cache_path: str) -> dict[str, float]:
     """
     cache = _read_antigen_processing_cache(cache_path)
     return {col: float(cache[col].median()) for col in ANTIGEN_PROCESSING_COLUMNS}
+
+
+# ---------------------------------------------------------------------------
+# Antigen processing cache loader (feature_mode=33 and 35)
+# ---------------------------------------------------------------------------
 
 
 def load_antigen_processing_cache(

@@ -23,10 +23,23 @@ labeled or held-out data.
 
 The design addresses one specific gap. Most public tools predict peptide-MHC binding,
 which is a necessary but weak proxy for immunogenicity (binding affinity used directly
-yields AUC near 0.60). SESTRAV adds discriminative signal from the physicochemical
-structure of TCR-contact residues (positions p4-p8, following Chowell et al. 2015) on
-top of multi-allele presentation, and trains on experimentally curated IEDB
-immunogenicity evidence.
+yields AUC near 0.60). SESTRAV combines multi-allele presentation scores with the
+physicochemical structure of TCR-contact residues (positions p4-p8, following Chowell
+et al. 2015), and trains on experimentally curated IEDB immunogenicity evidence.
+
+**Corrected 2026-08-15. This paragraph used to say SESTRAV adds physicochemical signal
+"on top of" multi-allele presentation. The only increment this repository actually
+measures runs the other way.** On the v5 corpus under a peptide-grouped splitter, adding
+the ten allele binding scores to a binding-free physicochemical floor moves AUC-PR from
+0.505 to 0.606 and AUC-ROC from 0.712 to 0.814 (mode-21 to mode-31,
+`models/v5/training_results_ablation.csv`; the two feature sets differ by exactly those
+ten columns and nothing else). Random Forest importance agrees: the binding block holds
+55.8% of total against 41.7% for the physicochemical block and 2.5% for length
+(`models/v5/feature_importances.csv`). **The converse is not measured.** That ablation
+has no binding-only arm, so what the physicochemical features add over binding alone is
+unquantified on this corpus - see `docs/paper.md` Section 4, which already discloses the
+same gap. Do not restore an additive framing in either direction without an arm that
+measures it.
 
 Three properties are treated as first-class requirements, not afterthoughts:
 
@@ -48,7 +61,7 @@ all driven by the same Snakemake workflow.
 | Track | Model | Status | Role |
 |---|---|---|---|
 | Production | Random Forest / XGBoost ensemble on the 31-feature representation (`mode_31`) | Validated, maintained | Canonical immunogenicity scorer used for ranked output |
-| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (no out-of-fold-derived gate has a current status: the tracked OOF artifact predates the 2026-08-12 peptide-grouping repair and now fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
+| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (v5 run 2026-08-13 under `PeptideGroupedKFold`: Gates 1 and 2 FAIL on measured values, Gates 3, 4 and 5 PASS - see 6.3. The separately tracked v4-era OOF artifact still fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
 
 Both tracks consume the same physicochemical feature pipeline and the same governed
 training data, which keeps comparisons fair and lets the GNN reuse the production
@@ -286,9 +299,9 @@ peptide-grouped); the GNN remains a research track rather than the canonical sco
 The tracked out-of-fold artifact `models/gnn_oof_predictions.csv` is from that same v4
 era: 14,637 rows over 11,779 unique peptides, carrying the old three-column schema and a
 pooled AUC-PR of 0.7160. Having neither a `splitter` nor a `fold` column, it fails Gate 1
-by precondition and Gate 2 for want of fold identity (see 6.3). A v5 run of
-`src/train_gnn.py` under `PeptideGroupedKFold` is required before any OOF-derived gate can
-be called.
+by precondition and Gate 2 for want of fold identity (see 6.3). **That v5 run has since been
+performed** - see 6.3 for its scorecard. It did not replace this artifact: it wrote to gitignored
+`models/scratch/`, so the file described here is still the v4-era one.
 
 ### 6.3 Promotion gates
 
@@ -321,11 +334,25 @@ jackknife when fold identity is missing; that fallback estimated the standard er
 pooled AUC-PR rather than the spread across folds, and it referenced a `--save-fold-ids` flag on
 `train_gnn.py` that never existed.
 
-A v5 GNN run under `src.ml_utils.PeptideGroupedKFold` is therefore required before any
-OOF-derived gate can be called. The whole scorecard can be evaluated first without side effects
-via `python -m src.verify.promote_gnn --dry-run`, which reports the mutations that would follow
-while leaving `config.yaml` and `models/model_artifact_checksums.json` untouched. The roadmap to
-clear Gate 1 centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
+**That v5 run has since happened, so this is no longer a pending prerequisite (updated
+2026-08-15).** On 2026-08-13 a GNN v5 run under `src.ml_utils.PeptideGroupedKFold` (feature
+mode 31, ESM-2 t12, 15 epochs, seed 42) produced a fresh out-of-fold frame, and the scorecard
+was called against it: Gate 1 FAIL at 0.6458 against the >= 0.65 threshold, Gate 2 FAIL at
+0.0234 against <= 0.02, Gates 3, 4 and 5 PASS. Promotion stays blocked, but on a measured
+result rather than for want of a scoreable frame - and the same run beat the RF mode-31
+baseline by a paired-bootstrap AUC-PR delta of +0.0402, 95% CI [0.0286, 0.0520], which
+excludes zero. Both are the outcome and neither cancels the other. The run wrote only to
+gitignored `models/scratch/`, so the tracked artifact is unchanged and the v4 statuses in the
+table above still describe it.
+
+The whole scorecard can be evaluated without side effects via
+`python -m src.verify.promote_gnn --dry-run`, which reports the mutations that would follow
+while leaving `config.yaml` and `models/model_artifact_checksums.json` untouched. Two optional
+flags select what gets scored without relaxing any gate: `--oof` scores an alternative
+out-of-fold frame, and `--checkpoint` scores an alternative checkpoint for Gate 3 and the
+displayed SHA-256. `--checkpoint` is refused unless `--dry-run` is given too, so a real
+promotion can never certify a file different from the one just scored. The roadmap to clear
+Gate 1 centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
 (t6 -> t12 -> t33).
 
 ### 6.4 Structural edges (in development, not active)
@@ -391,13 +418,32 @@ trained model binaries or runtime caches; training must run before production sc
   lockfiles used to require an extra `--overrides overrides.txt` pass to resolve
   at all, because this repo's `setuptools>=83.0.0` security floor collided with
   torch 2.12.0's `setuptools<82` build-metadata cap; torch 2.13.0 raised that
-  cap, so the override was retired. Every install path is
-  `--require-hashes`. Two CI gates hold this together: `tools/check_hash_pins.py`
+  cap, so the override was retired. Every install path **that resolves from a lockfile** is
+  `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
+  `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
+  neither `--require-hashes` nor the CPU torch wheel index. Three CI jobs route torch through
+  that index: `ci.yml`'s `test` job, `fuzzing.yml`, and `sestrav_verify_benchmarking.yml`.
+  **Every other job that installs torch takes it from default PyPI**, and that set is wider than
+  it looks - `iedb_benchmark.yml` and `security.yml` via `environments/requirements.lock`, and
+  `ci.yml`'s own `compat` matrix via `requirements.txt`, which pins `torch` with no environment
+  marker. Two non-lockfile CI steps are additionally unhashed, for the same structural reason as
+  the Dockerfile: `iedb_benchmark.yml`'s editable install and `release.yml`'s install-from-index
+  smoke test).
+  Two CI gates hold this together: `tools/check_hash_pins.py`
   (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
   drifted from its compiled output, fail-closed on unmapped `.in` files). See
   `CONTRIBUTING.md` "Dependency Tiers" for the per-tier rules.
-- **Containers:** `Dockerfile` and `singularity.def` give identical environments on
-  laptops and HPC; the pipeline is HPC-agnostic once containerized. A two-service Docker
+- **Containers:** `Dockerfile` and `singularity.def` cover laptops and HPC respectively, but
+  they are **not** equivalent images and this line previously claimed they were "identical"
+  (corrected 2026-08-15). They differ on every axis that matters: Python 3.13 vs 3.11;
+  `pip install .` from `pyproject.toml` vs `--require-hashes -r environments/requirements.lock`;
+  and different file sets, since only the Singularity image carries `pipeline.py`, `functions/`
+  and the proteomes, and only it fetches the MHCflurry models. Their entry points differ in kind
+  too: the Docker image runs the `sestrav` CLI, the Singularity image runs `pipeline.py`. **Only
+  the Singularity image carries `pipeline.py`**, the standalone four-stage driver. **Neither image
+  can run the six-stage Snakemake workflow**, since neither copies `pipeline.smk`; that runs from a
+  source checkout only. See README "Container Quick Start" for the Docker image's current
+  limitations. A two-service Docker
   Compose stack serves a FastAPI scoring endpoint and a Streamlit demo, both bound to
   loopback only.
 - **CI:** GitHub Actions runs the pytest suite, validates Snakemake wiring, enforces a

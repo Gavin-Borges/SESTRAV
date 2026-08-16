@@ -147,14 +147,23 @@ correctly) or add unit tests if it is importable library code.
 New functionality MUST be accompanied by tests, and bug fixes SHOULD add a
 regression test.
 
-#### Container-Isolated Testing (Docker)
-To verify that changes run successfully in a clean, container-isolated environment, you can run the test suite within Docker:
-```bash
-# Build the test-ready container
-docker build -t sestrav:test .
+#### Container-Isolated Testing (Docker) - NOT CURRENTLY AVAILABLE
 
-# Run the pytest suite inside the container
-docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:test -m pytest tests/ -q --basetemp=tmp_pytest
+> **Corrected 2026-08-15.** This section documented a `docker run ... sestrav:test -m pytest
+> tests/ -q` command that cannot work, and it had been copied verbatim from `README.md`. Three
+> independent reasons: the image's entrypoint is the `sestrav` CLI, so `-m pytest ...` is parsed
+> as CLI arguments and argparse rejects it; `tests/` is excluded from the build context by
+> `.dockerignore`; and `pytest` is in the `dev` extra while the `Dockerfile` installs the package
+> without extras. Enabling this path needs a `Dockerfile` change (a dev install or a dedicated
+> test stage), so the command has been removed rather than patched.
+>
+> **Use the Singularity path below, or run `pytest` in a source checkout.**
+
+The image itself still builds, and is useful for checking that the package installs cleanly:
+
+```bash
+docker build -t sestrav:test .
+docker run --rm sestrav:test info
 ```
 
 #### Container-Isolated Testing (Singularity / Apptainer)

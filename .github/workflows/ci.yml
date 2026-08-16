@@ -50,9 +50,19 @@ jobs:
 
   compat:
     # Lightweight Python-version compatibility check (OpenSSF Silver: works_as_advertised).
-    # Verifies non-torch imports on 3.11/3.12; torch+GNN coverage is the 3.13 test job.
-    # PyTorch wheels are not installed here: torch imports in src/ are inside functions,
-    # so the compat smoke-test exercises the module boundary without a 200 MB wheel download.
+    # Verifies imports on 3.11/3.12; torch+GNN coverage is the 3.13 test job.
+    #
+    # Corrected 2026-08-15: this comment used to claim "PyTorch wheels are not installed
+    # here". That was false. The install step below runs `-r requirements.txt`, which pins
+    # torch==2.13.0 with no environment marker, and --no-deps does not skip a listed
+    # requirement - it only skips that requirement's dependencies. So this job DOES download
+    # torch, and unlike the test job it has no CPU-index step, so it pulls the default-PyPI
+    # build. The comment's stated rationale (torch imports in src/ are function-scoped) is
+    # true and is why the job would still pass without torch; it is not evidence that torch
+    # is absent. Left as-is rather than "fixed" by adding a CPU index or a torch-free
+    # manifest, because either changes what this job actually verifies and that is a
+    # deliberate call, not a drive-by edit. ARCHITECTURE.md's container/dependency bullet
+    # records the same correction.
     runs-on: ubuntu-latest
     strategy:
       matrix:

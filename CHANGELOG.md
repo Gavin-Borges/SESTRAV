@@ -2009,6 +2009,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   negative downloads (`data/iedb/*.csv`) to the v5 build schema.
 - **ESM-2 embedding cache**: 27,376 peptides pre-computed for GNN v5 training
   (`data/esm2_cache_v5/`). GNN t12 baseline training pending GPU availability.
+  **NOTE (2026-08-15, S10b): this row's own count and path are both stale.** The cache that was
+  actually built and used is `data/esm2_embeddings_t12_v5.pt` (2026-07-05, gitignored/regenerable
+  like the rest of `data/`, not a directory), keyed to **30,687** peptides - verified zero misses
+  against all 30,687 unique peptides in the shipped `data/immunogenicity_dataset_v5.csv`
+  (`STATE.md`, 2026-08-13 session). 27,376 traces to this same 2026-07-04 entry, a pre-shipped-corpus
+  snapshot, and should not be restated. GNN v5 training on this cache **completed 2026-08-13**, not
+  "pending" - see `STATE.md`'s "Session 2026-08-13 (continuation)" entry for the (null) result:
+  Gate 1 (pooled AUC-PR, peptide-grouped) 0.6458 vs threshold 0.65, FAIL by 0.0042; Gate 2 FAIL;
+  Gates 3-5 PASS; a real +0.0402 AUC-PR delta over the RF mode-31 baseline nonetheless (95% CI
+  [0.0286, 0.0520], excludes zero).
 - **`scripts/download_tcr3d_structures.py`**: Downloads TCR3d 2.0 TSV, applies 4 quality
   filters, downloads ~100 PDB files from RCSB with retry/backoff logic.
 - **`scripts/update_contact_weights.py`**: Patches `ALLELE_CONTACT_WEIGHTS` and

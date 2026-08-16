@@ -50,7 +50,7 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
   none exposes a `--cv-group-by` knob. `scripts/diagnose_vaccinia_contamination.py` calls
   `_cross_validate` directly, bypassing `train_models` entirely. Separately, the whole
   non-`train_classifier` CV family still uses label-only `StratifiedKFold`: `src/train_ann.py`,
-  `src/train_gnn.py`, `src/gnn_benchmark.py`, `src/model.py`,
+  `src/gnn_benchmark.py`, `src/model.py`,
   `src/external_validation_cross_virus.py`, `src/virus_specific_ablation.py`,
   `src/training_plots.py`, `scripts/verify_tier_a_provenance.py`, and - note, because this one
   produces a tracked release artifact - `src/h2_tier_a_evaluation.py`, the source of the R10 figure in
@@ -58,8 +58,16 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
   (`docs/claims_register.md` D17): its binding-only denominator was an all-zeros constant.** Note
   the splitter is not the defect here - the v3 corpus has 1,004 rows and 1,004 unique peptides, so
   `StratifiedKFold` is already peptide-disjoint on it and grouping would be a no-op. **This qualifies the "without exception" wording in the
-  ANN/GNN bullet below**, which those tracks do not currently meet on the splitter dimension:
-  both `src/train_ann.py` and `src/train_gnn.py` are themselves ungrouped.
+  ANN/GNN bullet below**, but for the ANN track only: `src/train_ann.py` is still ungrouped.
+  **Corrected 2026-08-15 - `src/train_gnn.py` was removed from this sentence and from the list
+  above.** It ran an ungrouped `StratifiedKFold` until `c327403` (2026-08-12), which moved both
+  of its CV call sites onto `src.ml_utils.PeptideGroupedKFold` and made it stamp `fold` and
+  `splitter` onto every out-of-fold row. This document was last revised 2026-08-14, two days
+  after that repair, and still said "are themselves ungrouped" in the present tense. The
+  damaging half was not the stale fact but its consequence: it granted the GNN track a standing
+  exemption from a grouping rule the track already meets. The 2026-08-13 v5 GNN run was scored
+  under that grouped splitter, and `docs/claims_register.md` D3 already carried the corrected
+  past-tense reading.
 - **Cross-Virus Isolation:** When running cross-virus transfer experiments (e.g., EBV $\rightarrow$ HPV), the target virus must not exist in the training manifold in any capacity.
 - **Optional Experiments (ANN/GNN):** All experimental runs in these tracks must explicitly report sample counts and dataset versioning, enforcing the exact same holdout rules as the canonical track without exception.
 

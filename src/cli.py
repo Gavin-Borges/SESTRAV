@@ -344,6 +344,24 @@ def _build_predict_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--feature-mode", type=str, default=None, help="Feature mode (default: from config.yaml)"
     )
+    # Added 2026-08-15 to stop this parser drifting from main()'s p_predict.
+    # This function exists only to render usage text for _require_file's error
+    # messages, so a missing flag here does not break dispatch - it silently
+    # prints a usage line that omits real options. It had already drifted:
+    # --virus and --per-virus-calibration-dir shipped in main() and were never
+    # mirrored here, so `sestrav predict` with a bad --fasta advertised a
+    # narrower interface than the one it accepts. Keep the two definitions in
+    # sync, or collapse them to one source; do not let them diverge again.
+    p.add_argument(
+        "--virus",
+        default=None,
+        help="Virus label selecting a per-virus calibrator (default: global calibrator)",
+    )
+    p.add_argument(
+        "--per-virus-calibration-dir",
+        default=None,
+        help="Directory of per-virus calibrators (default: models/calibration/per_virus)",
+    )
     return p
 
 
