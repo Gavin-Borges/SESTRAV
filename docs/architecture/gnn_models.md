@@ -101,10 +101,21 @@ Two of the gates now refuse to score an artifact that cannot prove how it was bu
 the mutations that would follow without writing to `config.yaml` or
 `models/model_artifact_checksums.json`.
 
+`--oof` scores an alternative out-of-fold frame and `--checkpoint` an alternative
+checkpoint (Gate 3 latency plus the displayed SHA-256); neither relaxes a gate, and
+`--checkpoint` is refused without `--dry-run` so a real promotion cannot certify a
+file other than the one just scored.
+
 The tracked `models/gnn_oof_predictions.csv` is a v4-era artifact in the old
 three-column schema (14,637 rows, 11,779 unique peptides, pooled AUC-PR 0.7160), so it
-fails Gate 1 by precondition and Gate 2 for want of fold identity. Promotion stays
-blocked until a v5 GNN run under `PeptideGroupedKFold` produces a fresh OOF frame.
+fails Gate 1 by precondition and Gate 2 for want of fold identity.
+
+**A v5 run under `PeptideGroupedKFold` has since been performed, so promotion is no
+longer waiting on one (updated 2026-08-15).** It ran 2026-08-13 at feature mode 31 and
+returned Gate 1 FAIL at 0.6458 against >= 0.65, Gate 2 FAIL at 0.0234 against <= 0.02,
+and Gates 3, 4 and 5 PASS. Promotion stays blocked on that measured null rather than on
+the absence of a scoreable frame. Its out-of-fold frame lives under gitignored
+`models/scratch/`, which is why the tracked artifact above is unchanged.
 
 ## [PENDING]
 - `max_len=11` is hard-coded in `GraphBuilder`; a future shift to MHC-II 15-mers

@@ -15,10 +15,17 @@
 > GNN is a deferred, GPU-gated research track that has never been promoted through
 > `src/verify/promote_gnn.py`, and its Gate-1 threshold was unreachable as written
 > (AUC-PR >= 0.85; re-anchored to >= 0.65 under a peptide-grouped splitter on 2026-08-10,
-> and not since re-evaluated). The protocol as written could not have been run against the system that actually
+> and evaluated against that bar once since, on 2026-08-13, when a v5 GNN run under
+> `PeptideGroupedKFold` returned Gate 1 = 0.6458 and missed it by 0.0042 - so the track remains
+> unpromoted, now on a measured null rather than for want of a scoreable run; corrected
+> 2026-08-15, this clause previously read "and not since re-evaluated"). The protocol as written
+> could not have been run against the system that actually
 > exists. It now targets the production RF mode-31 scorer.
 > (2) Its success criterion pre-committed to a **2.0x** enrichment ratio, while SESTRAV's own
 > certified computational analog of that same ratio is **0.9494 - a null** (`results/h2_tier_a_summary.md`).
+> **That figure is VOID per D17 and was corrected to 1.0588; the sentence above is left standing as
+> what v1.1.0 argued from, not as a live claim. Marker added inline 2026-08-15 - see the addendum
+> below for why, and do not delete this line.**
 > Pre-registering a bar that the project's own evidence predicts will be missed by roughly
 > half is not rigor; it invites a reviewer to read the eventual null as a failed prediction
 > rather than as the confirmation of a disclosed prior. The criterion is now grounded in that
@@ -47,8 +54,13 @@
 > the honest statement is a nominal ~6% enrichment that is not statistically significant, since the
 > confidence interval includes 1.0. **Do not run, submit, or cite this protocol until the corrected
 > prior is regenerated into `results/h2_tier_a_*` and every figure below is re-derived from it.**
-> The paragraph immediately above and the addendum immediately below both predate this finding and
-> are retained only as the historical record of how the prior was understood at the time.
+> The paragraph immediately above and the **2026-08-09 addendum** below both predate this finding
+> and are retained only as the historical record of how the prior was understood at the time.
+> (Re-pointed by date 2026-08-15: this sentence said "the addendum immediately below", which was
+> true when written but stopped being true once the 2026-08-15 status update was inserted between
+> the two. That block postdates this finding by five days and is emphatically not historical
+> record - a positional cross-reference in an append-only document rots the moment anything is
+> appended in the middle, so this one now names its target.)
 >
 > **STATUS UPDATE (2026-08-15) - THE STOP-ORDER STANDS, BUT ONE OF ITS TWO CONDITIONS IS ALREADY
 > MET, AND THE HEADLINE ABOVE NAMES THE WRONG REASON FOR THE OTHER.** Recorded because a reader

@@ -321,11 +321,25 @@ jackknife when fold identity is missing; that fallback estimated the standard er
 pooled AUC-PR rather than the spread across folds, and it referenced a `--save-fold-ids` flag on
 `train_gnn.py` that never existed.
 
-A v5 GNN run under `src.ml_utils.PeptideGroupedKFold` is therefore required before any
-OOF-derived gate can be called. The whole scorecard can be evaluated first without side effects
-via `python -m src.verify.promote_gnn --dry-run`, which reports the mutations that would follow
-while leaving `config.yaml` and `models/model_artifact_checksums.json` untouched. The roadmap to
-clear Gate 1 centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
+**That v5 run has since happened, so this is no longer a pending prerequisite (updated
+2026-08-15).** On 2026-08-13 a GNN v5 run under `src.ml_utils.PeptideGroupedKFold` (feature
+mode 31, ESM-2 t12, 15 epochs, seed 42) produced a fresh out-of-fold frame, and the scorecard
+was called against it: Gate 1 FAIL at 0.6458 against the >= 0.65 threshold, Gate 2 FAIL at
+0.0234 against <= 0.02, Gates 3, 4 and 5 PASS. Promotion stays blocked, but on a measured
+result rather than for want of a scoreable frame - and the same run beat the RF mode-31
+baseline by a paired-bootstrap AUC-PR delta of +0.0402, 95% CI [0.0286, 0.0520], which
+excludes zero. Both are the outcome and neither cancels the other. The run wrote only to
+gitignored `models/scratch/`, so the tracked artifact is unchanged and the v4 statuses in the
+table above still describe it.
+
+The whole scorecard can be evaluated without side effects via
+`python -m src.verify.promote_gnn --dry-run`, which reports the mutations that would follow
+while leaving `config.yaml` and `models/model_artifact_checksums.json` untouched. Two optional
+flags select what gets scored without relaxing any gate: `--oof` scores an alternative
+out-of-fold frame, and `--checkpoint` scores an alternative checkpoint for Gate 3 and the
+displayed SHA-256. `--checkpoint` is refused unless `--dry-run` is given too, so a real
+promotion can never certify a file different from the one just scored. The roadmap to clear
+Gate 1 centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
 (t6 -> t12 -> t33).
 
 ### 6.4 Structural edges (in development, not active)
