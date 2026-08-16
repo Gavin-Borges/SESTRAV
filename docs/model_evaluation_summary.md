@@ -226,7 +226,7 @@ This document should be interpreted as the legacy baseline comparison, not the c
 
 The binding-only baseline outperforms SESTRAV on gold-standard recovery because all 15 gold-standard epitopes were selected from literature specifically for being well-characterized strong MHC binders. This creates a selection bias favoring binding-based ranking.
 
-SESTRAV's value proposition is distinguishing immunogenic from non-immunogenic peptides **among good binders** - the specificity bottleneck that binding-based methods cannot address (Carri et al. 2023: AUC ~0.60 for binding as immunogenicity proxy). The CV metrics on IEDB data (which include both positive and negative peptides) are the proper evaluation.
+SESTRAV's value proposition is distinguishing immunogenic from non-immunogenic peptides using signal beyond MHC binding alone - the specificity bottleneck that binding-based methods cannot address (Carri et al. 2023: AUC ~0.60 for binding as immunogenicity proxy). The CV metrics on IEDB data (which include both positive and negative peptides) are the proper evaluation of that claim. No evaluation in this repo isolates performance specifically **among good binders**: the CV corpus is not filtered by binding strength, and `docs/limitations_statement_v1.md` documents it as skewed toward poor-binding negatives rather than restricted to strong ones. The "good binders" framing names the motivating problem, not a tested regime.
 
 ### Top Features (RF importance, 21-feature track)
 
