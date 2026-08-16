@@ -15,6 +15,7 @@ the module and calls a pure function directly.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -24,11 +25,24 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_doc_line_citations.py"
 
+# Repository-discovery variables that git exports into hook subprocesses and
+# that OVERRIDE cwd, so a throwaway repo built with cwd= alone would be operated
+# on through the real repo's gitdir and index instead. The root conftest.py
+# already strips these process-wide; they are stripped again here so this file
+# is correct on its own merits, matching the defense-in-depth in
+# tests/test_check_lockfile_freshness.py::_init_repo_with_ignored_copy.
+_GIT_DISCOVERY_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX")
+
+
+def _clean_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in _GIT_DISCOVERY_VARS}
+
 
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(
-        ["git", *args],
+        ["git", "-C", str(repo), *args],
         cwd=repo,
+        env=_clean_env(),
         check=True,
         capture_output=True,
         text=True,
@@ -54,6 +68,7 @@ def _run(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         cwd=repo,
+        env=_clean_env(),
         capture_output=True,
         text=True,
     )
@@ -88,6 +103,59 @@ def test_clean_repo_passes(tmp_path: Path) -> None:
     result = _run(repo)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "All pinned line citations still hold" in result.stdout
+
+
+def test_throwaway_repo_survives_leaked_git_discovery_vars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Leaked GIT_DIR must not redirect this file's helpers at another repo.
+
+    Git exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE into hook subprocesses and
+    scripts/hooks/pre-push runs pytest, so on that path every helper here
+    inherits them. They outrank cwd for repository discovery, so before the fix
+    a linked worktree's absolute GIT_DIR sent `git add -A`/`git commit` at the
+    REAL repository - which on 2026-08-16 wrote bogus "initial" commits onto a
+    live branch ref.
+
+    A decoy gitdir stands in for the real one: if the scrub regresses, the
+    helpers operate on the decoy and the assertions below fail, rather than
+    damaging this checkout.
+    """
+    decoy = tmp_path / "decoy.git"
+    subprocess.run(
+        ["git", "init", "--bare", "-q", str(decoy)],
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.setenv("GIT_DIR", str(decoy))
+    monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path))
+
+    repo = _make_repo(
+        tmp_path, {"src/train_classifier.py": TARGET, "docs/policy.md": DOC}
+    )
+
+    # The commit landed in the throwaway repo, not the decoy.
+    assert (repo / ".git").exists()
+    subject = subprocess.run(
+        ["git", "-C", str(repo), "log", "-1", "--format=%s"],
+        env=_clean_env(),
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert subject == "initial"
+
+    decoy_head = subprocess.run(
+        ["git", "-C", str(decoy), "rev-parse", "--verify", "-q", "HEAD"],
+        env=_clean_env(),
+        capture_output=True,
+        text=True,
+    )
+    assert decoy_head.returncode != 0, "throwaway commit leaked into the decoy repo"
+
+    # The checker subprocess resolves the same repo, so --update stays scoped.
+    assert _pin(repo).returncode == 0
+    assert _run(repo).returncode == 0
 
 
 def test_catches_the_real_historical_rot(tmp_path: Path) -> None:

@@ -124,6 +124,26 @@ _Last updated: 2026-08._
   (`build_oof_records`). The tracked `models/gnn_oof_predictions.csv` predates that
   repair, so it fails Gate 1 by precondition and Gate 2 for want of fold identity,
   and **no GNN figure sourced from it is comparable to a peptide-grouped one**.
+
+  **Outcome, and the re-run policy that follows from it (recorded 2026-08-16; run
+  executed 2026-08-13).** The v5 GNN was evaluated against these gates and **returned
+  a null result on the pre-registered bar**. Because the bar is an AND-conjunction,
+  Gate 1 alone settles it: pooled peptide-grouped AUC-PR **0.6458 against a >= 0.65
+  threshold, failing by 0.0042**; Gate 2 also failed (cross-fold std 0.0234 against
+  <= 0.02); Gates 3, 4 and 5 passed. The track is **not promoted**. Reported alongside
+  it, because omitting either half would misrepresent the run: against RF mode-31 the
+  GNN improved AUC-PR by **+0.0402, 95% CI [0.0286, 0.0520], p < 0.0001** (paired
+  bootstrap, 10,000 resamples). The architecture is measurably better on
+  discrimination and still misses the promotion bar.
+
+  **This evaluation must not be re-run with different hyperparameters against the same
+  held-out set.** Tuning until a 0.0042 shortfall closes is precisely the leakage this
+  project flags in every other model, and a threshold that moves after the result is
+  known is not a threshold. Re-opening the track requires a bar pre-registered *before*
+  the run and evaluated on data not used to produce the result above. That applies to a
+  new architecture or feature set too: the risk being controlled is selection across
+  repeated attempts, not any one model. The same statement is recorded in
+  `src/verify/promote_gnn.py`'s module docstring, next to the gates that enforce it.
 - **Wet-lab validation (contingent on partnership).** Pre-register and execute an
   IFN-gamma ELISpot validation comparing SESTRAV-ranked epitopes against binding-only
   controls across HPV16/HPV18/EBV.
