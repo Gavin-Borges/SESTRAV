@@ -75,15 +75,29 @@ git tag -v vX.Y.Z
 The publish job in `release.yml` authenticates to PyPI using **OpenID Connect
 Trusted Publishers** - no API token or GitHub secret is required.
 
-### One-time setup (already complete)
+### One-time setup (step 2 is UNCONFIRMED - do not read this list as done)
+
+> **Corrected 2026-08-16.** This heading previously read "(already complete)". Steps 1,
+> 3 and 4 are verifiable and hold, but **step 2 has never been confirmed** - every
+> `STATE.md` entry since 2026-07-15 records the pending trusted publisher as
+> unconfirmed, and whether one is registered cannot be determined from any public API,
+> only by signing in to pypi.org. The package name is currently unclaimed
+> (`https://pypi.org/pypi/sestrav/json` returns 404), so nothing has ever been
+> published. A doc asserting the setup was complete is the one a reader trusts, which
+> is why the claim is retracted here rather than left to be discovered at release time.
 
 1. PyPI account created with 2FA enabled.
-2. A **pending trusted publisher** is registered at `pypi.org` -> Account settings
-   -> Publishing with:
+2. **UNCONFIRMED:** a **pending trusted publisher** should be registered at `pypi.org`
+   -> Account settings -> Publishing with:
    - Owner: `Gavin-Borges`, Repository: `SESTRAV`
    - Workflow: `release.yml`, Environment: `pypi`
+
+   Verify this before cutting a tag that is meant to publish. If it cannot be
+   confirmed, set `PYPI_PUBLISH=false` (step 4) - the tag still cuts a signed GitHub
+   Release, and only the PyPI upload is skipped.
 3. GitHub environment `pypi` configured with **Required reviewers** - every publish
-   attempt pauses for manual approval before proceeding.
+   attempt pauses for manual approval before proceeding. So a tag QUEUES a publish for
+   approval; it does not publish silently.
 4. Repository variable `PYPI_PUBLISH=true` gates the publish job; set it to `false`
    to disable publishing without touching the workflow.
 

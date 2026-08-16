@@ -38,6 +38,17 @@ printf '[pre-push] Running fast test gate (slow GNN tests excluded, covered by C
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+# Drop the repository-discovery variables git exports into every hook before
+# handing off to pytest. They take precedence over cwd, so any test that builds
+# a throwaway repo and runs git in it inherits them and operates on THIS repo
+# instead. From the main worktree GIT_DIR is relative and re-resolves harmlessly;
+# from a linked worktree it is absolute, and on 2026-08-16 that wrote bogus
+# "initial" commits onto a real branch ref. Read AFTER REPO_ROOT above, which
+# still needs normal discovery. The suite scrubs these itself (conftest.py, and
+# per-helper in the affected tests); this closes the pre-push path at its source.
+# It does NOT cover other hooks or `git bisect run`, hence the in-suite scrub too.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
 # Activate conda environment if not already active.
 if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; then
     if command -v conda >/dev/null 2>&1; then

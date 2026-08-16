@@ -8,7 +8,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **Seven runtime dependencies that the packaged code has always imported but never declared.**
+  An AST audit of every module-scope import across the three packaged trees (`sestrav/`, `src/`,
+  `functions/`) found `biopython`, `mhcflurry`, `PyYAML`, `scipy`, `xgboost`, `openpyxl` and
+  `networkx` imported but absent from `[project].dependencies`. Two of them are reached by
+  `sestrav predict`, the flagship command: `src/cli.py`'s `cmd_predict` imports all four
+  `functions/stage*.py` modules, of which stage 1 imports biopython and stage 2 imports mhcflurry.
+  A `pip install sestrav` would therefore have failed at stage 1 on a clean environment. The gap
+  was in the metadata a PyPI consumer resolves, not in CI - all seven are already pinned in
+  `environments/requirements.lock`, which is why no test ever caught it.
+- **A `CITATION.cff` consistency gate on the release workflow.** Nothing in CI, the tests, the
+  scripts or the integrity harness referenced that file, which is how the W6 "phantom release"
+  arose: `CITATION.cff` advertised a version and date for which no tag existed. The tag job now
+  fails unless `CITATION.cff`'s `version` matches the tag and its `date-released` is a real ISO
+  date that is not in the future. Both `pyproject.toml` and `CITATION.cff` are now reported
+  together, so a mismatched release surfaces every offending field in one run rather than one
+  per attempt.
+
 ### Fixed
+- **The PyPI publish path could not have succeeded, and had never once run.** The publish job was
+  gated on a repository variable set one day after the only tagged release, so it was `skipped`
+  on v2.0.3 and has never executed. Three independent defects were found in it:
+  - `dist/SHA256SUMS.txt` was shipped to the publish job alongside the distributions, and
+    `gh-action-pypi-publish` runs `twine upload dist/*` unfiltered. twine raises
+    `InvalidDistribution` on any extension outside `.whl`/`.tar.gz`/`.zip`, so the upload would
+    have failed. The artifact handoff now carries distributions only; the checksum manifest is
+    still attached to the GitHub Release, which reads it from the build job's own `dist/`.
+  - The post-upload smoke test used `pip install --no-deps` and then imported `sestrav` and
+    `functions.stage1_peptide_generation`. Neither import can resolve without dependencies, so
+    the step could only ever have failed. `--no-deps` is removed, and the step now retries, since
+    a fresh upload can lag the CDN and a failure at that point is unfixable by re-running.
+  - Most consequentially, verification happened only *after* `gh-action-pypi-publish`. PyPI
+    permanently refuses a re-upload of the same version, so any failure there would have burned
+    the version number and left a broken release published. A PRE-PUBLISH GATE now installs the
+    freshly built wheel with its dependencies into a clean virtualenv, asserts the installed
+    version matches the tag, and exercises the imports and the console script - all before the
+    provenance attestation and the GitHub Release, while a bad build is still recoverable.
+- **The Docker image installed a third of the package.** The build stage copied `src/` alone,
+  though `pyproject.toml` declares `packages.find` over `sestrav*`, `src*` and `functions*`, and
+  setuptools can only find what is in the build context. `sestrav --help` still worked, because
+  the console script is `src.cli:main`, which is why the image's smoke test would not have caught
+  it - but `import sestrav` failed outright and `sestrav predict` died at stage 1. `functions/`
+  and `sestrav/` are now copied. Note that `docker.yml` fires on the same `v*.*.*` tag as the
+  release workflow and has never run either, so this would have reddened the first release
+  alongside PyPI.
 - **A true-positive comparator in `docs/paper.md` Section 3.3 was computed on a contaminated
   base.** The "0.705 median presentation score for true positives (n=7,037)" is taken over all
   label-1 rows carrying a binding-matrix entry, including 606 quarantined rows, while the 3,112

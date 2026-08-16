@@ -40,6 +40,36 @@ dependencies = [
     "joblib>=1.3.0",
     "requests>=2.31.0",
     "jsonschema>=4.0.0",
+    # Added 2026-08-14 after an AST audit of every module-scope import in the
+    # three packaged trees (sestrav/, src/, functions/) found seven distributions
+    # imported but declared nowhere. They were never missing from CI - all seven
+    # are pinned in environments/requirements.lock - so the gap was in the
+    # metadata a PyPI consumer resolves, not in the test environment. Floors are
+    # set below the locked versions rather than at them, since nothing here
+    # requires a recent feature.
+    #   biopython  functions/stage1_peptide_generation - pipeline stage 1
+    #   mhcflurry  functions/stage2_mhc_binding_prediction - pipeline stage 2
+    # Both are reached by `sestrav predict`, so without them the flagship
+    # command fails on a clean install (see src/cli.py cmd_predict).
+    "biopython>=1.80",
+    "mhcflurry>=2.1.0",
+    #   PyYAML     src/core/config.py and 7 more - config.yaml is the engine's
+    #              own config format. src/cli.py imports it lazily behind a
+    #              try/except ImportError, but src/core/config.py does not.
+    "PyYAML>=6.0",
+    #   scipy      src/h2_tier_a_evaluation, src/external_benchmark_comparison.
+    #              Arrives transitively via scikit-learn today; declared because
+    #              relying on a transitive dependency is not a contract.
+    "scipy>=1.11.0",
+    #   xgboost    src/train_classifier - the production model is an RF/XGB
+    #              ensemble, so this is not optional to training.
+    "xgboost>=2.0.0",
+    #   openpyxl   src/iedb_data_loader - IEDB ships .xlsx exports.
+    "openpyxl>=3.1.0",
+    #   networkx   src/features.compute_wl_features (lazy). Kept in the core set
+    #              rather than the gnn extra because the caller is
+    #              src/train_classifier, not a GNN-only path.
+    "networkx>=3.0",
 ]
 
 [project.optional-dependencies]
