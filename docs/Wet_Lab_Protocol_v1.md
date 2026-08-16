@@ -77,7 +77,7 @@
 > historical record.)
 >
 > **STATUS UPDATE (2026-08-15) - THE STOP-ORDER STANDS, BUT ONE OF ITS TWO CONDITIONS IS ALREADY
-> MET, AND THE HEADLINE ABOVE NAMES THE WRONG REASON FOR THE OTHER.** Recorded because a reader
+> MET, AND THE 2026-08-10 ADDENDUM'S HEADLINE NAMES THE WRONG REASON FOR THE OTHER.** Recorded because a reader
 > chasing a done task is a real cost, and because "NOT POWERED UNTIL IT IS RE-DERIVED" promises a
 > lift that re-derivation cannot deliver.
 > **(1) Condition one is SATISFIED.** The corrected prior WAS regenerated into `results/h2_tier_a_*`

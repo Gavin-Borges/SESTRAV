@@ -408,12 +408,14 @@ trained model binaries or runtime caches; training must run before production sc
   cap, so the override was retired. Every install path **that resolves from a lockfile** is
   `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
   `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
-  neither `--require-hashes` nor the CPU torch wheel index that `ci.yml`, `fuzzing.yml` and
-  `sestrav_verify_benchmarking.yml` route torch through. Do not read those three as "every
-  workflow that installs torch" - the lockfile pins torch, so `iedb_benchmark.yml` and
-  `security.yml` install it too, from default PyPI. Two non-lockfile CI steps are unhashed for
-  the same structural reason as the Dockerfile: `iedb_benchmark.yml`'s editable install and
-  `release.yml`'s install-from-index smoke test).
+  neither `--require-hashes` nor the CPU torch wheel index. Three CI jobs route torch through
+  that index: `ci.yml`'s `test` job, `fuzzing.yml`, and `sestrav_verify_benchmarking.yml`.
+  **Every other job that installs torch takes it from default PyPI**, and that set is wider than
+  it looks - `iedb_benchmark.yml` and `security.yml` via `environments/requirements.lock`, and
+  `ci.yml`'s own `compat` matrix via `requirements.txt`, which pins `torch` with no environment
+  marker. Two non-lockfile CI steps are additionally unhashed, for the same structural reason as
+  the Dockerfile: `iedb_benchmark.yml`'s editable install and `release.yml`'s install-from-index
+  smoke test).
   Two CI gates hold this together: `tools/check_hash_pins.py`
   (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
   drifted from its compiled output, fail-closed on unmapped `.in` files). See
