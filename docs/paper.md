@@ -1044,11 +1044,12 @@ most published tools provide a trained model but not the data curation workflow
 that produced it, and IEDB updates silently alter the positive and negative class
 composition of any dataset assembled without version-locked provenance.
 
-The virus-level leave-one-out evaluation protocol introduced here is itself a
-benchmark contribution independent of the classification results. No published
-MHC class I immunogenicity predictor, to our knowledge, has reported a
-systematic LOO protocol in which a separate model is retrained for each
-held-out pathogen and evaluated exclusively on that pathogen's labelled data.
+The virus-level leave-one-out evaluation protocol applied here is itself a
+benchmark contribution independent of the classification results, though not a
+priority claim. Pathogen-level holdout has been reported before: Section 1 sets
+out both prior reports and what separates them from this one. The contribution
+here is scale and negative-set discipline rather than novelty - a nine-pathogen,
+pan-allele panel with test negatives restricted to assay-confirmed records.
 Standard within-pathogen stratified cross-validation - the dominant evaluation
 paradigm in the field - does not address the scenario most relevant to vaccine
 development practice, namely a pathogen for which no prior T-cell response data

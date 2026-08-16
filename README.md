@@ -5,7 +5,7 @@
 ![Version](https://img.shields.io/badge/version-2.0.3-informational?style=flat-square)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 
-**SESTRAV** is a dry-lab (purely computational) pipeline for prioritizing viral CD8+ T-cell epitopes by predicted immunogenicity, covering nine viral pathogens (CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2). It targets the specificity bottleneck that binding-only tools leave open: MHC binding is a weak proxy for T-cell immunogenicity, so SESTRAV scores peptides on the physicochemical structure of TCR-contact residues (positions p4-p8) in addition to multi-allele presentation.
+**SESTRAV** is a dry-lab (purely computational) pipeline for prioritizing viral CD8+ T-cell epitopes by predicted immunogenicity, covering nine viral pathogens (CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2). It targets the specificity bottleneck that binding-only tools leave open: MHC binding is a weak proxy for T-cell immunogenicity, so SESTRAV combines multi-allele presentation scores with the physicochemical structure of TCR-contact residues (positions p4-p8) in a single trained classifier.
 
 The system is organized as two model tracks under a single reproducible Snakemake workflow:
 
@@ -33,7 +33,7 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) wit
 
 ---
 
-Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harder than predicting MHC binding. Binding-only approaches achieve AUC-PR ≈ 0.80 on the SESTRAV benchmark - yet most public tools stop there. SESTRAV bridges this gap by extracting physicochemical features from TCR-contact residues (positions p4-p8, following Chowell et al. 2015) and training ensemble classifiers on experimentally validated IEDB immunogenicity data.
+Predicting whether a viral peptide will elicit a CD8⁺ T-cell response is harder than predicting MHC binding. Most public tools stop at binding. SESTRAV trains ensemble classifiers on both multi-allele presentation scores and physicochemical features from TCR-contact residues (positions p4-p8, following Chowell et al. 2015), using experimentally validated IEDB immunogenicity data. **Reworded 2026-08-15: this passage previously said binding-only reaches AUC-PR 0.80 and that SESTRAV "bridges this gap" with physicochemical features.** That paired a directional claim with a number supporting the opposite direction. The 0.80 is an untrained max-presentation-score baseline on the 720-peptide Tier A benchmark, whose margin is already published as unquantified in either direction (`docs/claims_register.md` D22); and on the v5 grouped ablation the binding features are the larger measured contributor, not the smaller one (AUC-PR 0.505 to 0.606 on adding them - see ARCHITECTURE.md section 1). What physicochemistry adds over binding alone is not measured anywhere in this repository.
 
 > SESTRAV is a governed computational workflow for viral T-cell epitope prioritization (immunogenicity scoring over viral peptide candidates). It integrates six computational stages - proteome-scale peptide generation, multi-allele MHC binding prediction, TCR contact physicochemical feature extraction, antigen processing scoring, ensemble immunogenicity inference, and freeze-mode governed output - under a single reproducible Snakemake DAG with cryptographic dataset provenance. To our knowledge, no publicly available tool integrates antigen processing, physicochemical TCR features, and graph neural network scoring within an OpenSSF-compliant, auditable pipeline.
 
@@ -41,7 +41,7 @@ The canonical release uses a 31-feature model (20 physicochemical properties at 
 
 ## Background and Motivation
 
-Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by extracting features from TCR-contact residues (primarily positions p4-p8) and training classifiers on experimentally validated immunogenicity data from the IEDB.
+Most computational pipelines focus on MHC presentation, predicting whether a peptide is displayed on the cell surface. However, binding affinity alone is a weak proxy for immunogenicity (typical AUC ≈ 0.60 when used directly; Carri et al., 2023). SESTRAV addresses this limitation by training classifiers on both multi-allele presentation scores and TCR-contact physicochemical features (primarily positions p4-p8), using experimentally validated immunogenicity data from the IEDB. On the v5 grouped ablation the binding block is the larger measured contributor (AUC-PR 0.505 to 0.606 on adding it, `models/v5/training_results_ablation.csv`); how much the physicochemical block adds over a binding-only model is not measured here.
 
 This approach combines structural insights with multi-allele binding predictions to better discriminate true immunogenic epitopes.
 

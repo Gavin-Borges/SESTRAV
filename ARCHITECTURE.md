@@ -23,10 +23,23 @@ labeled or held-out data.
 
 The design addresses one specific gap. Most public tools predict peptide-MHC binding,
 which is a necessary but weak proxy for immunogenicity (binding affinity used directly
-yields AUC near 0.60). SESTRAV adds discriminative signal from the physicochemical
-structure of TCR-contact residues (positions p4-p8, following Chowell et al. 2015) on
-top of multi-allele presentation, and trains on experimentally curated IEDB
-immunogenicity evidence.
+yields AUC near 0.60). SESTRAV combines multi-allele presentation scores with the
+physicochemical structure of TCR-contact residues (positions p4-p8, following Chowell
+et al. 2015), and trains on experimentally curated IEDB immunogenicity evidence.
+
+**Corrected 2026-08-15. This paragraph used to say SESTRAV adds physicochemical signal
+"on top of" multi-allele presentation. The only increment this repository actually
+measures runs the other way.** On the v5 corpus under a peptide-grouped splitter, adding
+the ten allele binding scores to a binding-free physicochemical floor moves AUC-PR from
+0.505 to 0.606 and AUC-ROC from 0.712 to 0.814 (mode-21 to mode-31,
+`models/v5/training_results_ablation.csv`; the two feature sets differ by exactly those
+ten columns and nothing else). Random Forest importance agrees: the binding block holds
+55.8% of total against 41.7% for the physicochemical block and 2.5% for length
+(`models/v5/feature_importances.csv`). **The converse is not measured.** That ablation
+has no binding-only arm, so what the physicochemical features add over binding alone is
+unquantified on this corpus - see `docs/paper.md` Section 4, which already discloses the
+same gap. Do not restore an additive framing in either direction without an arm that
+measures it.
 
 Three properties are treated as first-class requirements, not afterthoughts:
 
