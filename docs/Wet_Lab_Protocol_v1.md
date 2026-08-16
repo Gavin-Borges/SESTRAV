@@ -15,10 +15,17 @@
 > GNN is a deferred, GPU-gated research track that has never been promoted through
 > `src/verify/promote_gnn.py`, and its Gate-1 threshold was unreachable as written
 > (AUC-PR >= 0.85; re-anchored to >= 0.65 under a peptide-grouped splitter on 2026-08-10,
-> and not since re-evaluated). The protocol as written could not have been run against the system that actually
+> and evaluated against that bar once since, on 2026-08-13, when a v5 GNN run under
+> `PeptideGroupedKFold` returned Gate 1 = 0.6458 and missed it by 0.0042 - so the track remains
+> unpromoted, now on a measured null rather than for want of a scoreable run; corrected
+> 2026-08-15, this clause previously read "and not since re-evaluated"). The protocol as written
+> could not have been run against the system that actually
 > exists. It now targets the production RF mode-31 scorer.
 > (2) Its success criterion pre-committed to a **2.0x** enrichment ratio, while SESTRAV's own
 > certified computational analog of that same ratio is **0.9494 - a null** (`results/h2_tier_a_summary.md`).
+> **That figure is VOID per D17 and was corrected to 1.0588; the sentence above is left standing as
+> what v1.1.0 argued from, not as a live claim. Marker added inline 2026-08-15 - see the
+> **2026-08-10 addendum** for why, and do not delete this line.**
 > Pre-registering a bar that the project's own evidence predicts will be missed by roughly
 > half is not rigor; it invites a reviewer to read the eventual null as a failed prediction
 > rather than as the confirmation of a disclosed prior. The criterion is now grounded in that
@@ -39,19 +46,63 @@
 > H2 *computational* gate is a conjunction - `R10 >= 2.0` AND a bootstrap CI lower bound >= 2.0 AND
 > binding-only ISSR@10 >= 0.08 (`src/h2_tier_a_evaluation.py`) - and 1.0588
 > misses it by a wide margin; but **this protocol pre-commits no fixed multiple** (see Primary
-> criterion below) - it requires `R10 > 1.0` AND a bootstrap 95% CI lower bound above 1.0. The
+> criterion below) - it requires `R10 > 1.0` AND a **bias-corrected** bootstrap 95% CI lower bound
+> above 1.0. The
 > corrected figure satisfies the first (1.0588 > 1.0) and **fails the second** (lower bound 0.9778),
 > so the CI still spans 1.0 and the disclosed null is corroborated on this protocol's own terms.
+> (Two corrections 2026-08-15. This paraphrase dropped the word "bias-corrected", which is the
+> criterion's own wording and not a decoration - silently restating a pre-registered bar as a
+> weaker one is exactly what the CI METHOD MISMATCH note below forbids, and this sentence was
+> doing it. Restored. And the 0.9778 quoted here is a **percentile** interval, not a
+> bias-corrected one, so the "fails the second" verdict is measured against an interval the
+> criterion does not specify. The verdict is not at risk - it would take more than 0.022 to flip -
+> but see the mismatch note under the Primary criterion before citing this comparison.)
 > (2) **But the sign of the prior flips**: the corrected ratio is slightly ABOVE 1.0, not below, so
 > the specific claim that SESTRAV shows "no enrichment over binding-only" overstates the evidence -
 > the honest statement is a nominal ~6% enrichment that is not statistically significant, since the
 > confidence interval includes 1.0. **Do not run, submit, or cite this protocol until the corrected
 > prior is regenerated into `results/h2_tier_a_*` and every figure below is re-derived from it.**
-> The paragraph immediately above and the addendum immediately below both predate this finding and
-> are retained only as the historical record of how the prior was understood at the time.
+> **The v1.1.0 revision note's item (2) above** - excluding the 2026-08-15 marker line inserted
+> inside it - and the **2026-08-09 addendum** below both predate this finding
+> and are retained only as the historical record of how the prior was understood at the time.
+> (Re-pointed by date 2026-08-15, then corrected again the same day: the first pass fixed only the
+> "below" half and left "the paragraph immediately above" positional, while simultaneously
+> inserting a dated 2026-08-15 line into that very paragraph - so the sentence became false about
+> the half it still pointed at positionally. Both halves now name their targets. This sentence has
+> now rotted twice by the same mechanism, which is the argument for never writing a positional
+> cross-reference in an append-only document at all.
+> First-pass note, retained: the sentence originally said "the addendum immediately below", which
+> was true when written but stopped being true once the 2026-08-15 status update was inserted
+> between the two. That block postdates this finding by five days and is emphatically not
+> historical record.)
+>
+> **STATUS UPDATE (2026-08-15) - THE STOP-ORDER STANDS, BUT ONE OF ITS TWO CONDITIONS IS ALREADY
+> MET, AND THE 2026-08-10 ADDENDUM'S HEADLINE NAMES THE WRONG REASON FOR THE OTHER.** Recorded because a reader
+> chasing a done task is a real cost, and because "NOT POWERED UNTIL IT IS RE-DERIVED" promises a
+> lift that re-derivation cannot deliver.
+> **(1) Condition one is SATISFIED.** The corrected prior WAS regenerated into `results/h2_tier_a_*`
+> on 2026-08-10 (commit `095b327`). The tracked artifacts now carry R10 = 1.0588, R25 = 1.0331 and
+> the bootstrap 95% CI [0.9778, 1.1220], re-verified against `results/h2_tier_a_summary.csv` on
+> 2026-08-15. Nobody needs to regenerate anything.
+> **(2) Condition two is NOT satisfied and is the live one.** "Every figure below is re-derived from
+> it" has not happened: the body still leads with the void 0.9494 and retracts it in following
+> blockquotes rather than being rewritten around the corrected value. Until that rewrite, a reader
+> skimming the body meets the void figure first.
+> **(3) "NOT POWERED" is TRUE but INDEPENDENT of the prior, which the addendum headline obscures.**
+> Re-deriving R10 would not make this protocol powered, because the inputs a power calculation needs
+> have never existed anywhere in this repository: no target power (1-beta) is stated - this protocol
+> asks only that ACHIEVED power be reported post hoc - and there is no ELISpot response-rate prior,
+> no SFU variance or overdispersion estimate, and no intra-donor correlation for the nested
+> 10-donors-x-50-peptides design. Those are four missing inputs, not one stale number. **Read the
+> "NOT POWERED" declaration as permanent until those are sourced, not as pending a re-derivation
+> that has in fact already occurred.**
+> **Nothing here weakens the stop-order.** Do not run, submit, or cite this protocol.
 >
 > **ADDENDUM (2026-08-09), flagged not fixed - a substrate mismatch in that same prior.** The
-> R10=0.9494 computational prior binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
+> R10=0.9494 computational prior (**VOID per D17**, corrected value 1.0588 - see the **2026-08-10
+> addendum**;
+> the binding described here is recorded as the historical provenance trail, not as a live figure)
+> binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
 > `issr_10_ratio_integrated_over_binding` = 0.9493670886075949) and its rendered companion
 > `results/h2_tier_a_summary.md` (the `R10 = ISSR@10(integrated) / ISSR@10(binding-only)` line under
 > "Enrichment ratios"); it is also restated in `results/final_validation_report.md` under
@@ -89,7 +140,9 @@ significantly above 1.0 would be a positive surprise worth reporting as such.
 
 > **VOID (2026-08-10, D17).** The 0.9494 in this paragraph is not a measurement - the binding-only
 > arm behind it was an all-zeros constant. The corrected value is **R10 = 1.0588, 95% CI
-> [0.9778, 1.1220]**. The paragraph's *conclusion* survives (the CI lower bound is 0.9778, so the
+> [0.9778, 1.1220]** - a **percentile** interval, not the bias-corrected one the Primary criterion
+> specifies; see the CI METHOD MISMATCH note there before measuring it against that bar.
+> The paragraph's *conclusion* survives (the CI lower bound is 0.9778, so the
 > interval still spans 1.0 and there is no significant enrichment - which is what this protocol's
 > Primary criterion actually tests; separately, 1.0588 also misses the H2 computational gate of
 > `R10 >= 2.0`), but
@@ -141,7 +194,9 @@ $R_{10} = 0.9494$ - a null, reported honestly in `results/h2_tier_a_summary.md` 
 **not** supported computationally. This study tests whether that null holds *in vitro*.
 
 > **VOID (2026-08-10, D17).** $R_{10} = 0.9494$ is retracted: its binding-only denominator was an
-> all-zeros constant. Corrected, $R_{10} = 1.0588$ (95% CI [0.9778, 1.1220], p = 0.19). The
+> all-zeros constant. Corrected, $R_{10} = 1.0588$ (**percentile** 95% CI [0.9778, 1.1220], p =
+> 0.19; not the bias-corrected interval the Primary criterion specifies - see the CI METHOD
+> MISMATCH note there). The
 > conclusion "not supported computationally" **stands**: the CI lower bound 0.9778 leaves the
 > interval spanning 1.0, which is exactly the Secondary outcome this protocol says the disclosed
 > prior predicts, and 1.0588 separately misses the H2 computational gate of $R_{10} \ge 2.0$. But
@@ -159,6 +214,18 @@ $R_{10} = 0.9494$ - a null, reported honestly in `results/h2_tier_a_summary.md` 
   > bar well above the project's own estimate, so the reasoning for retiring the fixed multiple is
   > unchanged, but the specific multiplier stated here is wrong and must be restated as 1.889x on
   > regeneration.
+  > **CI METHOD MISMATCH (recorded 2026-08-15, not previously disclosed anywhere).** This criterion
+  > specifies a **bias-corrected** bootstrap interval. The computational interval quoted throughout
+  > this document, [0.9778, 1.1220], is **not** one: `src/h2_tier_a_evaluation.py` builds it from a
+  > plain `numpy.percentile` call on the resampled ratios, with no bias correction and no
+  > acceleration. So the corrected prior has never been evaluated against the interval this
+  > criterion actually asks for. **The direction of the conclusion is not in doubt** - a
+  > bias-corrected interval would have to lift the lower bound by more than 0.022 to clear 1.0, and
+  > the sign-flip p of 0.1875 points the same way - so the disclosed null stands either way. But the
+  > mismatch must be stated wherever that interval is measured against this bar, rather than carried
+  > silently. Either compute a BCa interval or restate the criterion as a percentile bootstrap; do
+  > not do the latter merely because it is easier, since it weakens a pre-registered bar after the
+  > fact.
 - **Secondary, and the outcome the disclosed prior predicts:** a CI that spans 1.0 corroborates
   the computational null. This is a **publishable, non-negative result** - it would be direct
   *in vitro* evidence about where the binding-immunogenicity specificity gap does and does not

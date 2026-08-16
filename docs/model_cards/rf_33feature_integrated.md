@@ -37,7 +37,36 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 | ISSR@10 | **0.9158 ± 0.042** | 0.8842 ± 0.052 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
 | ISSR@25 | 0.9102 ± 0.038 | 0.8816 ± 0.024 | |
 
-- **Unweighted ablation AUC-PR:** 0.886 ± 0.019 - highest single-number unweighted result in SESTRAV v3, **but measured on mock antigen-processing features (D18) and therefore not a real-predictor result.**
+> **PROVENANCE SPLIT (added 2026-08-15, S1). The eight cells above do NOT come from one source, and
+> the two halves need opposite treatment.** Re-derived cell by cell against `models/training_results.csv`
+> as it stood at `6a51995` (the mode-33 v3 run, committed 2026-06-18 18:14 - this table was written
+> at 20:41 the same day, so that artifact was already in the tree when the numbers were typed).
+>
+> **The four AUC cells REPRODUCE and are sound.** RF AUC-PR, XGB AUC-PR, RF AUC-ROC and XGB AUC-ROC
+> all match that artifact at the precision printed. Their only defect is a **dead citation**: the
+> Provenance section below points at the bare tracked path, but the *current* `models/training_results.csv`
+> is a v5 mode-31 run and binds none of these - the file was overwritten in place by successive
+> retrains (the `--model-dir` default that allowed this is since removed). **Cite the artifact at
+> `6a51995`, not the live path.** One cosmetic inconsistency, noted so it is not mistaken for drift:
+> XGB AUC-PR's std is truncated to `0.012` (true value 0.012746) while RF AUC-ROC's is rounded up to
+> `0.023` (true 0.022914).
+>
+> **The four ISSR cells are UNSOURCED and must not be relied on.** That same artifact holds RF
+> ISSR@10 0.8211 and ISSR@25 0.8694, and XGB 0.8000 and 0.8286 - none are the printed figures, and
+> the gaps are far too large to be rounding. The printed pair also asserts ISSR@10 > ISSR@25 for
+> **both** models, while the artifact has the **opposite** ordering for both, as does the sibling
+> `rf_31feature_integrated.md` v3 table. A sweep of every blob in every commit reachable from `--all`
+> for these four values returns **zero hits: no artifact at any point in this repository's history
+> carries them**, so their origin cannot be identified. The artifact's values are quoted here only so
+> a reader can check this claim - **they are expressly NOT offered as corrected replacements**, because
+> there is no evidence this table was ever attempting to report that run's ISSR, and substituting them
+> would invent a provenance rather than establish one. Treat all four as withdrawn pending
+> re-derivation by whoever owns this table.
+>
+> **The same eight cells are mirrored in `docs/model_evaluation_summary.md` and carry the identical
+> split** - neither file can be corrected alone.
+
+- **Unweighted ablation AUC-PR:** 0.886 ± 0.019 - highest single-number unweighted result in SESTRAV v3, **but measured on mock antigen-processing features (D18) and therefore not a real-predictor result.** **Provenance unverified (2026-08-15, S1):** no ablation-results artifact existed at `6a51995`, so this figure is likely in the same unsourced class as the ISSR cells above; it was not swept for and is flagged rather than asserted either way.
 - **Improvement over feature_mode=31:** +0.022 AUC-PR (unweighted); +0.012 AUC-PR (weighted).
   > **RETRACTED CLAUSE (2026-08-10, `docs/claims_register.md` D18).** This bullet previously ended
   > "The most informative single feature is `netchop_score` (RF importance = 0.118), **confirming

@@ -66,6 +66,19 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 | **ISSR@10** | **0.9158 ± 0.042** | 0.8842 ± 0.052 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
 | **ISSR@25** | 0.9102 ± 0.038 | 0.8816 ± 0.024 | Fraction of the top-25% ranked peptides that are true positives (precision within the top quartile) |
 
+> **PROVENANCE SPLIT (added 2026-08-15, S1). This table is a mirror of the one in
+> `docs/model_cards/rf_33feature_integrated.md`, and its eight cells do NOT share a source.** That
+> card carries the full derivation; the finding in brief, re-derived against `models/training_results.csv`
+> at `6a51995` (the mode-33 v3 run, in the tree before either copy of this table was written):
+> **the four AUC cells reproduce exactly** and are sound, needing only a citation re-anchor to that
+> commit rather than to the bare tracked path (the live file is now a v5 mode-31 run and binds none
+> of them). **The four ISSR cells reproduce from nothing.** The artifact holds RF 0.8211 / 0.8694 and
+> XGB 0.8000 / 0.8286; the printed figures also assert ISSR@10 > ISSR@25 for both models where the
+> artifact and the sibling v3 table both have the opposite ordering. An all-history blob sweep for
+> the printed values returns zero hits, so their origin is unidentifiable. The artifact values are
+> given so a reader can verify, **not as replacements** - substituting them would invent a
+> provenance. Treat all four ISSR cells as withdrawn pending re-derivation.
+
 > **Unweighted ablation AUC-PR (feature_mode=33): 0.8863 ± 0.019** - highest single-number
 > unweighted result for SESTRAV on v3, **but measured on mock antigen-processing features (D18) and
 > therefore not a real-predictor result.** Improvement over feature_mode=31 unweighted (0.864):
@@ -213,7 +226,7 @@ This document should be interpreted as the legacy baseline comparison, not the c
 
 The binding-only baseline outperforms SESTRAV on gold-standard recovery because all 15 gold-standard epitopes were selected from literature specifically for being well-characterized strong MHC binders. This creates a selection bias favoring binding-based ranking.
 
-SESTRAV's value proposition is distinguishing immunogenic from non-immunogenic peptides **among good binders** - the specificity bottleneck that binding-based methods cannot address (Carri et al. 2023: AUC ~0.60 for binding as immunogenicity proxy). The CV metrics on IEDB data (which include both positive and negative peptides) are the proper evaluation.
+SESTRAV's value proposition is distinguishing immunogenic from non-immunogenic peptides using signal beyond MHC binding alone - the specificity bottleneck that binding-based methods cannot address (Carri et al. 2023: AUC ~0.60 for binding as immunogenicity proxy). The CV metrics on IEDB data (which include both positive and negative peptides) are the proper evaluation of that claim. No evaluation in this repo isolates performance specifically **among good binders**: the CV corpus is not filtered by binding strength, and `docs/limitations_statement_v1.md` documents it as skewed toward poor-binding negatives rather than restricted to strong ones. The "good binders" framing names the motivating problem, not a tested regime.
 
 ### Top Features (RF importance, 21-feature track)
 

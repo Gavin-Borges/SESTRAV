@@ -230,7 +230,67 @@ def test_exemption_is_scoped_to_the_ledger(tmp_path: Path) -> None:
     result = _run(repo)
     assert result.returncode == 1, "live doc must still fail"
     assert "docs/policy.md" in result.stdout
-    assert "CHANGELOG.md" not in result.stdout
+
+    # The ledger must not be reported as a FAILURE. It may appear in the
+    # advisory block added 2026-08-14, which lists exempt-ledger citations that
+    # no longer resolve so the blind spot is visible rather than merely counted.
+    # Asserting the bare string was absent conflated "not failed" with "not
+    # mentioned", and would have blocked surfacing the blind spot at all.
+    error_lines = [
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith("ERROR") or line.startswith("::error::")
+    ]
+    assert not any("CHANGELOG.md" in line for line in error_lines), (
+        f"exemption leaked into a failure: {error_lines}"
+    )
+
+
+def test_ratchet_fails_when_a_ledger_gains_a_citation(tmp_path: Path) -> None:
+    """The exempt-ledger blind spot may shrink, never grow.
+
+    Drift inside the ledgers is unverifiable without a live/historical judgement
+    no line-scoped gate can make, so the count is what gets enforced instead.
+    """
+    repo = _make_repo(
+        tmp_path,
+        {
+            "src/train_classifier.py": TARGET,
+            "CHANGELOG.md": "Once cited `src/train_classifier.py:1`.\n",
+        },
+    )
+    _pin(repo)
+    assert _run(repo).returncode == 0, "baseline must be clean before the probe"
+
+    ledger = repo / "CHANGELOG.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + "And also `src/train_classifier.py:2`.\n",
+        encoding="utf-8",
+    )
+    result = _run(repo)
+    assert result.returncode == 1, "a new ledger citation must fail the ratchet"
+    assert "RATCHET" in result.stdout
+
+
+def test_ratchet_allows_the_blind_spot_to_shrink(tmp_path: Path) -> None:
+    """Removing a ledger citation is always allowed and needs no re-baseline."""
+    repo = _make_repo(
+        tmp_path,
+        {
+            "src/train_classifier.py": TARGET,
+            "CHANGELOG.md": (
+                "Cited `src/train_classifier.py:1`.\n"
+                "And `src/train_classifier.py:2`.\n"
+            ),
+        },
+    )
+    _pin(repo)
+    ledger = repo / "CHANGELOG.md"
+    ledger.write_text("Cited `src/train_classifier.py:1`.\n", encoding="utf-8")
+    result = _run(repo)
+    assert result.returncode == 0, result.stdout
+    assert "RATCHET" not in result.stdout
 
 
 def test_fenced_code_block_is_not_a_citation(tmp_path: Path) -> None:

@@ -45,7 +45,7 @@ SESTRAV Environment Info
 ============================================================
   sestrav version : 2.0.3
   mhcflurry       : 2.2.1
-  torch           : 2.2.0
+  torch           : 2.13.0
   CUDA            : not available
   feature_mode    : 31
   model_path      : models/rf_31feature_integrated.joblib

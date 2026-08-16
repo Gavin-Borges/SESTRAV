@@ -390,6 +390,11 @@ def main() -> None:
         f"Prediction rank: {rank}</p>",
         unsafe_allow_html=True,
     )
+    st.caption(
+        "This score is the raw model probability, not passed through the isotonic or "
+        "per-virus calibrator that `sestrav predict` (CLI) and the pipeline apply. The "
+        "same peptide can rank differently through the CLI (NEW-CAL)."
+    )
 
     # --- SHAP waterfall ---
     if shap_ok:

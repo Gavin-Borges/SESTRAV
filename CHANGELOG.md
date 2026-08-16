@@ -53,6 +53,68 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and `sestrav/` are now copied. Note that `docker.yml` fires on the same `v*.*.*` tag as the
   release workflow and has never run either, so this would have reddened the first release
   alongside PyPI.
+- **A true-positive comparator in `docs/paper.md` Section 3.3 was computed on a contaminated
+  base.** The "0.705 median presentation score for true positives (n=7,037)" is taken over all
+  label-1 rows carrying a binding-matrix entry, including 606 quarantined rows, while the 3,112
+  allele-matched non-binder decoys it is compared against are entirely active. Like-for-like on
+  active rows the figure is 0.712 over n=6,431; the quarantined rows sit at median 0.618 and drag
+  the published value down, making the contrast look larger than it is. Both figures and both
+  bases are now stated. Also disclosed in the same passage: the 218 in-matrix decoys are a
+  selected rather than random subsample, because the binding matrix predates every decoy file and
+  was never rebuilt.
+- **A binding-matrix coverage asymmetry is now disclosed, and explicitly not offered as a
+  mechanism.** 2,894 of the 3,112 decoys (93.0% of active rows) have no binding-matrix entry and
+  receive an all-zero binding-feature vector, against 0 of 22,467 `tested_negative` and 0 of 1,963
+  `iedb_api` active rows. Recorded as a gap in matrix coverage rather than in measured affinity,
+  since the decoys were selected on a presentation-score threshold at generation.
+  - A "the model learns the all-zero block means negative" account was investigated and **does not
+    hold**, so the manuscript states the asymmetry as a constraint on future explanations rather
+    than as the explanation. 1,624 active positives carry the same signature, and on the
+    leave-one-virus-out training pool it is associated with the positive class in five of the six
+    decoy-bearing folds, including DENV, EBV and IAV, the three highest published LOO AUC-ROC
+    values that D11 retracted.
+  - **Those five folds are not independent, and the manuscript now says so.** All 1,624 are HIV-1
+    peptides, so the five are one virus's rows appearing in every training pool but their own, and
+    the sole dissenting fold is HIV-1 itself, where the association vanishes only because holding
+    HIV-1 out removes every zero-vector positive from training. HIV-1 is also the second-largest
+    of the affected decoy populations (693 of 753) and the paper's anti-predictive outlier, so it
+    is not a neutral control.
+  - **Measured against inflation rather than against published value, the dissent is sharper still.**
+    Inflation is published minus corrected LOO AUC-ROC across the two tracked LOO artifacts: DENV
+    +0.497, **HIV-1 +0.474**, EBV +0.328, IAV +0.297. HIV-1 carries the second-largest inflation of
+    any virus, so the two largest inflations sit on opposite sides of the zero-vector signature.
+    Claims register D21 remains PARTIAL and the mechanism remains uncharacterised.
+- **The Tier A paired-bootstrap lower bound was emphasised to a precision the procedure does not
+  resolve.** `scripts/compute_tier_a_paired_bootstrap.py` creates a single `default_rng(SEED)` and
+  threads it through both `paired_bootstrap` calls with BigMHC first, so the recorded bound is
+  conditional on call order. Across 24 measured configurations (12 seeds x 2 call orders) the bound
+  spans at least 0.0012 to 0.0032 - a range wider than the 0.0018 margin by which it clears zero -
+  with p between 0.0308 and 0.0442, so no conclusion changes. The span is itself seed-set dependent
+  and must not be quoted as a fixed property; an earlier narrower measurement in this entry (0.0012
+  to 0.0026) was superseded within the same session by a wider sweep.
+  `docs/paper.md` Section 3.5 and the register's D15-b row now describe the
+  bound instead of emphasising a single digit. The earlier `[Unreleased]` entry recording the
+  original disclosure is left intact as the record of what was published at the time.
+- **A false statement about what `src/h2_tier_a_evaluation.py` does, in two tracked files.**
+  `docs/paper.md` Section 3.5 and `docs/claims_register.md` both described the outstanding
+  substring-aware re-run as something that module "already does for its own corpus". It does not:
+  its EXACT/SUBSTRING OVERLAP CHECK inside `run_h2_tier_a` filters the train pool against the
+  16-peptide gold-standard holdout, and its splitter is an ungrouped `StratifiedKFold`, so it never
+  groups near-duplicates across folds. The clause is withdrawn from both files. "Has not been
+  performed" is correct and is retained, now stating that such a re-run would move the point
+  estimate itself and not merely the interval.
+- **Five drifted line-number citations in the claims register's D22 and D17 rows**, all
+  re-anchored to symbols per the repository's standing ban on `file.py:NNN` citations.
+  `src/h2_tier_a_evaluation.py:202-209` was cited twice in D22 and once in D17 as where the
+  substring-containment check runs, but that range now holds the output guard, data load and
+  gold-standard mask setup; the check itself moved to the EXACT/SUBSTRING OVERLAP CHECK inside
+  `run_h2_tier_a`. `src/h2_tier_a_evaluation.py:393-398` was cited as the v3 zero-duplicate argument
+  but now points at provenance-sidecar writes; that argument lives in `run_h2_tier_a`'s report
+  template and in the module's CLI-defaults comment. The fifth, in the same D22 cell, was
+  `scripts/audit_cv_leakage.py:305-377` for `_tier_a_ab`, which actually spans 305-382, so line 377
+  landed mid-dict-literal. These citations were invisible to CI because `docs/claims_register.md`
+  sits in `check_doc_line_citations.py`'s `EXEMPT_CITING_FILES`, which exempts 63 further citations
+  from the liveness gate - the size of the rot surface no gate is watching.
 - **`docs/paper.md` cited its references out of first-appearance order, which Vancouver style
   requires (claims register D25's own deferred note, "Fix that before submission").** D25 and D27
   appended three new references to the end of an already-drafted list instead of renumbering, so
@@ -1649,7 +1711,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   (`_guard_data_bias_audit_cli`, the union of all 4 tracked-risk paths) placed above the
   `refresh_dataset` call, so a blocked run fails before paying the cost of parsing every IEDB xlsx
   file rather than after. `run_gold_standard_sensitivity`'s call in
-  `bias_skew_finalization.py:169` stays positional and unreordered; `allow_overwrite` was appended
+  `src/bias_skew_finalization.py:169` stays positional and unreordered; `allow_overwrite` was appended
   as a trailing keyword argument.
   Tests: `tests/test_data_bias_audit_guard.py` (31 cases) and
   `tests/test_gold_standard_sensitivity_guard.py` (16 cases) cover planned-path enumeration
@@ -1991,6 +2053,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   negative downloads (`data/iedb/*.csv`) to the v5 build schema.
 - **ESM-2 embedding cache**: 27,376 peptides pre-computed for GNN v5 training
   (`data/esm2_cache_v5/`). GNN t12 baseline training pending GPU availability.
+  **NOTE (2026-08-15, S10b): this row's own count and path are both stale.** The cache that was
+  actually built and used is `data/esm2_embeddings_t12_v5.pt` (2026-07-05, gitignored/regenerable
+  like the rest of `data/`, not a directory), keyed to **30,687** peptides - verified zero misses
+  against all 30,687 unique peptides in the shipped `data/immunogenicity_dataset_v5.csv`
+  (`STATE.md`, 2026-08-13 session). 27,376 traces to this same 2026-07-04 entry, a pre-shipped-corpus
+  snapshot, and should not be restated. GNN v5 training on this cache **completed 2026-08-13**, not
+  "pending" - see `STATE.md`'s "Session 2026-08-13 (continuation)" entry for the (null) result:
+  Gate 1 (pooled AUC-PR, peptide-grouped) 0.6458 vs threshold 0.65, FAIL by 0.0042; Gate 2 FAIL;
+  Gates 3-5 PASS; a real +0.0402 AUC-PR delta over the RF mode-31 baseline nonetheless (95% CI
+  [0.0286, 0.0520], excludes zero).
 - **`scripts/download_tcr3d_structures.py`**: Downloads TCR3d 2.0 TSV, applies 4 quality
   filters, downloads ~100 PDB files from RCSB with retry/backoff logic.
 - **`scripts/update_contact_weights.py`**: Patches `ALLELE_CONTACT_WEIGHTS` and

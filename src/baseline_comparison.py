@@ -1,14 +1,22 @@
 """
 SESTRAV Binding-Only Baseline Comparison
 
-Demonstrates that SESTRAV's TCR-contact features add predictive value
-beyond MHC binding alone by comparing four ranking strategies on
-gold-standard epitope recovery:
+Compares SESTRAV's trained rankers against a binding-only baseline on
+gold-standard epitope recovery, ranking peptides in a full-proteome screen
+under four strategies:
 
   1. RF (SESTRAV default)  - rank by immunogenicity_score from trained RF
   2. XGB                   - rank by immunogenicity_score from trained XGBoost
   3. ANN (MLP)             - rank by immunogenicity_score from trained ANN
   4. Binding-only baseline - rank by MHCflurry presentation_score (no ML)
+
+On this specific metric, the binding-only baseline outperforms every
+SESTRAV ranker (the 15 gold-standard epitopes were selected for being
+well-characterized strong binders - see docs/model_evaluation_summary.md,
+"Interpreting the Baseline Result"). This script does not by itself
+demonstrate that SESTRAV's TCR-contact features add value beyond binding
+alone; that claim rests on the CV metrics over the full IEDB-derived
+corpus, not on this comparison.
 
 For each strategy, we compute:
   - Gold-standard recovery at top 10% and top 25%

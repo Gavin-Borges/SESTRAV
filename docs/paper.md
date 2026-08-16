@@ -573,7 +573,7 @@ feature is a pure function of the peptide string (no allele-specific column ente
 31-feature vector), while the v5 corpus is deduplicated on (peptide, hla_allele), not on
 peptide alone; consequently the same peptide can appear on both sides of a fold boundary
 under a splitter that does not group by peptide. A leakage audit
-(`scripts/audit_cv_leakage.py`, `results/cv_leakage_audit.csv`) measured that 71.0% of
+(`scripts/audit_cv_leakage.py`, `results/cv_leakage_audit.csv`) measured that 71.1% of
 held-out rows under the (pre-remediation) production splitter had their exact peptide
 present in that fold's training set, and that holding the RF configuration fixed while
 switching only the splitter moved pooled mode-31 AUC-PR from 0.835 to 0.609 (-0.225). This
@@ -594,11 +594,15 @@ single Random Forest model family; models/v5/training_results_ablation.csv, re-b
 | 33           | + antigen processing (MOCK features - see below)  | 0.817   | 0.609  |
 | 35           | + self-similarity                                 | 0.814   | 0.607  |
 
-On the v5 build, approximately 11% of antigen-processing and self-similarity cache
-values are median-imputed; for modes 33/35 this imputation is now fit inside each CV fold
-on training rows only (`--no-fold-impute` reproduces the whole-cache-median pre-Phase-0
-behavior). The near-zero contribution of modes 33 and 35 over mode-31 should be read with
-this caveat in mind.
+On the v5 build, 12.6% of active (non-quarantined) training rows (4,502 of 35,597) have no
+entry in the antigen-processing cache and receive an imputed `netchop_score` and
+`tap_score`; for modes 33 and 35 that imputation is now fit inside each CV fold on training
+rows only (`--no-fold-impute` reproduces the whole-cache-median pre-Phase-0 behavior). The
+self-similarity features are mode-35 only and are not imputed at all: the same share of
+active rows is absent from the self-similarity cache and is filled with a constant 0.0,
+meaning no known self-match, which is fold-independent and so carries no leakage. The
+near-zero contribution of modes 33 and 35 over mode-31 should be read with this caveat in
+mind.
 
 **The mode-33 antigen-processing features are mock, not real tool output, and the mode-33
 row of Table 1 must be read accordingly.** The `netchop_score` and `tap_score` values in
@@ -757,13 +761,35 @@ virus (Section 2.5 gives the pool composition). A critical methodological
 finding emerged in the construction of LOO test partitions: viral proteome decoys carrying
 the label negative_origin = allele_matched_nonbinder (3,112 rows in v5) were included in
 test partitions under the initial LOO protocol. Despite the label, these decoys are not
-low-affinity: of the 218 such peptides present in the tracked binding matrix
-(`models/peptide_binding_matrix_v5.csv`), the maximum per-allele MHCflurry presentation
-score has median 0.761 (range 0.503-0.982) - comparably high to, and on this sample
-higher than, the 0.705 median for true positives (n=7,037). The mechanism by which their
-inclusion inflated LOO AUC-ROC is therefore not simply "trivially rejected as low-affinity
+low-affinity: of the 218 such rows present in the tracked binding matrix
+(`models/peptide_binding_matrix_v5.csv`, covering 168 distinct peptides), the maximum
+per-allele MHCflurry presentation score has median 0.761 over rows and 0.740 over distinct
+peptides (range 0.503-0.982) - comparably high to, and on this sample
+higher than, the 0.712 median for true positives (n = 6,431 active rows; the all-rows
+figure is 0.705 over n = 7,037, but that base includes 606 quarantined rows, which the
+decoy sample does not). Those 218 rows are not a random draw from the 3,112: the
+binding matrix predates every decoy file and was never rebuilt, so matrix membership
+selects for peptides already present in the earlier corpus and biases this particular
+comparison upward. The mechanism by which their inclusion inflated LOO AUC-ROC is
+therefore not simply "trivially rejected as low-affinity
 negatives", and is not further characterised here; the measured effect itself is
-well-established from the certified before/after comparison. Their inclusion in test
+well-established from the certified before/after comparison. One structural asymmetry is
+recorded here because it constrains any future mechanistic account: 2,894 of the 3,112
+decoys (93.0% of active rows) have no entry in the binding matrix at all and therefore
+receive an all-zero binding-feature vector, against 0 of 22,467 tested_negative and 0 of
+1,963 iedb_api active rows. This is a gap in matrix coverage rather than in measured
+affinity, since the decoys were selected on a presentation-score threshold at generation.
+It does not by itself explain the inflation, and we do not present it as doing so: 1,624
+active positives carry the same all-zero signature, and in five of the six decoy-bearing
+held-out folds that signature is associated with the positive class in the training pool
+rather than the negative one. Those five are not independent replications. Every one of the
+1,624 is an HIV-1 peptide, so they are one virus's rows appearing in every training pool
+except their own, and the sole dissenting fold is HIV-1 itself, where the association
+disappears only because holding HIV-1 out removes every zero-vector positive from training.
+HIV-1 is also the second-largest of the affected decoy populations listed below, is the
+anti-predictive outlier discussed in Section 4.2, and carries the second-largest measured
+inflation of any virus (+0.474 AUC-ROC, behind only DENV at +0.497), so it is not a neutral
+control. The two largest inflations therefore sit on opposite sides of this signature. Their inclusion in test
 partitions is associated with an inflation in LOO AUC-ROC of 0.25-0.50 points for
 viruses with large allele_nb populations:
 DENV (1,000 of 1,012 initial test negatives), EBV (300 of 380), IAV (445 of 564), and
@@ -982,12 +1008,16 @@ shared benchmark the two are a statistical near-tie. Against the MHCflurry bindi
 baseline, the advantage cleared zero by a narrow margin (paired AUC-PR difference +0.038,
 95% CI +0.002 to +0.071, p = 0.04). **Both tests were computed on the same OOF arm
 discussed above, whose substring-homology risk is disclosed but not corrected for; the
-binding-only result in particular clears zero by only 0.0018 - its 95% CI lower bound
-sits just above zero within a 0.069-wide interval - so this significance finding should
-be treated as narrow and unconfirmed rather than robust. A substring-aware re-run
-(excluding or grouping near-duplicate peptides across folds, as `h2_tier_a_evaluation.py`
-already does for its own corpus) has not been performed and would be needed to settle
-whether the finding is a genuine effect (`docs/claims_register.md` D22).** (Paired-
+binding-only result in particular has a 95% CI lower bound sitting just above zero within
+a 0.069-wide interval, so this significance finding should be treated as narrow and
+unconfirmed rather than robust. That lower bound should not be read at four decimal
+places: the two comparisons reported here draw from a single seeded random stream in call
+order, and across call orders and reseedings of the same data the bound moves over a range
+comparable in size to the margin by which it clears zero, without any conclusion changing.
+A substring-aware re-run - retraining with near-duplicate peptides excluded or grouped
+across folds, which would move the point estimate itself and not merely the interval - has
+not been performed and would be needed to settle whether the finding is a genuine effect
+(`docs/claims_register.md` D22).** (Paired-
 bootstrap values are reproducible via the frozen Tier A scores; the summary is committed as
 results/tier_a_paired_bootstrap.csv and is regenerated by
 scripts/compute_tier_a_paired_bootstrap.py.)
@@ -1014,11 +1044,12 @@ most published tools provide a trained model but not the data curation workflow
 that produced it, and IEDB updates silently alter the positive and negative class
 composition of any dataset assembled without version-locked provenance.
 
-The virus-level leave-one-out evaluation protocol introduced here is itself a
-benchmark contribution independent of the classification results. No published
-MHC class I immunogenicity predictor, to our knowledge, has reported a
-systematic LOO protocol in which a separate model is retrained for each
-held-out pathogen and evaluated exclusively on that pathogen's labelled data.
+The virus-level leave-one-out evaluation protocol applied here is itself a
+benchmark contribution independent of the classification results, though not a
+priority claim. Pathogen-level holdout has been reported before: Section 1 sets
+out both prior reports and what separates them from this one. The contribution
+here is scale and negative-set discipline rather than novelty - a nine-pathogen,
+pan-allele panel with test negatives restricted to assay-confirmed records.
 Standard within-pathogen stratified cross-validation - the dominant evaluation
 paradigm in the field - does not address the scenario most relevant to vaccine
 development practice, namely a pathogen for which no prior T-cell response data
@@ -1177,13 +1208,21 @@ visibility, while a strongly predicted binder with rapid turnover may not. Addin
 stability half-life as an 11th binding feature is the most tractable extension
 requiring no new model architecture.
 
-GNN v5 training on the full dataset is deferred to a subsequent release pending
-GPU provisioning. This experiment will evaluate whether per-residue ESM-2 t12
-embeddings [19] and functionally motivated graph edges connecting
-the p4-p8 contact subgraph provide discriminative lift beyond the RF mode-31
-baseline. Either outcome - lift or no lift - is informative and will be reported
-with ablation results rather than characterised as a research component without
-supporting numbers.
+GNN v5 training on the full dataset, under a peptide-grouped cross-validation
+splitter, was completed and evaluated against a pre-registered promotion bar
+(pooled AUC-PR >= 0.65 with a paired-bootstrap 95% confidence interval excluding
+zero versus the RF mode-31 baseline). The result is a null on that bar: pooled
+AUC-PR reached 0.6458, missing the threshold by 0.0042, and cross-fold stability
+also failed the corresponding gate, though calibration, latency, and escape-sensitivity
+gates passed. AUC-PR was nonetheless significantly higher than the RF mode-31
+baseline (a paired-bootstrap delta with a 95% CI of [0.0286, 0.0520], excluding
+zero), indicating that the
+per-residue ESM-2 t12 embeddings [19] and the functionally motivated graph edges
+connecting the p4-p8 contact subgraph do provide discriminative lift, which did
+not clear the stricter pre-registered promotion bar. Consistent with this project's
+leakage-avoidance policy, this result is reported as-is rather than re-run with
+different hyperparameters against the same held-out set; the GNN remains a
+research track, not a promoted scorer.
 
 HLA allele expansion to twelve additional alleles weighted by disease burden,
 including B*46:01 and A*30:01 for nasopharyngeal carcinoma and HBV cohorts
