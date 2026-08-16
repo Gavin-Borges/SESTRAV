@@ -24,6 +24,36 @@ Gate definitions (all must pass):
 Run `python -m src.verify.promote_gnn --dry-run` to evaluate the scorecard
 without touching config.yaml or the checksum manifest.
 
+Standing result and re-run policy (recorded 2026-08-16; measured 2026-08-13)
+---------------------------------------------------------------------------
+The v5 GNN was evaluated against these gates and **returned a null result on the
+pre-registered bar**, which is an AND-conjunction, so Gate 1 alone decides it:
+
+  Gate 1 (pooled AUC-PR, peptide-grouped)  0.6458  vs >= 0.65   FAIL by 0.0042
+  Gate 2 (cross-fold AUC-PR std)           0.0234  vs <= 0.02   FAIL
+  Gates 3/4/5 (latency, ECE, escape)                            PASS
+
+Underneath that null sits a real effect, and both halves must be reported
+together or neither is honest: against RF mode-31 the GNN scored AUC-PR 0.6458
+vs 0.6055, **delta +0.0402, 95% CI [0.0286, 0.0520], excludes zero, p < 0.0001**
+(paired bootstrap, seed 20260813, 10,000 resamples, 35,555 rows matched 1:1).
+So the architecture is measurably better on discrimination and still misses the
+promotion bar. It is not promoted.
+
+**Do NOT re-run this evaluation with different hyperparameters against the same
+held-out set.** Tuning until a 0.0042 shortfall closes is the leakage this
+project flags in every other model, and a bar that moves after seeing the result
+is not a bar. This prohibition is written here, next to the gates it governs,
+because it previously existed only as prose in local planning files that do not
+survive a handoff - and it is exactly the rule most likely to be rationalised
+away under deadline pressure.
+
+What legitimately re-opens the track: a new bar pre-registered BEFORE the run,
+evaluated on data not used to produce the result above (a fresh corpus or a
+genuinely held-out cohort). A different architecture or feature set still needs
+the pre-registration, because the failure mode being guarded against is
+selection over repeated attempts, not any particular model.
+
 Security hardening:
   - All torch.load calls use weights_only=True (prevents arbitrary code exec).
   - Checksum generation uses native Python hashlib (no shell injection risk).
