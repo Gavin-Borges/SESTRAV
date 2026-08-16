@@ -286,9 +286,9 @@ peptide-grouped); the GNN remains a research track rather than the canonical sco
 The tracked out-of-fold artifact `models/gnn_oof_predictions.csv` is from that same v4
 era: 14,637 rows over 11,779 unique peptides, carrying the old three-column schema and a
 pooled AUC-PR of 0.7160. Having neither a `splitter` nor a `fold` column, it fails Gate 1
-by precondition and Gate 2 for want of fold identity (see 6.3). A v5 run of
-`src/train_gnn.py` under `PeptideGroupedKFold` is required before any OOF-derived gate can
-be called.
+by precondition and Gate 2 for want of fold identity (see 6.3). **That v5 run has since been
+performed** - see 6.3 for its scorecard. It did not replace this artifact: it wrote to gitignored
+`models/scratch/`, so the file described here is still the v4-era one.
 
 ### 6.3 Promotion gates
 
@@ -408,7 +408,9 @@ trained model binaries or runtime caches; training must run before production sc
   cap, so the override was retired. Every install path **that resolves from a lockfile** is
   `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
   `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
-  neither `--require-hashes` nor the CPU torch index every other CI path routes through).
+  neither `--require-hashes` nor the CPU torch index the three torch-installing CI workflows
+  route through. Two non-lockfile CI steps are unhashed for the same structural reason:
+  `iedb_benchmark.yml`'s editable install and `release.yml`'s install-from-index smoke test).
   Two CI gates hold this together: `tools/check_hash_pins.py`
   (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
   drifted from its compiled output, fail-closed on unmapped `.in` files). See
@@ -420,8 +422,10 @@ trained model binaries or runtime caches; training must run before production sc
   and different file sets, since only the Singularity image carries `pipeline.py`, `functions/`
   and the proteomes, and only it fetches the MHCflurry models. Their entry points differ in kind
   too: the Docker image runs the `sestrav` CLI, the Singularity image runs `pipeline.py`. **Only
-  the Singularity image can run the six-stage pipeline**; see README "Container Quick Start" for
-  the Docker image's current limitations. A two-service Docker
+  the Singularity image carries `pipeline.py`**, the standalone four-stage driver. **Neither image
+  can run the six-stage Snakemake workflow**, since neither copies `pipeline.smk`; that runs from a
+  source checkout only. See README "Container Quick Start" for the Docker image's current
+  limitations. A two-service Docker
   Compose stack serves a FastAPI scoring endpoint and a Streamlit demo, both bound to
   loopback only.
 - **CI:** GitHub Actions runs the pytest suite, validates Snakemake wiring, enforces a

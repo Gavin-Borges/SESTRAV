@@ -46,21 +46,35 @@
 > H2 *computational* gate is a conjunction - `R10 >= 2.0` AND a bootstrap CI lower bound >= 2.0 AND
 > binding-only ISSR@10 >= 0.08 (`src/h2_tier_a_evaluation.py`) - and 1.0588
 > misses it by a wide margin; but **this protocol pre-commits no fixed multiple** (see Primary
-> criterion below) - it requires `R10 > 1.0` AND a bootstrap 95% CI lower bound above 1.0. The
+> criterion below) - it requires `R10 > 1.0` AND a **bias-corrected** bootstrap 95% CI lower bound
+> above 1.0. The
 > corrected figure satisfies the first (1.0588 > 1.0) and **fails the second** (lower bound 0.9778),
 > so the CI still spans 1.0 and the disclosed null is corroborated on this protocol's own terms.
+> (Two corrections 2026-08-15. This paraphrase dropped the word "bias-corrected", which is the
+> criterion's own wording and not a decoration - silently restating a pre-registered bar as a
+> weaker one is exactly what the CI METHOD MISMATCH note below forbids, and this sentence was
+> doing it. Restored. And the 0.9778 quoted here is a **percentile** interval, not a
+> bias-corrected one, so the "fails the second" verdict is measured against an interval the
+> criterion does not specify. The verdict is not at risk - it would take more than 0.022 to flip -
+> but see the mismatch note under the Primary criterion before citing this comparison.)
 > (2) **But the sign of the prior flips**: the corrected ratio is slightly ABOVE 1.0, not below, so
 > the specific claim that SESTRAV shows "no enrichment over binding-only" overstates the evidence -
 > the honest statement is a nominal ~6% enrichment that is not statistically significant, since the
 > confidence interval includes 1.0. **Do not run, submit, or cite this protocol until the corrected
 > prior is regenerated into `results/h2_tier_a_*` and every figure below is re-derived from it.**
-> The paragraph immediately above and the **2026-08-09 addendum** below both predate this finding
+> **The v1.1.0 revision note's item (2) above** - excluding the 2026-08-15 marker line inserted
+> inside it - and the **2026-08-09 addendum** below both predate this finding
 > and are retained only as the historical record of how the prior was understood at the time.
-> (Re-pointed by date 2026-08-15: this sentence said "the addendum immediately below", which was
-> true when written but stopped being true once the 2026-08-15 status update was inserted between
-> the two. That block postdates this finding by five days and is emphatically not historical
-> record - a positional cross-reference in an append-only document rots the moment anything is
-> appended in the middle, so this one now names its target.)
+> (Re-pointed by date 2026-08-15, then corrected again the same day: the first pass fixed only the
+> "below" half and left "the paragraph immediately above" positional, while simultaneously
+> inserting a dated 2026-08-15 line into that very paragraph - so the sentence became false about
+> the half it still pointed at positionally. Both halves now name their targets. This sentence has
+> now rotted twice by the same mechanism, which is the argument for never writing a positional
+> cross-reference in an append-only document at all.
+> First-pass note, retained: the sentence originally said "the addendum immediately below", which
+> was true when written but stopped being true once the 2026-08-15 status update was inserted
+> between the two. That block postdates this finding by five days and is emphatically not
+> historical record.)
 >
 > **STATUS UPDATE (2026-08-15) - THE STOP-ORDER STANDS, BUT ONE OF ITS TWO CONDITIONS IS ALREADY
 > MET, AND THE HEADLINE ABOVE NAMES THE WRONG REASON FOR THE OTHER.** Recorded because a reader
@@ -125,7 +139,9 @@ significantly above 1.0 would be a positive surprise worth reporting as such.
 
 > **VOID (2026-08-10, D17).** The 0.9494 in this paragraph is not a measurement - the binding-only
 > arm behind it was an all-zeros constant. The corrected value is **R10 = 1.0588, 95% CI
-> [0.9778, 1.1220]**. The paragraph's *conclusion* survives (the CI lower bound is 0.9778, so the
+> [0.9778, 1.1220]** - a **percentile** interval, not the bias-corrected one the Primary criterion
+> specifies; see the CI METHOD MISMATCH note there before measuring it against that bar.
+> The paragraph's *conclusion* survives (the CI lower bound is 0.9778, so the
 > interval still spans 1.0 and there is no significant enrichment - which is what this protocol's
 > Primary criterion actually tests; separately, 1.0588 also misses the H2 computational gate of
 > `R10 >= 2.0`), but
@@ -177,7 +193,9 @@ $R_{10} = 0.9494$ - a null, reported honestly in `results/h2_tier_a_summary.md` 
 **not** supported computationally. This study tests whether that null holds *in vitro*.
 
 > **VOID (2026-08-10, D17).** $R_{10} = 0.9494$ is retracted: its binding-only denominator was an
-> all-zeros constant. Corrected, $R_{10} = 1.0588$ (95% CI [0.9778, 1.1220], p = 0.19). The
+> all-zeros constant. Corrected, $R_{10} = 1.0588$ (**percentile** 95% CI [0.9778, 1.1220], p =
+> 0.19; not the bias-corrected interval the Primary criterion specifies - see the CI METHOD
+> MISMATCH note there). The
 > conclusion "not supported computationally" **stands**: the CI lower bound 0.9778 leaves the
 > interval spanning 1.0, which is exactly the Secondary outcome this protocol says the disclosed
 > prior predicts, and 1.0588 separately misses the H2 computational gate of $R_{10} \ge 2.0$. But

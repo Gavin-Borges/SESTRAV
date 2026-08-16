@@ -437,14 +437,17 @@ docker run --rm `
 > **Known limitations of the Docker image, recorded 2026-08-15. Read these before relying on it.**
 > The image cannot yet run the module command above end to end. `pyproject.toml` declares three
 > package trees (`sestrav*`, `src*`, `functions*`) while the Dockerfile copies only `src/`, and
-> several runtime imports (`networkx` among them) are not declared as install dependencies, so both
-> `sestrav predict` and `python -m src.train_classifier` fail inside the image. A fix for the
-> packaging half is written and awaiting review. Until it merges, **run from a source checkout
-> rather than the container.** `docker build` and `sestrav info` are unaffected.
+> several runtime imports are not declared as install dependencies. `python -m src.train_classifier`
+> fails on its module-level `from xgboost import XGBClassifier`, and `sestrav predict` fails on the
+> `functions/` tree being absent and on `mhcflurry` being undeclared. A fix for the packaging half
+> is written and awaiting review. Until it merges, **run from a source checkout rather than the
+> container.** `docker build` and `sestrav info` are unaffected.
 >
-> There is also **no pipeline entry point in this image.** The six-stage driver is `pipeline.py`,
-> which the Dockerfile does not copy and the CLI does not wrap; it ships only in the Singularity
-> image, whose `%runscript` invokes it. Earlier revisions of this section documented a bare
+> There is also **no pipeline entry point in this image.** `pipeline.py` is the standalone driver
+> for stages 1 to 4, and the Dockerfile does not copy it and the CLI does not wrap it; it ships
+> only in the Singularity image, whose `%runscript` invokes it. The full six-stage workflow is the
+> Snakemake DAG in `pipeline.smk`, which **neither** container image carries, so it runs from a
+> source checkout only. Earlier revisions of this section documented a bare
 > `docker run ... sestrav:latest` with no arguments as "run the pipeline". That command is
 > answered by the image's `CMD ["--help"]`, so it printed the help screen and **exited 0 without
 > running anything** - a silent false success. It has been removed rather than corrected, because
