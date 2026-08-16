@@ -68,8 +68,22 @@ _Last updated: 2026-08._
   goal but an unreachable one. 0.65 is set as a meaningful improvement over the
   current baseline on the honest scale. **Always state the splitter when quoting
   this gate** - a number without one is not comparable across the D15 boundary.
-- **Pan-allele modeling.** Integrate allele-aware pocket pseudo-sequence features
-  to improve allele-stratified recall.
+- **Pan-allele modeling - BUILT AND EVALUATED, NOT ADOPTED.** This entry previously
+  read "integrate allele-aware pocket pseudo-sequence features to improve
+  allele-stratified recall". That promised a future gain which has since been
+  measured and did not appear, so the promise is withdrawn rather than restated.
+  The 166-feature allele-aware set (20 physicochemical + 10 binding + 136 HLA
+  pocket pseudo-sequence features) is implemented - see `FEATURE_COLUMNS_ALLELE`
+  in `src/features.py` and `prepare_features_166` in `src/train_classifier.py` -
+  is reachable as `--feature-mode 166`, and has tracked artifacts under
+  `models/allele_aware/`. A paired-bootstrap screen of the AUC-PR delta against
+  mode-31 did **not** exclude zero, and it was run under a comparison
+  deliberately tilted in mode-166's favour: its out-of-fold scores carried a leak
+  advantage while mode-31 paid a full cross-validation penalty. A fair
+  grouped refit can therefore only move the delta further against mode-166, which
+  makes this a conservative null rather than a marginal one. Allele-conditioning
+  **as currently featurized** is an evaluated-but-not-adopted extension, not
+  pending work; re-opening it needs a different featurization, not a re-run.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
   for balanced recall across taxa and peptide lengths.
 - **Release automation.** Attach the `src.release_bundle` ZIP to the GitHub
