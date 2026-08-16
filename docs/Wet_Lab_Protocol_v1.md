@@ -24,8 +24,8 @@
 > (2) Its success criterion pre-committed to a **2.0x** enrichment ratio, while SESTRAV's own
 > certified computational analog of that same ratio is **0.9494 - a null** (`results/h2_tier_a_summary.md`).
 > **That figure is VOID per D17 and was corrected to 1.0588; the sentence above is left standing as
-> what v1.1.0 argued from, not as a live claim. Marker added inline 2026-08-15 - see the addendum
-> below for why, and do not delete this line.**
+> what v1.1.0 argued from, not as a live claim. Marker added inline 2026-08-15 - see the
+> **2026-08-10 addendum** for why, and do not delete this line.**
 > Pre-registering a bar that the project's own evidence predicts will be missed by roughly
 > half is not rigor; it invites a reviewer to read the eventual null as a failed prediction
 > rather than as the confirmation of a disclosed prior. The criterion is now grounded in that
@@ -99,7 +99,8 @@
 > **Nothing here weakens the stop-order.** Do not run, submit, or cite this protocol.
 >
 > **ADDENDUM (2026-08-09), flagged not fixed - a substrate mismatch in that same prior.** The
-> R10=0.9494 computational prior (**VOID per D17**, corrected value 1.0588 - see the addendum above;
+> R10=0.9494 computational prior (**VOID per D17**, corrected value 1.0588 - see the **2026-08-10
+> addendum**;
 > the binding described here is recorded as the historical provenance trail, not as a live figure)
 > binds to `results/h2_tier_a_summary.csv` (`h2_decision` row,
 > `issr_10_ratio_integrated_over_binding` = 0.9493670886075949) and its rendered companion

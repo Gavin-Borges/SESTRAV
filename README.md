@@ -438,8 +438,12 @@ docker run --rm `
 > The image cannot yet run the module command above end to end. `pyproject.toml` declares three
 > package trees (`sestrav*`, `src*`, `functions*`) while the Dockerfile copies only `src/`, and
 > several runtime imports are not declared as install dependencies. `python -m src.train_classifier`
-> fails on its module-level `from xgboost import XGBClassifier`, and `sestrav predict` fails on the
-> `functions/` tree being absent and on `mhcflurry` being undeclared. A fix for the packaging half
+> fails on its module-level `from xgboost import XGBClassifier`, and `sestrav predict` fails first
+> on the `functions/` tree being absent. Were that tree present, it would then fail on **`biopython`**
+> (`from Bio import SeqIO`, module-level in the stage-1 module and reached before anything else on
+> that path), which is declared nowhere in `pyproject.toml`; then on `mhcflurry`, likewise
+> undeclared; and `matplotlib`, which the stage-4 module imports at module level, is declared only
+> in the `demo` extra. A fix for the packaging half
 > is written and awaiting review. Until it merges, **run from a source checkout rather than the
 > container.** `docker build` and `sestrav info` are unaffected.
 >

@@ -48,7 +48,7 @@ all driven by the same Snakemake workflow.
 | Track | Model | Status | Role |
 |---|---|---|---|
 | Production | Random Forest / XGBoost ensemble on the 31-feature representation (`mode_31`) | Validated, maintained | Canonical immunogenicity scorer used for ranked output |
-| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (no out-of-fold-derived gate has a current status: the tracked OOF artifact predates the 2026-08-12 peptide-grouping repair and now fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
+| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (v5 run 2026-08-13 under `PeptideGroupedKFold`: Gates 1 and 2 FAIL on measured values, Gates 3, 4 and 5 PASS - see 6.3. The separately tracked v4-era OOF artifact still fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
 
 Both tracks consume the same physicochemical feature pipeline and the same governed
 training data, which keeps comparisons fair and lets the GNN reuse the production
@@ -408,9 +408,12 @@ trained model binaries or runtime caches; training must run before production sc
   cap, so the override was retired. Every install path **that resolves from a lockfile** is
   `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
   `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
-  neither `--require-hashes` nor the CPU torch index the three torch-installing CI workflows
-  route through. Two non-lockfile CI steps are unhashed for the same structural reason:
-  `iedb_benchmark.yml`'s editable install and `release.yml`'s install-from-index smoke test).
+  neither `--require-hashes` nor the CPU torch wheel index that `ci.yml`, `fuzzing.yml` and
+  `sestrav_verify_benchmarking.yml` route torch through. Do not read those three as "every
+  workflow that installs torch" - the lockfile pins torch, so `iedb_benchmark.yml` and
+  `security.yml` install it too, from default PyPI. Two non-lockfile CI steps are unhashed for
+  the same structural reason as the Dockerfile: `iedb_benchmark.yml`'s editable install and
+  `release.yml`'s install-from-index smoke test).
   Two CI gates hold this together: `tools/check_hash_pins.py`
   (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
   drifted from its compiled output, fail-closed on unmapped `.in` files). See
