@@ -96,6 +96,17 @@ class ScoreResponse(BaseModel):
     )
     rank: str = Field(..., description="Qualitative rank: HIGH / MEDIUM / LOW.")
     model_version: str
+    calibration_note: str = Field(
+        (
+            "immunogenicity_score is the raw RF predict_proba output. It is NOT passed "
+            "through the isotonic calibrator (models/isotonic_calibrator.joblib) or the "
+            "per-virus calibration path that the CLI (`sestrav predict`) and pipeline.py "
+            "apply. The HIGH/MEDIUM/LOW thresholds (0.70 / 0.40) are applied to this "
+            "uncalibrated score, so the same peptide can rank differently here than "
+            "through the CLI."
+        ),
+        description="Discloses that this endpoint returns uncalibrated probabilities (NEW-CAL).",
+    )
 
 
 class ModelCard(BaseModel):
@@ -217,6 +228,9 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
 
 
 def _rank_label(score: float) -> str:
+    """Buckets a RAW (uncalibrated) predict_proba score. Unlike the CLI/pipeline
+    path, this endpoint never applies models/isotonic_calibrator.joblib or a
+    per-virus calibrator - see ScoreResponse.calibration_note (NEW-CAL)."""
     if score >= 0.70:
         return "HIGH"
     if score >= 0.40:
