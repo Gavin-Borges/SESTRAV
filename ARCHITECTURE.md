@@ -405,13 +405,23 @@ trained model binaries or runtime caches; training must run before production sc
   lockfiles used to require an extra `--overrides overrides.txt` pass to resolve
   at all, because this repo's `setuptools>=83.0.0` security floor collided with
   torch 2.12.0's `setuptools<82` build-metadata cap; torch 2.13.0 raised that
-  cap, so the override was retired. Every install path is
-  `--require-hashes`. Two CI gates hold this together: `tools/check_hash_pins.py`
+  cap, so the override was retired. Every install path **that resolves from a lockfile** is
+  `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
+  `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
+  neither `--require-hashes` nor the CPU torch index every other CI path routes through).
+  Two CI gates hold this together: `tools/check_hash_pins.py`
   (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
   drifted from its compiled output, fail-closed on unmapped `.in` files). See
   `CONTRIBUTING.md` "Dependency Tiers" for the per-tier rules.
-- **Containers:** `Dockerfile` and `singularity.def` give identical environments on
-  laptops and HPC; the pipeline is HPC-agnostic once containerized. A two-service Docker
+- **Containers:** `Dockerfile` and `singularity.def` cover laptops and HPC respectively, but
+  they are **not** equivalent images and this line previously claimed they were "identical"
+  (corrected 2026-08-15). They differ on every axis that matters: Python 3.13 vs 3.11;
+  `pip install .` from `pyproject.toml` vs `--require-hashes -r environments/requirements.lock`;
+  and different file sets, since only the Singularity image carries `pipeline.py`, `functions/`
+  and the proteomes, and only it fetches the MHCflurry models. Their entry points differ in kind
+  too: the Docker image runs the `sestrav` CLI, the Singularity image runs `pipeline.py`. **Only
+  the Singularity image can run the six-stage pipeline**; see README "Container Quick Start" for
+  the Docker image's current limitations. A two-service Docker
   Compose stack serves a FastAPI scoring endpoint and a Streamlit demo, both bound to
   loopback only.
 - **CI:** GitHub Actions runs the pytest suite, validates Snakemake wiring, enforces a

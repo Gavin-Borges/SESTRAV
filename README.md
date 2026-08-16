@@ -395,41 +395,66 @@ A Colab-ready script is available in `notebooks/SESTRAV_Colab_Pipeline.py`; see 
 
 ## Container Quick Start
 
-The Docker image does **not** include trained models. Build and then train:
+The Docker image does **not** include trained models, datasets, or the test suite.
 
 ```bash
 docker build -t sestrav:latest .
-docker run --rm -v "$(pwd)/models:/app/models" sestrav:latest \
+```
+
+**The image's entrypoint is the `sestrav` CLI**, so everything after the image name is parsed as
+CLI arguments, not as a shell command. The CLI exposes four subcommands: `predict`, `validate`,
+`benchmark` and `info`.
+
+```bash
+docker run --rm sestrav:latest info
+```
+
+Running a Python module instead of the CLI requires overriding the entrypoint, and mounting the
+inputs the image does not carry:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/models:/app/models" \
+  -v "$(pwd)/data:/app/data:ro" \
+  --entrypoint python sestrav:latest \
   -m src.train_classifier --data data/immunogenicity_dataset_v5.csv \
   --model-dir models/local \
   --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 
-Run the pipeline with bind-mounted directories:
-
-```bash
-mkdir -p results
-docker run --rm \
-  -v "$(pwd)/models:/app/models" \
-  -v "$(pwd)/results:/app/results" \
-  sestrav:latest
-```
-
-Windows PowerShell:
+Windows PowerShell uses backtick continuations for the same command:
 
 ```powershell
-New-Item -ItemType Directory -Force results | Out-Null
 docker run --rm `
   -v "${PWD}/models:/app/models" `
-  -v "${PWD}/results:/app/results" `
-  sestrav:latest
+  -v "${PWD}/data:/app/data:ro" `
+  --entrypoint python sestrav:latest `
+  -m src.train_classifier --data data/immunogenicity_dataset_v5.csv `
+  --model-dir models/local `
+  --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 
-Container smoke test (recommended before release):
-
-```bash
-docker run --rm -v "$(pwd)/data:/app/data:ro" sestrav:latest -m pytest tests/ -q --basetemp=tmp_pytest
-```
+> **Known limitations of the Docker image, recorded 2026-08-15. Read these before relying on it.**
+> The image cannot yet run the module command above end to end. `pyproject.toml` declares three
+> package trees (`sestrav*`, `src*`, `functions*`) while the Dockerfile copies only `src/`, and
+> several runtime imports (`networkx` among them) are not declared as install dependencies, so both
+> `sestrav predict` and `python -m src.train_classifier` fail inside the image. A fix for the
+> packaging half is written and awaiting review. Until it merges, **run from a source checkout
+> rather than the container.** `docker build` and `sestrav info` are unaffected.
+>
+> There is also **no pipeline entry point in this image.** The six-stage driver is `pipeline.py`,
+> which the Dockerfile does not copy and the CLI does not wrap; it ships only in the Singularity
+> image, whose `%runscript` invokes it. Earlier revisions of this section documented a bare
+> `docker run ... sestrav:latest` with no arguments as "run the pipeline". That command is
+> answered by the image's `CMD ["--help"]`, so it printed the help screen and **exited 0 without
+> running anything** - a silent false success. It has been removed rather than corrected, because
+> no argument list makes that image run the pipeline.
+>
+> The containerised pytest command previously shown here has been removed for the same reason: it
+> cannot work as documented. `tests/` is excluded from the build context by `.dockerignore`, and
+> `pytest` lives in the `dev` extra while the Dockerfile installs the package without extras.
+> Making it work needs a Dockerfile change (a dev install or a dedicated test stage), not a
+> documentation change.
 
 
 ### API & Demo Quick Start (Docker Compose)
