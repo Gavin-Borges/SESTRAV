@@ -57,6 +57,16 @@ SESTRAV Environment Info
 
 ### 2. Score a viral proteome
 
+> **No model binary ships with this repository, so the `--model` path below does not
+> exist in a fresh clone.** `git ls-files models/` returns zero `.joblib` files: model
+> artifacts are deliberately untracked (see `ARCHITECTURE.md`), because a checkpoint
+> committed without provenance is the mislabeled-artifact failure this project has had
+> twice (`docs/claims_register.md` D16, D23). **Train it first** - the canonical
+> training command is in `README.md` under Training - which writes
+> `models/rf_31feature_integrated.joblib` and makes every command in this section work
+> as written. The same applies to the FastAPI service and the Streamlit demo, which
+> both load that file at startup.
+
 ```bash
 sestrav predict \
   --fasta data/proteomes/EBV_B95_8_panel8.fasta \
@@ -214,7 +224,7 @@ Key settings in `config.yaml`:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `feature_mode` | `31` | Feature tier: 21 (legacy), 30 (legacy), 31 (canonical), 33 (extended) |
-| `model_path` | `models/rf_31feature_integrated.joblib` | Production model path |
+| `model_path` | `models/rf_31feature_integrated.joblib` | Production model path. Not tracked in git - produced by training, see step 2 above |
 | `mhcflurry_model_version` | `2.2.1` | Pinned MHCflurry version (do not change without rebuilding dataset) |
 | `freeze_mode` | `true` | Enforce strict checksums and governance guardrails |
 | `alleles` | 10-allele panel | HLA alleles for binding prediction |
