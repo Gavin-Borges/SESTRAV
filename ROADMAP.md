@@ -26,8 +26,11 @@ _Last updated: 2026-08._
     This clears the OpenSSF **Gold** targets (>=90% statement, >=80% branch).
   - **Whole-repo floor**: `pyproject.toml`'s `fail_under` blocks regressions across
     the entire tree (research/CLI scripts included), gated at `fail_under=35`,
-    currently **47.88%** (branch-inclusive, re-measured 2026-08-08) - comfortably
-    above the floor. This is a local-DX regression gate, not a CI/badge gate.
+    currently **49.36%** (branch-inclusive, re-measured 2026-08-16 at `a336360`) -
+    comfortably above the floor. This is a local-DX regression gate, not a CI/badge
+    gate. **Re-measure rather than carry this figure forward:** it has now moved
+    twice in nine days (47.88% on 2026-08-08, 49.71% on 2026-08-15, 49.36% here),
+    so a restatement without a fresh run and its own date is not evidence.
     *(Supersedes the previously published 34.37% "measured 2026-06-22", which had
     gone seven weeks stale and described the figure as "a hair under the floor";
     both the number and that characterization were out of date.)*

@@ -32,9 +32,11 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
     guard (`tools/check_library_coverage.py --check` enforces it stays in sync),
     so the scope is objective rather than hand-picked.
   - *Whole-repo floor* - a regression floor across the entire tree
-    (`pyproject.toml`), gated at `fail_under=35`, currently **47.88%** (branch-inclusive,
-    re-measured 2026-08-08) - comfortably above the floor. Supersedes the previously
-    published 34.37% / "a hair under the floor" (measured 2026-06-22, seven weeks stale).
+    (`pyproject.toml`), gated at `fail_under=35`, currently **49.36%** (branch-inclusive,
+    re-measured 2026-08-16 at `a336360`) - comfortably above the floor. Supersedes both
+    the 47.88% (2026-08-08) and the 49.71% (2026-08-15) readings, and before those the
+    34.37% / "a hair under the floor" (measured 2026-06-22). The figure drifts with
+    ordinary development, so re-measure rather than restate it.
     Executable research/pipeline
     scripts (those with `__main__`) are validated by integration tests and the CI
     data/benchmark gates rather than by unit statement coverage.
