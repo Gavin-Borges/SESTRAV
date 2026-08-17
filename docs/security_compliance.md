@@ -91,6 +91,22 @@ Run 2026-06-18 (Day 5) with semgrep 1.167.0. **2 findings, both false positives 
 **Action, corrected 2026-08-17.** This entry previously read "No code changes required", and the disposition above (false positive, list-form subprocess) still stands on the merits. **But the suppressions that were supposed to record that disposition in the code were inert, so both findings resurfaced on every scan for the entire period this document described them as dispositioned.** Two independent defects: the `# nosemgrep` sat on a preceding line with another comment between it and the statement (semgrep honours only the finding's own line or the one immediately before), and it named the rule *path*
 `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args` rather than the real id, which repeats the final component. Fixing the placement alone still left the finding, which is how the second defect was found. Both now carry a bare inline `# nosemgrep`, matching `scripts/run_predig_batched.py`, which suppresses the same rule and was the working control this was verified against. Verified in both directions: removing the suppression reproduces the finding, restoring it clears it; repo-wide `semgrep scan --config p/python` is now 0 findings, exit 0. Both scripts remain researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
 
+**Known consequence of that repair, recorded rather than worked around.** The **external Semgrep OSS
+GitHub App does not honour `nosemgrep` suppressions**, and it scans only lines changed by a pull
+request. Repairing these two suppressions therefore put both lines into a PR diff for the first time
+since they were written, and the App raised them as 2 new code-scanning alerts - the same App
+behaviour already recorded in this project's history, when a `nosemgrep` on `model_registry.py` was
+found not to suppress an external finding. **The trade is deliberate and it is not symmetrical.**
+Before the repair, `semgrep scan --config p/python` reported these 2 findings on *every* local and CI
+run while this document described them as dispositioned; a scanner that always reports the same two
+false positives trains a reader to skip its output, which is how a real third finding would be
+missed. After the repair the repo-scoped scan is 0 findings, so anything new is visible. **The App's
+alerts are the price of that, and they are advisory:** `Semgrep OSS` is not among the required status
+checks on `Protect Main Branch` (`test (3.13)`, `Require human review`, `check_dco`,
+`Cited commits resolve`), so it does not gate a merge. **Owner action, GitHub UI only:** dismiss the
+two alerts as false positives in the Security tab, citing this row. They are not dismissed here
+because dismissing a code-scanning alert is a repository-posture action, not a code change.
+
 ### pip-audit (`pip-audit -r environments/requirements.lock`)
 
 Run 2026-06-18 (Day 5) with pip-audit 2.10.1. **4 packages flagged; 3 are transitive dependencies of mhcflurry/research tools, 1 is the pre-documented torch CVE.**
