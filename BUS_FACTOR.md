@@ -62,10 +62,16 @@ Even at bus factor 1, the project is recoverable by others:
   1. **Do it BEFORE the first PyPI publish.** The pending Trusted Publisher is bound
      to owner `Gavin-Borges`; changing the owner invalidates that binding and forces
      re-registration against the new owner. See `docs/releasing.md`.
-  2. **Budget for the URL sweep.** 172 occurrences of `Gavin-Borges/` across 18
-     tracked files (README badges, `CITATION.cff`, docs, workflows) need updating
-     after the move. GitHub redirects the old path, so nothing breaks immediately,
-     which is exactly why this is easy to leave half-done.
+  2. **Budget for the URL sweep.** 24 occurrences of `Gavin-Borges/` across 17 tracked
+     files (README badges, `CITATION.cff`, docs, workflows) need updating after the
+     move; counting the bare owner name rather than the path prefix gives 37 across 23.
+     GitHub redirects the old path, so nothing breaks immediately, which is exactly why
+     this is easy to leave half-done. **Corrected 2026-08-17:** this read "172
+     occurrences ... across 18" and no reading of the tree reproduces it - not the path
+     prefix (24/17), not the bare name (37/23), and not either counted over the whole
+     working tree including gitignored files (278/77 and 309/87). Re-measure with
+     `git grep -o "Gavin-Borges/" -- . | wc -l` before relying on it; the tracked sweep
+     is an order of magnitude smaller than this line claimed, not larger.
 
 > **These two are the whole realistic bus-factor programme for this project.**
 > Recruiting a co-maintainer is not planned (`ROADMAP.md`), so continuity has to come
