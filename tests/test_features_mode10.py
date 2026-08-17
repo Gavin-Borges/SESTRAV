@@ -1,0 +1,126 @@
+"""Tests for FEATURE_COLUMNS_10 and prepare_features_10 in train_classifier.
+
+Mode 10 is the binding-only ablation (SCI-BO): the converse of mode 21
+(physico-only, no binding). It isolates the 10 per-allele MHCflurry
+presentation scores with no physicochemistry and no peptide_length.
+"""
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from src.features import FEATURE_COLUMNS_10, BINDING_ALLELE_COLUMNS
+
+
+def test_feature_columns_10_length():
+    assert len(FEATURE_COLUMNS_10) == 10
+
+
+def test_feature_columns_10_equals_binding_allele_columns():
+    assert FEATURE_COLUMNS_10 == BINDING_ALLELE_COLUMNS
+
+
+def test_feature_columns_10_no_duplicates():
+    assert len(FEATURE_COLUMNS_10) == len(set(FEATURE_COLUMNS_10))
+
+
+def test_feature_columns_10_has_no_physico_or_length():
+    assert "peptide_length" not in FEATURE_COLUMNS_10
+    for col in FEATURE_COLUMNS_10:
+        assert col.startswith("bind_"), f"Unexpected non-binding column: {col}"
+
+
+def _make_minimal_train_df():
+    peptides = ["AAAAAAAA", "ACDEFGHIK", "LMVKQSRTY", "NPQRSTVWY"]
+    return pd.DataFrame(
+        {
+            "peptide": peptides,
+            "label": [1, 0, 1, 0],
+            "virus": ["EBV", "HPV", "EBV", "HPV"],
+        }
+    )
+
+
+def _make_mock_binding_matrix(peptides):
+    rows = [{"peptide": p, **{c: 0.5 for c in BINDING_ALLELE_COLUMNS}} for p in peptides]
+    return pd.DataFrame(rows)
+
+
+def test_prepare_features_10_shape(tmp_path):
+    """prepare_features_10 returns a DataFrame with 10 columns per peptide."""
+    from src.train_classifier import prepare_features_10
+
+    df = _make_minimal_train_df()
+    bm = _make_mock_binding_matrix(df["peptide"].tolist())
+    bm_path = tmp_path / "binding_matrix.csv"
+    bm.to_csv(bm_path, index=False)
+
+    X = prepare_features_10(df, str(bm_path))
+    assert X.shape == (len(df), 10)
+    assert list(X.columns) == FEATURE_COLUMNS_10
+
+
+def test_prepare_features_10_values_match_binding_matrix(tmp_path):
+    """Binding values pass through unchanged from the binding matrix."""
+    from src.train_classifier import prepare_features_10
+
+    df = _make_minimal_train_df()
+    bm = _make_mock_binding_matrix(df["peptide"].tolist())
+    bm_path = tmp_path / "binding_matrix.csv"
+    bm.to_csv(bm_path, index=False)
+
+    X = prepare_features_10(df, str(bm_path))
+    assert (X.to_numpy() == 0.5).all()
+
+
+def test_prepare_features_10_missing_peptide_zero_filled(tmp_path):
+    """A peptide absent from the binding matrix gets zero-filled, not dropped or NaN."""
+    from src.train_classifier import prepare_features_10
+
+    df = _make_minimal_train_df()
+    bm = _make_mock_binding_matrix(df["peptide"].tolist()[:-1])  # drop the last peptide
+    bm_path = tmp_path / "binding_matrix.csv"
+    bm.to_csv(bm_path, index=False)
+
+    X = prepare_features_10(df, str(bm_path))
+    assert X.shape == (len(df), 10)
+    assert not X.isnull().any().any()
+    np.testing.assert_array_equal(X.iloc[-1].to_numpy(), np.zeros(10))
+
+
+def test_prepare_features_10_missing_binding_matrix_raises():
+    """prepare_features_10 raises ValueError when the binding matrix is missing an allele."""
+    from src.train_classifier import prepare_features_10
+    import tempfile
+    import os
+
+    df = _make_minimal_train_df()
+    incomplete_bm = pd.DataFrame([{"peptide": p, "bind_A0101": 0.5} for p in df["peptide"]])
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as f:
+        incomplete_bm.to_csv(f, index=False)
+        tmp_path = f.name
+    try:
+        with pytest.raises(ValueError, match="only.*10 expected allele columns"):
+            prepare_features_10(df, tmp_path)
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_train_classifier_argparse_accepts_mode_10():
+    """train_classifier.py argparse does not reject --feature-mode 10."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.train_classifier", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=".",
+    )
+    assert "10" in result.stdout, "--feature-mode choices should include '10'"
+
+
+def test_batch_experiment_runner_accepts_mode_10():
+    from scripts.batch_experiment_runner import VALID_FEATURE_MODES
+
+    assert 10 in VALID_FEATURE_MODES

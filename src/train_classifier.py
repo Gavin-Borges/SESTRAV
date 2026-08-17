@@ -45,6 +45,7 @@ from src.features import (
     compute_features,
     FEATURE_COLUMNS,
     TRAIN_FEATURE_COLUMNS,
+    FEATURE_COLUMNS_10,
     FEATURE_COLUMNS_30,
     FEATURE_COLUMNS_31,
     FEATURE_COLUMNS_33,
@@ -126,6 +127,33 @@ def prepare_features_30(df, binding_matrix_path):
     return pd.concat([physico_df.reset_index(drop=True), bind_df.reset_index(drop=True)], axis=1)[
         FEATURE_COLUMNS_30
     ]
+
+
+def prepare_features_10(df, binding_matrix_path):
+    """Build the 10-feature binding-only matrix: the converse ablation of mode 21.
+
+    No physicochemistry, no peptide_length - just the 10 per-allele MHCflurry
+    presentation scores, joined the same way prepare_features_30 joins them.
+    Returns a DataFrame with columns matching FEATURE_COLUMNS_10.
+    """
+    binding_df = pd.read_csv(binding_matrix_path)
+    bind_cols_present = [c for c in BINDING_ALLELE_COLUMNS if c in binding_df.columns]
+    if len(bind_cols_present) < 10:
+        raise ValueError(
+            f"Binding matrix has only {len(bind_cols_present)}/10 expected allele columns"
+        )
+    binding_lookup = binding_df.set_index("peptide")[bind_cols_present]
+
+    peptides = df["peptide"].values
+    bind_rows = []
+    for pep in peptides:
+        if pep in binding_lookup.index:
+            bind_rows.append(binding_lookup.loc[pep].values)
+        else:
+            bind_rows.append(np.zeros(10))
+    bind_df = pd.DataFrame(bind_rows, columns=BINDING_ALLELE_COLUMNS)
+
+    return bind_df.reset_index(drop=True)[FEATURE_COLUMNS_10]
 
 
 def prepare_features_31(df, binding_matrix_path):
@@ -829,6 +857,12 @@ def train_models(
         X = prepare_features_30(train_pool, binding_matrix_path)
         feature_cols_used = FEATURE_COLUMNS_30
         mode_label = "30-feature multi-allele"
+    elif feature_mode == 10:
+        if binding_matrix_path is None:
+            raise ValueError("--binding-matrix is required for feature-mode 10")
+        X = prepare_features_10(train_pool, binding_matrix_path)
+        feature_cols_used = FEATURE_COLUMNS_10
+        mode_label = "10-feature binding-only (no physicochemistry; converse ablation of mode 21)"
     else:
         X = prepare_features(train_pool, include_binding=False)
         feature_cols_used = TRAIN_FEATURE_COLUMNS
@@ -1072,8 +1106,9 @@ if __name__ == "__main__":
         "--feature-mode",
         type=str,
         default="21",
-        choices=["21", "30", "31", "33", "35", "50", "166", "30_esm", "30_graph"],
-        help="Feature mode: 21 (sequence-only) | 30 (physico+binding) | 31 canonical | "
+        choices=["10", "21", "30", "31", "33", "35", "50", "166", "30_esm", "30_graph"],
+        help="Feature mode: 10 (binding-only, no physicochemistry - converse ablation "
+        "of 21) | 21 (sequence-only) | 30 (physico+binding) | 31 canonical | "
         "33 (31+antigen-processing; MOCK scores, not real NetChop/TAPreg output - "
         "see docs/claims_register.md D18) | 35 (33+self-similarity) | 50 (expanded) | "
         "30_esm | 30_graph",

@@ -247,6 +247,14 @@ BINDING_ALLELE_COLUMNS = [
     "bind_B4402",
 ]
 
+# 10-feature binding-only ablation (SCI-BO, register 2026-08-15 late): the converse
+# of mode 21 (physico-only, no binding). Isolates the 10 per-allele MHCflurry
+# presentation scores with no physicochemistry and no peptide_length, to measure
+# what binding alone contributes on the same peptide-grouped CV path as the other
+# arms - Table 1 currently only shows the physico-to-physico+binding increment
+# (mode 21 -> mode 31), not the reverse.
+FEATURE_COLUMNS_10 = list(BINDING_ALLELE_COLUMNS)
+
 FEATURE_COLUMNS_30 = PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ["peptide_length"]
 # 33-feature: canonical 31 + two antigen-processing columns.

@@ -43,8 +43,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sestrav.batch_runner")
 
-# Feature modes with a real dispatch branch in src/train_classifier.py AND a matching
-# trained artifact naming convention in src/naming.py::MODEL_NAME_ALIASES.
+# Feature modes with a real dispatch branch in src/train_classifier.py. Naming aliases
+# in src/naming.py::MODEL_NAME_ALIASES only cover modes that inherited a pre-refactor
+# filename (21/30/31) - its absence for a mode below is not itself a defect.
+#   10  -> binding-only ablation (SCI-BO, register 2026-08-15 late): no physico,
+#          the converse of 21
 #   21  -> sequence-only legacy            (models/<backend>_21feature_legacy.*)
 #   30  -> multi-allele legacy             (models/<backend>_30feature_integrated.*)
 #   31  -> canonical production (config.yaml feature_mode: 31)
@@ -53,7 +56,7 @@ logger = logging.getLogger("sestrav.batch_runner")
 #   50  -> expanded multi-allele
 # Modes 51/166 and the string modes "30_esm"/"30_graph" exist in train_classifier.py
 # but have no released scoring artifact, so they are not offered here.
-VALID_FEATURE_MODES = [21, 30, 31, 33, 35, 50]
+VALID_FEATURE_MODES = [10, 21, 30, 31, 33, 35, 50]
 
 # Backends reachable through pipeline.run_pipeline. Selection happens by pointing
 # SestravConfig.model_path at the corresponding trained artifact; Stage 4 dispatches
