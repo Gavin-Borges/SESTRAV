@@ -18,6 +18,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   A `pip install sestrav` would therefore have failed at stage 1 on a clean environment. The gap
   was in the metadata a PyPI consumer resolves, not in CI - all seven are already pinned in
   `environments/requirements.lock`, which is why no test ever caught it.
+- **An eighth undeclared dependency in the same class, found 2026-08-16 while re-verifying the
+  fix above: `matplotlib`.** It was declared, but only in the `demo` extra, which the 2026-08-14
+  audit did not distinguish from `[project].dependencies` - a package present anywhere in
+  `pyproject.toml` passed it, even in the wrong scope. `functions/stage4_immunogenicity_scoring.py`
+  imports it at module scope and `score_immunogenicity()` unconditionally writes two PNGs on every
+  call, so `sestrav predict` reaches it on every run, not just when plotting is wanted. Moved to
+  `[project].dependencies`; a new regression test
+  (`tests/test_predict_path_dependencies_declared.py`) statically checks every module-scope import
+  reachable from the CLI's four subcommands against the declared core dependency set, and the
+  release workflow's pre-publish and post-publish smoke tests now import all four
+  `functions/stage*.py` modules (previously only stage 1) so this class cannot recur silently
+  before a tag is cut.
 - **A `CITATION.cff` consistency gate on the release workflow.** Nothing in CI, the tests, the
   scripts or the integrity harness referenced that file, which is how the W6 "phantom release"
   arose: `CITATION.cff` advertised a version and date for which no tag existed. The tag job now

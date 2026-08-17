@@ -434,18 +434,25 @@ docker run --rm `
   --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
 ```
 
-> **Known limitations of the Docker image, recorded 2026-08-15. Read these before relying on it.**
-> The image cannot yet run the module command above end to end. `pyproject.toml` declares three
-> package trees (`sestrav*`, `src*`, `functions*`) while the Dockerfile copies only `src/`, and
-> several runtime imports are not declared as install dependencies. `python -m src.train_classifier`
-> fails on its module-level `from xgboost import XGBClassifier`, and `sestrav predict` fails first
-> on the `functions/` tree being absent. Were that tree present, it would then fail on **`biopython`**
-> (`from Bio import SeqIO`, module-level in the stage-1 module and reached before anything else on
-> that path), which is declared nowhere in `pyproject.toml`; then on `mhcflurry`, likewise
-> undeclared; and `matplotlib`, which the stage-4 module imports at module level, is declared only
-> in the `demo` extra. A fix for the packaging half
-> is written and awaiting review. Until it merges, **run from a source checkout rather than the
-> container.** `docker build` and `sestrav info` are unaffected.
+> **Known limitations of the Docker image.** Read these before relying on it.
+>
+> **The packaging defect recorded here 2026-08-15 is FIXED, merged 2026-08-16** (`ea5a721`, PR #252).
+> `pyproject.toml` declares three package trees (`sestrav*`, `src*`, `functions*`); the Dockerfile
+> now copies all three, and the runtime imports that were reachable from `sestrav predict` but
+> undeclared as install dependencies - `biopython`, `mhcflurry`, `PyYAML`, `scipy`, `xgboost`,
+> `openpyxl`, `networkx` - are now all in `[project].dependencies`. A further, eighth instance of
+> the same class was found while re-verifying this fix and is also fixed as of 2026-08-16:
+> `matplotlib`, imported at module scope by the stage-4 module and used unconditionally (every
+> `sestrav predict` call writes two PNGs), was declared only in the `demo` extra. A regression test
+> (`tests/test_predict_path_dependencies_declared.py`) and a widened release-workflow smoke test
+> (importing all four `functions/stage*.py` modules, not just stage 1) now guard against this class
+> recurring silently before a tag is cut.
+>
+> **Still true: none of this has been execute-verified by an actual `docker build`.**
+> `docker.yml` has never run (`gh run list --workflow=docker.yml` returns zero rows), so the fix
+> above is verified from source and by the release workflow's venv-based smoke test, not by
+> building and running the image itself. `docker build` and `sestrav info` were unaffected by the
+> original defect either way.
 >
 > There is also **no pipeline entry point in this image.** `pipeline.py` is the standalone driver
 > for stages 1 to 4, and the Dockerfile does not copy it and the CLI does not wrap it; it ships

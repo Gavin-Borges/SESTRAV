@@ -70,6 +70,17 @@ dependencies = [
     #              rather than the gnn extra because the caller is
     #              src/train_classifier, not a GNN-only path.
     "networkx>=3.0",
+    # Added 2026-08-16, the eighth instance of the class the 2026-08-14 audit above
+    # was meant to close. That audit checked whether a package was declared
+    # ANYWHERE in this file, not in [project].dependencies specifically, so
+    # matplotlib passed it silently by being declared only in the `demo` extra
+    # below - the wrong scope for a module `sestrav predict` reaches unconditionally.
+    #   matplotlib functions/stage4_immunogenicity_scoring.py imports it at
+    #              module scope (`matplotlib.use("Agg")` / `pyplot as plt`) and
+    #              score_immunogenicity() always writes two PNGs to results/ at
+    #              the end of every run - not gated behind a flag. Reached by
+    #              `sestrav predict`, the flagship command, via stage 4.
+    "matplotlib>=3.8.0",
 ]
 
 [project.optional-dependencies]
@@ -101,7 +112,10 @@ api = [
 demo = [
     "streamlit>=1.35.0",
     "shap>=0.44.0",
-    "matplotlib>=3.8.0",
+    # matplotlib moved to [project].dependencies 2026-08-16 - it was already a
+    # hard requirement of the core predict path, not demo-specific. Listing it
+    # here too would be a harmless duplicate; omitted so this extra only
+    # names packages genuinely exclusive to it.
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "pydantic>=2.0.0",
