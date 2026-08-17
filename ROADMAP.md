@@ -53,9 +53,13 @@ _Last updated: 2026-08._
   published.
 - **Packaging.** Publish `sestrav` to PyPI as a pip-installable package.
   Installation is from source today. The publish job in
-  `.github/workflows/release.yml` is enabled (`PYPI_PUBLISH` is `true`) and will
-  be scheduled by the next `v*` tag; it then pauses for manual approval under the
-  `pypi` environment's required-reviewer rule, which is the actual gate.
+  `.github/workflows/release.yml` is currently **disabled** (`PYPI_PUBLISH` is
+  `false`, set 2026-08-17): a `v*` tag still cuts a signed GitHub Release, but the
+  PyPI upload step is skipped entirely. The variable was set to `false` because the
+  pending Trusted Publisher registration on pypi.org could not be confirmed, and an
+  unconfirmed publisher risks permanently burning a version number (PyPI refuses
+  re-upload). Setting it back to `true` re-enables the job, which then pauses for
+  manual approval under the `pypi` environment's required-reviewer rule.
 
 ## Mid term (3-9 months)
 

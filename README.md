@@ -350,13 +350,23 @@ sestrav validate \
   --report results/validation_report_v5.md
 ```
 
-**Training cost, measured 2026-08-16 at `3451cad`:** the `python -m src.train_classifier` command
+**Training cost, re-measured 2026-08-17 at `746ab60`:** the `python -m src.train_classifier` command
 above (both RF and XGBoost, full 5-fold peptide-grouped CV plus the final retrain) completed in
-**54 seconds wall-clock** on `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total;
-35,555 rows actually enter training, after the 42 gold-standard epitopes are held out). It ran on a
-single logical CPU core - the committed defaults are `RandomForestClassifier(n_jobs=1)` and
-`XGBClassifier(nthread=1)`, so this figure does not depend on how many cores the host machine has.
-No GPU is used by this training path. Re-measure if either default changes.
+**15 seconds wall-clock** on `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total;
+35,555 rows actually enter training, after the 42 gold-standard epitopes are held out), on an AMD
+Ryzen 9 9950X (16 physical / 32 logical cores). **Unlike the previous figure, this one depends on the
+host core count:** the committed defaults are now `RandomForestClassifier(n_jobs=-1)` and
+`XGBClassifier(nthread=-1)`, so both fit across all available cores. The same command measured
+**54 seconds** on a single core at `3451cad`, before those defaults changed - expect a figure in that
+range on a low-core machine. No GPU is used by this training path. Re-measure if either default
+changes.
+
+> **Core count changes the runtime, not the result.** Scoring is pinned back to a single thread
+> before every prediction (`pin_serial_scoring`), and tree fitting is invariant to thread count given
+> a fixed `random_state`, so the metrics are unaffected: this all-core run reproduced
+> `auc_roc=0.8093 / auc_pr=0.5987`, matching the single-core run of the same configuration to four
+> decimal places. `tests/test_ml_utils.py` binds this as a bit-identity test rather than leaving it
+> as a claim.
 
 > **The two commands above are not equivalent, despite the label.** `python -m src.train_classifier`
 > defaults to the **peptide-grouped** splitter, but `sestrav validate` does not pass `cv_group_by` at
