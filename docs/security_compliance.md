@@ -91,21 +91,54 @@ Run 2026-06-18 (Day 5) with semgrep 1.167.0. **2 findings, both false positives 
 **Action, corrected 2026-08-17.** This entry previously read "No code changes required", and the disposition above (false positive, list-form subprocess) still stands on the merits. **But the suppressions that were supposed to record that disposition in the code were inert, so both findings resurfaced on every scan for the entire period this document described them as dispositioned.** Two independent defects: the `# nosemgrep` sat on a preceding line with another comment between it and the statement (semgrep honours only the finding's own line or the one immediately before), and it named the rule *path*
 `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args` rather than the real id, which repeats the final component. Fixing the placement alone still left the finding, which is how the second defect was found. Both now carry a bare inline `# nosemgrep`, matching `scripts/run_predig_batched.py`, which suppresses the same rule and was the working control this was verified against. Verified in both directions: removing the suppression reproduces the finding, restoring it clears it; repo-wide `semgrep scan --config p/python` is now 0 findings, exit 0. Both scripts remain researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
 
-**Known consequence of that repair, recorded rather than worked around.** The **external Semgrep OSS
-GitHub App does not honour `nosemgrep` suppressions**, and it scans only lines changed by a pull
-request. Repairing these two suppressions therefore put both lines into a PR diff for the first time
-since they were written, and the App raised them as 2 new code-scanning alerts - the same App
-behaviour already recorded in this project's history, when a `nosemgrep` on `model_registry.py` was
-found not to suppress an external finding. **The trade is deliberate and it is not symmetrical.**
-Before the repair, `semgrep scan --config p/python` reported these 2 findings on *every* local and CI
-run while this document described them as dispositioned; a scanner that always reports the same two
-false positives trains a reader to skip its output, which is how a real third finding would be
-missed. After the repair the repo-scoped scan is 0 findings, so anything new is visible. **The App's
-alerts are the price of that, and they are advisory:** `Semgrep OSS` is not among the required status
-checks on `Protect Main Branch` (`test (3.13)`, `Require human review`, `check_dco`,
-`Cited commits resolve`), so it does not gate a merge. **Owner action, GitHub UI only:** dismiss the
-two alerts as false positives in the Security tab, citing this row. They are not dismissed here
-because dismissing a code-scanning alert is a repository-posture action, not a code change.
+**Known consequence of that repair, recorded rather than worked around.** The repair raised 2 new
+code-scanning alerts (#77, #78) against the pull request that carried it. **Corrected 2026-08-17:**
+this paragraph previously blamed an "external Semgrep OSS GitHub App" that "does not honour
+`nosemgrep`" and "scans only lines changed by a pull request". All three halves were wrong, and the
+real mechanism was read off the uploaded SARIF rather than inferred:
+
+1. `semgrep` **does** honour the inline `# nosemgrep`. The CI step's own verdict is
+   `Ran 154 rules on 164 files: 0 findings.` / `Findings: 0 (0 blocking)`.
+2. It nevertheless still **emits** every suppressed finding into `semgrep.sarif`, tagged
+   `"suppressions": [{"state": "accepted"}]` with no `kind` field. GitHub code scanning does not act
+   on that tag, so all 3 call sites are ingested as alerts from a step that reported none. The stored
+   analysis records `results_count: 3`.
+3. What kept the Security tab clean was therefore never the inline markers - it was three manual
+   dismissals (`false positive`, 2026-06-14). GitHub carries a dismissal forward only while the
+   result's `partialFingerprints.primaryLocationLineHash` is stable, and that hash is computed from
+   the finding's own line forward.
+4. Appending ` # nosemgrep` to the two `subprocess.run(...)` statement lines changed that hash for
+   exactly the two files the repair touched, so their dismissals stopped matching and the findings
+   resurfaced as new alerts. `run_predig_batched.py` was not edited, its hash is unchanged, and its
+   dismissal still applies - which is why 3 SARIF results produce 2 alerts and not 3.
+
+**It is not an external app and it is not diff-scoped.** The alerts come from this repository's own
+`.github/workflows/security.yml` `semgrep` job uploading SARIF through
+`github/codeql-action/upload-sarif`; `Semgrep OSS` is simply semgrep's own SARIF tool name, and the
+`github-advanced-security` app only posts the resulting check run. The scan covers the whole tree;
+only the check's *verdict* is scoped to lines the pull request changed.
+
+**The trade is deliberate and it is not symmetrical.** Before the repair,
+`semgrep scan --config p/python` reported these 2 findings on *every* local and CI run while this
+document described them as dispositioned; a scanner that always reports the same two false positives
+trains a reader to skip its output, which is how a real third finding would be missed. After the
+repair the repo-scoped scan is 0 findings, so anything new is visible.
+
+**The alerts were advisory while they stood:** `Semgrep OSS` is not among the required status checks
+on `Protect Main Branch` (`test (3.13)`, `Require human review`, `check_dco`,
+`Cited commits resolve`), and that ruleset's code-scanning rule names `CodeQL` only, so they never
+gated a merge.
+
+**Fixed at the root 2026-08-17 rather than dismissed.** `security.yml` now carries a
+`Drop nosemgrep-suppressed results from the SARIF` step between the scan and the upload, which
+removes results carrying a `suppressions` tag so the uploaded SARIF states what the scanner
+actually concluded. Verified against the real uploaded artifact: 3 results in, 0 out, matching the
+step's own `Ran 154 rules on 164 files: 0 findings.` Only explicitly suppressed findings are
+removed - an unsuppressed finding still reaches the Security tab, so the "anything new is visible"
+property above is preserved. This retires the per-alert dismissal ritual: #77 and #78 close as
+`fixed` on the next run of the workflow, and a future edit to a suppressed line no longer resurrects
+an alert by changing its fingerprint. The earlier plan recorded here - dismiss both by hand in the
+Security tab - is superseded and needs no owner action.
 
 ### pip-audit (`pip-audit -r environments/requirements.lock`)
 

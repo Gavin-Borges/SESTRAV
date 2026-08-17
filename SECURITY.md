@@ -233,12 +233,18 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   - **Mitigation:** All calls use the list/argv form (`shell=False`), so no shell
     interpretation occurs. Command arguments are sourced from the operator's local
     CLI (`argparse`) and constant literals - never from untrusted or network input.
-  - **Suppression:** Reviewed and dismissed as *false positive* in GitHub code
-    scanning (Semgrep OSS, `dismissed_reason: false positive`) - the authoritative,
-    re-scan-durable disposition for all three call sites. Note: an inline
-    `# nosemgrep` comment does **not** clear Semgrep's taint-mode finding (verified
-    in CI), so suppression is handled via the Security-tab dismissal rather than
-    inline markers.
+  - **Suppression:** An inline `# nosemgrep` on all three call sites, and a CI step that
+    makes GitHub honour it. **Corrected 2026-08-17:** this entry previously stated that
+    an inline `# nosemgrep` does *not* clear the taint-mode finding, and that Security-tab
+    dismissal was therefore the mechanism. The marker does clear it - the scanner's own
+    verdict is `Ran 154 rules on 164 files: 0 findings.` What did not happen was GitHub
+    acting on it: semgrep still wrote each finding into the SARIF tagged
+    `"suppressions": [{"state": "accepted"}]`, and code scanning ingested it regardless,
+    so the alerts were held closed only by manual dismissals that a single edit to the
+    suppressed line could invalidate. `security.yml` now drops suppressed results before
+    the SARIF upload, so the uploaded analysis matches the scan and no per-alert dismissal
+    is required. Unsuppressed findings are untouched and still raise alerts. See
+    `docs/security_compliance.md` for the measurement.
   - **Re-review trigger:** if any wrapper begins accepting subprocess arguments from
     untrusted/remote input, or switches to `shell=True`.
 
