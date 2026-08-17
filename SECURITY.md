@@ -59,13 +59,21 @@ Thank you for taking the time to report vulnerabilities privately.
 
 ## Maintainership & Continuity
 
-SESTRAV is currently led by a single active maintainer; the v1 collaborators
-credited in `CONTRIBUTORS.md` are no longer active. The governance model,
-roles, and the continuity/backup plan are documented in `GOVERNANCE.md` and
-`BUS_FACTOR.md` so the project can survive the loss of any single person.
+SESTRAV is led by a single active maintainer; the v1 collaborators credited in
+`CONTRIBUTORS.md` are no longer active. **There is no backup maintainer and no
+succession arrangement**, and none is planned - `GOVERNANCE.md` and `BUS_FACTOR.md`
+record that honest status rather than a continuity plan.
+
+The project therefore **cannot** survive the loss of the maintainer as a *maintained*
+project. What it does have is weaker but real: the source, full history and build
+procedure are public and MIT-licensed, so a third party may fork and continue the work
+independently. If you are assessing whether a security report will be actioned in the
+maintainer's absence, assume it will not be.
 
 ### Account Security
-To meet OpenSSF Gold standards, all maintainers with write access to this repository **MUST enable Two-Factor Authentication (2FA)** on their GitHub accounts.
+All accounts with write access to this repository **MUST have Two-Factor
+Authentication (2FA)** enabled on GitHub. In practice that is one account, the sole
+maintainer's.
 
 ## Release Integrity & Verification
 

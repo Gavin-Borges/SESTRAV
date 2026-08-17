@@ -1,6 +1,6 @@
 # SESTRAV Security & Compliance Posture
 
-This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/13191) (formerly CII Best Practices). SESTRAV has attained the **Passing** level ([project 13191](https://www.bestpractices.dev/projects/13191)) as of version 2.0 and is working toward the Silver/Gold criteria.
+This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/13191) (formerly CII Best Practices). SESTRAV has attained the **Passing** level ([project 13191](https://www.bestpractices.dev/projects/13191)) as of version 2.0. **Passing is the intended terminal tier**: Silver and Gold both require multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`) that a solo-maintained project cannot satisfy, and they are formally declined as of 2026-08-17 (see `BUS_FACTOR.md`). Individual Silver/Gold criteria that SESTRAV does meet are documented below on their own merits.
 
 ## 1. Basics
 - **Project Description:** SESTRAV is a T-cell epitope immunogenicity prediction pipeline.
@@ -13,7 +13,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 - **Review:** All pull requests to `main` require a successful GitHub Actions CI check before merging.
 
 ## 3. Reporting
-- **Vulnerability Reporting:** Described in `SECURITY.md`. Issues can be reported confidentially; the maintainers pledge to respond to vulnerabilities promptly.
+- **Vulnerability Reporting:** Described in `SECURITY.md`. Issues can be reported confidentially; the sole maintainer commits to the response SLA stated there (acknowledgement within 3-5 business days, initial assessment within 10 business days).
 - **Bug Tracking:** GitHub Issues is used as the primary issue tracker.
 
 ## 4. Quality
@@ -129,5 +129,5 @@ attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 planned work: publish the package to PyPI, and cryptographically sign the git tags
 themselves (`version_tags_signed`, a SUGGESTED criterion). A maintainer SSH signing
 key is configured locally with `tag.gpgsign` enabled, so this is met on the next
-release by tagging with `git tag -s`. See `ROADMAP.md` for the open multi-person
-Silver/Gold criteria and the coverage ratchet.
+release by tagging with `git tag -s`. See `ROADMAP.md` for the declined-tier position
+on the multi-person Silver/Gold criteria, and the coverage ratchet.

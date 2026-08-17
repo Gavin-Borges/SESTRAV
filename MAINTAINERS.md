@@ -1,10 +1,12 @@
 # SESTRAV Maintainers
 
 This file records the project's maintainer roster, which the OpenSSF Best Practices
-Silver criteria `bus_factor >= 2` and `two_person_review` depend on. Neither criterion
-is met today: pull requests from contributors require maintainer review, but with a
-single maintainer `two_person_review` is not yet in force (GitHub does not permit
-self-approval). See `BUS_FACTOR.md` for the honest current status.
+Silver criteria `bus_factor >= 2` and `two_person_review` depend on. **Neither criterion
+is met, and neither will be**: pull requests from EXTERNAL contributors require
+maintainer approval, but the maintainer's own pull requests - which are the large
+majority - are merged without review, so `two_person_review` is not in force and cannot
+be with one maintainer. Silver and Gold are formally declined on this basis
+(`ROADMAP.md`, 2026-08-17). See `BUS_FACTOR.md` for the honest current status.
 
 ## Active Maintainers
 
@@ -21,8 +23,15 @@ for why this matters and what the role requires.
 - Review and approve pull requests to `main`
 - Triage security reports (see `SECURITY.md`)
 - Cut releases (tag, artifacts, provenance attestation). PyPI publishing via the
-  OIDC Trusted Publisher workflow is enabled and is scheduled by any `v*` tag; it
-  waits on manual approval under the `pypi` environment's required-reviewer rule.
+  OIDC Trusted Publisher workflow is enabled (`PYPI_PUBLISH=true`) and is scheduled
+  by any `v*` tag; it then waits on approval under the `pypi` environment's
+  required-reviewer rule - where the sole configured reviewer is the maintainer, so
+  that is a deliberate-action prompt, not independent approval. The pending Trusted
+  Publisher is registered (confirmed 2026-08-17), but **nothing has been published
+  yet** and the publish path has never run end to end. Before cutting a tag that is
+  meant to publish, read the ordering constraint in `docs/releasing.md`: the
+  publisher is bound to the `Gavin-Borges` personal account and a planned migration
+  to a GitHub organization would invalidate it.
 
 ## Adding a Maintainer
 

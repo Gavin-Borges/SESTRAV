@@ -9,13 +9,15 @@ _Last updated: 2026-08._
 
 ## Near term (0-3 months)
 
-- **OpenSSF Best Practices badge.** The **Passing** badge is attained
-  ([project 13191](https://www.bestpractices.dev/projects/13191)). Next, complete
-  the remaining Silver/Gold criteria - most are already satisfied (governance,
-  two-scope coverage measurement, Sigstore-signed releases, threat
-  model/assurance case); the open gaps are the multi-person criteria
-  (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require
-  a second maintainer/contributor. See `docs/threat_model.md` and `GOVERNANCE.md`.
+- **OpenSSF Best Practices badge - Passing attained, and it is the terminal tier.**
+  ([project 13191](https://www.bestpractices.dev/projects/13191)). **Silver and Gold
+  are formally declined as of 2026-08-17**, not scheduled: both require the
+  multi-person criteria (`bus_factor`, `two_person_review`,
+  `contributors_unassociated`), SESTRAV has one maintainer, and there is no plan to
+  add a second (`BUS_FACTOR.md`). The many Silver/Gold criteria the project already
+  satisfies - governance, two-scope coverage measurement, Sigstore-signed releases,
+  threat model/assurance case - stand on their own merits and continue to be
+  maintained. See `docs/threat_model.md` and `GOVERNANCE.md`.
 - **Test coverage.** Coverage is measured on two scopes; only the library scope is
   gated in CI:
   - **Library scope** (OpenSSF Silver `test_statement_coverage80`): the importable
@@ -52,14 +54,16 @@ _Last updated: 2026-08._
   It has not run yet - the workflow was added after `v2.0.3`, so no image is
   published.
 - **Packaging.** Publish `sestrav` to PyPI as a pip-installable package.
-  Installation is from source today. The publish job in
-  `.github/workflows/release.yml` is currently **disabled** (`PYPI_PUBLISH` is
-  `false`, set 2026-08-17): a `v*` tag still cuts a signed GitHub Release, but the
-  PyPI upload step is skipped entirely. The variable was set to `false` because the
-  pending Trusted Publisher registration on pypi.org could not be confirmed, and an
-  unconfirmed publisher risks permanently burning a version number (PyPI refuses
-  re-upload). Setting it back to `true` re-enables the job, which then pauses for
-  manual approval under the `pypi` environment's required-reviewer rule.
+  **Installation is from source today - nothing has been published yet** and the
+  package name is still unclaimed. The publish job in
+  `.github/workflows/release.yml` is enabled (`PYPI_PUBLISH` is `true`) and is
+  scheduled by any `v*` tag; it then pauses for approval under the `pypi`
+  environment's required-reviewer rule. The pending Trusted Publisher was confirmed
+  registered on 2026-08-17. Two caveats before the first publishing tag: the publish
+  path has **never run end to end** (PR CI cannot exercise `release.yml`, which is
+  tag-triggered only), and the publisher is bound to the `Gavin-Borges` personal
+  account, so the planned GitHub-organization migration should happen first - see the
+  ordering constraint in `docs/releasing.md`.
 
 ## Mid term (3-9 months)
 
@@ -168,16 +172,21 @@ _Last updated: 2026-08._
 - **Wet-lab validation (contingent on partnership).** Pre-register and execute an
   IFN-gamma ELISpot validation comparing SESTRAV-ranked epitopes against binding-only
   controls across HPV16/HPV18/EBV.
-- **Governance growth.** Recruit and onboard additional maintainers and
-  independent contributors to raise the project's bus factor and enable
-  two-person review (see `GOVERNANCE.md`, `BUS_FACTOR.md`).
-- **Per-file licensing (Gold `license_per_file` / `copyright_per_file`).**
-  The repository is licensed as a whole (see `LICENSE`); per-file SPDX and
-  copyright headers are intentionally deferred until a second contributor lands,
-  so authorship attribution is recorded accurately rather than retroactively
-  assigned to a single author. When that happens the headers will be applied in
-  one isolated, reviewable commit using a [REUSE](https://reuse.software/)-style
-  workflow:
+- **Governance growth - NOT planned, and removed from this roadmap 2026-08-17.**
+  SESTRAV is solo-maintained with no backup candidate and no recruitment underway.
+  The multi-person OpenSSF criteria (`bus_factor`, `two_person_review`,
+  `contributors_unassociated`) are therefore not on the roadmap. `MAINTAINERS.md`
+  documents the process should a qualified co-maintainer ever appear unprompted;
+  the project is not pursuing one. The realistic bus-factor mitigations for a solo
+  project are archival (Zenodo DOI) and making ownership transferable (GitHub
+  organization migration) - both tracked in `BUS_FACTOR.md`.
+- **Per-file licensing (Gold `license_per_file` / `copyright_per_file`) - not
+  pursued.** The repository is licensed as a whole (see `LICENSE`). Per-file SPDX
+  and copyright headers were previously deferred "until a second contributor
+  lands"; since no second contributor is expected, that deferral was indefinite in
+  substance and is now recorded as a decline. Should the position change, the
+  headers would be applied in one isolated, reviewable commit using a
+  [REUSE](https://reuse.software/)-style workflow:
   - Add `SPDX-License-Identifier:` and `SPDX-FileCopyrightText:` headers via an
     **idempotent** script (re-running it must be a no-op), driven by a
     `.reuse/dep5` (or `REUSE.toml`) config so binary/data assets are covered by

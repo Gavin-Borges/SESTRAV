@@ -466,18 +466,19 @@ Practices **Passing** badge ([project 13191](https://www.bestpractices.dev/proje
 - **Privacy by design:** the pipeline runs entirely offline; it does not collect, log, or
   transmit sequences, queries, or outputs. Network services bind to `127.0.0.1` only.
 
-**Tier roadmap.** Silver is substantially met (governance, two-scope coverage measurement,
-Sigstore-signed releases, published threat model); the open Silver gap is the multi-person
-criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`) that require a
-second maintainer. Gold coverage thresholds are already cleared on the library scope
+**Tier position: Passing is terminal; Silver and Gold are declined (2026-08-17).** The
+non-multi-person Silver criteria are met (governance, two-scope coverage measurement,
+Sigstore-signed releases, published threat model), but both higher tiers require the
+multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`),
+which need a second maintainer. SESTRAV is solo-maintained with no plan to add one, so
+these tiers are not pursued - see `BUS_FACTOR.md`. Gold coverage thresholds are already cleared on the library scope
 (currently ~99% statement / ~98% branch, against the >= 90% / >= 80% targets); whole-repository
 coverage including the pipeline/CLI research scripts carries a separate local regression floor of
 ~35% in `pyproject.toml` (not enforced in CI), since those executable scripts are validated by
 the integration and
-data/benchmark CI gates rather than by unit coverage (see `.coveragerc.library`). The open Gold
-gaps are the same multi-person criteria
-plus per-file SPDX/copyright headers (`license_per_file`), deferred until a second
-contributor lands. Progress is tracked in `ROADMAP.md`; full criteria mapping is in
+data/benchmark CI gates rather than by unit coverage (see `.coveragerc.library`). The Gold
+gaps are the same multi-person criteria plus per-file SPDX/copyright headers
+(`license_per_file`), likewise not pursued. The declined-tier position is recorded in `ROADMAP.md`; full criteria mapping is in
 `docs/openssf_best_practices_readiness.md`.
 
 ---

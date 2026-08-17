@@ -12,7 +12,7 @@ The system is organized as two model tracks under a single reproducible Snakemak
 - **Production track (validated):** a Random Forest / XGBoost ensemble over a 31-feature structural representation (canonical `mode_31`). This is the maintained, benchmarked scorer.
 - **Research track (gated):** a graph neural network (GINEConv + ESM-2 residue embeddings) that fuses a peptide residue graph with the same physicochemical features. It is the v2.0 forward architecture and is held to explicit promotion gates before it can become canonical.
 
-SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) with a documented roadmap toward the Silver and Gold tiers (see Security and Compliance Posture). All results reported here are computational; no wet-lab efficacy is claimed. The end-to-end design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191), which is the project's intended terminal tier - Silver and Gold require multi-person criteria that a solo-maintained project cannot meet (see Security and Compliance Posture). All results reported here are computational; no wet-lab efficacy is claimed. The end-to-end design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ### Start here
 
@@ -84,10 +84,13 @@ SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data p
 | Tier | Status | Evidence and remaining gap |
 |---|---|---|
 | **Passing** | Attained ([project 13191](https://www.bestpractices.dev/projects/13191)) | Full criteria-to-evidence mapping in `docs/openssf_best_practices_readiness.md`. |
-| **Silver** | Substantially met | Documented governance, library-scope CI coverage gating (the whole-repo floor is a local check), Sigstore-signed release artifacts, and a published threat model are in place. Remaining gap: the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. |
-| **Gold** | Coverage targets met; in progress | Library-scope statement and branch coverage already clear the Gold thresholds (>= 90% statement, >= 80% branch; currently ~99% / ~98%). Remaining gaps: the multi-person criteria above, plus per-file SPDX/copyright headers (`license_per_file`), deferred until a second contributor lands so authorship is attributed accurately. |
+| **Silver** | **Not pursued** - unattainable while solo-maintained | The non-multi-person criteria are in place (documented governance, library-scope CI coverage gating, Sigstore-signed release artifacts, published threat model). The blocking gap is the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. SESTRAV has one maintainer and no plan to add another, so this tier is **declined, not deferred**. |
+| **Gold** | **Not pursued** - same blocker | Library-scope statement and branch coverage already clear the Gold thresholds (>= 90% statement, >= 80% branch; currently ~99% / ~98%), and that measurement stands on its own merits. But Gold requires the same multi-person criteria as Silver, plus per-file SPDX/copyright headers (`license_per_file`). Declined for the same reason. |
 
-Tier progress is tracked in `ROADMAP.md`; governance and assurance evidence is in `docs/threat_model.md` and `GOVERNANCE.md`.
+**Passing is the attained and intended terminal tier.** The Silver and Gold criteria that
+SESTRAV *does* satisfy are documented because they are worth doing - not as progress toward
+a badge the project cannot earn. See `BUS_FACTOR.md` for the honest bus-factor position and
+`docs/threat_model.md` / `GOVERNANCE.md` for the governance and assurance evidence.
 
 Coverage is measured at two scopes, deliberately, and the two numbers are not the same: unit
 statement/branch coverage on the importable library surface (currently ~99% / ~98%, clearing the
