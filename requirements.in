@@ -18,7 +18,7 @@ mhcflurry==2.2.1
 # a uv override file to resolve at all; torch 2.13.0 raised that cap to
 # `setuptools>=77.0.3`, so the pin now resolves normally and overrides.txt has
 # been retired.
-setuptools==83.0.0
+setuptools==84.0.0
 
 # Plotting and explainability
 matplotlib==3.11.1
