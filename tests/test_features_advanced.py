@@ -196,6 +196,12 @@ class TestComputeWeisfeilerLehmanFeatures:
         assert wl.shape == (32,)
 
     def test_deterministic(self):
+        """In-process determinism only. See test_wl_features_are_stable_across_processes.
+
+        This assertion held even while WL features were re-randomised on every
+        interpreter launch, because CPython's hash salt is fixed within a process.
+        It is kept as a cheap smoke check, not as the determinism gate.
+        """
         G = self._graph(7)
         wl1 = compute_weisfeiler_lehman_features(G)
         wl2 = compute_weisfeiler_lehman_features(G)
@@ -212,6 +218,70 @@ class TestComputeWeisfeilerLehmanFeatures:
         wl1 = compute_weisfeiler_lehman_features(G1)
         wl2 = compute_weisfeiler_lehman_features(G2)
         assert not np.array_equal(wl1, wl2)
+
+
+# ---------------------------------------------------------------------------
+# WL cross-process determinism
+# ---------------------------------------------------------------------------
+# The node-colour hash must not be CPython's builtin hash(), which is salted per
+# interpreter via PYTHONHASHSEED. While it was, a model trained in one process and
+# scored in another saw different graph_wl_* features, and the in-process
+# test_deterministic above passed throughout.
+#
+# The seeds below are deliberately DIFFERENT from each other. Pinning PYTHONHASHSEED
+# to one value here (or in pytest.ini / ci.yml) would make a reintroduced hash() look
+# stable and hide exactly the defect this test exists to catch.
+
+_WL_PROBE = """
+import sys
+sys.path.insert(0, sys.argv[1])
+import networkx as nx
+from src.features import (
+    compute_wl_features,
+    compute_weisfeiler_lehman_features,
+    get_cb_cb_edges,
+)
+
+peptide = "GLFYTRTGL"
+production = compute_wl_features(peptide, get_cb_cb_edges(len(peptide)))
+
+G = nx.path_graph(6)
+for node in G.nodes():
+    G.nodes[node]["x"] = str(node % 3)
+kernel = compute_weisfeiler_lehman_features(G)
+
+print(",".join(str(int(v)) for v in list(production) + list(kernel)))
+"""
+
+
+@pytest.mark.parametrize("seeds", [("1", "2"), ("0", "12345")], ids=["1v2", "0v12345"])
+def test_wl_features_are_stable_across_processes(seeds):
+    """Both WL paths must yield identical vectors under different hash seeds."""
+    import os
+    import subprocess
+    from pathlib import Path
+
+    repo_root = str(Path(__file__).resolve().parents[1])
+
+    outputs = []
+    for seed in seeds:
+        env = dict(os.environ, PYTHONHASHSEED=seed, CUDA_VISIBLE_DEVICES="")
+        proc = subprocess.run(
+            [sys.executable, "-c", _WL_PROBE, repo_root],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=repo_root,
+            timeout=300,
+        )
+        assert proc.returncode == 0, f"probe failed (seed {seed}): {proc.stderr}"
+        outputs.append(proc.stdout.strip().splitlines()[-1])
+
+    assert outputs[0] == outputs[1], (
+        f"WL features changed across processes: PYTHONHASHSEED={seeds[0]} gave "
+        f"{outputs[0]}, PYTHONHASHSEED={seeds[1]} gave {outputs[1]}"
+    )
+    assert outputs[0].count(",") == 63  # 32 production + 32 kernel values
 
 
 # ---------------------------------------------------------------------------
