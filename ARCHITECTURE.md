@@ -374,11 +374,13 @@ independent extension. These are documented as forward work rather than shipped 
 - **Training data:** `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total),
   derived from curated IEDB-linked immunogenicity evidence plus hard, self-proteome
   central-tolerance decoy negatives. **All 5,000 self-proteome decoys are quarantined**, so they
-  are present in the 51,185-row file but absent from the 35,597-row active pool that the pooled
-  and per-virus v5 cross-validation metrics are measured on. **The LOO evaluation is the
-  deliberate exception:** `scripts/run_loo_cross_virus_v5.py` partitions `source_type == "Self"`
-  out *before* the quarantine filter and includes all 5,000 in LOO training regardless, so the
-  certified LOO mean 0.463 does train on them (D19). The Tier A figures are measured on a
+  are present in the 51,185-row file but absent from the 35,597-row active pool the pooled and
+  per-virus v5 cross-validation metrics are drawn from. (Those metrics are measured on the
+  35,555 rows that remain once the 42 gold-standard holdout records are withheld; no decoy sits
+  in either figure.) **The LOO evaluation is the deliberate exception:**
+  `scripts/run_loo_cross_virus_v5.py` partitions `source_type == "Self"` out *before* the
+  quarantine filter and includes all 5,000 self-proteome decoys in LOO training regardless, so
+  the certified LOO mean 0.463 does train on them (D19). The Tier A figures are measured on a
   different 704-peptide field entirely. Provenance is in `docs/data_registry.md`.
 - **Binding matrix:** `models/peptide_binding_matrix_v5.csv` provides per-allele MHCflurry
   scores for the 10-allele panel.
