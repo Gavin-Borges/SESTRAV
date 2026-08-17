@@ -141,6 +141,12 @@ jobs:
         # audit on 2026-08-14 found seven distributions imported at module scope
         # in the packaged trees and declared nowhere, including biopython and
         # mhcflurry, which `sestrav predict` reaches through stages 1 and 2.
+        #
+        # All four functions/stage*.py modules are imported below, not just
+        # stage 1. Until 2026-08-16 this step only proved stage 1 importable,
+        # which is why an eighth undeclared dependency (matplotlib, reached
+        # only via stage 4's score_immunogenicity()) passed here silently -
+        # `sestrav predict` would have died on it after clearing this gate.
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
@@ -161,7 +167,13 @@ jobs:
               sys.exit(1)
           print("import sestrav OK", sestrav.__version__)
           PY
-          /tmp/relcheck/bin/python -c "import functions.stage1_peptide_generation; print('import functions OK')"
+          /tmp/relcheck/bin/python -c "
+          import functions.stage1_peptide_generation
+          import functions.stage2_mhc_binding_prediction
+          import functions.stage3_tcr_feature_extraction
+          import functions.stage4_immunogenicity_scoring
+          print('import functions.stage1-4 OK')
+          "
           /tmp/relcheck/bin/python -c "import src.cli; print('import src.cli OK')"
           /tmp/relcheck/bin/sestrav --help > /dev/null
           echo "sestrav --help OK"
@@ -266,6 +278,12 @@ jobs:
             exit 1
           fi
           python -c "import sestrav; print('sestrav import OK', sestrav.__version__)"
-          python -c "import functions.stage1_peptide_generation; print('functions import OK')"
+          python -c "
+          import functions.stage1_peptide_generation
+          import functions.stage2_mhc_binding_prediction
+          import functions.stage3_tcr_feature_extraction
+          import functions.stage4_immunogenicity_scoring
+          print('functions.stage1-4 import OK')
+          "
           sestrav --help > /dev/null
           echo "sestrav --help OK"

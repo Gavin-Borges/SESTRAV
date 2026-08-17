@@ -70,6 +70,17 @@ dependencies = [
     #              rather than the gnn extra because the caller is
     #              src/train_classifier, not a GNN-only path.
     "networkx>=3.0",
+    # Added 2026-08-16, the eighth instance of the class the 2026-08-14 audit above
+    # was meant to close. That audit checked whether a package was declared
+    # ANYWHERE in this file, not in [project].dependencies specifically, so
+    # matplotlib passed it silently by being declared only in the `demo` extra
+    # below - the wrong scope for a module `sestrav predict` reaches unconditionally.
+    #   matplotlib functions/stage4_immunogenicity_scoring.py imports it at
+    #              module scope (`matplotlib.use("Agg")` / `pyplot as plt`) and
+    #              score_immunogenicity() always writes two PNGs to results/ at
+    #              the end of every run - not gated behind a flag. Reached by
+    #              `sestrav predict`, the flagship command, via stage 4.
+    "matplotlib>=3.8.0",
 ]
 
 [project.optional-dependencies]
@@ -101,7 +112,10 @@ api = [
 demo = [
     "streamlit>=1.35.0",
     "shap>=0.44.0",
-    "matplotlib>=3.8.0",
+    # matplotlib moved to [project].dependencies 2026-08-16 - it was already a
+    # hard requirement of the core predict path, not demo-specific. Listing it
+    # here too would be a harmless duplicate; omitted so this extra only
+    # names packages genuinely exclusive to it.
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "pydantic>=2.0.0",
@@ -188,10 +202,16 @@ skip_covered = false
 # Honest hard floor. Corrected 2026-08-11: this comment previously read "the suite
 # measured 34.37% branch-inclusive coverage on 2026-06-22 ... a hair under this
 # floor". Both halves were retracted on 2026-08-08 (20687e0) - the figure was wrong
-# by 13.5 points and the direction was backwards. The measurement is 47.88%
-# branch-inclusive (2026-08-08), so this floor is CLEARED, not missed. CHANGELOG.md
-# recorded that correction as landing in three named locations; this config comment
-# was a fourth site and was missed. See docs/claims_register.md D6.
+# by 13.5 points and the direction was backwards. The measurement is 49.36%
+# branch-inclusive (2026-08-16, at a336360), so this floor is CLEARED, not missed.
+# CHANGELOG.md recorded that correction as landing in three named locations; this
+# config comment was a fourth site and was missed. See docs/claims_register.md D6.
+# Updated 2026-08-16, and the same fourth-site miss recurred verbatim: the 2026-08-15
+# re-measurement (49.71%) was written into D6's register row alone while this comment,
+# ROADMAP.md and docs/security_compliance.md all kept asserting 47.88% as current -
+# the very failure the sentence above records happening to the PREVIOUS correction of
+# this same number. The figure moves with ordinary development (47.88 -> 49.71 ->
+# 49.36 in nine days); re-measure it, never carry it forward.
 # This gate prevents regressions and is local-DX only, not a CI/badge gate. The
 # CI-enforced gate is fail_under = 95 in .coveragerc.library. It is deliberately NOT
 # the OpenSSF Silver target of 80%;
