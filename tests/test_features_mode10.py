@@ -1,8 +1,9 @@
 """Tests for FEATURE_COLUMNS_10 and prepare_features_10 in train_classifier.
 
-Mode 10 is the binding-only ablation (SCI-BO): the converse of mode 21
-(physico-only, no binding). It isolates the 10 per-allele MHCflurry
-presentation scores with no physicochemistry and no peptide_length.
+Mode 10 is the binding-only ablation: the exact converse of mode 21 (physico-only,
+no binding). It isolates the 10 per-allele MHCflurry presentation scores with no
+physicochemistry and no peptide_length, so that the contribution of binding alone
+can be measured on the same peptide-grouped CV path as the other arms.
 """
 
 import numpy as np
@@ -28,6 +29,24 @@ def test_feature_columns_10_has_no_physico_or_length():
     assert "peptide_length" not in FEATURE_COLUMNS_10
     for col in FEATURE_COLUMNS_10:
         assert col.startswith("bind_"), f"Unexpected non-binding column: {col}"
+
+
+def test_mode_10_and_mode_21_partition_mode_31_exactly():
+    """The "exact converse" claim in src/features.py is checked, not just asserted in prose.
+
+    Mode 10 (binding-only) and mode 21 (physico-only, TRAIN_FEATURE_COLUMNS) must be
+    disjoint and together account for every mode-31 column. If this ever fails, the two
+    ablation arms overlap or leave a gap, and neither one measures what its name claims.
+    """
+    from src.features import FEATURE_COLUMNS_31, TRAIN_FEATURE_COLUMNS
+
+    mode_10, mode_21 = set(FEATURE_COLUMNS_10), set(TRAIN_FEATURE_COLUMNS)
+    assert mode_10 & mode_21 == set(), f"arms overlap on: {sorted(mode_10 & mode_21)}"
+    assert mode_10 | mode_21 == set(FEATURE_COLUMNS_31), (
+        f"arms do not sum to mode 31; missing: {sorted(set(FEATURE_COLUMNS_31) - (mode_10 | mode_21))}, "
+        f"extra: {sorted((mode_10 | mode_21) - set(FEATURE_COLUMNS_31))}"
+    )
+    assert len(FEATURE_COLUMNS_10) + len(TRAIN_FEATURE_COLUMNS) == len(FEATURE_COLUMNS_31)
 
 
 def _make_minimal_train_df():

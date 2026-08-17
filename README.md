@@ -339,7 +339,8 @@ python -m src.train_classifier \
   --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights
 
-# CLI equivalent
+# Same artifact set via the CLI - but NOT the same cross-validation.
+# This path uses the UNGROUPED splitter; see the note below the block.
 sestrav validate \
   --dataset data/immunogenicity_dataset_v5.csv \
   --model-dir models/local \
@@ -349,12 +350,24 @@ sestrav validate \
   --report results/validation_report_v5.md
 ```
 
-**Training cost, measured 2026-08-16 at `3451cad`:** the command above (both RF and XGBoost, full
-5-fold peptide-grouped CV plus the final retrain) completed in **54 seconds wall-clock** against the
-51,185-row `data/immunogenicity_dataset_v5.csv`, on a single logical CPU core - the committed defaults
-are `RandomForestClassifier(n_jobs=1)` and `XGBClassifier(nthread=1)`, so this figure does not depend
-on how many cores the host machine has. No GPU is used by this training path. Re-measure if either
-default changes.
+**Training cost, measured 2026-08-16 at `3451cad`:** the `python -m src.train_classifier` command
+above (both RF and XGBoost, full 5-fold peptide-grouped CV plus the final retrain) completed in
+**54 seconds wall-clock** on `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total;
+35,555 rows actually enter training, after the 42 gold-standard epitopes are held out). It ran on a
+single logical CPU core - the committed defaults are `RandomForestClassifier(n_jobs=1)` and
+`XGBClassifier(nthread=1)`, so this figure does not depend on how many cores the host machine has.
+No GPU is used by this training path. Re-measure if either default changes.
+
+> **The two commands above are not equivalent, despite the label.** `python -m src.train_classifier`
+> defaults to the **peptide-grouped** splitter, but `sestrav validate` does not pass `cv_group_by` at
+> all, so it falls through to the **ungrouped** `MultiStratifiedKFold` - the splitter whose
+> peptide leakage `docs/claims_register.md` D15 retracted a headline figure over, and which the
+> trainer's own runtime banner labels `UNGROUPED (peptide leakage: docs/claims_register.md D15)`.
+> The two therefore report different cross-validation numbers for the same inputs, and
+> `sestrav validate` exposes no flag to select the grouped splitter. **Do not cite `sestrav validate`
+> CV output as comparable to any peptide-grouped figure in this README.** Recorded 2026-08-17;
+> whether to change what the shipped command computes is a behaviour change and is tracked
+> separately rather than patched here.
 
 `--model-dir` is required and has no default for both `src.train_classifier` and
 `sestrav validate` (which retrains, so it writes the same artifact set). A run
