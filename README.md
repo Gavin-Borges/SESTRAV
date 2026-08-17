@@ -14,6 +14,25 @@ The system is organized as two model tracks under a single reproducible Snakemak
 
 SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) with a documented roadmap toward the Silver and Gold tiers (see Security and Compliance Posture). All results reported here are computational; no wet-lab efficacy is claimed. The end-to-end design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
+### Start here
+
+*Orientation only. Every figure lives in the sections below, and nothing is restated here, so this block cannot drift out of step with them.*
+
+**Who it is for.** Researchers selecting CD8+ T-cell epitope candidates from a viral proteome for downstream wet-lab screening, and anyone benchmarking immunogenicity predictors who wants a governed, auditable pipeline to compare against.
+
+**What it does.** Ranks peptides from a proteome by predicted immunogenicity **within one pathogen at a time**. It is scoped for within-virus prioritization, not cross-virus transfer - the leave-one-virus-out results below quantify exactly where that boundary is, and they are reported in full rather than summarized favourably.
+
+**What to expect before you start.** There is **no pre-trained model in this repository** - `models/` ships no `.joblib`, deliberately, because an unlabeled checkpoint is a provenance risk this project has been bitten by twice. So the first run is a training run, not a prediction run, and it is not a five-minute exercise. [`USAGE.md`](USAGE.md) walks the path in order.
+
+**Where to go next.**
+
+| You want to... | Go to |
+|---|---|
+| Run it | [Quick Start](#quick-start), then [`USAGE.md`](USAGE.md) |
+| Judge the evidence | External Benchmark Results, and [`docs/claims_register.md`](docs/claims_register.md) for the scope boundary on every certified number |
+| Understand the design | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Know the limits | [`docs/limitations_statement_v1.md`](docs/limitations_statement_v1.md), and the LOO section below |
+
 ## SESTRAV vs Field
 
 | Capability | SESTRAV | PredIG | PRIME | NetMHCpan | pVACtools |
