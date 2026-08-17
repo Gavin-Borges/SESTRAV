@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Generator
+from typing import TypeVar
 
 import numpy as np
 import pandas as pd
@@ -42,6 +43,40 @@ _LENGTH_OTHER: str = "other"
 _SUPERTYPE_UNKNOWN: str = "unk"
 
 STRATUM_COMPONENTS: tuple[str, str, str, str] = ("label", "origin", "supertype", "length")
+
+EstimatorT = TypeVar("EstimatorT")
+
+
+def pin_serial_scoring(model: EstimatorT) -> EstimatorT:
+    """Force single-threaded scoring on an already-fitted estimator.
+
+    Tree construction is invariant to ``n_jobs`` (each tree is seeded from
+    ``random_state`` before dispatch), but RandomForest's threaded
+    ``predict_proba`` accumulates per-tree votes into a shared buffer in
+    whatever order the threads finish. Float addition is not associative, so
+    the same fitted forest can yield scores differing by ~1 ULP run to run,
+    which moves auc_pr and auc_roc in the 9th decimal by flipping the order
+    of near-tied scores. Verified (``tests/test_ml_utils.py``): fitting with
+    all cores and scoring with one is bit-identical to a fully serial run.
+
+    Fit with ``n_jobs=-1``, call this, then predict. XGBoost's ``hist``
+    builder is thread-count invariant regardless of ``nthread``/``n_jobs``
+    (also verified, same test module) - it is pinned here anyway rather than
+    left to rely on that invariance holding across future XGBoost versions.
+    ``setattr`` does not reliably reach XGBoost's threading params (its
+    sklearn wrapper stores ``nthread`` as a passthrough kwarg, invisible to
+    plain attribute access until routed through ``set_params``), so this
+    goes through the estimator's own ``get_params``/``set_params`` rather
+    than raw attribute assignment.
+    """
+    if not hasattr(model, "get_params"):
+        return model
+    params = model.get_params()
+    to_pin = {name: 1 for name in ("n_jobs", "nthread") if name in params}
+    if to_pin:
+        model.set_params(**to_pin)  # type: ignore[attr-defined]
+    return model
+
 
 # Coarsening ladder, finest first. Length is dropped before supertype: length
 # is the weakest balance requirement of the four, while origin and supertype

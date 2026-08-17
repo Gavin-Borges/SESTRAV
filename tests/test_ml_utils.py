@@ -4,6 +4,8 @@ Covers:
   make_stratification_key    shape, variation on inputs, None handling
   MultiStratifiedKFold       fold count, full coverage, no overlap,
                              fallback to label-only, label balance per fold
+  pin_serial_scoring         bit-identity of parallel-fit + pinned-score against a
+                             fully serial run (RF); XGBoost nthread invariance
 """
 
 from __future__ import annotations
@@ -11,8 +13,16 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.datasets import make_classification
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 
-from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold, make_stratification_key
+from src.ml_utils import (
+    MultiStratifiedKFold,
+    PeptideGroupedKFold,
+    make_stratification_key,
+    pin_serial_scoring,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +377,127 @@ def test_peptide_grouped_kfold_deterministic() -> None:
         for tr, te in pgkf_b.split(np.zeros((n, 1)), labels, origins, alleles, peptides)
     ]
     assert folds_a == folds_b
+
+
+# ---------------------------------------------------------------------------
+# pin_serial_scoring
+# ---------------------------------------------------------------------------
+#
+# n_jobs=-1 fitting is a production behaviour change (N11): trees are grown in
+# parallel, which is invariant given random_state, but RandomForest's threaded
+# predict_proba accumulates per-tree votes into a shared buffer in whatever
+# order the worker threads finish, and float addition is not associative.
+# pin_serial_scoring exists to force scoring back to single-threaded so the
+# shipped artifact's predictions are reproducible. These tests bind the two
+# empirical claims the adoption depended on, so a future change that breaks
+# either is caught rather than silently shipped.
+
+
+def _classification_fixture() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """A fixed synthetic dataset sized to exercise real threaded fit/score,
+    not a toy that finishes before any thread contention could occur."""
+    X, y = make_classification(
+        n_samples=1500,
+        n_features=20,
+        n_informative=12,
+        n_redundant=4,
+        n_clusters_per_class=3,
+        class_sep=0.5,
+        random_state=42,
+    )
+    X_train, X_test = X[:1100], X[1100:]
+    y_train = y[:1100]
+    return X_train, y_train, X_test
+
+
+def test_pin_serial_scoring_sets_n_jobs_to_one_and_returns_same_object() -> None:
+    clf = RandomForestClassifier(n_estimators=10, n_jobs=-1, random_state=0)
+    returned = pin_serial_scoring(clf)
+    assert returned is clf
+    assert clf.n_jobs == 1
+
+
+def test_pin_serial_scoring_leaves_models_without_n_jobs_unchanged() -> None:
+    class NoNJobs:
+        pass
+
+    obj = NoNJobs()
+    assert pin_serial_scoring(obj) is obj
+    assert not hasattr(obj, "n_jobs")
+
+
+def test_pin_serial_scoring_rf_bit_identical_to_fully_serial() -> None:
+    """The N11 adoption claim: fit with n_jobs=-1, pin, predict -> identical to
+    a fully serial (n_jobs=1 throughout) run. Exact equality, not np.allclose -
+    the whole point is that no bit differs."""
+    X_train, y_train, X_test = _classification_fixture()
+
+    serial = RandomForestClassifier(
+        n_estimators=200, class_weight="balanced", random_state=42, n_jobs=1
+    )
+    serial.fit(X_train, y_train)
+    serial_scores = serial.predict_proba(X_test)[:, 1]
+
+    parallel_fit = RandomForestClassifier(
+        n_estimators=200, class_weight="balanced", random_state=42, n_jobs=-1
+    )
+    parallel_fit.fit(X_train, y_train)
+    pin_serial_scoring(parallel_fit)
+    pinned_scores = parallel_fit.predict_proba(X_test)[:, 1]
+
+    assert np.array_equal(serial_scores, pinned_scores)
+
+
+def test_pin_serial_scoring_rf_pinned_scoring_reproducible_across_runs() -> None:
+    """Pinned scoring must be reproducible against itself, run to run - the
+    property parallel scoring is not guaranteed to have."""
+    X_train, y_train, X_test = _classification_fixture()
+    runs = []
+    for _ in range(3):
+        clf = RandomForestClassifier(
+            n_estimators=200, class_weight="balanced", random_state=42, n_jobs=-1
+        )
+        clf.fit(X_train, y_train)
+        pin_serial_scoring(clf)
+        runs.append(clf.predict_proba(X_test)[:, 1])
+    assert np.array_equal(runs[0], runs[1])
+    assert np.array_equal(runs[1], runs[2])
+
+
+def test_pin_serial_scoring_pins_xgboost_nthread_via_set_params() -> None:
+    """N11-b: the original patch only touched n_jobs, leaving XGBoost's
+    nthread flip unpinned. Confirms the fix actually reaches nthread - plain
+    setattr does not (nthread is a passthrough kwarg, invisible to hasattr
+    until routed through get_params/set_params)."""
+    clf = XGBClassifier(n_estimators=10, nthread=-1, random_state=0)
+    assert clf.get_params()["nthread"] == -1
+    pin_serial_scoring(clf)
+    assert clf.get_params()["nthread"] == 1
+    assert clf.get_params()["n_jobs"] == 1
+
+
+def test_xgboost_nthread_does_not_change_predictions() -> None:
+    """Binds the docstring's second claim: XGBoost's hist builder is
+    thread-count invariant, so pin_serial_scoring's no-op on XGBClassifier
+    (nthread, not n_jobs, controls its threading) is safe. If a future
+    XGBoost upgrade breaks this invariance, this test is what catches it -
+    not a docstring nobody re-runs."""
+    X_train, y_train, X_test = _classification_fixture()
+
+    def _fit_score(nthread: int) -> np.ndarray:
+        clf = XGBClassifier(
+            n_estimators=200,
+            random_state=42,
+            eval_metric="aucpr",
+            objective="binary:logistic",
+            nthread=nthread,
+        )
+        clf.fit(X_train, y_train)
+        return clf.predict_proba(X_test)[:, 1]
+
+    serial_scores = _fit_score(1)
+    parallel_scores = _fit_score(-1)
+    assert np.array_equal(serial_scores, parallel_scores)
 
 
 def test_peptide_grouped_kfold_none_optional_args() -> None:

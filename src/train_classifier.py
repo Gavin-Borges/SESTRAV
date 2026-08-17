@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from src.artifact_guard import guard_planned_paths
-from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold
+from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold, pin_serial_scoring
 from xgboost import XGBClassifier
 from joblib import dump
 
@@ -563,6 +563,7 @@ def _cross_validate(
 
         model = model_cls(**model_kwargs)
         model.fit(X_tr, y_tr, sample_weight=sw_tr)
+        pin_serial_scoring(model)
         scores = model.predict_proba(X_val)[:, 1]
         m = evaluate(y_val, scores)
         fold_metrics.append(m)
@@ -911,7 +912,7 @@ def train_models(
         n_estimators=200,
         class_weight="balanced",
         random_state=random_state,
-        n_jobs=1,
+        n_jobs=-1,
     )
     xgb_kwargs = dict(
         n_estimators=200,
@@ -919,7 +920,7 @@ def train_models(
         random_state=random_state,
         eval_metric="aucpr",
         objective="binary:logistic",
-        nthread=1,
+        nthread=-1,
     )
 
     print(f"\n{'=' * 60}")
@@ -981,6 +982,9 @@ def train_models(
 
     rf_final = RandomForestClassifier(**rf_kwargs)
     rf_final.fit(X, y)
+    # Pinned before dump: n_jobs is pickled with the forest, so an unpinned
+    # artifact would score nondeterministically for every downstream consumer.
+    pin_serial_scoring(rf_final)
     rf_path = os.path.join(model_dir, f"{rf_stem}.joblib")
     dump(rf_final, rf_path)
     print(f"  RandomForest saved to {rf_path}")

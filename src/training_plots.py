@@ -27,6 +27,7 @@ from xgboost import XGBClassifier
 
 from src.train_classifier import prepare_features, prepare_features_30
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.ml_utils import pin_serial_scoring
 
 
 def generate_training_plots(
@@ -66,7 +67,7 @@ def generate_training_plots(
     models = {
         "RF": (
             RandomForestClassifier,
-            dict(n_estimators=200, class_weight="balanced", random_state=random_state, n_jobs=1),
+            dict(n_estimators=200, class_weight="balanced", random_state=random_state, n_jobs=-1),
         ),
         "XGB": (
             XGBClassifier,
@@ -75,7 +76,7 @@ def generate_training_plots(
                 scale_pos_weight=spw,
                 random_state=random_state,
                 eval_metric="logloss",
-                nthread=1,
+                nthread=-1,
             ),
         ),
     }
@@ -93,6 +94,7 @@ def generate_training_plots(
         for name, (cls, kwargs) in models.items():
             model = cls(**kwargs)
             model.fit(X_tr, y_tr)
+            pin_serial_scoring(model)
             scores = model.predict_proba(X_val)[:, 1]
             all_preds[name]["y_true"].extend(y_val)
             all_preds[name]["y_score"].extend(scores)
