@@ -33,6 +33,17 @@ import random
 import sys
 import time
 from pathlib import Path
+
+# `pipeline.py` lives at the repo root and is not packaged (pyproject's `include` covers
+# sestrav*/src*/functions* only), so importing it needs the root on sys.path. Running this
+# file as a script puts `<repo>/scripts` on sys.path[0], never the repo root - so the import
+# fails even when launched from the root. Every live trial imports `pipeline.run_pipeline`,
+# so without this the runner raised ModuleNotFoundError: No module named 'pipeline' on 100%
+# of live trials while --dry-run stayed green - the dry-run path returns before that import.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import pandas as pd
 
 # Configure structured logging
