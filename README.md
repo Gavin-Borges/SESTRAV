@@ -349,6 +349,13 @@ sestrav validate \
   --report results/validation_report_v5.md
 ```
 
+**Training cost, measured 2026-08-16 at `3451cad`:** the command above (both RF and XGBoost, full
+5-fold peptide-grouped CV plus the final retrain) completed in **54 seconds wall-clock** against the
+51,185-row `data/immunogenicity_dataset_v5.csv`, on a single logical CPU core - the committed defaults
+are `RandomForestClassifier(n_jobs=1)` and `XGBClassifier(nthread=1)`, so this figure does not depend
+on how many cores the host machine has. No GPU is used by this training path. Re-measure if either
+default changes.
+
 `--model-dir` is required and has no default for both `src.train_classifier` and
 `sestrav validate` (which retrains, so it writes the same artifact set). A run
 aborts before training if it would replace artifacts that already exist in the
