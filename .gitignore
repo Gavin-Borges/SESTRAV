@@ -508,6 +508,10 @@ src.zip
 *.dist.zip
 *_artifacts.zip
 
+# sdist build/extract byproducts left at repo root by `python -m build` or a
+# manual tarball extraction (e.g. sestrav-2.0.3/) - regenerable, not source.
+/sestrav-*/
+
 # Prompt artifact files and directories
 prompts/
 *.prompt.md
