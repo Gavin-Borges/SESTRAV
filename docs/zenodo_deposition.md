@@ -1,8 +1,10 @@
 # Zenodo Dataset Deposition - SESTRAV Immunogenicity Dataset v5
 
 This is a ready-to-use record for minting the dataset DOI referenced in the manuscript
-(Data Availability section). The dataset CSV is intentionally **not** tracked in Git, so the DOI is a
-**standalone Zenodo dataset deposition** (manual upload), not a GitHub-release archive.
+(Data Availability section). The three files below **are** tracked in the SESTRAV Git repository
+(since `dcbb1b1`, 2026-06-26); this deposition additionally mints a permanent, citable Zenodo DOI for
+the dataset, independent of repository/release history. *(Corrected 2026-08-17: this previously said
+the CSV was "intentionally not tracked in Git" - that was false as of the same commit that added it.)*
 
 **What remains manual (lead maintainer):** create the Zenodo deposition under the project
 account, upload the three files below, paste the metadata, confirm the license, and publish.
@@ -19,18 +21,24 @@ in a numbered `## 5. Availability` section) - same open item, new location and w
 
 ## 1. Files to upload (deposition bundle)
 
+**Platform note (added 2026-08-17):** the hashes below are computed against the canonical Git blob
+(LF line endings), which is what any properly configured clone - Linux, CI, or a Windows clone with
+`.gitattributes`' `eol=lf` pin honored - produces on checkout. `.gitattributes` now pins `eol=lf` for
+all three files. If `sha256sum -c` fails, re-run `git checkout HEAD -- <file>` first: an already
+checked-out working copy is not retroactively rewritten by a `.gitattributes` change alone.
+
 | File | Role | SHA-256 |
 |---|---|---|
-| `data/immunogenicity_dataset_v5.csv` | Dataset (51,185 rows total; 35,597 active / non-quarantined) | `1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7` |
-| `data/immunogenicity_dataset_v5_schema.json` | Column schema / validation contract | `92452c4342402df20e377f9ac6cf7fff798a4c51c0abb57a6f05fca5d0f5d023` |
-| `data/immunogenicity_dataset_v5_provenance.json` | Build provenance (sources, git SHA, counts) | `13ef427d32fb212128083dbb92fe8879505572bcf3c48388152338a2bf415f08` |
+| `data/immunogenicity_dataset_v5.csv` | Dataset (51,185 rows total; 35,597 active / non-quarantined) | `6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4` |
+| `data/immunogenicity_dataset_v5_schema.json` | Column schema / validation contract | `f0a1f69baa3c6feb380effbf9b73c69f76cc3e839096ea40ab4ebcd38db640d7` |
+| `data/immunogenicity_dataset_v5_provenance.json` | Build provenance (sources, git SHA, counts) | `93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329` |
 
 Verify before upload:
 ```bash
 sha256sum -c <<'EOF'
-1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7  data/immunogenicity_dataset_v5.csv
-92452c4342402df20e377f9ac6cf7fff798a4c51c0abb57a6f05fca5d0f5d023  data/immunogenicity_dataset_v5_schema.json
-13ef427d32fb212128083dbb92fe8879505572bcf3c48388152338a2bf415f08  data/immunogenicity_dataset_v5_provenance.json
+6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4  data/immunogenicity_dataset_v5.csv
+f0a1f69baa3c6feb380effbf9b73c69f76cc3e839096ea40ab4ebcd38db640d7  data/immunogenicity_dataset_v5_schema.json
+93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329  data/immunogenicity_dataset_v5_provenance.json
 EOF
 ```
 
