@@ -991,6 +991,12 @@ def train_models(
 
     xgb_final = XGBClassifier(**xgb_kwargs)
     xgb_final.fit(X, y)
+    # Pinned before dump for the same reason as the forest above: nthread is
+    # pickled with the booster, so an unpinned artifact would carry nthread=-1
+    # to every downstream consumer. pin_serial_scoring's own contract is to pin
+    # XGBoost rather than rely on hist's thread-count invariance holding across
+    # future releases; leaving the final booster out of it contradicted that.
+    pin_serial_scoring(xgb_final)
     xgb_path = os.path.join(model_dir, f"{xgb_stem}.joblib")
     dump(xgb_final, xgb_path)
     print(f"  XGBoost saved to {xgb_path}")

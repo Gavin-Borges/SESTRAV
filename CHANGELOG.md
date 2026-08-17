@@ -528,9 +528,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **The bit-identity property is bound as a test, not asserted in a docstring**
     (`tests/test_ml_utils.py`): parallel-fit-plus-pinned-score is verified byte-equal to a fully
     serial run, pinned scoring is verified reproducible across repeated runs, and XGBoost's
-    thread-count invariance is verified rather than assumed. An end-to-end run reproduced
-    `auc_roc=0.8093 / auc_pr=0.5987`, matching the single-core run of the same configuration to four
-    decimal places.
+    thread-count invariance is verified rather than assumed. An end-to-end run agreed with the
+    single-core run of the same configuration to four decimal places on every reported metric.
+    - **Corrected 2026-08-17:** this entry quoted that agreement as `auc_roc=0.8093 / auc_pr=0.5987`.
+      The pair was unbound (gitignored `models/local/`) and disagreed with the certified ledger, which
+      records RF 0.8137 / 0.6058 and XGB 0.8093 / 0.5597 in
+      `models/v5/training_results_mode31.csv` - `0.5987` matches neither estimator. The number is
+      withdrawn; the property it illustrated is carried by the test, which is where it belongs.
   - **Documentation re-synchronised in the same change.** `docs/paper.md` Section 2.3 and
     `README.md`'s training-cost paragraph both stated the old single-threaded defaults and were
     false the moment the code changed; README's canonical training figure was **re-measured**

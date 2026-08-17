@@ -158,14 +158,35 @@ def test_the_retired_override_file_is_gone():
     assert not (root / "overrides.txt").exists()
 
 
+# The release that first closed GHSA-h35f-9h28-mq5c. Any setuptools at or above
+# this satisfies the advisory; anything below reopens it.
+SETUPTOOLS_SECURITY_FLOOR = (83, 0, 0)
+
+
+def _setuptools_version(text: str, operator: str) -> tuple[int, ...]:
+    """Version attached to the single `setuptools<operator><version>` requirement line."""
+    prefix = f"setuptools{operator}"
+    matches = [line.strip() for line in text.splitlines() if line.strip().startswith(prefix)]
+    assert len(matches) == 1, f"expected exactly one '{prefix}' line, found {matches}"
+    spec = matches[0][len(prefix) :]
+    for terminator in ("#", ";", ","):
+        spec = spec.split(terminator)[0]
+    return tuple(int(part) for part in spec.strip().split("."))
+
+
 def test_setuptools_floor_survived_the_override_retirement():
     # The floor is the security constraint (GHSA-h35f-9h28-mq5c); the override
     # was only the workaround. Retiring the workaround must not drop the floor.
+    #
+    # Asserted as ">= the advisory floor" rather than against a literal version:
+    # the subject of this test is the advisory, not today's pin, and a hardcoded
+    # "setuptools==83.0.0" made every routine setuptools bump fail a security
+    # test that the bump did not actually violate.
     root = pathlib.Path(update_dependencies.REPO_ROOT)
     runtime = (root / "requirements.in").read_text(encoding="utf-8")
     lock_spec = (root / "environments" / "requirements-lock.in").read_text(encoding="utf-8")
-    assert "setuptools==83.0.0" in runtime
-    assert "setuptools>=83.0.0" in lock_spec
+    assert _setuptools_version(runtime, "==") >= SETUPTOOLS_SECURITY_FLOOR
+    assert _setuptools_version(lock_spec, ">=") >= SETUPTOOLS_SECURITY_FLOOR
 
 
 def test_select_specs_defaults_to_everything():

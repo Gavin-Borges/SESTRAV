@@ -309,8 +309,8 @@ per-tree votes in nondeterministic completion order, and floating-point addition
 associative. Fitting is invariant to thread count given a fixed random seed, so the two
 together reproduce fully serial execution bit-for-bit, which is verified by test rather
 than asserted; identical cross-validation metrics were obtained on 1 and on 32 logical
-cores. The production model was retrained on all 35,597 active training rows after
-cross-validation completed.
+cores. The production model was refitted on the same 35,555-row training pool after
+cross-validation completed; the 42 gold-standard holdout rows are never returned to it.
 
 A supplementary gradient-boosted tree classifier (XGBoost; [21]) was trained on
 identical feature matrices and cross-validation partitions. The configuration comprised
@@ -549,7 +549,8 @@ and peptide length) was cross-validated on 35,555 rows under peptide-grouped 5-f
 cross-validation (`src.ml_utils.PeptideGroupedKFold`, re-baselined 2026-08-10, closing
 `docs/claims_register.md` D15 - see below). That pool is the 35,597 active v5 rows less the
 42 gold-standard holdout rows withheld from training by the contamination control of Section
-2.2 (EBV 37, HPV 5); the production model was subsequently refitted on all 35,597. The pooled mixed-background out-of-fold
+2.2 (EBV 37, HPV 5); the production model was subsequently refitted on that same 35,555-row
+pool, not on the full 35,597. The pooled mixed-background out-of-fold
 performance was AUC-ROC 0.814 and AUC-PR 0.606 (models/v5/training_results_mode31.csv),
 reflecting discrimination between immunogenic viral peptides and a mixed negative
 background when all nine viruses contribute jointly to training. **That background is

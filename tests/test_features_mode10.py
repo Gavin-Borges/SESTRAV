@@ -92,6 +92,28 @@ def test_prepare_features_10_values_match_binding_matrix(tmp_path):
     assert (X.to_numpy() == 0.5).all()
 
 
+def test_prepare_features_10_preserves_per_allele_alignment(tmp_path):
+    """Each allele's score lands under its OWN column, not merely under some binding column.
+
+    The sibling test above fills every allele with the same 0.5, so it cannot distinguish
+    a correct name-based join from an arbitrary column permutation. Here each allele gets a
+    distinct value and the matrix is written to disk with its allele columns REVERSED, so a
+    positional join would transpose them and every assertion below would fail.
+    """
+    from src.train_classifier import prepare_features_10
+
+    df = _make_minimal_train_df()
+    expected = {col: 0.01 * (i + 1) for i, col in enumerate(BINDING_ALLELE_COLUMNS)}
+    bm = pd.DataFrame([{"peptide": p, **expected} for p in df["peptide"]])
+    bm = bm[["peptide"] + list(reversed(BINDING_ALLELE_COLUMNS))]
+    bm_path = tmp_path / "binding_matrix.csv"
+    bm.to_csv(bm_path, index=False)
+
+    X = prepare_features_10(df, str(bm_path))
+    for col in FEATURE_COLUMNS_10:
+        assert (X[col] == expected[col]).all(), f"{col} carries the wrong allele's score"
+
+
 def test_prepare_features_10_missing_peptide_zero_filled(tmp_path):
     """A peptide absent from the binding matrix gets zero-filled, not dropped or NaN."""
     from src.train_classifier import prepare_features_10
@@ -125,18 +147,57 @@ def test_prepare_features_10_missing_binding_matrix_raises():
         os.unlink(tmp_path)
 
 
-def test_train_classifier_argparse_accepts_mode_10():
-    """train_classifier.py argparse does not reject --feature-mode 10."""
+def _run_train_classifier(*args):
+    """Drive the module's argparse in a subprocess, from the repo root."""
+    import pathlib
     import subprocess
     import sys
 
-    result = subprocess.run(
-        [sys.executable, "-m", "src.train_classifier", "--help"],
+    return subprocess.run(
+        [sys.executable, "-m", "src.train_classifier", *args],
         capture_output=True,
         text=True,
-        cwd=".",
+        cwd=pathlib.Path(__file__).resolve().parents[1],
     )
-    assert "10" in result.stdout, "--feature-mode choices should include '10'"
+
+
+def test_train_classifier_argparse_accepts_mode_10(tmp_path):
+    """`--feature-mode 10` is in argparse's `choices`, not merely named in the help text.
+
+    Asserting `"10" in --help` output is NOT sufficient: the help *prose* itself reads
+    "Feature mode: 10 (binding-only, no physicochemistry ...)", so that assertion stays
+    green even if "10" were dropped from `choices` and the flag became unusable - the
+    exact "registered in one table, missing from another" failure this test exists to
+    catch. Drive a real parse instead and require only that argparse accepted the value.
+    """
+    result = _run_train_classifier(
+        "--feature-mode",
+        "10",
+        "--data",
+        str(tmp_path / "does_not_exist.csv"),
+        "--model-dir",
+        str(tmp_path / "out"),
+    )
+    combined = result.stdout + result.stderr
+    assert "invalid choice" not in combined, combined
+
+
+def test_train_classifier_argparse_rejects_unregistered_mode(tmp_path):
+    """Negative control for the test above.
+
+    Without this, `assert "invalid choice" not in output` could pass for a reason having
+    nothing to do with `choices` - a parser that never ran, or a renamed argparse message.
+    Mode 11 is deliberately not registered, so it must be rejected.
+    """
+    result = _run_train_classifier(
+        "--feature-mode",
+        "11",
+        "--data",
+        str(tmp_path / "does_not_exist.csv"),
+        "--model-dir",
+        str(tmp_path / "out"),
+    )
+    assert "invalid choice" in (result.stdout + result.stderr)
 
 
 def test_batch_experiment_runner_accepts_mode_10():

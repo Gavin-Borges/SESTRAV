@@ -366,10 +366,24 @@ changes.
 
 > **Core count changes the runtime, not the result.** Scoring is pinned back to a single thread
 > before every prediction (`pin_serial_scoring`), and tree fitting is invariant to thread count given
-> a fixed `random_state`, so the metrics are unaffected: this all-core run reproduced
-> `auc_roc=0.8093 / auc_pr=0.5987`, matching the single-core run of the same configuration to four
-> decimal places. `tests/test_ml_utils.py` binds this as a bit-identity test rather than leaving it
-> as a claim.
+> a fixed `random_state`, so the metrics are unaffected: the all-core and the single-core run of the
+> same configuration agreed to four decimal places on every reported metric.
+> `tests/test_ml_utils.py` binds this as a bit-identity test rather than leaving it as a claim, which
+> is what makes the property checkable from a clean clone.
+>
+> **Corrected 2026-08-17: this note previously quoted `auc_roc=0.8093 / auc_pr=0.5987` at this
+> point.** That pair was unbound - it exists only under the gitignored `models/local/`, so no reader
+> could open it - and it does not agree with the certified ledger, which records RF
+> **0.8137 / 0.6058** and XGB **0.8093 / 0.5597** (`models/v5/training_results_mode31.csv`). The
+> quoted `0.8093` is the certified XGB AUC-ROC, while `0.5987` matches neither estimator. The
+> invariance being demonstrated needs no headline number, so the number is withdrawn rather than
+> restated.
+>
+> **The block above passes `--sample-weights`; the certified ledger does not.** The canonical command
+> recorded in `docs/model_cards/rf_31feature_integrated.md` is explicitly unweighted, and the ledger
+> figures above were produced without the flag, so metrics from this block are not expected to equal
+> them. Which of the two spellings is "canonical" is a reconciliation tracked separately rather than
+> settled here.
 
 > **The two commands above are not equivalent, despite the label.** `python -m src.train_classifier`
 > defaults to the **peptide-grouped** splitter, but `sestrav validate` does not pass `cv_group_by` at
