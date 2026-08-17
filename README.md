@@ -405,7 +405,13 @@ is what keeps a local retrain from rewriting the published metric files under
 motivated it). `models/local/` is gitignored. Point `model_path` in `config.yaml`
 at your local build to run the pipeline against it.
 
-*Note:* Without trained models, the pipeline falls back to a prototype mode using binding-derived pseudo-labels (for testing only; not scientifically valid).
+*Note:* A `model_path` naming a file that does not exist is an error. The pipeline
+previously fell back to an inline prototype classifier trained on binding-derived
+pseudo-labels, whose calibrated and thresholded output was indistinguishable from a real
+run once written to CSV; only a stdout line disclosed it, which any redirected run lost.
+Since `config.yaml` names a `model_path` by default, a fresh clone that has not trained
+yet now stops with a clear error instead of producing scientifically invalid output. The
+prototype is still reachable deliberately, by passing no model path at all.
 
 ### 3. Run the Pipeline
 

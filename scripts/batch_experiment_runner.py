@@ -94,10 +94,10 @@ def resolve_model_artifact(model: str, mode: int) -> Path:
     """Map a (backend, feature-mode) pair to its trained artifact under models/.
 
     Raises FileNotFoundError when no such artifact exists, so a trial can never be
-    recorded against a backend/mode combination that did not actually score it.
-    (Stage 4 silently falls back to an inline prototype classifier when the model
-    file is missing - see functions/stage4_immunogenicity_scoring.py - which would
-    otherwise fabricate provenance.)
+    recorded against a backend/mode combination that did not actually score it. This
+    pre-flight is kept even though score_immunogenicity now refuses a named-but-missing
+    model itself: it fails before a trial starts and names the backend/mode pair, rather
+    than surfacing several frames deeper as a bare path.
     """
     stem = f"{model}_{mode}feature_" + ("legacy" if mode == 21 else "integrated")
     artifact = Path("models") / (stem + _BACKEND_SUFFIX[model])

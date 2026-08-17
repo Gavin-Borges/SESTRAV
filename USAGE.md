@@ -61,11 +61,22 @@ SESTRAV Environment Info
 > exist in a fresh clone.** `git ls-files models/` returns zero `.joblib` files: model
 > artifacts are deliberately untracked (see `ARCHITECTURE.md`), because a checkpoint
 > committed without provenance is the mislabeled-artifact failure this project has had
-> twice (`docs/claims_register.md` D16, D23). **Train it first** - the canonical
-> training command is in `README.md` under Training - which writes
-> `models/rf_31feature_integrated.joblib` and makes every command in this section work
-> as written. The same applies to the FastAPI service and the Streamlit demo, which
-> both load that file at startup.
+> twice (`docs/claims_register.md` D16, D23). **Train one first** - the canonical
+> command is in `README.md` under "Install and Train Models".
+>
+> **That command writes `models/local/rf_31feature_integrated.joblib`, not the
+> `models/` path shown below.** `--model-dir` is required and has no default, and the
+> canonical invocation points it at `models/local/` (which is gitignored) so that a
+> local retrain cannot overwrite published artifacts. Bridge the two in one of two
+> ways: pass `--model models/local/rf_31feature_integrated.joblib` to the commands
+> below, or train with `--model-dir models --allow-overwrite` when replacing the
+> published artifacts is what you actually mean.
+>
+> **A `--model` path that does not exist is now an error, not a fallback.** Stage 4
+> previously fell through to an inline prototype classifier trained on pseudo-labels
+> derived from `binding_score`, and its calibrated, thresholded output was
+> indistinguishable from a real run once written to CSV. The same applies to the
+> FastAPI service and the Streamlit demo, which both load a model at startup.
 
 ```bash
 sestrav predict \
@@ -104,6 +115,10 @@ the same artifact set as `python -m src.train_classifier` and needs the same del
 destination. `models/local/` is gitignored. A run aborts before training if it would
 replace artifacts already present in the target directory; add `--allow-overwrite` when
 replacing them is the intent.
+
+**If you already trained into `models/local/` for step 2, this command aborts** rather
+than clobbering those artifacts. Point it at a fresh directory
+(`--model-dir models/scratch/<run-name>`) or add `--allow-overwrite`.
 
 The published figures for this model are a per-virus within-CV mean AUC-ROC of **0.658** on the v5
 dataset (35,597 active rows / 51,185 total; the canonical same-pathogen discrimination metric,
