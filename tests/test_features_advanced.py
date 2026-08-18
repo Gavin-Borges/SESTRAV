@@ -7,6 +7,7 @@ Targets:
   - get_esm_cls_token         (ESM-2 success path via mocked transformers)
 """
 
+import hashlib
 import sys
 import numpy as np
 import pandas as pd
@@ -287,13 +288,32 @@ def test_wl_features_are_stable_across_processes(seeds):
 # ---------------------------------------------------------------------------
 # get_esm_cls_token - ESM-2 success path via mocked transformers
 # ---------------------------------------------------------------------------
+# Every assertion below must be able to tell the ESM-2 path from the except-branch
+# fallback. `assert result.shape == (320,)` cannot: the fallback returns (320,) too,
+# so that assertion survived a mutation that made EsmModel.from_pretrained raise.
+# Each test therefore pins the exact vector it expects - the mock's sentinel on the
+# success paths, the sha256-seeded stream on the fallback path.
 
 
 class TestGetEsmClsToken:
-    def _mock_transformers(self):
+    def _sentinel(self):
+        """The CLS vector the mocked ESM-2 model hands back.
+
+        A ramp rather than zeros or ones: it is float32 (the fallback is float64),
+        it is unmistakably not a Gaussian, and every element differs, so a wrong
+        tensor slice or a broadcast placeholder shows up as a mismatch too.
+        """
+        return np.arange(320, dtype=np.float32) * 0.01
+
+    def _mock_transformers(self, cls_vector=None):
         """Build a sys.modules['transformers'] mock that makes the ESM-2
-        success path (lines 524-535) run without a network call."""
-        cls_vector = np.zeros(320, dtype=np.float32)
+        success path (lines 524-535) run without a network call.
+
+        ``cls_vector`` defaults to the shared sentinel; pass one explicitly when a
+        test needs the freshly loaded model to be distinguishable from a cached one.
+        """
+        if cls_vector is None:
+            cls_vector = self._sentinel()
 
         mock_cls_repr = MagicMock()
         mock_cls_repr.numpy.return_value = cls_vector
@@ -321,7 +341,7 @@ class TestGetEsmClsToken:
         mock_transformers.EsmModel = MockEsmModel
         return mock_transformers
 
-    def test_esm_cls_token_success_path(self, monkeypatch):
+    def test_esm_cls_token_success_path(self, monkeypatch, capsys):
         """Covers lines 524-535: ESM-2 transformers path runs when model not cached."""
         import src.features as f
 
@@ -332,8 +352,13 @@ class TestGetEsmClsToken:
 
         result = get_esm_cls_token("CLGGLLTMV")
         assert result.shape == (320,)
+        # This is the assertion that fails if the ESM-2 path never ran: the
+        # fallback returns float64 Gaussians, not the mock's ramp.
+        np.testing.assert_array_equal(result, self._sentinel())
+        assert result.dtype == np.float32  # the fallback returns float64
+        assert "Falling back" not in capsys.readouterr().out
 
-    def test_esm_cls_token_reuses_cached_model(self, monkeypatch):
+    def test_esm_cls_token_reuses_cached_model(self, monkeypatch, capsys):
         """When the model is already cached, the load block (524-527) is skipped."""
         import src.features as f
 
@@ -357,8 +382,18 @@ class TestGetEsmClsToken:
 
         result = get_esm_cls_token("CLGGLLTMV")
         assert result.shape == (320,)
+        # Three outcomes are now distinguishable: ones means the cached model was
+        # used, the _mock_transformers ramp means it was reloaded anyway, float64
+        # Gaussians mean the fallback fired.
+        np.testing.assert_array_equal(result, cls_vector)
+        assert result.dtype == np.float32
+        mock_model_cached.assert_called_once()
+        # What the docstring claims, finally checked.
+        mock_transformers.EsmModel.from_pretrained.assert_not_called()
+        mock_transformers.AutoTokenizer.from_pretrained.assert_not_called()
+        assert "Falling back" not in capsys.readouterr().out
 
-    def test_esm_cls_token_fallback_on_error(self, monkeypatch):
+    def test_esm_cls_token_fallback_on_error(self, monkeypatch, capsys):
         """When the model raises, the except path returns a deterministic mock vector."""
         import src.features as f
 
@@ -371,3 +406,15 @@ class TestGetEsmClsToken:
 
         result = get_esm_cls_token("CLGGLLTMV")
         assert result.shape == (320,)
+        assert "Falling back" in capsys.readouterr().out
+        # Pin the stream. The seed is sha256-derived and NOT the builtin hash():
+        # hash() is salted per interpreter (see _wl_color), so a revert to it would
+        # re-randomise these 320 features on every process launch and shape alone
+        # would not notice. assert_allclose, not assert_array_equal, so a last-bit
+        # change in a future numpy PCG64 is not a spurious failure.
+        seed = int.from_bytes(hashlib.sha256(b"CLGGLLTMV").digest()[:4], "big")
+        expected = np.random.default_rng(seed).normal(0, 1, 320)
+        np.testing.assert_allclose(result, expected, rtol=0, atol=1e-12)
+        # Measured literal, independent of the line above, so the pin cannot be
+        # satisfied by a source-and-test change that merely agrees with itself.
+        assert float(result.sum()) == pytest.approx(30.199397801339, abs=1e-9)

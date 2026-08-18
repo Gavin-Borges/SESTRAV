@@ -318,7 +318,13 @@ def test_subprocess_is_never_invoked_with_a_shell(monkeypatch):
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(update_dependencies.subprocess, "run", runner)
-    update_dependencies.main(["--ci-env", "ruff"])
+    # Anchor the selection the way test_successful_compile_runs_one_command_per_spec
+    # does: `--ci-env ruff` resolves to exactly the ci-ruff spec. A refactor that
+    # renamed it would leave kwargs_seen empty and make a shell-safety assertion
+    # pass by running nothing at all - main() has no empty-selection guard and
+    # still returns 0.
+    assert update_dependencies.main(["--ci-env", "ruff"]) == 0
+    assert len(kwargs_seen) == 1
     assert all(not kwargs.get("shell", False) for kwargs in kwargs_seen)
 
 

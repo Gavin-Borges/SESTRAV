@@ -5,10 +5,13 @@ Covers:
   MultiStratifiedKFold       fold count, full coverage, no overlap,
                              fallback to label-only, label balance per fold
   pin_serial_scoring         bit-identity of parallel-fit + pinned-score against a
-                             fully serial run (RF); XGBoost nthread invariance
+                             fully serial run (RF and the shipped XGB path);
+                             XGBoost nthread invariance
 """
 
 from __future__ import annotations
+
+import json
 
 import numpy as np
 import pandas as pd
@@ -498,6 +501,46 @@ def test_xgboost_nthread_does_not_change_predictions() -> None:
     serial_scores = _fit_score(1)
     parallel_scores = _fit_score(-1)
     assert np.array_equal(serial_scores, parallel_scores)
+
+
+def test_pin_serial_scoring_xgb_shipped_path_bit_identical_to_fully_serial() -> None:
+    """The XGB half of the N11 claim, in the order train_models actually ships:
+    fit with nthread=-1, pin, then predict. The invariance test above compares
+    fit(-1)+predict(-1) against fit(1)+predict(1) and never routes through
+    pin_serial_scoring - it stays green with the helper deleted outright - so
+    what it binds is a property of XGBoost, not of this repo's combination."""
+    X_train, y_train, X_test = _classification_fixture()
+
+    def _shipped_clf(nthread: int) -> XGBClassifier:
+        # train_models' xgb_kwargs, minus the data-derived scale_pos_weight
+        # (it has no bearing on threading).
+        return XGBClassifier(
+            n_estimators=200,
+            random_state=42,
+            eval_metric="aucpr",
+            objective="binary:logistic",
+            nthread=nthread,
+        )
+
+    serial = _shipped_clf(1)
+    serial.fit(X_train, y_train)
+    serial_scores = serial.predict_proba(X_test)[:, 1]
+
+    shipped = _shipped_clf(-1)
+    shipped.fit(X_train, y_train)
+    pin_serial_scoring(shipped)  # pinned AFTER fit, as train_models does
+
+    # The pin has to reach an ALREADY-FITTED estimator; the set_params test
+    # above only ever pins an unfitted one.
+    assert shipped.get_params()["nthread"] == 1
+    assert shipped.get_params()["n_jobs"] == 1
+    # ...and has to reach the Booster, which is what joblib.dump pickles: an
+    # unpinned booster carries nthread=-1 to every downstream consumer.
+    # save_config reports generic_param values as strings.
+    booster_cfg = json.loads(shipped.get_booster().save_config())
+    assert booster_cfg["learner"]["generic_param"]["nthread"] == "1"
+
+    assert np.array_equal(serial_scores, shipped.predict_proba(X_test)[:, 1])
 
 
 def test_peptide_grouped_kfold_none_optional_args() -> None:
