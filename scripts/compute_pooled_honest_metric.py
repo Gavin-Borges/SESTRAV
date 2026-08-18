@@ -4,8 +4,8 @@
 Background: the retired headline "same-pathogen AUC-ROC 0.9368" only reproduced when
 easy negatives (the out-of-panel Orthopoxvirus vaccinia bloc and the synthetic
 allele-matched non-binders) were pooled in AND the folds were left ungrouped. The
-splitter's contribution is measurable directly: on the same corpus, pooled mode-31
-AUC-ROC was 0.9429 before Phase 0 and is 0.8137 after (compare
+splitter's contribution is measurable directly: on the same corpus, the previously
+reported pooled mode-31 AUC-ROC was 0.9429 before Phase 0 and is 0.8137 after (compare
 `git show 30f1b76^:models/v5/training_results_mode31.csv` against the current file).
 That commit also carried the `_bin_origin` stratification fix, which D15 measured as
 metric-neutral on the audit's corpus-refit frame (AUC-PR 0.8347 -> 0.8343,
