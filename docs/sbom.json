@@ -97,7 +97,7 @@
   {
     "License": "LicenseRef-Biopython-License-Agreement",
     "Name": "biopython",
-    "Version": "1.87"
+    "Version": "1.88"
   },
   {
     "License": "Mozilla Public License 2.0 (MPL 2.0)",
@@ -237,7 +237,7 @@
   {
     "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.165.0"
+    "Version": "6.165.2"
   },
   {
     "License": "BSD-3-Clause",
@@ -342,7 +342,7 @@
   {
     "License": "BSD License",
     "Name": "nbformat",
-    "Version": "5.10.4"
+    "Version": "5.11.1"
   },
   {
     "License": "BSD-3-Clause",
@@ -467,7 +467,7 @@
   {
     "License": "MIT",
     "Name": "platformdirs",
-    "Version": "4.11.0"
+    "Version": "4.11.3"
   },
   {
     "License": "MIT License",
@@ -507,7 +507,7 @@
   {
     "License": "MIT",
     "Name": "pydantic-settings",
-    "Version": "2.14.2"
+    "Version": "2.15.0"
   },
   {
     "License": "MIT",
@@ -592,7 +592,7 @@
   {
     "License": "MIT",
     "Name": "snakemake",
-    "Version": "9.24.0"
+    "Version": "9.25.1"
   },
   {
     "License": "UNKNOWN",
