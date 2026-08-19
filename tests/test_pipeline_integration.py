@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import numpy as np
 import pandas as pd
+import pytest
 from src.artifact_integrity import load_verified_joblib
 
 from src.features import (
@@ -219,17 +220,60 @@ def test_end_to_end_score_and_rank():
             os.unlink(tmppath)
 
 
+def _valid_config_data(tmp_path) -> dict:
+    """The smallest dict SestravConfig(**data) accepts - config.yaml's shape."""
+    return {
+        "antigens": ["EBV"],
+        "proteome_files": {"EBV": "data/proteomes/ebv.fasta"},
+        "alleles": ["HLA-A*02:01"],
+        "peptide_lengths": [9],
+        "binding_backend": "mhcflurry",
+        "feature_mode": 31,
+        "model_path": "models/rf_31feature_integrated.joblib",
+        "freeze_mode": True,
+        "dataset_governance": {
+            "current_version": "5.0.0",
+            "versions": {"5.0.0": "SESTRAV_v5_IEDB_NEGATIVES_MERGE"},
+            "provenance": {
+                "timestamp": "2026-07-04T02:35:21Z",
+                "source_databases": ["IEDB"],
+                "negative_sampling_strategy": "high-binding_decoy_proteome",
+                "checksum": "0" * 64,
+            },
+            "qc_thresholds": {
+                "min_peptide_yield": 500,
+                "max_conflict_ratio": 0.15,
+                "max_null_allele_fraction": 1.0,
+                "class_ratio_bounds": [1.5, 4.0],
+            },
+            "require_checksum_match_in_freeze_mode": True,
+        },
+        "dataset_mode": "v5_iedb_negatives_merge",
+        "dataset_version": "5.0.0",
+        "output_dir": str(tmp_path),
+    }
+
+
 def test_freeze_mode_validation(tmp_path):
-    """Tests that freeze_mode validation is respected by the configuration system."""
+    """freeze_mode must go through pydantic validation on the path load() uses.
+
+    SestravConfig.load() builds the config as SestravConfig(**data), so that is
+    what this exercises. The earlier version of this test used
+    model_construct(), pydantic's explicitly validation-skipping constructor,
+    which reduced it to `assert x is x`: it passed even against a freeze_mode
+    validator that rejected every value. freeze_mode is the global lock, so a
+    non-boolean sailing through unchecked would silently arm or disarm it.
+    """
+    import pydantic
     from src.core.config import SestravConfig
 
-    # Test valid freeze_mode
-    config = SestravConfig.model_construct(output_dir=tmp_path, freeze_mode=True)
+    data = _valid_config_data(tmp_path)
+
+    config = SestravConfig(**data)
     assert config.freeze_mode is True
 
-    # Normally this would be tested via the Config validation, but since
-    # freeze_mode acts as a global lock, it's good to ensure it's captured in config.
-    # In a full pipeline, this might raise if changes are made while freeze_mode is True.
+    with pytest.raises(pydantic.ValidationError):
+        SestravConfig(**{**data, "freeze_mode": "banana"})
 
 
 if __name__ == "__main__":

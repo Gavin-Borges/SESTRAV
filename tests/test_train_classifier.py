@@ -5,13 +5,14 @@ Unit tests for parent protein mapping and LOPO (Leave-One-Protein-Out) cross val
 import sys
 import os
 import json
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.features import BINDING_ALLELE_COLUMNS, HLA_PSEUDO_COLS
+from src.features import BINDING_ALLELE_COLUMNS, FEATURE_COLUMNS_10, HLA_PSEUDO_COLS
 from src.train_classifier import (
     load_all_proteins,
     _get_protein_name_from_header,
@@ -581,6 +582,48 @@ def test_train_models_mode31_requires_binding_matrix(tmp_path):
     data_path, _ = _training_csv(tmp_path)
     with pytest.raises(ValueError, match="--binding-matrix is required"):
         train_models(str(data_path), model_dir=str(tmp_path / "m"), n_cv_folds=3, feature_mode=31)
+
+
+def test_train_models_mode10_smoke(tmp_path):
+    """Mode 10 must publish a 10-feature model, not a relabelled 21-feature one.
+
+    The mode-10 dispatch branch sits directly above a bare `else` that silently
+    builds the 21-feature sequence-only matrix, while the artifact stems, the
+    per-mode filenames and threshold_payload["feature_mode"] all key off the
+    *requested* mode. So a break in the branch still exits 0 and still writes
+    rf_10feature_integrated.joblib and training_results_mode10.csv - a
+    21-feature model published under mode-10 provenance. Existence assertions
+    cannot see that; only the fitted feature count and column names can.
+    """
+    data_path, peps = _training_csv(tmp_path)
+    binding = _mock_binding_csv(tmp_path, peps)
+    model_dir = tmp_path / "models10"
+    train_models(
+        str(data_path),
+        model_dir=str(model_dir),
+        n_cv_folds=3,
+        feature_mode=10,
+        binding_matrix_path=str(binding),
+    )
+    rf = joblib.load(model_dir / "rf_10feature_integrated.joblib")
+    assert rf.n_features_in_ == 10
+    assert list(rf.feature_names_in_) == FEATURE_COLUMNS_10
+    xgb = joblib.load(model_dir / "xgb_10feature_integrated.joblib")
+    assert xgb.n_features_in_ == 10
+    assert (model_dir / "training_results_mode10.csv").exists()
+    assert (model_dir / "rf_oof_predictions_mode10.csv").exists()
+    payload = json.loads((model_dir / "optimal_thresholds.json").read_text())
+    assert payload["feature_mode"] == 10
+    # feature_importances.csv is written from feature_cols_used, so the fallback
+    # would name the 21 physico columns here even under a mode-10 filename.
+    imp = pd.read_csv(model_dir / "feature_importances.csv")
+    assert sorted(imp["feature"]) == sorted(FEATURE_COLUMNS_10)
+
+
+def test_train_models_mode10_requires_binding_matrix(tmp_path):
+    data_path, _ = _training_csv(tmp_path)
+    with pytest.raises(ValueError, match="--binding-matrix is required"):
+        train_models(str(data_path), model_dir=str(tmp_path / "m10"), n_cv_folds=3, feature_mode=10)
 
 
 # ---------------------------------------------------------------------------

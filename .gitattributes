@@ -49,3 +49,19 @@ results/continuous_validation/*.provenance.json text eol=lf
 # broader glob would risk invalidating hashes recorded elsewhere without the
 # corresponding audit this fix's own sidecar update performed.
 models/v5/rf_oof_predictions_mode31.csv text eol=lf
+
+# Added 2026-08-17 (D5/E1, task_list_2026-08-17_pr_review_and_skip_audit.md): same failure mode as
+# above, for the v5 dataset deposition files docs/zenodo_deposition.md hands a reader a `sha256sum -c`
+# block for. Measured: the git blob for all three is already LF (0 CR), but a Windows checkout with
+# core.autocrlf=true adds CRLFs back (51,186 of them in the CSV alone), so the "verify before upload"
+# instructions produced a Windows-only hash that a Linux clone (or CI) could never reproduce.
+data/immunogenicity_dataset_v5.csv text eol=lf
+data/immunogenicity_dataset_v5_schema.json text eol=lf
+data/immunogenicity_dataset_v5_provenance.json text eol=lf
+
+# Extended per D5 (same task list): pin the broader unchecksummed-artifact globs first, so any
+# provenance sidecar backfilled against them later records a portable hash rather than a Windows one.
+data/proteomes/*.fasta eol=lf
+data/allele_aware/*.csv eol=lf
+data/allele_aware/*_provenance.json eol=lf
+models/peptide_binding_matrix_v*.csv eol=lf

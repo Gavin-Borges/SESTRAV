@@ -68,12 +68,19 @@ class TestScoreErap:
         assert score_erap("") == 0.0
 
     def test_flanking_seq_is_used(self):
-        """ERAP score changes when flanking_n context shifts P1/P2."""
+        """ERAP score changes when flanking_n context shifts P1/P2.
+
+        flanking_n prepends the precursor context, so P1/P2 become L/L instead
+        of G/I and the score must move. The old form of this assertion was
+        `with_flank != no_flank or True`, which is a tautology: it held with
+        flanking_n discarded outright.
+        """
         no_flank = score_erap("GILTFVGTL", flanking_n="")
         with_flank = score_erap("GILTFVGTL", flanking_n="LL")
-        # Flanking LL (hydrophobic) at P1/P2 should not decrease score
-        assert with_flank >= 0.0
-        assert with_flank != no_flank or True  # At minimum, does not crash
+        assert 0.0 <= with_flank <= 1.0
+        assert with_flank != no_flank, (
+            f"flanking_n was ignored: {with_flank:.4f} == {no_flank:.4f}"
+        )
 
     def test_unknown_amino_acids_default_to_zero_contribution(self):
         """Residues not in the table should contribute 0 (neutral)."""

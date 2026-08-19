@@ -33,6 +33,17 @@ import random
 import sys
 import time
 from pathlib import Path
+
+# `pipeline.py` lives at the repo root and is not packaged (pyproject's `include` covers
+# sestrav*/src*/functions* only), so importing it needs the root on sys.path. Running this
+# file as a script puts `<repo>/scripts` on sys.path[0], never the repo root - so the import
+# fails even when launched from the root. Every live trial imports `pipeline.run_pipeline`,
+# so without this the runner raised ModuleNotFoundError: No module named 'pipeline' on 100%
+# of live trials while --dry-run stayed green - the dry-run path returns before that import.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import pandas as pd
 
 # Configure structured logging
@@ -43,17 +54,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sestrav.batch_runner")
 
-# Feature modes with a real dispatch branch in src/train_classifier.py AND a matching
-# trained artifact naming convention in src/naming.py::MODEL_NAME_ALIASES.
+# Feature modes offered by this runner. Every entry has a real dispatch branch in
+# src/train_classifier.py. Naming aliases in src/naming.py::MODEL_NAME_ALIASES only cover
+# modes that inherited a pre-refactor filename (21/30/31); their absence is not a defect.
+#   10  -> binding-only ablation: the 10 per-allele binding scores with no
+#          physicochemistry, i.e. the exact converse of 21
 #   21  -> sequence-only legacy            (models/<backend>_21feature_legacy.*)
 #   30  -> multi-allele legacy             (models/<backend>_30feature_integrated.*)
 #   31  -> canonical production (config.yaml feature_mode: 31)
 #   33  -> extended (+ netchop/tap; MOCK scores, not real NetChop/TAPreg - D18)
 #   35  -> tolerance-aware (+ self-similarity)
 #   50  -> expanded multi-allele
-# Modes 51/166 and the string modes "30_esm"/"30_graph" exist in train_classifier.py
-# but have no released scoring artifact, so they are not offered here.
-VALID_FEATURE_MODES = [21, 30, 31, 33, 35, 50]
+# Modes 51/166 and the string modes "30_esm"/"30_graph" exist in train_classifier.py but
+# are deliberately not offered here.
+#
+# NOTE on trained artifacts, corrected 2026-08-17: an earlier version of this comment
+# justified excluding 51/166 on the grounds that they have "no released scoring artifact",
+# which does not distinguish them from the modes listed above - `git ls-files models/`
+# returns ZERO .joblib files, so on a clean clone resolve_model_artifact raises
+# FileNotFoundError for EVERY mode here until the user trains one. Mode 10 in particular
+# is an evaluation arm with no shipped artifact and no production role. Availability of a
+# checkpoint is not the membership criterion; having a dispatch branch is.
+VALID_FEATURE_MODES = [10, 21, 30, 31, 33, 35, 50]
 
 # Backends reachable through pipeline.run_pipeline. Selection happens by pointing
 # SestravConfig.model_path at the corresponding trained artifact; Stage 4 dispatches
@@ -72,10 +94,10 @@ def resolve_model_artifact(model: str, mode: int) -> Path:
     """Map a (backend, feature-mode) pair to its trained artifact under models/.
 
     Raises FileNotFoundError when no such artifact exists, so a trial can never be
-    recorded against a backend/mode combination that did not actually score it.
-    (Stage 4 silently falls back to an inline prototype classifier when the model
-    file is missing - see functions/stage4_immunogenicity_scoring.py - which would
-    otherwise fabricate provenance.)
+    recorded against a backend/mode combination that did not actually score it. This
+    pre-flight is kept even though score_immunogenicity now refuses a named-but-missing
+    model itself: it fails before a trial starts and names the backend/mode pair, rather
+    than surfacing several frames deeper as a bare path.
     """
     stem = f"{model}_{mode}feature_" + ("legacy" if mode == 21 else "integrated")
     artifact = Path("models") / (stem + _BACKEND_SUFFIX[model])

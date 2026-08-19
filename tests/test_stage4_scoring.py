@@ -18,6 +18,9 @@ from src.features import (
     FEATURE_COLUMNS,
     TRAIN_FEATURE_COLUMNS,
     FEATURE_COLUMNS_30,
+    FEATURE_COLUMNS_31,
+    FEATURE_COLUMNS_33,
+    FEATURE_COLUMNS_35,
     FEATURE_COLUMNS_50,
 )
 
@@ -97,8 +100,8 @@ class _FakeSklearnModel:
 
 @pytest.mark.parametrize(
     "cols",
-    [TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30, FEATURE_COLUMNS_50],
-    ids=["train21", "f30", "f50"],
+    [TRAIN_FEATURE_COLUMNS, FEATURE_COLUMNS_30, FEATURE_COLUMNS_31, FEATURE_COLUMNS_50],
+    ids=["train21", "f30", "f31", "f50"],
 )
 def test_joblib_branch_scores(monkeypatch, tmp_path, cols):
     _run_in_results_dir(monkeypatch, tmp_path)
@@ -508,12 +511,15 @@ def test_score_immunogenicity_no_calibrate(monkeypatch, tmp_path):
 
 
 def test_pytorch_branch_else_legacy(monkeypatch, tmp_path):
-    """Covers lines 195-196: PyTorch checkpoint with n_features not matching
-    any named set (50/30/21) falls into the FEATURE_COLUMNS else branch."""
+    """A PyTorch checkpoint of unrecognised width uses the legacy fallback layout.
+
+    ``_resolve_feature_layout`` returns FEATURE_COLUMNS for any width absent from
+    ``_FEATURE_LAYOUTS``, and the ANN branch warns rather than refuses.
+    """
     pytest.importorskip("torch")
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann_legacy.pt"
-    # 15 matches none of FEATURE_COLUMNS_50/30/TRAIN_FEATURE_COLUMNS → else branch.
+    # 15 matches no shipped layout, so the legacy 22-column set is the fallback.
     _save_ann_checkpoint(str(pt_path), 15)
     df = _feature_frame(FEATURE_COLUMNS[:15])
     ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path))
@@ -521,8 +527,14 @@ def test_pytorch_branch_else_legacy(monkeypatch, tmp_path):
 
 
 def test_joblib_branch_legacy_else_fallback(monkeypatch, tmp_path):
-    """Covers lines 235-236: joblib model with a non-standard feature count falls
-    through to the FEATURE_COLUMNS (legacy 22-col) else branch."""
+    """An unrecognised width whose column count happens to match still scores.
+
+    ``_resolve_feature_layout`` falls back to the legacy 22-column set for any width
+    not in ``_FEATURE_LAYOUTS``; ``_select_model_columns`` then refuses only when the
+    selection size disagrees with the model. Here 15 of the 22 are present against a
+    15-feature model, so the counts agree and scoring proceeds. This is deliberately
+    preserved behaviour - the refusal added for modes 33/35 must not widen into it.
+    """
     _run_in_results_dir(monkeypatch, tmp_path)
     model_path = tmp_path / "model.joblib"
     model_path.write_bytes(b"stub")
@@ -536,4 +548,84 @@ def test_joblib_branch_legacy_else_fallback(monkeypatch, tmp_path):
     )
     df = _feature_frame(_LEGACY_COLS)
     ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(model_path))
+    assert "immunogenicity_score" in ranked.columns
+
+
+# --- feature-layout selection and refusal (regression: 2026-08-17 stress test) --------
+#
+# Stage 4 used to pick model columns with an if/elif ladder written out twice - once in
+# the ANN branch, once in the joblib branch - and both copies handled only widths 50, 30,
+# 22 and 21. A 31-feature model (config.yaml's default) fell through to the 22-column
+# legacy set, so the canonical production mode could not be scored at all: the mismatch
+# surfaced only as a third-party feature-name error from inside predict_proba. These tests
+# pin the width->layout mapping and the refusal behaviour that replaced the silent
+# substitution.
+
+
+def test_layout_table_covers_every_shipped_feature_mode():
+    """Each shipped mode maps to a layout of exactly its own width."""
+    for cols in (
+        TRAIN_FEATURE_COLUMNS,
+        FEATURE_COLUMNS,
+        FEATURE_COLUMNS_30,
+        FEATURE_COLUMNS_31,
+        FEATURE_COLUMNS_33,
+        FEATURE_COLUMNS_35,
+        FEATURE_COLUMNS_50,
+    ):
+        resolved, _label = s4._resolve_feature_layout(len(cols))
+        assert len(resolved) == len(cols)
+        assert resolved == cols
+
+
+@pytest.mark.parametrize(
+    "cols, missing_names",
+    [
+        (FEATURE_COLUMNS_33, ["netchop_score", "tap_score"]),
+        (
+            FEATURE_COLUMNS_35,
+            ["netchop_score", "tap_score", "self_similarity_max_identity"],
+        ),
+    ],
+    ids=["f33", "f35"],
+)
+def test_modes_the_pipeline_cannot_feed_are_refused_by_name(cols, missing_names):
+    """Modes 33/35 need columns Stage 3 never computes, so they must refuse clearly.
+
+    Deliberately NOT 'fixed' by supplying the cached values: per D18 the antigen-processing
+    scores are mock and not reproducible, so making these modes run would put unreproducible
+    features into user-facing output.
+    """
+    df = _feature_frame(FEATURE_COLUMNS_31)  # what the pipeline actually produces
+    with pytest.raises(RuntimeError, match="Cannot score a") as exc:
+        s4._select_model_columns(len(cols), df)
+    for name in missing_names:
+        assert name in str(exc.value)
+
+
+def test_partial_allele_panel_is_refused_not_silently_narrowed():
+    """A restricted --alleles panel drops bind_* columns a mode-30 model was fit on."""
+    reduced = [c for c in FEATURE_COLUMNS_30 if not c.startswith("bind_") or c == "bind_A0201"]
+    df = _feature_frame(reduced)
+    with pytest.raises(RuntimeError, match="Cannot score a 30-feature model"):
+        s4._select_model_columns(len(FEATURE_COLUMNS_30), df)
+
+
+def test_named_but_missing_model_refuses_instead_of_fabricating(monkeypatch, tmp_path):
+    """A caller who names a model must get it or an error - never the prototype.
+
+    The prototype trains on pseudo-labels derived from binding_score and its output is then
+    calibrated and thresholded, producing a ranked CSV indistinguishable from a real run.
+    """
+    _run_in_results_dir(monkeypatch, tmp_path)
+    df = _feature_frame(FEATURE_COLUMNS)
+    with pytest.raises(FileNotFoundError, match="Model artifact not found"):
+        s4.score_immunogenicity(df, "TEST", model_path=str(tmp_path / "absent.joblib"))
+
+
+def test_prototype_is_still_reachable_when_no_model_is_named(monkeypatch, tmp_path):
+    """model_path=None remains the supported way to ask for the prototype on purpose."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    df = _feature_frame(FEATURE_COLUMNS)
+    ranked, _model = s4.score_immunogenicity(df, "TEST", model_path=None, calibrate=False)
     assert "immunogenicity_score" in ranked.columns

@@ -402,12 +402,18 @@ def test_run_benchmark_per_epitope_required_keys(tmp_path):
 def test_run_benchmark_rank_percentile_none_for_not_in_oof(tmp_path):
     result = run_benchmark(_three_canonical_oof(tmp_path), None)
     not_in_oof = [e for e in result["per_epitope"] if e["match_type"] == "not_in_oof"]
+    # The fixture puts 3 of the 10 canonical epitopes in the OOF, so 7 are not.
+    # Without that count the assert all() below is satisfied by an empty list.
+    assert len(not_in_oof) == 7
     assert all(e["rank_percentile"] is None for e in not_in_oof)
 
 
 def test_run_benchmark_rank_percentile_set_for_matches(tmp_path):
     result = run_benchmark(_three_canonical_oof(tmp_path), None)
     matched = [e for e in result["per_epitope"] if e["match_type"] != "not_in_oof"]
+    # Same anchor: a run that silently matched nothing leaves matched == [] and
+    # every assertion below vacuously true.
+    assert len(matched) == 3
     assert all(e["rank_percentile"] is not None for e in matched)
     assert all(0 < e["rank_percentile"] <= 100 for e in matched)
 

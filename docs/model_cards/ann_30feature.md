@@ -1,4 +1,16 @@
+---
+status: historical-v3
+---
+
 # SESTRAV Model Card: Artificial Neural Network (30-Feature)
+
+> **HISTORICAL (v3 corpus era).** Every metric on this card was measured on the 2026-06 v3 dataset
+> (`data/immunogenicity_dataset_v3.csv`, n=1,004) or its 2026-05 Tier A predecessor, under a splitter
+> that does not group by peptide (`docs/claims_register.md` D15). None of it has been re-measured
+> under the current v5 corpus or the peptide-grouped splitter, and it is not comparable to the
+> current production figures in `README.md` / `docs/paper.md`. Retained for reproducibility of a
+> prior result, not as a current claim. See `models/ann_cv_summary.csv` for the one tracked artifact
+> this card's own text partially disagrees with, and the Evaluation section below for why.
 
 ## Model Details
 - **Model Type:** Feed-Forward Multilayer Perceptron (PyTorch)
@@ -24,7 +36,9 @@
   - AUC-PR: ~0.83 (representative: 0.825)
   - ISSR@10: ~0.88 (representative: 0.880)
   - ISSR@25: ~0.93 (representative: 0.930)
-- **Provenance caveat on the four figures above (added 2026-08-15, S2/S3).** They were relabelled from "exact:" to "representative:" because that is what their own source says: they descend from the 3-decimal 30-feature table in `docs/model_evaluation_summary.md`, whose note reads "AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split." Calling a self-declared representative value "exact" asserted a precision the source never claimed. **They are also contradicted by the one tracked ANN artifact**, `models/ann_cv_summary.csv`, which reads AUC-ROC 0.6083, AUC-PR 0.7820, ISSR@10 0.8571, ISSR@25 0.8057 - the last a 0.124 gap. That artifact was committed in the same commit as these figures and has never been modified since, so the disagreement is original, not drift. **The figures above are NOT re-cited to it here**, because the two describe possibly different evaluation scopes (the ANN out-of-fold artifact carries 704 rows; the table above is headed 720 peptides) and substituting across an unresolved scope difference would trade an unbound number for a mis-scoped one. Treat all four as v3-era, seed-dependent, and unverified pending that resolution.
+- **Provenance caveat on the four figures above (added 2026-08-15, S2/S3).** They were relabelled from "exact:" to "representative:" because that is what their own source says: they descend from the 3-decimal 30-feature table in `docs/model_evaluation_summary.md`, whose note reads "AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split." Calling a self-declared representative value "exact" asserted a precision the source never claimed. **They are also contradicted by the one tracked ANN artifact**, `models/ann_cv_summary.csv`, which reads AUC-ROC 0.6083, AUC-PR 0.7820, ISSR@10 0.8571, ISSR@25 0.8057 - the last a 0.124 gap. That artifact was committed in the same commit as these figures and has never been modified since, so the disagreement is original, not drift. **The scope objection recorded here on 2026-08-15 was WRONG and is withdrawn (2026-08-17).** It held that the two "describe possibly different evaluation scopes (the ANN out-of-fold artifact carries 704 rows; the table above is headed 720 peptides)". Measured directly: **704 is not a different scope, it is 720 minus the 16 `GOLD_STANDARD_EPITOPES` held out by `gs_mask` in `src.ann_benchmark`.** The peptide set in `models/ann_oof_predictions.csv` equals, by exact set equality, the rows of `results/external_validation_input.csv` carrying `is_gold_standard_holdout == False` - 704 vs 704, zero on either side only, zero label or virus mismatches, and zero gold-standard epitopes present in the ANN pool. Same corpus, same era, same labels.
+
+**The figures above are still NOT re-cited to that artifact, but for a different and real reason: the ARCHITECTURE differs.** `models/ann_cv_summary.csv` and `models/ann_oof_predictions.csv` were produced by the **legacy 64-32 ReLU dropout 0.3** network - the only architecture that existed in `src.ann_benchmark` when they were committed - which is what this card's own `Architecture` field describes. The four figures above descend instead from the 256-128-64 dropout 0.2 run reported in `docs/model_evaluation_summary.md`. Substituting across that difference would trade an unbound number for a mis-attributed one, which is the D16 failure class. Treat all four as v3-era, seed-dependent, and unverified.
 - **Explainability:** SHAP DeepExplainer analysis indicates allele-specific binding features drive primary node activations, supported by physicochemical structural constraints.
 
 ## Limitations

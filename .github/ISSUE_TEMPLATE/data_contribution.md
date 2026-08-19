@@ -34,7 +34,7 @@ Before any data enters the pipeline, the contribution must pass the biological a
 **Q4 - Fairness:** Does this data overlap with existing training or benchmark sets?
 <!-- State any known overlap with the current training set (data/immunogenicity_dataset_v5.csv)
      and with the Tier A benchmark intersection. If you can, report the number of exactly
-     duplicated peptide + HLA allele pairs. Maintainers re-run a full overlap and
+     duplicated peptide + HLA allele pairs. The maintainer re-runs a full overlap and
      contamination check before any contributed data is merged, so an approximate answer
      here is fine - do not block your submission on it. -->
 

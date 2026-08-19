@@ -300,6 +300,11 @@ results/*
 # file, so it has to be reader-visible; 277 bytes, regenerate with
 # scripts/compute_pooled_honest_metric.py)
 !results/pooled_honest_same_pathogen.csv
+# Section 3.3 decoy-vs-binding-matrix join (docs/paper.md cites the 218/168/93.0%
+# figures against this file; regenerate with
+# scripts/compute_section33_decoy_binding_join.py)
+!results/section33_decoy_binding_join.csv
+!results/section33_decoy_binding_join.csv.provenance.json
 release_artifacts/
 *.pyc
 __pycache__/
@@ -507,6 +512,10 @@ _local/
 src.zip
 *.dist.zip
 *_artifacts.zip
+
+# sdist build/extract byproducts left at repo root by `python -m build` or a
+# manual tarball extraction (e.g. sestrav-2.0.3/) - regenerable, not source.
+/sestrav-*/
 
 # Prompt artifact files and directories
 prompts/

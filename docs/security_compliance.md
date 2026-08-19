@@ -1,6 +1,6 @@
 # SESTRAV Security & Compliance Posture
 
-This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/13191) (formerly CII Best Practices). SESTRAV has attained the **Passing** level ([project 13191](https://www.bestpractices.dev/projects/13191)) as of version 2.0 and is working toward the Silver/Gold criteria.
+This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/13191) (formerly CII Best Practices). SESTRAV has attained the **Passing** level ([project 13191](https://www.bestpractices.dev/projects/13191)) as of version 2.0. **Passing is the intended terminal tier**: Silver and Gold both require multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`) that a solo-maintained project cannot satisfy, and they are formally declined as of 2026-08-17 (see `BUS_FACTOR.md`). Individual Silver/Gold criteria that SESTRAV does meet are documented below on their own merits.
 
 ## 1. Basics
 - **Project Description:** SESTRAV is a T-cell epitope immunogenicity prediction pipeline.
@@ -13,7 +13,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 - **Review:** All pull requests to `main` require a successful GitHub Actions CI check before merging.
 
 ## 3. Reporting
-- **Vulnerability Reporting:** Described in `SECURITY.md`. Issues can be reported confidentially; the maintainers pledge to respond to vulnerabilities promptly.
+- **Vulnerability Reporting:** Described in `SECURITY.md`. Issues can be reported confidentially; the sole maintainer commits to the response SLA stated there (acknowledgement within 3-5 business days, initial assessment within 10 business days).
 - **Bug Tracking:** GitHub Issues is used as the primary issue tracker.
 
 ## 4. Quality
@@ -83,10 +83,62 @@ Run 2026-06-18 (Day 5) with semgrep 1.167.0. **2 findings, both false positives 
 
 | Location | Rule | Finding | Disposition |
 |----------|------|---------|-------------|
-| `scripts/run_predig_wrapper.py:101` (2026-06-18 scan; now line 124) | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` is a Docker invocation list | **False positive.** `cmd` is a Python list (no `shell=True`); list-form subprocess is not shell-injectable. This is a Docker wrapper script for PredIG, not reachable from user-facing endpoints. |
-| `scripts/run_prime_wrapper.py:95` (2026-06-18 scan; now line 110) | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale - list-form subprocess, paths are internally constructed, not from untrusted user input. |
+| `scripts/run_predig_wrapper.py`, the `subprocess.run(cmd, check=True)` call inside the Docker-invocation `try` block | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` is a Docker invocation list | **False positive.** `cmd` is a Python list (no `shell=True`); list-form subprocess is not shell-injectable. This is a Docker wrapper script for PredIG, not reachable from user-facing endpoints. |
+| `scripts/run_prime_wrapper.py`, the `subprocess.run(cmd, check=True)` call inside the PRIME/WSL `try` block | `dangerous-subprocess-use-tainted-env-args` | `subprocess.run(cmd, check=True)` where `cmd` wraps the PRIME/WSL binary | **False positive.** Same rationale - list-form subprocess, paths are internally constructed, not from untrusted user input. |
 
-**Action:** No code changes required. Both scripts are researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either script ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
+*Both rows were de-line-numbered 2026-08-17. They previously carried `:NNN` pins that had already drifted once (recorded in-cell as "2026-06-18 scan; now line NNN") and drifted again on the very next edit to these files, which is the failure mode `CLAUDE.md` bans `file.py:NNN` citations in tracked docs to prevent.*
+
+**Action, corrected 2026-08-17.** This entry previously read "No code changes required", and the disposition above (false positive, list-form subprocess) still stands on the merits. **But the suppressions that were supposed to record that disposition in the code were inert, so both findings resurfaced on every scan for the entire period this document described them as dispositioned.** Two independent defects: the `# nosemgrep` sat on a preceding line with another comment between it and the statement (semgrep honours only the finding's own line or the one immediately before), and it named the rule *path*
+`python.lang.security.audit.dangerous-subprocess-use-tainted-env-args` rather than the real id, which repeats the final component. Fixing the placement alone still left the finding, which is how the second defect was found. Both now carry a bare inline `# nosemgrep`, matching `scripts/run_predig_batched.py`, which suppresses the same rule and was the working control this was verified against. Verified in both directions: removing the suppression reproduces the finding, restoring it clears it; repo-wide `semgrep scan --config p/python` is now 0 findings, exit 0. Both scripts remain researcher-only external-tool wrappers outside the installed package surface (`sestrav[pipeline]`). If either ever accepts direct user command-line input, `shlex.quote()` should be applied at that point.
+
+**Known consequence of that repair, recorded rather than worked around.** The repair raised 2 new
+code-scanning alerts (#77, #78) against the pull request that carried it. **Corrected 2026-08-17:**
+this paragraph previously blamed an "external Semgrep OSS GitHub App" that "does not honour
+`nosemgrep`" and "scans only lines changed by a pull request". All three halves were wrong, and the
+real mechanism was read off the uploaded SARIF rather than inferred:
+
+1. `semgrep` **does** honour the inline `# nosemgrep`. The CI step's own verdict is
+   `Ran 154 rules on 164 files: 0 findings.` / `Findings: 0 (0 blocking)`.
+2. It nevertheless still **emits** every suppressed finding into `semgrep.sarif`, tagged
+   `"suppressions": [{"state": "accepted"}]` with no `kind` field. GitHub code scanning does not act
+   on that tag, so all 3 call sites are ingested as alerts from a step that reported none. The stored
+   analysis records `results_count: 3`.
+3. What kept the Security tab clean was therefore never the inline markers - it was three manual
+   dismissals (`false positive`, 2026-06-14). GitHub carries a dismissal forward only while the
+   result's `partialFingerprints.primaryLocationLineHash` is stable, and that hash is computed from
+   the finding's own line forward.
+4. Appending ` # nosemgrep` to the two `subprocess.run(...)` statement lines changed that hash for
+   exactly the two files the repair touched, so their dismissals stopped matching and the findings
+   resurfaced as new alerts. `run_predig_batched.py` was not edited, its hash is unchanged, and its
+   dismissal still applies - which is why 3 SARIF results produce 2 alerts and not 3.
+
+**It is not an external app and it is not diff-scoped.** The alerts come from this repository's own
+`.github/workflows/security.yml` `semgrep` job uploading SARIF through
+`github/codeql-action/upload-sarif`; `Semgrep OSS` is simply semgrep's own SARIF tool name, and the
+`github-advanced-security` app only posts the resulting check run. The scan covers the whole tree;
+only the check's *verdict* is scoped to lines the pull request changed.
+
+**The trade is deliberate and it is not symmetrical.** Before the repair,
+`semgrep scan --config p/python` reported these 2 findings on *every* local and CI run while this
+document described them as dispositioned; a scanner that always reports the same two false positives
+trains a reader to skip its output, which is how a real third finding would be missed. After the
+repair the repo-scoped scan is 0 findings, so anything new is visible.
+
+**The alerts were advisory while they stood:** `Semgrep OSS` is not among the required status checks
+on `Protect Main Branch` (`test (3.13)`, `Require human review`, `check_dco`,
+`Cited commits resolve`), and that ruleset's code-scanning rule names `CodeQL` only, so they never
+gated a merge.
+
+**Fixed at the root 2026-08-17 rather than dismissed.** `security.yml` now carries a
+`Drop nosemgrep-suppressed results from the SARIF` step between the scan and the upload, which
+removes results carrying a `suppressions` tag so the uploaded SARIF states what the scanner
+actually concluded. Verified against the real uploaded artifact: 3 results in, 0 out, matching the
+step's own `Ran 154 rules on 164 files: 0 findings.` Only explicitly suppressed findings are
+removed - an unsuppressed finding still reaches the Security tab, so the "anything new is visible"
+property above is preserved. This retires the per-alert dismissal ritual: #77 and #78 close as
+`fixed` on the next run of the workflow, and a future edit to a suppressed line no longer resurrects
+an alert by changing its fingerprint. The earlier plan recorded here - dismiss both by hand in the
+Security tab - is superseded and needs no owner action.
 
 ### pip-audit (`pip-audit -r environments/requirements.lock`)
 
@@ -110,5 +162,5 @@ attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 planned work: publish the package to PyPI, and cryptographically sign the git tags
 themselves (`version_tags_signed`, a SUGGESTED criterion). A maintainer SSH signing
 key is configured locally with `tag.gpgsign` enabled, so this is met on the next
-release by tagging with `git tag -s`. See `ROADMAP.md` for the open multi-person
-Silver/Gold criteria and the coverage ratchet.
+release by tagging with `git tag -s`. See `ROADMAP.md` for the declined-tier position
+on the multi-person Silver/Gold criteria, and the coverage ratchet.

@@ -127,15 +127,61 @@ def test_prepare_features_31_missing_binding_matrix_raises():
         os.unlink(tmp_path)
 
 
-def test_train_classifier_argparse_accepts_mode_31():
-    """train_classifier.py argparse does not reject --feature-mode 31."""
+def _run_train_classifier(*args):
+    """Drive the module's argparse in a subprocess, from the repo root."""
+    import pathlib
     import subprocess
     import sys
 
-    result = subprocess.run(
-        [sys.executable, "-m", "src.train_classifier", "--help"],
+    return subprocess.run(
+        [sys.executable, "-m", "src.train_classifier", *args],
         capture_output=True,
         text=True,
-        cwd=".",
+        cwd=pathlib.Path(__file__).resolve().parents[1],
     )
-    assert "31" in result.stdout, "--feature-mode choices should include '31'"
+
+
+def test_train_classifier_argparse_accepts_mode_31(tmp_path):
+    """`--feature-mode 31` is in argparse's `choices`, not merely named in the help text.
+
+    Asserting `"31" in --help` output is NOT sufficient: the rendered help *prose* is
+    independent of `choices`, and "31" survives on the --feature-mode description line
+    ("31 canonical") and on the unrelated --cv-group-by help, so that assertion stays
+    green even if "31" were dropped from `choices` and the flag became unusable - the
+    exact "registered in one table, missing from another" failure this test exists to
+    catch. Drive a real parse instead and require only that argparse accepted the value.
+    """
+    result = _run_train_classifier(
+        "--feature-mode",
+        "31",
+        "--data",
+        str(tmp_path / "does_not_exist.csv"),
+        "--model-dir",
+        str(tmp_path / "out"),
+    )
+    combined = result.stdout + result.stderr
+    assert "invalid choice" not in combined, combined
+
+
+def test_train_classifier_argparse_rejects_unregistered_mode_32(tmp_path):
+    """Negative control for the test above.
+
+    Without this, `assert "invalid choice" not in output` could pass for a reason having
+    nothing to do with `choices` - a parser that never ran, or a renamed argparse message.
+    Mode 32 is deliberately not registered, so it must be rejected.
+    """
+    result = _run_train_classifier(
+        "--feature-mode",
+        "32",
+        "--data",
+        str(tmp_path / "does_not_exist.csv"),
+        "--model-dir",
+        str(tmp_path / "out"),
+    )
+    assert "invalid choice" in (result.stdout + result.stderr)
+
+
+def test_batch_experiment_runner_accepts_mode_31():
+    from scripts.batch_experiment_runner import VALID_FEATURE_MODES
+
+    assert 31 in VALID_FEATURE_MODES

@@ -12,8 +12,13 @@ Feature modes:
   --feature-mode 21  Legacy: 21 sequence-only features (binding_score excluded)
   --feature-mode 30  Canonical: 20 physico + 10 multi-allele binding features
 
-Project 2 best architecture (30-feature, 5-fold CV):
-  256-128-64 ReLU dropout 0.2 → AUC-PR=0.8252 +/- 0.0248
+Default architecture for --feature-mode 30: 256-128-64 ReLU dropout 0.2.
+  No accuracy figure is quoted for it. This line read "AUC-PR=0.8252 +/- 0.0248"
+  until 2026-08-17; that pair is RETRACTED as unbound, its only cited source being
+  an external course export absent from this repo. The tracked artifact
+  models/ann_cv_summary.csv reports AUC-PR 0.7820 +/- 0.0239, but for the LEGACY
+  64-32 dropout 0.3 network over 704 peptides (720 minus 16 gold-standard
+  holdouts), so it does not describe the architecture named above.
 
 Usage:
     # Single architecture (default: 256-128-64)
