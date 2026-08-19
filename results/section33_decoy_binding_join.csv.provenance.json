@@ -1,0 +1,12 @@
+{
+  "generated_utc": "2026-08-19T00:44:52.433550+00:00",
+  "script": "scripts/compute_section33_decoy_binding_join.py",
+  "artifact": "results/section33_decoy_binding_join.csv",
+  "sha256": "a36e33adfe221e492aae65a694d33b3db0b3fe12365335c0d50fe44d9054780e",
+  "inputs": {
+    "data/immunogenicity_dataset_v5.csv": "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4",
+    "models/peptide_binding_matrix_v5.csv": "af40777743a898fb9a138a39209ddb0c264caad9d64a6f9e49b646bd59fa0bf9"
+  },
+  "active_row_definition": "is_quarantined != True",
+  "decoy_origin": "allele_matched_nonbinder"
+}
