@@ -5,8 +5,9 @@ Practices `security_review` criterion (Gold). It should be repeated at least onc
 every five years and whenever the architecture changes materially.
 
 - **Review date:** 2026-06
-- **Reviewer(s):** Gavin Borges (lead maintainer). _An independent external review
-  is recommended and tracked in `ROADMAP.md`._
+- **Reviewer(s):** Gavin Borges (lead maintainer). _This review was self-performed by
+  the sole maintainer. No independent external review has been conducted, and none is
+  scheduled - SESTRAV is solo-maintained (see `BUS_FACTOR.md`)._
 - **Version reviewed:** 2.0.x line (see `CHANGELOG.md`)
 - **Scope:** the full SESTRAV pipeline, the optional FastAPI/Streamlit tools, the
   build/release process, and the dependency supply chain.

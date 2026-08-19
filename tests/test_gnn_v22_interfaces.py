@@ -104,90 +104,205 @@ def test_train_gnn_v2_binding_matrix_path_defaults_none():
 
 
 # ---------------------------------------------------------------------------
-# promote_gnn gate3 reads node_dim and num_continuous_features from gnn_config.json
+# promote_gnn gate3 reads node_dim, num_continuous_features and pooling from
+# gnn_config.json
+#
+# These call the real gate3_latency. An earlier version of each test only
+# re-implemented the config read inline (a local `json.load(...).get(...)`)
+# and asserted that json round-tripped a dict it had just written, so all four
+# passed with gate3_latency replaced by a raiser and promote_gnn's config-read
+# branch stayed at zero coverage across the whole suite. The heavy I/O is stubbed
+# the same way tests/test_promote_gnn_runner.py does it (real files for the
+# existence checks, a fake RF, a state dict handed back from torch.load), and the
+# assertion is on the architecture gate3 actually instantiates.
 # ---------------------------------------------------------------------------
 
 
-def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
-    """gate3_latency should use node_dim from gnn_config.json if present."""
+def _fake_rf(n_features):
+    """Stand-in for the joblib RF whose only role here is the latency baseline."""
+    import numpy as np
+
+    class _FakeRF:
+        n_features_in_ = n_features
+
+        def predict_proba(self, X):
+            return np.column_stack([np.zeros(len(X)), np.ones(len(X))])
+
+    return _FakeRF()
+
+
+def _run_gate3(monkeypatch, tmp_path, *, state_dict, n_features, checkpoint_path=None):
+    """Call the real gate3_latency and return (GateResult, kwargs it built the GNN with).
+
+    Everything gate3 touches on disk is redirected: a real (stub) checkpoint and
+    RF file so the existence checks pass, load_verified_joblib and torch.load
+    stubbed, and GraphPredictorV2 wrapped so the constructor kwargs gate3 derives
+    from the config are observable. The wrapper returns a genuine model, so a
+    node_dim/num_features/pooling that disagrees with *state_dict* still fails
+    loudly in load_state_dict.
+    """
+    import src.artifact_integrity as artifact_integrity
+    import src.gnn.models as models
     import src.verify.promote_gnn as pg
 
-    config_data = {"node_dim": 480, "esm2_model_name": "facebook/esm2_t12_35M_UR50D"}
-    config_file = tmp_path / "gnn_config.json"
-    config_file.write_text(json.dumps(config_data))
+    checkpoint = tmp_path / "structural_gnn_v2.pth"
+    checkpoint.write_bytes(b"stub")
+    rf_model = tmp_path / "rf_31feature_integrated.joblib"
+    rf_model.write_bytes(b"stub")
 
+    built: dict[str, object] = {}
+    real_cls = models.GraphPredictorV2
+
+    def _record(*args, **kwargs):
+        built.update(kwargs)
+        return real_cls(*args, **kwargs)
+
+    monkeypatch.setattr(models, "GraphPredictorV2", _record)
+    monkeypatch.setattr(pg, "GNN_CHECKPOINT", checkpoint)
+    monkeypatch.setattr(pg, "RF_MODEL_PATH", rf_model)
+    monkeypatch.setattr(
+        artifact_integrity, "load_verified_joblib", lambda *a, **k: _fake_rf(n_features)
+    )
+    monkeypatch.setattr(torch, "load", lambda *a, **k: state_dict)
+
+    result = pg.gate3_latency(checkpoint_path)
+    # "ratio=" only appears once the GNN was built, loaded and actually timed.
+    assert "ratio=" in str(result.value), f"gate3_latency did not complete: {result.value}"
+    return result, built
+
+
+def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
+    """gate3_latency must build the GNN with node_dim from gnn_config.json."""
+    import src.verify.promote_gnn as pg
+    from src.features import TRAIN_FEATURE_COLUMNS
+    from src.gnn.models import GraphPredictorV2
+
+    n_features = len(TRAIN_FEATURE_COLUMNS)
+    config_file = tmp_path / "gnn_config.json"
+    config_file.write_text(
+        json.dumps({"node_dim": 480, "esm2_model_name": "facebook/esm2_t12_35M_UR50D"})
+    )
     monkeypatch.setattr(pg, "GNN_CONFIG", config_file)
 
-    # Read node_dim using the same logic as gate3_latency
-    import json as _json
+    state = GraphPredictorV2(num_continuous_features=n_features, node_dim=480).state_dict()
+    _, built = _run_gate3(monkeypatch, tmp_path, state_dict=state, n_features=n_features)
 
-    node_dim = 320
-    if pg.GNN_CONFIG.exists():
-        with pg.GNN_CONFIG.open() as fh:
-            node_dim = _json.load(fh).get("node_dim", 320)
-
-    assert node_dim == 480
+    assert built["node_dim"] == 480
 
 
 def test_gate3_defaults_node_dim_320_when_config_missing(tmp_path, monkeypatch):
     """gate3_latency falls back to 320 when gnn_config.json does not exist."""
     import src.verify.promote_gnn as pg
+    from src.features import TRAIN_FEATURE_COLUMNS
+    from src.gnn.models import GraphPredictorV2
 
+    n_features = len(TRAIN_FEATURE_COLUMNS)
     monkeypatch.setattr(pg, "GNN_CONFIG", tmp_path / "nonexistent.json")
 
-    import json as _json
+    state = GraphPredictorV2(num_continuous_features=n_features).state_dict()
+    _, built = _run_gate3(monkeypatch, tmp_path, state_dict=state, n_features=n_features)
 
-    node_dim = 320
-    if pg.GNN_CONFIG.exists():
-        with pg.GNN_CONFIG.open() as fh:
-            node_dim = _json.load(fh).get("node_dim", 320)
-
-    assert node_dim == 320
+    assert built["node_dim"] == 320
 
 
 def test_gate3_reads_num_continuous_features_from_config(tmp_path, monkeypatch):
-    """gate3_latency should use num_continuous_features from gnn_config.json when present."""
+    """gate3_latency must build the GNN with num_continuous_features from the config."""
     import src.verify.promote_gnn as pg
+    from src.gnn.models import GraphPredictorV2
 
-    config_data = {
-        "node_dim": 480,
-        "num_continuous_features": 31,
-        "feature_mode": 31,
-        "esm2_model_name": "facebook/esm2_t12_35M_UR50D",
-    }
     config_file = tmp_path / "gnn_config.json"
-    config_file.write_text(json.dumps(config_data))
-
+    config_file.write_text(
+        json.dumps(
+            {
+                "node_dim": 320,
+                "num_continuous_features": 31,
+                "feature_mode": 31,
+                "esm2_model_name": "facebook/esm2_t6_8M_UR50D",
+            }
+        )
+    )
     monkeypatch.setattr(pg, "GNN_CONFIG", config_file)
 
-    import json as _json
-    from src.features import TRAIN_FEATURE_COLUMNS
+    state = GraphPredictorV2(num_continuous_features=31).state_dict()
+    _, built = _run_gate3(monkeypatch, tmp_path, state_dict=state, n_features=31)
 
-    num_features = len(TRAIN_FEATURE_COLUMNS)
-    if pg.GNN_CONFIG.exists():
-        with pg.GNN_CONFIG.open() as fh:
-            _cfg = _json.load(fh)
-            num_features = _cfg.get("num_continuous_features", num_features)
-
-    assert num_features == 31
+    assert built["num_continuous_features"] == 31
 
 
 def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatch):
     """gate3_latency falls back to 21 (TRAIN_FEATURE_COLUMNS) when gnn_config.json absent."""
     import src.verify.promote_gnn as pg
     from src.features import TRAIN_FEATURE_COLUMNS
+    from src.gnn.models import GraphPredictorV2
 
+    n_features = len(TRAIN_FEATURE_COLUMNS)
+    assert n_features == 21
     monkeypatch.setattr(pg, "GNN_CONFIG", tmp_path / "nonexistent.json")
 
-    import json as _json
+    state = GraphPredictorV2(num_continuous_features=n_features).state_dict()
+    _, built = _run_gate3(monkeypatch, tmp_path, state_dict=state, n_features=n_features)
 
-    num_features = len(TRAIN_FEATURE_COLUMNS)
-    if pg.GNN_CONFIG.exists():
-        with pg.GNN_CONFIG.open() as fh:
-            _cfg = _json.load(fh)
-            num_features = _cfg.get("num_continuous_features", num_features)
+    assert built["num_continuous_features"] == 21
 
-    assert num_features == 21
+
+def test_gate3_reads_pooling_from_config(tmp_path, monkeypatch):
+    """The v2.4 readout is the third key gate3 reads, and nothing else covers it.
+
+    An attention checkpoint carries encoder.att_pool weights that a mean-pooled
+    GraphPredictorV2 has no slot for, so ignoring this key makes gate3 time the
+    wrong architecture (GNN rule 8/9).
+    """
+    import src.verify.promote_gnn as pg
+    from src.features import TRAIN_FEATURE_COLUMNS
+    from src.gnn.models import GraphPredictorV2
+
+    n_features = len(TRAIN_FEATURE_COLUMNS)
+    config_file = tmp_path / "gnn_config.json"
+    config_file.write_text(json.dumps({"node_dim": 320, "pooling": "attention"}))
+    monkeypatch.setattr(pg, "GNN_CONFIG", config_file)
+
+    state = GraphPredictorV2(num_continuous_features=n_features, pooling="attention").state_dict()
+    _, built = _run_gate3(monkeypatch, tmp_path, state_dict=state, n_features=n_features)
+
+    assert built["pooling"] == "attention"
+
+
+def test_gate3_reads_the_checkpoint_siblings_config_not_the_tracked_one(tmp_path, monkeypatch):
+    """With a --checkpoint override, the config must come from the checkpoint's directory.
+
+    gate3_latency documents `checkpoint_path.parent / "gnn_config.json"` as the
+    config source for an override, so that node_dim stays matched to the file
+    being timed. The tracked GNN_CONFIG here names a different node_dim on
+    purpose: reading it instead would build a 320-dim model for a 480-dim
+    checkpoint.
+    """
+    import src.verify.promote_gnn as pg
+    from src.features import TRAIN_FEATURE_COLUMNS
+    from src.gnn.models import GraphPredictorV2
+
+    n_features = len(TRAIN_FEATURE_COLUMNS)
+
+    tracked_config = tmp_path / "tracked" / "gnn_config.json"
+    tracked_config.parent.mkdir()
+    tracked_config.write_text(json.dumps({"node_dim": 320}))
+    monkeypatch.setattr(pg, "GNN_CONFIG", tracked_config)
+
+    scratch_dir = tmp_path / "scratch_run"
+    scratch_dir.mkdir()
+    scratch_checkpoint = scratch_dir / "gnn.pth"
+    scratch_checkpoint.write_bytes(b"stub")
+    (scratch_dir / "gnn_config.json").write_text(json.dumps({"node_dim": 480}))
+
+    state = GraphPredictorV2(num_continuous_features=n_features, node_dim=480).state_dict()
+    _, built = _run_gate3(
+        monkeypatch,
+        tmp_path,
+        state_dict=state,
+        n_features=n_features,
+        checkpoint_path=scratch_checkpoint,
+    )
+
+    assert built["node_dim"] == 480
 
 
 # ---------------------------------------------------------------------------

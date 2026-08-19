@@ -19,8 +19,9 @@ transparent and reproducible rather than ad hoc:
 - Disagreements are resolved by discussion on the relevant Issue/PR; if consensus
   is not reached, the lead maintainer decides and records the rationale in the thread.
 
-As the contributor base grows, this model is expected to evolve toward a small
-maintainer committee with shared merge rights (see `ROADMAP.md`).
+SESTRAV has one maintainer and **no plan to add a second**. Do not read this model as
+transitional: a maintainer committee with shared merge rights is not forthcoming. If
+that position changes, this document will be updated to say so.
 
 ## 2. Roles and responsibilities
 
@@ -30,7 +31,7 @@ maintainer committee with shared merge rights (see `ROADMAP.md`).
 | **Security contact** | Gavin Borges (`gavinmborges1104@gmail.com`) | Triage and coordinate vulnerability reports per `SECURITY.md`. |
 | **Release manager** | Lead maintainer | Versioning, tagging, changelog, and release-bundle signing. |
 | **Reviewers** | Lead maintainer (no backup designated yet, see `BUS_FACTOR.md`) | Review Pull Requests for correctness, tests, and style. |
-| **Backup maintainer** | See `BUS_FACTOR.md` | Continuity if the lead is unavailable. |
+| **Backup maintainer** | **None - vacant, with no candidate and no plan to fill it. See `BUS_FACTOR.md`.** | Would provide continuity if the lead were unavailable; currently unfilled, so no such continuity exists. |
 | **Contributors** | Anyone who opens a PR/Issue | Propose changes per `CONTRIBUTING.md`. |
 
 Significant past contributors are credited in `CONTRIBUTORS.md`.
@@ -55,13 +56,17 @@ This is the primary mechanism for raising the project's bus factor over time.
 
 ## 5. Continuity (access continuity)
 
-The project is designed to survive the loss of any single individual:
+**The project has bus factor 1.** The measures below reduce - but do not eliminate -
+the consequences of losing the sole maintainer. They do not amount to survival of the
+project as a maintained thing; they ensure the *work* remains usable and continuable
+by others.
 
 - **Source & history** are public on GitHub and fully cloneable; the project is
   MIT-licensed, so anyone may fork and continue it.
 - **No single hidden dependency**: build, test, and release procedures are
   documented in `README.md` and `CONTRIBUTING.md` and automated in CI.
-- **Backup maintainer & access recovery** are documented in `BUS_FACTOR.md`.
+- **No backup maintainer exists**, and access recovery is not arranged. See
+  `BUS_FACTOR.md` for the honest status rather than a plan.
 - **Releases** are reproducible from tagged source; integrity manifests and the
   release process are described in `CONTRIBUTING.md` and `SECURITY.md`.
 

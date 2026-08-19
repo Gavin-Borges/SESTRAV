@@ -72,11 +72,39 @@ class TestBootstrapIter:
         assert result is None
 
     def test_delta_sign_matches_model_ordering(self):
+        """Deltas are ref minus comp, so a strictly better ref must give positive deltas.
+
+        The sign is the whole point of this function: paired_bootstrap_comparison
+        feeds scripts/evaluate_per_virus.py, where an inverted delta inverts which
+        model a published table reports as better. Bounding the delta inside
+        (-1, 1) - the previous assertion - is arithmetically forced for a
+        difference of two scores in [0, 1] and holds under a full sign inversion.
+
+        _bootstrap_iter seeds its own unseeded RNG, so this samples repeatedly
+        rather than trusting one draw. Two exact ties in 20,000 draws make a
+        per-draw `> 0` flaky, so each draw is required to be non-negative (which
+        the separation anchor below makes exact: ref scores every positive above
+        every negative, so ref's AP and ROC are 1.0 in any two-class resample and
+        no single delta can go negative) and the mean is required to be strictly
+        positive (which rules out the degenerate all-zero case).
+        """
         y, ref, comp = self._arrays(n_pos=40, n_neg=40)
-        result = _bootstrap_iter(y, ref, comp, len(y))
-        if result is not None:
+        # Precondition the sign claim rests on: ref separates the classes perfectly.
+        assert ref[y == 1].min() > ref[y == 0].max()
+
+        ap_deltas: list[float] = []
+        roc_deltas: list[float] = []
+        for _ in range(20):
+            result = _bootstrap_iter(y, ref, comp, len(y))
+            assert result is not None, "80 samples balanced 40/40 cannot resample single-class"
             ap_delta, roc_delta, _ = result
-            assert ap_delta > -1.0 and ap_delta < 1.0
+            assert ap_delta >= 0, f"ref outranks comp, so AP delta must not be negative: {ap_delta}"
+            assert roc_delta >= 0, f"ref outranks comp, so ROC delta must not be negative: {roc_delta}"
+            ap_deltas.append(ap_delta)
+            roc_deltas.append(roc_delta)
+
+        assert float(np.mean(ap_deltas)) > 0
+        assert float(np.mean(roc_deltas)) > 0
 
 
 # ---------------------------------------------------------------------------

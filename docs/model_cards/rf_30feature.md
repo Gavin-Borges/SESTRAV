@@ -1,4 +1,14 @@
+---
+status: historical-v3
+---
+
 # SESTRAV Model Card: RandomForest (30-Feature Integrated)
+
+> **HISTORICAL (v3 corpus era).** This card documents a legacy model (`feature_mode=30`, trained on
+> the v3 dataset) superseded by `rf_31feature_integrated.joblib`. Its evaluation figures are the
+> 2026-05 Tier A field, not re-measured under the current v5 corpus or the peptide-grouped splitter,
+> and are not comparable to the current production figures in `README.md` / `docs/paper.md`. Retained
+> for reproducibility of a prior result, not as a current claim.
 
 ## Model Details
 - **Model Type:** Random Forest Classifier (Scikit-Learn)

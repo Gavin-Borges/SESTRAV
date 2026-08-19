@@ -1,8 +1,13 @@
 name: PR Review Enforcement
 
 # Runs on every pull request targeting the main branch.
-# This workflow acts as the mandatory status check that the branch ruleset requires,
-# ensuring no PR can be merged to main without human code review.
+# This workflow acts as the mandatory status check that the branch ruleset requires.
+# It enforces an approving human review for EXTERNAL contributors ONLY. Pull requests
+# from the repository owner (the sole maintainer) and from trusted dependency bots
+# bypass the requirement - see the bypass branches below. It therefore does NOT
+# establish independent review for owner-authored changes, which are the large
+# majority of merges. SESTRAV is solo-maintained; the required CI checks, not a second
+# reviewer, are the real gate on those changes. See BUS_FACTOR.md.
 # Scorecard Code-Review check (https://scorecard.dev/checks/#code-review) monitors
 # whether recent changesets were approved before merging.
 

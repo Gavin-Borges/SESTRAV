@@ -302,10 +302,15 @@ evaluation is described in Section 2.5.
 
 ### 2.3 Model Architectures
 
-The Random Forest canonical track is described in full in Section 2.2. Single-threaded
-execution (n_jobs = 1) was set to ensure platform-independent reproducibility across
-CPU configurations; the production model was retrained on all 35,597 active training
-rows after cross-validation completed.
+The Random Forest canonical track is described in full in Section 2.2. Tree fitting is
+parallelised across all available cores (n_jobs = -1), while scoring is pinned to a
+single thread before every prediction: Random Forest's threaded prediction accumulates
+per-tree votes in nondeterministic completion order, and floating-point addition is not
+associative. Fitting is invariant to thread count given a fixed random seed, so the two
+together reproduce fully serial execution bit-for-bit, which is verified by test rather
+than asserted; identical cross-validation metrics were obtained on 1 and on 32 logical
+cores. The production model was refitted on the same 35,555-row training pool after
+cross-validation completed; the 42 gold-standard holdout rows are never returned to it.
 
 A supplementary gradient-boosted tree classifier (XGBoost; [21]) was trained on
 identical feature matrices and cross-validation partitions. The configuration comprised
@@ -313,7 +318,8 @@ identical feature matrices and cross-validation partitions. The configuration co
 (objective = binary:logistic), the inverse negative-to-positive row count as the
 positive class scale weight (scale_pos_weight = n_neg / max(n_pos, 1), recomputed
 from the training pool), AUC-PR as the monitored evaluation metric
-(eval_metric = aucpr), single-threaded execution (nthread = 1), and a fixed random
+(eval_metric = aucpr), all-core execution (nthread = -1; the hist tree builder is
+thread-count invariant, likewise verified by test), and a fixed random
 seed (random_state = 42). XGBoost results serve as a supplementary comparison track;
 both classifiers shared the same feature mode, cross-validation partitions, and
 gold-standard exclusion set.
@@ -543,7 +549,8 @@ and peptide length) was cross-validated on 35,555 rows under peptide-grouped 5-f
 cross-validation (`src.ml_utils.PeptideGroupedKFold`, re-baselined 2026-08-10, closing
 `docs/claims_register.md` D15 - see below). That pool is the 35,597 active v5 rows less the
 42 gold-standard holdout rows withheld from training by the contamination control of Section
-2.2 (EBV 37, HPV 5); the production model was subsequently refitted on all 35,597. The pooled mixed-background out-of-fold
+2.2 (EBV 37, HPV 5); the production model was subsequently refitted on that same 35,555-row
+pool, not on the full 35,597. The pooled mixed-background out-of-fold
 performance was AUC-ROC 0.814 and AUC-PR 0.606 (models/v5/training_results_mode31.csv),
 reflecting discrimination between immunogenic viral peptides and a mixed negative
 background when all nine viruses contribute jointly to training. **That background is

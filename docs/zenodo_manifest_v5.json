@@ -13,20 +13,20 @@
     {
       "path": "data/immunogenicity_dataset_v5.csv",
       "role": "dataset",
-      "bytes": 7992169,
-      "sha256": "1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7"
+      "bytes": 7940983,
+      "sha256": "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4"
     },
     {
       "path": "data/immunogenicity_dataset_v5_schema.json",
       "role": "schema",
-      "bytes": 8052,
-      "sha256": "92452c4342402df20e377f9ac6cf7fff798a4c51c0abb57a6f05fca5d0f5d023"
+      "bytes": 7933,
+      "sha256": "f0a1f69baa3c6feb380effbf9b73c69f76cc3e839096ea40ab4ebcd38db640d7"
     },
     {
       "path": "data/immunogenicity_dataset_v5_provenance.json",
       "role": "provenance",
-      "bytes": 18409,
-      "sha256": "13ef427d32fb212128083dbb92fe8879505572bcf3c48388152338a2bf415f08"
+      "bytes": 17544,
+      "sha256": "93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329"
     }
   ]
 }

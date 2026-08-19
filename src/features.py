@@ -36,6 +36,7 @@ Multi-allele 30-feature mode (CMB 523 Project 2):
   features.  An optional 31st feature (peptide_length) is also defined.
 """
 
+import hashlib
 from typing import Optional
 
 import pandas as pd
@@ -246,6 +247,16 @@ BINDING_ALLELE_COLUMNS = [
     "bind_B3501",
     "bind_B4402",
 ]
+
+# 10-feature binding-only ablation: the exact converse of mode 21 (physico-only,
+# no binding). Isolates the 10 per-allele MHCflurry presentation scores with no
+# physicochemistry and no peptide_length, to measure what binding alone
+# contributes on the same peptide-grouped CV path as the other arms - the
+# published ablation shows only the physico-to-physico+binding increment
+# (mode 21 -> mode 31), never the reverse, a gap docs/paper.md discloses.
+# The two sets partition mode 31 exactly: FEATURE_COLUMNS_10 and
+# TRAIN_FEATURE_COLUMNS are disjoint and their union is FEATURE_COLUMNS_31.
+FEATURE_COLUMNS_10 = list(BINDING_ALLELE_COLUMNS)
 
 FEATURE_COLUMNS_30 = PHYSICO_COLUMNS + BINDING_ALLELE_COLUMNS
 FEATURE_COLUMNS_31 = FEATURE_COLUMNS_30 + ["peptide_length"]
@@ -715,6 +726,18 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
         return rng.normal(0, 1, 320)
 
 
+def _wl_color(feat_str: str) -> str:
+    """Return a stable WL node colour for ``feat_str``.
+
+    Deliberately NOT the builtin ``hash()``: CPython salts ``str.__hash__`` per
+    interpreter via PYTHONHASHSEED, so the colours - and therefore the 32 binned
+    ``graph_wl_*`` features - differed on every process launch. A model trained in
+    one process and scored in another saw different features. Measured across three
+    seeds on peptide GLFYTRTGL, all three vectors differed.
+    """
+    return hashlib.sha256(feat_str.encode("utf-8")).hexdigest()
+
+
 def compute_weisfeiler_lehman_features(G, n_iter=2) -> np.ndarray:
     """
     Compute Weisfeiler-Lehman (WL) graph kernel features for Weisfeiler-Lehman test.
@@ -727,14 +750,12 @@ def compute_weisfeiler_lehman_features(G, n_iter=2) -> np.ndarray:
         for node in G.nodes():
             neigh_feats = sorted([current_features[neigh] for neigh in G.neighbors(node)])
             feat_str = f"{current_features[node]}-" + "-".join(neigh_feats)
-            new_features[node] = str(hash(feat_str))
+            new_features[node] = _wl_color(feat_str)
             all_colors.append(new_features[node])
         current_features = new_features
 
     wl_vector = np.zeros(32)
     for color in all_colors:
-        import hashlib
-
         idx = int(hashlib.md5(color.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % 32
         wl_vector[idx] += 1.0
 
@@ -802,14 +823,12 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
         for node in G.nodes():
             neigh_feats = sorted([current_features[neigh] for neigh in G.neighbors(node)])
             feat_str = f"{current_features[node]}-" + "-".join(neigh_feats)
-            new_features[node] = str(hash(feat_str))
+            new_features[node] = _wl_color(feat_str)
             all_colors.append(new_features[node])
         current_features = new_features
 
     wl_vector = np.zeros(32)
     for color in all_colors:
-        import hashlib
-
         idx = int(hashlib.md5(color.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % 32
         wl_vector[idx] += 1.0
 

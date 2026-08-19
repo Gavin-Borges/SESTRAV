@@ -23,6 +23,7 @@ from sklearn.model_selection import StratifiedKFold
 from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.ml_utils import pin_serial_scoring
 from src.train_classifier import prepare_features_30
 
 
@@ -36,9 +37,10 @@ def _oof_scores(X: np.ndarray, y: np.ndarray, n_folds: int = 5, seed: int = 42) 
             n_estimators=200,
             class_weight="balanced",
             random_state=seed,
-            n_jobs=1,
+            n_jobs=-1,
         )
         clf.fit(X[train_idx], y[train_idx])
+        pin_serial_scoring(clf)
         oof[test_idx] = clf.predict_proba(X[test_idx])[:, 1]
     return oof
 
@@ -112,9 +114,10 @@ def run_cross_virus(
                 n_estimators=200,
                 class_weight="balanced",
                 random_state=42,
-                n_jobs=1,
+                n_jobs=-1,
             )
             clf.fit(X_train, y_train)
+            pin_serial_scoring(clf)
             scores = clf.predict_proba(X_test)[:, 1]
             m = evaluate(y_test, scores)
             rows.append(

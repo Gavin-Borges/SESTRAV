@@ -11,7 +11,13 @@ ratio).  SMOTE was explicitly rejected based on Project 1 findings (degraded
 AUC from 0.620 to 0.582).
 
 Architecture search (Project 2 best): 256-128-64 ReLU dropout 0.2
-  AUC-PR = 0.8252 +/- 0.0248 (5-fold CV, 30 features)
+  No accuracy figure is quoted for it. This block read
+  "AUC-PR = 0.8252 +/- 0.0248 (5-fold CV, 30 features)" until 2026-08-17; that
+  pair is RETRACTED as unbound - its only cited source is an external course
+  export that is absent from this repository and cannot acquire provenance.
+  The tracked artifact models/ann_cv_summary.csv reports AUC-PR 0.7820 +/- 0.0239
+  for the LEGACY 64-32 dropout 0.3 network, a different architecture, so it is
+  not a replacement value here.
 
 Usage:
     from src.model import FlexibleMLP, set_seeds, get_device

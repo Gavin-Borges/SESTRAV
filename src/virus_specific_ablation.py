@@ -23,6 +23,7 @@ from sklearn.model_selection import StratifiedKFold
 
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.ml_utils import pin_serial_scoring
 from src.train_classifier import prepare_features, prepare_features_30
 
 
@@ -58,7 +59,7 @@ def run_ablation(
         n_estimators=200,
         class_weight="balanced",
         random_state=random_state,
-        n_jobs=1,
+        n_jobs=-1,
     )
 
     all_results = []
@@ -90,6 +91,7 @@ def run_ablation(
 
             model = RandomForestClassifier(**rf_kwargs)
             model.fit(X_tr, y_tr)
+            pin_serial_scoring(model)
             scores = model.predict_proba(X_val)[:, 1]
             m = _safe_evaluate(y_val, scores)
             virus_fold_metrics.append(m)
@@ -121,6 +123,7 @@ def run_ablation(
 
             model = RandomForestClassifier(**rf_kwargs)
             model.fit(X_tr, y_tr)
+            pin_serial_scoring(model)
 
             virus_val_mask = virus_mask_all[val_idx]
             if virus_val_mask.sum() == 0:

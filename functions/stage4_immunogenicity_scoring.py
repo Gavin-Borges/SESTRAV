@@ -35,6 +35,9 @@ from src.features import (
     FEATURE_COLUMNS,
     TRAIN_FEATURE_COLUMNS,
     FEATURE_COLUMNS_30,
+    FEATURE_COLUMNS_31,
+    FEATURE_COLUMNS_33,
+    FEATURE_COLUMNS_35,
     FEATURE_COLUMNS_50,
 )
 from src.naming import resolve_model_path
@@ -43,6 +46,69 @@ try:
     from src.artifact_integrity import load_verified_joblib
 except ImportError:
     load_verified_joblib = None  # type: ignore[assignment]
+
+
+#: Maps a trained model's fit-time feature count to the column layout that reproduces it.
+#:
+#: Keyed by width because ``n_features_in_`` (or an ANN checkpoint's ``n_features``) is the
+#: only thing a loaded artifact reliably exposes. A caller's ``--feature-mode`` is NOT used
+#: for this decision - it is advisory, and keying off it would let a mislabeled request
+#: silently score against the wrong matrix.
+#:
+#: This table exists because the mapping used to be written out twice in this module as an
+#: if/elif ladder - once in the ANN branch and once in the joblib branch - and both copies
+#: omitted modes 31, 33 and 35. A 31-feature model (the config.yaml default) therefore fell
+#: through to the 22-column legacy set, and the mismatch surfaced only as a third-party
+#: feature-name error from inside predict_proba. One table, read by both paths, stops that
+#: recurring here. Note a third, independent copy still lives in ``src/baseline_comparison``
+#: and handles only 30/21/legacy-22; it is unreachable at other widths today because its
+#: candidate lists offer no other artifact.
+_FEATURE_LAYOUTS: dict[int, tuple[list[str], str]] = {
+    len(FEATURE_COLUMNS_50): (FEATURE_COLUMNS_50, "50-feature multi-allele mode"),
+    len(FEATURE_COLUMNS_35): (FEATURE_COLUMNS_35, "35-feature extended mode"),
+    len(FEATURE_COLUMNS_33): (FEATURE_COLUMNS_33, "33-feature antigen-processing mode"),
+    len(FEATURE_COLUMNS_31): (FEATURE_COLUMNS_31, "31-feature canonical mode"),
+    len(FEATURE_COLUMNS_30): (FEATURE_COLUMNS_30, "30-feature multi-allele mode"),
+    len(FEATURE_COLUMNS): (FEATURE_COLUMNS, "full legacy set"),
+    len(TRAIN_FEATURE_COLUMNS): (TRAIN_FEATURE_COLUMNS, "sequence-only (binding_score excluded)"),
+}
+
+
+def _resolve_feature_layout(expected_n: int) -> tuple[list[str], str]:
+    """Return the (column list, human label) a model of width ``expected_n`` was fit on.
+
+    Falls back to the legacy 22-column set for an unrecognised width; callers are
+    expected to verify the resulting selection actually matches ``expected_n``.
+    """
+    return _FEATURE_LAYOUTS.get(expected_n, (FEATURE_COLUMNS, "full legacy set"))
+
+
+def _select_model_columns(expected_n: int, features_df) -> tuple[list[str], str]:
+    """Select the columns a model of width ``expected_n`` needs, or refuse clearly.
+
+    Raises ``RuntimeError`` when the pipeline cannot supply that layout instead of
+    substituting a narrower one. Modes 33 and 35 are the load-bearing case: Stage 3 does
+    not compute ``netchop_score``/``tap_score`` or the ``self_similarity_*`` columns at
+    all, so those models are genuinely unscoreable here and must say so plainly rather
+    than failing several frames deeper with a feature-name mismatch.
+    """
+    expected_list, label = _resolve_feature_layout(expected_n)
+    model_cols = [c for c in expected_list if c in features_df.columns]
+    if len(model_cols) != expected_n:
+        if expected_n not in _FEATURE_LAYOUTS:
+            raise RuntimeError(
+                f"[Stage 4] Unrecognised feature width: no shipped layout has "
+                f"{expected_n} columns (known widths: {sorted(_FEATURE_LAYOUTS)}), and the "
+                f"fallback {label} supplies {len(model_cols)}. Refusing to score against a "
+                "substituted feature matrix."
+            )
+        missing = [c for c in expected_list if c not in features_df.columns]
+        raise RuntimeError(
+            f"[Stage 4] Cannot score a {expected_n}-feature model: the pipeline supplied "
+            f"{len(model_cols)} of the {len(expected_list)} columns for the {label}; "
+            f"missing {missing}. Refusing to score against a substituted feature matrix."
+        )
+    return model_cols, label
 
 
 def _load_torch_checkpoint(model_path, required=True):
@@ -298,7 +364,13 @@ def score_immunogenicity(
     Score each peptide's immunogenicity.
 
     Auto-detects model type (.joblib vs .pt) and feature dimensionality
-    (21, 22, or 30 features).
+    (21, 22, 30, 31, 33, 35 or 50 features) from the artifact itself.
+
+    The two branches differ on an unsatisfiable layout, deliberately: the joblib
+    path raises ``RuntimeError`` rather than score against a substituted matrix,
+    while the ANN path warns and proceeds unless ``freeze_mode`` is set. A named
+    ``model_path`` that does not exist always raises ``FileNotFoundError``; pass
+    ``model_path=None`` to request the prototype classifier on purpose.
 
     Args:
         features_df: DataFrame with feature columns from Stage 3
@@ -336,6 +408,23 @@ def score_immunogenicity(
         model_path = resolved_path
     model_dir = os.path.dirname(model_path) if model_path else "models"
 
+    # A caller who NAMED a model must get that model or an error - never the prototype.
+    # Without this, a wrong path fell through to the inline prototype classifier below,
+    # which trains on pseudo-labels derived from binding_score and then has its output
+    # calibrated and thresholded like a real score. The resulting ranked CSV carries no
+    # marker distinguishing it from a genuine run, and the only disclosure is a stdout
+    # line that any redirected or backgrounded run discards. `sestrav predict` validates
+    # --model itself, but pipeline.py does not: ModelRegistry.resolve_model confines a
+    # path to models/ without checking that it exists. Passing model_path=None remains
+    # the supported way to ask for the prototype deliberately.
+    if model_path and not os.path.isfile(model_path):
+        raise FileNotFoundError(
+            f"[Stage 4] Model artifact not found: {model_path!r}. Refusing to fall back to "
+            "the prototype inline classifier, whose scores are not scientifically valid and "
+            "are indistinguishable from a real run once written. Pass model_path=None to "
+            "request the prototype deliberately."
+        )
+
     if model_path and os.path.isfile(model_path):
         is_pytorch = model_path.endswith(".pt")
 
@@ -343,18 +432,10 @@ def score_immunogenicity(
             checkpoint = _load_torch_checkpoint(model_path, required=False)
             expected_n = checkpoint["n_features"]
 
-            if expected_n == len(FEATURE_COLUMNS_50):
-                model_cols = [c for c in FEATURE_COLUMNS_50 if c in features_df.columns]
-                expected_list = FEATURE_COLUMNS_50
-            elif expected_n == len(FEATURE_COLUMNS_30):
-                model_cols = [c for c in FEATURE_COLUMNS_30 if c in features_df.columns]
-                expected_list = FEATURE_COLUMNS_30
-            elif expected_n == len(TRAIN_FEATURE_COLUMNS):
-                model_cols = [c for c in TRAIN_FEATURE_COLUMNS if c in features_df.columns]
-                expected_list = TRAIN_FEATURE_COLUMNS
-            else:
-                model_cols = [c for c in FEATURE_COLUMNS if c in features_df.columns]
-                expected_list = FEATURE_COLUMNS
+            # Same layout table as the joblib path, but this branch keeps its existing
+            # warn-unless-freeze_mode semantics rather than refusing outright.
+            expected_list, _ = _resolve_feature_layout(expected_n)
+            model_cols = [c for c in expected_list if c in features_df.columns]
 
             if len(model_cols) < expected_n:
                 missing = set(expected_list) - set(features_df.columns)
@@ -388,20 +469,8 @@ def score_immunogenicity(
             model = load_verified_joblib(model_path, required_checksum=True)
             expected_n = model.n_features_in_
 
-            if expected_n == len(FEATURE_COLUMNS_50):
-                model_cols = [c for c in FEATURE_COLUMNS_50 if c in features_df.columns]
-                print(f"[Stage 4] Using {len(model_cols)} features (50-feature multi-allele mode)")
-            elif expected_n == len(FEATURE_COLUMNS_30):
-                model_cols = [c for c in FEATURE_COLUMNS_30 if c in features_df.columns]
-                print(f"[Stage 4] Using {len(model_cols)} features (30-feature multi-allele mode)")
-            elif expected_n == len(TRAIN_FEATURE_COLUMNS):
-                model_cols = [c for c in TRAIN_FEATURE_COLUMNS if c in features_df.columns]
-                print(
-                    f"[Stage 4] Using {len(model_cols)} sequence-only features (binding_score excluded)"
-                )
-            else:
-                model_cols = [c for c in FEATURE_COLUMNS if c in features_df.columns]
-                print(f"[Stage 4] Using {len(model_cols)} features (full legacy set)")
+            model_cols, layout_label = _select_model_columns(expected_n, features_df)
+            print(f"[Stage 4] Using {len(model_cols)} features ({layout_label})")
 
             X = features_df[model_cols].copy()
             features_df["immunogenicity_score"] = model.predict_proba(X)[:, 1]
