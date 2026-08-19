@@ -145,12 +145,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **The manuscript's central novelty claim was false, and so was a checkable claim about a
   competitor (claims register D25).** The Abstract asserted, unhedged, that no published
   immunogenicity predictor had reported a systematic leave-one-pathogen-out benchmark on
-  assay-confirmed negatives. Two published falsifiers, both verified by reading the primary
-  sources: **Bravi et al. (eLife 2023)** satisfies all four conjuncts - MHC class I,
+  assay-confirmed negatives. One published falsifier and one near-miss, both verified
+  by reading the primary sources: **Bravi et al. (eLife 2023)** satisfies all four
+  conjuncts - MHC class I,
   leave-one-organism-out with per-fold retraining, strictly assay-confirmed IEDB negatives,
-  mean AUC 0.68 - and **TRAP (Genome Med 2023)** trains explicitly on non-SARS-CoV-2 and
-  non-vaccinia splits, its only gap being unassayed thymic self ligands among its negatives.
-  - **The durable lesson is the search method, not the claim.** Both falsifiers use different
+  mean AUC 0.68 - and the **TRAP study (Genome Med 2023)** reported explicit
+  non-SARS-CoV-2 and non-vaccinia splits, its gap being that each holds out a single
+  pathogen rather than completing a leave-one-out cycle - which makes it a near-miss, not a
+  second falsifier.
+    - *Corrected 2026-08-18 (claims register D28): the "unassayed thymic self ligands
+      among its negatives" characterisation this entry originally carried is RETRACTED.
+      Those splits drew both classes from assay-confirmed IEDB records; the unassayed
+      thymic ligands belong to that study's separate self-antigen dataset.*
+  - **The durable lesson is the search method, not the claim.** Both works use different
     vocabulary ("leave-one-organism-out", "cross-species manner"), so a phrase search on this
     project's own coined term returned nothing. A negative claim searched only by its author's
     phrasing reads as engineered to survive, and must be searched by concept.
