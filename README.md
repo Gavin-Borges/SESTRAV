@@ -43,7 +43,7 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191), wh
 | OpenSSF Passing badge | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Antigen processing as training features | `feature_mode=33` | ✓ | Partial | ✗ | Partial |
 | Graph Neural Network scorer | ✓ (v2.3 GINEConv+ESM-2; research/ensemble component) | ✗ | ✗ | ✗ | ✗ |
-| Pan-allele training | v5 active | Partial | ✓ | ✓ | ✓ |
+| Pan-allele training | ✗ - ten fixed HLA-A/-B binding columns; allele identity is not a model feature, so the production model is allele-blind. A `feature_mode=166` allele-aware track exists but was not adopted (`ROADMAP.md`), and its pocket features are under review - see claims register D30 | Partial | ✓ | ✓ | ✓ |
 | Multi-virus support | 9 viruses (v5 active), each a separately-validated within-virus panel - not cross-virus transfer, see LOO below: CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited | Limited | Pan-pathogen | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
 | AUC-PR on labeled benchmark (Tier A) | **0.828 (OOF, 30-feature, unweighted, 2026-05; not `mode_31` - see note below)** | not benchmarked | not benchmarked | N/A | N/A |

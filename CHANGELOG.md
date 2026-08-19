@@ -39,6 +39,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **The manuscript called its own work "pan-allele" and the tree does not support it (claims
+  register D29), a defect installed by D28's own correction one day earlier.** D28 re-narrowed the
+  contribution claim onto the conjunction of a completed leave-one-out cycle with "pan-allele
+  coverage", moving the paper's entire remaining differentiation onto the weaker conjunct. No
+  production feature mode contains an allele-identity column (`src/features.py:230-311`: mode
+  21 is physicochemistry and length with no binding columns at all, mode 10 is the ten binding
+  columns alone, modes 30/31/33/35 pair physicochemistry with those same ten, and mode 50 uses
+  an expanded physicochemical set - what they share is not one column list but the absence of
+  any allele identifier), and `hla_allele` never enters a production feature vector. It does
+  reach two non-production sets - the mode-51 contact weights and the mode-166 pocket features -
+  neither of which backs a published number; see claims register D29 and D30.
+  The paper had already said so about itself in Section 3.2, "no allele-identity column enters the
+  31-feature vector" (a sentence this pass also had to sharpen: it read "allele-specific", which is
+  checkably wrong because mode 31 does carry ten per-allele binding columns, as Section 2.2 states),
+  and its own population-genetics result calls the panel biased toward European
+  reference populations and "motivating future expansion". Meanwhile `docs/paper.md:67` used
+  "pan-allele" in the strict allele-generalizing sense for NetMHCpan, as does reference 11's
+  MHCflurry title, so one word was carrying two meanings in one document. The Abstract, Section 1, Section 4.1 and the front matter
+  now make **no allele-coverage claim at all**: they state instead that binding features are
+  computed against a ten-allele HLA class I panel and that no allele-identity feature enters the
+  model. The `README.md` capability table row that scored SESTRAV against NetMHCpan, PRIME and
+  pVACtools on this axis is now marked negative, with the reason in the cell. **No metric, artifact or bound claim
+  changes**; the LOO and Tier A headlines both come from allele-blind modes and are unaffected.
+  - **The first replacement text was itself rejected, which is why the wording is shaped this way.**
+    It read "a nine-pathogen leave-one-virus-out benchmark **over** a ten-allele HLA class I binding
+    panel", putting the corrected phrase in the same grammatical slot the wrong word had occupied
+    and so still asserting a coverage scope. A `claims-auditor` NO-GO caught it before commit. A
+    draft contrast against "the single allele of [1]" was removed for the same reason: [1] is an
+    allele-specific model and this one is allele-blind, so the two are not comparable on that axis.
+  - **Section 2.1's ten-allele sentence was separately wrong.** "Coverage was restricted to ten HLA
+    class I alleles" was worded and positioned as a restriction on the corpus, when it scopes only
+    the binding-feature panel. Re-scoped, with the consequence stated: records on non-panel alleles
+    are retained and are scored from their peptide alone. The precise corpus counts behind this
+    reproduce exactly from the tracked `data/immunogenicity_dataset_v5.csv` and are recorded in
+    D29; what they lack is a provenance-generating script, not a tracked source, so they are kept
+    out of the manuscript until one exists.
 - **The PyPI publish path could not have succeeded, and had never once run.** The publish job was
   gated on a repository variable set one day after the only tagged release, so it was `skipped`
   on v2.0.3 and has never executed. Three independent defects were found in it:
