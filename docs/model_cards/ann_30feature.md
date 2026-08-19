@@ -1,4 +1,16 @@
+---
+status: historical-v3
+---
+
 # SESTRAV Model Card: Artificial Neural Network (30-Feature)
+
+> **HISTORICAL (v3 corpus era).** Every metric on this card was measured on the 2026-06 v3 dataset
+> (`data/immunogenicity_dataset_v3.csv`, n=1,004) or its 2026-05 Tier A predecessor, under a splitter
+> that does not group by peptide (`docs/claims_register.md` D15). None of it has been re-measured
+> under the current v5 corpus or the peptide-grouped splitter, and it is not comparable to the
+> current production figures in `README.md` / `docs/paper.md`. Retained for reproducibility of a
+> prior result, not as a current claim. See `models/ann_cv_summary.csv` for the one tracked artifact
+> this card's own text partially disagrees with, and the Evaluation section below for why.
 
 ## Model Details
 - **Model Type:** Feed-Forward Multilayer Perceptron (PyTorch)

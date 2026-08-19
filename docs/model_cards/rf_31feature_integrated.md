@@ -44,6 +44,7 @@
 
 ## Evaluation and Performance
 - **Evaluation method:** Stratified 5-fold out-of-fold cross-validation. **The previous wording - "conservative; models never score peptides seen during training" - is WITHDRAWN (2026-08-08).** **Superseded 2026-08-10 by the D15 remediation - folds ARE peptide-grouped as of that date** (see Provenance below), so no peptide appears on both sides of a fold boundary and the v5 figures in this card are generalization estimates. The withdrawal above refers to the pre-remediation splitter, under which 71.1% of held-out rows shared their exact peptide with the training fold; because every mode-31 feature is a pure function of the peptide string, those rows were feature-identical and the CV metrics then reported were optimistic, not conservative (`docs/claims_register.md` D15).
+<!-- status: historical-v3 -->
 - **v3 weighted production results (n=1,004):**
 
 | Metric | RF (mean ± std) | Notes |
