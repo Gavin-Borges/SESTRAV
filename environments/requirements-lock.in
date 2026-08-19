@@ -29,4 +29,4 @@ pyjwt>=2.13.0
 # condition is met: overrides.txt has been retired and this spec now resolves
 # normally. The floor itself stays - it is the security constraint, not the
 # workaround.
-setuptools>=83.0.0
+setuptools>=84.0.0
