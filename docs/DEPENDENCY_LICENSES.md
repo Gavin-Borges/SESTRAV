@@ -19,7 +19,7 @@
 | appdirs                               | 1.4.4       | MIT License                                                                                         |
 | argparse-dataclass                    | 2.0.0       | MIT License                                                                                         |
 | attrs                                 | 26.1.0      | MIT                                                                                                 |
-| biopython                             | 1.87        | LicenseRef-Biopython-License-Agreement                                                              |
+| biopython                             | 1.88        | LicenseRef-Biopython-License-Agreement                                                              |
 | certifi                               | 2026.7.22   | Mozilla Public License 2.0 (MPL 2.0)                                                                |
 | cffi                                  | 2.1.0       | MIT-0                                                                                               |
 | charset-normalizer                    | 3.4.9       | MIT                                                                                                 |
@@ -47,7 +47,7 @@
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.165.0     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.165.2     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
@@ -269,7 +269,7 @@
 | msgpack                               | 1.2.1       | Apache-2.0                                                                                          |
 | multidict                             | 6.7.1       | Apache License 2.0                                                                                  |
 | namex                                 | 0.1.0       | UNKNOWN                                                                                             |
-| nbformat                              | 5.10.4      | BSD License                                                                                         |
+| nbformat                              | 5.11.1      | BSD License                                                                                         |
 | networkx                              | 3.6.1       | BSD-3-Clause                                                                                        |
 | numba                                 | 0.66.0      | BSD License                                                                                         |
 | numpy                                 | 2.4.6       | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0                                                  |
@@ -294,7 +294,7 @@
 | packaging                             | 25.0        | Apache Software License; BSD License                                                                |
 | pandas                                | 3.0.3       | BSD License                                                                                         |
 | pillow                                | 12.3.0      | MIT-CMU                                                                                             |
-| platformdirs                          | 4.11.0      | MIT                                                                                                 |
+| platformdirs                          | 4.11.3      | MIT                                                                                                 |
 | pluggy                                | 1.6.0       | MIT License                                                                                         |
 | propcache                             | 0.5.2       | Apache Software License                                                                             |
 | protobuf                              | 7.35.1      | 3-Clause BSD License                                                                                |
@@ -302,7 +302,7 @@
 | pyahocorasick                         | 2.3.1       | BSD-3-Clause and Public-Domain                                                                      |
 | pycparser                             | 3.0         | BSD-3-Clause                                                                                        |
 | pydantic                              | 2.13.4      | MIT                                                                                                 |
-| pydantic-settings                     | 2.14.2      | MIT                                                                                                 |
+| pydantic-settings                     | 2.15.0      | MIT                                                                                                 |
 | pydantic_core                         | 2.46.4      | MIT                                                                                                 |
 | pyparsing                             | 3.3.2       | MIT                                                                                                 |
 | pytest                                | 9.1.1       | MIT                                                                                                 |
@@ -319,7 +319,7 @@
 | slicer                                | 0.0.8       | MIT License                                                                                         |
 | smart_open                            | 7.7.1       | MIT License                                                                                         |
 | smmap                                 | 5.0.3       | BSD License                                                                                         |
-| snakemake                             | 9.24.0      | MIT                                                                                                 |
+| snakemake                             | 9.25.1      | MIT                                                                                                 |
 | snakemake-interface-common            | 1.23.0      | UNKNOWN                                                                                             |
 | snakemake-interface-executor-plugins  | 9.4.0       | MIT License                                                                                         |
 | snakemake-interface-logger-plugins    | 2.1.0       | UNKNOWN                                                                                             |

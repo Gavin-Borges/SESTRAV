@@ -12,7 +12,7 @@ The system is organized as two model tracks under a single reproducible Snakemak
 - **Production track (validated):** a Random Forest / XGBoost ensemble over a 31-feature structural representation (canonical `mode_31`). This is the maintained, benchmarked scorer.
 - **Research track (gated):** a graph neural network (GINEConv + ESM-2 residue embeddings) that fuses a peptide residue graph with the same physicochemical features. It is the v2.0 forward architecture and is held to explicit promotion gates before it can become canonical.
 
-SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191) with a documented roadmap toward the Silver and Gold tiers (see Security and Compliance Posture). All results reported here are computational; no wet-lab efficacy is claimed. The end-to-end design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191), which is the project's intended terminal tier - Silver and Gold require multi-person criteria that a solo-maintained project cannot meet (see Security and Compliance Posture). All results reported here are computational; no wet-lab efficacy is claimed. The end-to-end design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ### Start here
 
@@ -84,10 +84,13 @@ SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data p
 | Tier | Status | Evidence and remaining gap |
 |---|---|---|
 | **Passing** | Attained ([project 13191](https://www.bestpractices.dev/projects/13191)) | Full criteria-to-evidence mapping in `docs/openssf_best_practices_readiness.md`. |
-| **Silver** | Substantially met | Documented governance, library-scope CI coverage gating (the whole-repo floor is a local check), Sigstore-signed release artifacts, and a published threat model are in place. Remaining gap: the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. |
-| **Gold** | Coverage targets met; in progress | Library-scope statement and branch coverage already clear the Gold thresholds (>= 90% statement, >= 80% branch; currently ~99% / ~98%). Remaining gaps: the multi-person criteria above, plus per-file SPDX/copyright headers (`license_per_file`), deferred until a second contributor lands so authorship is attributed accurately. |
+| **Silver** | **Not pursued** - unattainable while solo-maintained | The non-multi-person criteria are in place (documented governance, library-scope CI coverage gating, Sigstore-signed release artifacts, published threat model). The blocking gap is the multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which require a second maintainer. SESTRAV has one maintainer and no plan to add another, so this tier is **declined, not deferred**. |
+| **Gold** | **Not pursued** - same blocker | Library-scope statement and branch coverage already clear the Gold thresholds (>= 90% statement, >= 80% branch; currently ~99% / ~98%), and that measurement stands on its own merits. But Gold requires the same multi-person criteria as Silver, plus per-file SPDX/copyright headers (`license_per_file`). Declined for the same reason. |
 
-Tier progress is tracked in `ROADMAP.md`; governance and assurance evidence is in `docs/threat_model.md` and `GOVERNANCE.md`.
+**Passing is the attained and intended terminal tier.** The Silver and Gold criteria that
+SESTRAV *does* satisfy are documented because they are worth doing - not as progress toward
+a badge the project cannot earn. See `BUS_FACTOR.md` for the honest bus-factor position and
+`docs/threat_model.md` / `GOVERNANCE.md` for the governance and assurance evidence.
 
 Coverage is measured at two scopes, deliberately, and the two numbers are not the same: unit
 statement/branch coverage on the importable library surface (currently ~99% / ~98%, clearing the
@@ -339,7 +342,8 @@ python -m src.train_classifier \
   --binding-matrix models/peptide_binding_matrix_v5.csv \
   --sample-weights
 
-# CLI equivalent
+# Same artifact set via the CLI - but NOT the same cross-validation.
+# This path uses the UNGROUPED splitter; see the note below the block.
 sestrav validate \
   --dataset data/immunogenicity_dataset_v5.csv \
   --model-dir models/local \
@@ -348,6 +352,49 @@ sestrav validate \
   --sample-weights \
   --report results/validation_report_v5.md
 ```
+
+**Training cost, re-measured 2026-08-17 at `746ab60`:** the `python -m src.train_classifier` command
+above (both RF and XGBoost, full 5-fold peptide-grouped CV plus the final retrain) completed in
+**15 seconds wall-clock** on `data/immunogenicity_dataset_v5.csv` (35,597 active rows / 51,185 total;
+35,555 rows actually enter training, after the 42 gold-standard epitopes are held out), on an AMD
+Ryzen 9 9950X (16 physical / 32 logical cores). **Unlike the previous figure, this one depends on the
+host core count:** the committed defaults are now `RandomForestClassifier(n_jobs=-1)` and
+`XGBClassifier(nthread=-1)`, so both fit across all available cores. The same command measured
+**54 seconds** on a single core at `3451cad`, before those defaults changed - expect a figure in that
+range on a low-core machine. No GPU is used by this training path. Re-measure if either default
+changes.
+
+> **Core count changes the runtime, not the result.** Scoring is pinned back to a single thread
+> before every prediction (`pin_serial_scoring`), and tree fitting is invariant to thread count given
+> a fixed `random_state`, so the metrics are unaffected: the all-core and the single-core run of the
+> same configuration agreed to four decimal places on every reported metric.
+> `tests/test_ml_utils.py` binds this as a bit-identity test rather than leaving it as a claim, which
+> is what makes the property checkable from a clean clone.
+>
+> **Corrected 2026-08-17: this note previously quoted `auc_roc=0.8093 / auc_pr=0.5987` at this
+> point.** That pair was unbound - it exists only under the gitignored `models/local/`, so no reader
+> could open it - and it does not agree with the certified ledger, which records RF
+> **0.8137 / 0.6058** and XGB **0.8093 / 0.5597** (`models/v5/training_results_mode31.csv`). The
+> quoted `0.8093` is the certified XGB AUC-ROC, while `0.5987` matches neither estimator. The
+> invariance being demonstrated needs no headline number, so the number is withdrawn rather than
+> restated.
+>
+> **The block above passes `--sample-weights`; the certified ledger does not.** The canonical command
+> recorded in `docs/model_cards/rf_31feature_integrated.md` is explicitly unweighted, and the ledger
+> figures above were produced without the flag, so metrics from this block are not expected to equal
+> them. Which of the two spellings is "canonical" is a reconciliation tracked separately rather than
+> settled here.
+
+> **The two commands above are not equivalent, despite the label.** `python -m src.train_classifier`
+> defaults to the **peptide-grouped** splitter, but `sestrav validate` does not pass `cv_group_by` at
+> all, so it falls through to the **ungrouped** `MultiStratifiedKFold` - the splitter whose
+> peptide leakage `docs/claims_register.md` D15 retracted a headline figure over, and which the
+> trainer's own runtime banner labels `UNGROUPED (peptide leakage: docs/claims_register.md D15)`.
+> The two therefore report different cross-validation numbers for the same inputs, and
+> `sestrav validate` exposes no flag to select the grouped splitter. **Do not cite `sestrav validate`
+> CV output as comparable to any peptide-grouped figure in this README.** Recorded 2026-08-17;
+> whether to change what the shipped command computes is a behaviour change and is tracked
+> separately rather than patched here.
 
 `--model-dir` is required and has no default for both `src.train_classifier` and
 `sestrav validate` (which retrains, so it writes the same artifact set). A run
@@ -358,7 +405,13 @@ is what keeps a local retrain from rewriting the published metric files under
 motivated it). `models/local/` is gitignored. Point `model_path` in `config.yaml`
 at your local build to run the pipeline against it.
 
-*Note:* Without trained models, the pipeline falls back to a prototype mode using binding-derived pseudo-labels (for testing only; not scientifically valid).
+*Note:* A `model_path` naming a file that does not exist is an error. The pipeline
+previously fell back to an inline prototype classifier trained on binding-derived
+pseudo-labels, whose calibrated and thresholded output was indistinguishable from a real
+run once written to CSV; only a stdout line disclosed it, which any redirected run lost.
+Since `config.yaml` names a `model_path` by default, a fresh clone that has not trained
+yet now stops with a clear error instead of producing scientifically invalid output. The
+prototype is still reachable deliberately, by passing no model path at all.
 
 ### 3. Run the Pipeline
 
@@ -404,7 +457,16 @@ See `scripts/README.md` for the external-validation utilities and workflow.
 ### 6. ANN / GNN Benchmarks (Optional)
 
 * **ANN:** no extra install step - `torch` is already pinned in `requirements.txt`. Run `python -m src.ann_benchmark --help`.
-Default architecture: 256-128-64 ReLU, dropout 0.2 (AUC-PR = 0.8252 ± 0.0248).
+Default architecture for `--feature-mode 30`: 256-128-64 ReLU, dropout 0.2. **No accuracy figure
+is quoted for it, deliberately.** This line previously read `AUC-PR = 0.8252 +/- 0.0248`; that pair
+is **RETRACTED as unbound (2026-08-17)**, not superseded. Its only cited source is an external
+course directory (`CMB 523 .../Colab_outputs/bootstrap_metric_cis.csv`) that is absent from this
+repository and from any local workspace, so it can never acquire provenance here. The one tracked
+ANN artifact, `models/ann_cv_summary.csv`, reports **AUC-PR 0.7820 +/- 0.0239** (population std,
+5-fold) - but it measures a **different network**, the legacy 64-32 ReLU dropout 0.3, over the 704
+peptides remaining after the 16 gold-standard epitopes are held out of the 720-peptide v3 corpus.
+It is therefore not a replacement value for the architecture named above, and is not presented as
+one. Re-derived from `models/ann_oof_predictions.csv` and reproduces digit-for-digit.
 * **GNN v2.3 (research track):** `pip install ".[gnn]"` (from source; not published to PyPI), then `python -m src.train_gnn --help`.
 Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. Its v4 evaluation once reported a mean-fold AUC-PR of 0.7281; **that figure is RETRACTED as unreproducible (2026-08-12 re-audit), not merely superseded** - the tracked out-of-fold artifact (`models/gnn_oof_predictions.csv`) carries no fold column, so no per-fold statistic can be recomputed from anything in this repository, and the notebook cited as its retrain provenance has never been executed. The one number from that same run that does reproduce from the tracked artifact is the pooled AUC-PR, 0.7160 - itself produced by the ungrouped splitter carrying the D15 exact-peptide leakage, so it remains a labeled historical figure, not comparable to any peptide-grouped result. The v4 out-of-fold artifact above (`models/gnn_oof_predictions.csv`) is not marked peptide-grouped and carries no fold identity, so Gates 1 and 2 fail by precondition against it and it cannot be re-scored for those gates. **v5 retraining, on a peptide-grouped splitter with a proper ESM-2 cache (`data/esm2_embeddings_t12_v5.pt`, 30,687 keyed peptides, zero misses against the shipped corpus - not the stale "27,376" figure some older docs cite), completed 2026-08-13**: Gate 1 (pooled AUC-PR) 0.6458 vs threshold 0.65, FAIL by 0.0042; Gate 2 FAIL; Gates 3-5 PASS; but AUC-PR is +0.0402 over the RF mode-31 baseline, a real and statistically significant delta (95% CI [0.0286, 0.0520], excludes zero). Net result: a null result on the pre-registered AND-conjunction promotion bar, reported honestly alongside the genuine improvement underneath it - not re-run with different hyperparameters against the same held-out set, since that would be exactly the leakage this project flags on any other model. The GNN remains a research track, not a promoted scorer. See `STATE.md`'s 2026-08-13 session entry for the full scorecard and reproduction commands.
 

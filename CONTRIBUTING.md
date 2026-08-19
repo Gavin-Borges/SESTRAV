@@ -252,7 +252,7 @@ When submitting a pull request, ensure the following checklist is completed:
 ## Security and Vulnerability Reporting
 
 If you discover a security vulnerability or critical compliance issue within SESTRAV, please do NOT open a public issue.
-Instead, follow the confidential reporting instructions outlined in `SECURITY.md`. We aim to resolve and publicly disclose patches within a responsible timeframe.
+Instead, follow the confidential reporting instructions outlined in `SECURITY.md`, which states the sole maintainer's response SLA (acknowledgement within 3-5 business days; initial assessment within 10 business days).
 
 ---
 
@@ -290,12 +290,14 @@ documented in `SECURITY.md`. Version **tags** are annotated but not yet signed
   avoided.
 - Each PR must pass all **required CI checks** (lint, tests, security, Snakemake
   dry-run) before merge.
-- A reviewer (the maintainer or a designated backup reviewer; see `GOVERNANCE.md`)
-  checks each PR for: correctness, adequate tests, adherence to the coding
-  standards, security implications, and documentation/CHANGELOG updates.
-- The project's goal is for the majority of changes to be reviewed by someone
-  other than the author before release; as the maintainer base grows this becomes
-  a strict requirement (see `ROADMAP.md`).
+- The maintainer checks each PR for: correctness, adequate tests, adherence to the
+  coding standards, security implications, and documentation/CHANGELOG updates.
+- **Be aware of what review actually means here.** SESTRAV has one maintainer, who
+  authors and merges the large majority of changes. Those changes are **not**
+  independently reviewed - the required CI checks are the only gate on them. Pull
+  requests from external contributors **do** require an approving review before merge
+  (`.github/workflows/pr-review-check.yml`). Two-person review is not in force and
+  cannot be with one maintainer; see `BUS_FACTOR.md`.
 
 ## Developer Certificate of Origin (DCO)
 

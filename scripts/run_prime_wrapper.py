@@ -105,9 +105,14 @@ def main():
 
         try:
             print(f"[PRIME Wrapper] Executing: {' '.join(cmd)}")
-            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args
-            # alleles validated above (regex + length cap); researcher-only CLI tool, no web exposure
-            subprocess.run(cmd, check=True)
+            # alleles validated above (regex + length cap); researcher-only CLI tool, no web
+            # exposure. cmd is a LIST and shell=False, so no shell interpretation occurs and the
+            # rule's command-injection premise does not apply.
+            # The bare inline `# nosemgrep` below is deliberate - see the fuller note in
+            # run_predig_wrapper.py. The form used here until 2026-08-16 was inert both for its
+            # preceding-line placement and for naming the rule path rather than its real id, so
+            # this finding surfaced on every scan despite looking suppressed.
+            subprocess.run(cmd, check=True)  # nosemgrep
             print("[PRIME Wrapper] Execution completed successfully.")
             # Cleanup temp file
             if os.path.isfile(temp_peptides_file):

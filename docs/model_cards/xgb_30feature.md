@@ -1,4 +1,16 @@
+---
+status: historical-v3
+---
+
 # SESTRAV Model Card: XGBoost (30-Feature Integrated)
+
+> **HISTORICAL (v3 corpus era).** Every metric on this card was measured on the 2026-06 v3 dataset
+> (`data/immunogenicity_dataset_v3.csv`, mapped from `dataset_version: 2.0.0-alpha`) under a splitter
+> that does not group by peptide (`docs/claims_register.md` D15). None of it has been re-measured
+> under the current v5 corpus or the peptide-grouped splitter, and it is not comparable to the
+> current production figures in `README.md` / `docs/paper.md`. **No tracked cross-validation
+> artifact for this configuration exists at all** - see the Evaluation section below. Retained for
+> reproducibility of a prior result, not as a current claim.
 
 ## Model Details
 - **Model Type:** Gradient Boosted Trees Classifier (XGBoost)

@@ -119,9 +119,20 @@ def main():
 
         try:
             print(f"[PredIG Wrapper] Running Docker: {' '.join(cmd)}")
-            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args
-            # Docker volume mount scoped to dirname(args.output); researcher-only CLI, no web exposure
-            subprocess.run(cmd, check=True)
+            # Docker volume mount scoped to dirname(args.output); researcher-only CLI, no web
+            # exposure. cmd is a LIST and shell=False, so no shell interpretation occurs and the
+            # rule's command-injection premise does not apply.
+            # The bare inline `# nosemgrep` below is deliberate and must not be "tidied" into a
+            # rule-qualified or preceding-line form. The version used here until 2026-08-16 was
+            # inert for TWO independent reasons, so this finding surfaced on every scan while
+            # looking suppressed: (1) it sat on a preceding line with another comment between it
+            # and the statement, and semgrep only honours the finding's own line or the one
+            # immediately before it; (2) it named the rule as
+            # `python.lang.security.audit.dangerous-subprocess-use-tainted-env-args`, which is the
+            # rule PATH - the real id repeats the final component, so the qualified form never
+            # matched. run_predig_batched.py already uses this bare inline form for the same rule
+            # and reports clean; that is the control this was verified against.
+            subprocess.run(cmd, check=True)  # nosemgrep
             print("[PredIG Wrapper] Execution completed successfully.")
 
             # Clean up temp files

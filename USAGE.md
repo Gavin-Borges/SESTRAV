@@ -61,11 +61,22 @@ SESTRAV Environment Info
 > exist in a fresh clone.** `git ls-files models/` returns zero `.joblib` files: model
 > artifacts are deliberately untracked (see `ARCHITECTURE.md`), because a checkpoint
 > committed without provenance is the mislabeled-artifact failure this project has had
-> twice (`docs/claims_register.md` D16, D23). **Train it first** - the canonical
-> training command is in `README.md` under Training - which writes
-> `models/rf_31feature_integrated.joblib` and makes every command in this section work
-> as written. The same applies to the FastAPI service and the Streamlit demo, which
-> both load that file at startup.
+> twice (`docs/claims_register.md` D16, D23). **Train one first** - the canonical
+> command is in `README.md` under "Install and Train Models".
+>
+> **That command writes `models/local/rf_31feature_integrated.joblib`, not the
+> `models/` path shown below.** `--model-dir` is required and has no default, and the
+> canonical invocation points it at `models/local/` (which is gitignored) so that a
+> local retrain cannot overwrite published artifacts. Bridge the two in one of two
+> ways: pass `--model models/local/rf_31feature_integrated.joblib` to the commands
+> below, or train with `--model-dir models --allow-overwrite` when replacing the
+> published artifacts is what you actually mean.
+>
+> **A `--model` path that does not exist is now an error, not a fallback.** Stage 4
+> previously fell through to an inline prototype classifier trained on pseudo-labels
+> derived from `binding_score`, and its calibrated, thresholded output was
+> indistinguishable from a real run once written to CSV. The same applies to the
+> FastAPI service and the Streamlit demo, which both load a model at startup.
 
 ```bash
 sestrav predict \
@@ -105,17 +116,32 @@ destination. `models/local/` is gitignored. A run aborts before training if it w
 replace artifacts already present in the target directory; add `--allow-overwrite` when
 replacing them is the intent.
 
-Expected per-virus within-CV mean AUC-ROC ~ **0.658** on the v5 dataset (35,597 active rows /
-51,185 total; the canonical same-pathogen discrimination metric, `results/per_virus_eval_v5_mode31.csv`),
-and pooled CV AUC-PR ~ **0.6058** (`models/v5/training_results_mode31.csv`).
-The pooled AUC-PR is a base-rate artifact and is not reported as a headline; see
-`docs/model_evaluation_summary.md`. **Splitter disclosure (required whenever these figures are
-quoted, `docs/claims_register.md` D15 - remediated 2026-08-10):** these come from a
-**peptide-grouped** splitter (`--cv-group-by peptide`, now the CLI default), so no peptide
-appears on both sides of a fold boundary. The prior ungrouped figures (per-virus mean 0.751,
-pooled AUC-PR 0.8312) are retracted as leakage-inflated. Expect your own run to land near
-0.658 / 0.6058; passing `--cv-group-by none` reproduces the retracted ungrouped values and
-should be used only to reproduce a pre-Phase-0 figure.
+**If you already trained into `models/local/` for step 2, this command aborts** rather
+than clobbering those artifacts. Point it at a fresh directory
+(`--model-dir models/scratch/<run-name>`) or add `--allow-overwrite`.
+
+The published figures for this model are a per-virus within-CV mean AUC-ROC of **0.658** on the v5
+dataset (35,597 active rows / 51,185 total; the canonical same-pathogen discrimination metric,
+`results/per_virus_eval_v5_mode31.csv`) and a pooled CV AUC-PR of **0.6058**
+(`models/v5/training_results_mode31.csv`). The pooled AUC-PR is a base-rate artifact and is not
+reported as a headline; see `docs/model_evaluation_summary.md`. **Splitter disclosure (required
+whenever these figures are quoted, `docs/claims_register.md` D15 - remediated 2026-08-10):** they
+come from a **peptide-grouped** splitter, so no peptide appears on both sides of a fold boundary.
+The prior ungrouped figures (per-virus mean 0.751, pooled AUC-PR 0.8312) are retracted as
+leakage-inflated.
+
+> **Corrected 2026-08-17: do not expect the command above to reproduce those figures.** This section
+> previously stated that they came from `--cv-group-by peptide`, "now the CLI default", and that
+> passing `--cv-group-by none` would reproduce the retracted ungrouped values. Both statements are
+> false for `sestrav validate`: it accepts no `--cv-group-by` flag at all (see the argument table
+> below), and `src/cli.py` never passes `cv_group_by`, so `train_models` falls through to its `None`
+> default and uses the **ungrouped** `MultiStratifiedKFold` - the splitter whose peptide leakage
+> `docs/claims_register.md` D15 retracted a headline figure over. The 0.658 / 0.6058 figures come
+> from `python -m src.train_classifier`, whose own parser does default to `--cv-group-by peptide`.
+> A `sestrav validate` run will therefore report **higher, leakage-inflated** cross-validation
+> numbers; do not cite them as comparable to any peptide-grouped figure in this repository. Whether
+> to change what the shipped command computes is a behaviour change and is tracked separately rather
+> than patched here.
 
 ### 4. Benchmark against gold standard
 

@@ -75,31 +75,43 @@ git tag -v vX.Y.Z
 The publish job in `release.yml` authenticates to PyPI using **OpenID Connect
 Trusted Publishers** - no API token or GitHub secret is required.
 
-### One-time setup (step 2 is UNCONFIRMED - do not read this list as done)
+### One-time setup (complete)
 
-> **Corrected 2026-08-16.** This heading previously read "(already complete)". Steps 1,
-> 3 and 4 are verifiable and hold, but **step 2 has never been confirmed** - every
-> `STATE.md` entry since 2026-07-15 records the pending trusted publisher as
-> unconfirmed, and whether one is registered cannot be determined from any public API,
-> only by signing in to pypi.org. The package name is currently unclaimed
-> (`https://pypi.org/pypi/sestrav/json` returns 404), so nothing has ever been
-> published. A doc asserting the setup was complete is the one a reader trusts, which
-> is why the claim is retracted here rather than left to be discovered at release time.
+> **Confirmed 2026-08-17, and this supersedes the 2026-08-16 retraction.** That
+> retraction changed this heading from "(already complete)" to "UNCONFIRMED" on the
+> grounds that a pending trusted publisher cannot be verified from any public API -
+> only by signing in to pypi.org. **The maintainer has now signed in and confirmed it:
+> the pending trusted publisher IS registered.** So the original "already complete"
+> claim was substantively true, and the retraction - correct as process at the time,
+> since an unverifiable claim should not stand - is withdrawn on evidence.
+>
+> **Still true and load-bearing:** the package name remains unclaimed
+> (`https://pypi.org/pypi/sestrav/json` returns 404), so **nothing has ever been
+> published** and the publish path has never executed end-to-end. A *pending* publisher
+> is exactly the right configuration for that state; it converts to an ordinary trusted
+> publisher on the first successful upload.
 
 1. PyPI account created with 2FA enabled.
-2. **UNCONFIRMED:** a **pending trusted publisher** should be registered at `pypi.org`
+2. **CONFIRMED 2026-08-17:** a **pending trusted publisher** is registered at `pypi.org`
    -> Account settings -> Publishing with:
    - Owner: `Gavin-Borges`, Repository: `SESTRAV`
    - Workflow: `release.yml`, Environment: `pypi`
-
-   Verify this before cutting a tag that is meant to publish. If it cannot be
-   confirmed, set `PYPI_PUBLISH=false` (step 4) - the tag still cuts a signed GitHub
-   Release, and only the PyPI upload is skipped.
 3. GitHub environment `pypi` configured with **Required reviewers** - every publish
    attempt pauses for manual approval before proceeding. So a tag QUEUES a publish for
-   approval; it does not publish silently.
-4. Repository variable `PYPI_PUBLISH=true` gates the publish job; set it to `false`
-   to disable publishing without touching the workflow.
+   approval; it does not publish silently. Note that the sole configured reviewer is the
+   maintainer, so this is a deliberate-action prompt rather than independent approval.
+4. Repository variable `PYPI_PUBLISH` gates the publish job. **It is currently `true`**
+   (restored 2026-08-17 after the publisher was confirmed; it had been set `false`
+   earlier the same day purely as a precaution while the registration was unverified).
+   Set it to `false` to disable publishing without touching the workflow.
+
+> **ORDERING CONSTRAINT - read before cutting a tag that publishes.** The pending
+> trusted publisher above is bound to **Owner: `Gavin-Borges`**, a personal account.
+> Migrating this repository to a GitHub organization (planned - see `BUS_FACTOR.md`)
+> **changes the owner and invalidates that binding.** Do the org migration BEFORE the
+> first publishing tag. Publishing first is not fatal, but it means re-registering the
+> trusted publisher against the new owner on the existing PyPI project afterwards,
+> which is more steps and easy to forget.
 
 ### How a release publishes to PyPI
 

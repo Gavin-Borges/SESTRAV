@@ -43,8 +43,28 @@ def sample_df() -> pd.DataFrame:
     )
 
 
-def test_maybe_write_csv_does_nothing_when_path_is_none(tmp_path, sample_df):
+def test_maybe_write_csv_does_nothing_when_path_is_none(tmp_path, sample_df, monkeypatch):
+    """A None path must produce no write at all, anywhere.
+
+    tmp_path alone cannot see this: maybe_write_csv is never handed tmp_path,
+    so a version that writes to its own default destination stays green against
+    tmp_path.iterdir(). Two anchors close that. The recorder observes every
+    DataFrame.to_csv the function makes regardless of where it points, and the
+    chdir puts tmp_path in front of any relative default a refactor might
+    reintroduce - results/table3_tier_a_metrics.csv is the certified Tier-A
+    table, so "writes nothing" has to be observed, not assumed.
+    """
+    to_csv_targets: list[object] = []
+    monkeypatch.setattr(
+        pd.DataFrame,
+        "to_csv",
+        lambda self, path_or_buf=None, **kwargs: to_csv_targets.append(path_or_buf),
+    )
+    monkeypatch.chdir(tmp_path)
+
     rtab.maybe_write_csv(sample_df, None, ["peptide", "label"])
+
+    assert to_csv_targets == [], f"maybe_write_csv wrote to {to_csv_targets} for a None path"
     assert list(tmp_path.iterdir()) == []
 
 

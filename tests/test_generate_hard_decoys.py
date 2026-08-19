@@ -62,6 +62,9 @@ def test_extract_kmers_returns_valid_9mers():
 def test_extract_kmers_filters_invalid_characters():
     seqs = ["XACDEFGHI", "ACDEFGHIK"]  # first has 'X' → only one valid 9-mer
     kmers = _extract_kmers(seqs, lengths=(9,))
+    # Anchored on the survivor: `all("X" not in k ...)` alone is satisfied by an
+    # empty list, so it holds just as well for an extractor that returns nothing.
+    assert kmers == ["ACDEFGHIK"]
     assert all("X" not in k for k in kmers)
 
 
@@ -95,8 +98,13 @@ def test_extract_kmers_multi_length():
 
 
 def test_extract_kmers_excludes_invalid_aa():
-    seqs = ["ACDEBGHIKL"]  # 'B' is not a valid standard amino acid
+    # 'B' is not a standard amino acid. The sequence is long enough that some
+    # 9-mer windows clear it and some do not: on the previous 10-char sequence
+    # every window contained the 'B', so the assertion below ran over an empty
+    # list and could not tell "drops B-containing windows" from "drops all".
+    seqs = ["ACDEBGHIKLMNPQRST"]  # B at index 4: windows 0-4 invalid, 5-8 valid
     kmers = _extract_kmers(seqs, lengths=(9,))
+    assert len(kmers) == 4
     assert all("B" not in k for k in kmers)
 
 

@@ -19,9 +19,13 @@ Project 2 results (5-fold CV, v2 dataset):
   GAT (2-layer, 4-head):    AUC-PR=0.7956, AUC-ROC=0.6366  (best GNN)
   Bipartite Peptide-Allele: AUC-PR=0.7886, AUC-ROC=0.6124
 
-Note: GNNs underperform the tabular RF (AUC-PR=0.8102) and ANN
-(AUC-PR=0.8252) on this dataset.  Included as an exploratory benchmark
-to characterize the representation space, not as a production classifier.
+Note: GNNs were reported to underperform the tabular RF and ANN on this
+dataset.  The two comparator figures that stood here, RF AUC-PR=0.8102 and
+ANN AUC-PR=0.8252, are RETRACTED as unbound (2026-08-17): both trace to the
+same external course export, absent from this repository, so neither the
+comparison nor its direction can be checked from anything tracked here.
+Included as an exploratory benchmark to characterize the representation
+space, not as a production classifier.
 
 Requires: pip install ".[gnn]"
 

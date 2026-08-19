@@ -29,13 +29,25 @@ canonical release gate.
 
 ### ANN (30-feature best)
 
-From Project 2 report and bootstrap export:
-- AUC-PR (CV mean): `0.8252`
-- AUC-ROC (CV mean): `0.6699`
-- Bootstrap CI source:
-  `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/bootstrap_metric_cis.csv`
-  - AUC-PR CI: `[0.7838, 0.8546]`
-  - AUC-ROC CI: `[0.6164, 0.7034]`
+**RETRACTED AS UNBOUND, 2026-08-17.** Every figure previously listed here was sourced to
+`CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/bootstrap_metric_cis.csv`.
+That path is **absent from this repository and from any local workspace** - it was an external
+course deliverable that was never vendored - so none of these numbers can be reproduced, checked,
+or ever bound to provenance. They are withdrawn rather than restated:
+
+- ~~AUC-PR (CV mean): `0.8252`~~ - retracted, unbound
+- ~~AUC-ROC (CV mean): `0.6699`~~ - retracted, unbound
+- ~~AUC-PR bootstrap CI: `[0.7838, 0.8546]`~~ - retracted, unbound
+- ~~AUC-ROC bootstrap CI: `[0.6164, 0.7034]`~~ - retracted, unbound
+
+**What this repository can actually show for the ANN.** `models/ann_cv_summary.csv` (tracked)
+reports AUC-PR **0.7820 +/- 0.0239** and AUC-ROC **0.6083 +/- 0.0578**, means and population
+standard deviations over 5 folds, re-derived from `models/ann_oof_predictions.csv` and reproducing
+digit-for-digit. **Read its scope before quoting it:** it measures the legacy **64-32 ReLU dropout
+0.3** network, not the 256-128-64 dropout 0.2 the heading above describes, and it covers the 704
+peptides left after the 16 `GOLD_STANDARD_EPITOPES` are held out of the 720-peptide corpus in
+`results/external_validation_input.csv` (verified by exact set equality). It is a different
+architecture on a different pool, so it is **not** a substitute for the retracted figures.
 
 ### GNN
 

@@ -29,22 +29,6 @@
     },
     {
       "citing": "docs/security_compliance.md",
-      "target": "scripts/run_predig_wrapper.py",
-      "lines": "124",
-      "pinned": [
-        "subprocess.run(cmd, check=True)"
-      ]
-    },
-    {
-      "citing": "docs/security_compliance.md",
-      "target": "scripts/run_prime_wrapper.py",
-      "lines": "110",
-      "pinned": [
-        "subprocess.run(cmd, check=True)"
-      ]
-    },
-    {
-      "citing": "docs/security_compliance.md",
       "target": "tests/test_graph_builder.py",
       "lines": "47",
       "pinned": [
