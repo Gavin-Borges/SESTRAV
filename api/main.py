@@ -202,13 +202,21 @@ _manager = ModelManager()
 class PeptideNotInPanelError(Exception):
     """Raised when a peptide has no row in the ten-allele binding panel.
 
-    docs/claims_register.md D31: the panel is a FIXED ten-allele lookup keyed
-    by peptide (docs/paper.md Section 2.2, "Ten MHC binding affinity features"), not a live per-request computation -
-    MHCflurry is not even installed in the API image (Dockerfile.api ships
-    only the [api] extra). A peptide absent from the panel has no way to get
-    a real binding block here, so this is reported explicitly rather than
-    silently zero-filled, which would be indistinguishable from a genuine
-    all-low-affinity panel match.
+    docs/claims_register.md D31: the panel is a FIXED ten-allele set and the
+    bind_* features are defined as a precomputed per-peptide lookup over it
+    (docs/paper.md Section 2.2, "Ten MHC binding affinity features"), with
+    peptides absent from the matrix receiving zero. Populating the block by
+    any other route - broadcasting one live MHCflurry call across the ten
+    columns, or one-hotting the requested allele - would fabricate values the
+    model was never trained on, so a panel miss cannot be repaired at request
+    time and is reported explicitly instead of silently zero-filled, which
+    would be indistinguishable from a genuine all-low-affinity panel match.
+
+    Note this does NOT rest on MHCflurry being unavailable: it is declared in
+    [project].dependencies, so `pip install ".[api]"` does install it. What
+    Dockerfile.api never does is fetch its model weights
+    (`mhcflurry-downloads fetch`), which is why the informational call in
+    _score_peptide is still expected to fail in the shipped container.
     """
 
 
@@ -333,9 +341,9 @@ def score_peptide(body: PeptideInput) -> ScoreResponse:
                 f"Peptide {body.sequence!r} has no row in the ten-allele binding panel "
                 "(models/peptide_binding_matrix_v5.csv), so its immunogenicity score "
                 "cannot be computed by this deployment. The panel is fixed and keyed by "
-                "peptide, not by the requested allele; MHCflurry is not installed in this "
-                "API image, so there is no fallback live computation for out-of-panel "
-                "peptides. See docs/claims_register.md D31."
+                "peptide, not by the requested allele, and the binding features are "
+                "defined as a lookup over it, so an out-of-panel peptide has no "
+                "substitute the model was trained on. See docs/claims_register.md D31."
             ),
         ) from exc
     except Exception as exc:
