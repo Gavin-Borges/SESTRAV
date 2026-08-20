@@ -92,6 +92,22 @@ COMMIT_CONTEXT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# How far from a candidate token a context word may sit and still count as
+# describing THAT token, rather than something else on the same physical
+# line. Real citations are tight ("commit `dd5a356`", "git_sha: abc1234"),
+# well under 50 characters end to end.
+#
+# This guard exists because `docs/claims_register.md` rows are single
+# multi-thousand-character lines, not wrapped prose. D30's row (2026-08-19)
+# used the word "commit" once, in the unrelated sentence "taken on its own
+# merits and in its own commit, not folded into a claims correction", ~700
+# characters from an unrelated filename token `IEDB-20260704-...csv` earlier
+# in the same row. A whole-line context search made every hex-shaped token
+# anywhere in that row eligible for DEAD reporting, and flagged the date
+# fragment `20260704` as a dead commit citation - a false positive that
+# reached the pre-push gate on a row with no actual commit citation error.
+CONTEXT_WINDOW = 60
+
 # Signals that the token belongs to a THIRD-PARTY repository rather than this
 # one. Docs legitimately record the pinned SHA of an upstream GitHub Action
 # (for example "Upgraded ossf/scorecard-action ... SHA pinned: <sha>"); those
@@ -167,6 +183,18 @@ def is_ancestor(sha: str, base_ref: str) -> bool:
     return code == 0
 
 
+def has_commit_context(line: str, start: int, end: int) -> bool:
+    """True if a context word sits within CONTEXT_WINDOW of line[start:end].
+
+    Windowed rather than whole-line so a context word elsewhere in a long
+    line (a single-line markdown table row, for example) cannot make an
+    unrelated token on the same line eligible for DEAD reporting.
+    """
+    window_start = max(0, start - CONTEXT_WINDOW)
+    window_end = end + CONTEXT_WINDOW
+    return bool(COMMIT_CONTEXT_RE.search(line[window_start:window_end]))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -212,7 +240,7 @@ def main() -> int:
                 if len(token) == 64:
                     continue  # sha256 digest, not a commit hash
 
-                has_context = bool(COMMIT_CONTEXT_RE.search(line))
+                has_context = has_commit_context(line, match.start(), match.end())
                 if token not in resolved_cache:
                     resolved_cache[token] = resolve_commit(token)
                 full = resolved_cache[token]

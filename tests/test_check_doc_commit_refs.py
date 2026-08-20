@@ -48,6 +48,11 @@ def sha_re():
     return _load_module().SHA_RE
 
 
+@pytest.fixture(scope="module")
+def has_commit_context():
+    return _load_module().has_commit_context
+
+
 # --- The regression: decimals must not be read as commit SHAs ---------------
 
 
@@ -105,6 +110,29 @@ def test_all_digit_sha_is_still_detected(sha_re):
 )
 def test_non_sha_tokens_are_ignored(sha_re, text):
     assert sha_re.findall(text) == []
+
+
+# --- A distant context word must not tag an unrelated token -----------------
+
+
+def test_distant_context_word_does_not_tag_unrelated_token(sha_re, has_commit_context):
+    """docs/claims_register.md D30 (2026-08-19): a single-line table row used
+
+    "commit" once, ~700 characters from an unrelated filename fragment
+    `20260704`. Whole-line context search made every hex-shaped token on that
+    row eligible for DEAD reporting and flagged the date fragment as a dead
+    commit citation with no real commit citation error present. Reproduced
+    here at a smaller scale: a context word far outside the window must not
+    tag a token, while one just inside it must.
+    """
+    padding = "the quick brown fox jumps " * 30  # ~780 chars, no hex/alnum-adjacency risk
+    line = f"see 20260704 {padding}in its own commit, not folded in"
+    match = next(iter(sha_re.finditer(line)))
+    assert not has_commit_context(line, match.start(), match.end())
+
+    close_line = "commit dd5a356 landed"
+    close_match = next(iter(sha_re.finditer(close_line)))
+    assert has_commit_context(close_line, close_match.start(), close_match.end())
 
 
 def _is_shallow_clone() -> bool:
