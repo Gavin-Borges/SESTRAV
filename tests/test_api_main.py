@@ -7,11 +7,21 @@ availability or the requested allele) survived from 2026-06-13 to 2026-08-19
 across 13 commits that edited the file (`git log --since=2026-06-13
 --until=2026-08-19 -- api/main.py`).
 
-Tests here avoid loading the real 128MB rf_31feature_integrated.joblib
-(gitignored, not present in a clean CI checkout): ModelManager.load() returns
-immediately when `_loaded` is already True, so the fixtures below pre-seed
-`_manager` with a fake model and a small binding matrix before that check
-ever runs.
+These call the route handlers directly rather than going through
+fastapi.testclient.TestClient. That is deliberate: TestClient pulls in
+starlette.testclient, which on current starlette hard-requires the httpx2
+package, and CI installs from hash-pinned lockfiles (`pip install
+--require-hashes`), so satisfying it would mean adding a dependency plus
+SBOM/pip-audit churn purely to reach a test helper. The defect this file
+exists for lives in _score_peptide's feature-vector assembly and the
+handler's error mapping, not in HTTP serialisation, so a direct call covers
+it without that cost. Pydantic still validates PeptideInput on construction,
+and HTTPException carries the same status_code the HTTP layer would emit.
+
+Tests avoid loading the real 128MB rf_31feature_integrated.joblib
+(gitignored, absent from a clean CI checkout): the fixture pre-seeds
+`_manager` with a fake model and a small binding matrix, and sets
+`_loaded = True` so nothing tries to load the real artifact.
 """
 
 from __future__ import annotations
@@ -20,7 +30,7 @@ from collections.abc import Iterator
 
 import numpy as np
 import pytest
-from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
 import api.main as api_main
 from src.features import BINDING_ALLELE_COLUMNS, FEATURE_COLUMNS_31
@@ -43,7 +53,7 @@ class _FakeRFModel:
 
 @pytest.fixture
 def fake_manager() -> Iterator[_FakeRFModel]:
-    """Seeds the ModelManager singleton so lifespan.load() is a no-op."""
+    """Seeds the ModelManager singleton so no real artifact is loaded."""
     fake_model = _FakeRFModel()
     api_main._manager._loaded = True
     api_main._manager.rf_model = fake_model
@@ -52,60 +62,63 @@ def fake_manager() -> Iterator[_FakeRFModel]:
     api_main._manager._loaded = False
 
 
-@pytest.fixture
-def client(fake_manager: _FakeRFModel) -> Iterator[TestClient]:
-    with TestClient(api_main.app) as c:
-        yield c
+def _score(sequence: str, allele: str) -> api_main.ScoreResponse:
+    return api_main.score_peptide(api_main.PeptideInput(sequence=sequence, allele=allele))
+
+
+def _binding_block(vector: np.ndarray) -> list[float]:
+    return [vector[FEATURE_COLUMNS_31.index(c)] for c in BINDING_ALLELE_COLUMNS]
 
 
 def test_panel_present_peptide_gets_a_nonzero_binding_block(
-    client: TestClient, fake_manager: _FakeRFModel
+    fake_manager: _FakeRFModel,
 ) -> None:
     """The regression this file exists for: bind_* columns must not be all-zero
     for a peptide that has a real panel row, regardless of MHCflurry."""
-    resp = client.post(
-        "/score", json={"sequence": PANEL_PEPTIDE, "allele": "HLA-A*02:01"}
-    )
-    assert resp.status_code == 200, resp.text
+    resp = _score(PANEL_PEPTIDE, "HLA-A*02:01")
+    assert resp.immunogenicity_score == pytest.approx(0.8)
 
     assert fake_manager.last_feature_vector is not None
-    vec = fake_manager.last_feature_vector[0]
-    bind_indices = [FEATURE_COLUMNS_31.index(c) for c in BINDING_ALLELE_COLUMNS]
-    bind_values = [vec[i] for i in bind_indices]
+    bind_values = _binding_block(fake_manager.last_feature_vector[0])
     assert any(v != 0.0 for v in bind_values), "binding block was all-zero for a panel peptide"
     assert bind_values == [PANEL_ROW[c] for c in BINDING_ALLELE_COLUMNS]
 
 
 def test_binding_block_is_identical_across_different_alleles(
-    client: TestClient, fake_manager: _FakeRFModel
+    fake_manager: _FakeRFModel,
 ) -> None:
     """D31: the panel is fixed and keyed by peptide, not by the caller's allele.
 
-    This pins the (documented, not-yet-fixable) behaviour rather than hiding
-    it: two callers requesting different alleles for the same peptide must
-    receive the identical binding block, so a test that ever expects the
-    allele to change the model's score is testing for the wrong thing.
+    This pins the documented, by-design behaviour rather than hiding it: two
+    callers requesting different alleles for the same peptide must receive an
+    identical binding block, so a future test that expects the allele to move
+    the model's score is testing for the wrong thing.
     """
-    resp_a = client.post("/score", json={"sequence": PANEL_PEPTIDE, "allele": "HLA-A*02:01"})
+    _score(PANEL_PEPTIDE, "HLA-A*02:01")
     vec_a = fake_manager.last_feature_vector[0].copy()
-    resp_b = client.post("/score", json={"sequence": PANEL_PEPTIDE, "allele": "HLA-B*07:02"})
+    _score(PANEL_PEPTIDE, "HLA-B*07:02")
     vec_b = fake_manager.last_feature_vector[0].copy()
 
-    assert resp_a.status_code == 200
-    assert resp_b.status_code == 200
     assert np.array_equal(vec_a, vec_b)
 
 
-def test_out_of_panel_peptide_returns_422_not_silent_zeros(client: TestClient) -> None:
-    """Explicit failure, not a silently zero-filled score (T4 recommendation)."""
-    resp = client.post(
-        "/score", json={"sequence": OUT_OF_PANEL_PEPTIDE, "allele": "HLA-A*02:01"}
-    )
-    assert resp.status_code == 422
-    assert "binding panel" in resp.json()["detail"]
+def test_out_of_panel_peptide_returns_422_not_silent_zeros(
+    fake_manager: _FakeRFModel,
+) -> None:
+    """Explicit failure, not a silently zero-filled score."""
+    with pytest.raises(HTTPException) as excinfo:
+        _score(OUT_OF_PANEL_PEPTIDE, "HLA-A*02:01")
+    assert excinfo.value.status_code == 422
+    assert "binding panel" in excinfo.value.detail
 
 
-def test_health_check_does_not_require_the_real_model(client: TestClient) -> None:
-    resp = client.get("/health")
-    assert resp.status_code == 200
-    assert resp.json()["model_loaded"] is True
+def test_score_peptide_raises_503_when_model_not_loaded() -> None:
+    """No fake_manager fixture here: the singleton is deliberately unloaded."""
+    api_main._manager._loaded = False
+    with pytest.raises(HTTPException) as excinfo:
+        _score(PANEL_PEPTIDE, "HLA-A*02:01")
+    assert excinfo.value.status_code == 503
+
+
+def test_health_check_reports_loaded_state(fake_manager: _FakeRFModel) -> None:
+    assert api_main.health_check()["model_loaded"] is True
