@@ -436,9 +436,15 @@ def get_tcr_positions(length):
 
 
 def compute_features(peptide, binding_score=0.0):
-    """Compute 22 physicochemical features for a single peptide.
+    """Compute physicochemical features for a single peptide.
 
-    Returns a dict with 22 feature values keyed by FEATURE_COLUMNS names.
+    Always computes the full 42-key superset (40 physicochemical features -
+    8 properties x 5 TCR-contact positions p4-p8 - plus binding_score and
+    peptide_length), keyed by EXPANDED_FEATURE_COLUMNS names, regardless of
+    which feature mode a caller ultimately uses. Callers select the subset
+    they need (e.g. FEATURE_COLUMNS' 20 physicochemical entries) by indexing
+    the returned dict with their own column list; this function does not
+    narrow its output to match any particular mode.
     Positions outside the valid TCR core are zero-imputed.
     """
     features = {}
