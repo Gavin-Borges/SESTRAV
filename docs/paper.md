@@ -78,9 +78,13 @@ transfer from large-scale MHC binding data to immunogenicity scoring and achieve
 strong performance on a curated benchmark, though its immunogenicity training set is
 predominantly neoepitopes (5,279 of 6,873 experimentally validated examples) and no
 leave-one-pathogen-out evaluation was reported. T-SCAPE
-[8] developed a statistical immunogenicity scoring framework
-demonstrating improvement over binding tools, but similarly confined its validation to
-within-pathogen experimental data. Across these tools, the evaluation paradigm is
+[8] is a deep learning framework that combines multidomain pretraining with
+immunogenicity-specific fine-tuning, and reports improved performance over binding
+predictors including NetMHCpan-4.1, MHCflurry-2.0 and MixMHCpred-2.2 on a neoantigen
+discovery set and an infectious disease vaccine discovery set. Its training/benchmark
+separation is defined by peptide sequence homology - training peptides sharing a 9-mer
+with fewer than two mismatches against any benchmark peptide are removed - rather than
+by source organism. Across the other tools cited here, the evaluation paradigm is
 consistent: models are trained and tested on data drawn from the same set of pathogens.
 
 This within-pathogen evaluation design does not assess the scenario most relevant to
