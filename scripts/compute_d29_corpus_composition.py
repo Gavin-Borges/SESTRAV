@@ -2,8 +2,9 @@
 
 D29 corrected the manuscript's "pan-allele" self-description: no production
 feature mode carries an allele-identity column, so allele coverage is a
-property of the ten-allele binding-feature panel (`ALLELE_CONTACT_WEIGHTS`,
-`src/features.py:287-301`), not of the benchmark. Its Verification cell states
+property of the ten-allele binding-feature panel (`ALLELE_CONTACT_WEIGHTS` and
+its `POPULATION_AVG_CONTACT_WEIGHTS` fallback, both in `src/features.py`), not
+of the benchmark. Its Verification cell states
 three corpus-composition figures in passing - 248 distinct HLA alleles,
 16,984 of 35,597 active rows carrying a panel allele, 774 active HLA-C rows -
 and says outright that they "reproduce exactly from the TRACKED
@@ -30,7 +31,7 @@ Method and the two scoping facts each figure actually depends on:
     "HLA-" regardless of what follows it (`*NN:NN`, `wNN`, or nothing), which
     is what the regex here extracts.
   - The ten-allele panel is ALLELE_CONTACT_WEIGHTS's key set
-    (src/features.py:287-298) - the same ten alleles the mode 10/30/31/33/35
+    (src/features.py) - the same ten alleles the mode 10/30/31/33/35
     bind_* columns are computed against. It is imported directly from
     src/features.py rather than re-typed here, so the two can never drift.
 
