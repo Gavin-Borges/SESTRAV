@@ -43,8 +43,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   register D29), a defect installed by D28's own correction one day earlier.** D28 re-narrowed the
   contribution claim onto the conjunction of a completed leave-one-out cycle with "pan-allele
   coverage", moving the paper's entire remaining differentiation onto the weaker conjunct. No
-  production feature mode contains an allele-identity column (`src/features.py:230-311`: mode
-  21 is physicochemistry and length with no binding columns at all, mode 10 is the ten binding
+  production feature mode contains an allele-identity column (the production feature-set
+  constants in `src/features.py` - `TRAIN_FEATURE_COLUMNS` for mode 21, `FEATURE_COLUMNS_10`,
+  `FEATURE_COLUMNS_30`, `FEATURE_COLUMNS_31`, `FEATURE_COLUMNS_33`, `FEATURE_COLUMNS_35` and
+  `FEATURE_COLUMNS_50`, plus the two variants `FEATURE_COLUMNS_30_ESM` and
+  `FEATURE_COLUMNS_30_GRAPH`, which extend `FEATURE_COLUMNS_30` with embedding columns only:
+  mode 21 is physicochemistry and length with no binding columns at all,
+  mode 10 is the ten binding
   columns alone, modes 30/31/33/35 pair physicochemistry with those same ten, and mode 50 uses
   an expanded physicochemical set - what they share is not one column list but the absence of
   any allele identifier), and `hla_allele` never enters a production feature vector. It does
@@ -54,8 +59,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   31-feature vector" (a sentence this pass also had to sharpen: it read "allele-specific", which is
   checkably wrong because mode 31 does carry ten per-allele binding columns, as Section 2.2 states),
   and its own population-genetics result calls the panel biased toward European
-  reference populations and "motivating future expansion". Meanwhile `docs/paper.md:67` used
-  "pan-allele" in the strict allele-generalizing sense for NetMHCpan, as does reference 11's
+  reference populations and "motivating future expansion". Meanwhile `docs/paper.md` Section 1
+  ("NetMHCpan 4.1 [4] and related pan-allele tools") used "pan-allele" in the strict
+  allele-generalizing sense for NetMHCpan, as does reference 11's
   MHCflurry title, so one word was carrying two meanings in one document. The Abstract, Section 1, Section 4.1 and the front matter
   now make **no allele-coverage claim at all**: they state instead that binding features are
   computed against a ten-allele HLA class I panel and that no allele-identity feature enters the
