@@ -1,8 +1,8 @@
 ---
 title: "SESTRAV: A Leave-One-Virus-Out Immunogenicity Benchmark Reveals Systematic Test Partition Contamination in Cross-Pathogen MHC Class I Prediction"
 target_journal: Bioinformatics (Oxford Academic)
-last_updated: 2026-08-10
-status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts. The Section 3.2 calibration figures were corrected on 2026-08-12 (D24): the pair previously reported there was computed before the 2026-08-10 peptide-grouped re-baseline and did not survive it, and it cited a gitignored staging file that did not in fact contain it. Calibration is now assessed by scripts/assess_calibration.py, bound to results/calibration_assessment_v5_mode31.csv, and reported as a limitation rather than a benefit. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) is a 2026-05 30-feature figure whose 720-peptide corpus has zero duplicate peptides, so peptide-grouping is a no-op on it and the D15 exact-duplicate leakage finding does not apply; it instead carries a disclosed, unquantified substring-homology risk (D16/D22, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). See docs/claims_register.md for the full register
+last_updated: 2026-08-19
+status: manuscript draft - Acknowledgements/CRediT, Funding, and Zenodo DOI sections are open placeholders pending final author and funding confirmation. The v5 cross-validation figures are current against the 2026-08-10 peptide-grouped re-baseline, and the headline metrics are bound to tracked source artifacts. The Section 3.2 calibration figures were corrected on 2026-08-12 (D24): the pair previously reported there was computed before the 2026-08-10 peptide-grouped re-baseline and did not survive it, and it cited a gitignored staging file that did not in fact contain it. Calibration is now assessed by scripts/assess_calibration.py, bound to results/calibration_assessment_v5_mode31.csv, and reported as a limitation rather than a benefit. This is not a blanket all-clear: qualifications are disclosed in place rather than corrected away, and at least these three must be carried by the reader - the Tier A comparison (0.828) is a 2026-05 30-feature figure whose 720-peptide corpus has zero duplicate peptides, so peptide-grouping is a no-op on it and the D15 exact-duplicate leakage finding does not apply; it instead carries a disclosed, unquantified substring-homology risk (D16/D22, Section 3.5); the feature_mode=33 antigen-processing values are MOCK and not reproducible (D18, caveat after Table 1); and the pooled mixed-background figure's negative background is three-quarters out-of-panel vaccinia rows, not the self-proteome decoys an earlier version of this draft named (D19, Results 3.2 and 3.4). The Abstract, the Section 1 prior-art paragraph, Section 2.5 and the Section 4.1 contribution sentence were corrected on 2026-08-18 (D28): a characterisation of the TRAP study's holdout negatives was inaccurate and is retracted, and because both prior reports do use assay-confirmed test negatives, that conjunct no longer differentiates this work: the contribution claim now rests on a completed leave-one-out cycle (as in [1]) over nine pathogens, and no single element is claimed as novel. That conjunct was corrected again on 2026-08-19 (D29): D28 had re-narrowed the claim onto "pan-allele coverage", a description this tree does not support - no production feature mode contains an allele-identity column (`src/features.py:230-278`: mode 21 is physicochemistry and length with no binding columns at all, mode 10 is the ten binding columns alone, modes 30/31/33/35 pair physicochemistry with those same ten, and mode 50 uses an expanded physicochemical set, so what the modes share is not one column list but the absence of any allele identifier), allele identity is never a production model feature, and Section 2.1's ten-allele sentence was worded as a restriction on the corpus when it scopes only the binding-feature panel. The claim now makes no allele-coverage assertion at all, because the model is allele-blind and a feature-panel property is not an evaluation-coverage property. See docs/claims_register.md for the full register
 ---
 
 ## Abstract
@@ -13,10 +13,11 @@ immunogenicity prediction, providing reproducible, auditable infrastructure for
 antigen prioritization across emerging pathogens. Binding affinity to MHC class I
 is necessary but not sufficient for T-cell activation, yet cross-pathogen transfer
 is rarely benchmarked. Where held-out-pathogen evaluation has been reported it was a
-supplementary single-allele analysis [1] or a two-pathogen split whose negative set
-mixes assay-confirmed peptides with presumed-tolerised self ligands [2]. We report a
-nine-pathogen, pan-allele leave-one-virus-out (LOO) benchmark with test negatives
-restricted to assay-confirmed IEDB negatives. SESTRAV trains a Random Forest on 35,597 quality-filtered
+supplementary single-allele analysis [1], or two single-pathogen splits rather than
+a systematic leave-one-out cycle [2]. We report a nine-pathogen
+leave-one-virus-out (LOO) benchmark with test negatives restricted to
+assay-confirmed IEDB negatives. Binding features are computed against a ten-allele
+HLA class I panel, and no allele-identity feature enters the model. SESTRAV trains a Random Forest on 35,597 quality-filtered
 peptide-HLA pairs - 13,358 from nine human-pathogenic target viruses plus 22,239
 real IEDB-confirmed negative-background pairs from additional non-target species,
 dominated by Orthopoxvirus vaccinia (21,432 pairs, 60.2% of the active pool) -
@@ -95,11 +96,15 @@ study: PRIME2.0 reports leave-one-allele-out and leave-one-study-out cross-valid
 [9]. Pathogen-level holdout has been reported, but narrowly. Bravi et al. performed
 leave-one-organism-out cross-validation for a single-allele generative model as a
 supplementary robustness check, reporting a mean AUC of 0.68 on assay-confirmed
-negatives [1]. TRAP trained separate models excluding SARS-CoV-2 and vaccinia virus
-respectively, but its negative set combines assay-confirmed pathogen negatives with
-thymically expressed self ligands that were never assay-tested [2]. Neither reports a
-multi-pathogen, pan-allele panel with test negatives restricted to assay-confirmed
-records, which is the protocol we adopt here.
+negatives [1]. TRAP reported two organism-level splits, excluding SARS-CoV-2 and
+vaccinia virus respectively, but each held out a single pathogen rather than
+completing a leave-one-out cycle [2]. Both prior reports drew their test negatives
+from assay-confirmed records, as we do. [1] completes a cycle over organisms for a
+single-allele model; [2] reports pathogen-level holdout, but one pathogen at a time
+rather than a completed cycle. The protocol adopted here completes a leave-one-out
+cycle across nine pathogens. No claim is made about allele coverage: the model is
+allele-blind, and the ten-allele panel bounds only the alleles the binding features
+were computed against, not the alleles the corpus contains.
 
 That transfer across pathogens is difficult is itself established rather than novel:
 Buckley et al. benchmarked nine published models on a compiled panel of assay-confirmed
@@ -178,10 +183,17 @@ responses.
 The dataset spans nine target viruses: cytomegalovirus (CMV), dengue virus (DENV),
 Epstein-Barr virus (EBV), hepatitis B virus (HBV), hepatitis C virus (HCV), HIV-1,
 human papillomavirus (HPV; serotypes HPV16 and HPV18 normalised to a single HPV label
-with strain annotation), influenza A virus (IAV), and SARS-CoV-2. Coverage was
-restricted to ten HLA class I alleles representing common population-level supertypes:
+with strain annotation), influenza A virus (IAV), and SARS-CoV-2. The binding-feature
+panel was restricted to ten HLA class I alleles representing common population-level supertypes:
 HLA-A*01:01, HLA-A*02:01, HLA-A*03:01, HLA-A*11:01, HLA-A*24:02, HLA-B*07:02,
-HLA-B*08:01, HLA-B*27:05, HLA-B*35:01, and HLA-B*44:02. These nine viruses are the
+HLA-B*08:01, HLA-B*27:05, HLA-B*35:01, and HLA-B*44:02. This panel scopes the
+binding-feature columns (Section 2.2), not the corpus: records carrying alleles outside
+the panel, including HLA-C, are retained in the active pool
+(`data/immunogenicity_dataset_v5.csv`), and because no
+allele-identity column enters the feature vector (Section 3.2) such a record is scored
+from its peptide alone. The model is therefore allele-blind at inference, and the panel
+bounds which alleles the binding features were computed for rather than which alleles the
+corpus contains. These nine viruses are the
 target pathogens curated for positive evidence and evaluated in the within-virus
 and leave-one-virus-out benchmarks (Sections 3.2-3.4); the active training pool
 additionally includes real IEDB-confirmed negative-background records from
@@ -437,8 +449,8 @@ to an entirely unseen pathogen - the realistic deployment scenario for emerging-
 surveillance - a virus-level leave-one-out (LOO) evaluation was conducted. This design
 is conceptually related to leave-one-out cross-validation at the sample level, but
 here the unit of exclusion is the complete labelled set for one virus, not a single
-peptide. Pathogen-level holdout has precedent in this field but not at panel scale on
-assay-confirmed negatives alone; Section 1 states the position and cites it [1,2].
+peptide. Pathogen-level holdout has precedent in this field; Section 1 sets out the
+two closest reports and how the protocol adopted here differs from each [1,2].
 
 **Eligibility criteria.** A pathogen was eligible for inclusion in the LOO evaluation
 if its representation in the v5 active dataset met a minimum class-balance requirement:
@@ -576,9 +588,11 @@ essentially unchanged (within one standard deviation of the mode-31 mean). We th
 retain mode-31 as the production configuration.
 
 **Peptide-level cross-validation leakage (D15) and its remediation.** Every mode-31
-feature is a pure function of the peptide string (no allele-specific column enters the
-31-feature vector), while the v5 corpus is deduplicated on (peptide, hla_allele), not on
-peptide alone; consequently the same peptide can appear on both sides of a fold boundary
+feature is a pure function of the peptide string (no allele-identity column enters the
+31-feature vector: the ten binding columns of Section 2.2 are per-allele scores computed
+from the peptide, not an identifier of the allele the record was measured on), while the
+v5 corpus is deduplicated on (peptide, hla_allele), not on peptide alone; consequently
+the same peptide can appear on both sides of a fold boundary
 under a splitter that does not group by peptide. A leakage audit
 (`scripts/audit_cv_leakage.py`, `results/cv_leakage_audit.csv`) measured that 71.1% of
 held-out rows under the (pre-remediation) production splitter had their exact peptide
@@ -1054,9 +1068,13 @@ composition of any dataset assembled without version-locked provenance.
 The virus-level leave-one-out evaluation protocol applied here is itself a
 benchmark contribution independent of the classification results, though not a
 priority claim. Pathogen-level holdout has been reported before: Section 1 sets
-out both prior reports and what separates them from this one. The contribution
-here is scale and negative-set discipline rather than novelty - a nine-pathogen,
-pan-allele panel with test negatives restricted to assay-confirmed records.
+out both prior reports and what separates them from this one. The contribution is
+the conjunction rather than novelty in any single element: a completed
+leave-one-out cycle, as in [1], carried out over a nine-pathogen panel, with test
+negatives restricted to assay-confirmed records as in both prior reports. Allele
+coverage is deliberately not part of that conjunction: the model is allele-blind,
+and the ten-allele panel bounds only which alleles the binding features were
+computed against.
 Standard within-pathogen stratified cross-validation - the dominant evaluation
 paradigm in the field - does not address the scenario most relevant to vaccine
 development practice, namely a pathogen for which no prior T-cell response data
