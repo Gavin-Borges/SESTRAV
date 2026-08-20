@@ -13,7 +13,7 @@ for publication.
 
 ---
 
-## Section 1: Discrepancy Register (D1-D28)
+## Section 1: Discrepancy Register (D1-D31)
 
 Claims that were incorrect in prior versions and have been corrected. Track to ensure they do not recur.
 
