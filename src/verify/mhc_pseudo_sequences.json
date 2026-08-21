@@ -1,4 +1,5 @@
 {
+  "_source": "NetMHCpan 4.1 supplementary, member NetMHCpan_train/MHC_pseudo.dat of https://services.healthtech.dtu.dk/suppl/immunology/NAR_NetMHCpan_NetMHCIIpan/NetMHCpan_train.tar.gz (tarball sha256 06f2c9f20bb959238bf5d601fca0489a0ed3f17648b952f30640205afca8f9b4). Each value is the allele's 34 pocket-contact residues, copied verbatim. Keys prefixed with an underscore are metadata, not alleles. See claims register D30.",
   "HLA-A*01:01": "YFAMYQENMAHTDANTLYIIYRDYTWVARVYRGY",
   "HLA-A*02:01": "YFAMYGEKVAHTHVDTLYVRYHYYTWAVLAYTWY",
   "HLA-A*03:01": "YFAMYQENVAQTDVDTLYIIYRDYTWAELAYTWY",

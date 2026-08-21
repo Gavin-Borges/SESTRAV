@@ -11,9 +11,14 @@ register D30 records that the script's table had collapsed to two distinct
 strings across ten alleles, while eight of the JSON's ten slots held a sequence
 that was not that allele's. Of those eight, exactly one was a mislabelled slot
 rather than a merely-wrong value - ``HLA-A*02:01`` carried ``HLA-A*01:01``'s
-real sequence verbatim; the other seven matched no panel allele. Both tables
-were labelled "Source: NetMHCpan 4.1 MHC_pseudo.dat". A claims audit found it;
-no test could have.
+real sequence verbatim; the other seven matched no panel allele.
+
+The two failed differently. The script's block was labelled "Source: NetMHCpan
+4.1 MHC_pseudo.dat", naming a real, fetchable file whose contents refuted it -
+a false claim, and therefore a checkable one. The JSON claimed nothing at all:
+ten bare allele keys, no comment, no source field, so its wrong values were
+unfalsifiable rather than falsified. A claims audit found both; no test could
+have.
 
 These tests encode the invariants that make that class of drift impossible to
 reintroduce silently. They deliberately assert structure and cross-table
@@ -44,15 +49,35 @@ JSON_PATH = Path(__file__).resolve().parents[1] / "src" / "verify" / "mhc_pseudo
 
 
 @pytest.fixture(scope="module")
-def json_table():
+def json_raw():
+    """The JSON exactly as it ships, metadata keys included."""
     with open(JSON_PATH, "r", encoding="utf-8") as fh:
         return json.load(fh)
+
+
+@pytest.fixture(scope="module")
+def json_table(json_raw):
+    """Allele entries only. Underscore-prefixed keys are metadata (see _source)."""
+    return {k: v for k, v in json_raw.items() if not k.startswith("_")}
 
 
 @pytest.fixture(scope="module")
 def tables(json_table):
     """Both tables, so each invariant is asserted against both in one place."""
     return {"mhc_pseudo_sequences.json": json_table, "HLA_PSEUDOSEQ": HLA_PSEUDOSEQ}
+
+
+def test_json_records_its_own_provenance(json_raw):
+    """The JSON shipped unsourced, which is why wrong values there were unfalsifiable.
+
+    The script's copy at least carried a source attribution - a false one, which
+    is how D30 was found at all. This file carried none: ten bare allele keys and
+    nothing to check them against. A reader could not tell a real pseudo-sequence
+    from a fabricated one without leaving the file.
+    """
+    source = json_raw.get("_source", "")
+    assert source, f"{JSON_PATH.name} carries no _source field"
+    assert "MHC_pseudo.dat" in source, "the _source field does not name the source file"
 
 
 def test_json_has_no_duplicate_keys():
