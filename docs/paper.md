@@ -84,10 +84,9 @@ predictors including NetMHCpan-4.1, MHCflurry-2.0 and MixMHCpred-2.2 on a neoant
 discovery set and an infectious disease vaccine discovery set. Its training/benchmark
 separation is defined by peptide sequence homology - training peptides sharing a 9-mer
 with fewer than two mismatches against any benchmark peptide are removed - rather than
-by source organism. Across the other tools cited here, the evaluation paradigm is
-consistent: models are trained and tested on data drawn from the same set of pathogens.
+by source organism.
 
-This within-pathogen evaluation design does not assess the scenario most relevant to
+Within-pathogen evaluation does not assess the scenario most relevant to
 vaccine development practice - a pathogen for which no prior T-cell response data
 exists. For emerging or rare viruses, a predictor must generalize from immunogenicity
 patterns learned on other pathogens, a zero-shot transfer task that within-pathogen
