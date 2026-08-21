@@ -305,6 +305,11 @@ results/*
 # scripts/compute_section33_decoy_binding_join.py)
 !results/section33_decoy_binding_join.csv
 !results/section33_decoy_binding_join.csv.provenance.json
+# D29 corpus-composition counts (claims_register D29 Verification cell cites
+# 248/16,984 of 35,597/774 against this file; regenerate with
+# scripts/compute_d29_corpus_composition.py)
+!results/d29_corpus_composition.csv
+!results/d29_corpus_composition.csv.provenance.json
 release_artifacts/
 *.pyc
 __pycache__/

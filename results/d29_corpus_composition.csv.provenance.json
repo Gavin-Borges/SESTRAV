@@ -1,0 +1,22 @@
+{
+  "generated_utc": "2026-08-20T01:23:14.581748+00:00",
+  "script": "scripts/compute_d29_corpus_composition.py",
+  "artifact": "results/d29_corpus_composition.csv",
+  "sha256": "13d339e1c146d943f9f364823485a250582a279833ec2fb834d8c54c7f414076",
+  "inputs": {
+    "data/immunogenicity_dataset_v5.csv": "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4"
+  },
+  "active_row_definition": "is_quarantined != True",
+  "panel_alleles": [
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*24:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*44:02"
+  ]
+}

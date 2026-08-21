@@ -1,0 +1,8 @@
+metric,value,kind
+distinct_hla_alleles_active,248.0,count
+distinct_hla_alleles_all_rows,263.0,count
+active_rows_total,35597.0,count
+panel_size,10.0,count
+active_rows_with_panel_allele,16984.0,count
+active_rows_with_panel_allele_pct,47.7,percent
+active_hla_c_rows,774.0,count
