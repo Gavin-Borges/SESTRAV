@@ -81,18 +81,20 @@ leave-one-pathogen-out evaluation was reported. T-SCAPE
 [8] is a deep learning framework that combines multidomain pretraining with
 immunogenicity-specific fine-tuning, and reports improved performance over binding
 predictors including NetMHCpan-4.1, MHCflurry-2.0 and MixMHCpred-2.2 on a neoantigen
-discovery set and an infectious disease vaccine discovery set. Its training/benchmark
-separation is defined by peptide sequence homology - training peptides sharing a 9-mer
-with fewer than two mismatches against any benchmark peptide are removed - rather than
+discovery set and an infectious disease vaccine discovery set. The leakage-control
+strategy it reports is defined by peptide sequence homology - training peptides sharing
+a 9-mer with fewer than two mismatches against any benchmark peptide are removed - not
 by source organism.
 
-Within-pathogen evaluation does not assess the scenario most relevant to
-vaccine development practice - a pathogen for which no prior T-cell response data
-exists. For emerging or rare viruses, a predictor must generalize from immunogenicity
-patterns learned on other pathogens, a zero-shot transfer task that within-pathogen
-cross-validation cannot measure. Stratifying test peptides by fold rather than by
-pathogen conflates discriminating among peptides of an already-characterized virus with
-discriminating entirely unseen peptides from a new one.
+Of the tools above, [6] was evaluated without systematic cross-pathogen testing and [7]
+reported no leave-one-pathogen-out result. Evaluation that does not hold out a pathogen
+cannot assess the scenario most relevant to vaccine development practice - a pathogen
+for which no prior T-cell response data exists. For emerging or rare viruses, a
+predictor must generalize from immunogenicity patterns learned on other pathogens, a
+zero-shot transfer task that within-pathogen cross-validation cannot measure.
+Stratifying test peptides by fold rather than by pathogen conflates discriminating
+among peptides of an already-characterized virus with discriminating entirely unseen
+peptides from a new one.
 
 Cross-validation in this field is most often random, or stratified by HLA allele or by
 study: PRIME2.0 reports leave-one-allele-out and leave-one-study-out cross-validation
