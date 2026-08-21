@@ -28,6 +28,7 @@ in sync. Provenance of the values themselves is a source-verification question
 (see the D30 row and the header comment in the script), not a unit-test one.
 """
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -45,7 +46,9 @@ from scripts.extract_allele_aware_data import HLA_PSEUDOSEQ, PSEUDO_LEN
 # Same failure class as D30; the length guards do not cover it.
 STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
 
-JSON_PATH = Path(__file__).resolve().parents[1] / "src" / "verify" / "mhc_pseudo_sequences.json"
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+JSON_PATH = _REPO_ROOT / "src" / "verify" / "mhc_pseudo_sequences.json"
+SCRIPT_PATH = _REPO_ROOT / "scripts" / "extract_allele_aware_data.py"
 
 
 @pytest.fixture(scope="module")
@@ -142,6 +145,30 @@ def test_the_two_tables_agree_on_every_sequence(tables):
         f"{sorted(disagreements)}. They describe the same ten pockets and feed "
         "two different subsystems; a divergence means one of them is wrong."
     )
+
+
+def test_the_scripts_import_time_guard_actually_fires(tmp_path):
+    """The script's own PSEUDO_LEN loop must reject a malformed table at import.
+
+    Every other test here reads the table; none of them proves the guard that
+    protects it. Reverting that loop to the old silent ``seq[:34]`` trim, with a
+    valid table left in place, passes this whole suite - so the guard was the one
+    piece of the D30 fix with no test behind it. This exercises it directly by
+    importing a copy of the module whose table has been shortened by one residue.
+    """
+    src = SCRIPT_PATH.read_text(encoding="utf-8")
+    good = f'"HLA-B*44:02": "{HLA_PSEUDOSEQ["HLA-B*44:02"]}"'
+    assert src.count(good) == 1, "table entry to mutate is not uniquely locatable"
+    broken = src.replace(good, f'"HLA-B*44:02": "{HLA_PSEUDOSEQ["HLA-B*44:02"][:-1]}"', 1)
+
+    target = tmp_path / "extract_allele_aware_data_shortened.py"
+    target.write_text(broken, encoding="utf-8")
+
+    spec = importlib.util.spec_from_file_location(target.stem, target)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    with pytest.raises(ValueError, match=r"is 33 chars, expected 34"):
+        spec.loader.exec_module(module)
 
 
 def test_a02_01_does_not_hold_a01_01s_sequence(tables):
