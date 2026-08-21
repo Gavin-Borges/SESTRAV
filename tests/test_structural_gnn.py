@@ -90,11 +90,11 @@ def _minimal_df():
     reason=(
         "StructuralPeptideMHCDataset inherits from Dataset when PyG is installed; "
         "PyG's Dataset.__setattr__ requires super().__init__(), so the HAS_PYG=False "
-        "branch (lines 99->101) can only be exercised in a PyG-absent environment."
+        "branch can only be exercised in a PyG-absent environment."
     ),
 )
 def test_dataset_haspyg_false_init(monkeypatch):
-    """Covers branch 99->101: when HAS_PYG is False the super().__init__ call
+    """Covers the HAS_PYG=False branch: the super().__init__ call
     inside StructuralPeptideMHCDataset.__init__ is skipped (PyG-absent env only)."""
     import src.verify.structural_gnn as sgnn
 
@@ -107,7 +107,7 @@ def test_dataset_haspyg_false_init(monkeypatch):
     HAS_PYG, reason=("Same Dataset.__setattr__ constraint as test_dataset_haspyg_false_init.")
 )
 def test_dataset_haspyg_false_get(monkeypatch):
-    """Covers lines 175-178: when HAS_PYG is False, get() returns a SimpleData
+    """Covers get()'s HAS_PYG=False branch: it returns a SimpleData
     object instead of a torch_geometric Data object (PyG-absent env only)."""
     import src.verify.structural_gnn as sgnn
 
@@ -119,7 +119,7 @@ def test_dataset_haspyg_false_get(monkeypatch):
 
 
 def test_structural_gnn_init_no_pyg_raises(monkeypatch):
-    """Covers line 187: StructuralGNN.__init__ raises ImportError if HAS_PYG=False."""
+    """Covers StructuralGNN.__init__'s guard: it raises ImportError if HAS_PYG=False."""
     import src.verify.structural_gnn as sgnn
 
     monkeypatch.setattr(sgnn, "HAS_PYG", False)
@@ -128,7 +128,7 @@ def test_structural_gnn_init_no_pyg_raises(monkeypatch):
 
 
 def test_train_structural_gnn_no_pyg_raises(monkeypatch):
-    """Covers line 249: train_structural_gnn raises ImportError if HAS_PYG=False."""
+    """Covers train_structural_gnn's guard: it raises ImportError if HAS_PYG=False."""
     import src.verify.structural_gnn as sgnn
 
     monkeypatch.setattr(sgnn, "HAS_PYG", False)
@@ -137,7 +137,7 @@ def test_train_structural_gnn_no_pyg_raises(monkeypatch):
 
 
 def test_dataset_no_pseudo_seqs_file(monkeypatch, tmp_path):
-    """Covers line 116: pseudo_seqs defaults to {} when the JSON file is absent."""
+    """Covers the missing-file branch: pseudo_seqs defaults to {} when the JSON is absent."""
     import src.verify.structural_gnn as sgnn
 
     # Change CWD to tmp_path so the relative path 'src/verify/mhc_pseudo_sequences.json'
