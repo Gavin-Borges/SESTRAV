@@ -173,6 +173,22 @@ class ModelManager:
         else:
             self.feature_config = {}
 
+        # Load the ten-allele binding panel once (D31 fix). This is the ONLY
+        # mechanism that populates the model's bind_* feature block: the panel
+        # is FIXED (docs/paper.md Section 2.2, "Ten MHC binding affinity features"), so this is a lookup keyed by
+        # peptide alone, not by the caller's requested allele.
+        logger.info("Loading binding panel matrix ...")
+        binding_matrix_path = _PROJECT_ROOT / "models" / "peptide_binding_matrix_v5.csv"
+        import pandas as pd
+
+        binding_df = pd.read_csv(binding_matrix_path)
+        from src.features import BINDING_ALLELE_COLUMNS
+
+        self.binding_matrix: dict[str, dict[str, float]] = (
+            binding_df.set_index("peptide")[BINDING_ALLELE_COLUMNS].to_dict(orient="index")
+        )
+        logger.info(f"Binding panel matrix loaded: {len(self.binding_matrix)} peptides.")
+
         self._loaded = True
 
     @property
@@ -183,13 +199,41 @@ class ModelManager:
 _manager = ModelManager()
 
 
+class PeptideNotInPanelError(Exception):
+    """Raised when a peptide has no row in the ten-allele binding panel.
+
+    docs/claims_register.md D31: the panel is a FIXED ten-allele set and the
+    bind_* features are defined as a precomputed per-peptide lookup over it
+    (docs/paper.md Section 2.2, "Ten MHC binding affinity features"), with
+    peptides absent from the matrix receiving zero. Populating the block by
+    any other route - broadcasting one live MHCflurry call across the ten
+    columns, or one-hotting the requested allele - would fabricate values the
+    model was never trained on, so a panel miss cannot be repaired at request
+    time and is reported explicitly instead of silently zero-filled, which
+    would be indistinguishable from a genuine all-low-affinity panel match.
+
+    Note this does NOT rest on MHCflurry being unavailable: it is declared in
+    [project].dependencies, so `pip install ".[api]"` does install it. What
+    Dockerfile.api never does is fetch its model weights
+    (`mhcflurry-downloads fetch`), which is why the informational call in
+    _score_peptide is still expected to fail in the shipped container.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Helper: compute features and score
 # ---------------------------------------------------------------------------
 
 
 def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
-    """Returns (immunogenicity_score, binding_score | None)."""
+    """Returns (immunogenicity_score, binding_score | None).
+
+    binding_score is a best-effort, informational MHCflurry call for the
+    caller's specific allele - it is NOT what feeds the model. The model's
+    bind_* feature block is always populated from the fixed ten-allele panel
+    matrix (see PeptideNotInPanelError), independent of whether this call
+    succeeds. Raises PeptideNotInPanelError if the peptide has no panel row.
+    """
     import sys
 
     project_root = str(_PROJECT_ROOT)
@@ -198,7 +242,12 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
 
     from src.features import compute_features, FEATURE_COLUMNS_31
 
-    # Compute physicochemical features (binding_score=0 when MHCflurry unavailable)
+    panel_row = _manager.binding_matrix.get(sequence)
+    if panel_row is None:
+        raise PeptideNotInPanelError(sequence)
+
+    # Best-effort informational value for ScoreResponse.binding_score. Failure
+    # here does not affect the feature vector below.
     binding_score: float | None = None
     try:
         from mhcflurry import Class1PresentationPredictor
@@ -211,13 +260,14 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
         )
         binding_score = float(result["presentation_score"].iloc[0])
     except Exception as exc:
-        logger.warning(f"MHCflurry unavailable: {exc}. Scoring without binding features.")
+        logger.info(f"MHCflurry unavailable for the informational binding_score field: {exc}")
 
-    feat_dict = compute_features(sequence, binding_score=binding_score or 0.0)
+    feat_dict = compute_features(sequence, binding_score=0.0)
+    feat_dict.update(panel_row)
 
     # rf_31feature_integrated.joblib expects FEATURE_COLUMNS_31:
-    # 20 physicochemical (p4-p8 x 4 properties) + 10 per-allele binding columns + peptide_length.
-    # When MHCflurry is unavailable, binding columns default to 0.0.
+    # 20 physicochemical (p4-p8 x 4 properties) + 10 per-allele binding columns
+    # (from the fixed panel lookup above) + peptide_length.
     feature_vector = np.array(
         [feat_dict.get(col, 0.0) for col in FEATURE_COLUMNS_31],
         dtype=np.float64,
@@ -284,6 +334,18 @@ def score_peptide(body: PeptideInput) -> ScoreResponse:
         )
     try:
         imm_score, bind_score = _score_peptide(body.sequence, body.allele)
+    except PeptideNotInPanelError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Peptide {body.sequence!r} has no row in the ten-allele binding panel "
+                "(models/peptide_binding_matrix_v5.csv), so its immunogenicity score "
+                "cannot be computed by this deployment. The panel is fixed and keyed by "
+                "peptide, not by the requested allele, and the binding features are "
+                "defined as a lookup over it, so an out-of-panel peptide has no "
+                "substitute the model was trained on. See docs/claims_register.md D31."
+            ),
+        ) from exc
     except Exception as exc:
         logger.error(f"Scoring error for {body.sequence}/{body.allele}: {exc}")
         raise HTTPException(

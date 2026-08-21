@@ -468,6 +468,43 @@ def test_normalize_is_idempotent(text: str) -> None:
     assert mod.normalize(once) == once
 
 
+def test_comma_list_with_second_range_is_fully_captured(tmp_path: Path) -> None:
+    """A range after a comma must not be orphaned from the citation.
+
+    CITATION_RE's tail once accepted only a bare integer after a comma
+    (`(?:\\s*,\\s*\\d+)*`), so `path.py:2-4,6-8` was captured as `2-4,6` and
+    `-8` was left outside the match entirely - a silent false-PASS, since lines
+    7-8 were never pinned or checked. This is the real defect found live on
+    2026-08-20 in docs/claims_register.md's citation of
+    scripts/generate_hard_decoys.py:65,121,388-393, where `-393` was dropped
+    and lines 389-393 (an argparse block) went unchecked.
+
+    Line 8 is mutated after pinning; the gate must still fire.
+    """
+    target_lines = [f"line {i}" for i in range(1, 11)]  # 10 lines
+    repo = _make_repo(
+        tmp_path,
+        {
+            "src/train_classifier.py": "\n".join(target_lines) + "\n",
+            "docs/policy.md": "See `src/train_classifier.py:2-4,6-8`.\n",
+        },
+    )
+    assert _pin(repo).returncode == 0
+    baseline = json.loads(
+        (repo / "docs/line_citations.json").read_text(encoding="utf-8")
+    )
+    assert baseline["citations"][0]["lines"] == "2-4,6-8"
+
+    target = repo / "src/train_classifier.py"
+    lines = target.read_text(encoding="utf-8").splitlines()
+    lines[7] = "MUTATED"  # line 8 (0-indexed 7), inside the second range
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    result = _run(repo)
+    assert result.returncode == 1, "gate did not fire on drift inside the second range"
+    assert "DRIFTED" in result.stdout
+
+
 def test_reindentation_alone_is_not_drift(tmp_path: Path) -> None:
     """Whitespace-only change must not fire; it is not a moved citation."""
     repo = _make_repo(

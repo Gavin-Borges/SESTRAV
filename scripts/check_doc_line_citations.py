@@ -256,7 +256,7 @@ CITATION_RE = re.compile(
     r"(?<![\w/.-])"
     r"((?:[\w.-]+/)*"
     r"(?:[\w.-]+\.(?:py|md|toml|json|yml|yaml|cfg|ini|txt|sh|lock)|\.gitignore))"
-    r":(\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+)*)"
+    r":(\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*)"
 )
 
 # Preserves a dated line number while naming the current one. See module docs.
