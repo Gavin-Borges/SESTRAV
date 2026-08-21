@@ -373,11 +373,19 @@ changes.
 >
 > **Corrected 2026-08-17: this note previously quoted `auc_roc=0.8093 / auc_pr=0.5987` at this
 > point.** That pair was unbound - it exists only under the gitignored `models/local/`, so no reader
-> could open it - and it does not agree with the certified ledger, which records RF
+> could open it - and it does not agree with the **certified unweighted** ledger, which records RF
 > **0.8137 / 0.6058** and XGB **0.8093 / 0.5597** (`models/v5/training_results_mode31.csv`). The
-> quoted `0.8093` is the certified XGB AUC-ROC, while `0.5987` matches neither estimator. The
-> invariance being demonstrated needs no headline number, so the number is withdrawn rather than
-> restated.
+> quoted `0.8093` is the certified **XGB** (unweighted) AUC-ROC. **Corrected 2026-08-20: `0.5987` is
+> not unexplained.** It matches a *weighted* (`--sample-weights`) mode-31 **RF** run's AUC-PR to
+> fifteen significant figures (`0.5986974312317485`). **CONFIRMED by a controlled
+> weighted-vs-unweighted comparison** (two scratch runs, same data and binding matrix, differing
+> only in `--sample-weights`; `_local/state/decisions_pending_2026-08-15.md` D18): the unweighted
+> run reproduces the certified ledger exactly, and the weighted run reproduces this figure exactly.
+> The number itself, like the original pair, exists only under the gitignored `models/scratch/`, so
+> no reader can open it. What is settled either way: the original pair was never one estimator's two
+> metrics - `0.8093` is XGB, and the RF figure it was quoted beside belongs to a
+> *different* configuration (weighted vs. the ledger's unweighted). The invariance being demonstrated
+> needs no headline number, so the number remains withdrawn rather than restated here.
 >
 > **The block above passes `--sample-weights`; the certified ledger does not.** The canonical command
 > recorded in `docs/model_cards/rf_31feature_integrated.md` is explicitly unweighted, and the ledger
