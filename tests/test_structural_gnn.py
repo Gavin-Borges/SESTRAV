@@ -147,6 +147,59 @@ def test_dataset_no_pseudo_seqs_file(monkeypatch, tmp_path):
     assert ds.pseudo_seqs == {}
 
 
+def _write_pseudo_seqs(tmp_path, table):
+    """Plant a pseudo-sequence JSON at the relative path the dataset reads."""
+    import json
+
+    target = tmp_path / "src" / "verify"
+    target.mkdir(parents=True)
+    (target / "mhc_pseudo_sequences.json").write_text(json.dumps(table), encoding="utf-8")
+
+
+def test_dataset_raises_on_wrong_length_pseudo_sequence(monkeypatch, tmp_path):
+    """A malformed entry must fail loud, not be padded into a frame shift (D30).
+
+    Before this guard, a 33-character entry was silently `.ljust(34, "A")`-ed,
+    which fabricates a 34th residue AND shifts every position after the missing
+    one. The whole encoding is wrong, not just its tail, and nothing reported it.
+    """
+    import src.verify.structural_gnn as sgnn
+
+    _write_pseudo_seqs(
+        tmp_path,
+        {
+            "HLA-A*02:01": "A" * (sgnn.MHC_POCKET_COUNT - 1),  # one short
+            "HLA-A*24:02": "A" * sgnn.MHC_POCKET_COUNT,
+        },
+    )
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match=r"is 33 chars, expected 34"):
+        sgnn.StructuralPeptideMHCDataset(_minimal_df())
+
+
+def test_dataset_warns_and_placeholders_for_an_absent_allele(monkeypatch, tmp_path, caplog):
+    """Absent is a coverage gap, not a data bug: warn + explicit placeholder.
+
+    This is the deliberate other half of the guard above. It must stay distinct
+    from the raise, or a missing allele would become a hard failure and callers
+    would be tempted to reintroduce silent padding to get past it.
+    """
+    import logging
+
+    import src.verify.structural_gnn as sgnn
+
+    _write_pseudo_seqs(tmp_path, {"HLA-A*02:01": "A" * sgnn.MHC_POCKET_COUNT})
+    monkeypatch.chdir(tmp_path)
+    with caplog.at_level(logging.WARNING):
+        ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
+
+    assert "HLA-A*24:02" in caplog.text
+    assert "no real structural signal" in caplog.text
+    # The placeholder is all-alanine, so its charge row is uniformly zero.
+    idx = ds.allele_to_idx["HLA-A*24:02"]
+    assert float(ds.mhc_charges_tensors[idx].abs().sum()) == 0.0
+
+
 @pytest.mark.skipif(not HAS_PYG, reason="torch_geometric not installed")
 def test_gnn_model_and_training():
     from src.verify.structural_gnn import StructuralGNN, train_structural_gnn

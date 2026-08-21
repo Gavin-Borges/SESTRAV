@@ -54,7 +54,8 @@ TARGET_ALLELES = {
 #
 # CORRECTED 2026-08-20 (docs/claims_register.md D30). The previous table here
 # was fabricated, not degenerate: all five HLA-A entries shared one identical
-# 36-char string and all five HLA-B entries shared a second identical string,
+# 35-char string and all five HLA-B entries shared a second identical 35-char
+# string (two distinct values across ten alleles, both trimmed to 34 on load),
 # neither matching any real allele's sequence, despite a comment claiming
 # "Source: NetMHCpan 4.1 MHC_pseudo.dat". That comment named a real, publicly
 # fetchable file whose contents refuted it - it was never actually checked
