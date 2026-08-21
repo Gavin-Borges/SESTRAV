@@ -97,8 +97,9 @@ def test_every_sequence_is_exactly_the_pocket_length(tables):
         for allele, seq in table.items():
             assert len(seq) == PSEUDO_LEN, (
                 f"{name}[{allele!r}] is {len(seq)} chars, expected {PSEUDO_LEN}. "
-                "A short entry is not a smaller correct encoding - it frame-shifts "
-                "every position after the missing residue."
+                "A short entry is not a smaller correct encoding: every consumer "
+                "pads or truncates it to 34, so the affected positions yield "
+                "fabricated physicochemical features rather than an error."
             )
 
 

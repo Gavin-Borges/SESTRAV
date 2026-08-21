@@ -135,10 +135,13 @@ class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):  # type: igno
             if allele in self.pseudo_seqs:
                 seq = self.pseudo_seqs[allele]
                 if len(seq) != MHC_POCKET_COUNT:
-                    # A silently truncated/padded pseudo-sequence is a wrong,
-                    # frame-shifted feature vector with no error, not a smaller
-                    # correct one - see docs/claims_register.md D30. Fail loud
-                    # instead of masking a data bug as a shorter allele.
+                    # A silently truncated or padded pseudo-sequence is a wrong
+                    # feature vector with no error, not a smaller correct one -
+                    # see docs/claims_register.md D30. Padding invents residues
+                    # and truncation discards them; either way the four
+                    # physicochemical features derived from the affected
+                    # positions are fabricated. Fail loud instead of masking a
+                    # data bug as a shorter allele.
                     raise ValueError(
                         f"pseudo_seqs[{allele!r}] is {len(seq)} chars, expected "
                         f"{MHC_POCKET_COUNT}. Check src/verify/mhc_pseudo_sequences.json."

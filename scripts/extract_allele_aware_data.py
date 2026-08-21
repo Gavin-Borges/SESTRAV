@@ -53,7 +53,8 @@ TARGET_ALLELES = {
 # HLA pocket pseudo-sequences (34 variable positions per NetMHCpan 4.1)
 #
 # CORRECTED 2026-08-20 (docs/claims_register.md D30). The previous table here
-# was fabricated, not degenerate: all five HLA-A entries shared one identical
+# was fabricated, and the features it produced were degenerate. Both, not one
+# or the other: all five HLA-A entries shared one identical
 # 35-char string and all five HLA-B entries shared a second identical 35-char
 # string (two distinct values across ten alleles, both trimmed to 34 on load),
 # neither matching any real allele's sequence, despite a comment claiming

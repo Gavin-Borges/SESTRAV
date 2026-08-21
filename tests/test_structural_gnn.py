@@ -157,11 +157,12 @@ def _write_pseudo_seqs(tmp_path, table):
 
 
 def test_dataset_raises_on_wrong_length_pseudo_sequence(monkeypatch, tmp_path):
-    """A malformed entry must fail loud, not be padded into a frame shift (D30).
+    """A malformed entry must fail loud, not be silently padded (D30).
 
     Before this guard, a 33-character entry was silently `.ljust(34, "A")`-ed,
-    which fabricates a 34th residue AND shifts every position after the missing
-    one. The whole encoding is wrong, not just its tail, and nothing reported it.
+    fabricating a 34th residue and reporting nothing. `.ljust()` appends, so the
+    preceding 33 positions survive intact - the damage is an invented residue
+    yielding four invented features, not a shifted frame.
     """
     import src.verify.structural_gnn as sgnn
 
