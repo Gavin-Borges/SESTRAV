@@ -70,10 +70,13 @@ sufficient for T-cell activation: a bound peptide must also survive proteasomal
 processing and TAP-mediated transport, adopt a conformation recognized by circulating
 T-cell receptors, and trigger productive TCR signaling at physiologically relevant
 kinetics [5]. Dedicated immunogenicity prediction tools attempt to
-model this additional selection. The IEDB immunogenicity predictor [6]
-introduced TCR-contact amino acid composition features and showed modest improvement
-over binding-only baselines, but was evaluated on a single assay compilation without
-systematic cross-pathogen testing. BigMHC [7] applied deep learning
+model this additional selection. The IEDB immunogenicity predictor [6] scores amino-acid
+enrichment at non-anchor, TCR-facing positions, weighted most heavily at P4-P6. It was
+trained on the IEDB compilation together with three mouse immunogenicity studies
+(vaccinia, Arenaviruses and Coxiella burnetii), and externally validated on one held-out
+pathogen, Dengue virus, in both HLA-transgenic mice and Dengue-seropositive human
+donors: a single-pathogen holdout rather than a cycle in which each pathogen is held out
+in turn. BigMHC [7] applied deep learning
 transfer from large-scale MHC binding data to immunogenicity scoring and achieved
 strong performance on a curated benchmark, though its immunogenicity training set is
 predominantly neoepitopes (5,279 of 6,873 experimentally validated examples) and no
@@ -86,12 +89,13 @@ strategy it reports is defined by peptide sequence homology - training peptides 
 a 9-mer with fewer than two mismatches against any benchmark peptide are removed - not
 by source organism.
 
-Of the tools above, [6] was evaluated without systematic cross-pathogen testing and [7]
-reported no leave-one-pathogen-out result. Evaluation that does not hold out a pathogen
-cannot assess the scenario most relevant to vaccine development practice - a pathogen
-for which no prior T-cell response data exists. For emerging or rare viruses, a
-predictor must generalize from immunogenicity patterns learned on other pathogens, a
-zero-shot transfer task that within-pathogen cross-validation cannot measure.
+A single held-out pathogen is not a cycle over many: it establishes that one transfer
+succeeded, not how a predictor behaves when each pathogen in turn is unseen. Evaluation
+that does not hold out a pathogen at all cannot assess the scenario most relevant to
+vaccine development practice - a pathogen for which no prior T-cell response data
+exists. For emerging or rare viruses, a predictor must generalize from immunogenicity
+patterns learned on other pathogens, a zero-shot transfer task that within-pathogen
+cross-validation cannot measure.
 Stratifying test peptides by fold rather than by pathogen conflates discriminating
 among peptides of an already-characterized virus with discriminating entirely unseen
 peptides from a new one.
