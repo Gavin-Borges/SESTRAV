@@ -379,8 +379,9 @@ changes.
 > not unexplained.** It matches a *weighted* (`--sample-weights`) mode-31 **RF** run's AUC-PR to
 > fifteen significant figures (`0.5986974312317485`). **CONFIRMED by a controlled
 > weighted-vs-unweighted comparison** (two scratch runs, same data and binding matrix, differing
-> only in `--sample-weights`; `_local/state/decisions_pending_2026-08-15.md` D18): the unweighted
-> run reproduces the certified ledger exactly, and the weighted run reproduces this figure exactly.
+> only in `--sample-weights`; recorded as D18 in the maintainers' decision log, which is gitignored
+> and absent from any clone): the unweighted run reproduces the certified ledger exactly, and the
+> weighted run reproduces this figure exactly.
 > The number itself, like the original pair, exists only under the gitignored `models/scratch/`, so
 > no reader can open it. What is settled either way: the original pair was never one estimator's two
 > metrics - `0.8093` is XGB, and the RF figure it was quoted beside belongs to a
