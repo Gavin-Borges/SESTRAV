@@ -69,6 +69,18 @@ def _load_explainer(model):
     return shap.TreeExplainer(model)
 
 
+@st.cache_resource(show_spinner="Loading binding panel...")
+def _load_binding_matrix() -> dict[str, dict[str, float]]:
+    """The fixed ten-allele binding panel (D31 fix). See _build_feature_vector."""
+    import pandas as pd
+
+    from src.features import BINDING_ALLELE_COLUMNS
+
+    matrix_path = _ROOT / "models" / "peptide_binding_matrix_v5.csv"
+    binding_df = pd.read_csv(matrix_path)
+    return binding_df.set_index("peptide")[BINDING_ALLELE_COLUMNS].to_dict(orient="index")
+
+
 # ---------------------------------------------------------------------------
 # Feature computation helpers
 # ---------------------------------------------------------------------------
@@ -89,31 +101,28 @@ def _get_binding_score(sequence: str, allele: str) -> float | None:
         return None
 
 
-def _build_feature_vector(
-    sequence: str, binding_score: float, allele: str = ""
-) -> tuple[np.ndarray, list[str]]:
+def _build_feature_vector(sequence: str) -> tuple[np.ndarray, list[str]] | None:
     """Build a 31-feature vector matching rf_31feature_integrated.joblib.
 
     FEATURE_COLUMNS_31 = 20 physicochemical (p4-p8 x 4 properties) +
                           10 per-allele binding scores (bind_A0101 ... bind_B4402) +
                           peptide_length.
-    When MHCflurry is unavailable, binding columns stay at 0.0 except for the
-    queried allele's column which receives the provided binding_score.
+
+    The ten binding columns come from the fixed ten-allele panel matrix
+    (models/peptide_binding_matrix_v5.csv), looked up by peptide - the same
+    mechanism training uses (src/train_classifier.py prepare_features_30).
+    This is NOT keyed by the caller's selected allele (docs/claims_register.md
+    D31): the panel is fixed, so the allele dropdown does not change the
+    binding block. Returns None if the peptide has no panel row.
     """
-    from src.features import compute_features, FEATURE_COLUMNS_31, BINDING_ALLELE_COLUMNS
+    from src.features import compute_features, FEATURE_COLUMNS_31
+
+    panel_row = _load_binding_matrix().get(sequence)
+    if panel_row is None:
+        return None
 
     feat_dict = compute_features(sequence, binding_score=0.0)
-
-    # Map the allele-specific binding score into the correct column.
-    # Allele format: HLA-A*02:01 -> bind_A0201
-    allele_col = (
-        "bind_" + allele.replace("HLA-", "").replace("*", "").replace(":", "") if allele else None
-    )
-    for col in BINDING_ALLELE_COLUMNS:
-        if col == allele_col:
-            feat_dict[col] = binding_score
-        else:
-            feat_dict[col] = 0.0
+    feat_dict.update(panel_row)
 
     cols = FEATURE_COLUMNS_31
     vec = np.array([feat_dict.get(c, 0.0) for c in cols], dtype=np.float64).reshape(1, -1)
@@ -343,13 +352,22 @@ def main() -> None:
         return
 
     with st.spinner("Computing..."):
-        # Binding score (optional)
+        # Binding score (informational only - see _build_feature_vector docstring
+        # for what actually feeds the model)
         bind_score = _get_binding_score(sequence, allele)
         if bind_score is None:
-            st.warning("MHCflurry is not available - scoring without binding features.")
+            st.warning("MHCflurry is not available - the Binding Score metric below is N/A.")
 
         # Feature vector (31-feature aligned to rf_31feature_integrated)
-        feat_vec, feat_cols = _build_feature_vector(sequence, bind_score or 0.0, allele=allele)
+        built = _build_feature_vector(sequence)
+        if built is None:
+            st.error(
+                f"Peptide {sequence!r} has no row in the ten-allele binding panel "
+                "(models/peptide_binding_matrix_v5.csv), so SESTRAV cannot score it "
+                "in this deployment. See docs/claims_register.md D31."
+            )
+            return
+        feat_vec, feat_cols = built
 
         # Predict
         imm_score = float(model.predict_proba(feat_vec)[0, 1])
