@@ -90,12 +90,11 @@ a 9-mer with fewer than two mismatches against any benchmark peptide are removed
 by source organism.
 
 A single held-out pathogen is not a cycle over many: it establishes that one transfer
-succeeded, not how a predictor behaves when each pathogen in turn is unseen. Evaluation
-that does not hold out a pathogen at all cannot assess the scenario most relevant to
-vaccine development practice - a pathogen for which no prior T-cell response data
-exists. For emerging or rare viruses, a predictor must generalize from immunogenicity
-patterns learned on other pathogens, a zero-shot transfer task that within-pathogen
-cross-validation cannot measure.
+succeeded, not how a predictor behaves when each pathogen in turn is unseen. The
+scenario most relevant to vaccine development practice is the latter - a pathogen for
+which no prior T-cell response data exists. For emerging or rare viruses, a predictor
+must generalize from immunogenicity patterns learned on other pathogens, a zero-shot
+transfer task that within-pathogen cross-validation cannot measure.
 Stratifying test peptides by fold rather than by pathogen conflates discriminating
 among peptides of an already-characterized virus with discriminating entirely unseen
 peptides from a new one.
