@@ -132,8 +132,27 @@ class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):  # type: igno
         )
 
         for i, allele in enumerate(self.unique_alleles):
-            seq = self.pseudo_seqs.get(allele, "A" * MHC_POCKET_COUNT)
-            seq = seq[:MHC_POCKET_COUNT].ljust(MHC_POCKET_COUNT, "A")
+            if allele in self.pseudo_seqs:
+                seq = self.pseudo_seqs[allele]
+                if len(seq) != MHC_POCKET_COUNT:
+                    # A silently truncated or padded pseudo-sequence is a wrong
+                    # feature vector with no error, not a smaller correct one -
+                    # see docs/claims_register.md D30. Padding invents residues
+                    # and truncation discards them; either way the four
+                    # physicochemical features derived from the affected
+                    # positions are fabricated. Fail loud instead of masking a
+                    # data bug as a shorter allele.
+                    raise ValueError(
+                        f"pseudo_seqs[{allele!r}] is {len(seq)} chars, expected "
+                        f"{MHC_POCKET_COUNT}. Check src/verify/mhc_pseudo_sequences.json."
+                    )
+            else:
+                logger.warning(
+                    f"No pseudo-sequence for allele {allele!r}; using an all-alanine "
+                    f"placeholder ({MHC_POCKET_COUNT} residues). Pocket features for "
+                    "this allele carry no real structural signal."
+                )
+                seq = "A" * MHC_POCKET_COUNT
             for j, aa in enumerate(seq):
                 self.mhc_node_tensors[i, j, 0] = KD_HYDRO.get(aa, 0.0)
                 self.mhc_node_tensors[i, j, 1] = float(AROMATIC.get(aa, 0))

@@ -51,26 +51,45 @@ TARGET_ALLELES = {
 
 # ---------------------------------------------------------------------------
 # HLA pocket pseudo-sequences (34 variable positions per NetMHCpan 4.1)
-# Source: NetMHCpan 4.1 MHC_pseudo.dat (published supplementary data).
-# Each string is the 34 pocket-contact residues for that allele.
+#
+# CORRECTED 2026-08-20 (docs/claims_register.md D30). The previous table here
+# was fabricated, and the features it produced were degenerate. Both, not one
+# or the other: all five HLA-A entries shared one identical
+# 35-char string and all five HLA-B entries shared a second identical 35-char
+# string (two distinct values across ten alleles, both trimmed to 34 on load),
+# neither matching any real allele's sequence, despite a comment claiming
+# "Source: NetMHCpan 4.1 MHC_pseudo.dat". That comment named a real, publicly
+# fetchable file whose contents refuted it - it was never actually checked
+# against the source it cited.
+#
+# These ten values ARE now sourced from that file, verified directly:
+#   URL:    https://services.healthtech.dtu.dk/suppl/immunology/NAR_NetMHCpan_NetMHCIIpan/NetMHCpan_train.tar.gz
+#   Member: NetMHCpan_train/MHC_pseudo.dat (11,373 non-blank lines, "ALLELE SEQUENCE" per line)
+#   Tarball sha256: 06f2c9f20bb959238bf5d601fca0489a0ed3f17648b952f30640205afca8f9b4
+#   Fetched and extracted 2026-08-20; each value below copied verbatim, not
+#   retyped, and each is exactly 34 characters (verified programmatically).
 # ---------------------------------------------------------------------------
 
 HLA_PSEUDOSEQ = {
-    "HLA-A*01:01": "YFAMYQENVAHRDANTAAAAHTLVKMTRNMYPTHY",
-    "HLA-A*02:01": "YFAMYQENVAHRDANTAAAAHTLVKMTRNMYPTHY",
-    "HLA-A*03:01": "YFAMYQENVAHRDANTAAAAHTLVKMTRNMYPTHY",
-    "HLA-A*11:01": "YFAMYQENVAHRDANTAAAAHTLVKMTRNMYPTHY",
-    "HLA-A*24:02": "YFAMYQENVAHRDANTAAAAHTLVKMTRNMYPTHY",
-    "HLA-B*07:02": "YFSMYQENVAHRDVNTAAAAHTLVRMTKNMFPTHY",
-    "HLA-B*08:01": "YFSMYQENVAHRDVNTAAAAHTLVRMTKNMFPTHY",
-    "HLA-B*27:05": "YFSMYQENVAHRDVNTAAAAHTLVRMTKNMFPTHY",
-    "HLA-B*35:01": "YFSMYQENVAHRDVNTAAAAHTLVRMTKNMFPTHY",
-    "HLA-B*44:02": "YFSMYQENVAHRDVNTAAAAHTLVRMTKNMFPTHY",
+    "HLA-A*01:01": "YFAMYQENMAHTDANTLYIIYRDYTWVARVYRGY",
+    "HLA-A*02:01": "YFAMYGEKVAHTHVDTLYVRYHYYTWAVLAYTWY",
+    "HLA-A*03:01": "YFAMYQENVAQTDVDTLYIIYRDYTWAELAYTWY",
+    "HLA-A*11:01": "YYAMYQENVAQTDVDTLYIIYRDYTWAAQAYRWY",
+    "HLA-A*24:02": "YSAMYEEKVAHTDENIAYLMFHYYTWAVQAYTGY",
+    "HLA-B*07:02": "YYSEYRNIYAQTDESNLYLSYDYYTWAERAYEWY",
+    "HLA-B*08:01": "YDSEYRNIFTNTDESNLYLSYNYYTWAVDAYTWY",
+    "HLA-B*27:05": "YHTEYREICAKTDEDTLYLNYHDYTWAVLAYEWY",
+    "HLA-B*35:01": "YYATYRNIFTNTYESNLYIRYDSYTWAVLAYLWY",
+    "HLA-B*44:02": "YYTKYREISTNTYENTAYIRYDDYTWAVDAYLSY",
 }
-# NOTE: These pseudo-sequences are 35 chars; we trim to canonical 34 pocket residues.
 PSEUDO_LEN = 34
-for allele, seq in HLA_PSEUDOSEQ.items():
-    HLA_PSEUDOSEQ[allele] = seq[:PSEUDO_LEN]
+for _allele, _seq in HLA_PSEUDOSEQ.items():
+    if len(_seq) != PSEUDO_LEN:
+        raise ValueError(
+            f"HLA_PSEUDOSEQ[{_allele!r}] is {len(_seq)} chars, expected {PSEUDO_LEN}. "
+            "A silently trimmed or padded pseudo-sequence is a wrong feature vector "
+            "with no error, not a smaller correct one - see docs/claims_register.md D30."
+        )
 
 ALLELE_PSEUDO_COLS = [
     f"hla_p{i + 1}_{prop}"
