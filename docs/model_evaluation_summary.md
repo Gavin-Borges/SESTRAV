@@ -122,14 +122,32 @@ ANN/GNN values are sourced from the ANN/GNN benchmark study and mirrored in SEST
 
 ### Cross-Validation Results (5-fold stratified)
 
+> **THE ANN COLUMN IS RETRACTED AS UNBOUND, 2026-08-17. Do not cite it.** Every ANN figure in
+> the table below was sourced to `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/bootstrap_metric_cis.csv`,
+> a path **absent from this repository and from any local workspace** - an external course
+> deliverable that was never vendored - so none of them can be reproduced, checked, or ever bound
+> to provenance. They are **withdrawn, not superseded**: no replacement ANN figure is quoted here,
+> deliberately. This mirrors `docs/nn_gnn_optional_module_guide.md`, which retracted the same
+> numbers, and `README.md`, which states that no accuracy figure is quoted for this architecture.
+>
+> **`models/ann_cv_summary.csv` is NOT the replacement.** It reads AUC-PR 0.7820 +/- 0.0239, but
+> it measures the **legacy 64-32 dropout-0.3** network over the 704 peptides left after the 16
+> gold-standard epitopes are held out - a different architecture on a different pool. Citing it
+> under the 256-128-64 label would trade an unbound number for a mis-attributed one.
+
 | Metric | RF (mean ± std) | XGBoost (mean ± std) | ANN 256-128-64 (mean ± std) |
 |--------|-----------------|---------------------|---------------------------|
-| **AUC-PR** | 0.810 ± 0.025 | 0.805 ± 0.028 | **0.825 ± 0.025** |
-| **AUC-ROC** | 0.670 ± 0.042 | 0.665 ± 0.045 | 0.670 ± 0.040 |
-| **ISSR@10** | 0.870 ± 0.050 | 0.865 ± 0.055 | **0.880 ± 0.045** |
-| **ISSR@25** | 0.920 ± 0.035 | 0.915 ± 0.038 | **0.930 ± 0.030** |
+| **AUC-PR** | 0.810 ± 0.025 | 0.805 ± 0.028 | ~~0.825 ± 0.025~~ retracted, unbound |
+| **AUC-ROC** | 0.670 ± 0.042 | 0.665 ± 0.045 | ~~0.670 ± 0.040~~ retracted, unbound |
+| **ISSR@10** | 0.870 ± 0.050 | 0.865 ± 0.055 | ~~0.880 ± 0.045~~ retracted, unbound |
+| **ISSR@25** | 0.920 ± 0.035 | 0.915 ± 0.038 | ~~0.930 ± 0.030~~ retracted, unbound |
 
-**Best benchmark performer (30-feature track): ANN (256-128-64 ReLU dropout 0.2)** - highest AUC-PR and ISSR@10 in this comparison table.
+**No best-performer claim is made for the 30-feature track.** This line previously read *"Best
+benchmark performer (30-feature track): ANN (256-128-64 ReLU dropout 0.2) - highest AUC-PR and
+ISSR@10 in this comparison table."* That superlative rested entirely on the retracted ANN column
+above, so it is withdrawn with it rather than reassigned to another model: the RF and XGBoost
+values in this table are themselves described below as representative rather than certified, and
+ranking two representative columns against each other would assert a result none of them supports.
 
 > **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `src/train_classifier.py` and `src/ann_benchmark.py` locally to reproduce; both require `--model-dir`, so point them at a scratch directory such as `models/local` rather than at the published artifacts in `models/`.
 
