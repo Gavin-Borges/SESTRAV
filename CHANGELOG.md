@@ -149,7 +149,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `actor_type: "User"` where live is `RepositoryRole` id 5, and `require_linear_history`
   would have started rejecting the merge commits this repo actually uses. The script is
   now inert (banner plus `exit 1`) and carries the fully verified live payload as an
-  inert reference block, 14/14 fields machine-diffed against a live `gh api` GET.
+  inert reference block, machine-diffed against a live `gh api` GET: **6/6 writable
+  top-level keys and 34/34 leaf fields, zero missing, zero extra, zero value
+  mismatches** (read-only fields - `id`, `node_id`, `_links`, `created_at`,
+  `updated_at`, `source`, `source_type`, `current_user_can_bypass` - are excluded as
+  not writable). An earlier draft said "14/14 fields machine-diffed". **14 is a real
+  number - it is the live GET's top-level key count, 6 writable plus the 8 read-only
+  fields listed above - but it counts fields ACCOUNTED FOR, not fields diffed, and the
+  8 read-only ones were excluded rather than compared.** The two quantities are
+  different and the draft did not say which it meant. Recorded because the first
+  attempt to fix this went too far in the other direction, calling 14 "invented"; it
+  is not invented, it is mislabelled, and 6 + 8 = 14 is checkable in one command.
   **Reconciling it into a working applier was rejected, and the reason matters:** a
   ruleset update is a full-replace `PUT`, and the live `pull_request` rule carries
   `require_extra_approval_for_unattributed_changes`, a field absent from the documented

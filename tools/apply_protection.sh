@@ -157,8 +157,14 @@
 # }
 #
 # integration_id 15368 is the GitHub Actions app; verified from the
-# check runs on main HEAD 32abe8c, where every context reports with
-# app.id 15368 / app.slug "github-actions".
+# check runs on PR #283 head 21fed6a, where ALL FOUR required contexts
+# report with app.id 15368 / app.slug "github-actions".
+#
+# Cite a pull-request head here, not a main-branch commit. Only
+# "test (3.13)" reports on a push to main; "Require human review",
+# "check_dco" and "Cited commits resolve" are pull_request-triggered
+# and are absent from main HEAD's check runs entirely. A main-branch
+# commit therefore evidences one of the four entries below, not four.
 #
 # The four required contexts are documented in SECURITY.md under
 # "Vulnerability Triage & Remediation Policy" / "CI gate map". Keep
