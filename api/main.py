@@ -38,6 +38,45 @@ logger = logging.getLogger("sestrav-api")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # ---------------------------------------------------------------------------
+# Log hygiene (CWE-117 log injection; CodeQL py/log-injection)
+# ---------------------------------------------------------------------------
+# This module is the project's only HTTP entrypoint, so every request-derived
+# value that reaches a log record reaches it from here. The record format is
+# "%(asctime)s [%(levelname)s] %(message)s" - one line per record - so a CR or
+# LF inside an interpolated field lets a caller append a second, fully-formed
+# line to the log. That is how a fabricated ERROR gets into an audit trail, or
+# how a real one gets pushed out of view.
+#
+# On reachability, honestly: this is NOT exploitable today. Both request fields
+# carry anchored Pydantic patterns (_IUPAC_PATTERN, _ALLELE_PATTERN below), and
+# pydantic 2.13.4 compiles them with the Rust regex engine, which rejected every
+# CR/LF payload tested against them. But that protection is incidental rather
+# than designed, and it is engine-dependent: the identical anchored pattern
+# under Python's own `re.match` ACCEPTS a trailing newline (`re.fullmatch` does
+# not). Widening _ALLELE_PATTERN to admit HLA-C or three-field alleles like
+# 02:01:01 is a routine change that would not obviously look like re-opening a
+# log-forging hole. This sanitizer exists so that day stays a non-event.
+#
+# Truncation is a second, independent control: it bounds one record so an
+# oversized field cannot flood the log or push older lines out of retention.
+
+_LOG_FIELD_MAX_CHARS = 200
+
+
+def _sanitize_for_log(value: object) -> str:
+    """Renders a request-derived value safe to interpolate into a log record.
+
+    Strips CRLF, bare LF and bare CR, then truncates. The bare CR is deliberate:
+    CodeQL's published remediation for this rule strips only "\\r\\n" and "\\n",
+    yet a lone CR still opens a new line in many log viewers and terminals.
+    """
+    text = str(value).replace("\r\n", "").replace("\n", "").replace("\r", "")
+    if len(text) > _LOG_FIELD_MAX_CHARS:
+        text = text[:_LOG_FIELD_MAX_CHARS] + "...[truncated]"
+    return text
+
+
+# ---------------------------------------------------------------------------
 # Paths (relative to project root; mount the repo root as the working dir)
 # ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -260,7 +299,13 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
         )
         binding_score = float(result["presentation_score"].iloc[0])
     except Exception as exc:
-        logger.info(f"MHCflurry unavailable for the informational binding_score field: {exc}")
+        # Same CWE-117 path as the /score handler: `sequence` and `allele` are
+        # this call's arguments, so a predictor error message can quote them
+        # back into the record. Sanitized for the same reason.
+        logger.info(
+            "MHCflurry unavailable for the informational binding_score field: %s",
+            _sanitize_for_log(exc),
+        )
 
     feat_dict = compute_features(sequence, binding_score=0.0)
     feat_dict.update(panel_row)
@@ -347,7 +392,21 @@ def score_peptide(body: PeptideInput) -> ScoreResponse:
             ),
         ) from exc
     except Exception as exc:
-        logger.error(f"Scoring error for {body.sequence}/{body.allele}: {exc}")
+        # All three interpolated values are request-derived. body.sequence and
+        # body.allele obviously so; `exc` less obviously, because it is raised
+        # inside _score_peptide from the caller's own peptide and allele and can
+        # therefore echo them back verbatim (PeptideNotInPanelError(sequence) is
+        # the in-repo proof that an exception here carries the request payload as
+        # its message). Sanitizing only the two named fields would leave the
+        # taint path through `exc` open. Lazy %s args are the logging idiom and
+        # are used here, but the newline stripping is the security control - %s
+        # alone still renders a CR/LF straight into the record.
+        logger.error(
+            "Scoring error for %s/%s: %s",
+            _sanitize_for_log(body.sequence),
+            _sanitize_for_log(body.allele),
+            _sanitize_for_log(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Feature extraction failed. Check server logs.",
