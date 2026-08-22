@@ -39,22 +39,46 @@ No conflicts with `mhcflurry` were encountered.
 
 ### Step 2: Branch Protection Ruleset (HIGH SEVERITY - Score 4→9) - ✅ Complete
 
-The branch ruleset has been successfully automated and applied via `apply-branch-ruleset.ps1` utilizing the stored Git credential token.
+The branch ruleset is managed in the GitHub web UI (Settings > Rules > Rulesets), which is
+the source of truth. Read it with `gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770`.
 
-Rules applied:
-- **Name:** `Protect main`
+**Corrected 2026-08-22 against the live ruleset, having previously described a
+configuration that is not the one in force.** This section used to credit
+`apply-branch-ruleset.ps1` with applying the ruleset. That script is gitignored, so no
+reader of this repository can inspect what it claims to have done, and it is now disabled
+outright: its payload looked up the ruleset under the wrong name, so running it would have
+created a *second* ruleset requiring a status check that nothing reports, blocking every
+merge. Four further details below were wrong and are fixed: the ruleset name, the bypass
+actor, the status-check context strings, and the omission of the code-scanning rule, which
+is the rule that actually blocks a merge.
+
+Rules in force (every field below read from the live API, not from the script's payload):
+- **ID / Name:** `16846770` / `Protect Main Branch`
 - **Target:** `refs/heads/main`
 - **Enforcement:** Active
-- **Bypass Actors:** Repo owner (`Gavin-Borges`, User ID `206387790` with Always bypass mode)
+- **Bypass Actors:** the **repository-admin role** (`actor_type: RepositoryRole`,
+  `actor_id: 5`, Always bypass), not a named user account
 - **Branch rules:**
   - ☑ Restrict deletions
   - ☑ Block force pushes
   - ☑ Require a pull request before merging (approvals count: 0 to allow solo-project self-approval bypass)
     - ☑ Dismiss stale pull request approvals when new commits are pushed
     - ☑ Require review from Code Owners
+    - ☑ Require an additional approval for unattributed changes
   - ☑ Require status checks to pass before merging (strict policy: branch must be up-to-date)
-    - Required status check: `SESTRAV CI / test (3.13)`
+    - Required status check: `test (3.13)`
     - Required status check: `Require human review`
+    - Required status check: `check_dco`
+    - Required status check: `Cited commits resolve`
+  - ☑ **Require code scanning results: `CodeQL`**, `security_alerts_threshold: all`,
+    `alerts_threshold: errors_and_warnings`. This is what makes CodeQL a merge blocker
+    for any alert a pull request introduces, as distinct from the Bandit, semgrep and
+    dependency-review jobs, which fail their own CI job but are not required checks and
+    so do not gate the merge button. See `SECURITY.md`'s CI gate map.
+
+Note the context strings: they are the bare check-run names (`test (3.13)`), not
+workflow-qualified (`SESTRAV CI / test (3.13)`). A required context that no check reports
+under stays pending forever, which blocks merges rather than protecting them.
 
 ---
 

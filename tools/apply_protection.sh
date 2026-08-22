@@ -1,158 +1,190 @@
 #!/usr/bin/env bash
 # apply_protection.sh
 # ===================================================================
-# Applies the OpenSSF Scorecard-compliant branch ruleset to the
-# Gavin-Borges/SESTRAV repository via the GitHub API (gh CLI).
+# STATUS: NON-AUTHORITATIVE REFERENCE. DO NOT RUN. DISABLED 2026-08-22.
+# ===================================================================
 #
-# SOLO-PROJECT DESIGN (no review lock-out):
-#   - required_approving_review_count = 0
-#     (PR workflow required; approval count NOT required - avoids
-#      locking out the solo maintainer on a free personal repo where
-#      "Allow self-approval" is an org/enterprise-only feature)
-#   - require_last_push_approval = false  (same reason)
-#   - Owner added as a bypass actor with bypass_mode = "always"
-#   - require_linear_history = true       (clean commit graph)
-#   - required_status_checks: "SESTRAV CI / test (3.13)"
-#     (matches the ci.yml job matrix label - CI must pass before merge)
+# This script no longer applies anything. It exits non-zero before it
+# touches the GitHub API. It is kept only as a record of intent and as
+# a transcription of the live ruleset for disaster recovery.
 #
-# Scorecard tier coverage achieved:
-#   Tier 1 (3 pts):  deletion, non_fast_forward rules              ✅
-#   Tier 2 partial:  pull_request rule (PR workflow enforced)      ✅
-#   Tier 3 (8 pts):  required_status_checks (CI must pass)        ✅
-#   Tier 4:          require_code_owner_review = true              ✅
-#   Tier 5:          dismiss_stale_reviews_on_push = true          ✅
-#   Expected score:  Branch-Protection ~6-7/10 (solo ceiling)
+# SOURCE OF TRUTH
+#   The live branch protection for Gavin-Borges/SESTRAV is ruleset
+#   id 16846770, name "Protect Main Branch", configured and maintained
+#   through the GitHub web UI (created 2026-05-25, last updated
+#   2026-07-26). This file is a downstream transcription of it, not
+#   its definition. Change protection in the UI, then update the
+#   REFERENCE PAYLOAD block below to match.
 #
-# Prerequisites:
-#   - gh CLI authenticated: gh auth login --scopes "repo,admin:repo_hook"
-#   - Token must have repo Administration:write scope
+#   Read the live state at any time (read-only):
+#     gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770
 #
-# Usage:
-#   chmod +x apply_protection.sh
-#   ./apply_protection.sh
+# WHY IT WAS DISABLED (lockout hazard, verified live 2026-08-22)
+#   Repository rulesets are ADDITIVE: GitHub evaluates every active
+#   ruleset and the most restrictive rule wins. So the danger here was
+#   never that running this would weaken or disable protection. It is
+#   that running it would ADD a second, wrong ruleset whose required
+#   status check never reports, permanently blocking every merge.
+#
+#   1. NAME MISMATCH -> ACCIDENTAL CREATE.
+#      The old lookup selected `.name == "Protect main"`. The live
+#      ruleset is named "Protect Main Branch", so the lookup missed,
+#      METHOD fell through to POST, and the script CREATED A SECOND
+#      RULESET instead of updating the existing one.
+#
+#   2. PHANTOM REQUIRED CHECK -> PERMANENT PENDING.
+#      The old payload required the context
+#      "SESTRAV CI / test (3.13)". No such check run exists. The
+#      reporting context is "test (3.13)" (verified against the check
+#      runs on PR #283 head 21fed6a and on main HEAD 32abe8c; every
+#      SESTRAV check reports its bare job name, never an
+#      "SESTRAV CI / " prefix). A required check that never reports
+#      stays pending forever, so the added ruleset would have blocked
+#      the merge button on every PR indefinitely.
+#
+#   3. MISSING RULES AND CONTEXTS.
+#      The old payload had no `code_scanning` rule and named only one
+#      of the four live required contexts.
+#
+#   4. WRONG BYPASS ACTOR.
+#      The old payload added the owner as actor_type "User" with the
+#      numeric user id. Live uses actor_type "RepositoryRole" with
+#      actor_id 5 (repository admin).
+#
+#   5. EXTRA RULE NOT IN LIVE.
+#      The old payload added `require_linear_history`, which the live
+#      ruleset does not have. Because rulesets are additive, adding it
+#      would have started rejecting the merge commits this repo
+#      actually uses (see merge commits a1a8fe8, d00754e).
+#
+# WHY THIS WAS NOT SIMPLY CORRECTED AND LEFT RUNNABLE
+#   Updating a ruleset is a full replace (PUT), so any field the
+#   payload omits is reset. The live ruleset carries
+#   `require_extra_approval_for_unattributed_changes: true` inside its
+#   pull_request parameters. That field is NOT in the documented
+#   request schema for PUT /repos/{owner}/{repo}/rulesets/{id}; GitHub
+#   documents the corresponding UI setting ("Require an additional
+#   approval for unattributed Copilot pull requests") but does not
+#   state that it is API-writable.
+#
+#   That leaves no verifiably safe choice. Sending the field may be
+#   rejected or silently dropped; omitting it may silently reset a
+#   protection that is currently on. Distinguishing those outcomes
+#   requires performing the very write this file is meant to make
+#   safe, so it cannot be settled read-only.
+#
+#   More broadly: the presence of one live field outside the
+#   documented write schema means a GET response can carry fields the
+#   write schema does not cover. There is therefore no read-only way
+#   to prove that a hand-built full-replace payload drops nothing.
+#   The uncertainty is open-ended, not a single known gap.
+#
+# DISASTER RECOVERY
+#   If ruleset 16846770 is ever lost, recreate it through the GitHub
+#   UI (Settings > Rules > Rulesets) using the REFERENCE PAYLOAD below
+#   as the checklist, then diff the result against this block:
+#     gh api repos/Gavin-Borges/SESTRAV/rulesets/<new_id>
+#   Do not paste the payload into a write call without first
+#   confirming the current request schema for every field, especially
+#   `require_extra_approval_for_unattributed_changes`.
+#
+# ===================================================================
+# REFERENCE PAYLOAD - live state as of 2026-08-22, read-only verified.
+# Inert documentation. Read-only fields (id, node_id, _links,
+# created_at, updated_at, source, source_type, current_user_can_bypass)
+# are omitted because they are not writable. Strip the leading "# "
+# from each line to recover valid JSON.
+#
+# {
+#   "name": "Protect Main Branch",
+#   "target": "branch",
+#   "enforcement": "active",
+#   "conditions": {
+#     "ref_name": {
+#       "include": ["refs/heads/main"],
+#       "exclude": []
+#     }
+#   },
+#   "bypass_actors": [
+#     {
+#       "actor_id": 5,
+#       "actor_type": "RepositoryRole",
+#       "bypass_mode": "always"
+#     }
+#   ],
+#   "rules": [
+#     { "type": "deletion" },
+#     { "type": "non_fast_forward" },
+#     {
+#       "type": "pull_request",
+#       "parameters": {
+#         "required_approving_review_count": 0,
+#         "dismiss_stale_reviews_on_push": true,
+#         "require_code_owner_review": true,
+#         "require_last_push_approval": false,
+#         "required_review_thread_resolution": false,
+#         "required_reviewers": [],
+#         "allowed_merge_methods": ["merge", "squash", "rebase"],
+#         "require_extra_approval_for_unattributed_changes": true
+#       }
+#     },
+#     {
+#       "type": "code_scanning",
+#       "parameters": {
+#         "code_scanning_tools": [
+#           {
+#             "tool": "CodeQL",
+#             "security_alerts_threshold": "all",
+#             "alerts_threshold": "errors_and_warnings"
+#           }
+#         ]
+#       }
+#     },
+#     {
+#       "type": "required_status_checks",
+#       "parameters": {
+#         "strict_required_status_checks_policy": true,
+#         "do_not_enforce_on_create": false,
+#         "required_status_checks": [
+#           { "context": "test (3.13)",          "integration_id": 15368 },
+#           { "context": "Require human review", "integration_id": 15368 },
+#           { "context": "check_dco",            "integration_id": 15368 },
+#           { "context": "Cited commits resolve","integration_id": 15368 }
+#         ]
+#       }
+#     }
+#   ]
+# }
+#
+# integration_id 15368 is the GitHub Actions app; verified from the
+# check runs on main HEAD 32abe8c, where every context reports with
+# app.id 15368 / app.slug "github-actions".
+#
+# The four required contexts are documented in SECURITY.md under
+# "Vulnerability Triage & Remediation Policy" / "CI gate map". Keep
+# that table, this block, and the live ruleset in agreement.
 # ===================================================================
 
-set -euo pipefail
+set -uo pipefail
 
-OWNER="Gavin-Borges"
-REPO="SESTRAV"
+cat >&2 <<'GUARD'
+apply_protection.sh is DISABLED and applies nothing.
 
-echo "🔑 Verifying gh CLI authentication..."
-gh auth status
+Branch protection for Gavin-Borges/SESTRAV is ruleset 16846770
+("Protect Main Branch"), managed in the GitHub web UI. That is the
+source of truth.
 
-echo ""
-echo "👤 Fetching numeric user ID for @${OWNER}..."
-OWNER_ID=$(gh api "users/${OWNER}" --jq '.id')
-echo "   User ID: ${OWNER_ID}"
+This script's old payload looked up the wrong ruleset name, so it
+created a second ruleset rather than updating the existing one, and
+that ruleset required a status check ("SESTRAV CI / test (3.13)")
+that nothing ever reports. Rulesets are additive, so the result was a
+merge button blocked on a forever-pending check, on every PR.
 
-echo ""
-echo "🔍 Checking for existing 'Protect main' ruleset..."
-EXISTING_ID=$(gh api "repos/${OWNER}/${REPO}/rulesets" --jq '.[] | select(.name == "Protect main") | .id' 2>/dev/null || echo "")
+Read the live ruleset instead (read-only):
+  gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770
 
-if [ -n "${EXISTING_ID}" ]; then
-    echo "   Found existing ruleset (id=${EXISTING_ID}). Updating..."
-    METHOD="PUT"
-    ENDPOINT="repos/${OWNER}/${REPO}/rulesets/${EXISTING_ID}"
-else
-    echo "   No existing ruleset found. Creating..."
-    METHOD="POST"
-    ENDPOINT="repos/${OWNER}/${REPO}/rulesets"
-fi
+To change protection, use Settings > Rules > Rulesets in the GitHub
+UI, then update the REFERENCE PAYLOAD block in this file to match.
+GUARD
 
-echo ""
-echo "🚀 Applying ruleset via GitHub API (${METHOD} ${ENDPOINT})..."
-
-PAYLOAD=$(cat <<EOF
-{
-  "name": "Protect main",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": {
-    "ref_name": {
-      "include": ["refs/heads/main"],
-      "exclude": []
-    }
-  },
-  "bypass_actors": [
-    {
-      "actor_id": ${OWNER_ID},
-      "actor_type": "User",
-      "bypass_mode": "always"
-    }
-  ],
-  "rules": [
-    {
-      "type": "deletion"
-    },
-    {
-      "type": "non_fast_forward"
-    },
-    {
-      "type": "require_linear_history"
-    },
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": true,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "required_status_checks": [
-          { "context": "SESTRAV CI / test (3.13)" }
-        ],
-        "strict_required_status_checks_policy": true
-      }
-    }
-  ]
-}
-EOF
-)
-
-RESULT=$(gh api "${ENDPOINT}" \
-    --method "${METHOD}" \
-    --header "Accept: application/vnd.github+json" \
-    --header "X-GitHub-Api-Version: 2022-11-28" \
-    --input - <<< "${PAYLOAD}")
-
-RULESET_ID=$(echo "${RESULT}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['id'])")
-ENFORCEMENT=$(echo "${RESULT}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['enforcement'])")
-
-echo ""
-echo "✅ Ruleset applied successfully!"
-echo "   ID:          ${RULESET_ID}"
-echo "   Name:        Protect main"
-echo "   Enforcement: ${ENFORCEMENT}"
-
-echo ""
-echo "🔍 Verifying ruleset is active..."
-CHECK=$(gh api "repos/${OWNER}/${REPO}/rulesets/${RULESET_ID}" --jq '.enforcement')
-if [ "${CHECK}" = "active" ]; then
-    echo "   ✅ Ruleset is ACTIVE on branch 'main'."
-else
-    echo "   ⚠️  Enforcement state: ${CHECK}"
-fi
-
-echo ""
-echo "════════════════════════════════════════════════════════════"
-echo " NEXT STEPS:"
-echo ""
-echo "  1. Push your changes to a feature branch, open a PR:"
-echo "     https://github.com/${OWNER}/${REPO}/pull/new/main"
-echo ""
-echo "  2. As a bypass actor you can merge without approval."
-echo "     CI ('SESTRAV CI / test (3.13)') must still pass."
-echo ""
-echo "  3. Trigger Scorecard manually to see score update:"
-echo "     GitHub > Actions > Scorecard supply-chain security > Run workflow"
-echo ""
-echo "  ℹ  Solo-project note: Scorecard acknowledges that projects"
-echo "     with one active contributor cannot practically require"
-echo "     reviews. This ruleset lifts Branch-Protection from"
-echo "     4/10 to an expected 6-7/10 (the realistic solo ceiling)."
-echo "════════════════════════════════════════════════════════════"
+exit 1

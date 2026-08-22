@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -41,6 +43,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -63,6 +67,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
@@ -71,8 +77,19 @@ jobs:
           # SEC-3. Without this input CodeQL runs only the `default` query
           # suite. `security-extended` adds the lower-precision security
           # queries that default omits - more findings, and a higher
-          # false-positive rate, which is the intended trade for a scan that
-          # is advisory here rather than a merge blocker.
+          # false-positive rate.
+          #
+          # CodeQL BLOCKS here; it is not advisory like the semgrep and
+          # pip-audit jobs below. Verified against the live configuration
+          # 2026-08-22: ruleset 16846770 ("Protect Main Branch", active)
+          # carries a code_scanning rule naming CodeQL with
+          # security_alerts_threshold "all" and alerts_threshold
+          # "errors_and_warnings", so any alert a pull request INTRODUCES
+          # holds the merge until it is fixed or dismissed. The extended
+          # suite's false positives therefore cost a triage-and-dismiss
+          # rather than a line in a report - accepted deliberately, because
+          # the alternative is never running the queries that find the true
+          # positives (e.g. py/log-injection alert #79 on api/main.py).
           queries: security-extended
 
       - name: Perform CodeQL Analysis
@@ -89,6 +106,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -155,6 +174,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -248,7 +269,15 @@ jobs:
         # The actual fail-closed gate. Consumes the same pip-audit-report.json the
         # step above just wrote - unfiltered, no --ignore-vuln - so a suppressed
         # advisory cannot hide from it the way it could hide from a CLI flag. NOT
-        # continue-on-error: this is the step that is supposed to block a merge.
+        # continue-on-error: this step turns the `pip-audit` JOB red, unlike the
+        # advisory audit above it. Corrected 2026-08-22: this comment used to say it
+        # "is supposed to block a merge", which it cannot - `pip-audit` is not among
+        # ruleset 16846770's four required status checks (`test (3.13)`, `Require
+        # human review`, `check_dco`, `Cited commits resolve`), so a red job here
+        # does not gate the merge button. CodeQL is the only scanner that blocks,
+        # via the ruleset's code-scanning rule. Failing the job is still the point:
+        # it is the visible, fail-closed signal. See SECURITY.md's CI gate map,
+        # which states the same distinction.
         run: python tools/check_lockfile_advisories.py pip-audit-report.json
 
       - name: Write triage digest to run summary
@@ -267,6 +296,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
