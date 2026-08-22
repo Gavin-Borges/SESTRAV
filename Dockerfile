@@ -1,4 +1,4 @@
-FROM python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+FROM python:3.13-slim@sha256:ffb752e139c0a19692a43af8d8523b274222dd68eebad5d583b45c2201c6e30a
 
 LABEL org.opencontainers.image.title="SESTRAV" \
       org.opencontainers.image.description="Structural Epitope Scoring via TCR Recognition And Vaccinology - MHC class I viral immunogenicity scoring CLI. Does not include the six-stage Snakemake workflow, which runs from a source checkout." \
