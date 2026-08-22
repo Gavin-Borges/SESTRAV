@@ -103,7 +103,7 @@ ALLELES = [
 
 def predict_binding(peptides: list) -> pd.DataFrame:
     """Compute MHCflurry presentation scores for each peptide × canonical-10 alleles."""
-    print(f"  Running MHCflurry for {len(peptides):,} peptides × {len(ALLELES)} alleles...")
+    print(f"  Running MHCflurry for {len(peptides):,} peptides x {len(ALLELES)} alleles...")
     predictor = Class1PresentationPredictor.load()
     per_allele: dict = {}
     for allele in ALLELES:

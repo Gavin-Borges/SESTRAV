@@ -30,7 +30,7 @@ For 10-mer and 11-mer peptides:
    All 9-mer sub-windows are checked; the maximum identity across windows is recorded.
 
 Exact match (1.0) in the hash set is O(1). Partial identity would require pairwise
-alignment (too slow for 20k proteins × training set). Instead we use a compromise:
+alignment (too slow for 20k proteins x training set). Instead we use a compromise:
 for peptides with no exact 9-mer match, we record identity as 0.0. This is
 conservative but correctly identifies the most-tolerated (= worst-for-training) peptides.
 

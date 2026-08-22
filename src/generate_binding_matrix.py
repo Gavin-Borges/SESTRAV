@@ -24,7 +24,7 @@ def get_mhcflurry_predictions(peptides, alleles):
     import itertools
 
     pep_list = list(peptides)
-    print(f"Running predictions for {len(pep_list)} peptides × {len(alleles)} alleles...")
+    print(f"Running predictions for {len(pep_list)} peptides x {len(alleles)} alleles...")
 
     all_pairs = list(itertools.product(pep_list, alleles))
     flat_peps = [p[0] for p in all_pairs]

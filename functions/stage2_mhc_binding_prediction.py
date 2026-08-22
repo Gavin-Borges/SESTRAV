@@ -61,7 +61,7 @@ def predict_binding(peptides_df, proteome_id, alleles=None):
     unique_peptides = peptides_df["peptide"].unique().tolist()
 
     print(
-        f"[Stage 2] Running MHCflurry on {len(unique_peptides)} peptides × "
+        f"[Stage 2] Running MHCflurry on {len(unique_peptides)} peptides x "
         f"{len(alleles)} alleles = {len(unique_peptides) * len(alleles)} predictions"
     )
 
