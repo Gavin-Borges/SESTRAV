@@ -237,7 +237,7 @@
   {
     "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.165.2"
+    "Version": "6.165.9"
   },
   {
     "License": "BSD-3-Clause",
@@ -707,7 +707,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "uvicorn",
-    "Version": "0.52.1"
+    "Version": "0.52.3"
   },
   {
     "License": "BSD-2-Clause",
