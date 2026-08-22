@@ -75,6 +75,39 @@ updates:
       # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
 
+  # Keep the root Dockerfiles' base image current. Dockerfile, Dockerfile.api
+  # and Dockerfile.demo all sit at the repo root and all pin the same
+  # "python:3.13-slim@sha256:..." line, so this single "/" entry covers all
+  # three: Dependabot's docker ecosystem matches any filename containing
+  # "dockerfile" (case-insensitive), not just an exact "Dockerfile".
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      # One base image shared by three files; group it so a refresh lands as a
+      # single PR.
+      docker-base-image:
+        patterns: ["*"]
+    ignore:
+      # Stay on the 3.13 tag and take digest refreshes only. pyproject.toml
+      # declares requires-python ">=3.11" with classifiers stopping at 3.13 and
+      # the required check is "test (3.13)", but python:3.14-slim already
+      # exists, so without this the first run would propose a 3.13 -> 3.14 jump
+      # outside the supported matrix. Move the tag by hand when 3.14 is adopted.
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+      # docker-compose.yml is in this directory, and the docker ecosystem also
+      # reads "image:" keys out of YAML files, not just Dockerfiles. These two
+      # tags are built locally by this repo's compose stack and exist in no
+      # registry, so any attempt to resolve them can only fail.
+      - dependency-name: "sestrav-api"
+      - dependency-name: "sestrav-demo"
+
   # Keep GitHub Actions pinned SHAs up to date (helps Scorecard Pinned-Dependencies)
   - package-ecosystem: "github-actions"
     directory: "/"
