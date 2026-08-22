@@ -21,9 +21,23 @@ from dataclasses import dataclass
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
+# WIDENED 2026-08-22. The previous scope was ("requirements.txt",
+# "environments/requirements-ci-*.txt"), which reached 7 manifests and left SIX
+# unwatched: requirements-pip-audit.txt, requirements-sbom.txt,
+# requirements-security.txt, requirements-semgrep.txt, requirements.lock - and
+# requirements-ci.txt, which slipped through for a subtle reason worth recording:
+# the old glob required a HYPHEN after "ci", so "requirements-ci.txt" did not
+# match while its six "requirements-ci-*.txt" siblings did. A gate that silently
+# covers less than its name implies is the failure mode this file exists to
+# prevent, so the patterns below are deliberately broad rather than enumerated.
+#
+# Verified before widening: all six newly covered manifests are ALREADY fully
+# hash-pinned (321 requirements, 0 unhashed), so this changes what is WATCHED,
+# not what passes - the gate exits 0 at both 7 and 13 manifests.
 DEFAULT_TARGETS: tuple[str, ...] = (
     "requirements.txt",
-    "environments/requirements-ci-*.txt",
+    "environments/requirements*.txt",
+    "environments/requirements.lock",
 )
 
 
