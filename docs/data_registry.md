@@ -94,9 +94,18 @@ Measured from `data/immunogenicity_dataset_v4.csv` (14,699 total rows).
 
 **Peptide length distribution:** 8mer 621, 9mer 9,158, 10mer 3,674, 11mer 1,246.
 
-**Key finding:** LOO cross-virus AUC-ROC is near-random (0.46-0.59) for every held-out virus.
-Signal does not currently transfer across viruses. v4 pooled AUC-PR 0.7635 is partially a
-SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
+**Key finding:** LOO cross-virus AUC-ROC spans **0.140-0.586 across all 12 held-out viruses**, and
+**three fall well below random rather than near it**: RSV 0.140, HPV16 0.335, HPV18 0.393. The
+remaining nine sit in 0.460-0.586, at or just below chance. Signal does not currently transfer
+across viruses, and for those three it is actively anti-predictive. v4 pooled AUC-PR 0.7635 is
+partially a SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
+
+> **Corrected 2026-08-22.** This paragraph previously read *"is near-random (0.46-0.59) for every
+> held-out virus"*. Both halves were false against the file it cites, and both in the direction
+> that flatters the model: the true floor is 0.140, not 0.46, and the universal quantifier hid the
+> three sub-random cases entirely. RSV at 0.140 is not "near-random" by any reading. Re-derived by
+> reading `auc_roc` for all 12 entries of `results/loo_cross_virus_v4.json` directly; the RSV
+> figure is consistent with the "Near-no positives" note already recorded for RSV above.
 
 ---
 
