@@ -27,12 +27,21 @@ updates:
       - dependency-name: "xgboost"
       - dependency-name: "mhcflurry"
       - dependency-name: "shap"
+      # Pinned transitive of the frozen xgboost==3.2.0, not a direct dep:
+      # requirements.in:56 carries it only so `--require-hashes` can resolve on
+      # the Linux CI runners. Bumping it independently of xgboost moves part of
+      # the CUDA stack out from under a package this list already freezes, so it
+      # belongs here with its parent. Bump it WITH xgboost, never on its own.
+      - dependency-name: "nvidia-nccl-cu12"
       # Direct deps of the hand-maintained, single-platform hash closure
       # environments/requirements-ci-render.txt. Dependabot cannot regenerate
       # its platform-specific wheel hashes, so it corrupts the file; these are
       # updated manually when the render toolchain needs it.
       - dependency-name: "ipykernel"
       - dependency-name: "nbclient"
+      # Same file, reached transitively rather than directly, which is how it
+      # evaded the two entries above and edited the render closure anyway.
+      - dependency-name: "platformdirs"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
@@ -63,12 +72,21 @@ updates:
       - dependency-name: "xgboost"
       - dependency-name: "mhcflurry"
       - dependency-name: "shap"
+      # Pinned transitive of the frozen xgboost==3.2.0, not a direct dep:
+      # requirements.in:56 carries it only so `--require-hashes` can resolve on
+      # the Linux CI runners. Bumping it independently of xgboost moves part of
+      # the CUDA stack out from under a package this list already freezes, so it
+      # belongs here with its parent. Bump it WITH xgboost, never on its own.
+      - dependency-name: "nvidia-nccl-cu12"
       # Direct deps of the hand-maintained, single-platform hash closure
       # environments/requirements-ci-render.txt. Dependabot cannot regenerate
       # its platform-specific wheel hashes, so it corrupts the file; these are
       # updated manually when the render toolchain needs it.
       - dependency-name: "ipykernel"
       - dependency-name: "nbclient"
+      # Same file, reached transitively rather than directly, which is how it
+      # evaded the two entries above and edited the render closure anyway.
+      - dependency-name: "platformdirs"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
