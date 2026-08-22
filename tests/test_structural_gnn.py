@@ -90,11 +90,11 @@ def _minimal_df():
     reason=(
         "StructuralPeptideMHCDataset inherits from Dataset when PyG is installed; "
         "PyG's Dataset.__setattr__ requires super().__init__(), so the HAS_PYG=False "
-        "branch (lines 99->101) can only be exercised in a PyG-absent environment."
+        "branch can only be exercised in a PyG-absent environment."
     ),
 )
 def test_dataset_haspyg_false_init(monkeypatch):
-    """Covers branch 99->101: when HAS_PYG is False the super().__init__ call
+    """Covers the HAS_PYG=False branch: the super().__init__ call
     inside StructuralPeptideMHCDataset.__init__ is skipped (PyG-absent env only)."""
     import src.verify.structural_gnn as sgnn
 
@@ -107,7 +107,7 @@ def test_dataset_haspyg_false_init(monkeypatch):
     HAS_PYG, reason=("Same Dataset.__setattr__ constraint as test_dataset_haspyg_false_init.")
 )
 def test_dataset_haspyg_false_get(monkeypatch):
-    """Covers lines 175-178: when HAS_PYG is False, get() returns a SimpleData
+    """Covers get()'s HAS_PYG=False branch: it returns a SimpleData
     object instead of a torch_geometric Data object (PyG-absent env only)."""
     import src.verify.structural_gnn as sgnn
 
@@ -119,7 +119,7 @@ def test_dataset_haspyg_false_get(monkeypatch):
 
 
 def test_structural_gnn_init_no_pyg_raises(monkeypatch):
-    """Covers line 187: StructuralGNN.__init__ raises ImportError if HAS_PYG=False."""
+    """Covers StructuralGNN.__init__'s guard: it raises ImportError if HAS_PYG=False."""
     import src.verify.structural_gnn as sgnn
 
     monkeypatch.setattr(sgnn, "HAS_PYG", False)
@@ -128,7 +128,7 @@ def test_structural_gnn_init_no_pyg_raises(monkeypatch):
 
 
 def test_train_structural_gnn_no_pyg_raises(monkeypatch):
-    """Covers line 249: train_structural_gnn raises ImportError if HAS_PYG=False."""
+    """Covers train_structural_gnn's guard: it raises ImportError if HAS_PYG=False."""
     import src.verify.structural_gnn as sgnn
 
     monkeypatch.setattr(sgnn, "HAS_PYG", False)
@@ -137,7 +137,7 @@ def test_train_structural_gnn_no_pyg_raises(monkeypatch):
 
 
 def test_dataset_no_pseudo_seqs_file(monkeypatch, tmp_path):
-    """Covers line 116: pseudo_seqs defaults to {} when the JSON file is absent."""
+    """Covers the missing-file branch: pseudo_seqs defaults to {} when the JSON is absent."""
     import src.verify.structural_gnn as sgnn
 
     # Change CWD to tmp_path so the relative path 'src/verify/mhc_pseudo_sequences.json'
@@ -145,6 +145,60 @@ def test_dataset_no_pseudo_seqs_file(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
     assert ds.pseudo_seqs == {}
+
+
+def _write_pseudo_seqs(tmp_path, table):
+    """Plant a pseudo-sequence JSON at the relative path the dataset reads."""
+    import json
+
+    target = tmp_path / "src" / "verify"
+    target.mkdir(parents=True)
+    (target / "mhc_pseudo_sequences.json").write_text(json.dumps(table), encoding="utf-8")
+
+
+def test_dataset_raises_on_wrong_length_pseudo_sequence(monkeypatch, tmp_path):
+    """A malformed entry must fail loud, not be silently padded (D30).
+
+    Before this guard, a 33-character entry was silently `.ljust(34, "A")`-ed,
+    fabricating a 34th residue and reporting nothing. `.ljust()` appends, so the
+    preceding 33 positions survive intact - the damage is an invented residue
+    yielding four invented features, not a shifted frame.
+    """
+    import src.verify.structural_gnn as sgnn
+
+    _write_pseudo_seqs(
+        tmp_path,
+        {
+            "HLA-A*02:01": "A" * (sgnn.MHC_POCKET_COUNT - 1),  # one short
+            "HLA-A*24:02": "A" * sgnn.MHC_POCKET_COUNT,
+        },
+    )
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match=r"is 33 chars, expected 34"):
+        sgnn.StructuralPeptideMHCDataset(_minimal_df())
+
+
+def test_dataset_warns_and_placeholders_for_an_absent_allele(monkeypatch, tmp_path, caplog):
+    """Absent is a coverage gap, not a data bug: warn + explicit placeholder.
+
+    This is the deliberate other half of the guard above. It must stay distinct
+    from the raise, or a missing allele would become a hard failure and callers
+    would be tempted to reintroduce silent padding to get past it.
+    """
+    import logging
+
+    import src.verify.structural_gnn as sgnn
+
+    _write_pseudo_seqs(tmp_path, {"HLA-A*02:01": "A" * sgnn.MHC_POCKET_COUNT})
+    monkeypatch.chdir(tmp_path)
+    with caplog.at_level(logging.WARNING):
+        ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
+
+    assert "HLA-A*24:02" in caplog.text
+    assert "no real structural signal" in caplog.text
+    # The placeholder is all-alanine, so its charge row is uniformly zero.
+    idx = ds.allele_to_idx["HLA-A*24:02"]
+    assert float(ds.mhc_charges_tensors[idx].abs().sum()) == 0.0
 
 
 @pytest.mark.skipif(not HAS_PYG, reason="torch_geometric not installed")
