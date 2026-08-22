@@ -68,6 +68,12 @@ jobs:
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           languages: python
+          # SEC-3. Without this input CodeQL runs only the `default` query
+          # suite. `security-extended` adds the lower-precision security
+          # queries that default omits - more findings, and a higher
+          # false-positive rate, which is the intended trade for a scan that
+          # is advisory here rather than a merge blocker.
+          queries: security-extended
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
