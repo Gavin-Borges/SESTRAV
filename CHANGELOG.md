@@ -37,12 +37,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   security requirement rather than tracking the pin, so the floor does not need editing
   every time the pin moves. Cannot break a resolve: both `requirements.txt` and
   `environments/requirements.lock` already resolve `setuptools==84.0.0`.
-  **The exact floor was chosen by measurement, not by preference.** Matching the pin at
-  `>=84.0.0` was the obvious-looking alternative and is wrong: the development
-  environment this was verified in carries setuptools **83.0.0**, which that floor would
-  have refused, breaking local builds while satisfying every lockfile check. Verified by
-  running the real backend - `setuptools.build_meta.prepare_metadata_for_build_wheel`
-  produces `sestrav-2.0.3.dist-info` (Metadata-Version 2.4) under the new floor - and
+  `>=83.0.0` rather than `>=84.0.0` because the floor should state the security
+  requirement - the advisory's patched version - rather than track a pin it would then
+  have to follow on every bump.
+  **A draft of this entry justified that choice with a false mechanism, and the
+  retraction is the useful part.** It claimed `>=84.0.0` "would have refused, breaking
+  local builds" because the development machine carries setuptools 83.0.0. That is
+  wrong: PEP 517 builds are ISOLATED, so pip provisions the backend into a fresh
+  environment and the ambient setuptools is never consulted. Measured both directions -
+  a probe package pinned `>=84.0.0` builds cleanly under an ambient 83.0.0, and under
+  the floor actually shipped here pip resolves and installs `setuptools-84.0.0` into the
+  isolated environment regardless. The ambient version is irrelevant to both, so the
+  claim was not merely a wrong prediction about `>=84.0.0`; it mis-described the shipped
+  behaviour too. **The entry contradicted its own preceding sentence**, which states the
+  isolation mechanism correctly.
+  The verification cited for it was also measuring the wrong thing: calling
+  `setuptools.build_meta.prepare_metadata_for_build_wheel` directly executes the backend
+  in the AMBIENT environment and bypasses isolation entirely, so it never exercised the
+  floor. Replaced with a check that does: `pip wheel . --no-deps` builds `sestrav`
+  successfully and its isolated environment installs `setuptools-84.0.0`. Nothing in this
+  repository disables build isolation (no `--no-build-isolation`, no
+  `PIP_NO_BUILD_ISOLATION`) or redirects what it resolves (no `PIP_CONSTRAINT` - which
+  constrains resolution *inside* isolation rather than switching it off), so no build
+  path evades the floor.
   `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
   green (10 lockfile pairs fresh, 13 manifests hash-pinned).
 - **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**
