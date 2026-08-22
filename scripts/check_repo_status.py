@@ -17,10 +17,10 @@ def check_imports() -> bool:
     for pkg in required_packages:
         try:
             __import__(pkg)
-            print(f"  [✓] {pkg} is available")
+            print(f"  [+] {pkg} is available")
         except ImportError:
             missing.append(pkg)
-            print(f"  [✗] {pkg} is NOT available")
+            print(f"  [x] {pkg} is NOT available")
 
     if missing:
         print(f"Error: Missing required environment packages: {', '.join(missing)}")
@@ -37,7 +37,7 @@ def check_git_status() -> bool:
             .strip()
         )
         if not status_out:
-            print("  [✓] Git working directory is perfectly clean")
+            print("  [+] Git working directory is perfectly clean")
             return True
 
         print("  [!] Git working directory has unstaged/uncommitted changes:")
@@ -45,7 +45,7 @@ def check_git_status() -> bool:
             print(f"      {line}")
         return False
     except Exception as e:
-        print(f"  [✗] Failed to run git command: {e}")
+        print(f"  [x] Failed to run git command: {e}")
         return False
 
 
@@ -53,7 +53,7 @@ def check_freeze_status() -> bool:
     print("\n=== Checking Validation Dataset Freeze ===")
     freeze_path = os.path.join("results", "freeze_status.json")
     if not os.path.exists(freeze_path):
-        print(f"  [✗] {freeze_path} does not exist. Validation report has not been run.")
+        print(f"  [x] {freeze_path} does not exist. Validation report has not been run.")
         return False
 
     try:
@@ -65,15 +65,15 @@ def check_freeze_status() -> bool:
         version = data.get("dataset_version", "unknown")
 
         if valid and freeze_mode:
-            print(f"  [✓] Validation status is VALID (Dataset version: {version})")
-            print("  [✓] Freeze mode is active (immutability guards locked)")
+            print(f"  [+] Validation status is VALID (Dataset version: {version})")
+            print("  [+] Freeze mode is active (immutability guards locked)")
             return True
         else:
-            print("  [✗] Validation is INVALID or freeze mode is disabled:")
+            print("  [x] Validation is INVALID or freeze mode is disabled:")
             print(f"      valid: {valid}, freeze_mode: {freeze_mode}")
             return False
     except Exception as e:
-        print(f"  [✗] Error reading/parsing {freeze_path}: {e}")
+        print(f"  [x] Error reading/parsing {freeze_path}: {e}")
         return False
 
 
@@ -81,10 +81,10 @@ def check_test_suite_status() -> bool:
     print("\n=== Checking Pytest Configuration ===")
     pytest_ini = "pytest.ini"
     if os.path.exists(pytest_ini):
-        print("  [✓] pytest.ini config found")
+        print("  [+] pytest.ini config found")
         return True
     else:
-        print("  [✗] pytest.ini config not found at project root")
+        print("  [x] pytest.ini config not found at project root")
         return False
 
 
@@ -106,7 +106,7 @@ def main():
         ("Dataset Freeze", freeze_ok),
         ("Tests Config", tests_ok),
     ]:
-        icon = "[✓] PASS" if status else "[✗] WARN/FAIL"
+        icon = "[+] PASS" if status else "[x] WARN/FAIL"
         print(f"  {name:<20}: {icon}")
         if (
             not status and name != "Git Cleanliness"
@@ -114,10 +114,10 @@ def main():
             all_ok = False
 
     if all_ok:
-        print("\n[✓] Repository is in a healthy, hardened state.")
+        print("\n[+] Repository is in a healthy, hardened state.")
         sys.exit(0)
     else:
-        print("\n[✗] Repository has outstanding environment or validation failures.")
+        print("\n[x] Repository has outstanding environment or validation failures.")
         sys.exit(1)
 
 

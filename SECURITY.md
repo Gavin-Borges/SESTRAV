@@ -121,10 +121,12 @@ SESTRAV is designed as a standalone, offline bioinformatics pipeline.
 ## Vulnerability Triage & Remediation Policy
 
 How findings from Dependabot, code scanning, and the CI security workflows are
-prioritized and acted on. The policy is deliberately **two-tiered**: a small set
-of findings *block* merges/releases, while everything else is surfaced as a
-*non-blocking advisory* that is tracked and triaged on a cadence rather than
-gating active development.
+prioritized and acted on. The policy is deliberately **two-tiered**, but "blocking"
+here means one specific, verifiable thing: gating the merge button via the
+`Protect Main Branch` ruleset (id `16846770`) - its four required status checks
+(`test (3.13)`, `Require human review`, `check_dco`, `Cited commits resolve`) plus
+its code-scanning rule, which names `CodeQL` only. A tool that is not on either of
+those two lists cannot block a merge, even if it fails its own CI job red.
 
 ### Severity -> action (target SLA)
 
@@ -136,23 +138,30 @@ gating active development.
 | Low      | Best-effort; batched with routine dependency updates | Next cycle | Advisory |
 
 Timelines follow the solo-maintainer cadence described under **Response Commitment** above.
+The Severity column states intent; the CI gate map below states what is
+mechanically enforced today, and the two are not yet the same for every row.
 
 ### CI gate map
 
 | Tool / workflow | What it checks | Tier |
 | --------------- | -------------- | ---- |
-| Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | **Blocking** |
-| Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: high`) | **Blocking** |
-| CodeQL (`security.yml`) | Deep SAST -> Security > Code scanning | Blocking (default severities) |
+| Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
+| Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: moderate`) | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
+| CodeQL (`security.yml`) | Deep SAST -> Security > Code scanning | **Blocking** - the ruleset's code-scanning rule names `CodeQL` |
 | Semgrep (`security.yml`) | SAST ruleset `p/python` -> Security > Code scanning | Advisory |
-| pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` -> run summary | Advisory |
+| pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` -> run summary | Advisory - fails closed (non-`continue-on-error`) on any lockfile advisory absent from `environments/accepted_advisories.toml`, but is not a required status check |
 | Dependabot alerts | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged) |
 
-Advisory findings never turn CI red. They surface as **(a)** tracked, dismissable
-alerts in *Security > Code scanning* (Semgrep/CodeQL SARIF), **(b)** a markdown
-digest on each `security.yml` run summary (pip-audit), and **(c)** Dependabot
-alerts/PRs. They are reviewed on the weekly cadence and logged in the register
-below whenever consciously deferred.
+Advisory findings never block a merge on their own - none of them is a required
+status check or a code-scanning rule on `Protect Main Branch`. Three of them
+(Bandit, Dependency Review, pip-audit) still turn their *own* CI job red on a
+finding rather than merely reporting one; that failure is visible in the run and
+in branch-status UI, but does not prevent the merge button from going green.
+Findings surface as **(a)** tracked, dismissable alerts in *Security > Code
+scanning* (Semgrep/CodeQL SARIF), **(b)** a red or markdown-annotated
+`security.yml` job run (Bandit, Dependency Review, pip-audit), and **(c)**
+Dependabot alerts/PRs. They are reviewed on the weekly cadence and logged in the
+register below whenever consciously deferred.
 
 ### Recording a risk acceptance
 

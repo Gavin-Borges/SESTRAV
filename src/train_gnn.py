@@ -455,9 +455,9 @@ def train_gnn(
     print(f"\n{'=' * 40}")
     print("Graph Neural Network (GNN) 5-Fold CV Results:")
     print(f"{'=' * 40}")
-    print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (±{std['auc_roc']:.4f})")
-    print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (±{std['auc_pr']:.4f})")
-    print(f"Mean ISSR@10: {avg['issr_10']:.4f} (±{std['issr_10']:.4f})")
+    print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (+/-{std['auc_roc']:.4f})")
+    print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (+/-{std['auc_pr']:.4f})")
+    print(f"Mean ISSR@10: {avg['issr_10']:.4f} (+/-{std['issr_10']:.4f})")
 
     # Retrain on full dataset
     print("\nRetraining final GNN model on all data...")
@@ -811,9 +811,9 @@ def train_gnn_v2(
         f"Graph Neural Network v2 (GINEConv + {esm2_model_name}, node_dim={node_dim}, mode={feature_mode}) 5-Fold CV Results:"
     )
     print(f"{'=' * 40}")
-    print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (±{std['auc_roc']:.4f})")
-    print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (±{std['auc_pr']:.4f})")
-    print(f"Mean ISSR@10: {avg['issr_10']:.4f} (±{std['issr_10']:.4f})")
+    print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (+/-{std['auc_roc']:.4f})")
+    print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (+/-{std['auc_pr']:.4f})")
+    print(f"Mean ISSR@10: {avg['issr_10']:.4f} (+/-{std['issr_10']:.4f})")
 
     avg_best_epochs = max(1, round(float(np.mean(best_epoch_per_fold))))
     print(

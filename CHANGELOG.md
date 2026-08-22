@@ -8,6 +8,183 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Security
+- **`persist-credentials: false` added to 19 `actions/checkout` steps across 12 workflow
+  files.** The repository has **21** checkout steps across **14** files (`security.yml` holds
+  6 and `ci.yml` 3, which is why the file count and the step count differ). `scorecard.yml`
+  already carried the setting, so **20 of the 21 are now explicit** and exactly one is left at
+  the default. Verified individually per step, not assumed: each was checked for a
+  post-checkout `git push`/`git fetch`/git-credential need before being changed, and a sweep
+  for `git (push|fetch|pull|clone|ls-remote|submodule|tag|commit|remote)` across every
+  workflow returns exactly one credential-needing call. That call is the deliberate exception:
+  `dco.yml`'s `check_dco` job runs `git fetch origin "$BASE_REF"` after checkout and is a
+  required status check, so it keeps the default. Operations on already-fetched local refs
+  (`git diff`, `git log` in `pii_scan.yml` and `doc_commit_refs.yml`) are unaffected, because
+  the setting removes the stored credential rather than any ref. Closes the `GITHUB_TOKEN`
+  exposure window flagged alongside SEC-14/F1, which was `.github/workflows/release.yml`'s
+  **then-unpinned** build backend - that half was fixed separately in `94f20cc`, and the
+  workflow's `Build sdist and wheel` step has installed it with `--require-hashes` ever
+  since, so the parenthetical describes the original finding, not a live gap. The token no longer sits in `.git/config`
+  while third-party or unpinned code runs in the same job, for every workflow that never
+  needed it there.
+- **The build-system setuptools floor no longer permits a version this repo documents as
+  vulnerable (SEC-14).** `pyproject.toml`'s `[build-system].requires` allowed
+  `setuptools>=61.0.0`, while `requirements.in:21` pins `84.0.0` and records that
+  **83.0.0 closes GHSA-h35f-9h28-mq5c** (a MANIFEST.in exclusion bypass in sdist via
+  Unicode NFC/NFD normalization collision on macOS APFS/HFS+). A PEP 517 build isolates
+  its backend and resolves it from that floor rather than from the lockfiles, so the two
+  statements disagreed about the same package. Raised to `>=83.0.0`, which states the
+  security requirement rather than tracking the pin, so the floor does not need editing
+  every time the pin moves. Cannot break a resolve: both `requirements.txt` and
+  `environments/requirements.lock` already resolve `setuptools==84.0.0`.
+  `>=83.0.0` rather than `>=84.0.0` because the floor should state the security
+  requirement - the advisory's patched version - rather than track a pin it would then
+  have to follow on every bump.
+  **A draft of this entry justified that choice with a false mechanism, and the
+  retraction is the useful part.** It claimed `>=84.0.0` "would have refused, breaking
+  local builds" because the development machine carries setuptools 83.0.0. That is
+  wrong: PEP 517 builds are ISOLATED, so pip provisions the backend into a fresh
+  environment and the ambient setuptools is never consulted. Measured both directions -
+  a probe package pinned `>=84.0.0` builds cleanly under an ambient 83.0.0, and under
+  the floor actually shipped here pip resolves and installs `setuptools-84.0.0` into the
+  isolated environment regardless. The ambient version is irrelevant to both, so the
+  claim was not merely a wrong prediction about `>=84.0.0`; it mis-described the shipped
+  behaviour too. **The entry contradicted its own preceding sentence**, which states the
+  isolation mechanism correctly.
+  The verification cited for it was also measuring the wrong thing: calling
+  `setuptools.build_meta.prepare_metadata_for_build_wheel` directly executes the backend
+  in the AMBIENT environment and bypasses isolation entirely, so it never exercised the
+  floor. Replaced with a check that does: `pip wheel . --no-deps` builds `sestrav`
+  successfully and its isolated environment installs `setuptools-84.0.0`. Nothing in this
+  repository disables build isolation (no `--no-build-isolation`, no
+  `PIP_NO_BUILD_ISOLATION`) or redirects what it resolves (no `PIP_CONSTRAINT` - which
+  constrains resolution *inside* isolation rather than switching it off), so no build
+  path evades the floor.
+  `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
+  green (10 lockfile pairs fresh, 13 manifests hash-pinned).
+- **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**
+  (`tests/test_torch_load_weights_only.py`, SEC-13). A prior sweep found every runtime call
+  site already pinned `weights_only=True`; that was a one-off finding with no standing check
+  behind it. The AST-based test walks every tracked `.py` file and fails on any `torch.load`
+  call that does not pin `weights_only=True`, converting a documented mitigation for T2
+  (`docs/threat_model.md`) into an enforced one. Mutation-verified.
+  **The test ships with an EMPTY allowlist, and the correction that emptied it is the
+  point.** It was first written listing the two dev-only checkpoint tools the original
+  sweep had accepted (`scripts/inspect_checkpoint.py`, `scripts/resave_checkpoint.py`).
+  Both are gitignored by bare basename in `.gitignore`, so they never appear in
+  `git ls-files` and the enforcement scan could never reach them: the entries were inert.
+  Worse, the guard policing the allowlist validated entries with `Path.is_file()`, which
+  is true in a dev working tree and false in a fresh `actions/checkout` that materialises
+  only HEAD - so the suite passed locally and would have failed the required
+  `test (3.13)` job. The guard now decides membership from the same `git ls-files` set
+  the enforcement scan uses, so the two environments cannot silently disagree again. All
+  8 tracked `torch.load` call sites pin `weights_only=True`, so nothing needs exempting.
+  A third test was added because an empty allowlist makes that guard vacuous: it asserts
+  the scan actually covers a non-empty file set, so a git failure or a renamed import
+  cannot report "no violations" while inspecting nothing.
+- **The encoding rule is now enforced in CI, not only by a local hook**
+  (`tests/test_encoding_ascii_output.py`, ENC-1). `.claude/rules/encoding.md` was enforced
+  solely by `scripts/hooks/pre-commit` Gate 3 - a *local* hook that does not run on a fresh
+  clone, in CI, or for anyone who has not installed it - and nothing under
+  `.github/workflows/` checked encoding at all. Gate 3 also scans for U+2014 only, while
+  rule 2 bans a whole class. **Six tests**, all mutation-verified:
+  (1) non-ASCII inside `print()`/logging calls, over every tracked `.py`;
+  (2) non-ASCII in any non-docstring string literal, which catches text that reaches a stream
+  *indirectly* - `promote_gnn.py` built its gate messages as `GateResult` fields and emitted
+  them from a `logger.info` many lines away, which no scan of the logging call could see;
+  (3) a guard keeping `NON_ASCII_LITERAL_ALLOWLIST` honest; (4) module docstrings routed into
+  `argparse`, which prints them on `--help`; (5) an anti-vacuity floor; and (6) nine
+  typographic characters - the **eight** rules 1-2 enumerate, plus U+2011 NON-BREAKING HYPHEN,
+  which the rule does not name - across every tracked file carrying one of ten text suffixes.
+  **The residual risk is stated rather than implied:** test (2) is exempted file-wide for
+  three modules (`app/demo.py` and the two `external_validation_*_finalize.py`), and while
+  their current non-ASCII is browser/PDF text or utf-8-pinned report bodies, both finalize
+  modules *do* also `print()`, so a future literal there could reach a terminal uncaught. Each
+  entry carries its measured reason in the test.
+  The banned characters are built with `chr()`, not written out and not spelled as `\uXXXX`
+  escapes: an escape hides the character from the raw-text scan while `ast.Constant` resolves
+  it straight back, so the escape version passed only because the file was still untracked and
+  would have failed on its own source the moment it was committed.
+- **`SECURITY.md`'s CI gate map corrected against the live ruleset and workflow files,
+  not the prior draft.** Three inaccuracies fixed: (1) Dependency Review's severity was
+  stated as `fail-on-severity: high`, the workflow is `moderate`; (2) Bandit and
+  Dependency Review were labeled "Blocking" although neither is a required status check
+  on `Protect Main Branch` (ruleset `16846770`) or its `CodeQL`-only code-scanning rule -
+  both still fail their own CI job on a finding, which is a different guarantee than
+  gating the merge button, and the doc conflated the two; (3) "Advisory findings never
+  turn CI red" contradicted the document's own later description of pip-audit's
+  fail-closed step. All three verified live via `gh api` against the actual ruleset
+  before the text was rewritten.
+- **Log forging closed in the scoring API (CWE-117, CodeQL `py/log-injection` alert
+  #79, `api/main.py`).** `api/main.py` is the project's only HTTP entrypoint, and its
+  two exception handlers interpolated request-derived values straight into a log
+  record whose format is one line per record, so a CR or LF in a field could append a
+  fabricated second line to an audit trail. **Reported honestly: this was NOT
+  exploitable.** Both fields carry anchored Pydantic patterns, and pydantic 2.13.4
+  compiles them with the Rust regex engine, which rejected every CR/LF payload tested.
+  But that protection was incidental rather than designed, and it is engine-dependent:
+  the identical anchored pattern under Python's own `re.match` ACCEPTS a trailing
+  newline (`re.fullmatch` does not), so widening `_ALLELE_PATTERN` to admit HLA-C or
+  three-field alleles - a routine change that would not look like re-opening a
+  log-forging hole - would have made it live. A `_sanitize_for_log()` helper now
+  strips CRLF, bare LF and bare CR and truncates to bound one record, and both sinks
+  use lazy `%s` args. `exc` is sanitized alongside the two named fields because it is
+  raised from the caller's own peptide and allele and can echo them back verbatim
+  (`PeptideNotInPanelError(sequence)` is the in-repo proof); sanitizing only the named
+  fields would have cleared the alert while leaving the channel open. Seven tests
+  (`tests/test_api_log_injection.py`), all mutation-verified, including an AST guard
+  that fails if any request-derived value reaches a log record unsanitized.
+  **Why the alert appeared now on code unchanged since 2026-06-13:** commit `1b74c9f`
+  enabled the `security-extended` query suite 55 minutes earlier (committed 03:17:17Z),
+  and the alert was raised by that suite's FIRST run on `main` - alert #79's `created_at`
+  is 04:12:35Z, the same timestamp as the first 50-rule analysis, so the lag from landing
+  was zero. The rule count on `main` went from 43 to 50 in that step. The alert is that
+  hardening working, not a regression.
+- **`.github/workflows/security.yml`'s SEC-3 comment corrected: it claimed CodeQL "is
+  advisory here rather than a merge blocker" and that is false.** Verified live:
+  ruleset `16846770` carries a `code_scanning` rule naming `CodeQL` with
+  `security_alerts_threshold: all`. CodeQL blocks on alerts a pull request introduces.
+  The comment stated the opposite while justifying a trade that depends on it, and it
+  contradicted the corrected `SECURITY.md` gate map in this same change set.
+  **Its twin 190 lines below was corrected in the same pass**, because fixing one and
+  leaving the other is how this class survives: the `Fail on unaccepted lockfile
+  advisories` step claimed "this is the step that is supposed to block a merge". It
+  cannot - `pip-audit` is not one of the ruleset's four required status checks, so a red
+  job there does not gate the merge button, exactly as the corrected pip-audit row in
+  `SECURITY.md`'s CI gate map says. The comment now states what the step really does: it
+  fails the job closed, which is a visible signal, not a merge gate.
+- **`tools/apply_protection.sh` disabled: running it would have blocked every merge.**
+  It looked up the ruleset by the name `"Protect main"`, but the live ruleset is
+  `"Protect Main Branch"`, so the lookup missed, the method fell through to `POST`, and
+  it would have CREATED A SECOND ruleset rather than updating the existing one. That
+  new ruleset required a status check context `"SESTRAV CI / test (3.13)"` which
+  nothing reports - verified against PR #283's head, where the four real contexts all
+  report under app `15368` and no `SESTRAV CI / ` prefix exists anywhere. Rulesets are
+  additive, so the result would have been a merge button pending forever, not a
+  security downgrade; recorded that way deliberately rather than as the scarier claim.
+  Two further divergences found while verifying: the bypass actor was written as
+  `actor_type: "User"` where live is `RepositoryRole` id 5, and `require_linear_history`
+  would have started rejecting the merge commits this repo actually uses. The script is
+  now inert (banner plus `exit 1`) and carries the fully verified live payload as an
+  inert reference block, machine-diffed against a live `gh api` GET: **6/6 writable
+  top-level keys and 34/34 leaf fields, zero missing, zero extra, zero value
+  mismatches** (read-only fields - `id`, `node_id`, `_links`, `created_at`,
+  `updated_at`, `source`, `source_type`, `current_user_can_bypass` - are excluded as
+  not writable). An earlier draft said "14/14 fields machine-diffed". **14 is a real
+  number - it is the live GET's top-level key count, 6 writable plus the 8 read-only
+  fields listed above - but it counts fields ACCOUNTED FOR, not fields diffed, and the
+  8 read-only ones were excluded rather than compared.** The two quantities are
+  different and the draft did not say which it meant. Recorded because the first
+  attempt to fix this went too far in the other direction, calling 14 "invented"; it
+  is not invented, it is mislabelled, and 6 + 8 = 14 is checkable in one command.
+  **Reconciling it into a working applier was rejected, and the reason matters:** a
+  ruleset update is a full-replace `PUT`, and the live `pull_request` rule carries
+  `require_extra_approval_for_unattributed_changes`, a field absent from the documented
+  write schema. Omitting it may silently reset a live protection and sending it may be
+  rejected - and telling those apart requires making the very write that could break it.
+  One field outside the documented schema also proves a GET can carry fields a
+  hand-built payload would drop, so the GitHub UI is now recorded as the source of truth.
+
 ### Added
 - **Seven runtime dependencies that the packaged code has always imported but never declared.**
   An AST audit of every module-scope import across the three packaged trees (`sestrav/`, `src/`,
@@ -39,6 +216,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **`scripts/check_repo_status.py` crashed on a default Windows console, and the same latent
+  defect sat in six other files (ENC-1).** Reproduced directly rather than inferred: under
+  `PYTHONIOENCODING=cp1252` the script died at its first status line with
+  `UnicodeEncodeError: 'charmap' codec can't encode character U+2713 (CHECK MARK)` and exited 1 - it was
+  unusable on the platform its maintainer runs it on. An AST census of every tracked `.py`
+  file found **26 runtime-emitted non-ASCII call sites across 7 files** - 13 of them in
+  `check_repo_status.py` alone - by character: U+00B1 (9), U+2717 (7), U+2713 (6), U+00D7 (3),
+  U+2264 (1). All 26 now use the ASCII forms the encoding rule
+  itself names (`+/-`, `x`, `<=`, `[+]`, `[x]`); `[+]`/`[x]` match the `[!]` marker
+  `check_repo_status.py` already used, so column alignment is unchanged, and `+/-` is already
+  the form `src/ablation_study.py` and `src/gnn_benchmark.py` use.
+  **Two further files were fixed under classes the emit-site scan cannot see, and they are
+  the reason two of the new tests exist.** `src/verify/promote_gnn.py` had zero emitting call
+  sites but seven U+00D7 occurrences, four of them built as `GateResult` `value`/`threshold`
+  fields and printed by the scorecard's `logger.info` many lines later. And
+  `scripts/precompute_self_similarity.py` carried U+00D7 in its **module docstring**, which it
+  passes to `argparse` as `epilog=__doc__` - `PYTHONIOENCODING=ascii python
+  scripts/precompute_self_similarity.py --help` died in `argparse._print_message` with
+  UnicodeEncodeError and exit 1, the same signature as fa91670. It survived a cp1252 console
+  only because cp1252 happens to map U+00D7; it is the single such case among the 27 tracked
+  modules that route `__doc__` into argparse. **Nine files changed in total** - the seven
+  carrying emit sites, plus these two.
+  **A severity correction worth recording, because it inverts the intuition:** a prior
+  register entry scoped this to U+00D7 and judged it "strictly less dangerous than an
+  em-dash". Measured across four codecs, U+2713/U+2717/U+2264 fail to encode under `ascii`,
+  `cp1252` **and** `latin-1`, while the *banned* U+2014 survives `cp1252`. The characters the
+  rule never named were the more dangerous ones, and they sat in the highest-traffic file.
 - **The manuscript called its own work "pan-allele" and the tree does not support it (claims
   register D29), a defect installed by D28's own correction one day earlier.** D28 re-narrowed the
   contribution claim onto the conjunction of a completed leave-one-out cycle with "pan-allele

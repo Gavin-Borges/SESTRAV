@@ -211,9 +211,9 @@ def train_ann(
     print(f"\n{'=' * 40}")
     print("1D-CNN (ANN) 5-Fold CV Results:")
     print(f"{'=' * 40}")
-    print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (±{std['auc_roc']:.4f})")
-    print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (±{std['auc_pr']:.4f})")
-    print(f"Mean ISSR@10: {avg['issr_10']:.4f} (±{std['issr_10']:.4f})")
+    print(f"Mean AUC-ROC: {avg['auc_roc']:.4f} (+/-{std['auc_roc']:.4f})")
+    print(f"Mean AUC-PR:  {avg['auc_pr']:.4f} (+/-{std['auc_pr']:.4f})")
+    print(f"Mean ISSR@10: {avg['issr_10']:.4f} (+/-{std['issr_10']:.4f})")
 
     # Retrain on full dataset
     print("\nRetraining final ANN model on all data...")

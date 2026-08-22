@@ -356,7 +356,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
             f"({contamination['overlap_rate'] * 100:.1f}%)"
         )
         if contamination["gate_pass"]:
-            print(f"    Gate: PASS (≤ {CONTAMINATION_CAP * 100:.0f}% cap)")
+            print(f"    Gate: PASS (<= {CONTAMINATION_CAP * 100:.0f}% cap)")
         else:
             print(
                 f"    Gate: FAIL (> {CONTAMINATION_CAP * 100:.0f}% cap - "

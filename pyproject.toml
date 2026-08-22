@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel"]
+# Floor states the security requirement, not the current pin: setuptools 83.0.0
+# closes GHSA-h35f-9h28-mq5c. requirements.in pins 84.0.0; see its comment there.
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]

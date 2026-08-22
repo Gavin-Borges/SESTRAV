@@ -11,7 +11,7 @@ Gate definitions (all must pass):
                              The splitter is a hard precondition, not a note:
                              see grouped_splitter_violation.
   Gate 2 - Stability:        Cross-fold AUC-PR std <= 0.02 across 5 CV folds.
-  Gate 3 - Latency:          GNN CPU inference <= 2× RF CPU inference (per batch).
+  Gate 3 - Latency:          GNN CPU inference <= 2x RF CPU inference (per batch).
   Gate 4 - Calibration:      Expected Calibration Error (ECE) < 0.05.
   Gate 5 - Escape Sensitivity: >= 80% of ALL out-of-fold positives score above
                                the median out-of-fold negative, pool-wide.
@@ -101,7 +101,7 @@ CHECKSUM_FILE = Path("models/model_artifact_checksums.json")
 # splitter (src.ml_utils.PeptideGroupedKFold) for this comparison to be valid.
 GATE1_AUC_PR_MIN: float = 0.65
 GATE2_STD_MAX: float = 0.02
-GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2× RF latency
+GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2x RF latency
 GATE4_ECE_MAX: float = 0.05
 GATE5_SENSITIVITY_MIN: float = 0.80
 
@@ -351,7 +351,7 @@ def _time_model_ms_v2(predict_fn, batch, warmup: int, reps: int) -> float:
 
 
 def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
-    """GNN CPU inference latency <= GATE3_LATENCY_FACTOR × RF latency.
+    """GNN CPU inference latency <= GATE3_LATENCY_FACTOR x RF latency.
 
     Uses a fixed synthetic batch of LATENCY_BATCH_SIZE 9-mer sequences so the
     measurement is reproducible without any real dataset access.
@@ -380,7 +380,7 @@ def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
             name="Gate 3 - Latency",
             passed=False,
             value="RF model not found",
-            threshold=f"<= {GATE3_LATENCY_FACTOR}× RF latency",
+            threshold=f"<= {GATE3_LATENCY_FACTOR}x RF latency",
         )
     rf_model = load_verified_joblib(RF_MODEL_PATH)
 
@@ -405,7 +405,7 @@ def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
             name="Gate 3 - Latency",
             passed=False,
             value=f"GNN checkpoint not found: {checkpoint}",
-            threshold=f"<= {GATE3_LATENCY_FACTOR}× RF latency",
+            threshold=f"<= {GATE3_LATENCY_FACTOR}x RF latency",
         )
 
     # Read node_dim and num_continuous_features from gnn_config.json so gate3 matches
@@ -458,8 +458,8 @@ def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
     return GateResult(
         name="Gate 3 - Latency",
         passed=passed,
-        value=f"GNN={gnn_latency_ms:.2f}ms, RF={rf_latency_ms:.2f}ms, ratio={ratio:.2f}×",
-        threshold=f"ratio <= {GATE3_LATENCY_FACTOR}×",
+        value=f"GNN={gnn_latency_ms:.2f}ms, RF={rf_latency_ms:.2f}ms, ratio={ratio:.2f}x",
+        threshold=f"ratio <= {GATE3_LATENCY_FACTOR}x",
     )
 
 
