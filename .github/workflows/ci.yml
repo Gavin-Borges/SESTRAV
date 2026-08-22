@@ -180,6 +180,13 @@ jobs:
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
+        with:
+          # Pinned (SEC-5). Without this input the action defaults to `release`,
+          # resolving a version number from quarto.org at run time and installing
+          # whatever .deb that names - so the binary inside the only required CI
+          # check could change without a commit. 1.10.18 is the version run
+          # 32508697032 resolved on 2026-08-21, so this pin is a no-op today.
+          version: 1.10.18
 
       - name: Install Quarto rendering dependencies
         # Jupyter execution stack needed to run the report's {python} cells.
