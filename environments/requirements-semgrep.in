@@ -1,4 +1,4 @@
-semgrep==1.172.0
+semgrep==1.173.0
 
 # Security override - minimum version to close a CVE that this spec's resolver
 # would otherwise be free to peg to a vulnerable release.
