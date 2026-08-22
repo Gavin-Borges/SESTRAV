@@ -27,6 +27,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   since, so the parenthetical describes the original finding, not a live gap. The token no longer sits in `.git/config`
   while third-party or unpinned code runs in the same job, for every workflow that never
   needed it there.
+- **The build-system setuptools floor no longer permits a version this repo documents as
+  vulnerable (SEC-14).** `pyproject.toml`'s `[build-system].requires` allowed
+  `setuptools>=61.0.0`, while `requirements.in:21` pins `84.0.0` and records that
+  **83.0.0 closes GHSA-h35f-9h28-mq5c** (a MANIFEST.in exclusion bypass in sdist via
+  Unicode NFC/NFD normalization collision on macOS APFS/HFS+). A PEP 517 build isolates
+  its backend and resolves it from that floor rather than from the lockfiles, so the two
+  statements disagreed about the same package. Raised to `>=83.0.0`, which states the
+  security requirement rather than tracking the pin, so the floor does not need editing
+  every time the pin moves. Cannot break a resolve: both `requirements.txt` and
+  `environments/requirements.lock` already resolve `setuptools==84.0.0`.
+  **The exact floor was chosen by measurement, not by preference.** Matching the pin at
+  `>=84.0.0` was the obvious-looking alternative and is wrong: the development
+  environment this was verified in carries setuptools **83.0.0**, which that floor would
+  have refused, breaking local builds while satisfying every lockfile check. Verified by
+  running the real backend - `setuptools.build_meta.prepare_metadata_for_build_wheel`
+  produces `sestrav-2.0.3.dist-info` (Metadata-Version 2.4) under the new floor - and
+  `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
+  green (10 lockfile pairs fresh, 13 manifests hash-pinned).
 - **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**
   (`tests/test_torch_load_weights_only.py`, SEC-13). A prior sweep found every runtime call
   site already pinned `weights_only=True`; that was a one-off finding with no standing check
