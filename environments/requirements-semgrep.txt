@@ -318,7 +318,7 @@ cryptography==50.0.0 \
     --hash=sha256:f89831ef99dd7dd169ab06d63a831adb9e20a87aac6d380266bbda5823349169 \
     --hash=sha256:fd9192b7b70c573d7f214eb1ae35e00d359f6f5e4b27c7e21e30de1fc6204645
     # via
-    #   -r requirements-semgrep.in
+    #   -r environments/requirements-semgrep.in
     #   pyjwt
 exceptiongroup==1.2.2 \
     --hash=sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b \
@@ -379,9 +379,9 @@ markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
     --hash=sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a
     # via rich
-mcp==1.23.3 \
-    --hash=sha256:32768af4b46a1b4f7df34e2bfdf5c6011e7b63d7f1b0e321d0fdef4cd6082031 \
-    --hash=sha256:b3b0da2cc949950ce1259c7bfc1b081905a51916fcd7c8182125b85e70825201
+mcp==1.29.0 \
+    --hash=sha256:52d01f334de1868cc3bb2d6604931126a67631f99a6c5d3b82ba47290315ec36 \
+    --hash=sha256:f5a075bb611f23d6f4d080c6a1699fa62772eebc562ba9e66b306ddde1c755f7
     # via semgrep
 mdurl==0.1.2 \
     --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8 \
@@ -842,16 +842,16 @@ semantic-version==2.10.0 \
     --hash=sha256:bdabb6d336998cbb378d4b9db3a4b56a1e3235701dc05ea2690d9a997ed5041c \
     --hash=sha256:de78a3b8e0feda74cabc54aab2da702113e33ac9d9eb9d2389bcf1f58b7d9177
     # via semgrep
-semgrep==1.172.0 \
-    --hash=sha256:09e92c9e6c1635a1549d4e297b2d4a9684dcd351b216ed7f2eb51cfc55479c49 \
-    --hash=sha256:7377cc350c64c7b83de20090cb2843d875da1d806690fd604e446ed544b56d71 \
-    --hash=sha256:7bcac633a0ffb7dfe75b7b99e44876f839590f2c01cd159c44caecc35e591df4 \
-    --hash=sha256:8ba0d661c8cb3a451b27d4300b2d958483d6761262ce84e4dd5ff4f94e700346 \
-    --hash=sha256:c881a305b965e594b88b15c2c6419b398e76e438ec61e60916c8b2effe927240 \
-    --hash=sha256:d8b94af4266a575287ad2cd844573743ab4fe58f6bfb6d9229327807937eade3 \
-    --hash=sha256:e32868faeb67b241bbd3fabd82a12fba4b467464dedde9da285b9bf78e808ba3 \
-    --hash=sha256:f13ddebc870e784b03c9247f095720f49f67244eca1e7da493364f55c65b4493
-    # via -r requirements-semgrep.in
+semgrep==1.173.0 \
+    --hash=sha256:29a7371b27ed57f464e57c85c2fcfac4352fa67241092405daa21e21f9dea629 \
+    --hash=sha256:95e504f01bf9ae20c23359a76bf9ada3e10c88906de58964f489e6332753260a \
+    --hash=sha256:a4f690a9a3f0ad11a862844e9e7c1efd75ed72293eb488e7ea438111b138b5f9 \
+    --hash=sha256:c62eb7c13257c3cc58106b8f6afab152f9f99bfe36fdfebd6f09809fa1c50966 \
+    --hash=sha256:cb21aa06246bdd79d3e9e7f9118ec7baecb1be39cf89c46e07af13b4128d7b79 \
+    --hash=sha256:d81c6166ce595e223ea908e5fe36044a5cbb1b5a2821e28dc1e34f3964fa7ed1 \
+    --hash=sha256:e1a508dd8bccaff05482bb2968d4ae84a432f932e502d3caccdb3d525da51f22 \
+    --hash=sha256:f9a71d2e692ebf96fdf1640eed0291faa947642c8d5b98478b60ea815ca8bc67
+    # via -r environments/requirements-semgrep.in
 sse-starlette==3.4.4 \
     --hash=sha256:07e0fa0460138baf25cdd5fb28683472c3995dc1642225191b3832d62526bcb0 \
     --hash=sha256:3f4dd50d8aed2771a091f3a83000323fc3844541c16b4fe585ae2420cc6df973
@@ -940,9 +940,9 @@ urllib3==2.7.0 \
     # via
     #   requests
     #   semgrep
-uvicorn==0.52.1 \
-    --hash=sha256:112ec661814189acbccd3f7b86460147cc065fc92c0821afa78918780e4354dd \
-    --hash=sha256:e4403f9d93188cf9d1088e9f40e3acd12630e2df8675316704379a7fc20fff6a
+uvicorn==0.52.3 \
+    --hash=sha256:116af2710dbf47c80f463cd20ee4884b6662f4c9f227d797ddc7279d2fcc2c7c \
+    --hash=sha256:18857b9e6579300be55c91c0a1cfd37d9a2cf0cabea33b88275f199eb73b8b58
     # via mcp
 wcmatch==8.5.2 \
     --hash=sha256:17d3ad3758f9d0b5b4dedc770b65420d4dac62e680229c287bf24c9db856a478 \
