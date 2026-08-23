@@ -1,7 +1,14 @@
 # OSSF Scorecard & Security Remediation Guide
 
 This guide tracks remediation for all alerts from the SESTRAV security audit.
-Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
+Items marked ✅ are complete. Items marked ⬜ are not resolved; each row states
+what remains, which is not always a GitHub UI action - it may be a code change
+or an upstream tooling limitation.
+
+Scores in the Alert column are as first filed and are NOT kept current. Rows 8
+and 9 are the proof: License reads 9/10 there but measures 10 live, and
+CII-Best-Practices reads 0/10 but measures 5. Read the Status cell, not the
+parenthetical, for current state.
 
 ---
 
@@ -12,10 +19,10 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 1 | keras CVEs (6×) - GHSA-36fq, 4f3f, cjgq, hjqc, mq84, 7gcm | **High** | ✅ Pinned & regenerated in `requirements.txt` |
 | 2 | protobuf DoS - GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt` |
 | 3 | Semgrep false positive (`joblib_load` pattern) | Low | ✅ Fixed in `semgrep-rules/sestrav-custom.yml` |
-| 4 | Branch-Protection (score 4/10) | **High** | ✅ Ruleset applied via automation script |
-| 5 | Code-Review (score 0/10) | **High** | ✅ Ruleset applied via automation script |
-| 6 | Pinned-Dependencies (score 9/10) | Medium | ✅ Scorecard upgraded to v2.4.3 |
-| 7 | Fuzzing (score 0/10) | Medium | ⬜ `fuzzing.yml` runs genuine Hypothesis fuzz CI, but Scorecard's Fuzzing check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d: reason "project is not fuzzed"; Scorecard v5.5.0 has no Python/Hypothesis detector for this check) |
+| 4 | Branch-Protection (score 4/10) | **High** | ⬜ Ruleset `Protect Main Branch` (id 16846770) is active, but it is UI-managed and was not applied by the automation script - Step 2 retracted that attribution on 2026-08-22, and `scripts/apply-branch-ruleset.ps1` is untracked and disabled. The check still scores 4/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "branch protection is not maximal on development and all release branches"). Its three Warn details bind to live ruleset fields: admin-role bypass (`bypass_actors` RepositoryRole 5, always), `required_approving_review_count: 0`, and `require_last_push_approval: false` |
+| 5 | Code-Review (score 0/10) | **High** | ⬜ Same retracted attribution as row 4, and the ruleset does not remediate this check: it sets `required_approving_review_count: 0`, so no approving review is required to merge. The check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "Found 0/4 approved changesets -- score normalized to 0"). Approving reviews do occur in this repo on bot-authored PRs (#278 and #280 each carry an owner APPROVED review); the owner's own merged PRs in that window carry none |
+| 6 | Pinned-Dependencies (score 9/10) | Medium | ⬜ The `scorecard-action` upgrade changed which scanner version runs, not what it measures, so it does not remediate this check. It still scores 8/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "dependency not pinned by hash detected -- score normalized to 8"; 26 of 34 pipCommand dependencies pinned). The warnings name `Dockerfile:53-54`, `Dockerfile.api:23-24`, `Dockerfile.demo:25-26`, `.github/workflows/release.yml:156` and `:271`, all byte-identical at HEAD to the measured commit |
+| 7 | Fuzzing (score 0/10) | Medium | ⬜ `fuzzing.yml` runs genuine Hypothesis fuzz CI, but Scorecard's Fuzzing check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "project is not fuzzed"). Scorecard has no Hypothesis or property-based-Python detector; its only Python detector is Atheris, matched on `import atheris` (`languageFuzzSpecs`, `checks/raw/fuzzing.go` at ossf/scorecard c395761). Reachable via an Atheris harness, OSS-Fuzz, or ClusterFuzzLite |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
 | 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) - embedded in `README.md` |
 | 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | Low | ✅ Resolved - upgraded to `torch==2.13.0`, the first patched release |
