@@ -20,7 +20,7 @@ parenthetical, for current state.
 | 2 | protobuf DoS - GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt` |
 | 3 | Semgrep false positive (`joblib_load` pattern) | Low | ✅ Fixed in `semgrep-rules/sestrav-custom.yml` |
 | 4 | Branch-Protection (score 4/10) | **High** | ⬜ Ruleset `Protect Main Branch` (id 16846770) is active, but it is UI-managed and was not applied by the automation script - Step 2 retracted that attribution on 2026-08-22, and `scripts/apply-branch-ruleset.ps1` is untracked and disabled. The check still scores 4/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "branch protection is not maximal on development and all release branches"). Its three Warn details bind to live ruleset fields: admin-role bypass (`bypass_actors` RepositoryRole 5, always), `required_approving_review_count: 0`, and `require_last_push_approval: false` |
-| 5 | Code-Review (score 0/10) | **High** | ⬜ Same retracted attribution as row 4, and the ruleset does not remediate this check: it sets `required_approving_review_count: 0`, so no approving review is required to merge. The check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "Found 0/4 approved changesets -- score normalized to 0"). Approving reviews do occur in this repo on bot-authored PRs (#278 and #280 each carry an owner APPROVED review); the owner's own merged PRs in that window carry none |
+| 5 | Code-Review (score 0/10) | **High** | ⬜ Same retracted attribution as row 4, and the ruleset does not remediate this check: it sets `required_approving_review_count: 0`, so no approving review is required to merge. The check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "Found 0/4 approved changesets -- score normalized to 0"). Approving reviews do occur in this repo on bot-authored PRs (#278 and #280 each carry an owner APPROVED review), but Scorecard deliberately discards those: `probes/codeApproved/impl.go` skips approved changesets whose author is a bot, commented as skewing single-maintainer projects. The 4 changesets it did count are the owner's own merged PRs (#277, #282, #283, #284), which carry zero reviews |
 | 6 | Pinned-Dependencies (score 9/10) | Medium | ⬜ The `scorecard-action` upgrade changed which scanner version runs, not what it measures, so it does not remediate this check. It still scores 8/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "dependency not pinned by hash detected -- score normalized to 8"; 26 of 34 pipCommand dependencies pinned). The warnings name `Dockerfile:53-54`, `Dockerfile.api:23-24`, `Dockerfile.demo:25-26`, `.github/workflows/release.yml:156` and `:271`, all byte-identical at HEAD to the measured commit |
 | 7 | Fuzzing (score 0/10) | Medium | ⬜ `fuzzing.yml` runs genuine Hypothesis fuzz CI, but Scorecard's Fuzzing check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "project is not fuzzed"). Scorecard has no Hypothesis or property-based-Python detector; its only Python detector is Atheris, matched on `import atheris` (`languageFuzzSpecs`, `checks/raw/fuzzing.go` at ossf/scorecard c395761). Reachable via an Atheris harness, OSS-Fuzz, or ClusterFuzzLite |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
@@ -44,7 +44,7 @@ No conflicts with `mhcflurry` were encountered.
 
 ---
 
-### Step 2: Branch Protection Ruleset (HIGH SEVERITY - Score 4→9) - ✅ Complete
+### Step 2: Branch Protection Ruleset (HIGH SEVERITY) - ⬜ Ruleset active, check still 4/10
 
 The branch ruleset is managed in the GitHub web UI (Settings > Rules > Rulesets), which is
 the source of truth. Read it with `gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770`.
@@ -89,12 +89,19 @@ under stays pending forever, which blocks merges rather than protecting them.
 
 ---
 
-### Step 3: Code Review Enforcement (HIGH SEVERITY - Score 0→7) - ✅ Complete
+### Step 3: Code Review Enforcement (HIGH SEVERITY) - ⬜ Workflow active, check still 0/10
 
 The PR review workflow (`pr-review-check.yml`) is active and has been added as a required status check (`Require human review`) in the branch ruleset. This ensures:
 - If you (the repository owner) open the PR, the workflow automatically passes (bypassing approval requirements) for frictionless self-merging.
 - If an external contributor opens a PR, it strictly requires at least 1 approving review from a code owner to pass.
-- Scorecard successfully detects the required review constraint.
+
+**Scorecard does NOT read this as a review constraint, and the earlier claim that it
+"successfully detects" one is retracted.** Measured 2026-08-23 at commit 36e3d8d
+(Scorecard v5.5.0): Code-Review scores 0/10, and Branch-Protection reports
+`Warn: branch 'main' does not require approvers`. The ruleset sets
+`required_approving_review_count: 0`, so no approving review is required to merge -
+which is exactly what the summary table's row 5 now records. The owner-bypass behaviour
+above is a deliberate solo-maintainer tradeoff, not something Scorecard credits.
 
 ---
 
@@ -131,8 +138,13 @@ Removed overly-broad `joblib_load(...)` pattern that was false-positively matchi
 Changed `core.warning()` → `core.setFailed()` so the status check blocks merges for external contributors unless approved. It includes a specific check that automatically bypasses enforcement for the repository owner (sole maintainer) to allow frictionless self-merging without sacrificing external contributor review requirements.
 
 ### Scorecard Action Upgrade (`scorecard.yml`)
-Upgraded `ossf/scorecard-action` from v2.3.1 → v2.4.3 (bundles Scorecard v5.3.0).
-SHA pinned: `4eaacf0543bb3f2c246792bd56e8cdeffafb205a`.
+Upgraded `ossf/scorecard-action` from v2.3.1. Current pin, read from
+`.github/workflows/scorecard.yml:27` on 2026-08-23:
+`ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4`,
+which bundles Scorecard v5.5.0 - the version that produced the scores quoted in
+the summary table above. This line previously recorded v2.4.3 / `4eaacf05...` /
+Scorecard v5.3.0, which was accurate when written and is now stale in all three
+values. Re-read the workflow rather than this paragraph if they disagree again.
 
 ### Fuzzing Workflow (`.github/workflows/fuzzing.yml`)
 Added Hypothesis property-based fuzzing CI workflow. Runs `tests/test_fuzz.py` with
