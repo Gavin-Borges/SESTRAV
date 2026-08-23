@@ -1,8 +1,17 @@
 name: Property-Based Fuzz Testing
 
-# Runs the Hypothesis property-based test suite against SESTRAV's core functions.
-# This satisfies the Scorecard Fuzzing check (PythonAtherisFuzzer or property-based
-# testing integration): https://scorecard.dev/checks/#fuzzing
+# Runs the Hypothesis property-based test suite against SESTRAV's core functions,
+# generating adversarial/edge-case inputs on every push, PR and weekly schedule.
+#
+# This does NOT satisfy OSSF Scorecard's automated Fuzzing check. Verified live
+# against api.securityscorecards.dev on 2026-08-23, bound to commit 36e3d8d
+# (Scorecard v5.5.0, analysis date 2026-08-22T23:00:34Z): score 0, reason "project
+# is not fuzzed", details "Warn: no fuzzer integrations found". Per that Scorecard
+# version's own docs, its Fuzzing probe recognizes OSS-Fuzz registration,
+# ClusterFuzzLite, Go's native fuzzing, and property-based testing libraries for
+# Haskell, JS/TS, Erlang and C#/F# only - there is no Python detector, so this
+# suite cannot register no matter how it is written:
+# https://scorecard.dev/checks/#fuzzing
 #
 # Tests are in tests/test_fuzz.py and exercise compute_features and get_tcr_positions
 # under adversarial/edge-case inputs using Hypothesis.

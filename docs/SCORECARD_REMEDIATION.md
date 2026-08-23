@@ -15,7 +15,7 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 4 | Branch-Protection (score 4/10) | **High** | ✅ Ruleset applied via automation script |
 | 5 | Code-Review (score 0/10) | **High** | ✅ Ruleset applied via automation script |
 | 6 | Pinned-Dependencies (score 9/10) | Medium | ✅ Scorecard upgraded to v2.4.3 |
-| 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
+| 7 | Fuzzing (score 0/10) | Medium | ⬜ `fuzzing.yml` runs genuine Hypothesis fuzz CI, but Scorecard's Fuzzing check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d: reason "project is not fuzzed"; Scorecard v5.5.0 has no Python/Hypothesis detector for this check) |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
 | 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) - embedded in `README.md` |
 | 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | Low | ✅ Resolved - upgraded to `torch==2.13.0`, the first patched release |
