@@ -267,13 +267,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **The Zenodo DOI manifest recorded a checksum for a file that had since been corrected, so
   the deposition would have failed its own verification (B3).** `docs/zenodo_manifest_v5.json`
   holds a second-order digest - a hash of a provenance sidecar, not of a dataset - and commit
-  `9a94852` had fixed that sidecar's own hash without updating this second recording of it.
+  `9a94852` re-materialised that sidecar under a new `eol=lf` pin, changing its digest.
+  **The mechanism is more specific than "it was missed", and an earlier draft of this entry got
+  it wrong: `9a94852` DID update this manifest, in the same change - it just wrote the wrong
+  value.** The digest it recorded,
+  `93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329`, is a real hash of a real
+  prior state - the sidecar's content one revision earlier, at `ef7f532`. The sidecar's actual
+  hash at that point was
+  `c1fbf4ca6a63d39067922984431a140866899d7db19938376f7122cc50b48b3d`.
+  **The fix was off by one revision**, which is exactly why it survived review: a plausible
+  sha256 that verifies against nothing is indistinguishable from a correct one without
+  recomputing it. (Digests are written in full here rather than abbreviated. An abbreviated
+  hash is indistinguishable from a short commit SHA, and the required `Cited commits resolve`
+  gate reads one as the other - a draft of this very entry failed on exactly that.)
   Traced rather than patched: `data/immunogenicity_dataset_v5.csv` is byte-identical across
   `ef7f532..9a94852`, so no dataset moved and no result is affected. All three manifest
-  entries now verify against their committed blobs. **Known coverage gap, left open
-  deliberately and recorded here rather than silently closed:** the integrity harness reads no
-  sidecar glob that would have caught this, so nothing would have flagged it. Widening those
-  globs is a separate change.
+  entries now verify against their committed blobs.
+  **`docs/zenodo_deposition.md` carried the same wrong digest and is corrected in the same
+  pass**, at two sites - a table row and, more seriously, an executable `sha256sum -c` block a
+  maintainer is instructed to run before upload. Its other two digests were re-checked and were
+  already correct. **Known coverage gap, left open deliberately and recorded here rather than
+  silently closed:** the integrity harness reads no sidecar glob that would have caught either
+  file, so nothing would have flagged them. Widening those globs is a separate change.
 - **`SECURITY.md` and `docs/SCORECARD_REMEDIATION.md` both understated the branch protection
   by one required status check.** Both listed **four**; the `Protect Main Branch` ruleset
   requires **five**, the fifth being `Cited lines still hold their content`. (The ruleset id is
@@ -290,9 +305,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   making a claim about how it was produced that had stopped being true. Both re-read from the
   live ruleset API on 2026-08-24 and corrected, and both now record the date they were read.
   **Note the direction: this correction makes SESTRAV look *better* protected, not worse** -
-  which is why it survived two days unnoticed while errors in the flattering direction get
-  caught. Also relevant: `SECURITY.md`'s "four" is what made this checkable at all. A list
-  with no count would have read as merely incomplete.
+  an unusual direction for this repository's defects, and worth recording for that reason
+  alone. **Two tempting explanations for it were tested and both are false, so neither is
+  offered here.** (a) "It survived because errors in the flattering direction get caught
+  quickly": refuted by the fuzzing.yml claim corrected in this same change set, which is
+  maximally flattering and stood for **82 days**. (b) "`SECURITY.md` committing to a *count*
+  is what made it checkable": refuted because `docs/SCORECARD_REMEDIATION.md` carries no count
+  at all - it is a bare bullet list - and was caught in the same pass. Both lists *enumerate*
+  the contexts, and enumeration is what a live API call refutes; the count was incidental.
+  **What actually found it was re-reading the live ruleset instead of the document.** That is
+  the only lesson this entry supports.
 
 - **The pre-Amendment-7 leave-one-out cross-virus figures are no longer tracked (B1).**
   `results/loo_cross_virus_v5.{csv,json}` carried per-virus numbers that
@@ -321,7 +343,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   pass: three rows that credited an untracked and explicitly disabled automation script, or a
   scanner-version upgrade that changes which version runs rather than what the check measures,
   are corrected, and the legend is rewritten - it had defined the empty box as "requires
-  manual GitHub UI action", which was true of none of the four rows using it. Every score,
+  manual GitHub UI action", which is not true of every row that uses it. **An earlier draft of
+  this entry said "true of none of the four rows", and that overstated in the opposite
+  direction: it IS true of row 4**, whose entire remaining gap is three live ruleset fields
+  (`bypass_actors`, `required_approving_review_count`, `require_last_push_approval`) that are
+  edited in the GitHub UI, and partly true of row 5. The replacement legend therefore says
+  "not always a GitHub UI action" rather than denying the category - the narrowest wording the
+  rows support. Every score,
   reason string and Warn detail quoted in the final document was re-verified against
   `api.securityscorecards.dev`. Two freshly added `file:line` citations were replaced with
   symbol citations after the repository's own citation gate rejected them.

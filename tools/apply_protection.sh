@@ -12,7 +12,10 @@
 #   The live branch protection for Gavin-Borges/SESTRAV is ruleset
 #   id 16846770, name "Protect Main Branch", configured and maintained
 #   through the GitHub web UI (created 2026-05-25, last updated
-#   2026-07-26). This file is a downstream transcription of it, not
+#   2026-08-22T19:14:42-04:00 - re-read from the live API 2026-08-24;
+#   this line previously said 2026-07-26 and was a month stale, which
+#   matters because the freshness of this whole transcription is
+#   asserted by that date). This file is a downstream transcription of it, not
 #   its definition. Change protection in the UI, then update the
 #   REFERENCE PAYLOAD block below to match.
 #
@@ -166,12 +169,19 @@
 # integration_id was read directly from the live ruleset on 2026-08-24
 # and is also 15368.
 #
-# Cite a pull-request head here, not a main-branch commit. Only
-# "test (3.13)" reports on a push to main; "Require human review",
-# "check_dco", "Cited commits resolve" and "Cited lines still hold
-# their content" are pull_request-triggered and are absent from main
-# HEAD's check runs entirely. A main-branch commit therefore evidences
-# one of the five entries below, not five.
+# Cite a pull-request head here, not a main-branch commit. Measured
+# against main HEAD's check runs on 2026-08-24, exactly TWO of the five
+# required contexts report on a push to main: "test (3.13)" and
+# "Cited lines still hold their content" - the latter because
+# doc_line_citations.yml carries BOTH a pull_request and a push
+# trigger. "Require human review", "check_dco" and "Cited commits
+# resolve" are pull_request-only and are absent from main HEAD's check
+# runs entirely. A main-branch commit therefore evidences two of the
+# five entries below, not five.
+#
+# An earlier version of this note said only "test (3.13)" reports on a
+# push to main. That was false, and it was false in the direction that
+# made this file look more carefully reasoned than it was.
 #
 # The five required contexts are documented in SECURITY.md under
 # "Vulnerability Triage & Remediation Policy" / "CI gate map". Keep
