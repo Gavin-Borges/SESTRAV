@@ -1,7 +1,10 @@
 name: Property-Based Fuzz Testing
 
 # Runs the Hypothesis property-based test suite against SESTRAV's core functions,
-# generating adversarial/edge-case inputs on every push, PR and weekly schedule.
+# generating adversarial/edge-case inputs on pushes to main, pull requests targeting
+# main, and a weekly schedule. Not "every push": the triggers below are branch-scoped,
+# so a push to a feature branch does not fire this workflow - only the pull request
+# that targets main does.
 #
 # This does NOT satisfy OSSF Scorecard's automated Fuzzing check. Verified live
 # against api.securityscorecards.dev on 2026-08-23, bound to commit 36e3d8d
