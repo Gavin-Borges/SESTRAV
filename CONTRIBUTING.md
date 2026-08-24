@@ -288,8 +288,13 @@ documented in `SECURITY.md`. Version **tags** are annotated but not yet signed
 
 - Every change reaches `main` through a Pull Request; direct pushes to `main` are
   avoided.
-- Each PR must pass all **required CI checks** (lint, tests, security, Snakemake
-  dry-run) before merge.
+- Each PR must pass all **required status checks** before merge. As of 2026-08-24 the
+  branch-protection ruleset requires exactly five: `test (3.13)`, `Require human review`,
+  `check_dco`, `Cited commits resolve`, and `Cited lines still hold their content`. The
+  Snakemake DAG dry-run is a *step inside* `test (3.13)`, so it gates too, but not as a
+  check of its own. **`lint` and the security scans run on every PR and are NOT required
+  checks** - they fail their own jobs visibly but do not gate the merge button. Treat
+  `SECURITY.md`'s CI gate map as authoritative; this list is a convenience copy.
 - The maintainer checks each PR for: correctness, adequate tests, adherence to the
   coding standards, security implications, and documentation/CHANGELOG updates.
 - **Be aware of what review actually means here.** SESTRAV has one maintainer, who
