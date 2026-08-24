@@ -216,6 +216,80 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **Sixteen provenance digests were recorded from the Windows working tree instead of the
+  committed blob, so they FAILed on files that were correct (D7).** With `core.autocrlf=true`
+  a CSV or JSON artifact is CRLF on disk and LF in git, so a digest taken from the working
+  tree is reproducible on exactly one machine. The provenance check compared that value
+  against a blob every clone and every CI run computes differently, and reported a mismatch
+  for artifacts whose content had never drifted. Fixed by pinning `text eol=lf` on all 16 in
+  `.gitattributes` - which makes LF canonical on every platform - and re-recording each digest
+  from the blob. A follow-up pass re-recorded the **15** `size_bytes` fields the first pass
+  left at their CRLF values; pinning `eol=lf` is what promoted those from wrong-on-Linux to
+  wrong-everywhere, so the two commits are one fix in two halves. (15, not 16, because the
+  sixteenth sidecar carries no `size_bytes` field.) Every value recomputed via
+  `git cat-file -s` and `git show | sha256sum` rather than copied from a report. The 17
+  `.joblib` entries in the same manifests are gitignored, absent from HEAD, and deliberately
+  untouched. **Measured effect on the integrity harness: 18 FAIL to 2.**
+- **The Zenodo DOI manifest recorded a checksum for a file that had since been corrected, so
+  the deposition would have failed its own verification (B3).** `docs/zenodo_manifest_v5.json`
+  holds a second-order digest - a hash of a provenance sidecar, not of a dataset - and commit
+  `9a94852` had fixed that sidecar's own hash without updating this second recording of it.
+  Traced rather than patched: `data/immunogenicity_dataset_v5.csv` is byte-identical across
+  `ef7f532..9a94852`, so no dataset moved and no result is affected. All three manifest
+  entries now verify against their committed blobs. **Known coverage gap, left open
+  deliberately and recorded here rather than silently closed:** the integrity harness reads no
+  sidecar glob that would have caught this, so nothing would have flagged it. Widening those
+  globs is a separate change.
+- **`SECURITY.md` and `docs/SCORECARD_REMEDIATION.md` both understated the branch protection
+  by one required status check.** Both listed **four**; the `Protect Main Branch` ruleset
+  requires **five**, the fifth being `Cited lines still hold their content`. (The ruleset id is
+  recorded in both documents and is deliberately not repeated here: it is an eight-digit
+  decimal that is also valid hex, so quoting it beside the word "commits" makes the
+  `Cited commits resolve` gate read it as a dead short SHA. That is a false positive, but the
+  gate is required, so the citation is written to avoid it rather than to argue with it.)
+  Both were accurate when written and were invalidated
+  about two hours later, when that check was added on 2026-08-22T19:14:42-04:00. The
+  `SCORECARD_REMEDIATION.md` instance is the more serious of the two because that section
+  states its own provenance as "every field below read from the live API", so the list was
+  making a claim about how it was produced that had stopped being true. Both re-read from the
+  live ruleset API on 2026-08-24 and corrected, and both now record the date they were read.
+  **Note the direction: this correction makes SESTRAV look *better* protected, not worse** -
+  which is why it survived two days unnoticed while errors in the flattering direction get
+  caught. Also relevant: `SECURITY.md`'s "four" is what made this checkable at all. A list
+  with no count would have read as merely incomplete.
+
+- **The pre-Amendment-7 leave-one-out cross-virus figures are no longer tracked (B1).**
+  `results/loo_cross_virus_v5.{csv,json}` carried per-virus numbers that
+  `docs/claims_register.md` D11 retracts as inflated by `allele_matched_nonbinder` decoys, and
+  the CSV additionally held a bare `0.9368` in its HIV-1 `issr_25` cell - a token the retracted
+  list already covers. They were force-tracked by two `!` negations in `.gitignore`, which are
+  removed with them. **Verified before deletion, not after:** no tracked file cites either
+  path. Every live consumer reads the surviving `_clean` variants, which are different files
+  and are untouched; the certified leave-one-out mean of `0.463` recomputes exactly from
+  `results/loo_cross_virus_v5_clean.csv` over its 9 rows.
+
+- **`.github/workflows/fuzzing.yml` claimed to satisfy an OSSF Scorecard check that it does
+  not, and the first attempt to retract that claim introduced a different false one.** The
+  header asserted "This satisfies the Scorecard Fuzzing check". Measured live at the repo
+  commit Scorecard actually analysed: Fuzzing scores **0**, reason "project is not fuzzed".
+  **The retraction's replacement then asserted Scorecard has "no Python detector, so this
+  suite cannot register no matter how it is written". Both halves are false.**
+  `languageFuzzSpecs` in `checks/raw/fuzzing.go`, read at `ossf/scorecard` `c395761` - the
+  exact revision behind the measured score - does map Python, to `PythonAtheris` on
+  `import atheris`, and the map carries 15 language keys, so an enumeration of four marked
+  "only" was wrong twice over. What Scorecard actually lacks is a detector for Hypothesis or
+  any property-based Python library: narrower, and different. **Note the direction: the false
+  version was the one that excused the repository**, converting a fixable gap into an
+  unfixable one. It was caught and retracted before this branch was ever pushed.
+  `docs/SCORECARD_REMEDIATION.md` is reconciled against the corrected reading in the same
+  pass: three rows that credited an untracked and explicitly disabled automation script, or a
+  scanner-version upgrade that changes which version runs rather than what the check measures,
+  are corrected, and the legend is rewritten - it had defined the empty box as "requires
+  manual GitHub UI action", which was true of none of the four rows using it. Every score,
+  reason string and Warn detail quoted in the final document was re-verified against
+  `api.securityscorecards.dev`. Two freshly added `file:line` citations were replaced with
+  symbol citations after the repository's own citation gate rejected them.
+
 - **`scripts/check_repo_status.py` crashed on a default Windows console, and the same latent
   defect sat in six other files (ENC-1).** Reproduced directly rather than inferred: under
   `PYTHONIOENCODING=cp1252` the script died at its first status line with

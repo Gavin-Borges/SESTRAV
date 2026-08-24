@@ -59,7 +59,10 @@ merge. Four further details below were wrong and are fixed: the ruleset name, th
 actor, the status-check context strings, and the omission of the code-scanning rule, which
 is the rule that actually blocks a merge.
 
-Rules in force (every field below read from the live API, not from the script's payload):
+Rules in force (every field below read from the live API, not from the script's payload;
+re-read 2026-08-24, when the fifth required status check was found missing from this list -
+it was added to the ruleset 2026-08-22T19:14:42-04:00, about two hours after this section
+was first written, so the list was accurate when written and stale thereafter):
 - **ID / Name:** `16846770` / `Protect Main Branch`
 - **Target:** `refs/heads/main`
 - **Enforcement:** Active
@@ -77,6 +80,7 @@ Rules in force (every field below read from the live API, not from the script's 
     - Required status check: `Require human review`
     - Required status check: `check_dco`
     - Required status check: `Cited commits resolve`
+    - Required status check: `Cited lines still hold their content`
   - ☑ **Require code scanning results: `CodeQL`**, `security_alerts_threshold: all`,
     `alerts_threshold: errors_and_warnings`. This is what makes CodeQL a merge blocker
     for any alert a pull request introduces, as distinct from the Bandit, semgrep and
