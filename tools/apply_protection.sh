@@ -44,7 +44,7 @@
 #
 #   3. MISSING RULES AND CONTEXTS.
 #      The old payload had no `code_scanning` rule and named only one
-#      of the four live required contexts.
+#      of the five live required contexts.
 #
 #   4. WRONG BYPASS ACTOR.
 #      The old payload added the owner as actor_type "User" with the
@@ -149,7 +149,9 @@
 #           { "context": "test (3.13)",          "integration_id": 15368 },
 #           { "context": "Require human review", "integration_id": 15368 },
 #           { "context": "check_dco",            "integration_id": 15368 },
-#           { "context": "Cited commits resolve","integration_id": 15368 }
+#           { "context": "Cited commits resolve","integration_id": 15368 },
+#           { "context": "Cited lines still hold their content",
+#                                                "integration_id": 15368 }
 #         ]
 #       }
 #     }
@@ -158,17 +160,29 @@
 #
 # integration_id 15368 is the GitHub Actions app; verified from the
 # check runs on PR #283 head 21fed6a, where ALL FOUR required contexts
-# report with app.id 15368 / app.slug "github-actions".
+# THEN IN FORCE reported with app.id 15368 / app.slug "github-actions".
+# The fifth context, "Cited lines still hold their content", was added
+# to the ruleset on 2026-08-22 after that observation; its
+# integration_id was read directly from the live ruleset on 2026-08-24
+# and is also 15368.
 #
 # Cite a pull-request head here, not a main-branch commit. Only
 # "test (3.13)" reports on a push to main; "Require human review",
-# "check_dco" and "Cited commits resolve" are pull_request-triggered
-# and are absent from main HEAD's check runs entirely. A main-branch
-# commit therefore evidences one of the four entries below, not four.
+# "check_dco", "Cited commits resolve" and "Cited lines still hold
+# their content" are pull_request-triggered and are absent from main
+# HEAD's check runs entirely. A main-branch commit therefore evidences
+# one of the five entries below, not five.
 #
-# The four required contexts are documented in SECURITY.md under
+# The five required contexts are documented in SECURITY.md under
 # "Vulnerability Triage & Remediation Policy" / "CI gate map". Keep
 # that table, this block, and the live ruleset in agreement.
+#
+# That instruction was not followed when the fifth context was added on
+# 2026-08-22: this block, SECURITY.md, docs/SCORECARD_REMEDIATION.md,
+# docs/security_compliance.md, .github/workflows/security.yml and one
+# CHANGELOG line all still said four. Corrected together 2026-08-24.
+# Six sites is what "keep in agreement" actually costs - if a seventh
+# is ever added, add it here too rather than to one document.
 # ===================================================================
 
 set -uo pipefail

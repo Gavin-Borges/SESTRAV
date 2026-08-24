@@ -149,7 +149,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   **Its twin 190 lines below was corrected in the same pass**, because fixing one and
   leaving the other is how this class survives: the `Fail on unaccepted lockfile
   advisories` step claimed "this is the step that is supposed to block a merge". It
-  cannot - `pip-audit` is not one of the ruleset's four required status checks, so a red
+  cannot - `pip-audit` is not one of the ruleset's required status checks (four at the
+  time of that pass, five since `Cited lines still hold their content` was added later the
+  same day; the count is corrected here rather than left to contradict the entry below), so a red
   job there does not gate the merge button, exactly as the corrected pip-audit row in
   `SECURITY.md`'s CI gate map says. The comment now states what the step really does: it
   fails the job closed, which is a visible signal, not a merge gate.
@@ -280,7 +282,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `Cited commits resolve` gate read it as a dead short SHA. That is a false positive, but the
   gate is required, so the citation is written to avoid it rather than to argue with it.)
   Both were accurate when written and were invalidated
-  about two hours later, when that check was added on 2026-08-22T19:14:42-04:00. The
+  a little over two hours later, when that check was added on 2026-08-22T19:14:42-04:00
+  (2h06m after the commit that wrote them, 2h27m after it was authored - stated both ways
+  because "about two hours" quietly rounds toward the shorter, more flattering window). The
   `SCORECARD_REMEDIATION.md` instance is the more serious of the two because that section
   states its own provenance as "every field below read from the live API", so the list was
   making a claim about how it was produced that had stopped being true. Both re-read from the

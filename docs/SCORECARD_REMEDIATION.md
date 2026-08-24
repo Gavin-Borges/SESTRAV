@@ -61,8 +61,9 @@ is the rule that actually blocks a merge.
 
 Rules in force (every field below read from the live API, not from the script's payload;
 re-read 2026-08-24, when the fifth required status check was found missing from this list -
-it was added to the ruleset 2026-08-22T19:14:42-04:00, about two hours after this section
-was first written, so the list was accurate when written and stale thereafter):
+it was added to the ruleset 2026-08-22T19:14:42-04:00, 2h06m after the commit that wrote this
+section and 2h27m after that commit was authored, so the list was accurate when written and
+stale thereafter):
 - **ID / Name:** `16846770` / `Protect Main Branch`
 - **Target:** `refs/heads/main`
 - **Enforcement:** Active
