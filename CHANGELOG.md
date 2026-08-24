@@ -186,6 +186,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   hand-built payload would drop, so the GitHub UI is now recorded as the source of truth.
 
 ### Added
+- **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
+  them.** Nineteen commits made between 2026-08-16 and 2026-08-17 carry the author and committer
+  identity `Test <test@example.com>`, left by a git identity that was misconfigured for that
+  two-day window. The work is substantive - it includes feature-mode 10, the `n_jobs` parallelism
+  adoption, two Semgrep suppression repairs and the `matplotlib` packaging fix - and the
+  repository is public, so a placeholder identity is what a reader currently sees against it.
+  **The mapping is evidenced rather than assumed:** every one of the nineteen is GPG-signed and
+  every signature verifies as good against the maintainer's key, so the signature establishes
+  authorship while the author field records only the misconfiguration.
+  **`.mailmap` rather than a history rewrite, deliberately:** the tracked documentation carries
+  189 commit citations that the required `Cited commits resolve` check verifies on every pull
+  request, and rewriting history to repair a display string would invalidate every one of them.
+  `git shortlog -sne` now reports 811 commits for the maintainer where it reported 792.
+  The one genuine external contributor in the history is **not** remapped.
+  **Why no gate caught it, which is the durable part:** the DCO check verifies that a
+  `Signed-off-by:` trailer matches the commit author. These commits are signed off by
+  `Test <test@example.com>` *and* authored by `Test <test@example.com>`, so they are internally
+  consistent and DCO passes. Nothing asserts that the author is a person who exists.
+  **Consistency and correctness are different properties, and only the first was being checked.**
+- **Feature mode 10, the binding-only ablation arm (`2e8e75a`, 2026-08-16).** Recorded here
+  retrospectively: it shipped without an entry announcing it, and appears in this file only
+  incidentally, inside a later D29 entry that lists `FEATURE_COLUMNS_10` among the production
+  feature-set constants and so presupposes a mode the changelog never introduced.
+  SESTRAV's design thesis is that
+  physicochemistry adds value beyond MHC binding alone, but Table 1 measured that increment in
+  only one direction (mode 21 physico-only -> mode 31 physico+binding). No arm measured the
+  converse. Adds `FEATURE_COLUMNS_10` (the ten existing `BINDING_ALLELE_COLUMNS`, no
+  physicochemistry and no `peptide_length`) and `prepare_features_10`, wired into
+  `train_classifier.py`'s dispatch and `--feature-mode` choices and into
+  `scripts/batch_experiment_runner.py`'s `VALID_FEATURE_MODES`, following the same pattern as
+  every other mode so it runs through the identical peptide-grouped CV path and is directly
+  comparable. The commit adds the arm only; it reports no measured number.
 - **Seven runtime dependencies that the packaged code has always imported but never declared.**
   An AST audit of every module-scope import across the three packaged trees (`sestrav/`, `src/`,
   `functions/`) found `biopython`, `mhcflurry`, `PyYAML`, `scipy`, `xgboost`, `openpyxl` and
