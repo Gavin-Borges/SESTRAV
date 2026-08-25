@@ -216,6 +216,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **`immunogenicity_score` had no range check between a model's `predict_proba` output and
+  everything downstream that treats it as a `[0, 1]` probability - calibration, thresholding,
+  the ranked CSV, and (once promoted) `api/main.py`'s response model (LRF-1).** A model loaded
+  with a ranking objective returns raw margins outside `[0, 1]` instead of a probability, and
+  nothing caught it: `models/xgb_50feature_integrated.joblib` is an `XGBClassifier` with
+  `objective='rank:pairwise'`, and a mode-50 sweep was observed writing `mean_score=-4.38` while
+  `scripts/batch_experiment_runner.py` recorded the trial as `status=SUCCESS` - the exact
+  silent-wrong-value shape this entry closes.
+  **Fails loudly instead**, at the single point every scoring branch in
+  `functions/stage4_immunogenicity_scoring.py` converges (before calibration, before the ranked
+  CSV is written): out-of-range values raise `RuntimeError` naming the model path and the
+  observed range, rather than propagating a value nothing downstream can distinguish from a
+  genuine low-confidence score. `scripts/batch_experiment_runner.py` already catches and records
+  `status=FAILED: RuntimeError` with the message in `notes` for any pipeline exception, so this
+  needed no caller-side change to turn the false `SUCCESS` into an honest `FAILED`.
+  **Not a copy-paste of `api/main.py`'s guard**, which the register that raised this item
+  described as ready-made: that is a Pydantic `Field(ge=0.0, le=1.0)` on an **API response
+  model**, not on this array write, so the *bound* transfers but the mechanism does not - the
+  stage-4 write needed its own check.
+  The PyTorch path is unaffected by construction (`_load_pytorch_model` applies a sigmoid, which
+  cannot exceed `[0, 1]`); a regression test (`_FakeRankingModel`, mirroring the ranking
+  objective's raw-margin output) confirms the joblib path now raises rather than silently
+  ranking on an unbounded score.
 - **`scripts/check_repo_status.py` crashed on a default Windows console, and the same latent
   defect sat in six other files (ENC-1).** Reproduced directly rather than inferred: under
   `PYTHONIOENCODING=cp1252` the script died at its first status line with

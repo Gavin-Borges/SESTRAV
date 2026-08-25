@@ -117,6 +117,34 @@ def test_joblib_branch_scores(monkeypatch, tmp_path, cols):
     assert ranked["rank"].tolist() == list(range(1, len(ranked) + 1))
 
 
+class _FakeRankingModel:
+    """Mimics XGBClassifier(objective='rank:pairwise'): predict_proba returns raw
+    margins outside [0, 1], not probabilities. Regression test for LRF-1."""
+
+    def __init__(self, n_features):
+        self.n_features_in_ = n_features
+
+    def predict_proba(self, X):
+        margins = np.asarray(X).sum(axis=1) - 10.0  # guaranteed outside [0, 1]
+        return np.column_stack([-margins, margins])
+
+
+def test_joblib_branch_raises_on_out_of_range_score(monkeypatch, tmp_path):
+    """LRF-1: a ranking-objective model's raw margins must fail loudly, not silently
+    flow through calibration/thresholding/ranking as if they were probabilities."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "xgb_50feature_integrated.joblib"
+    model_path.write_bytes(b"stub")
+    monkeypatch.setattr(
+        s4,
+        "load_verified_joblib",
+        lambda p, required_checksum=True: _FakeRankingModel(len(FEATURE_COLUMNS_50)),
+    )
+    df = _feature_frame(FEATURE_COLUMNS_50)
+    with pytest.raises(RuntimeError, match=r"out of the required \[0, 1\] range"):
+        s4.score_immunogenicity(df, "HPV16", model_path=str(model_path))
+
+
 def test_joblib_missing_loader_warns(monkeypatch, tmp_path, capsys):
     """When joblib support is unavailable the prototype fallback still scores."""
     _run_in_results_dir(monkeypatch, tmp_path)

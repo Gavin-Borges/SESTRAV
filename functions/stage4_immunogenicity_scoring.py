@@ -520,6 +520,30 @@ def score_immunogenicity(
                 "(NOT scientifically valid)"
             )
 
+    # immunogenicity_score is documented (module docstring) and consumed downstream
+    # (calibration, thresholding, ranking, api/main.py's ScoreResponse) as a [0, 1]
+    # probability. That holds for a standard sklearn/PyTorch classifier's
+    # predict_proba/sigmoid output, but nothing enforces it: a model loaded here with a
+    # ranking objective (e.g. XGBClassifier(objective="rank:pairwise")) returns raw
+    # margins outside [0, 1] instead, and every downstream stage - calibration,
+    # thresholding, the ranked CSV - silently treats that margin as a probability.
+    # LRF-1: models/xgb_50feature_integrated.joblib is exactly this case; a mode-50
+    # sweep was observed writing mean_score=-4.38 while reporting status=SUCCESS.
+    # Fail loudly and immediately rather than propagate a value nothing downstream
+    # can distinguish from a genuine low-confidence score.
+    score_values = features_df["immunogenicity_score"].to_numpy(dtype=float)
+    out_of_range = (score_values < 0.0) | (score_values > 1.0)
+    if out_of_range.any():
+        bad = score_values[out_of_range]
+        raise RuntimeError(
+            f"[Stage 4] immunogenicity_score out of the required [0, 1] range: "
+            f"{out_of_range.sum()} of {len(score_values)} value(s), "
+            f"observed range [{bad.min():.4f}, {bad.max():.4f}]. "
+            f"Model: {model_path!r}. This model's predict_proba output is not a "
+            "probability - check its objective/loss (e.g. a ranking objective such as "
+            "rank:pairwise returns raw margins, not [0, 1] scores)."
+        )
+
     if calibrate:
         cal_scores, was_calibrated = _apply_calibration(
             features_df["immunogenicity_score"].values,
