@@ -3,10 +3,11 @@
 # git, GitHub, `git shortlog -sne` and `git log --use-mailmap` all honour this
 # file, so it corrects how authorship is DISPLAYED without rewriting a single
 # commit object. That property is why it is the right instrument here: the
-# tracked documentation carries 189 commit citations, verified on every pull
-# request by the required `Cited commits resolve` check, and rewriting history
-# to repair an author field would invalidate all of them to fix a display
-# string.
+# tracked documentation carried 190 commit citations when this file was added
+# (measured at 87bcbbb; the count grows with the history, so it is bound to a
+# commit rather than left floating), verified on every pull request by the
+# required `Cited commits resolve` check, and rewriting history to repair an
+# author field would invalidate all of them to fix a display string.
 #
 # The mapping below is evidenced, not assumed. Nineteen commits made between
 # 2026-08-16 and 2026-08-17 carry the author and committer identity

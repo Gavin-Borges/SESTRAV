@@ -198,10 +198,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every signature verifies as good against the maintainer's key, so the signature establishes
   authorship while the author field records only the misconfiguration.
   **`.mailmap` rather than a history rewrite, deliberately:** the tracked documentation carries
-  189 commit citations that the required `Cited commits resolve` check verifies on every pull
-  request, and rewriting history to repair a display string would invalidate every one of them.
-  `git shortlog -sne` now reports 811 commits for the maintainer where it reported 792.
-  The one genuine external contributor in the history is **not** remapped.
+  **190** commit citations at `87bcbbb` that the required `Cited commits resolve` check verifies on
+  every pull request, and rewriting history to repair a display string would invalidate every one
+  of them.
+  Applied to `origin/main`'s published history at `36e3d8d`, the mapping moves the maintainer from
+  **792** commits to **811**; measured at this branch's own tip it is **809 -> 828**, because the
+  branch adds maintainer commits of its own. The one genuine external contributor in the history is
+  **not** remapped (4 commits, unchanged).
+  **AMBIGUITY CORRECTED IN-BRANCH 2026-08-24.** This entry originally read *"now reports 811
+  commits for the maintainer where it reported 792"*. **Both figures are correct**, and they are
+  the right pair to quote - `origin/main` is the published history the mapping exists to fix - but
+  the sentence never said **which history it measured**, so a reader who ran the stated command on
+  this branch would get 822 at `87bcbbb` or 828 at the tip and reasonably conclude the entry was
+  wrong. The frame is now named.
+  **A first attempt at this correction over-corrected, and that is the part worth keeping.** It
+  asserted that `811` "describes no state this repository has ever been in" and that both figures
+  were wrong - reasoning that `792` was a stale merge-base baseline and `792 + 19` was therefore
+  arithmetic on it. **That was itself false**, and it was false in the direction that made the
+  original author look worse. `git shortlog -sne 36e3d8d` returns exactly 811 with this `.mailmap`
+  present. **The retraction was drafted before its own instrument was tested**, which is the same
+  error one layer up.
+  **The instrument is the durable finding here, and it is easy to get wrong:** `git shortlog`
+  **always** applies the mailmap, and `-c log.mailmap=false` does **not** turn it off - both
+  spellings returned the mapped figure, differing from the unmapped one by exactly 19 at every SHA,
+  which is what exposed it. The reliable unmapped instrument is
+  `git log --no-use-mailmap --format='%ae' <sha>`, which resolves `87bcbbb` to 803 maintainer plus
+  19 `test@example.com` rather than a single mapped 822. An earlier measurement appeared to
+  disable the mapping only because it ran from a branch that had no `.mailmap` in its working tree
+  at all - git reads that file from the **worktree**, not from the commit being logged.
+  **The `189` above was a genuine off-by-one:** it was measured immediately before `87bcbbb` was
+  written, and the act of writing that entry added the 190th citation. Confirmed at 190 by running
+  `scripts/check_doc_commit_refs.py` against a detached worktree pinned to `87bcbbb`. Counts are
+  now stated with the SHA they were measured at, because both of these figures grow with the
+  history and a floating count goes stale by construction.
   **Why no gate caught it, which is the durable part:** the DCO check verifies that a
   `Signed-off-by:` trailer matches the commit author. These commits are signed off by
   `Test <test@example.com>` *and* authored by `Test <test@example.com>`, so they are internally
