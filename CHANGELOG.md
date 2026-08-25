@@ -198,19 +198,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every signature verifies as good against the maintainer's key, so the signature establishes
   authorship while the author field records only the misconfiguration.
   **`.mailmap` rather than a history rewrite, deliberately:** the tracked documentation carries
-  **190** commit citations at `87bcbbb` that the required `Cited commits resolve` check verifies on
+  **190** commit citations at `710de46` that the required `Cited commits resolve` check verifies on
   every pull request, and rewriting history to repair a display string would invalidate every one
   of them.
-  Applied to `origin/main`'s published history at `36e3d8d`, the mapping moves the maintainer from
-  **792** commits to **811**; measured at this branch's own tip it is **809 -> 828**, because the
-  branch adds maintainer commits of its own. The one genuine external contributor in the history is
-  **not** remapped (4 commits, unchanged).
+  **The invariant, which is what a reader should hold on to: the mapping folds exactly 19 commits
+  into the maintainer's total, wherever it is measured.** Absolute totals are quoted only against
+  an immutable SHA, because they grow with the history: applied to `36e3d8d` - this branch's
+  merge-base, and `origin/main`'s tip when the mapping was written - it moves the maintainer from
+  **792** to **811**. The one genuine external contributor is **not** remapped (4 commits,
+  unchanged).
   **AMBIGUITY CORRECTED IN-BRANCH 2026-08-24.** This entry originally read *"now reports 811
   commits for the maintainer where it reported 792"*. **Both figures are correct**, and they are
   the right pair to quote - `origin/main` is the published history the mapping exists to fix - but
   the sentence never said **which history it measured**, so a reader who ran the stated command on
-  this branch would get 822 at `87bcbbb` or 828 at the tip and reasonably conclude the entry was
-  wrong. The frame is now named.
+  this branch would get a larger number - the branch carries maintainer commits of its own - and
+  reasonably conclude the entry was wrong. The frame is now named.
+  **This correction then went stale twice inside its own pull request, which settles the design
+  question rather than embarrassing it.** A draft quoted the branch tip as `809 -> 828`; rebasing
+  onto a main that had advanced by two commits made it `810 -> 829` before review. The same rebase
+  rewrote every SHA on the branch, orphaning four `710de46` citations - **caught by the
+  `Cited commits resolve` gate, which is precisely the invalidation this entry cites as the reason
+  not to rewrite history** - and shifted the mapped total at that commit by one more. **A count
+  anchored to a moving ref cannot be kept true by being careful.** Hence the invariant above, and
+  hence absolute totals bound only to `36e3d8d`, which is a permanent ancestor of `main` and cannot
+  shift under a rebase.
   **A first attempt at this correction over-corrected, and that is the part worth keeping.** It
   asserted that `811` "describes no state this repository has ever been in" and that both figures
   were wrong - reasoning that `792` was a stale merge-base baseline and `792 + 19` was therefore
@@ -222,13 +233,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   **always** applies the mailmap, and `-c log.mailmap=false` does **not** turn it off - both
   spellings returned the mapped figure, differing from the unmapped one by exactly 19 at every SHA,
   which is what exposed it. The reliable unmapped instrument is
-  `git log --no-use-mailmap --format='%ae' <sha>`, which resolves `87bcbbb` to 803 maintainer plus
-  19 `test@example.com` rather than a single mapped 822. An earlier measurement appeared to
+  `git log --no-use-mailmap --format='%ae' <sha>`, which resolves `36e3d8d` to 792 maintainer plus
+  19 `test@example.com` rather than a single mapped 811. An earlier measurement appeared to
   disable the mapping only because it ran from a branch that had no `.mailmap` in its working tree
-  at all - git reads that file from the **worktree**, not from the commit being logged.
-  **The `189` above was a genuine off-by-one:** it was measured immediately before `87bcbbb` was
+  at all - git reads that file from the **worktree**, not from the commit being logged, so the
+  same command silently means two different things depending on what is checked out.
+  **The `189` above was a genuine off-by-one:** it was measured immediately before `710de46` was
   written, and the act of writing that entry added the 190th citation. Confirmed at 190 by running
-  `scripts/check_doc_commit_refs.py` against a detached worktree pinned to `87bcbbb`. Counts are
+  `scripts/check_doc_commit_refs.py` against a detached worktree pinned to `710de46`. Counts are
   now stated with the SHA they were measured at, because both of these figures grow with the
   history and a floating count goes stale by construction.
   **Why no gate caught it, which is the durable part:** the DCO check verifies that a

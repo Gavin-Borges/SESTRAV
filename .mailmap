@@ -4,7 +4,7 @@
 # file, so it corrects how authorship is DISPLAYED without rewriting a single
 # commit object. That property is why it is the right instrument here: the
 # tracked documentation carried 190 commit citations when this file was added
-# (measured at 87bcbbb; the count grows with the history, so it is bound to a
+# (measured at 710de46; the count grows with the history, so it is bound to a
 # commit rather than left floating), verified on every pull request by the
 # required `Cited commits resolve` check, and rewriting history to repair an
 # author field would invalidate all of them to fix a display string.
