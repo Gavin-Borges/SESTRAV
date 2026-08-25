@@ -38,6 +38,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -52,3 +53,33 @@ jobs:
         # direct pins, CVE-floor violations, or any unhashed entry. See
         # tools/check_lockfile_freshness.py for the exact rules.
         run: python tools/check_lockfile_freshness.py --check
+
+      - name: Block Dependabot from editing the hand-maintained render lockfile
+        # environments/requirements-ci-render.txt is tier 4 (CONTRIBUTING.md's
+        # dependency-tier table): hand-maintained via `pip download` + `pip hash`,
+        # with no `.in` source, so the freshness check above cannot see it at all -
+        # it only walks LOCKFILE_PAIRS, which this file is deliberately not part
+        # of. dependabot.yml's `ignore:` list is the only lever Dependabot itself
+        # offers, and it is keyed by PACKAGE NAME, so it can only ever be
+        # reactive: it protects a transitive dependency once someone has already
+        # been bitten by Dependabot reaching it and named it. Three names
+        # (fastjsonschema, nbformat, pygments) reached this file in a single
+        # 2026-08-24 cycle despite two direct entries (ipykernel, nbclient) and
+        # one earlier transitive one (platformdirs) already being on that list -
+        # a name-keyed guard cannot protect a target reached transitively by a
+        # name it has not seen yet. This step is the path-scoped guard instead:
+        # it blocks the actor from touching this path at all, independent of
+        # which package moved, so the next unnamed transitive dependency cannot
+        # slip through the same way. `pull_request.user.login`, not
+        # `github.actor`, per the same reasoning pr-review-check.yml documents
+        # for its own bot allowlist.
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login == 'dependabot[bot]'
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+              | grep -qx 'environments/requirements-ci-render.txt'; then
+            echo "::error file=environments/requirements-ci-render.txt::Dependabot must not modify this hand-maintained, no-.in-source tier-4 lockfile (CONTRIBUTING.md dependency tier 4). Close this PR, add the newly-reached package name(s) to the ignore: list in .github/dependabot.yml, and update this file by hand following its own header recipe (pip download + pip hash) in a separate PR." >&2
+            exit 1
+          fi
+          echo "environments/requirements-ci-render.txt untouched - PASSED."
