@@ -8,7 +8,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-### Security
+### Fixed
+- **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
+  invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
+  (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
+  `Path("src/verify/mhc_pseudo_sequences.json")` - CWD-relative. A CWD other than the repo
+  root (an installed `sestrav` package invoked from anywhere else, verified against a real
+  built-and-installed wheel run from an unrelated directory) made that path silently fail
+  to resolve, `pseudo_seqs` default to `{}`, and every HLA allele fall through to an
+  identical `"A"*34` all-alanine placeholder. `generate_canonical_groove_coords` never uses
+  its own `allele_name` argument either, so this table was the ONLY source of allele signal
+  anywhere in the graph - two peptide-allele pairs sharing a peptide produced byte-identical
+  MHC pocket node features and edge attributes regardless of true allele identity, with no
+  error, only a per-allele `logger.warning`.
+  **Scope: `src/verify/structural_gnn.py` is the GNN evaluation/verification harness
+  (`sestrav_evaluator.py`'s "SESTRAV-VERIFY" report, gating `promote_gnn.py`'s scorecard).
+  It is the ONLY production importer of `StructuralPeptideMHCDataset` in the repository.
+  The v2.3 production GNN path (`src/gnn/`, `GraphPredictorV2`, `GINEConv`) is a separate
+  module tree with zero allele references and is NOT affected** - GNN promotion remains
+  deferred (GPU-gated) and no certified result in the results ledger passes through this
+  code path.
+  Fix: the table is now resolved via a module-level `Path(__file__).resolve().parent /
+  "mhc_pseudo_sequences.json"`, independent of CWD, and an absent or content-empty table
+  (only the tracked file's own `_source` documentation key, or truly empty) now raises
+  `FileNotFoundError`/`ValueError` at construction instead of silently defaulting - the
+  existence check alone would not have caught a present-but-gutted file falling through the
+  same placeholder path.
+  A second, independent defect closed in the same change: the wheel built from this
+  repository shipped **zero non-`.py` data files** (verified: 75 entries, none outside
+  `.dist-info/` metadata) - `mhc_pseudo_sequences.json` was never packaged, so even a
+  CWD-correct invocation of an installed package would still have hit the missing-file
+  path. Added `[tool.setuptools.package-data]` (`"src.verify" = ["*.json"]`); a wheel
+  rebuilt after this change carries both tracked JSON files, verified by unzipping it.
+  A third, adjacent defect: `sestrav_evaluator.py`'s `evaluate_single_virus` already caught
+  a `StructuralPeptideMHCDataset` construction failure and fell back to mock predictions,
+  but did so silently - a per-virus exception left `run_evaluation_pipeline`'s top-level
+  `metadata["use_mock_fallback"]` at `False` (computed once before the per-virus loop),
+  so a report could read `use_mock_fallback: false` while some virus's scores were
+  actually mock. Added a `used_mock_fallback` flag threaded through both `except` arms
+  (main-cohort and breakout-mutant) into each virus's own result, and the pipeline now
+  recomputes its top-level flag as an OR across every virus after the loop completes.
+  Twelve new/rewritten tests (`test_structural_gnn.py`, `test_sestrav_evaluator_gnn.py`);
+  every guard and every fallback-flag site was individually mutation-tested by reverting
+  it in isolation and confirming its dedicated test fails, then restoring it and confirming
+  the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 - **A path-scoped guard blocks Dependabot from ever editing
   `environments/requirements-ci-render.txt` again (A5).** That file is tier 4
   (`CONTRIBUTING.md`'s dependency-tier table): hand-maintained via `pip download` + `pip hash`,

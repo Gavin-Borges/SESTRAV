@@ -134,6 +134,17 @@ sestrav = "src.cli:main"
 where = ["."]
 include = ["sestrav*", "src*", "functions*"]
 
+[tool.setuptools.package-data]
+# The two tracked non-.py files under the packaged source trees. Until this
+# declaration, a built wheel carried zero data files - `src.verify`'s own
+# mhc_pseudo_sequences.json was silently absent from every installed
+# package (verified: a wheel built from `git archive HEAD` has 75 entries and
+# no non-.py members outside its own `.dist-info/` metadata directory).
+# setuptools does not include package data by
+# default; declaring it here is necessary even though the file already sits
+# in the source tree.
+"src.verify" = ["*.json"]
+
 # ---------------------------------------------------------------------------
 # Coding standards (OpenSSF Silver: coding_standards / coding_standards_enforced)
 # ---------------------------------------------------------------------------
