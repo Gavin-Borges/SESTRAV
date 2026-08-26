@@ -9,6 +9,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Security
+- **A path-scoped guard blocks Dependabot from ever editing
+  `environments/requirements-ci-render.txt` again (A5).** That file is tier 4
+  (`CONTRIBUTING.md`'s dependency-tier table): hand-maintained via `pip download` + `pip hash`,
+  with no `.in` source, so `tools/check_lockfile_freshness.py` cannot see it - it only walks
+  `LOCKFILE_PAIRS`, which this file is deliberately not part of. `.github/dependabot.yml`'s
+  `ignore:` list is the only lever Dependabot itself offers, and it is keyed by **package name**,
+  so it can only ever be reactive: it protects a transitive dependency once someone has already
+  been bitten by Dependabot reaching it and named it. Three names (`fastjsonschema`, `nbformat`,
+  `pygments`) reached this file in a single 2026-08-24 cycle despite two direct entries
+  (`ipykernel`, `nbclient`) and one earlier transitive one (`platformdirs`) already on that list -
+  a name-keyed guard cannot protect a target reached transitively by a name it has not seen yet.
+  A new step in `.github/workflows/dependency-lockfile-check.yml` blocks the actor from touching
+  this path at all, independent of which package moved: if the PR author is `dependabot[bot]`
+  and the diff touches `environments/requirements-ci-render.txt`, the check fails with a message
+  pointing at the correct fix (add the package name to the ignore list, then update the file by
+  hand in a separate PR). Uses `pull_request.user.login`, not `github.actor`, for the same
+  reliability reason `pr-review-check.yml` already documents for its own bot allowlist.
 - **`persist-credentials: false` added to 19 `actions/checkout` steps across 12 workflow
   files.** The repository has **21** checkout steps across **14** files (`security.yml` holds
   6 and `ci.yml` 3, which is why the file count and the step count differ). `scorecard.yml`
