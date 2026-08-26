@@ -11,7 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Security
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
-  Live-measured 2026-08-26 (Scorecard v5.5.0 @ `c395761`, repo commit `fce43b5`): score 0,
+  Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
+  `fce43b5`): score 0,
   reason verbatim "Project has not signed or included provenance with any releases." The
   attest step (`actions/attest-build-provenance`) already runs and already signs real
   build artifacts - both `v2.0.3` and `v2.0.2` wheel digests resolve to a stored
