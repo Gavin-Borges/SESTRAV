@@ -140,9 +140,18 @@ include = ["sestrav*", "src*", "functions*"]
 # mhc_pseudo_sequences.json was silently absent from every installed
 # package (verified: a wheel built from `git archive HEAD` has 75 entries and
 # no non-.py members outside its own `.dist-info/` metadata directory).
-# setuptools does not include package data by
-# default; declaring it here is necessary even though the file already sits
-# in the source tree.
+#
+# The mechanism is NOT that setuptools defaults to excluding package data -
+# it does not. Resolved against this very file (setuptools 83.0.0,
+# `apply_configuration(Distribution(), "pyproject.toml")`), `include_package_data`
+# comes back **True**; only a bare `Distribution()` with no pyproject applied
+# reports `None`. Under pyproject.toml that flag is on by default.
+#
+# What it is on by default for is files the **sdist manifest** covers, and this
+# project has neither a `MANIFEST.in` nor `setuptools-scm` (`[build-system]
+# .requires` is setuptools + wheel only), so the manifest covers nothing and
+# `include_package_data=True` has nothing to act on. Declaring the files here
+# is what actually ships them.
 "src.verify" = ["*.json"]
 
 # ---------------------------------------------------------------------------

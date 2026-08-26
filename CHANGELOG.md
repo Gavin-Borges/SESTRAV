@@ -48,10 +48,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   actually mock. Added a `used_mock_fallback` flag threaded through both `except` arms
   (main-cohort and breakout-mutant) into each virus's own result, and the pipeline now
   recomputes its top-level flag as an OR across every virus after the loop completes.
-  Twelve new/rewritten tests (`test_structural_gnn.py`, `test_sestrav_evaluator_gnn.py`);
+  Ten new or rewritten tests - seven added and three rewritten, across
+  `test_structural_gnn.py` and `test_sestrav_evaluator_gnn.py`, with one obsolete test
+  removed (`test_dataset_no_pseudo_seqs_file`, which pinned the silent-empty-table
+  behaviour this change deliberately converts into a raise);
   every guard and every fallback-flag site was individually mutation-tested by reverting
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
+### Security
+- **A1: the release workflow now attaches its SLSA build-provenance attestation as a
+  release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
+  Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
+  `fce43b5`): score 0,
+  reason verbatim "Project has not signed or included provenance with any releases." The
+  attest step (`actions/attest-build-provenance`) already runs and already signs real
+  build artifacts - both `v2.0.3` and `v2.0.2` wheel digests resolve to a stored
+  attestation via `gh attestation verify` today. **But at the time either release was cut,
+  its `subject-path` covered only `dist/*.tar.gz,dist/*.whl`** (`git show
+  v2.0.2:.github/workflows/release.yml` / `v2.0.3:` same path, both pinned to
+  `actions/attest-build-provenance@a2bbfa25` v4.1.0); the third glob
+  (`dist_release_bundle/*.zip`) was added later by `f7f915e` (2026-08-13), two months
+  after `v2.0.3`. Neither existing release's attestation covers a results-bundle asset,
+  because neither release has one. Separately, and this is the actual defect: Scorecard's
+  `releasesHaveProvenance` probe reads **release assets only**, by name suffix
+  (`probes/releasesHaveProvenance/impl.go` at the pinned revision: `provenanceExtensions =
+  []string{".intoto.jsonl"}`, matched with `strings.HasSuffix(asset.Name, suffix)`, content
+  never inspected), and neither release's assets include one - the attestation has always
+  existed only in GitHub's attestations store, never as a downloadable release file.
+  Fix: the attest step now exposes `id: attest`; a new step copies
+  `steps.attest.outputs.bundle-path` to `dist/sestrav-<version>.intoto.jsonl` guarded by
+  `test -s` (empty or missing aborts the step under `set -e`, before any partial file is
+  written) - reproduced by hand against three cases (a real bundle, an empty file, an
+  unset variable) during review, not by an automated test in this repository, since the
+  step only runs on an actual tag push; and `gh release create`'s asset list picks up the
+  new file. The checksum-manifest step was moved to run after this one so
+  `dist/SHA256SUMS.txt` covers it alongside the wheel and sdist, rather than being
+  generated before the file exists. **One bundle file covers every subject** - confirmed
+  in `actions/attest`'s own bundled `dist/index.js` at the pinned SHA (not its README):
+  `subjectFromInputs()` collects all matched files into one array before a single
+  `createAttestation()` call, and `bundle-path` names that one file.
+  **This closes only the workflow half, and it does not retroactively touch either
+  existing release.** Re-derived from `checks/evaluation/signed_releases.go` at the same
+  pinned revision: `uniqueReleaseTags` accumulates every release regardless of provenance
+  outcome, so the score is `floor(sum(releaseMap.values()) / total_unique_releases)`. The
+  next tag cut under this fixed workflow scores `floor(10/3) = 3` over the two existing
+  releases plus itself - not `floor(10/2) = 5`, since `on: push: tags: v*` cannot
+  re-trigger this workflow on an already-existing tag to backfill either one. Reaching a
+  materially higher score needs one of two separate, NOT-performed-here actions: a manual
+  out-of-band `gh release upload` of a freshly generated `.intoto.jsonl` onto each existing
+  release (this is genuinely possible today, unlike a workflow re-run - it is simply a
+  different action than the one this change makes), or enough further tagged releases
+  under the fixed workflow that the 5-release lookback window becomes dominated by
+  provenanced ones.
 - **A path-scoped guard blocks Dependabot from ever editing
   `environments/requirements-ci-render.txt` again (A5).** That file is tier 4
   (`CONTRIBUTING.md`'s dependency-tier table): hand-maintained via `pip download` + `pip hash`,
