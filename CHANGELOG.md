@@ -949,6 +949,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     **Owner decision required:** regenerate, or annotate the file as historical.
 
 ### Changed
+- **Four minor/patch dependency bumps, hand-rolled rather than merged from Dependabot**
+  (`hypothesis` 6.165.9 -> 6.165.10, `pygments` 2.20.0 -> 2.21.0, `fastjsonschema` 2.22.1 ->
+  2.22.2, `nbformat` 5.11.0 -> 5.11.1). Dependabot proposed exactly these four across two PRs,
+  **#285** and **#287**, and both were closed unmerged.
+  - **#287 was a security regression.** Its compiled `requirements.txt` silently dropped the
+    `setuptools==84.0.0` entry entirely - including the `# via -r requirements.in` /
+    `# via torch` trace showing two consumers - while leaving `requirements.in` untouched and
+    still implying setuptools is required. That pin is what closes **GHSA-h35f-9h28-mq5c** per
+    `requirements.in:15-21`. Root `requirements.txt` is installed `--no-deps --require-hashes`
+    in four workflows, so under `--no-deps` **the file IS the install set** and the advisory fix
+    genuinely would not have been installed. **The hash-pin gate could not have caught this:**
+    deleting a requirement removes its `--hash=` lines with it, so a pin gate sees a
+    fully-hashed file and nothing wrong. `tools/check_lockfile_freshness.py` is what caught it.
+  - **#285 was a wrong-working-directory artifact.** Its `environments/requirements-ci.txt`
+    rewrote 5 provenance comments from `# via -r environments/requirements-ci.in` to
+    `# via -r requirements-ci.in`, which is what `pip-compile` emits when run from inside
+    `environments/` instead of the repo root. Neither PR regenerated
+    `environments/requirements.lock`, which shares the `hypothesis` pin and would have gone
+    stale against the file they did change.
+  - **The replacement regenerates all ten managed lockfiles through
+    `tools/update_dependencies.py`**, from the repo root, keeping `setuptools==84.0.0`.
+    `environments/requirements-ci-render.txt` is tier 4 (hand-maintained, no `.in` source) and
+    was edited per its own header recipe rather than compiled.
+  - **Every hash was verified against the live PyPI JSON API rather than trusted from the
+    Dependabot diff** - all six changed digests across the three tier-4 packages resolve to a
+    real published artifact of the stated version (one wheel and one sdist each).
 - **Classical-ML training now fits across all available cores** (`RandomForestClassifier(n_jobs=-1)`,
   `XGBClassifier(nthread=-1)`) across the five training and evaluation modules, replacing the
   previous hardcoded single-threaded defaults. **No reported number changes.** Scoring is pinned back
