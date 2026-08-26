@@ -60,7 +60,9 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
   `build_cv_splits` raises rather than degenerating to an ungrouped split if the
   training pool has no `peptide` column.
 - **OOF schema** (`build_oof_records`), written to
-  `models/gnn_oof_predictions.csv` (and a `_<pooling>`-tagged sibling):
+  `models/gnn_oof_predictions.csv` (and a `_<pooling>`-tagged sibling - note the one
+  tagged sibling that is tracked today is a byte-identical duplicate, not a second
+  measurement; see the `_mean` note below the promotion gates):
   `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. Previously
   `peptide,label,gnn_oof_score` - any three-column frame is a pre-repair artifact.
   `hla_allele` appears when the corpus supplies it, `(peptide, hla_allele)` being the
@@ -109,6 +111,32 @@ file other than the one just scored.
 The tracked `models/gnn_oof_predictions.csv` is a v4-era artifact in the old
 three-column schema (14,637 rows, 11,779 unique peptides, pooled AUC-PR 0.7160), so it
 fails Gate 1 by precondition and Gate 2 for want of fold identity.
+
+**The `_mean` tracked artifacts are duplicates, not a second measurement, and nothing
+should be argued from their existence (recorded 2026-08-24).** `models/gnn_oof_predictions_mean.csv`
+is byte-identical to `models/gnn_oof_predictions.csv` - git stores both under the single
+blob `3cb0da2` - and `models/gnn/gnn_config_mean.json` is likewise byte-identical to
+`models/gnn/gnn_config.json` (blob `a0342d3`). Both `_mean` files were added in the same
+commit, `fc9a10d`. The `_mean` suffix distinguishes nothing here: `gnn_config.json`
+already declares `"pooling": "mean"`, so the base config was mean-pooled before the
+tagged copy existed.
+
+Read `fc9a10d`'s message with that in mind. It records
+*"commit canonical mean-pool GNN architecture config (P0 retrain)"* for the JSON and does
+**not mention the 14,638-line CSV at all**, so a reader scanning the history sees a
+retrain announced beside a large new out-of-fold export and can reasonably infer the one
+produced the other. It did not: no rows were produced by that commit that did not already
+exist under another name.
+
+Distinct mean-pool **weights** do exist - `models/gnn/structural_gnn_v2_mean.pth`
+(sha256 `9421f6f7...`) differs from `models/gnn/structural_gnn_v2.pth` (`039ee362...`) -
+but both checkpoints are untracked, and the tracked `_mean` CSV demonstrably does not
+correspond to them, since it is the other checkpoint's export. **No out-of-fold frame
+from a mean-pool run is tracked in this repository.** Treat the `_mean` CSV as a
+duplicate filename, and do not cite it as independent evidence of a mean-pool retrain.
+It is left in place rather than deleted because `tests/test_gnn_model_dir_guard.py` and
+`tests/test_train_gnn_results_guard.py` both name it; removing it is a test change and a
+separate decision.
 
 **A v5 run under `PeptideGroupedKFold` has since been performed, so promotion is no
 longer waiting on one (updated 2026-08-15).** It ran 2026-08-13 at feature mode 31 and

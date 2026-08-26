@@ -252,8 +252,6 @@ results/*
 !results/tsnadb_crossdomain_benchmark.json.provenance.json
 !results/loo_cross_virus_v4.json
 !results/loo_cross_virus_v4.csv
-!results/loo_cross_virus_v5.json
-!results/loo_cross_virus_v5.csv
 !results/loo_cross_virus_v5_clean.json
 !results/loo_cross_virus_v5_clean.csv
 !results/shap_values_rf.csv
