@@ -9,6 +9,10 @@
 #   Heavy/slow tests (GNN checkpoint loads, network calls) are excluded here;
 #   they are covered by CI. The gate catches regressions before they reach
 #   the remote.
+#
+# Check 3 -- blocks any institution name that is not on the affiliation
+#   allowlist (scripts/check_affiliation_claims.py). Guards claims_register
+#   D35, where a fabricated institution reached the public README.
 
 set -uo pipefail
 
@@ -126,5 +130,34 @@ if [[ $status -ne 0 ]]; then
     exit 1
 fi
 
-printf '[pre-push] All fast tests passed -- push allowed.\n'
+printf '[pre-push] All fast tests passed.\n'
+
+# ---- Check 3: Affiliation gate -----------------------------------------
+# Fails if any tracked file names an institution that is not on the
+# allowlist in scripts/check_affiliation_claims.py.
+#
+# Guards docs/claims_register.md D35. A docs cleanup pass invented an
+# institution this project has never had any connection to and it reached
+# the public README, where it stood for five weeks. It carried no number, so
+# every gate this repo had was blind to it by construction.
+#
+# Runs after Check 2 to reuse the conda activation above; the check itself
+# is stdlib-only and takes under a second.
+printf '[pre-push] Checking institution names against the affiliation allowlist...\n'
+
+cd "${REPO_ROOT}" && python scripts/check_affiliation_claims.py
+
+if [[ $? -ne 0 ]]; then
+    printf '\n' >&2
+    block "Affiliation gate failed. An unreviewed institution name is present."
+    printf '\n' >&2
+    printf '%s\n' "  This project's affiliation is the University of Rhode Island." >&2
+    printf '%s\n' "  If a reported name is claimed as OURS and is not URI, it is a" >&2
+    printf '%s\n' "  fabrication - delete it. If it belongs to a cited third party," >&2
+    printf '%s\n' "  add it to THIRD_PARTY_INSTITUTIONS in that script with a note" >&2
+    printf '%s\n' "  naming what cites it. See docs/claims_register.md D35." >&2
+    exit 1
+fi
+
+printf '[pre-push] All checks passed -- push allowed.\n'
 exit 0
