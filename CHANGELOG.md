@@ -166,7 +166,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   **Its twin 190 lines below was corrected in the same pass**, because fixing one and
   leaving the other is how this class survives: the `Fail on unaccepted lockfile
   advisories` step claimed "this is the step that is supposed to block a merge". It
-  cannot - `pip-audit` is not one of the ruleset's four required status checks, so a red
+  cannot - `pip-audit` is not one of the ruleset's required status checks (four at the
+  time of that pass, five since `Cited lines still hold their content` was added later the
+  same day; the count is corrected here rather than left to contradict the entry below), so a red
   job there does not gate the merge button, exactly as the corrected pip-audit row in
   `SECURITY.md`'s CI gate map says. The comment now states what the step really does: it
   fails the job closed, which is a visible signal, not a merge gate.
@@ -203,6 +205,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   hand-built payload would drop, so the GitHub UI is now recorded as the source of truth.
 
 ### Added
+- **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
+  them.** Nineteen commits made between 2026-08-16 and 2026-08-17 carry the author and committer
+  identity `Test <test@example.com>`, left by a git identity that was misconfigured for that
+  two-day window. The work is substantive - it includes feature-mode 10, the `n_jobs` parallelism
+  adoption, two Semgrep suppression repairs and the `matplotlib` packaging fix - and the
+  repository is public, so a placeholder identity is what a reader currently sees against it.
+  **The mapping is evidenced rather than assumed:** every one of the nineteen is GPG-signed and
+  every signature verifies as good against the maintainer's key, so the signature establishes
+  authorship while the author field records only the misconfiguration.
+  **`.mailmap` rather than a history rewrite, deliberately:** the tracked documentation carries
+  **190** commit citations at `710de46` that the required `Cited commits resolve` check verifies on
+  every pull request, and rewriting history to repair a display string would invalidate every one
+  of them.
+  **The invariant, which is what a reader should hold on to: the mapping folds exactly 19 commits
+  into the maintainer's total, wherever it is measured.** Absolute totals are quoted only against
+  an immutable SHA, because they grow with the history: applied to `36e3d8d` - this branch's
+  merge-base, and `origin/main`'s tip when the mapping was written - it moves the maintainer from
+  **792** to **811**. The one genuine external contributor is **not** remapped (4 commits,
+  unchanged).
+  **AMBIGUITY CORRECTED IN-BRANCH 2026-08-24.** This entry originally read *"now reports 811
+  commits for the maintainer where it reported 792"*. **Both figures are correct**, and they are
+  the right pair to quote - `origin/main` is the published history the mapping exists to fix - but
+  the sentence never said **which history it measured**, so a reader who ran the stated command on
+  this branch would get a larger number - the branch carries maintainer commits of its own - and
+  reasonably conclude the entry was wrong. The frame is now named.
+  **This correction then went stale twice inside its own pull request, which settles the design
+  question rather than embarrassing it.** A draft quoted the branch tip as `809 -> 828`; rebasing
+  onto a main that had advanced by two commits made it `810 -> 829` before review. The same rebase
+  rewrote every SHA on the branch, orphaning four `710de46` citations - **caught by the
+  `Cited commits resolve` gate, which is precisely the invalidation this entry cites as the reason
+  not to rewrite history** - and shifted the mapped total at that commit by one more. **A count
+  anchored to a moving ref cannot be kept true by being careful.** Hence the invariant above, and
+  hence absolute totals bound only to `36e3d8d`, which is a permanent ancestor of `main` and cannot
+  shift under a rebase.
+  **A first attempt at this correction over-corrected, and that is the part worth keeping.** It
+  asserted that `811` "describes no state this repository has ever been in" and that both figures
+  were wrong - reasoning that `792` was a stale merge-base baseline and `792 + 19` was therefore
+  arithmetic on it. **That was itself false**, and it was false in the direction that made the
+  original author look worse. `git shortlog -sne 36e3d8d` returns exactly 811 with this `.mailmap`
+  present. **The retraction was drafted before its own instrument was tested**, which is the same
+  error one layer up.
+  **The instrument is the durable finding here, and it is easy to get wrong:** `git shortlog`
+  **always** applies the mailmap, and `-c log.mailmap=false` does **not** turn it off - both
+  spellings returned the mapped figure, differing from the unmapped one by exactly 19 at every SHA,
+  which is what exposed it. The reliable unmapped instrument is
+  `git log --no-use-mailmap --format='%ae' <sha>`, which resolves `36e3d8d` to 792 maintainer plus
+  19 `test@example.com` rather than a single mapped 811. An earlier measurement appeared to
+  disable the mapping only because it ran from a branch that had no `.mailmap` in its working tree
+  at all - git reads that file from the **worktree**, not from the commit being logged, so the
+  same command silently means two different things depending on what is checked out.
+  **The `189` above was a genuine off-by-one:** it was measured immediately before `710de46` was
+  written, and the act of writing that entry added the 190th citation. Confirmed at 190 by running
+  `scripts/check_doc_commit_refs.py` against a detached worktree pinned to `710de46`. Counts are
+  now stated with the SHA they were measured at, because both of these figures grow with the
+  history and a floating count goes stale by construction.
+  **Why no gate caught it, which is the durable part:** the DCO check verifies that a
+  `Signed-off-by:` trailer matches the commit author. These commits are signed off by
+  `Test <test@example.com>` *and* authored by `Test <test@example.com>`, so they are internally
+  consistent and DCO passes. Nothing asserts that the author is a person who exists.
+  **Consistency and correctness are different properties, and only the first was being checked.**
+- **Feature mode 10, the binding-only ablation arm (`2e8e75a`, 2026-08-16).** Recorded here
+  retrospectively: it shipped without an entry announcing it, and appears in this file only
+  incidentally, inside a later D29 entry that lists `FEATURE_COLUMNS_10` among the production
+  feature-set constants and so presupposes a mode the changelog never introduced.
+  SESTRAV's design thesis is that
+  physicochemistry adds value beyond MHC binding alone, but Table 1 measured that increment in
+  only one direction (mode 21 physico-only -> mode 31 physico+binding). No arm measured the
+  converse. Adds `FEATURE_COLUMNS_10` (the ten existing `BINDING_ALLELE_COLUMNS`, no
+  physicochemistry and no `peptide_length`) and `prepare_features_10`, wired into
+  `train_classifier.py`'s dispatch and `--feature-mode` choices and into
+  `scripts/batch_experiment_runner.py`'s `VALID_FEATURE_MODES`, following the same pattern as
+  every other mode so it runs through the identical peptide-grouped CV path and is directly
+  comparable. The commit adds the arm only; it reports no measured number.
 - **Seven runtime dependencies that the packaged code has always imported but never declared.**
   An AST audit of every module-scope import across the three packaged trees (`sestrav/`, `src/`,
   `functions/`) found `biopython`, `mhcflurry`, `PyYAML`, `scipy`, `xgboost`, `openpyxl` and
@@ -233,6 +308,110 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **Sixteen provenance digests were recorded from the Windows working tree instead of the
+  committed blob, so they FAILed on files that were correct (D7).** With `core.autocrlf=true`
+  a CSV or JSON artifact is CRLF on disk and LF in git, so a digest taken from the working
+  tree is reproducible on exactly one machine. The provenance check compared that value
+  against a blob every clone and every CI run computes differently, and reported a mismatch
+  for artifacts whose content had never drifted. Fixed by pinning `text eol=lf` on all 16 in
+  `.gitattributes` - which makes LF canonical on every platform - and re-recording each digest
+  from the blob. A follow-up pass re-recorded the **15** `size_bytes` fields the first pass
+  left at their CRLF values; pinning `eol=lf` is what promoted those from wrong-on-Linux to
+  wrong-everywhere, so the two commits are one fix in two halves. (15, not 16, because the
+  sixteenth sidecar carries no `size_bytes` field.) Every value recomputed via
+  `git cat-file -s` and `git show | sha256sum` rather than copied from a report. The 17
+  `.joblib` entries in the same manifests are gitignored, absent from HEAD, and deliberately
+  untouched. **Measured effect on the integrity harness: 18 FAIL to 2.**
+- **The Zenodo DOI manifest recorded a checksum for a file that had since been corrected, so
+  the deposition would have failed its own verification (B3).** `docs/zenodo_manifest_v5.json`
+  holds a second-order digest - a hash of a provenance sidecar, not of a dataset - and commit
+  `9a94852` re-materialised that sidecar under a new `eol=lf` pin, changing its digest.
+  **The mechanism is more specific than "it was missed", and an earlier draft of this entry got
+  it wrong: `9a94852` DID update this manifest, in the same change - it just wrote the wrong
+  value.** The digest it recorded,
+  `93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329`, is a real hash of a real
+  prior state - the sidecar's content one revision earlier, at `ef7f532`. The sidecar's actual
+  hash at that point was
+  `c1fbf4ca6a63d39067922984431a140866899d7db19938376f7122cc50b48b3d`.
+  **The fix was off by one revision**, which is exactly why it survived review: a plausible
+  sha256 that verifies against nothing is indistinguishable from a correct one without
+  recomputing it. (Digests are written in full here rather than abbreviated. An abbreviated
+  hash is indistinguishable from a short commit SHA, and the required `Cited commits resolve`
+  gate reads one as the other - a draft of this very entry failed on exactly that.)
+  Traced rather than patched: `data/immunogenicity_dataset_v5.csv` is byte-identical across
+  `ef7f532..9a94852`, so no dataset moved and no result is affected. All three manifest
+  entries now verify against their committed blobs.
+  **`docs/zenodo_deposition.md` carried the same wrong digest and is corrected in the same
+  pass**, at two sites - a table row and, more seriously, an executable `sha256sum -c` block a
+  maintainer is instructed to run before upload. Its other two digests were re-checked and were
+  already correct. **Known coverage gap, left open deliberately and recorded here rather than
+  silently closed:** the integrity harness reads no sidecar glob that would have caught either
+  file, so nothing would have flagged them. Widening those globs is a separate change.
+- **`SECURITY.md` and `docs/SCORECARD_REMEDIATION.md` both understated the branch protection
+  by one required status check.** Both listed **four**; the `Protect Main Branch` ruleset
+  requires **five**, the fifth being `Cited lines still hold their content`. (The ruleset id is
+  recorded in both documents and is deliberately not repeated here: it is an eight-digit
+  decimal that is also valid hex, so quoting it beside the word "commits" makes the
+  `Cited commits resolve` gate read it as a dead short SHA. That is a false positive, but the
+  gate is required, so the citation is written to avoid it rather than to argue with it.)
+  Both were accurate when written and were invalidated
+  a little over two hours later, when that check was added on 2026-08-22T19:14:42-04:00
+  (2h06m after the commit that wrote them, 2h27m after it was authored - stated both ways
+  because "about two hours" quietly rounds toward the shorter, more flattering window). The
+  `SCORECARD_REMEDIATION.md` instance is the more serious of the two because that section
+  states its own provenance as "every field below read from the live API", so the list was
+  making a claim about how it was produced that had stopped being true. Both re-read from the
+  live ruleset API on 2026-08-24 and corrected, and both now record the date they were read.
+  **Note the direction: this correction makes SESTRAV look *better* protected, not worse** -
+  an unusual direction for this repository's defects, and worth recording for that reason
+  alone. **Two tempting explanations for it were tested and both are false, so neither is
+  offered here.** (a) "It survived because errors in the flattering direction get caught
+  quickly": refuted by the fuzzing.yml claim corrected in this same change set, which is
+  maximally flattering and stood for **82 days**. (b) "`SECURITY.md` committing to a *count*
+  is what made it checkable": refuted because `docs/SCORECARD_REMEDIATION.md` carries no count
+  at all - it is a bare bullet list - and was caught in the same pass. Both lists *enumerate*
+  the contexts, and enumeration is what a live API call refutes; the count was incidental.
+  **What actually found it was re-reading the live ruleset instead of the document.** That is
+  the only lesson this entry supports.
+
+- **The pre-Amendment-7 leave-one-out cross-virus figures are no longer tracked (B1).**
+  `results/loo_cross_virus_v5.{csv,json}` carried per-virus numbers that
+  `docs/claims_register.md` D11 retracts as inflated by `allele_matched_nonbinder` decoys, and
+  the CSV additionally held a bare `0.9368` in its HIV-1 `issr_25` cell - a token the retracted
+  list already covers. They were force-tracked by two `!` negations in `.gitignore`, which are
+  removed with them. **Verified before deletion, not after:** no tracked file cites either
+  path. Every live consumer reads the surviving `_clean` variants, which are different files
+  and are untouched; the certified leave-one-out mean of `0.463` recomputes exactly from
+  `results/loo_cross_virus_v5_clean.csv` over its 9 rows.
+
+- **`.github/workflows/fuzzing.yml` claimed to satisfy an OSSF Scorecard check that it does
+  not, and the first attempt to retract that claim introduced a different false one.** The
+  header asserted "This satisfies the Scorecard Fuzzing check". Measured live at the repo
+  commit Scorecard actually analysed: Fuzzing scores **0**, reason "project is not fuzzed".
+  **The retraction's replacement then asserted Scorecard has "no Python detector, so this
+  suite cannot register no matter how it is written". Both halves are false.**
+  `languageFuzzSpecs` in `checks/raw/fuzzing.go`, read at `ossf/scorecard` `c395761` - the
+  exact revision behind the measured score - does map Python, to `PythonAtheris` on
+  `import atheris`, and the map carries 15 language keys, so an enumeration of four marked
+  "only" was wrong twice over. What Scorecard actually lacks is a detector for Hypothesis or
+  any property-based Python library: narrower, and different. **Note the direction: the false
+  version was the one that excused the repository**, converting a fixable gap into an
+  unfixable one. It was caught and retracted before this branch was ever pushed.
+  `docs/SCORECARD_REMEDIATION.md` is reconciled against the corrected reading in the same
+  pass: three rows that credited an untracked and explicitly disabled automation script, or a
+  scanner-version upgrade that changes which version runs rather than what the check measures,
+  are corrected, and the legend is rewritten - it had defined the empty box as "requires
+  manual GitHub UI action", which is not true of every row that uses it. **An earlier draft of
+  this entry said "true of none of the four rows", and that overstated in the opposite
+  direction: it IS true of row 4**, whose entire remaining gap is three live ruleset fields
+  (`bypass_actors`, `required_approving_review_count`, `require_last_push_approval`) that are
+  edited in the GitHub UI, and partly true of row 5. The replacement legend therefore says
+  "not always a GitHub UI action" rather than denying the category - the narrowest wording the
+  rows support. Every score,
+  reason string and Warn detail quoted in the final document was re-verified against
+  `api.securityscorecards.dev`. Two freshly added `file:line` citations were replaced with
+  symbol citations after the repository's own citation gate rejected them.
+
 - **`scripts/check_repo_status.py` crashed on a default Windows console, and the same latent
   defect sat in six other files (ENC-1).** Reproduced directly rather than inferred: under
   `PYTHONIOENCODING=cp1252` the script died at its first status line with
@@ -787,6 +966,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     **Owner decision required:** regenerate, or annotate the file as historical.
 
 ### Changed
+- **Four minor/patch dependency bumps, hand-rolled rather than merged from Dependabot**
+  (`hypothesis` 6.165.9 -> 6.165.10, `pygments` 2.20.0 -> 2.21.0, `fastjsonschema` 2.22.1 ->
+  2.22.2, `nbformat` 5.11.0 -> 5.11.1). Dependabot proposed exactly these four across two PRs,
+  **#285** and **#287**, and both were closed unmerged.
+  - **#287 was a security regression.** Its compiled `requirements.txt` silently dropped the
+    `setuptools==84.0.0` entry entirely - including the `# via -r requirements.in` /
+    `# via torch` trace showing two consumers - while leaving `requirements.in` untouched and
+    still implying setuptools is required. That pin is what closes **GHSA-h35f-9h28-mq5c** per
+    `requirements.in:15-21`. Root `requirements.txt` is installed `--no-deps --require-hashes`
+    in four workflows, so under `--no-deps` **the file IS the install set** and the advisory fix
+    genuinely would not have been installed. **The hash-pin gate could not have caught this:**
+    deleting a requirement removes its `--hash=` lines with it, so a pin gate sees a
+    fully-hashed file and nothing wrong. `tools/check_lockfile_freshness.py` is what caught it.
+  - **#285 was a wrong-working-directory artifact.** Its `environments/requirements-ci.txt`
+    rewrote 5 provenance comments from `# via -r environments/requirements-ci.in` to
+    `# via -r requirements-ci.in`, which is what `pip-compile` emits when run from inside
+    `environments/` instead of the repo root. Neither PR regenerated
+    `environments/requirements.lock`, which shares the `hypothesis` pin and would have gone
+    stale against the file they did change.
+  - **The replacement regenerates all ten managed lockfiles through
+    `tools/update_dependencies.py`**, from the repo root, keeping `setuptools==84.0.0`.
+    `environments/requirements-ci-render.txt` is tier 4 (hand-maintained, no `.in` source) and
+    was edited per its own header recipe rather than compiled.
+  - **Every hash was verified against the live PyPI JSON API rather than trusted from the
+    Dependabot diff** - all six changed digests across the three tier-4 packages resolve to a
+    real published artifact of the stated version (one wheel and one sdist each).
 - **Classical-ML training now fits across all available cores** (`RandomForestClassifier(n_jobs=-1)`,
   `XGBClassifier(nthread=-1)`) across the five training and evaluation modules, replacing the
   previous hardcoded single-threaded defaults. **No reported number changes.** Scoring is pinned back

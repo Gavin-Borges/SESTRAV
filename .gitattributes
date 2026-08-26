@@ -65,3 +65,28 @@ data/proteomes/*.fasta eol=lf
 data/allele_aware/*.csv eol=lf
 data/allele_aware/*_provenance.json eol=lf
 models/peptide_binding_matrix_v*.csv eol=lf
+
+# Added 2026-08-23 (D7, integrity_check.py's 16 NON-PORTABLE provenance FAILs): same failure
+# mode as every block above - none of these 16 files had an eol pin, so each provenance
+# sidecar recorded a Windows-CRLF working-tree hash instead of the actual LF git blob a
+# Linux clone or CI checkout computes. Scoped to these exact 16 files, not a directory-wide
+# glob, per the D24-resid precedent above of auditing before widening. Each corrected blob
+# digest was independently recomputed via `git show HEAD:<path> | sha256sum` and matched
+# integrity_check.py's own reported blob hash exactly before being re-recorded in the
+# sidecars.
+data/lanl_hiv_v5.csv text eol=lf
+models/feature_importances.csv text eol=lf
+models/optimal_thresholds.json text eol=lf
+models/rf_oof_predictions.csv text eol=lf
+models/training_results.csv text eol=lf
+models/training_subgroup_metrics.csv text eol=lf
+models/v5/feature_importances.csv text eol=lf
+models/v5/optimal_thresholds.json text eol=lf
+models/v5/rf_oof_predictions.csv text eol=lf
+models/v5/training_results.csv text eol=lf
+models/v5/training_subgroup_metrics.csv text eol=lf
+models/allele_aware/feature_importances.csv text eol=lf
+models/allele_aware/optimal_thresholds.json text eol=lf
+models/allele_aware/rf_oof_predictions.csv text eol=lf
+models/allele_aware/training_results.csv text eol=lf
+models/allele_aware/training_subgroup_metrics.csv text eol=lf
