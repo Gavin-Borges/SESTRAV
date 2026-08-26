@@ -1,0 +1,33 @@
+# Canonical author identities for this repository.
+#
+# git, GitHub, `git shortlog -sne` and `git log --use-mailmap` all honour this
+# file, so it corrects how authorship is DISPLAYED without rewriting a single
+# commit object. That property is why it is the right instrument here: the
+# tracked documentation carried 190 commit citations when this file was added
+# (measured at 710de46; the count grows with the history, so it is bound to a
+# commit rather than left floating), verified on every pull request by the
+# required `Cited commits resolve` check, and rewriting history to repair an
+# author field would invalidate all of them to fix a display string.
+#
+# The mapping below is evidenced, not assumed. Nineteen commits made between
+# 2026-08-16 and 2026-08-17 carry the author and committer identity
+# `Test <test@example.com>`, left over from a git identity that was
+# misconfigured for that two-day window. Every one of the nineteen is
+# GPG-signed, and every signature verifies as good against the maintainer's
+# key (`git log --format='%G? %GS'` reports `G` and
+# `gavinmborges1104@gmail.com` for all nineteen). The signature is the
+# authorship evidence; the author field is the artifact of the
+# misconfiguration.
+#
+# Why no gate caught it: the DCO check verifies that a `Signed-off-by:`
+# trailer MATCHES the commit author. These commits sign off as
+# `Test <test@example.com>` and are authored by `Test <test@example.com>`, so
+# they are internally consistent and DCO passes. Nothing in the pipeline
+# asserts that the author is a person who exists. Consistency and correctness
+# are different properties, and only the first one was being checked.
+#
+# Do NOT add a mapping here for a contributor who is genuinely a different
+# person. This file exists to collapse duplicate identities belonging to one
+# human, never to reassign someone else's work.
+
+Gavin Borges <gavinmborges1104@gmail.com> <test@example.com>

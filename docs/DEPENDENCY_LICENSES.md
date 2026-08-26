@@ -47,7 +47,7 @@
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.165.9     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.165.10    | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
