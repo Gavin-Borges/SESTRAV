@@ -520,6 +520,41 @@ def score_immunogenicity(
                 "(NOT scientifically valid)"
             )
 
+    # immunogenicity_score is documented (module docstring) and consumed downstream
+    # (calibration, thresholding, ranking, api/main.py's ScoreResponse) as a [0, 1]
+    # probability. That holds for a standard sklearn/PyTorch classifier's
+    # predict_proba/sigmoid output, but nothing enforces it: a model loaded here with a
+    # ranking objective (e.g. XGBClassifier(objective="rank:pairwise")) returns raw
+    # margins outside [0, 1] instead, and every downstream stage - calibration,
+    # thresholding, the ranked CSV - silently treats that margin as a probability.
+    # LRF-1: models/xgb_50feature_integrated.joblib is exactly this case; a mode-50
+    # sweep was observed writing mean_score=-4.38 while reporting status=SUCCESS.
+    # Fail loudly and immediately rather than propagate a value nothing downstream
+    # can distinguish from a genuine low-confidence score.
+    # NaN is checked explicitly rather than left to the comparisons: (x < 0) | (x > 1)
+    # is False for NaN, so a bare pair of comparisons passes NaN straight through to
+    # calibration and ranking - as undetectable downstream as the margin above, and
+    # reachable on the PyTorch branch, where _load_pytorch_model divides by
+    # (scaler_scale + 1e-10) with no finiteness check.
+    score_values = features_df["immunogenicity_score"].to_numpy(dtype=float)
+    non_finite = ~np.isfinite(score_values)
+    out_of_range = non_finite | (score_values < 0.0) | (score_values > 1.0)
+    if out_of_range.any():
+        finite_bad = score_values[out_of_range & ~non_finite]
+        observed = (
+            f"observed finite range [{finite_bad.min():.4f}, {finite_bad.max():.4f}]"
+            if finite_bad.size
+            else "no finite out-of-range values"
+        )
+        raise RuntimeError(
+            f"[Stage 4] immunogenicity_score out of the required [0, 1] range: "
+            f"{out_of_range.sum()} of {len(score_values)} value(s), "
+            f"{non_finite.sum()} of them non-finite, {observed}. "
+            f"Model: {model_path!r}. This model's predict_proba output is not a "
+            "probability - check its objective/loss (e.g. a ranking objective such as "
+            "rank:pairwise returns raw margins, not [0, 1] scores)."
+        )
+
     if calibrate:
         cal_scores, was_calibrated = _apply_calibration(
             features_df["immunogenicity_score"].values,

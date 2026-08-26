@@ -308,6 +308,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **`immunogenicity_score` had no range check between a model's `predict_proba` output and
+  everything downstream that treats it as a `[0, 1]` probability - calibration, thresholding,
+  the ranked CSV, and (once promoted) `api/main.py`'s response model (LRF-1).** A model loaded
+  with a ranking objective returns raw margins outside `[0, 1]` instead of a probability, and
+  nothing caught it: `models/xgb_50feature_integrated.joblib` is an `XGBClassifier` with
+  `objective='rank:pairwise'`, and in `results/local_test_sweep_2026-08-21/merged_leaderboard.csv`
+  a mode-50 sweep records `mean_score` between **-4.38 and -4.20** across 40 rows (5 seeds x 8
+  panels), against rf+mode50's normal 0.686 to 0.702. That run was still recorded as a success,
+  and the mechanism is checkable in tracked code rather than only in that ledger:
+  `scripts/batch_experiment_runner.py` sets `status = "SUCCESS"` on the existence of a ranked CSV
+  alone, with no check on the values inside it - the exact silent-wrong-value shape this entry
+  closes.
+  **Fails loudly instead**, at the single point every scoring branch in
+  `functions/stage4_immunogenicity_scoring.py` converges (before calibration, before the ranked
+  CSV is written): out-of-range **and non-finite** values raise `RuntimeError` naming the model
+  path and the observed range, rather than propagating a value nothing downstream can distinguish
+  from a genuine low-confidence score. `scripts/batch_experiment_runner.py` already catches and
+  records `status=FAILED: RuntimeError` with the message in `notes` for any pipeline exception
+  (its `except Exception` is broad, and `pipeline.py`'s `run_pipeline` carries no `try` of its own,
+  so the error propagates), so this needed no caller-side change to turn the false `SUCCESS` into
+  an honest `FAILED`.
+  **Not a copy-paste of `api/main.py`'s guard**: that is a Pydantic `Field(ge=0.0, le=1.0)` on an
+  **API response model**, not on this array write, so the *bound* transfers but the mechanism does
+  not - the stage-4 write needed its own check. (The API does its own scoring and never imports
+  `score_immunogenicity`, so the two enforce the same bound on separate paths.)
+  **`NaN` is covered deliberately, and finding that it was not is why this guard is `~isfinite`
+  rather than a bare pair of comparisons.** `(x < 0) | (x > 1)` is `False` for `NaN`, so the first
+  version of this check passed a `NaN` score straight through to ranking - as undetectable
+  downstream as the negative margin the entry exists to stop, and reachable on the PyTorch branch,
+  where `_load_pytorch_model` divides by `scaler_scale + 1e-10` with no finiteness check.
+  The PyTorch path is otherwise bounded by construction (`_load_pytorch_model` applies a sigmoid,
+  which cannot leave `[0, 1]` for finite input); regression tests confirm the joblib path now
+  raises on negative margins, on values above 1, and on `NaN`, and that exact `0.0` and `1.0`
+  remain acceptable.
 - **Sixteen provenance digests were recorded from the Windows working tree instead of the
   committed blob, so they FAILed on files that were correct (D7).** With `core.autocrlf=true`
   a CSV or JSON artifact is CRLF on disk and LF in git, so a digest taken from the working

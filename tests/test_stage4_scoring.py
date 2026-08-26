@@ -117,6 +117,113 @@ def test_joblib_branch_scores(monkeypatch, tmp_path, cols):
     assert ranked["rank"].tolist() == list(range(1, len(ranked) + 1))
 
 
+class _FakeRankingModel:
+    """Mimics XGBClassifier(objective='rank:pairwise'): predict_proba returns raw
+    margins outside [0, 1], not probabilities. Regression test for LRF-1.
+
+    Columns sum to 1.0 as the real ranker's do, which is what makes the output look
+    probability-shaped on casual inspection; only column 1 (the one the joblib branch
+    reads) is out of range. `shift` moves the whole margin vector so a single test can
+    pin one side of the guard's range check at a time.
+    """
+
+    def __init__(self, n_features, shift=0.0):
+        self.n_features_in_ = n_features
+        self.shift = shift
+
+    def predict_proba(self, X):
+        margins = np.asarray(X).sum(axis=1) - 10.0 + self.shift
+        return np.column_stack([1.0 - margins, margins])
+
+
+class _FakeConstantModel:
+    """Returns a caller-supplied column-1 vector verbatim, so a test can place exact
+    values (0.0, 1.0, NaN) at the guard without depending on fixture arithmetic."""
+
+    def __init__(self, n_features, values):
+        self.n_features_in_ = n_features
+        self.values = np.asarray(values, dtype=float)
+
+    def predict_proba(self, X):
+        col1 = np.resize(self.values, len(np.asarray(X)))
+        return np.column_stack([1.0 - col1, col1])
+
+
+def _patch_loader(monkeypatch, model):
+    monkeypatch.setattr(
+        s4, "load_verified_joblib", lambda p, required_checksum=True: model
+    )
+
+
+@pytest.mark.parametrize(
+    "shift, side",
+    [
+        # The unshifted fixture is MIXED (15 margins below 0, one at ~3.01 above 1), so
+        # it fires on either clause alone and pins neither. Each case below is shifted
+        # entirely onto ONE side of the range, so deleting that clause fails this test.
+        (-5.0, "below"),
+        (100.0, "above"),
+    ],
+)
+def test_joblib_branch_raises_on_out_of_range_score(monkeypatch, tmp_path, shift, side):
+    """LRF-1: a ranking-objective model's raw margins must fail loudly, not silently
+    flow through calibration/thresholding/ranking as if they were probabilities.
+
+    Parametrized over both sides of the check so that deleting either half of
+    `(x < 0.0) | (x > 1.0)` fails a test.
+    """
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "xgb_50feature_integrated.joblib"
+    model_path.write_bytes(b"stub")
+    _patch_loader(monkeypatch, _FakeRankingModel(len(FEATURE_COLUMNS_50), shift=shift))
+    df = _feature_frame(FEATURE_COLUMNS_50)
+
+    # Guard the fixture itself: if these margins ever drifted onto the other side (or
+    # in-range) the test would keep passing while pinning nothing.
+    margins = df[FEATURE_COLUMNS_50].to_numpy().sum(axis=1) - 10.0 + shift
+    if side == "below":
+        assert (margins < 0.0).all(), "below-zero fixture drifted"
+    else:
+        assert (margins > 1.0).all(), "above-one fixture drifted"
+
+    with pytest.raises(RuntimeError, match=r"out of the required \[0, 1\] range"):
+        s4.score_immunogenicity(df, "HPV16", model_path=str(model_path))
+
+    # The guard's stated design point is that it fires BEFORE anything is written.
+    assert not (tmp_path / "results" / "HPV16_ranked.csv").exists()
+
+
+def test_joblib_branch_raises_on_nan_score(monkeypatch, tmp_path):
+    """LRF-1: NaN must raise too. `(x < 0) | (x > 1)` is False for NaN, so a bare pair
+    of comparisons passes it through - and a NaN score is exactly as undetectable
+    downstream as the negative margin this guard exists to stop."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "model.joblib"
+    model_path.write_bytes(b"stub")
+    _patch_loader(
+        monkeypatch,
+        _FakeConstantModel(len(FEATURE_COLUMNS_50), [0.4, np.nan, 0.6]),
+    )
+    df = _feature_frame(FEATURE_COLUMNS_50)
+    with pytest.raises(RuntimeError, match=r"non-finite"):
+        s4.score_immunogenicity(df, "HPV16", model_path=str(model_path))
+
+
+def test_joblib_branch_accepts_exact_bounds(monkeypatch, tmp_path):
+    """The bounds are inclusive: exactly 0.0 and exactly 1.0 are valid probabilities.
+    Pins the strict `<`/`>` against a `<=`/`>=` mutant, which no other test catches."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "model.joblib"
+    model_path.write_bytes(b"stub")
+    _patch_loader(
+        monkeypatch, _FakeConstantModel(len(FEATURE_COLUMNS_50), [0.0, 1.0, 0.5])
+    )
+    df = _feature_frame(FEATURE_COLUMNS_50)
+    ranked, _model = s4.score_immunogenicity(df, "HPV16", model_path=str(model_path))
+    assert ranked["immunogenicity_score"].between(0.0, 1.0).all()
+    assert {0.0, 1.0}.issubset(set(ranked["immunogenicity_score"]))
+
+
 def test_joblib_missing_loader_warns(monkeypatch, tmp_path, capsys):
     """When joblib support is unavailable the prototype fallback still scores."""
     _run_in_results_dir(monkeypatch, tmp_path)
