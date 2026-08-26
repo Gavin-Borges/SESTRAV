@@ -54,6 +54,34 @@ genuinely held-out cohort). A different architecture or feature set still needs
 the pre-registration, because the failure mode being guarded against is
 selection over repeated attempts, not any particular model.
 
+Downstream consequence of a successful promotion - READ BEFORE PROMOTING.
+Passing the five gates is necessary but NOT sufficient to ship: promotion
+rewrites config.yaml's model_path to GNN_CHECKPOINT and does not relocate the
+checkpoint, and the FastAPI service cannot serve that value.
+
+  - ModelManager.load (api/main.py) passes config.model_path.name - the
+    BASENAME only - to ModelRegistry.load, which calls
+    ModelRegistry.resolve_model to rebuild the path as models/<basename>
+    relative to cwd. The directory is discarded, so the lookup targets
+    models/structural_gnn_v2.pth, which does not exist. resolve_model itself
+    returns that path unconditionally (its only raise is a ValueError on
+    directory escape); the FileNotFoundError comes from its caller,
+    ModelRegistry.load, and propagates out of the unguarded startup lifespan
+    handler. The API then fails to START - /health included. It does not
+    degrade and it does not fall back, and the failure is not confined to
+    /score.
+  - Two further defects sit latent behind that one and would surface the
+    moment the path resolved: ModelRegistry.load returns a raw state_dict for
+    a .pth (no predict_proba), while _score_peptide builds a flat 31-float
+    vector and GraphPredictorV2.forward expects a PyG Data/Batch carrying
+    ESM-2 node features. There is no model-type dispatch anywhere in
+    api/main.py, and its /model-card and ScoreResponse payloads hardcode
+    RF-specific identifier strings.
+
+Serving a promoted GNN therefore requires an api/main.py change. It is not a
+config-only operation. Verified 2026-08-16; recorded here rather than in a
+planning document because that is where it was lost the last time.
+
 Security hardening:
   - All torch.load calls use weights_only=True (prevents arbitrary code exec).
   - Checksum generation uses native Python hashlib (no shell injection risk).
