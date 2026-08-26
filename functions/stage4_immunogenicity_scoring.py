@@ -531,14 +531,25 @@ def score_immunogenicity(
     # sweep was observed writing mean_score=-4.38 while reporting status=SUCCESS.
     # Fail loudly and immediately rather than propagate a value nothing downstream
     # can distinguish from a genuine low-confidence score.
+    # NaN is checked explicitly rather than left to the comparisons: (x < 0) | (x > 1)
+    # is False for NaN, so a bare pair of comparisons passes NaN straight through to
+    # calibration and ranking - as undetectable downstream as the margin above, and
+    # reachable on the PyTorch branch, where _load_pytorch_model divides by
+    # (scaler_scale + 1e-10) with no finiteness check.
     score_values = features_df["immunogenicity_score"].to_numpy(dtype=float)
-    out_of_range = (score_values < 0.0) | (score_values > 1.0)
+    non_finite = ~np.isfinite(score_values)
+    out_of_range = non_finite | (score_values < 0.0) | (score_values > 1.0)
     if out_of_range.any():
-        bad = score_values[out_of_range]
+        finite_bad = score_values[out_of_range & ~non_finite]
+        observed = (
+            f"observed finite range [{finite_bad.min():.4f}, {finite_bad.max():.4f}]"
+            if finite_bad.size
+            else "no finite out-of-range values"
+        )
         raise RuntimeError(
             f"[Stage 4] immunogenicity_score out of the required [0, 1] range: "
             f"{out_of_range.sum()} of {len(score_values)} value(s), "
-            f"observed range [{bad.min():.4f}, {bad.max():.4f}]. "
+            f"{non_finite.sum()} of them non-finite, {observed}. "
             f"Model: {model_path!r}. This model's predict_proba output is not a "
             "probability - check its objective/loss (e.g. a ranking objective such as "
             "rank:pairwise returns raw margins, not [0, 1] scores)."
