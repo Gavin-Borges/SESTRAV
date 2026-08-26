@@ -123,10 +123,12 @@ SESTRAV is designed as a standalone, offline bioinformatics pipeline.
 How findings from Dependabot, code scanning, and the CI security workflows are
 prioritized and acted on. The policy is deliberately **two-tiered**, but "blocking"
 here means one specific, verifiable thing: gating the merge button via the
-`Protect Main Branch` ruleset (id `16846770`) - its four required status checks
-(`test (3.13)`, `Require human review`, `check_dco`, `Cited commits resolve`) plus
-its code-scanning rule, which names `CodeQL` only. A tool that is not on either of
-those two lists cannot block a merge, even if it fails its own CI job red.
+`Protect Main Branch` ruleset (id `16846770`) - its five required status checks
+(`test (3.13)`, `Require human review`, `check_dco`, `Cited commits resolve`,
+`Cited lines still hold their content`) plus its code-scanning rule, which names
+`CodeQL` only. A tool that is not on either of those two lists cannot block a merge,
+even if it fails its own CI job red. Check list re-read from the live ruleset API
+2026-08-24; it last changed 2026-08-22, when the fifth check was added.
 
 ### Severity -> action (target SLA)
 
