@@ -34,10 +34,19 @@ is **not an ancestor of main** and must not be cited on its own::
 The original named NO institution. The replacement invented one. SESTRAV has
 never had any connection to NC State; every other affiliation record in the
 repository says University of Rhode Island (``CITATION.cff`` x6,
-``MAINTAINERS.md:15``, ``LICENSE:3``, ``SECURITY.md:6``,
-``docs/zenodo_deposition.md``, ``README.md`` foundation-team heading), and 12
-commits carry ``@uri.edu`` author addresses against zero from any NC State
-domain. The false line reached ``origin/main`` through PR #147 and sat in the
+``MAINTAINERS.md`` maintainer table, the ``LICENSE`` copyright line,
+``SECURITY.md``'s opening paragraph, ``docs/zenodo_deposition.md``'s creators
+list, and ``README.md``'s foundation-team heading).
+
+The commit-authorship corroboration is stated as an INVARIANT rather than a
+count, per ``.claude/rules/git-instruments.md`` rule 7: **every commit in this
+repository authored from an institutional address is from ``@uri.edu``, and
+none is from any NC State domain**, wherever it is measured. An earlier
+version of this file said "12 commits", which was measured with ``--all`` and
+overstated the corroboration threefold: there are FOUR distinct commits (all
+by one collaborator), each appearing three times because ``pre-v1-archive``
+and ``release/2.0-rc1`` mirror main's early history under different SHAs.
+``git log --no-use-mailmap --format='%ae' origin/main`` returns 4. The false line reached ``origin/main`` through PR #147 and sat in the
 public README for roughly five weeks.
 
 Nothing could see it. It carried no number, so the retracted-token sweep, the
@@ -111,8 +120,9 @@ EXCLUDED_DIR_PARTS = {
 # THIS PROJECT'S OWN AFFILIATION. Exactly one entry is the point of the gate.
 # Changing it is a deliberate act with an evidence trail, not a cleanup edit.
 #
-# Source of record: CITATION.cff (all six author entries), MAINTAINERS.md:15,
-# LICENSE:3, SECURITY.md:6, docs/zenodo_deposition.md creators list.
+# Source of record: CITATION.cff (all six author entries), the MAINTAINERS.md
+# maintainer table, the LICENSE copyright line, SECURITY.md's opening
+# paragraph, and docs/zenodo_deposition.md's creators list.
 # Corroborated independently by 12 commits authored from @uri.edu addresses.
 OWN_INSTITUTIONS = {
     "university of rhode island",
