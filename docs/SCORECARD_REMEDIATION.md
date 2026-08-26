@@ -1,7 +1,14 @@
 # OSSF Scorecard & Security Remediation Guide
 
 This guide tracks remediation for all alerts from the SESTRAV security audit.
-Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
+Items marked ✅ are complete. Items marked ⬜ are not resolved; each row states
+what remains, which is not always a GitHub UI action - it may be a code change
+or an upstream tooling limitation.
+
+Scores in the Alert column are as first filed and are NOT kept current. Rows 8
+and 9 are the proof: License reads 9/10 there but measures 10 live, and
+CII-Best-Practices reads 0/10 but measures 5. Read the Status cell, not the
+parenthetical, for current state.
 
 ---
 
@@ -12,10 +19,10 @@ Items marked ✅ are complete. Items marked ⬜ require manual GitHub UI action.
 | 1 | keras CVEs (6×) - GHSA-36fq, 4f3f, cjgq, hjqc, mq84, 7gcm | **High** | ✅ Pinned & regenerated in `requirements.txt` |
 | 2 | protobuf DoS - GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt` |
 | 3 | Semgrep false positive (`joblib_load` pattern) | Low | ✅ Fixed in `semgrep-rules/sestrav-custom.yml` |
-| 4 | Branch-Protection (score 4/10) | **High** | ✅ Ruleset applied via automation script |
-| 5 | Code-Review (score 0/10) | **High** | ✅ Ruleset applied via automation script |
-| 6 | Pinned-Dependencies (score 9/10) | Medium | ✅ Scorecard upgraded to v2.4.3 |
-| 7 | Fuzzing (score 0/10) | Medium | ✅ `fuzzing.yml` workflow added |
+| 4 | Branch-Protection (score 4/10) | **High** | ⬜ Ruleset `Protect Main Branch` (id 16846770) is active, but it is UI-managed and was not applied by the automation script - Step 2 retracted that attribution on 2026-08-22, and `scripts/apply-branch-ruleset.ps1` is untracked and disabled. The check still scores 4/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "branch protection is not maximal on development and all release branches"). Its three Warn details bind to live ruleset fields: admin-role bypass (`bypass_actors` RepositoryRole 5, always), `required_approving_review_count: 0`, and `require_last_push_approval: false` |
+| 5 | Code-Review (score 0/10) | **High** | ⬜ Same retracted attribution as row 4, and the ruleset does not remediate this check: it sets `required_approving_review_count: 0`, so no approving review is required to merge. The check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "Found 0/4 approved changesets -- score normalized to 0"). Approving reviews do occur in this repo on bot-authored PRs (#278 and #280 each carry an owner APPROVED review), but Scorecard deliberately discards those: `probes/codeApproved/impl.go` skips approved changesets whose author is a bot, commented as skewing single-maintainer projects. The 4 changesets it did count are the owner's own merged PRs (#277, #282, #283, #284), which carry zero reviews |
+| 6 | Pinned-Dependencies (score 9/10) | Medium | ⬜ The `scorecard-action` upgrade changed which scanner version runs, not what it measures, so it does not remediate this check. It still scores 8/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "dependency not pinned by hash detected -- score normalized to 8"; 26 of 34 pipCommand dependencies pinned). The warned sites are the two `pip install` steps in each of `Dockerfile`, `Dockerfile.api` and `Dockerfile.demo`, plus two in `.github/workflows/release.yml` (the release-check venv install, and the PyPI availability poll). All four files are byte-identical at HEAD to the measured commit. Line numbers are deliberately omitted here; Scorecard reports them per run and they rot |
+| 7 | Fuzzing (score 0/10) | Medium | ⬜ `fuzzing.yml` runs genuine Hypothesis fuzz CI, but Scorecard's Fuzzing check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "project is not fuzzed"). Scorecard has no Hypothesis or property-based-Python detector; its only Python detector is Atheris, matched on `import atheris` (`languageFuzzSpecs`, `checks/raw/fuzzing.go` at ossf/scorecard c395761). Reachable via an Atheris harness, OSS-Fuzz, or ClusterFuzzLite |
 | 8 | License (score 9/10) | Low | ✅ SPDX identifier added to `LICENSE` |
 | 9 | CII-Best-Practices (score 0/10) | Low | ✅ OpenSSF Best Practices badge attained (project 13191, Passing) - embedded in `README.md` |
 | 10 | PyTorch JIT script memory corruption (CVE-2025-3000) | Low | ✅ Resolved - upgraded to `torch==2.13.0`, the first patched release |
@@ -37,7 +44,7 @@ No conflicts with `mhcflurry` were encountered.
 
 ---
 
-### Step 2: Branch Protection Ruleset (HIGH SEVERITY - Score 4→9) - ✅ Complete
+### Step 2: Branch Protection Ruleset (HIGH SEVERITY) - ⬜ Ruleset active, check still 4/10
 
 The branch ruleset is managed in the GitHub web UI (Settings > Rules > Rulesets), which is
 the source of truth. Read it with `gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770`.
@@ -52,7 +59,11 @@ merge. Four further details below were wrong and are fixed: the ruleset name, th
 actor, the status-check context strings, and the omission of the code-scanning rule, which
 is the rule that actually blocks a merge.
 
-Rules in force (every field below read from the live API, not from the script's payload):
+Rules in force (every field below read from the live API, not from the script's payload;
+re-read 2026-08-24, when the fifth required status check was found missing from this list -
+it was added to the ruleset 2026-08-22T19:14:42-04:00, 2h06m after the commit that wrote this
+section and 2h27m after that commit was authored, so the list was accurate when written and
+stale thereafter):
 - **ID / Name:** `16846770` / `Protect Main Branch`
 - **Target:** `refs/heads/main`
 - **Enforcement:** Active
@@ -70,6 +81,7 @@ Rules in force (every field below read from the live API, not from the script's 
     - Required status check: `Require human review`
     - Required status check: `check_dco`
     - Required status check: `Cited commits resolve`
+    - Required status check: `Cited lines still hold their content`
   - ☑ **Require code scanning results: `CodeQL`**, `security_alerts_threshold: all`,
     `alerts_threshold: errors_and_warnings`. This is what makes CodeQL a merge blocker
     for any alert a pull request introduces, as distinct from the Bandit, semgrep and
@@ -82,12 +94,19 @@ under stays pending forever, which blocks merges rather than protecting them.
 
 ---
 
-### Step 3: Code Review Enforcement (HIGH SEVERITY - Score 0→7) - ✅ Complete
+### Step 3: Code Review Enforcement (HIGH SEVERITY) - ⬜ Workflow active, check still 0/10
 
 The PR review workflow (`pr-review-check.yml`) is active and has been added as a required status check (`Require human review`) in the branch ruleset. This ensures:
 - If you (the repository owner) open the PR, the workflow automatically passes (bypassing approval requirements) for frictionless self-merging.
 - If an external contributor opens a PR, it strictly requires at least 1 approving review from a code owner to pass.
-- Scorecard successfully detects the required review constraint.
+
+**Scorecard does NOT read this as a review constraint, and the earlier claim that it
+"successfully detects" one is retracted.** Measured 2026-08-23 at commit 36e3d8d
+(Scorecard v5.5.0): Code-Review scores 0/10, and Branch-Protection reports
+`Warn: branch 'main' does not require approvers`. The ruleset sets
+`required_approving_review_count: 0`, so no approving review is required to merge -
+which is exactly what the summary table's row 5 now records. The owner-bypass behaviour
+above is a deliberate solo-maintainer tradeoff, not something Scorecard credits.
 
 ---
 
@@ -124,8 +143,14 @@ Removed overly-broad `joblib_load(...)` pattern that was false-positively matchi
 Changed `core.warning()` → `core.setFailed()` so the status check blocks merges for external contributors unless approved. It includes a specific check that automatically bypasses enforcement for the repository owner (sole maintainer) to allow frictionless self-merging without sacrificing external contributor review requirements.
 
 ### Scorecard Action Upgrade (`scorecard.yml`)
-Upgraded `ossf/scorecard-action` from v2.3.1 → v2.4.3 (bundles Scorecard v5.3.0).
-SHA pinned: `4eaacf0543bb3f2c246792bd56e8cdeffafb205a`.
+Upgraded `ossf/scorecard-action` from v2.3.1. Current pin, read from the
+`uses: ossf/scorecard-action@...` step in `.github/workflows/scorecard.yml`
+on 2026-08-23:
+`ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4`,
+which bundles Scorecard v5.5.0 - the version that produced the scores quoted in
+the summary table above. This line previously recorded v2.4.3 / `4eaacf05...` /
+Scorecard v5.3.0, which was accurate when written and is now stale in all three
+values. Re-read the workflow rather than this paragraph if they disagree again.
 
 ### Fuzzing Workflow (`.github/workflows/fuzzing.yml`)
 Added Hypothesis property-based fuzzing CI workflow. Runs `tests/test_fuzz.py` with

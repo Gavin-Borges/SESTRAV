@@ -31,14 +31,14 @@ checked-out working copy is not retroactively rewritten by a `.gitattributes` ch
 |---|---|---|
 | `data/immunogenicity_dataset_v5.csv` | Dataset (51,185 rows total; 35,597 active / non-quarantined) | `6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4` |
 | `data/immunogenicity_dataset_v5_schema.json` | Column schema / validation contract | `f0a1f69baa3c6feb380effbf9b73c69f76cc3e839096ea40ab4ebcd38db640d7` |
-| `data/immunogenicity_dataset_v5_provenance.json` | Build provenance (sources, git SHA, counts) | `93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329` |
+| `data/immunogenicity_dataset_v5_provenance.json` | Build provenance (sources, git SHA, counts) | `c1fbf4ca6a63d39067922984431a140866899d7db19938376f7122cc50b48b3d` |
 
 Verify before upload:
 ```bash
 sha256sum -c <<'EOF'
 6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4  data/immunogenicity_dataset_v5.csv
 f0a1f69baa3c6feb380effbf9b73c69f76cc3e839096ea40ab4ebcd38db640d7  data/immunogenicity_dataset_v5_schema.json
-93417a8c5f98da2430cb033c0cbb9c52cae2750469810d3eaae144cc2dcb7329  data/immunogenicity_dataset_v5_provenance.json
+c1fbf4ca6a63d39067922984431a140866899d7db19938376f7122cc50b48b3d  data/immunogenicity_dataset_v5_provenance.json
 EOF
 ```
 

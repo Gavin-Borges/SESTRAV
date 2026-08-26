@@ -464,7 +464,9 @@ Practices **Passing** badge ([project 13191](https://www.bestpractices.dev/proje
 - **Dynamic analysis:** Hypothesis property-based fuzzing exercises peptide-length and
   amino-acid edge cases in CI.
 - **Supply chain:** dependencies are pinned with SHA-256 hashes; a dependency-review
-  workflow blocks vulnerable imports on PRs.
+  workflow flags vulnerable imports on PRs. It is advisory, not blocking - it fails its
+  own CI job at `fail-on-severity: moderate` but is not a required status check, so it
+  does not gate the merge button (see `SECURITY.md`'s CI gate map).
 - **Privacy by design:** the pipeline runs entirely offline; it does not collect, log, or
   transmit sequences, queries, or outputs. Network services bind to `127.0.0.1` only.
 

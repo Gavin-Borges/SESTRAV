@@ -126,7 +126,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 *   **SESTRAV Status:** ✅ **PASSING**
 *   **Evidence:**
     *   **Lockfiles with Hashes:** Dependency lists are compiled and locked with SHA-256 verification hashes using `pip-compile` inside [requirements.txt](../requirements.txt) to prevent dependency hijacking.
-    *   **Weekly Dependency Scans:** Automated dependency review workflows are active ([dependency-review.yml](../.github/workflows/dependency-review.yml)) to block vulnerable imports on new PRs.
+    *   **Dependency scanning:** [dependency-review.yml](../.github/workflows/dependency-review.yml) runs on every pull request and flags vulnerable imports at `fail-on-severity: moderate`. It is advisory - it fails its own CI job but is not a required status check. The **weekly** scan is a different workflow: `security.yml`'s `pip-audit` job on a `'0 6 * * 1'` cron, plus Dependabot's weekly interval. (Corrected 2026-08-24: this bullet previously described `dependency-review.yml` itself as a weekly scan that blocks. Its trigger is `on: [pull_request]` with no schedule at all, and it blocks nothing.)
 
 ---
 

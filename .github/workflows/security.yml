@@ -272,8 +272,9 @@ jobs:
         # continue-on-error: this step turns the `pip-audit` JOB red, unlike the
         # advisory audit above it. Corrected 2026-08-22: this comment used to say it
         # "is supposed to block a merge", which it cannot - `pip-audit` is not among
-        # ruleset 16846770's four required status checks (`test (3.13)`, `Require
-        # human review`, `check_dco`, `Cited commits resolve`), so a red job here
+        # ruleset 16846770's five required status checks (`test (3.13)`, `Require
+        # human review`, `check_dco`, `Cited commits resolve`, `Cited lines still
+        # hold their content`), so a red job here
         # does not gate the merge button. CodeQL is the only scanner that blocks,
         # via the ruleset's code-scanning rule. Failing the job is still the point:
         # it is the visible, fail-closed signal. See SECURITY.md's CI gate map,

@@ -126,8 +126,9 @@ repair the repo-scoped scan is 0 findings, so anything new is visible.
 
 **The alerts were advisory while they stood:** `Semgrep OSS` is not among the required status checks
 on `Protect Main Branch` (`test (3.13)`, `Require human review`, `check_dco`,
-`Cited commits resolve`), and that ruleset's code-scanning rule names `CodeQL` only, so they never
-gated a merge.
+`Cited commits resolve`, `Cited lines still hold their content`), and that ruleset's code-scanning
+rule names `CodeQL` only, so they never gated a merge. (List re-read from the live ruleset API
+2026-08-24; the fifth check was added 2026-08-22 and this enumeration was one short until then.)
 
 **Fixed at the root 2026-08-17 rather than dismissed.** `security.yml` now carries a
 `Drop nosemgrep-suppressed results from the SARIF` step between the scan and the upload, which
