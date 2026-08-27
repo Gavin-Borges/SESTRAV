@@ -59,7 +59,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # ---------------------------------------------------------------------------
 
 
-def test_final_validation_plans_all_ten_publish_names(tmp_path):
+def test_final_validation_plans_all_eleven_publish_names(tmp_path):
     names = {
         p.name for p in map(Path, planned_validation_paths(str(tmp_path), "expansion_v4", "4.0.0"))
     }
@@ -69,6 +69,7 @@ def test_final_validation_plans_all_ten_publish_names(tmp_path):
         "h2_tier_a_fold_metrics.csv",
         "h2_tier_a_summary.csv",
         "h2_tier_a_summary.md",
+        "h2_tier_a_oof_scores.csv",
         "final_validation_report.md",
         "freeze_status.json",
         "gold_standard_validation__expansion_v4__4.0.0.csv",

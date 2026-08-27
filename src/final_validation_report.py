@@ -48,6 +48,7 @@ def planned_validation_paths(
         "h2_tier_a_fold_metrics.csv",
         "h2_tier_a_summary.csv",
         "h2_tier_a_summary.md",
+        "h2_tier_a_oof_scores.csv",
         "final_validation_report.md",
         "freeze_status.json",
         canonical_output_filename("gold_standard_validation", dataset_mode, dataset_version),

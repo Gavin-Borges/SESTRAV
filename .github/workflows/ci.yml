@@ -167,7 +167,16 @@ jobs:
             echo "data/immunogenicity_dataset_v4.csv not present (gitignored); QC gate skipped in CI."
           fi
 
-      - name: Run Contamination and Benchmark Evaluation Gate
+      - name: Run Benchmark Evaluation (contamination comparison skipped in CI)
+        # DELIBERATELY NOT NAMED "Contamination Gate". The comparison corpus is
+        # immunogenicity_dataset.csv at the repo root, which .gitignore excludes, so
+        # it is absent from every checkout by construction and the contamination
+        # comparison is SKIPPED on every CI run. This step certifies that the runner
+        # EXECUTES; it certifies nothing about contamination. Run the real comparison
+        # locally, where the corpus exists.
+        # The runner prints its own "Gate: SKIPPED" line, which is an observation.
+        # Do not echo a fixed note here asserting the same thing - it would print
+        # even on a runner where the corpus existed and the comparison had run.
         run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
 
       - name: Validate Snakemake pipeline wiring (DAG dry-run)

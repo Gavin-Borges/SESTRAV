@@ -9,6 +9,10 @@ Outputs:
   - h2_tier_a_fold_metrics.csv
   - h2_tier_a_summary.csv
   - h2_tier_a_summary.md
+  - h2_tier_a_oof_scores.csv (per-row OOF peptide/label/integrated_score/
+    binding_score, one row per validation-fold member; lets any published
+    ISSR/recall figure derived from this run be checked for top-K tie
+    sensitivity without a retrain)
 """
 
 from __future__ import annotations
@@ -157,7 +161,7 @@ def _aggregate(metrics_rows: List[Dict]) -> pd.DataFrame:
 def planned_h2_tier_a_paths(output_dir: str) -> list[str]:
     """Every path run_h2_tier_a writes into output_dir.
 
-    All three are written directly by run_h2_tier_a; this entry point delegates
+    All four are written directly by run_h2_tier_a; this entry point delegates
     no output to any other module. `evaluate_subgroups` is the only helper it
     calls that could plausibly write, and it returns DataFrames without touching
     disk. There are no derived filenames here, unlike the `.replace()`-built
@@ -167,6 +171,7 @@ def planned_h2_tier_a_paths(output_dir: str) -> list[str]:
         "h2_tier_a_fold_metrics.csv",  # fold_df
         "h2_tier_a_summary.csv",  # full_summary_df (summary + h2_decision rows)
         "h2_tier_a_summary.md",  # markdown decision report
+        "h2_tier_a_oof_scores.csv",  # oof_df: per-row fold/peptide/label/scores
     ]
     return planned_paths_under(output_dir, names)
 
@@ -239,6 +244,7 @@ def run_h2_tier_a(
     oof_y: List[np.ndarray] = []
     oof_int: List[np.ndarray] = []
     oof_bind: List[np.ndarray] = []
+    oof_rows: List[pd.DataFrame] = []
     for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y), start=1):
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_val = y[train_idx], y[val_idx]
@@ -280,6 +286,20 @@ def run_h2_tier_a(
         fold_meta["label"] = y_val
         fold_meta["integrated_score"] = integrated_scores
         fold_meta["binding_score"] = binding_val
+
+        oof_rows.append(
+            pd.DataFrame(
+                {
+                    "fold": fold_idx,
+                    "peptide": fold_meta["peptide"].to_numpy(),
+                    **{col: fold_meta[col].to_numpy() for col in subgroup_columns},
+                    "label": y_val,
+                    "integrated_score": integrated_scores,
+                    "binding_score": binding_val,
+                }
+            )
+        )
+
         for row in evaluate_subgroups(
             fold_meta,
             score_col="integrated_score",
@@ -303,6 +323,9 @@ def run_h2_tier_a(
 
     fold_df = pd.DataFrame(rows)
     summary_df = _aggregate(rows)
+    oof_df = pd.concat(oof_rows, ignore_index=True) if oof_rows else pd.DataFrame(
+        columns=["fold", "peptide", *subgroup_columns, "label", "integrated_score", "binding_score"]
+    )
 
     bind_row = summary_df.loc[summary_df["method"] == "binding_only_max"].iloc[0]
     int_row = summary_df.loc[summary_df["method"] == "integrated_model"].iloc[0]
@@ -387,9 +410,11 @@ def run_h2_tier_a(
     fold_csv = os.path.join(output_dir, "h2_tier_a_fold_metrics.csv")
     summary_csv = os.path.join(output_dir, "h2_tier_a_summary.csv")
     summary_md = os.path.join(output_dir, "h2_tier_a_summary.md")
+    oof_csv = os.path.join(output_dir, "h2_tier_a_oof_scores.csv")
 
     fold_df.to_csv(fold_csv, index=False, lineterminator="\n")
     full_summary_df.to_csv(summary_csv, index=False, lineterminator="\n")
+    oof_df.to_csv(oof_csv, index=False, lineterminator="\n")
 
     write_provenance_sidecar(
         fold_csv,
@@ -398,6 +423,11 @@ def run_h2_tier_a(
     )
     write_provenance_sidecar(
         summary_csv,
+        script="src/h2_tier_a_evaluation.py",
+        extra=model_prov,
+    )
+    write_provenance_sidecar(
+        oof_csv,
         script="src/h2_tier_a_evaluation.py",
         extra=model_prov,
     )
@@ -442,6 +472,7 @@ def run_h2_tier_a(
 ## Output files
 - Fold metrics CSV: `h2_tier_a_fold_metrics.csv`
 - Summary CSV: `h2_tier_a_summary.csv`
+- Per-row OOF scores CSV: `h2_tier_a_oof_scores.csv`
 """
     with open(summary_md, "w", encoding="utf-8") as f:
         f.write(md)
@@ -484,7 +515,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-dir",
         required=True,
-        help="Directory for H2 Tier A outputs. No default: this evaluation writes 3 "
+        help="Directory for H2 Tier A outputs. No default: this evaluation writes 4 "
         "tracked release artifacts into it, including h2_tier_a_summary.md, the source "
         "behind the H2 Tier A primary-hypothesis result in README.md, so it refuses to "
         "guess a destination. Note the previously certified R10 = 0.9494 is RETRACTED as "

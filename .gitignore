@@ -242,6 +242,8 @@ results/*
 !results/h2_tier_a_summary.md
 !results/h2_tier_a_fold_metrics.csv
 !results/h2_tier_a_fold_metrics.csv.provenance.json
+!results/h2_tier_a_oof_scores.csv
+!results/h2_tier_a_oof_scores.csv.provenance.json
 !results/gold_standard_validation.csv
 !results/baseline_comparison.csv
 !results/baseline_comparison.csv.provenance.json

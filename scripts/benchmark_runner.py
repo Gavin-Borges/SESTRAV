@@ -11,12 +11,18 @@ Usage:
 Outputs (written to results/external_tool_outputs/<run-id>/):
     merged_scores.csv      - filtered + annotated score table
     metrics_summary.csv    - 10 core metrics per tool (AUC-PR, AUC-ROC, ISSR@10/25, ...)
-    run_manifest.json      - metadata: run_id, tier, n_total, n_clean, contamination_rate
+    run_manifest.json      - metadata: run_id, tier, n_total, n_clean, contamination
     length_stratified.csv  - 9-mer vs. non-9-mer breakdown per tool
 
 Contamination gate:
     Flags runs where the exact + substring overlap between training set and
     eval set exceeds 30% (hard cap per master plan).
+
+    The comparison needs a training corpus at TRAINING_DATA_PATH. That path is
+    gitignored, so in CI it is absent and the comparison is SKIPPED: the manifest
+    records gate_status "skipped" with gate_pass null and n_clean null, and no
+    clean_holdout rows are written. A skipped check has no verdict - do not read
+    a CI-produced manifest as evidence that contamination was ruled out.
 
 Freeze check:
     Reads results/freeze_status.json; aborts if valid != true.
@@ -167,29 +173,56 @@ def filter_contaminated_peptides(training_sequences: list, evaluation_sequences:
     return [seq for seq in eval_list if seq.upper() not in contaminated]
 
 
+def _skipped_contamination(eval_df: pd.DataFrame, note: str) -> dict:
+    """
+    Build the result for a contamination check that could not be performed.
+
+    `gate_pass` is None, never True: a check that did not run has no verdict, and
+    serializing one as a pass is how a manifest comes to assert a control that was
+    never exercised. Callers must branch on `gate_status`, which is the only field
+    guaranteed to be present in every shape this function family returns.
+    """
+    return {
+        "overlap_count": "N/A",
+        "exact_count": "N/A",
+        "substring_count": "N/A",
+        "total_eval": len(eval_df),
+        "overlap_rate": "N/A",
+        "gate_pass": None,
+        "gate_status": "skipped",
+        "cap_threshold": CONTAMINATION_CAP,
+        "note": note,
+    }
+
+
 def compute_contamination(eval_df: pd.DataFrame, training_path: Path) -> dict:
     """
     Compute exact + substring overlap between eval set and training set.
-    Returns dict with overlap_count, total_eval, overlap_rate, gate_pass.
+
+    Returns a dict whose key set is the same in every branch: overlap_count,
+    exact_count, substring_count, total_eval, overlap_rate, gate_pass,
+    gate_status, cap_threshold, note. `gate_status` is "skipped", "pass" or
+    "fail"; `gate_pass` is None when the check was skipped.
     """
     if not training_path.exists():
-        return {
-            "overlap_count": "N/A",
-            "total_eval": len(eval_df),
-            "overlap_rate": "N/A",
-            "gate_pass": True,
-            "note": "Training data not found; contamination check skipped.",
-        }
+        # Report the path REPO-RELATIVE. run_manifest.json is a provenance record
+        # that has been published on a release tag before, and an absolute path
+        # here would embed the operator's home directory in it.
+        try:
+            shown = training_path.relative_to(PROJECT_ROOT).as_posix()
+        except ValueError:
+            shown = training_path.name
+        return _skipped_contamination(
+            eval_df,
+            f"Training data not found at {shown}; contamination check skipped.",
+        )
 
     train_df = pd.read_csv(training_path)
     if "peptide" not in train_df.columns:
-        return {
-            "overlap_count": "N/A",
-            "total_eval": len(eval_df),
-            "overlap_rate": "N/A",
-            "gate_pass": True,
-            "note": "Training data has no 'peptide' column; contamination check skipped.",
-        }
+        return _skipped_contamination(
+            eval_df,
+            "Training data has no 'peptide' column; contamination check skipped.",
+        )
 
     train_peptides = list(train_df["peptide"].dropna())
     eval_peptides = list(eval_df["peptide"].dropna())
@@ -219,14 +252,17 @@ def compute_contamination(eval_df: pd.DataFrame, training_path: Path) -> dict:
     total_eval = len(eval_peptides)
     rate = total_overlap / total_eval if total_eval > 0 else 0.0
 
+    gate_pass = rate <= CONTAMINATION_CAP
     return {
         "overlap_count": total_overlap,
         "exact_count": exact_count,
         "substring_count": substring_count,
         "total_eval": total_eval,
         "overlap_rate": round(rate, 4),
-        "gate_pass": rate <= CONTAMINATION_CAP,
+        "gate_pass": gate_pass,
+        "gate_status": "pass" if gate_pass else "fail",
         "cap_threshold": CONTAMINATION_CAP,
+        "note": None,
     }
 
 
@@ -293,17 +329,22 @@ def compute_length_stratified(df: pd.DataFrame, score_col: str, label_col: str =
     return results
 
 
-def build_clean_subset(df: pd.DataFrame, training_path: Path) -> pd.DataFrame:
+def build_clean_subset(df: pd.DataFrame, training_path: Path) -> pd.DataFrame | None:
     """
     Return a copy of df with training-overlapping peptides removed.
     Used for the 'clean holdout' metrics (contamination-excluded).
+
+    Returns None when the training corpus is unavailable. It must NOT return `df`
+    in that case: an unfiltered frame is indistinguishable from a frame in which
+    nothing was contaminated, and the caller would go on to label it
+    "clean_holdout" - a contamination-excluded row that excluded nothing.
     """
     if not training_path.exists():
-        return df
+        return None
 
     train_df = pd.read_csv(training_path)
     if "peptide" not in train_df.columns:
-        return df
+        return None
 
     train_peptides = list(train_df["peptide"].dropna())
     df_copy = df.copy()
@@ -350,7 +391,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
     print("\n-- Contamination Gate -----------------------------------------")
     contamination = compute_contamination(df, TRAINING_DATA_PATH)
     print(f"    Eval set:        {contamination['total_eval']} peptides")
-    if contamination["overlap_rate"] != "N/A":
+    if contamination["gate_status"] != "skipped":
         print(
             f"    Training overlap: {contamination['overlap_count']} peptides "
             f"({contamination['overlap_rate'] * 100:.1f}%)"
@@ -364,6 +405,7 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
             )
     else:
         print(f"    {contamination.get('note', '')}")
+        print("    Gate: SKIPPED - this run certifies nothing about contamination.")
 
     # -- 5. Compute metrics: all tools -----------------------------------------
     print("\n-- Metric Computation -----------------------------------------")
@@ -389,17 +431,33 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
         )
 
     # -- 6. Clean subset metrics (contamination-excluded) ----------------------
+    # Emitted ONLY when the contamination comparison actually ran. With no corpus
+    # the "clean" frame would be the unfiltered frame, and every clean_holdout row
+    # would be a byte-copy of its subset="all" twin - a contamination-excluded
+    # figure that excluded nothing.
     df_clean = build_clean_subset(df, TRAINING_DATA_PATH)
-    print(f"\n-- Clean Holdout Metrics (N={len(df_clean)}) -------------------")
 
     clean_metrics_rows = []
-    for tool_name, score_col in all_tools.items():
-        metrics = compute_metrics_for_tool(df_clean, score_col)
-        if metrics is None:
-            continue
-        row = {"tool": tool_name, "score_column": score_col, "subset": "clean_holdout", **metrics}
-        clean_metrics_rows.append(row)
-        print(f"    {tool_name:10s}: AUC-PR={metrics['auc_pr']:.4f}  N={metrics['n_samples']}")
+    if df_clean is None:
+        print(
+            "\n-- Clean Holdout Metrics: NOT COMPUTED -------------------------\n"
+            "    No training corpus available, so no contamination could be excluded.\n"
+            "    metrics_summary.csv will carry no clean_holdout rows for this run."
+        )
+    else:
+        print(f"\n-- Clean Holdout Metrics (N={len(df_clean)}) -------------------")
+        for tool_name, score_col in all_tools.items():
+            metrics = compute_metrics_for_tool(df_clean, score_col)
+            if metrics is None:
+                continue
+            row = {
+                "tool": tool_name,
+                "score_column": score_col,
+                "subset": "clean_holdout",
+                **metrics,
+            }
+            clean_metrics_rows.append(row)
+            print(f"    {tool_name:10s}: AUC-PR={metrics['auc_pr']:.4f}  N={metrics['n_samples']}")
 
     # -- 7. Length-stratified metrics ------------------------------------------
     print("\n-- Length-Stratified Metrics ----------------------------------")
@@ -455,11 +513,20 @@ def run_benchmark(tier: str, run_id: str, skip_freeze_check: bool = False):
         "freeze_status": freeze,
         "contamination": contamination,
         "n_total": len(df),
-        "n_clean": len(df_clean),
+        # None, not len(df), when no corpus was available: n_clean == n_total is a
+        # claim that nothing was contaminated, which an absent corpus cannot support.
+        "n_clean": None if df_clean is None else len(df_clean),
         "tools_evaluated": [r["tool"] for r in metrics_rows],
         "output_dir": out_dir.relative_to(PROJECT_ROOT).as_posix(),
         "source_merged_scores": MERGED_SCORES_PATH.relative_to(PROJECT_ROOT).as_posix(),
-        "source_training_data": TRAINING_DATA_PATH.relative_to(PROJECT_ROOT).as_posix(),
+        # `usable` is derived from the observation that produced gate_status, not
+        # from a fresh exists() call. A corpus can be present and still unusable
+        # (no 'peptide' column), and a manifest that reported present=true beside
+        # gate_status="skipped" would be reconcilable only by reading `note`.
+        "source_training_data": {
+            "path": TRAINING_DATA_PATH.relative_to(PROJECT_ROOT).as_posix(),
+            "usable": contamination["gate_status"] != "skipped",
+        },
     }
     manifest_out = out_dir / "run_manifest.json"
     with open(manifest_out, "w") as f:
