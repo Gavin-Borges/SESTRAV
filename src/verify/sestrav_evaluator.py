@@ -188,10 +188,24 @@ def evaluate_single_virus(
         logger.warning(f"Empty dataset for {virus_name}. Skipping.")
         return {}
 
+    # Tracks an UNPLANNED fallback specifically - i.e. a real-GNN attempt that
+    # raised - as distinct from use_mock/model-is-None, which the caller
+    # already knows about and reflects in report["metadata"]. Without this,
+    # a per-virus exception fell back to mock scores while the report's
+    # top-level use_mock_fallback stayed False, mislabelling the mock scores
+    # as real ones.
+    used_mock_fallback = False
+
     # 1. Main cohort prediction
     if use_mock or not HAS_PYG or model is None:
         logger.info(f"[{virus_name}] Using mock/fallback GNN predictor.")
         scores = run_mock_predictions(df)
+        if not HAS_PYG and model is not None:
+            # A caller passed a real model while PyG is unavailable - the
+            # top-level "model is None" check a pipeline caller reflects in
+            # its own metadata would miss this; mark it here so it is never
+            # silently invisible to a direct (non-pipeline) caller either.
+            used_mock_fallback = True
     else:
         try:
             dataset = StructuralPeptideMHCDataset(df)
@@ -201,6 +215,7 @@ def evaluate_single_virus(
                 f"Failed GNN evaluation for {virus_name}: {e}. Falling back to mock predictions."
             )
             scores = run_mock_predictions(df)
+            used_mock_fallback = True
 
     y_true = df["label"].values
     roc_auc = calculate_roc_auc(y_true, scores)
@@ -230,6 +245,8 @@ def evaluate_single_virus(
             wt_scores = run_mock_predictions(df_pos)
             anchor_scores = run_mock_predictions(df_anchor, is_mutated=True, mutation_type="anchor")
             tcr_scores = run_mock_predictions(df_tcr, is_mutated=True, mutation_type="tcr")
+            if not HAS_PYG and model is not None:
+                used_mock_fallback = True
         else:
             try:
                 ds_wt = StructuralPeptideMHCDataset(df_pos)
@@ -246,6 +263,7 @@ def evaluate_single_virus(
                     df_anchor, is_mutated=True, mutation_type="anchor"
                 )
                 tcr_scores = run_mock_predictions(df_tcr, is_mutated=True, mutation_type="tcr")
+                used_mock_fallback = True
 
         # Degradation rates
         mean_wt = float(np.mean(wt_scores))
@@ -282,6 +300,7 @@ def evaluate_single_virus(
         "sample_count": len(df),
         "positive_ratio": float(np.mean(y_true)),
         "escape_mutant_cross_validation": mutant_results,
+        "used_mock_fallback": used_mock_fallback,
     }
 
 
@@ -372,6 +391,17 @@ def run_evaluation_pipeline(
         df = pd.read_csv(val_csv)
         virus_results = evaluate_single_virus(virus_name, df, model, device, use_mock=use_mock)
         report["viral_families"][virus_name] = virus_results
+
+    # A per-virus dataset construction can raise and silently fall back to
+    # mock scores (evaluate_single_virus's except arms) even when this run
+    # was never asked for mock and a real model loaded - "use_mock_fallback"
+    # was computed once above, before any virus ran, and never reflected
+    # that. Recompute it now so a report claiming real GNN scores never
+    # coexists with a virus that actually used mock ones.
+    any_virus_fallback = any(
+        v.get("used_mock_fallback", False) for v in report["viral_families"].values()
+    )
+    report["metadata"]["use_mock_fallback"] = use_mock or (model is None) or any_virus_fallback
 
     # Compile global summary statistics
     all_aucs = [v["roc_auc"] for v in report["viral_families"].values() if "roc_auc" in v]

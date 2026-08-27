@@ -136,24 +136,99 @@ def test_train_structural_gnn_no_pyg_raises(monkeypatch):
         sgnn.train_structural_gnn(_minimal_df(), _minimal_df())
 
 
-def test_dataset_no_pseudo_seqs_file(monkeypatch, tmp_path):
-    """Covers the missing-file branch: pseudo_seqs defaults to {} when the JSON is absent."""
+def test_dataset_finds_real_table_regardless_of_cwd(monkeypatch, tmp_path):
+    """Regression pin for the CWD-relative-path bug.
+
+    The table is resolved relative to structural_gnn.py's own file, not the
+    process CWD, so an installed `sestrav` invoked from anywhere must still
+    find it. Before this fix, chdir-ing away from the repo root alone was
+    enough to make every allele fall through to the all-alanine placeholder.
+    """
+    monkeypatch.chdir(tmp_path)
+    ds = StructuralPeptideMHCDataset(_minimal_df())
+    assert "HLA-A*02:01" in ds.pseudo_seqs
+    assert ds.pseudo_seqs["HLA-A*02:01"] != "A" * 34
+
+
+def test_dataset_raises_on_absent_pseudo_seqs_file(monkeypatch, tmp_path):
+    """An absent table must fail loud, not silently default to an empty dict.
+
+    Before this guard, a missing file defaulted `pseudo_seqs` to `{}`, which
+    routes every allele through the same all-alanine placeholder as a single
+    missing allele - collapsing a packaging/deployment defect into the same
+    outcome as an expected coverage gap.
+    """
     import src.verify.structural_gnn as sgnn
 
-    # Change CWD to tmp_path so the relative path 'src/verify/mhc_pseudo_sequences.json'
-    # does not resolve to the actual file.
+    monkeypatch.setattr(sgnn, "_PSEUDO_SEQ_PATH", tmp_path / "does_not_exist.json")
+    with pytest.raises(FileNotFoundError, match="MHC pseudo-sequence table not found"):
+        sgnn.StructuralPeptideMHCDataset(_minimal_df())
+
+
+def test_different_alleles_produce_different_mhc_node_features(monkeypatch, tmp_path):
+    """Regression pin for the allele-blindness bug itself.
+
+    Two different alleles on the SAME peptide must not produce identical MHC
+    pocket node features. Includes a chdir, because the bug this pins only
+    manifested away from the repo root: run from repo root (pytest's default
+    CWD), the old CWD-relative path already happened to resolve, so a test
+    without chdir would pass under the bug too and prove nothing.
+    """
     monkeypatch.chdir(tmp_path)
-    ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
-    assert ds.pseudo_seqs == {}
+    df = pd.DataFrame(
+        {
+            "peptide": ["GLFYTRTGL", "GLFYTRTGL"],
+            "allele": ["HLA-A*02:01", "HLA-A*24:02"],
+            "label": [1, 0],
+        }
+    )
+    dataset = StructuralPeptideMHCDataset(df)
+    data0 = dataset.get(0)
+    data1 = dataset.get(1)
+    n_pep = 9
+    # Same peptide -> the peptide-node rows must be identical...
+    assert torch.equal(data0.x[:n_pep], data1.x[:n_pep])
+    # ...but the MHC pocket rows must differ - this is the allele signal an
+    # absent or CWD-shadowed table erased.
+    assert not torch.equal(data0.x[n_pep:], data1.x[n_pep:])
 
 
-def _write_pseudo_seqs(tmp_path, table):
-    """Plant a pseudo-sequence JSON at the relative path the dataset reads."""
+def _write_pseudo_seqs(monkeypatch, tmp_path, table):
+    """Point the module's pseudo-sequence table at a planted file.
+
+    Patches the module attribute directly rather than relying on chdir plus
+    a CWD-relative path: once the loader resolves relative to the module's
+    own file, a chdir-based plant would silently stop shadowing anything and
+    the test would start reading the REAL tracked table instead.
+    """
     import json
 
-    target = tmp_path / "src" / "verify"
-    target.mkdir(parents=True)
-    (target / "mhc_pseudo_sequences.json").write_text(json.dumps(table), encoding="utf-8")
+    import src.verify.structural_gnn as sgnn
+
+    target = tmp_path / "mhc_pseudo_sequences.json"
+    target.write_text(json.dumps(table), encoding="utf-8")
+    monkeypatch.setattr(sgnn, "_PSEUDO_SEQ_PATH", target)
+
+
+def test_dataset_raises_on_metadata_only_pseudo_seqs_table(monkeypatch, tmp_path):
+    """A present-but-empty (or metadata-only) table is the same catastrophe
+    as an absent file, through a different door.
+
+    The existence check alone does not catch this: every allele would fall
+    through to the per-allele warn-and-placeholder branch, silently producing
+    the identical all-alanine blindness an absent file raises loud on. Covers
+    both a table with only the tracked file's "_source" documentation key,
+    and a truly empty table.
+    """
+    import src.verify.structural_gnn as sgnn
+
+    _write_pseudo_seqs(monkeypatch, tmp_path, {"_source": "unit test placeholder"})
+    with pytest.raises(ValueError, match="contains no allele entries"):
+        sgnn.StructuralPeptideMHCDataset(_minimal_df())
+
+    _write_pseudo_seqs(monkeypatch, tmp_path, {})
+    with pytest.raises(ValueError, match="contains no allele entries"):
+        sgnn.StructuralPeptideMHCDataset(_minimal_df())
 
 
 def test_dataset_raises_on_wrong_length_pseudo_sequence(monkeypatch, tmp_path):
@@ -167,13 +242,13 @@ def test_dataset_raises_on_wrong_length_pseudo_sequence(monkeypatch, tmp_path):
     import src.verify.structural_gnn as sgnn
 
     _write_pseudo_seqs(
+        monkeypatch,
         tmp_path,
         {
             "HLA-A*02:01": "A" * (sgnn.MHC_POCKET_COUNT - 1),  # one short
             "HLA-A*24:02": "A" * sgnn.MHC_POCKET_COUNT,
         },
     )
-    monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match=r"is 33 chars, expected 34"):
         sgnn.StructuralPeptideMHCDataset(_minimal_df())
 
@@ -189,8 +264,7 @@ def test_dataset_warns_and_placeholders_for_an_absent_allele(monkeypatch, tmp_pa
 
     import src.verify.structural_gnn as sgnn
 
-    _write_pseudo_seqs(tmp_path, {"HLA-A*02:01": "A" * sgnn.MHC_POCKET_COUNT})
-    monkeypatch.chdir(tmp_path)
+    _write_pseudo_seqs(monkeypatch, tmp_path, {"HLA-A*02:01": "A" * sgnn.MHC_POCKET_COUNT})
     with caplog.at_level(logging.WARNING):
         ds = sgnn.StructuralPeptideMHCDataset(_minimal_df())
 
