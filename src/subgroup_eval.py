@@ -13,7 +13,9 @@ from sklearn.metrics import precision_score, recall_score
 from src.evaluate_metrics import evaluate
 
 
-def _safe_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[str, float]:
+def _safe_metrics(
+    y_true: np.ndarray, y_scores: np.ndarray, with_bands: bool = False
+) -> Dict[str, float]:
     """Return metric dict with NaN fallback for invalid slices."""
     unique_labels = np.unique(y_true)
     if len(unique_labels) < 2:
@@ -23,7 +25,7 @@ def _safe_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[str, float]:
             "issr_10": np.nan,
             "issr_25": np.nan,
         }
-    return evaluate(y_true, y_scores)
+    return evaluate(y_true, y_scores, with_bands=with_bands)
 
 
 def evaluate_subgroups(
@@ -32,18 +34,23 @@ def evaluate_subgroups(
     label_col: str = "label",
     group_columns: Optional[Iterable[str]] = None,
     min_group_size: int = 15,
+    with_bands: bool = False,
 ) -> List[Dict]:
     """
     Compute overall and subgroup metrics on one validation fold.
 
     Returns a list of metric rows with fields:
       subgroup_key, subgroup_value, n_samples, n_positive, n_negative, metric columns
+
+    `with_bands` is forwarded to `evaluate` and defaults to False for the same
+    reason it does there: callers splat these rows straight into an artifact, so
+    the tie-band columns are opt-in per caller rather than a silent schema change.
     """
     rows: List[Dict] = []
     y_true = fold_df[label_col].to_numpy()
     y_scores = fold_df[score_col].to_numpy()
 
-    overall = _safe_metrics(y_true, y_scores)
+    overall = _safe_metrics(y_true, y_scores, with_bands)
     rows.append(
         {
             "subgroup_key": "overall",
@@ -81,7 +88,7 @@ def evaluate_subgroups(
                     }
                 )
             else:
-                row.update(_safe_metrics(y_g, s_g))
+                row.update(_safe_metrics(y_g, s_g, with_bands))
             rows.append(row)
     return rows
 
