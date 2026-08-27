@@ -1,8 +1,8 @@
 {
-  "generated_utc": "2026-08-13T04:05:56+00:00",
+  "generated_utc": "2026-08-27T17:00:19+00:00",
   "script": "src/h2_tier_a_evaluation.py",
   "artifact": "results/h2_tier_a_fold_metrics.csv",
-  "sha256": "552ca59478bd394bc1bdbb3b09cc1cc7f2453dae7d42e939c12bb8ec668e81cc",
+  "sha256": "befa5fc596f0c1c914c2bb6c02e913ace6cc1fa04313a5df6da3c9f7cdd7a16f",
   "model_path": "models/rf_30feature_integrated.joblib",
   "model_sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3"
 }

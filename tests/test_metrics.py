@@ -55,12 +55,71 @@ def test_metric_keys():
     result = evaluate(y_true, y_scores)
     core_keys = {"auc_roc", "auc_pr", "issr_10", "issr_25"}
     extended_keys = {"precision_10", "recall_10", "ndcg_10", "precision_25", "recall_25", "ndcg_25"}
+    band_keys = {
+        f"{metric}_{k}_band_{side}"
+        for metric in ("issr", "precision", "recall")
+        for k in (10, 25)
+        for side in ("lo", "hi")
+    }
     assert core_keys.issubset(set(result.keys())), (
         f"Missing core keys: {core_keys - set(result.keys())}"
     )
     assert extended_keys.issubset(set(result.keys())), (
         f"Missing extended keys: {extended_keys - set(result.keys())}"
     )
+    assert band_keys.issubset(set(result.keys())), (
+        f"Missing band keys: {band_keys - set(result.keys())}"
+    )
+
+
+# -- Tie band (achievable [lo, hi] range at the top-K cutoff) ----------------
+#
+# issr_at_k/recall_at_k select the top K% via a bare argsort with no tie-break,
+# so a tie at the cutoff makes the point estimate order-dependent (see the
+# characterization tests above this line's sibling work on tie behaviour).
+# These tests check the exact band evaluate() now returns alongside each point
+# estimate, computed independently of argsort's own (platform-dependent) tie
+# resolution.
+
+
+def test_tie_band_brackets_the_point_estimate_and_matches_hand_computed_bounds():
+    """1 row clearly above the cutoff; 3 tied rows compete for 1 remaining slot.
+
+    n=8, k=25 -> top_k_count=2. The row at 0.9 is certain-in. The tied group at
+    0.6 (1 positive, 2 negative) competes for the other slot: best case takes
+    the tied positive (2/2), worst case takes a tied negative (1/2).
+    """
+    y_true = np.array([1, 1, 0, 0, 0, 0, 0, 0])
+    y_scores = np.array([0.9, 0.6, 0.6, 0.6, 0.3, 0.2, 0.1, 0.05])
+    result = evaluate(y_true, y_scores)
+
+    assert result["issr_25_band_lo"] == pytest.approx(0.5)
+    assert result["issr_25_band_hi"] == pytest.approx(1.0)
+    assert result["issr_25_band_lo"] <= result["issr_25"] <= result["issr_25_band_hi"]
+    # precision_at_k delegates to issr_at_k, so it shares issr's band exactly.
+    assert result["precision_25_band_lo"] == result["issr_25_band_lo"]
+    assert result["precision_25_band_hi"] == result["issr_25_band_hi"]
+
+
+def test_recall_tie_band_uses_positive_count_as_denominator():
+    """Same fixture as above; recall's denominator is total positives (2)."""
+    y_true = np.array([1, 1, 0, 0, 0, 0, 0, 0])
+    y_scores = np.array([0.9, 0.6, 0.6, 0.6, 0.3, 0.2, 0.1, 0.05])
+    result = evaluate(y_true, y_scores)
+
+    assert result["recall_25_band_lo"] == pytest.approx(0.5)  # 1 of 2 positives
+    assert result["recall_25_band_hi"] == pytest.approx(1.0)  # 2 of 2 positives
+    assert result["recall_25_band_lo"] <= result["recall_25"] <= result["recall_25_band_hi"]
+
+
+def test_band_has_zero_width_when_no_tie_at_the_cutoff():
+    """Distinct scores at the cutoff: the band collapses to the point estimate."""
+    y_true = np.array([0, 0, 0, 1, 1, 1])
+    y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
+    result = evaluate(y_true, y_scores)
+
+    assert result["issr_10_band_lo"] == result["issr_10_band_hi"] == result["issr_10"]
+    assert result["recall_10_band_lo"] == result["recall_10_band_hi"] == result["recall_10"]
 
 
 def test_issr_at_k_empty():

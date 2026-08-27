@@ -171,6 +171,7 @@ rule full_validation_report:
         "results/h2_tier_a_fold_metrics.csv",
         "results/h2_tier_a_summary.csv",
         "results/h2_tier_a_summary.md",
+        "results/h2_tier_a_oof_scores.csv",
         "results/final_validation_report.md",
         "results/freeze_status.json",
         f"results/gold_standard_validation__{DATASET_MODE}__{DATASET_VERSION}.csv",
