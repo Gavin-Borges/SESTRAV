@@ -448,7 +448,7 @@ def main() -> None:
 
             Cross-validation folds **are peptide-grouped** as of 2026-08-10, so no peptide
             appears on both sides of the train/test boundary. Certified figures: pooled
-            AUC-PR **0.6058**, per-virus within-CV mean AUC-ROC **0.658**.
+            AUC-PR **0.6055**, per-virus within-CV mean AUC-ROC **0.658**.
 
             Metrics published before that date were computed under an ungrouped splitter in
             which 71.1% of held-out rows shared their exact peptide with the training fold,

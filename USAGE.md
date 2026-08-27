@@ -122,7 +122,7 @@ than clobbering those artifacts. Point it at a fresh directory
 
 The published figures for this model are a per-virus within-CV mean AUC-ROC of **0.658** on the v5
 dataset (35,597 active rows / 51,185 total; the canonical same-pathogen discrimination metric,
-`results/per_virus_eval_v5_mode31.csv`) and a pooled CV AUC-PR of **0.6058**
+`results/per_virus_eval_v5_mode31.csv`) and a pooled CV AUC-PR of **0.6055**
 (`models/v5/training_results_mode31.csv`). The pooled AUC-PR is a base-rate artifact and is not
 reported as a headline; see `docs/model_evaluation_summary.md`. **Splitter disclosure (required
 whenever these figures are quoted, `docs/claims_register.md` D15 - remediated 2026-08-10):** they
@@ -136,7 +136,7 @@ leakage-inflated.
 > false for `sestrav validate`: it accepts no `--cv-group-by` flag at all (see the argument table
 > below), and `src/cli.py` never passes `cv_group_by`, so `train_models` falls through to its `None`
 > default and uses the **ungrouped** `MultiStratifiedKFold` - the splitter whose peptide leakage
-> `docs/claims_register.md` D15 retracted a headline figure over. The 0.658 / 0.6058 figures come
+> `docs/claims_register.md` D15 retracted a headline figure over. The 0.658 / 0.6055 figures come
 > from `python -m src.train_classifier`, whose own parser does default to `--cv-group-by peptide`.
 > A `sestrav validate` run will therefore report **higher, leakage-inflated** cross-validation
 > numbers; do not cite them as comparable to any peptide-grouped figure in this repository. Whether

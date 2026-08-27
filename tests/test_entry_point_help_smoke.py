@@ -57,7 +57,7 @@ MODEL_DIR_REQUIRED_ENTRY_POINTS = [
 OUTPUT_DIR_REQUIRED_ENTRY_POINTS = [
     "src.gnn_benchmark",
     "src.ablation_study",
-    # Writes into results/, not models/: the 3 tracked H2 Tier A artifacts,
+    # Writes into results/, not models/: the 4 tracked H2 Tier A artifacts,
     # one of which backs the certified R10 = 1.0588 result in README.md. The
     # R10 = 0.9494 figure this comment used to name is VOID (claims_register D17).
     "src.h2_tier_a_evaluation",
