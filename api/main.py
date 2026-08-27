@@ -444,7 +444,7 @@ def model_card() -> ModelCard:
             "they are not a held-out cohort. Only 16 named gold-standard epitopes are excluded "
             "from the training manifold. Cross-validation folds ARE peptide-grouped as of "
             "2026-08-10, so no peptide appears on both sides of a fold boundary: certified "
-            "pooled AUC-PR 0.6058, per-virus within-CV mean AUC-ROC 0.658. Cross-validation "
+            "pooled AUC-PR 0.6055, per-virus within-CV mean AUC-ROC 0.658. Cross-validation "
             "metrics published before that date were computed under an ungrouped splitter in "
             "which 71.1% of held-out rows shared their exact peptide with the training fold, "
             "and are retracted as inflated (pooled AUC-PR 0.8347 ungrouped vs 0.6092 grouped). "
