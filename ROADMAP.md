@@ -87,14 +87,31 @@ _Last updated: 2026-08._
   pocket pseudo-sequence features) is implemented - see `FEATURE_COLUMNS_ALLELE`
   in `src/features.py` and `prepare_features_166` in `src/train_classifier.py` -
   is reachable as `--feature-mode 166`, and has tracked artifacts under
-  `models/allele_aware/`. A paired-bootstrap screen of the AUC-PR delta against
-  mode-31 did **not** exclude zero, and it was run under a comparison
-  deliberately tilted in mode-166's favour: its out-of-fold scores carried a leak
-  advantage while mode-31 paid a full cross-validation penalty. A fair
-  grouped refit can therefore only move the delta further against mode-166, which
-  makes this a conservative null rather than a marginal one. Allele-conditioning
-  **as currently featurized** is an evaluated-but-not-adopted extension, not
-  pending work; re-opening it needs a different featurization, not a re-run.
+  `models/allele_aware/`. **Corrected 2026-08-27: the cited screen statistic is
+  retracted, not merely stale.** A 2026-07-19 paired-bootstrap screen
+  (`_local/analysis/mode166_screen_no_train.json`) reported the mode-166-vs-mode-31
+  AUC-PR delta as not excluding zero (95% CI [-0.0118, 0.0108]), run under a
+  comparison deliberately tilted toward mode-166 (its leak-contaminated OOF
+  against mode-31's then-honest OOF). That comparison no longer holds under
+  currently tracked inputs: the 2026-08-10 peptide-leakage remediation
+  (`30f1b76`, `docs/claims_register.md` D15) re-baselined mode-31's out-of-fold
+  scores under a peptide-grouped splitter, but mode-166's OOF
+  (`models/allele_aware/rf_oof_predictions_mode166.csv`) was never regenerated
+  and still reflects the pre-remediation splitter it always had. Re-running the
+  identical screen against current tracked files now gives delta +0.0586, 95%
+  CI [0.0457, 0.0716] (excludes zero, nominally favoring mode-166) - but
+  mode-166's own AUC-PR in that comparison is unchanged from the 2026-07-19 run
+  (its OOF was never re-touched); the shift is entirely mode-31 losing its own
+  leak inflation. This is a leak-correction asymmetry between arms, not a
+  reversal in mode-166's favor, and it does not show allele-conditioning helps.
+  Independently (`docs/claims_register.md` D30), the 136 HLA-pocket columns are
+  degenerate as currently built: only 10 of 136 vary at all, collapsing to
+  exactly 2 distinct joint vectors (one per HLA locus, A vs B, not one per
+  allele), and together they carry about 4% of total RF feature importance.
+  Allele-conditioning **as currently featurized and evaluated** is an
+  evaluated-but-not-adopted extension, not pending work; re-opening it needs
+  both a corrected featurization (D30) and a fair, symmetric, peptide-grouped
+  re-evaluation of both arms, not a re-run of this retracted comparison.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
   for balanced recall across taxa and peptide lengths.
 - **Release automation.** Attach the `src.release_bundle` ZIP to the GitHub
