@@ -1,6 +1,5 @@
 # SESTRAV: Structural Epitope Scoring via TCR Recognition And Vaccinology
 
-![CI - Contamination Gate](https://img.shields.io/badge/CI-contamination_gate-blue?style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 ![Version](https://img.shields.io/badge/version-2.0.3-informational?style=flat-square)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
@@ -687,4 +686,4 @@ MIT License. See `LICENSE` for details.
 * Charles Jouaneh: Vaccine Strategy & Bioinformatic Pipeline Development
 * Emine Byers: Structural Immunology & Data Curation
 
-*Developed by Gavin Borges. Academic acknowledgements: bioinformatics coursework at NC State (BPS 542 / CMB 522 / CSC 522 / STA 522; CMB 523) provided foundational grounding; SESTRAV is an independently maintained research tool.*
+*Developed by Gavin Borges. Academic acknowledgements: bioinformatics coursework at the University of Rhode Island (BPS 542 / CMB 522 / CSC 522 / STA 522; CMB 523) provided foundational grounding; SESTRAV is an independently maintained research tool.*

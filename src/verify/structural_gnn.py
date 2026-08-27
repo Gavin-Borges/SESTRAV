@@ -33,6 +33,10 @@ from src.features import KD_HYDRO, VDW_VOL, AROMATIC, CHARGE
 # 34 pocket residue index mapping according to NetMHCpan
 MHC_POCKET_COUNT = 34
 
+# Resolved relative to THIS module's own file, not the process CWD. A module
+# attribute (not a call-time default) so tests can monkeypatch it.
+_PSEUDO_SEQ_PATH = Path(__file__).resolve().parent / "mhc_pseudo_sequences.json"
+
 
 def generate_canonical_groove_coords(
     peptide: str, allele_name: str
@@ -116,13 +120,45 @@ class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):  # type: igno
         self.unique_alleles = sorted(list(set(self.alleles)))
         self.allele_to_idx = {a: i for i, a in enumerate(self.unique_alleles)}
 
-        # Load exact 34-residue structural strings
-        pseudo_seq_path = Path("src/verify/mhc_pseudo_sequences.json")
-        if pseudo_seq_path.exists():
-            with open(pseudo_seq_path, "r") as f:
-                self.pseudo_seqs = json.load(f)
-        else:
-            self.pseudo_seqs = {}
+        # Load exact 34-residue structural strings. `pos` and edge connectivity
+        # never depend on allele identity either way - generate_canonical_
+        # groove_coords ignores its allele_name argument - so this table is the
+        # ONLY source of allele signal anywhere in the graph: without it, every
+        # allele's MHC pocket node features (and the edge_attr entries derived
+        # from their charges) collapse to an identical all-alanine placeholder,
+        # regardless of true identity. This raises rather than silently
+        # defaulting to an empty table - consistent with the wrong-length guard
+        # below (D30) - at the point the table is CONSTRUCTED. Whether that
+        # propagates to the caller as a visible crash or gets caught and
+        # reported as a fallback is the caller's choice; see
+        # src/verify/sestrav_evaluator.py's used_mock_fallback for the one
+        # production caller, which chooses the latter and records it.
+        if not _PSEUDO_SEQ_PATH.exists():
+            raise FileNotFoundError(
+                f"MHC pseudo-sequence table not found at {_PSEUDO_SEQ_PATH}. "
+                "Every allele's 34 pocket-residue features are derived from "
+                "this table; without it every allele silently collapses to "
+                "an identical all-alanine placeholder, which makes the model "
+                "allele-blind rather than merely missing one allele's "
+                "structural signal (docs/claims_register.md D30). Reinstall "
+                "the package or restore the tracked file at "
+                "src/verify/mhc_pseudo_sequences.json."
+            )
+        with open(_PSEUDO_SEQ_PATH, "r") as f:
+            self.pseudo_seqs = json.load(f)
+        # A present-but-empty (or metadata-only) table is the same catastrophe
+        # via a different door: every allele would fall through to the
+        # per-allele warn-and-placeholder branch below, achieving the exact
+        # blindness the FileNotFoundError above exists to prevent, silently.
+        # "_source" is a documentation key in the tracked file, not an allele.
+        if not any(k != "_source" for k in self.pseudo_seqs):
+            raise ValueError(
+                f"MHC pseudo-sequence table at {_PSEUDO_SEQ_PATH} contains no "
+                "allele entries (only metadata keys, if any). Every allele "
+                "would silently collapse to an identical all-alanine "
+                "placeholder - the same allele-blindness an absent file "
+                "produces. Restore the tracked file's real content."
+            )
 
         self.mhc_node_tensors = torch.zeros(
             (len(self.unique_alleles), MHC_POCKET_COUNT, 5), dtype=torch.float32
