@@ -686,4 +686,4 @@ MIT License. See `LICENSE` for details.
 * Charles Jouaneh: Vaccine Strategy & Bioinformatic Pipeline Development
 * Emine Byers: Structural Immunology & Data Curation
 
-*Developed by Gavin Borges. Academic acknowledgements: bioinformatics coursework at NC State (BPS 542 / CMB 522 / CSC 522 / STA 522; CMB 523) provided foundational grounding; SESTRAV is an independently maintained research tool.*
+*Developed by Gavin Borges. Academic acknowledgements: bioinformatics coursework at the University of Rhode Island (BPS 542 / CMB 522 / CSC 522 / STA 522; CMB 523) provided foundational grounding; SESTRAV is an independently maintained research tool.*
