@@ -35,6 +35,7 @@ EXPECTED_NAMES = [
     "h2_tier_a_fold_metrics.csv",
     "h2_tier_a_summary.csv",
     "h2_tier_a_summary.md",
+    "h2_tier_a_oof_scores.csv",
 ]
 
 
@@ -43,7 +44,7 @@ EXPECTED_NAMES = [
 # ---------------------------------------------------------------------------
 
 
-def test_planned_paths_lists_all_three_artifacts():
+def test_planned_paths_lists_all_four_artifacts():
     paths = h2.planned_h2_tier_a_paths("out")
     assert [Path(p).name for p in paths] == EXPECTED_NAMES
 
@@ -88,7 +89,7 @@ def test_guard_reports_every_colliding_file_not_just_the_first(tmp_path):
     message = str(exc.value)
     for name in EXPECTED_NAMES:
         assert name in message
-    assert "3 existing artifact(s)" in message
+    assert "4 existing artifact(s)" in message
 
 
 def test_allow_overwrite_disarms_the_guard(tmp_path):

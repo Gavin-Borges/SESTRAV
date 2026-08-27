@@ -33,3 +33,4 @@
 ## Output files
 - Fold metrics CSV: `h2_tier_a_fold_metrics.csv`
 - Summary CSV: `h2_tier_a_summary.csv`
+- Per-row OOF scores CSV: `h2_tier_a_oof_scores.csv`

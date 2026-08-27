@@ -22,6 +22,7 @@ CANONICAL_RESULT_FILES = [
     "results/h2_tier_a_summary.csv",
     "results/h2_tier_a_summary.md",
     "results/h2_tier_a_fold_metrics.csv",
+    "results/h2_tier_a_oof_scores.csv",
     "results/gold_standard_validation.csv",
     "results/baseline_comparison.csv",
 ]
