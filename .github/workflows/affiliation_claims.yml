@@ -1,0 +1,37 @@
+name: Affiliation Claims
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check_affiliation_claims:
+    name: Institution names are allowlisted
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Only tracked file CONTENT is read; no history walk is needed.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Verify every institution named in a tracked file is allowlisted
+        # Guards docs/claims_register.md D35: a "de-course-ify the docs layer"
+        # cleanup pass invented an institution this project has never had any
+        # connection to, and it stood in the public README for five weeks.
+        # Nothing could see it - it carried no number, so every existing gate
+        # was blind by construction.
+        #
+        # Deliberately an ALLOWLIST rather than a search for known-bad names.
+        # A denylist only catches fabrications someone already thought of; the
+        # allowlist catches every name that has not been reviewed even once.
+        run: python scripts/check_affiliation_claims.py
