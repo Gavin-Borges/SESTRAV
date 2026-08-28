@@ -24,23 +24,40 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
         run: |
-          # Compare against the PR base (or previous commit on push). Exclude this gate
-          # workflow itself, whose grep patterns intentionally contain example fragments.
+          # Compare against the PR base (or previous commit on push).
+          #
+          # Exclusions are applied BY PATH, as git pathspecs, never by matching an added
+          # line's content. This is load-bearing: the added-line filter below ('^\+[^+]')
+          # necessarily strips the '+++ b/<path>' headers, so by the time the lines reach
+          # grep there is no file attribution left to filter on. A content-based exclusion
+          # therefore fails in BOTH directions - it let any added line in ANY source file
+          # bypass the gate merely by containing the substring "README.md" (a docstring, a
+          # comment, a `Path(home)/"README.md"` constant), while still flagging genuine
+          # README.md hunks it was meant to exempt. git applies these before the diff is
+          # produced, so attribution cannot be lost.
+          #
+          # Excluded: this gate workflow itself (its grep patterns intentionally contain
+          # example path fragments) and the doc files that legitimately quote example paths.
+          PATHSPEC=(
+            '.'
+            ':(exclude).github/workflows/pii_scan.yml'
+            ':(exclude,glob)**/README.md'
+            ':(exclude,glob)**/walkthrough.md'
+            ':(exclude,glob)**/post_remediation_todos.md'
+          )
+
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff "origin/$BASE_REF...HEAD" -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
+            git diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
           else
-            git diff HEAD~1...HEAD -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
+            git diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
 
           # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
-          # Removing a pre-existing leak must not fail the gate. Doc references are excluded.
-          DOC_EXCLUDE="(README.md|walkthrough.md|post_remediation_todos.md)"
-
+          # Removing a pre-existing leak must not fail the gate.
           USER_LEAKS=$(grep -E "^\+[^+]" diff.txt \
-            | grep -E "(/Users/|Users\\\|/mnt/c/Users/)" \
-            | grep -v -E "$DOC_EXCLUDE" || true)
+            | grep -E "(/Users/|Users\\\|/mnt/c/Users/)" || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
@@ -48,8 +65,7 @@ jobs:
           # cannot mask a real /Users/ leak.
           HOME_LEAKS=$(grep -E "^\+[^+]" diff.txt \
             | grep -E "/home/[A-Za-z0-9_.-]+" \
-            | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" \
-            | grep -v -E "$DOC_EXCLUDE" || true)
+            | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
           LEAKS=$(printf '%s\n%s' "$USER_LEAKS" "$HOME_LEAKS" | grep -E '.' || true)
           if [ -n "$LEAKS" ]; then
