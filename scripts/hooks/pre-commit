@@ -30,6 +30,9 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
 BLOCKED_PATTERNS=(
   '^CLAUDE'                  # CLAUDE.md, CLAUDE.local.md
   '^\.claude/'               # Claude Code settings directory
+  '^AGENTS'                  # AGENTS.md, AGENTS.local.md (Codex / Cursor convention)
+  '^\.codex/'                # Codex CLI config, hooks, logs
+  '^\.agents/'               # Codex / Cursor skills tree
   '^\.cursor/'               # Cursor AI editor settings
   '^\.gemini/'               # Gemini / Antigravity config
   '^\.windsurf/'             # Windsurf AI editor

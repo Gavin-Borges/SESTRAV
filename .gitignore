@@ -218,6 +218,17 @@ CLAUDE.local.md
 .claude/settings.local.json
 #  Cross-session agent state file (local-only working scaffold, like CLAUDE.md).
 STATE.md
+
+# Codex / Cursor (AGENTS.md convention)
+#  Same treatment as the Claude Code block above and for the same reason: AGENTS.md
+#  and .codex/ carry the identical internal tooling config (hook layer, local
+#  workspace convention, session scaffolding) as CLAUDE.md and .claude/, just for
+#  the AGENTS.md-reading tools. .codex/hooks.json in particular embeds this
+#  machine's absolute user-profile path - the same PII pattern flagged below for
+#  tests/wave_test_package/ - so it must never be tracked.
+AGENTS.md
+.codex/
+.agents/
 #  Internal strategic-planning and session-handoff documents - process artefacts
 #  not intended for general users; results and decisions land in docs/ and commits.
 docs/MASTER_STRATEGIC_PLAN.md
