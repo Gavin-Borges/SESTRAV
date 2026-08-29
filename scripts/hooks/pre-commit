@@ -49,9 +49,11 @@ BLOCKED_PATTERNS=(
   '^\.claudeignore$'         # Claude Code context exclusion
   '^\.cursorignore$'         # Cursor context exclusion
   '^\.cursorindexingignore$' # Cursor indexing exclusion
-  '^\.aiexclude$'            # Gemini / Antigravity context exclusion
-  '^\.codexignore$'          # Codex context exclusion
-  '^\.geminiignore$'         # Gemini context exclusion
+  '^\.antigravityignore$'    # Antigravity (the genuine one; undocumented upstream)
+  '^\.aiexclude$'            # Gemini CODE ASSIST, not Antigravity - do not conflate
+  '^\.geminiignore$'         # Gemini CLI, also not Antigravity
+  '^\.codeiumignore$'        # Codeium / Windsurf (Cognition AI), not Google
+  '^\.codexignore$'          # Codex; defensive, not confirmed to exist upstream
   '^\.mcp\.json$'            # MCP server config (infrastructure + token env refs)
   '^STATE\.md$'              # Session state file
   '^_local/'                 # Local workspace (entire subtree)
