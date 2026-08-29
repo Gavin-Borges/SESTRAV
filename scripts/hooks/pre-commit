@@ -30,16 +30,29 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
 BLOCKED_PATTERNS=(
   '^CLAUDE'                  # CLAUDE.md, CLAUDE.local.md
   '^\.claude/'               # Claude Code settings directory
-  '^AGENTS'                  # AGENTS.md, AGENTS.local.md (Codex / Cursor convention)
+  '^AGENTS'                  # AGENTS.md, AGENTS.local.md (Codex / Cursor / Antigravity)
+  '^GEMINI'                  # GEMINI.md, GEMINI.local.md (Gemini / Antigravity)
   '^\.codex/'                # Codex CLI config, hooks, logs
-  '^\.agents/'               # Codex / Cursor skills tree
+  '^\.agents/'               # Shared skills/rules tree (Codex, Cursor, Antigravity)
+  '^\.agent/'                # Same, singular spelling (backward-compat variant)
   '^\.cursor/'               # Cursor AI editor settings
+  '^\.cursorrules$'          # Cursor legacy single-file rules
   '^\.gemini/'               # Gemini / Antigravity config
+  '^\.antigravity/'          # Antigravity workspace config
   '^\.windsurf/'             # Windsurf AI editor
   '^\.continue/'             # Continue AI plugin
   '^\.cline/'                # Cline plugin
   '^\.aider'                 # Aider tool
   '^\.antigravityrules'      # Antigravity rules file
+  # Per-tool context-exclusion files. They hold no secret, but they enumerate this
+  # workstation's private paths, which is itself a disclosure.
+  '^\.claudeignore$'         # Claude Code context exclusion
+  '^\.cursorignore$'         # Cursor context exclusion
+  '^\.cursorindexingignore$' # Cursor indexing exclusion
+  '^\.aiexclude$'            # Gemini / Antigravity context exclusion
+  '^\.codexignore$'          # Codex context exclusion
+  '^\.geminiignore$'         # Gemini context exclusion
+  '^\.mcp\.json$'            # MCP server config (infrastructure + token env refs)
   '^STATE\.md$'              # Session state file
   '^_local/'                 # Local workspace (entire subtree)
   '^scratch/'                # Scratch workspace (gitignored; blocks `git add -f`)
