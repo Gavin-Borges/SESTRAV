@@ -36,14 +36,22 @@ jobs:
           # README.md hunks it was meant to exempt. git applies these before the diff is
           # produced, so attribution cannot be lost.
           #
-          # Excluded: this gate workflow itself (its grep patterns intentionally contain
-          # example path fragments) and the doc files that legitimately quote example paths.
+          # Excluded: this gate workflow itself, and nothing else. Its grep patterns
+          # intentionally contain example path fragments, so it must exempt itself.
+          #
+          # The three doc excludes that used to sit here (**/README.md,
+          # **/walkthrough.md, **/post_remediation_todos.md) were carried over from the
+          # old content-based DOC_EXCLUDE, and porting them to pathspecs would have
+          # WIDENED the bypass rather than preserving it: the content filter matched the
+          # leaking line's text, so it never exempted a README hunk by path, whereas a
+          # pathspec does. That would have removed this gate from 6 tracked README.md
+          # files including the public front door. Measured before removal: zero tracked
+          # README.md, and no tracked walkthrough.md or post_remediation_todos.md exists
+          # at all, so the excludes bought nothing. Re-add one only for a file that
+          # demonstrably needs it, never pre-emptively.
           PATHSPEC=(
             '.'
             ':(exclude).github/workflows/pii_scan.yml'
-            ':(exclude,glob)**/README.md'
-            ':(exclude,glob)**/walkthrough.md'
-            ':(exclude,glob)**/post_remediation_todos.md'
           )
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
