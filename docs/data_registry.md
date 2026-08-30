@@ -10,6 +10,17 @@ This document catalogs the current datasets, schemas, and evidence freezes used 
 *   **Limitations**: No HLA-allele tracking; highly biased towards viral sources (EBV/HPV).
 
 ### v4 Schema (Frozen)
+
+> **READER DISCLOSURE (added 2026-08-31).** Every `data/*_v4.csv` artifact cited in this
+> section is **gitignored and untracked**, so a clone contains none of them and the counts
+> and distributions below cannot be verified from the repository. Confirmed for
+> `data/immunogenicity_dataset_v4.csv`, `data/hard_decoys.csv`, `data/vdjdb_v4.csv`,
+> `data/tsnadb_v4.csv` and `data/holding/conflicts_v5_preaudit.csv` (each returns nothing
+> from `git ls-files` and is matched by `git check-ignore`). The figures are retained as
+> the record of what the frozen v4 corpus contained; they are **measurements made against
+> a local artifact, not reproducible claims**. Anything reader-verifiable in this document
+> is measured against a tracked file and says so.
+
 *   **Status**: Frozen. Superseded by v5. The v4 artifact (`data/immunogenicity_dataset_v4.csv`) is retained as the paper's published baseline.
 *   **Description**: Introduced in the Post-Badge Phase 1 expansion.
 *   **Schema File**: `data/immunogenicity_dataset_v4_schema.json`
