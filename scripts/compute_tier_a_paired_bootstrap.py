@@ -119,7 +119,11 @@ def main(argv: list[str] | None = None) -> None:
         output_dir = os.path.dirname(args.output)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-        out.to_csv(args.output, index=False)
+        # LF on every platform. results/tier_a_paired_bootstrap.csv is git-tracked and
+        # .gitattributes:22 pins results/*.csv to eol=lf, while check_provenance hashes
+        # RAW BYTES, so a CRLF write from a Windows regeneration records a digest that
+        # cannot reproduce from a clean clone. Do not "simplify" this away.
+        out.to_csv(args.output, index=False, lineterminator="\n")
         print(f"\nwrote {args.output}")
 
 
