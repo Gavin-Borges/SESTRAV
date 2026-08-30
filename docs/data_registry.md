@@ -97,8 +97,19 @@ Measured from `data/immunogenicity_dataset_v4.csv` (14,699 total rows).
 **Key finding:** LOO cross-virus AUC-ROC spans **0.140-0.586 across all 12 held-out viruses**, and
 **three fall well below random rather than near it**: RSV 0.140, HPV16 0.335, HPV18 0.393. The
 remaining nine sit in 0.460-0.586, at or just below chance. Signal does not currently transfer
-across viruses, and for those three it is actively anti-predictive. v4 pooled AUC-PR 0.7635 is
-partially a SARS-CoV-2 composition artifact. See `results/loo_cross_virus_v4.json`.
+across viruses, and for those three it is actively anti-predictive. The per-virus figures in this
+paragraph all come from `results/loo_cross_virus_v4.json`.
+
+The v4 pooled AUC-PR 0.7635, partially a SARS-CoV-2 composition artifact, does **not**. Until
+2026-08-31 it sat inside the sentence above under the same `See results/loo_cross_virus_v4.json`
+pointer, and that file has never contained it at any precision (verified across the file's entire
+history: one commit, `bef5151`, zero occurrences). The mismatch is not just a wrong cell but a
+wrong KIND of evaluation - 0.7635 is a pooled within-corpus OOF cross-validation figure, while
+that file holds leave-one-virus-out records with no aggregate field at all. Every other number in
+the paragraph does verify against it, which is why the bad citation survived: a reviewer
+spot-checking the per-virus values would certify the line. `0.7635` is bound to no tracked
+artifact; see `docs/model_cards/rf_31feature_integrated.md`, which records it as a v4 measurement
+against a gitignored corpus and explicitly **not reproducible from a clean clone**.
 
 > **Corrected 2026-08-22.** This paragraph previously read *"is near-random (0.46-0.59) for every
 > held-out virus"*. Both halves were false against the file it cites, and both in the direction
