@@ -18,9 +18,24 @@ A genuine single-pass pooled computation has no fold spread to report, which is 
 `results/cv_leakage_audit.csv`, where `pooled_honest_same_pathogen_auc_pr` carries
 std = NaN while every fold-mean carries a value.
 
-The fold-mean is emitted alongside deliberately. It is a CONTROL, not decoration: it must
-reproduce `models/v5/training_results_mode31.csv`'s `rf_cv_mean`. If it does not, the OOF
-frame and the training summary describe different runs and nothing here is publishable.
+The fold-mean is emitted alongside deliberately, as a CONTROL that the OOF frame and the
+training summary describe the same run.
+
+BUT THE CONTROL HOLDS ONLY TO A TOLERANCE, and this paragraph overstated it until
+2026-08-31. It read "it MUST reproduce `rf_cv_mean`. If it does not, the OOF frame and the
+training summary describe different runs and nothing here is publishable." Measured:
+
+    this script's fold-mean AUC-PR : 0.6058259889375138
+    training_results_mode31.csv    : 0.6058273241425536   (delta 1.34e-06)
+    ROC analogue                   : 0.8137012751 vs 0.8137012070 (delta 6.8e-08)
+
+Both round to the 4 dp every document publishes (0.6058, 0.8137), and the deltas are
+ordinary floating-point noise between two code paths over the same folds - NOT evidence of
+different runs. Acting on the old wording at the 6 dp it quoted would therefore have
+condemned a sound artifact. Compare at 4 dp, or state an explicit tolerance; do not assert
+exact equality. Note also that nothing here or in the test suite actually performs this
+comparison against the real ledger - the tests use synthetic fixtures - so the control is
+descriptive, not enforced.
 
 --output HAS NO DEFAULT, by the same "no-default explicit path" rule as
 `scripts/compute_loo_binding_confound.py` and `scripts/evaluate_per_virus.py`:
@@ -84,8 +99,28 @@ def _resolve(rel_or_abs: str) -> pathlib.Path:
     return p if p.is_absolute() else REPO_ROOT / p
 
 
+def _sidecar_key(path: pathlib.Path) -> str:
+    """Portable key for the provenance `inputs` map: repo-relative, forward slashes.
+
+    Never record the raw CLI string. Doing so let a Windows-style relative argument write
+    BACKSLASHES into a git-tracked sidecar, and an absolute argument write this
+    workstation's home-directory path into one, so identical inputs produced different
+    sidecar bytes on Windows and Linux. Neither form is caught by `.gitattributes` (it
+    normalizes line endings, not path separators); only the absolute case is caught, by
+    pre-commit Gate 4 - which, fittingly, rejected the first draft of this very docstring
+    for quoting such a path as an example. Mirrors the normalization in
+    `scripts/compute_pooled_honest_metric.py`.
+    """
+    resolved = path.resolve()
+    try:
+        rel: pathlib.Path = resolved.relative_to(REPO_ROOT)
+    except ValueError:
+        rel = resolved
+    return str(rel).replace("\\", "/")
+
+
 def write(rows: Sequence[Row], out_path: pathlib.Path) -> pathlib.Path:
-    """Write the metric table plus its provenance sidecar. Returns the sidecar path."""
+    """Write the metric table as LF CSV and return its path. The sidecar is main()'s job."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # newline="" plus lineterminator="\n" => LF on every platform. Do not "simplify" this.
     with open(out_path, "w", newline="", encoding="utf-8") as fh:
@@ -133,7 +168,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sidecar = write_provenance_sidecar(
         out_path,
         script="scripts/compute_pooled_cv_metrics.py",
-        extra={"inputs": {args.oof: sha256_file(oof_path)}},
+        extra={"inputs": {_sidecar_key(oof_path): sha256_file(oof_path)}},
     )
     print("\nwrote {}\nwrote {}".format(out_path, sidecar))
     return 0

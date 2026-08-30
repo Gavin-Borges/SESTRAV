@@ -104,10 +104,34 @@ def test_bare_invocation_writes_nothing(synthetic_oof, capsys):
 def test_bare_invocation_does_not_touch_the_tracked_default_path(
     synthetic_oof, tmp_path, monkeypatch
 ):
-    """A bare run must never create results/ from whatever cwd it happens to run in."""
+    """A bare run must not rewrite the certified artifact at its REAL tracked path.
+
+    The assertions deliberately target REPO_ROOT, not tmp_path. `cpcm._resolve()` anchors
+    every relative path to REPO_ROOT, so chdir-ing into tmp_path CANNOT change where a
+    write would land: asserting that `tmp_path / "results"` was not created is vacuously
+    true whether the guard works or not.
+
+    That was this test's only assertion until 2026-08-31, and it was verified vacuous by
+    mutation: restoring a `--output` default made this test still PASS while the run
+    rewrote the tracked results/pooled_cv_metrics_mode31.csv and its sidecar. Running the
+    suite was itself the clobbering vector. Only `test_bare_invocation_writes_nothing`
+    caught the mutant. Compare the sibling guard in
+    tests/test_compute_pooled_honest_metric_results_guard.py, whose identical-looking
+    assertion DOES bite because that script resolves against cwd.
+    """
+    tracked = REPO_ROOT / cpcm.TRACKED_OUTPUT
+    sidecar = tracked.with_suffix(tracked.suffix + ".provenance.json")
+    before = tracked.read_bytes() if tracked.exists() else None
+    sidecar_before = sidecar.read_bytes() if sidecar.exists() else None
+
     monkeypatch.chdir(tmp_path)
     cpcm.main(["--oof", str(synthetic_oof)])
-    assert not (tmp_path / "results").exists()
+
+    assert not (tmp_path / "results").exists()  # nothing written relative to cwd either
+    after = tracked.read_bytes() if tracked.exists() else None
+    assert after == before, "a bare run rewrote the tracked artifact"
+    sidecar_after = sidecar.read_bytes() if sidecar.exists() else None
+    assert sidecar_after == sidecar_before, "a bare run rewrote the tracked sidecar"
 
 
 def test_output_flag_writes_the_given_path_with_a_sidecar(synthetic_oof, tmp_path):
