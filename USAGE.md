@@ -124,7 +124,10 @@ The published figures for this model are a per-virus within-CV mean AUC-ROC of *
 dataset (35,597 active rows / 51,185 total; the canonical same-pathogen discrimination metric,
 `results/per_virus_eval_v5_mode31.csv`) and a pooled CV AUC-PR of **0.6055**
 (`models/v5/training_results_mode31.csv`). The pooled AUC-PR is a base-rate artifact and is not
-reported as a headline; see `docs/model_evaluation_summary.md`. **Splitter disclosure (required
+reported as a headline; see `docs/model_evaluation_summary.md`. The fold-mean of the same five
+per-fold AUC-PR values - as opposed to the pooled figure above - is a distinct **0.6058**, the
+figure cited elsewhere in this repository against the mode-33/35 antigen-processing ablation
+ladder. **Splitter disclosure (required
 whenever these figures are quoted, `docs/claims_register.md` D15 - remediated 2026-08-10):** they
 come from a **peptide-grouped** splitter, so no peptide appears on both sides of a fold boundary.
 The prior ungrouped figures (per-virus mean 0.751, pooled AUC-PR 0.8312) are retracted as
