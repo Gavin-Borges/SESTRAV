@@ -410,7 +410,7 @@ hypothesis==6.165.10 \
     --hash=sha256:f9180c362bde06fd05380298ded4e234fbc0d6ede0a864835bfd91c1e24283d5 \
     --hash=sha256:f9ff356e97e3ab09db07c8b675efa67340103874a0bae7465acb83dad7a35f7f \
     --hash=sha256:fa74636a49fc8077413ce8db3e85f1c4aff880788bb55bda56253118e036fe5b
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 idna==3.16 \
     --hash=sha256:cc246e3a3f89580c3a951b5ad298ca4638078b2cdd4f115654332b5c26daded5 \
     --hash=sha256:d7a6da03db833450fca25d2358ac9ff06cd624577a4aea3a596d5c0f77b8e03d
@@ -491,7 +491,7 @@ jupyter-core==5.9.1 \
 keras==3.15.1 \
     --hash=sha256:836460e480930acbd19bb7a17e62f9ecad40e8a9af9a651fc8d0586a96d27e20 \
     --hash=sha256:92ae7c1dd7f61041953dc2d42253181ee099086f0b58ae36fcf98147a6f08a29
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
     --hash=sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a
@@ -844,7 +844,7 @@ protobuf==7.35.1 \
     --hash=sha256:74758715c53d7158fb76caf4f0cfdacc5329a4b1bb994f865d6cf302d413a1c4 \
     --hash=sha256:b73f9489a4b8b1c9cb1f8ed951c736392592edb24b9d6819f36d2e10b171d5b4 \
     --hash=sha256:ce115a26fe0c39a2c29973d914d327e516a6455464489fe3cd1e51a1b354f81a
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 psutil==7.2.2 \
     --hash=sha256:0746f5f8d406af344fd547f1c8daa5f5c33dbc293bb8d6a16d80b4bb88f59372 \
     --hash=sha256:076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9 \
@@ -1007,7 +1007,7 @@ pygments==2.20.0 \
 pytest==9.1.1 \
     --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
     --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
     --hash=sha256:0150219816b6a1fa26fb4699fb7daa9caf09eb1999f3b70fb6e786805e80375a \
@@ -1228,10 +1228,10 @@ smmap==5.0.3 \
     --hash=sha256:4d9debb8b99007ae47165abc08670bd74cb74b5227dda7f643eccc4e9eb5642c \
     --hash=sha256:c106e05d5a61449cf6ba9a1e650227ecfb141590d2a98412103ff35d89fc7b2f
     # via gitdb
-snakemake==9.25.1 \
-    --hash=sha256:0683a5fbf0729c1e5c03f0ccf6f45164a6fa56df3b3e71cd95ee47a9943f5e78 \
-    --hash=sha256:5a0486d397370a19b636fd1f734765520fa744bc5071c309e3393b62f5d87aa5
-    # via -r environments/requirements-ci.in
+snakemake==9.25.2 \
+    --hash=sha256:0a0d71f064eb8f99b660bb31c70372de23950449b9f3176c66970bea7fd18625 \
+    --hash=sha256:dac732795a43eeb25c2a4f3f1441c66385911703493c6059efd8bc2efac956da
+    # via -r requirements-ci.in
 snakemake-interface-common==1.23.0 \
     --hash=sha256:43bb10102d07149f27787dfc65a7342b86ff772973e7f9ca4940c89cb412a11e \
     --hash=sha256:6ed14531a461417659364a0dd0acc51b786af4e26fc15cc5e00ff3d9fcaffacc
@@ -1360,7 +1360,6 @@ typing-extensions==4.15.0 \
     #   optree
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
     #   typing-inspection
 typing-inspection==0.4.2 \
