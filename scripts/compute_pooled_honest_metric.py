@@ -33,17 +33,27 @@ in docs/model_evaluation_summary.md.
 This script makes that number reproducible and binds it to a canonical results/ CSV so
 the integrity harness can reconcile it (retiring the last unbound-orphan of its class).
 
-Reproduce:  python scripts/compute_pooled_honest_metric.py
-Output:     results/pooled_honest_same_pathogen.csv
+Reproduce:  python scripts/compute_pooled_honest_metric.py \
+                --output results/pooled_honest_same_pathogen.csv
+
+--output has no default, matching scripts/compute_loo_binding_confound.py and
+scripts/compute_tier_a_paired_bootstrap.py: the output is git-tracked and is bound by the
+integrity harness, so a bare run prints the row and writes nothing rather than silently
+rewriting certified output. Note this file embeds `generated_utc` as a DATA COLUMN, so a
+regeneration is never a no-op even when every metric is unchanged - do not re-run it just
+to confirm reproducibility, compare the printed row instead.
 """
 from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Sequence
 
 import pandas as pd
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
+
+TRACKED_OUTPUT = "results/pooled_honest_same_pathogen.csv"
 
 TARGET_VIRUSES = {"CMV", "DENV", "EBV", "HBV", "HCV", "HIV-1", "HPV", "IAV", "SARS-CoV-2"}
 # Def A real-negative origin: real IEDB REST-API viral negatives only. tested_negative is
@@ -73,20 +83,36 @@ def compute(oof_path: Path) -> dict:
     }
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--oof", default="models/v5/rf_oof_predictions_mode31.csv")
-    ap.add_argument("--out", default="results/pooled_honest_same_pathogen.csv")
-    args = ap.parse_args()
+    ap.add_argument(
+        "--output",
+        default=None,
+        help=(
+            f"Output CSV path (optional). No default: {TRACKED_OUTPUT} is a git-tracked "
+            "artifact bound by the integrity harness, so a bare run prints the row and "
+            "writes nothing rather than silently rewriting it."
+        ),
+    )
+    args = ap.parse_args(argv)
 
     row = compute(Path(args.oof))
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame([row]).to_csv(out, index=False)
-
     print(f"honest same-pathogen (Def A): AUC-ROC {row['auc_roc']:.4f} "
           f"(-> {row['auc_roc']:.3f}), AUC-PR {row['auc_pr']:.3f}, "
           f"n_pos={row['n_pos']} n_neg={row['n_neg']}")
+
+    if args.output is None:
+        print("No --output given: nothing written.")
+        return 0
+
+    out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # lineterminator pinned to LF. .gitattributes pins results/*.csv to eol=lf and the
+    # integrity harness hashes RAW BYTES, so a bare to_csv() on Windows writes CRLF and
+    # records a digest that cannot reproduce from a clean clone. Same pin as
+    # scripts/compute_loo_binding_confound.py and scripts/compute_d29_corpus_composition.py.
+    pd.DataFrame([row]).to_csv(out, index=False, lineterminator="\n")
     print(f"wrote {out}")
     return 0
 

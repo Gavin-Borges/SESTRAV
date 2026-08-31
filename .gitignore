@@ -321,6 +321,12 @@ results/*
 # scripts/compute_d29_corpus_composition.py)
 !results/d29_corpus_composition.csv
 !results/d29_corpus_composition.csv.provenance.json
+# Pooled (single-pass) mode-31 CV metrics. README/USAGE/ARCHITECTURE and five other
+# reader-facing files cite 0.6055 against no artifact at all; models/v5/
+# training_results_mode31.csv holds only the fold-mean 0.6058. Must be reader-visible;
+# regenerate with scripts/compute_pooled_cv_metrics.py
+!results/pooled_cv_metrics_mode31.csv
+!results/pooled_cv_metrics_mode31.csv.provenance.json
 release_artifacts/
 *.pyc
 __pycache__/
