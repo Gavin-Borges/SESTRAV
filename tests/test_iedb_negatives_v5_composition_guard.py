@@ -1,7 +1,7 @@
 """Composition guard for the tracked data/iedb_negatives_v5.csv artifact.
 
-WHY THIS EXISTS. This file is not what the current generator produces, and that
-divergence has to stay visible and stay bounded.
+WHY THIS EXISTS. The tracked file is the current generator's adopted output.
+Its composition must remain pinned so that a silent in-place edit fails loudly.
 
 The history, established by re-derivation rather than inference:
 
@@ -11,19 +11,19 @@ The history, established by re-derivation rather than inference:
   it on the same raw export reproduces the artifact bit-for-bit.
 - Commit 58bbc15 then edited the FINISHED file in place, dropping the 1,888 rows
   whose assay_type is "biological activity" - a post-hoc filter, not a re-run.
-  Verified as a strict order-preserving subset: 0 rows added, 0 modified.
-- scripts/ingest_iedb_negatives.py later gained that same exclusion as Filter 6,
-  but applies it BEFORE the intra-export dedup rather than after. A current
-  re-run therefore yields 32,506 rows: a strict SUPERSET of this file, adding 36
-  rows that this file lacks.
+- On 2026-08-31 the artifact was regenerated with that exclusion before
+  intra-export dedup. Its 32,506 rows were verified across all 23 fields as a
+  strict superset of the prior 32,470 rows: 0 absent and 36 added.
 
-So a re-run legitimately disagrees with the committed artifact, and that is
-expected rather than a fault. What must NOT happen again is another silent
-in-place edit of a finished data file. These tests pin the composition so that
-any such edit fails loudly instead of being discovered by audit a year later.
+What must NOT happen again is another silent in-place edit of a finished data
+file. These tests make any such edit fail loudly instead of surfacing in audit.
 
-Delete this file when the artifact is regenerated to 32,506 rows and the code
-path and the data agree again.
+The regeneration was deliberately staged and has NOT been propagated downstream,
+so the last test here guards the second way this could go quiet: the tracked
+data/iedb_negatives_v5_merged.csv, and the shipped corpus built from it, still
+descend from the superseded 32,470-row version. That lag is recorded in the
+downstream_status block of the provenance sidecar and pinned below, so neither
+propagating it nor widening it can happen without a test saying so.
 
 Note on reading data/: the repository's own tooling reads these paths directly
 and so does this test. Some developer shells deny-list `data/` for interactive
@@ -33,27 +33,28 @@ reads; that restriction does not apply to the test process.
 from __future__ import annotations
 
 import csv
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NEGATIVES_CSV = REPO_ROOT / "data" / "iedb_negatives_v5.csv"
+MERGED_CSV = REPO_ROOT / "data" / "iedb_negatives_v5_merged.csv"
 
-# Measured at origin/main 5a23a4e with the csv module, header excluded, and
-# cross-checked against `wc -l` minus one after confirming a single trailing LF.
-EXPECTED_ROWS = 32470
+# Measured from the generator output at 32f2cb2 with the csv module, header
+# excluded, and cross-checked against LF count minus one in the staged Git blob.
+EXPECTED_ROWS = 32506
 
-# 58bbc15 removed exactly these, and every one carried label 0.
 EXCLUDED_ASSAY_TYPE = "biological activity"
-ROWS_REMOVED_BY_58BBC15 = 1888
 
-# Every constant below is an INDEPENDENTLY MEASURED literal, never derived from
-# another one. Deriving them would make the consistency test at the bottom a
-# tautology that passes for any value of EXPECTED_ROWS.
-ROWS_BEFORE_58BBC15 = 34358  # csv.reader over `git show 58bbc15^:data/iedb_negatives_v5.csv`
-CURRENT_GENERATOR_ROWS = 32506  # measured re-run of scripts/ingest_iedb_negatives.py
-KNOWN_REGENERATION_SURPLUS = 36  # whole-row multiset diff, all 23 fields
+# The downstream lag, measured as a whole-row multiset difference over the 23
+# fields the two files share. Both operands are tracked, so unlike the generator
+# re-run this figure is re-derivable inside a clone with no raw export present.
+# Independently measured, never derived from EXPECTED_ROWS: deriving it would
+# make the assertion a tautology.
+MERGED_ROWS = 36689
+MERGED_LAG_ROWS = 36
 
 
 def _rows():
@@ -112,26 +113,44 @@ def test_every_row_is_a_negative():
     assert not non_negative, f"non-zero labels present in the negatives pool: {non_negative}"
 
 
-def test_known_generator_divergence_is_stated_not_silent():
+def test_downstream_merge_lag_is_pinned_not_silent():
     """
-    Documents the accepted gap between this artifact and a current re-run.
+    The 2026-08-31 regeneration was staged and stops here on purpose.
 
-    Each constant is an independently measured literal, so these really are
-    cross-checks and not restatements: change EXPECTED_ROWS alone and both
-    assertions fail. Running the real generator needs a 1.34 GB raw export that
-    is not in a checkout, so the re-run figure cannot be measured here; it is
-    pinned instead, and the measurement itself lives in the C2 provenance audit.
+    data/iedb_negatives_v5_merged.csv is the direct consumer of this file and the
+    ancestor of the shipped corpus, and it still holds the pre-regeneration rows.
+    Pinning the gap means propagation cannot land unannounced and a further edit
+    to either side cannot widen it unnoticed. When the merge is rebuilt, this lag
+    goes to zero and this test fails by design: at that point update the guard and
+    the sidecar's downstream_status block together, because the sidecar is the
+    attestation.
     """
-    assert ROWS_BEFORE_58BBC15 - ROWS_REMOVED_BY_58BBC15 == EXPECTED_ROWS, (
-        f"{ROWS_BEFORE_58BBC15} - {ROWS_REMOVED_BY_58BBC15} != {EXPECTED_ROWS}; "
-        "the recorded history no longer reconciles with the pinned row count."
+    if not MERGED_CSV.exists():
+        pytest.skip(f"{MERGED_CSV.name} not present in this checkout")
+
+    fieldnames, rows = _rows()
+    assert fieldnames is not None
+
+    with open(MERGED_CSV, encoding="utf-8", newline="") as fh:
+        merged_reader = csv.DictReader(fh)
+        merged_fields = merged_reader.fieldnames
+        assert merged_fields == fieldnames, (
+            "the merged negatives no longer share this file's schema, so the row-level "
+            f"comparison below is not meaningful: {merged_fields} != {fieldnames}"
+        )
+        merged = Counter(tuple(r[k] for k in fieldnames) for r in merged_reader)
+
+    assert sum(merged.values()) == MERGED_ROWS, (
+        f"{MERGED_CSV.name} has {sum(merged.values())} rows, expected {MERGED_ROWS}."
     )
-    assert CURRENT_GENERATOR_ROWS - EXPECTED_ROWS == KNOWN_REGENERATION_SURPLUS, (
-        f"{CURRENT_GENERATOR_ROWS} - {EXPECTED_ROWS} != {KNOWN_REGENERATION_SURPLUS}; "
-        "the accepted divergence from a generator re-run has changed size."
-    )
-    assert KNOWN_REGENERATION_SURPLUS > 0, (
-        "A current re-run is expected to be a strict SUPERSET of the committed "
-        "file. If that is no longer true, the divergence has changed shape and "
-        "the provenance record needs re-deriving, not updating."
+
+    ours = Counter(tuple(r[k] for k in fieldnames) for r in rows)
+    lag = sum((ours - merged).values())
+
+    assert lag == MERGED_LAG_ROWS, (
+        f"{lag} rows of {NEGATIVES_CSV.name} are missing from {MERGED_CSV.name}, "
+        f"expected exactly {MERGED_LAG_ROWS}. Zero means the merge was rebuilt and the "
+        "staged regeneration has propagated; anything else means one side changed "
+        "without the other. Either way, update this guard and the downstream_status "
+        "block of data/iedb_negatives_v5_provenance.json together."
     )
