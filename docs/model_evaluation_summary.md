@@ -115,7 +115,7 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 
 ## v2 Canonical Track: 30-Feature Integrated (720 peptides, 2.36:1 class ratio)
 
-The canonical evaluation track uses 20 physicochemical features (p4-p8 × 4 properties) plus 10 per-allele MHC binding features. All results are 5-fold stratified cross-validation with gold-standard epitopes held out.
+The canonical evaluation track uses 20 physicochemical features (p4-p8 x 4 properties) plus 10 per-allele MHC binding features. All results are 5-fold stratified cross-validation with gold-standard epitopes held out.
 
 Release-scope boundary: The optional ANN/GNN benchmark track is supplementary and not part of the canonical publish gate. The canonical publish gate is based on the RF-configured Stage 1-4 workflow and frozen validation artifacts.
 ANN/GNN values are sourced from the ANN/GNN benchmark study and mirrored in SESTRAV-Dev docs.
@@ -177,11 +177,21 @@ GNNs underperform tabular models on this dataset but capture structural inter-re
 
 ### Exact Project 2 Optional Benchmark Values
 
-For exact unrounded synced values, see:
-- `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/bootstrap_metric_cis.csv`
-- `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/gnn_sequence_benchmark.csv`
-- `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/gnn_bipartite_benchmark.csv`
-- `docs/nn_gnn_optional_module_guide.md`
+**There is no such source, and this pointer contradicted this document's own retraction until
+2026-08-31.** It read "For exact unrounded synced values, see:" and then listed three files
+under `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/` - including
+`bootstrap_metric_cis.csv`, the very path the ANN retraction above calls "absent from this
+repository and from any local workspace". The same document therefore retracted a source and
+directed readers to it, roughly fifty lines apart.
+
+The whole `CMB 523 ...` directory is unvendored: `git ls-files` returns nothing matching
+`CMB`, and it is not on disk. No exact unrounded values are recoverable for the ANN or GNN
+figures. **`models/gnn_sequence_benchmark.csv` and `models/gnn_bipartite_benchmark.csv` are
+tracked and share the two filenames, but hold DIFFERENT values and are NOT the source** - see
+the measured comparison in `docs/nn_gnn_optional_module_guide.md`, which retracts those
+figures rather than substituting them.
+
+For the GNN track's reproducible status see `docs/nn_gnn_optional_module_guide.md`.
 
 ### Ablation Study Results (Feature Group Contributions)
 

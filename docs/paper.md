@@ -1331,8 +1331,13 @@ The authors declare no conflict of interest.
 
 ## Data Availability
 
-The SESTRAV v5 immunogenicity dataset, pre-trained RF mode-31 model, LOO evaluation
-scripts, and corrected results files are available at https://github.com/Gavin-Borges/SESTRAV.
+The SESTRAV v5 immunogenicity dataset, LOO evaluation scripts, and corrected results
+files are available at https://github.com/Gavin-Borges/SESTRAV. **No trained model binary
+is distributed**: `models/*.joblib` is gitignored, so a fresh clone contains none, and the
+RF mode-31 model is reproduced by training locally with the command in
+`docs/model_cards/rf_31feature_integrated.md`. This sentence claimed the pre-trained model
+was available until 2026-08-31; it never was, and both `USAGE.md` and that model card
+already stated the opposite.
 The archived release corresponding to this manuscript is deposited at Zenodo
 (DOI: [PLACEHOLDER - reserve and paste before submission]). The IEDB source data are available at
 https://www.iedb.org. VDJdb data are available at https://vdjdb.cdr3.net. LANL HIV Molecular
