@@ -27,7 +27,7 @@ def test_perfect_predictions():
     """Perfect separation should yield AUC-ROC = 1.0."""
     y_true = np.array([0, 0, 0, 1, 1, 1])
     y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
-    result = evaluate(y_true, y_scores)
+    result = evaluate(y_true, y_scores, with_bands=True)
     assert result["auc_roc"] == 1.0, f"Expected AUC-ROC=1.0, got {result['auc_roc']}"
     assert result["auc_pr"] == 1.0, f"Expected AUC-PR=1.0, got {result['auc_pr']}"
 
@@ -37,7 +37,7 @@ def test_random_predictions():
     np.random.seed(42)
     y_true = np.random.randint(0, 2, 1000)
     y_scores = np.random.rand(1000)
-    result = evaluate(y_true, y_scores)
+    result = evaluate(y_true, y_scores, with_bands=True)
     assert 0.40 < result["auc_roc"] < 0.60, f"Random AUC-ROC out of range: {result['auc_roc']}"
 
 
@@ -52,7 +52,7 @@ def test_metric_keys():
     """evaluate() must return at least the 4 core metric keys plus extended metrics."""
     y_true = np.array([0, 1, 0, 1])
     y_scores = np.array([0.2, 0.8, 0.3, 0.9])
-    result = evaluate(y_true, y_scores)
+    result = evaluate(y_true, y_scores, with_bands=True)
     core_keys = {"auc_roc", "auc_pr", "issr_10", "issr_25"}
     extended_keys = {"precision_10", "recall_10", "ndcg_10", "precision_25", "recall_25", "ndcg_25"}
     band_keys = {
@@ -91,7 +91,7 @@ def test_tie_band_brackets_the_point_estimate_and_matches_hand_computed_bounds()
     """
     y_true = np.array([1, 1, 0, 0, 0, 0, 0, 0])
     y_scores = np.array([0.9, 0.6, 0.6, 0.6, 0.3, 0.2, 0.1, 0.05])
-    result = evaluate(y_true, y_scores)
+    result = evaluate(y_true, y_scores, with_bands=True)
 
     assert result["issr_25_band_lo"] == pytest.approx(0.5)
     assert result["issr_25_band_hi"] == pytest.approx(1.0)
@@ -105,7 +105,7 @@ def test_recall_tie_band_uses_positive_count_as_denominator():
     """Same fixture as above; recall's denominator is total positives (2)."""
     y_true = np.array([1, 1, 0, 0, 0, 0, 0, 0])
     y_scores = np.array([0.9, 0.6, 0.6, 0.6, 0.3, 0.2, 0.1, 0.05])
-    result = evaluate(y_true, y_scores)
+    result = evaluate(y_true, y_scores, with_bands=True)
 
     assert result["recall_25_band_lo"] == pytest.approx(0.5)  # 1 of 2 positives
     assert result["recall_25_band_hi"] == pytest.approx(1.0)  # 2 of 2 positives
@@ -116,10 +116,118 @@ def test_band_has_zero_width_when_no_tie_at_the_cutoff():
     """Distinct scores at the cutoff: the band collapses to the point estimate."""
     y_true = np.array([0, 0, 0, 1, 1, 1])
     y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
-    result = evaluate(y_true, y_scores)
+    result = evaluate(y_true, y_scores, with_bands=True)
 
     assert result["issr_10_band_lo"] == result["issr_10_band_hi"] == result["issr_10"]
     assert result["recall_10_band_lo"] == result["recall_10_band_hi"] == result["recall_10"]
+
+
+# -- Mutation coverage for _achievable_band_at_k ------------------------------
+#
+# The three fixtures above are satisfied by at least three WRONG implementations
+# (verified by mutation: they survive). Each test below is written against one
+# specific surviving mutant and fails only for that mutant, so a future edit that
+# reintroduces the bug is caught rather than merely hoped about. This is the H16
+# hazard - a test that passes against the defect it exists to catch - answered
+# with cases rather than with more assertions on the same fixture.
+
+
+def test_hi_is_capped_by_the_contested_slot_count():
+    """Mutant: `certain_in_pos + tied_pos` with the min() cap dropped.
+
+    4 tied positives compete for 1 contested slot. Without the cap the band's
+    upper end counts all 4, giving 5/2 = 2.5 - a "precision" above 1.0 written
+    straight into a published artifact.
+    """
+    y_true = np.array([1, 1, 1, 1, 0, 0, 0, 0])
+    y_scores = np.array([0.9, 0.6, 0.6, 0.6, 0.3, 0.2, 0.1, 0.05])
+    result = evaluate(y_true, y_scores, with_bands=True)
+
+    assert result["issr_25_band_hi"] == pytest.approx(1.0)
+    assert result["issr_25_band_lo"] == pytest.approx(1.0)
+
+
+def test_certain_members_are_counted_by_label_not_by_row():
+    """Mutant: `certain_in_pos = above_mask.sum()` (rows) instead of the label sum.
+
+    Requires a NEGATIVE label strictly above the cutoff - no other fixture has
+    one, which is exactly why that mutant survived. Here the single row above the
+    cutoff is negative, so a row-counting implementation credits it as a positive
+    and shifts the whole band up by one slot.
+    """
+    y_true = np.array([0, 1, 0, 0, 0, 0, 0, 0])
+    y_scores = np.array([0.9, 0.6, 0.6, 0.6, 0.3, 0.2, 0.1, 0.05])
+    result = evaluate(y_true, y_scores, with_bands=True)
+
+    assert result["issr_25_band_lo"] == pytest.approx(0.0)
+    assert result["issr_25_band_hi"] == pytest.approx(0.5)
+
+
+def test_top_k_count_truncates_rather_than_rounds():
+    """Mutant: `round(n * k / 100)` instead of `int(...)`.
+
+    n=6, k=25 gives 1.5, where int() -> 1 and round() -> 2. The two fixtures above
+    both use an n where the conventions agree, so neither distinguishes them. The
+    band must match issr_at_k's own `max(1, int(...))` convention exactly, or the
+    error bar describes a different top-K set than the point estimate it brackets.
+    """
+    y_true = np.array([1, 0, 0, 0, 0, 0])
+    y_scores = np.array([0.9, 0.5, 0.4, 0.3, 0.2, 0.1])
+    result = evaluate(y_true, y_scores, with_bands=True)
+
+    assert result["issr_25_band_lo"] == pytest.approx(1.0)
+    assert result["issr_25_band_hi"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("seed", range(25))
+def test_band_invariants_hold_over_random_tied_inputs(seed):
+    """Property test: the band is ordered, in range, and brackets the point estimate.
+
+    Scores are drawn on a coarse lattice so ties at the cutoff are common - that
+    is the regime the band exists for. A band that fails to contain an achievable
+    value is a hard failure, not a rounding matter.
+    """
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(2, 15))
+    y_true = rng.integers(0, 2, n)
+    y_scores = rng.integers(1, 5, n) / 4.0  # few distinct values -> frequent ties
+
+    result = evaluate(y_true, y_scores, with_bands=True)
+
+    for metric in ("issr", "precision", "recall"):
+        for k in (10, 25):
+            lo = result[f"{metric}_{k}_band_lo"]
+            hi = result[f"{metric}_{k}_band_hi"]
+            point = result[f"{metric}_{k}"]
+            assert 0.0 <= lo <= hi <= 1.0, f"{metric}_{k} band out of order/range"
+            assert lo <= point <= hi, f"{metric}_{k}={point} outside band [{lo}, {hi}]"
+
+
+def test_bands_are_opt_in_so_no_existing_artifact_schema_moves():
+    """evaluate() must NOT return band fields unless asked.
+
+    Eight call sites splat this dict into an output row, two of them into
+    `results/per_virus_eval_v5_mode31.csv` (the certified per-virus source) and a
+    dated json series. Returning bands by default would widen both by 12 columns
+    on their next regeneration.
+    """
+    y_true = np.array([0, 1, 0, 1])
+    y_scores = np.array([0.2, 0.8, 0.3, 0.9])
+
+    default = evaluate(y_true, y_scores)
+    assert not [k for k in default if "_band_" in k]
+    assert len(default) == 10
+
+    opted_in = evaluate(y_true, y_scores, with_bands=True)
+    assert len([k for k in opted_in if "_band_" in k]) == 12
+    # The shared keys must be untouched by the opt-in.
+    assert all(default[k] == opted_in[k] or np.isnan(default[k]) for k in default)
+
+
+def test_band_rejects_nan_scores_rather_than_inverting():
+    """NaN makes every comparison False, which would yield an inverted band."""
+    with pytest.raises(ValueError, match="NaN"):
+        evaluate(np.array([0, 1, 1]), np.array([0.5, np.nan, 0.9]), with_bands=True)
 
 
 def test_issr_at_k_empty():

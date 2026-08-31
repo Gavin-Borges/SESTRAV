@@ -1,0 +1,9 @@
+{
+  "generated_utc": "2026-08-30T10:55:33+00:00",
+  "script": "scripts/compute_pooled_cv_metrics.py",
+  "artifact": "results/pooled_cv_metrics_mode31.csv",
+  "sha256": "645e2982474af88d200a1fcc772f0c87df51c6ef9cd9f995d02380df3b460fc7",
+  "inputs": {
+    "models/v5/rf_oof_predictions_mode31.csv": "4862bd59623986fd6e1c7acb9666378d1494dd05ec414c2f1f5d6ebe78323ea3"
+  }
+}

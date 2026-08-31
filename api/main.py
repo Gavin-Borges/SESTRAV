@@ -80,7 +80,6 @@ def _sanitize_for_log(value: object) -> str:
 # Paths (relative to project root; mount the repo root as the working dir)
 # ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_MODEL_PATH = _PROJECT_ROOT / "models" / "rf_31feature_integrated.joblib"
 _CHECKSUM_FILE = _PROJECT_ROOT / "models" / "model_artifact_checksums.json"
 _CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
 
@@ -194,8 +193,11 @@ class ModelManager:
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
 
-        # Initialize config and registry
-        self.config = SestravConfig.load()
+        # Initialize config and registry. _CONFIG_PATH, not the bare SestravConfig.load(),
+        # whose default "config.yaml" resolves against the current working directory: this
+        # call runs BEFORE the model load below, so a wrong cwd failed here first and the
+        # registry fix alone would not have made startup cwd-independent.
+        self.config = SestravConfig.load(_CONFIG_PATH)
         self.registry = ModelRegistry(self.config)
 
         logger.info("Loading RF model ...")

@@ -4,6 +4,26 @@ from typing import Any
 from src.core.config import SestravConfig
 from src.artifact_integrity import load_verified_joblib
 
+# Anchored to the installed package, NOT to the current working directory.
+# `Path("models")` resolves against os.getcwd(), so every model lookup silently
+# depended on where the process happened to start: `uvicorn api.main:app` from any
+# directory but the repo root raised FileNotFoundError at startup, and in the API image
+# that was masked only by `WORKDIR /app` in Dockerfile.api. It also made the confinement
+# check below depend on cwd, which is the wrong property for a security boundary.
+# parents[2] walks src/core -> src -> project root.
+#
+# KNOWN TRADEOFF, recorded deliberately: this exchanges a cwd dependency for an
+# INSTALL-LOCATION dependency. pyproject.toml includes `src*` in packages.find, so under
+# a NON-EDITABLE wheel install `src/` lands in site-packages and parents[2] points at a
+# directory with no models/ - a case where the old cwd-relative code would have worked
+# and this does not. No shipped path regresses: the API image copies the project to /app
+# with WORKDIR /app, and development uses an editable install, so parents[2] is the
+# project root in both. If a non-editable install is ever supported, this must become a
+# configurable root (env var or packaged data dir) rather than reverting to cwd, which
+# would restore the startup bug AND make the confinement check below cwd-dependent again.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MODELS_DIR = _PROJECT_ROOT / "models"
+
 
 class ModelRegistry:
     """Registry to handle model artifact resolution, signature validation, and loading."""
@@ -13,7 +33,7 @@ class ModelRegistry:
 
     def resolve_model(self, model_name: str) -> Path:
         """Resolve a model name to its absolute path, confined to the models/ directory."""
-        base = Path("models").resolve()
+        base = MODELS_DIR.resolve()
         p = (base / model_name).resolve()
         if not p.is_relative_to(base):
             raise ValueError(f"Model name escapes models/ directory: {model_name!r}")

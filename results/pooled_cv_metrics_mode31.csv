@@ -1,0 +1,6 @@
+metric,value,kind
+mode31_pooled_auc_pr,0.6055238703327073,pooled_single_pass
+mode31_pooled_auc_roc,0.8135971717917376,pooled_single_pass
+mode31_pooled_n_rows,35555.0,count
+mode31_pooled_n_positive,8021.0,count
+mode31_fold_mean_auc_pr,0.6058259889375138,fold_mean
