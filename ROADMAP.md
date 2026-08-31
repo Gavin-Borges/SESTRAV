@@ -88,8 +88,8 @@ _Last updated: 2026-08._
   in `src/features.py` and `prepare_features_166` in `src/train_classifier.py` -
   is reachable as `--feature-mode 166`, and has tracked artifacts under
   `models/allele_aware/`. **Corrected 2026-08-27: the cited screen statistic is
-  retracted, not merely stale.** A 2026-07-19 paired-bootstrap screen
-  (`_local/analysis/mode166_screen_no_train.json`) reported the mode-166-vs-mode-31
+  retracted, not merely stale.** A 2026-07-19 paired-bootstrap screen (full
+  provenance in `docs/claims_register.md` D36) reported the mode-166-vs-mode-31
   AUC-PR delta as not excluding zero (95% CI [-0.0118, 0.0108]), run under a
   comparison deliberately tilted toward mode-166 (its leak-contaminated OOF
   against mode-31's then-honest OOF). That comparison no longer holds under
