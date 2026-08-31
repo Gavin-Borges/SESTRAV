@@ -257,8 +257,11 @@ def run_h2_tier_a(
         oof_int.append(integrated_scores)
         oof_bind.append(binding_val)
 
-        m_int = evaluate(y_val, integrated_scores)
-        m_bind = evaluate(y_val, binding_val)
+        # with_bands=True is opt-in per caller (see evaluate's docstring): this
+        # evaluation is the one whose top-K cells are checked for tie sensitivity,
+        # so it takes the 12 band columns; no other artifact's schema moves.
+        m_int = evaluate(y_val, integrated_scores, with_bands=True)
+        m_bind = evaluate(y_val, binding_val, with_bands=True)
         fold_issr10_delta.append(float(m_int["issr_10"] - m_bind["issr_10"]))
 
         rows.append(
@@ -306,6 +309,7 @@ def run_h2_tier_a(
             label_col="label",
             group_columns=subgroup_columns,
             min_group_size=15,
+            with_bands=True,
         ):
             if row["subgroup_key"] == "overall":
                 continue
@@ -316,6 +320,7 @@ def run_h2_tier_a(
             label_col="label",
             group_columns=subgroup_columns,
             min_group_size=15,
+            with_bands=True,
         ):
             if row["subgroup_key"] == "overall":
                 continue

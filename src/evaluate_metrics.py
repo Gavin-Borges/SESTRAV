@@ -95,6 +95,13 @@ def _achievable_band_at_k(y_true, y_scores, k, mode):
     if n == 0:
         return (0.0, 0.0)
 
+    # NaN would make every comparison below False, so `above` and `tied` would
+    # both be empty and the band would come back INVERTED (lo > hi) rather than
+    # merely wrong - a silently unusable error bar. No current caller can supply
+    # one (the OOF frames carry none), so this is a guard against a future one.
+    if np.isnan(y_scores).any():
+        raise ValueError("y_scores contains NaN; the achievable band is undefined")
+
     top_k_count = max(1, int(n * k / 100))
     threshold = np.sort(y_scores)[-top_k_count]
 
@@ -133,19 +140,31 @@ def ndcg_at_k(y_true, y_scores, k):
     return float(ndcg_score(y_true, y_scores, k=top_k_count))
 
 
-def evaluate(y_true, y_scores):
+def evaluate(y_true, y_scores, *, with_bands=False):
     """
     Compute all SESTRAV evaluation metrics.
 
     Args:
         y_true:   array-like of binary labels (0 = non-immunogenic, 1 = immunogenic)
         y_scores: array-like of predicted scores/probabilities (higher = more immunogenic)
+        with_bands: when True, ALSO return the 12 tie-band fields described in the
+            module docstring. Defaults to False, and that default is load-bearing
+            rather than merely cautious: eight call sites splat this dict straight
+            into an output row (`{... , **evaluate(...)}`), so returning the bands
+            unconditionally would widen their artifacts by 12 columns the next time
+            each is regenerated. Two of those are why the default is False and not
+            True - `scripts/evaluate_per_virus.py` writes
+            `results/per_virus_eval_v5_mode31.csv`, the certified source of the
+            per-virus mean AUC-ROC, and `src/continuous_validation.py` writes a
+            DATED json series whose older files would no longer share a schema with
+            newer ones. Opt in per caller, deliberately.
 
     Returns:
         dict with keys: auc_roc, auc_pr, issr_10, issr_25,
-        precision_10, recall_10, ndcg_10, precision_25, recall_25, ndcg_25,
-        plus a {metric}_band_lo/{metric}_band_hi pair for issr/precision/recall
-        at both k (see module docstring's "Tie bands" section).
+        precision_10, recall_10, ndcg_10, precision_25, recall_25, ndcg_25.
+        When `with_bands=True`, additionally a {metric}_band_lo/{metric}_band_hi
+        pair for issr/precision/recall at both k (see the module docstring's
+        "Tie bands" section).
         Returns NaN for AUC metrics if only one class is present in y_true.
     """
     y_true = np.asarray(y_true)
@@ -162,12 +181,7 @@ def evaluate(y_true, y_scores):
         auc_roc = roc_auc_score(y_true, y_scores)
         auc_pr = average_precision_score(y_true, y_scores)
 
-    issr_10_band = _achievable_band_at_k(y_true, y_scores, 10, "issr")
-    issr_25_band = _achievable_band_at_k(y_true, y_scores, 25, "issr")
-    recall_10_band = _achievable_band_at_k(y_true, y_scores, 10, "recall")
-    recall_25_band = _achievable_band_at_k(y_true, y_scores, 25, "recall")
-
-    return {
+    metrics = {
         "auc_roc": auc_roc,
         "auc_pr": auc_pr,
         "issr_10": issr_at_k(y_true, y_scores, 10),
@@ -178,19 +192,34 @@ def evaluate(y_true, y_scores):
         "precision_25": precision_at_k(y_true, y_scores, 25),
         "recall_25": recall_at_k(y_true, y_scores, 25),
         "ndcg_25": ndcg_at_k(y_true, y_scores, 25),
-        "issr_10_band_lo": issr_10_band[0],
-        "issr_10_band_hi": issr_10_band[1],
-        "issr_25_band_lo": issr_25_band[0],
-        "issr_25_band_hi": issr_25_band[1],
-        "precision_10_band_lo": issr_10_band[0],
-        "precision_10_band_hi": issr_10_band[1],
-        "precision_25_band_lo": issr_25_band[0],
-        "precision_25_band_hi": issr_25_band[1],
-        "recall_10_band_lo": recall_10_band[0],
-        "recall_10_band_hi": recall_10_band[1],
-        "recall_25_band_lo": recall_25_band[0],
-        "recall_25_band_hi": recall_25_band[1],
     }
+
+    if not with_bands:
+        return metrics
+
+    issr_10_band = _achievable_band_at_k(y_true, y_scores, 10, "issr")
+    issr_25_band = _achievable_band_at_k(y_true, y_scores, 25, "issr")
+    recall_10_band = _achievable_band_at_k(y_true, y_scores, 10, "recall")
+    recall_25_band = _achievable_band_at_k(y_true, y_scores, 25, "recall")
+
+    metrics.update(
+        {
+            "issr_10_band_lo": issr_10_band[0],
+            "issr_10_band_hi": issr_10_band[1],
+            "issr_25_band_lo": issr_25_band[0],
+            "issr_25_band_hi": issr_25_band[1],
+            # precision_at_k delegates to issr_at_k, so it shares issr's band exactly.
+            "precision_10_band_lo": issr_10_band[0],
+            "precision_10_band_hi": issr_10_band[1],
+            "precision_25_band_lo": issr_25_band[0],
+            "precision_25_band_hi": issr_25_band[1],
+            "recall_10_band_lo": recall_10_band[0],
+            "recall_10_band_hi": recall_10_band[1],
+            "recall_25_band_lo": recall_25_band[0],
+            "recall_25_band_hi": recall_25_band[1],
+        }
+    )
+    return metrics
 
 
 def summarize_fold_metrics(fold_metrics_list):
