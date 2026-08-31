@@ -24,23 +24,48 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
         run: |
-          # Compare against the PR base (or previous commit on push). Exclude this gate
-          # workflow itself, whose grep patterns intentionally contain example fragments.
+          # Compare against the PR base (or previous commit on push).
+          #
+          # Exclusions are applied BY PATH, as git pathspecs, never by matching an added
+          # line's content. This is load-bearing: the added-line filter below ('^\+[^+]')
+          # necessarily strips the '+++ b/<path>' headers, so by the time the lines reach
+          # grep there is no file attribution left to filter on. A content-based exclusion
+          # therefore fails in BOTH directions - it let any added line in ANY source file
+          # bypass the gate merely by containing the substring "README.md" (a docstring, a
+          # comment, a `Path(home)/"README.md"` constant), while still flagging genuine
+          # README.md hunks it was meant to exempt. git applies these before the diff is
+          # produced, so attribution cannot be lost.
+          #
+          # Excluded: this gate workflow itself, and nothing else. Its grep patterns
+          # intentionally contain example path fragments, so it must exempt itself.
+          #
+          # The three doc excludes that used to sit here (**/README.md,
+          # **/walkthrough.md, **/post_remediation_todos.md) were carried over from the
+          # old content-based DOC_EXCLUDE, and porting them to pathspecs would have
+          # WIDENED the bypass rather than preserving it: the content filter matched the
+          # leaking line's text, so it never exempted a README hunk by path, whereas a
+          # pathspec does. That would have removed this gate from 6 tracked README.md
+          # files including the public front door. Measured before removal: zero tracked
+          # README.md, and no tracked walkthrough.md or post_remediation_todos.md exists
+          # at all, so the excludes bought nothing. Re-add one only for a file that
+          # demonstrably needs it, never pre-emptively.
+          PATHSPEC=(
+            '.'
+            ':(exclude).github/workflows/pii_scan.yml'
+          )
+
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff "origin/$BASE_REF...HEAD" -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
+            git diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
           else
-            git diff HEAD~1...HEAD -- . ':(exclude).github/workflows/pii_scan.yml' > diff.txt
+            git diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
 
           # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
-          # Removing a pre-existing leak must not fail the gate. Doc references are excluded.
-          DOC_EXCLUDE="(README.md|walkthrough.md|post_remediation_todos.md)"
-
+          # Removing a pre-existing leak must not fail the gate.
           USER_LEAKS=$(grep -E "^\+[^+]" diff.txt \
-            | grep -E "(/Users/|Users\\\|/mnt/c/Users/)" \
-            | grep -v -E "$DOC_EXCLUDE" || true)
+            | grep -E "(/Users/|Users\\\|/mnt/c/Users/)" || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
@@ -48,8 +73,7 @@ jobs:
           # cannot mask a real /Users/ leak.
           HOME_LEAKS=$(grep -E "^\+[^+]" diff.txt \
             | grep -E "/home/[A-Za-z0-9_.-]+" \
-            | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" \
-            | grep -v -E "$DOC_EXCLUDE" || true)
+            | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
           LEAKS=$(printf '%s\n%s' "$USER_LEAKS" "$HOME_LEAKS" | grep -E '.' || true)
           if [ -n "$LEAKS" ]; then
