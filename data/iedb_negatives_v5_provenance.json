@@ -1,22 +1,58 @@
 {
-  "timestamp": "2026-06-26T03:06:00.085360+00:00",
-  "git_sha": "317b5d4",
-  "input_file": "data\\iedb_tcell_export_2026-06-26.csv\\tcell_full_v3.csv",
-  "input_sha256": "9c3b7c30dcf44b5308a2194dcf7cd947dbc2237b6b9ff69b2181af94e6b2636a",
-  "existing_dataset": "data\\immunogenicity_dataset_v4.csv",
-  "filter_stats": {
-    "raw_input": 573409,
-    "after_human_host_filter": 403277,
-    "negatives_by_qualitative_measure": 264079,
-    "negatives_by_response_frequency": 0,
-    "after_negative_measure_filter": 264079,
-    "after_peptide_filter": 51624,
-    "after_hla_filter": 42737,
-    "intra_export_duplicates_removed": 4994,
-    "after_intra_export_dedup": 37743,
-    "deduplication_hits": 3385,
-    "final_output_rows": 34358
+  "timestamp": "2026-06-26T12:48:40+00:00",
+  "git_sha": "58bbc15d1459de815b24ccd143e6f5fb1a7b0454",
+  "derivation": "post-hoc row filter applied to a committed artifact; NOT a generator re-run",
+  "input_file": "data/iedb_negatives_v5.csv",
+  "input_revision": "a15d05efe023f48bb710a87d48e5ef70f6ea9ee8",
+  "input_sha256": "aa814f145a4e9dc6ffa46811f0863bca371bfbdf03e635a4bffcd7a79b3429c4",
+  "input_rows": 34358,
+  "transform": "drop rows where assay_type == 'biological activity'",
+  "rows_removed": 1888,
+  "removal_verified": "Strict order-preserving subset: filtering the input's rows by assay_type != 'biological activity' reproduces this artifact's 32470 rows element-for-element across all 23 fields, in order. 0 rows added, 0 modified. All 1888 removed rows carry label 0; 71 carry virus == 'HPV18'.",
+  "final_output_rows": 32470,
+  "output_file": "data/iedb_negatives_v5.csv",
+  "output_checksum_sha256": "f05ad11a9e1f894708f8ffb6e0f97730b16ba59003028f7c68801c70d2025514",
+  "reproducibility": {
+    "upstream_intermediate": "REPRODUCIBLE. Checking out the pre-fix generator (git show a15d05e^:scripts/ingest_iedb_negatives.py) and running it on the same raw export reproduces the 34358-row input artifact bit-for-bit: LF sha256 aa814f14... equals its committed blob, and its CRLF form hashes to 75aa5b87..., which is the digest the June sidecar recorded.",
+    "this_artifact": "NOT REPRODUCIBLE by the current generator. EXCLUDED_ASSAY_TYPES is applied as Filter 6, BEFORE the intra-export dedup, whereas 58bbc15 deleted rows AFTER dedup. A current re-run therefore yields 32506 rows, a strict SUPERSET of these 32470: 0 rows of this artifact are absent from it, and it adds 36.",
+    "regeneration_delta_rows": 36,
+    "regeneration_delta_assay_types": {
+      "ICS": 28,
+      "surface plasmon resonance (SPR)": 3,
+      "ELISPOT": 3,
+      "ELISA": 1,
+      "multimer/tetramer": 1
+    },
+    "regeneration_delta_note": "All 36 carry label 0. Their virus field is 'Unknown' (29) or 'Self' (7); none is attributed to a named virus, so none can enter a per-virus or leave-one-virus-out cell directly. They would shift the global negative pool by 36 rows in 32470 (0.11%).",
+    "scheduled_resolution": "Regeneration to 32506 rows (C2 Option 1) is the known resolution and is purely additive. It is deferred, not declined: it requires rebuilding data/immunogenicity_dataset_v5.csv and re-running the RF mode-31 retrain, which moves published figures. Execute it with the next planned v5 retrain rather than as a standalone change.",
+    "measurement_scope": "READ THIS BEFORE RELYING ON THE REGENERATION FIGURES. The this_artifact, regeneration_delta_rows, regeneration_delta_assay_types and regeneration_delta_note fields, and the generator re-run asserted in upstream_intermediate, were all measured locally on 2026-08-31 against data/iedb_tcell_export_2026-06-26.csv/tcell_full_v3.csv, a 1.34 GB gitignored raw export. They are NOT reproducible from a clone and are workstation measurements recorded here, not repo properties. By contrast every field outside this block - input_sha256, input_rows, rows_removed, removal_verified, final_output_rows and output_checksum_sha256 - IS re-derivable from tracked git objects alone. Note in particular that the digest evidence quoted in upstream_intermediate is a property of the committed blob and can be reproduced WITHOUT running the generator, so it corroborates the blob's two forms rather than proving the re-run."
   },
-  "output_file": "data\\iedb_negatives_v5.csv",
-  "output_checksum_sha256": "75aa5b875ee0b4387220bc26abdbadb47338aae6c2fcafa28300c2301a9cec52"
+  "assay_mix_review": {
+    "date": "2026-08-31",
+    "question": "EXCLUDED_ASSAY_TYPES may be under-inclusive on a15d05e's own stated rationale, that biochemical / non-T-cell-functional readouts must not serve as immunogenicity negatives. This artifact still contains surface plasmon resonance (SPR) 19, binding assay 2, and RNA/DNA detection 3 rows - and 3 of the 36 rows a regeneration would ADD are SPR.",
+    "ruling": "Accepted as-is by the maintainer on 2026-08-31 (Ruling R2). These rows stand as negatives under the current exclusion rationale; no further exclusion is applied by this sidecar. Signing this sidecar blesses the current assay mix. The ruling is restated here in full rather than cited, deliberately: an attestation must not rest its authority on a document that a reader of a clone cannot open."
+  },
+  "upstream_generator_run": {
+    "note": "The June generation run that produced the 34358-row INTERMEDIATE, which is this block's own output_file and the top-level input_file. Retained as history with ONE documented change: input_file, existing_dataset and output_file had their Windows backslash separators normalized to forward slashes. Every other field, including filter_stats, git_sha, timestamp, input_sha256 and output_checksum_sha256, is byte-for-byte as recorded in June. Recording that edit rather than calling this verbatim, because those backslashes were a second independent signature of the Windows-worktree provenance this sidecar exists to diagnose. Its filter_stats are all TRUE of that run - verified by bit-for-bit re-derivation - and describe the intermediate, NOT this artifact. Its recorded output_checksum_sha256 is the CRLF (Windows worktree) form of the intermediate, which never matched that file's own committed blob either.",
+    "timestamp": "2026-06-26T03:06:00.085360+00:00",
+    "git_sha": "317b5d4",
+    "input_file": "data/iedb_tcell_export_2026-06-26.csv/tcell_full_v3.csv",
+    "input_sha256": "9c3b7c30dcf44b5308a2194dcf7cd947dbc2237b6b9ff69b2181af94e6b2636a",
+    "existing_dataset": "data/immunogenicity_dataset_v4.csv",
+    "filter_stats": {
+      "raw_input": 573409,
+      "after_human_host_filter": 403277,
+      "negatives_by_qualitative_measure": 264079,
+      "negatives_by_response_frequency": 0,
+      "after_negative_measure_filter": 264079,
+      "after_peptide_filter": 51624,
+      "after_hla_filter": 42737,
+      "intra_export_duplicates_removed": 4994,
+      "after_intra_export_dedup": 37743,
+      "deduplication_hits": 3385,
+      "final_output_rows": 34358
+    },
+    "output_file": "data/iedb_negatives_v5.csv",
+    "output_checksum_sha256": "75aa5b875ee0b4387220bc26abdbadb47338aae6c2fcafa28300c2301a9cec52"
+  }
 }
