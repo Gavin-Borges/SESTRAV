@@ -92,11 +92,18 @@ models/allele_aware/training_results.csv text eol=lf
 models/allele_aware/training_subgroup_metrics.csv text eol=lf
 
 # Added 2026-08-31 (C2, the iedb_negatives_v5 provenance supersession): same failure mode as
-# every block above, and the last uncovered member of the v5 negatives set. The sidecar had
-# recorded a CRLF working-tree digest that no Linux clone or CI checkout could reproduce.
-# Verified portable before pinning: `git cat-file blob HEAD:data/iedb_negatives_v5.csv |
-# sha256sum` is f05ad11a9e1f894708f8ffb6e0f97730b16ba59003028f7c68801c70d2025514, which is
-# the digest the superseded sidecar now records. The blob is already LF, so this pin changes
-# no content - it stops a Windows checkout from reintroducing the divergence.
+# every block above. The sidecar had recorded a CRLF working-tree digest that no Linux clone
+# or CI checkout could reproduce.
+# Verified portable before pinning: the committed blob carries zero CR bytes, so it is
+# already LF and this pin changes no content - it stops a Windows checkout from
+# reintroducing the divergence. No digest is quoted here, deliberately: this artifact gets
+# regenerated, so any literal would go stale in place. The authority is
+# output_checksum_sha256 inside the sidecar, which moves with the file it describes.
+# SCOPE, corrected 2026-08-31: these two are NOT "the last uncovered member of the v5
+# negatives set", which is what this comment claimed when it was written. Six tracked v5
+# artifacts remain unpinned and carry the same exposure, two of them squarely inside the
+# negatives set: data/iedb_negatives_v5_merged.csv,
+# data/iedb_negatives_v5_merged_provenance.json, data/lanl_hiv_v5_provenance.json,
+# data/published_panels_v5_combined.csv, data/vdjdb_v5.csv, data/vdjdb_v5_provenance.json.
 data/iedb_negatives_v5.csv text eol=lf
 data/iedb_negatives_v5_provenance.json text eol=lf
