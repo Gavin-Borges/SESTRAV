@@ -90,3 +90,13 @@ models/allele_aware/optimal_thresholds.json text eol=lf
 models/allele_aware/rf_oof_predictions.csv text eol=lf
 models/allele_aware/training_results.csv text eol=lf
 models/allele_aware/training_subgroup_metrics.csv text eol=lf
+
+# Added 2026-08-31 (C2, the iedb_negatives_v5 provenance supersession): same failure mode as
+# every block above, and the last uncovered member of the v5 negatives set. The sidecar had
+# recorded a CRLF working-tree digest that no Linux clone or CI checkout could reproduce.
+# Verified portable before pinning: `git cat-file blob HEAD:data/iedb_negatives_v5.csv |
+# sha256sum` is f05ad11a9e1f894708f8ffb6e0f97730b16ba59003028f7c68801c70d2025514, which is
+# the digest the superseded sidecar now records. The blob is already LF, so this pin changes
+# no content - it stops a Windows checkout from reintroducing the divergence.
+data/iedb_negatives_v5.csv text eol=lf
+data/iedb_negatives_v5_provenance.json text eol=lf
