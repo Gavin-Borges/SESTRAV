@@ -42,17 +42,38 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 NEGATIVES_CSV = REPO_ROOT / "data" / "iedb_negatives_v5.csv"
 MERGED_CSV = REPO_ROOT / "data" / "iedb_negatives_v5_merged.csv"
 
-# Measured from the generator output at 32f2cb2 with the csv module, header
-# excluded, and cross-checked against LF count minus one in the staged Git blob.
-EXPECTED_ROWS = 32506
+# Every constant in this module is an INDEPENDENTLY MEASURED literal, never
+# derived from another one. Deriving any of them would turn the identity test at
+# the bottom into a tautology that passes for any value of EXPECTED_ROWS, which
+# is precisely the decay this file exists to prevent.
+#
+# EXPECTED_ROWS is cited by CONTENT DIGEST, not by commit. An in-branch SHA does
+# not survive a rebase and "the staged blob" stops resolving the moment the index
+# is committed, so neither is a durable citation (.claude/rules/git-instruments.md
+# R7 and R8). The artifact these tests run against is the one whose LF blob hashes
+# to the digest below, which is also the output_checksum_sha256 recorded in
+# data/iedb_negatives_v5_provenance.json:
+#   git show <any ref carrying it>:data/iedb_negatives_v5.csv | sha256sum
+#   -> f4b7a130b1d8d87341dc9a946f255766eacf17b896aca80dddcc85e6cfd92a41
+EXPECTED_ROWS = 32506  # csv.reader over that blob, header excluded
 
 EXCLUDED_ASSAY_TYPE = "biological activity"
+
+# The recorded history. Each is measured from the blob named beside it, and every
+# one of those commits is a permanent ancestor of main, so the citations survive a
+# rebase of this branch.
+ROWS_BEFORE_58BBC15 = 34358  # csv.reader over `git show 58bbc15^:data/iedb_negatives_v5.csv`
+ROWS_REMOVED_BY_58BBC15 = 1888  # of those rows, the ones whose assay_type is EXCLUDED_ASSAY_TYPE
+ROWS_AFTER_58BBC15 = 32470  # csv.reader over `git show 58bbc15:data/iedb_negatives_v5.csv`
+REGENERATION_SURPLUS = 36  # whole-row multiset diff against that blob, all 23 fields
 
 # The downstream lag, measured as a whole-row multiset difference over the 23
 # fields the two files share. Both operands are tracked, so unlike the generator
 # re-run this figure is re-derivable inside a clone with no raw export present.
-# Independently measured, never derived from EXPECTED_ROWS: deriving it would
-# make the assertion a tautology.
+# It currently equals REGENERATION_SURPLUS, because the merged file was built
+# before the regeneration and so lacks exactly the rows the regeneration added.
+# Those two constants are NOT the same quantity and will diverge the moment the
+# merge is rebuilt, so neither is defined in terms of the other.
 MERGED_ROWS = 36689
 MERGED_LAG_ROWS = 36
 
@@ -111,6 +132,28 @@ def test_every_row_is_a_negative():
 
     non_negative = {r["label"] for r in rows if r["label"] != "0"}
     assert not non_negative, f"non-zero labels present in the negatives pool: {non_negative}"
+
+
+def test_recorded_history_reconciles_with_the_pinned_row_count():
+    """
+    Keeps EXPECTED_ROWS from being a lone bare pin that no other value contradicts.
+
+    Each constant here was measured from a different Git blob, so these are real
+    cross-checks rather than restatements of one number: change EXPECTED_ROWS on
+    its own and the second assertion fails, which is the property a single pinned
+    literal cannot have. All three blobs are reachable from main, so this test
+    needs no raw export and no network.
+    """
+    assert ROWS_BEFORE_58BBC15 - ROWS_REMOVED_BY_58BBC15 == ROWS_AFTER_58BBC15, (
+        f"{ROWS_BEFORE_58BBC15} - {ROWS_REMOVED_BY_58BBC15} != {ROWS_AFTER_58BBC15}; "
+        "the recorded history of the in-place edit at 58bbc15 no longer reconciles."
+    )
+    assert ROWS_AFTER_58BBC15 + REGENERATION_SURPLUS == EXPECTED_ROWS, (
+        f"{ROWS_AFTER_58BBC15} + {REGENERATION_SURPLUS} != {EXPECTED_ROWS}; "
+        "the 2026-08-31 regeneration no longer reconciles with the pinned row "
+        "count. Re-derive it against the artifact rather than adjusting a literal "
+        "to make this pass."
+    )
 
 
 def test_downstream_merge_lag_is_pinned_not_silent():
