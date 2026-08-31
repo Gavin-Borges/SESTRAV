@@ -57,7 +57,7 @@ architecture on a different pool, so it is **not** a substitute for the retracte
 
 ### GNN
 
-**RETRACTED AS UNBOUND, 2026-08-31, on the same grounds as the ANN column above, and with
+**RETRACTED AS UNBOUND, 2026-08-30, on the same grounds as the ANN column above, and with
 an added trap.** These figures were sourced to
 `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/gnn_sequence_benchmark.csv`
 and `.../gnn_bipartite_benchmark.csv`. That directory is **absent from this repository and
@@ -71,7 +71,7 @@ Retained struck-through as the record of what was reported:
 
 **DO NOT "fix" this by repointing at the identically-named tracked files.** This repository
 does track `models/gnn_sequence_benchmark.csv` and `models/gnn_bipartite_benchmark.csv`, and
-the obvious repair is to cite those. **Measured 2026-08-31, they hold DIFFERENT values:**
+the obvious repair is to cite those. **Measured 2026-08-30, they hold DIFFERENT values:**
 
 | Model | Retracted figure (AUC-PR / AUC-ROC) | Tracked file (`auc_pr_mean` / `auc_roc_mean`) |
 |---|---|---|
