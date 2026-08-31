@@ -62,12 +62,27 @@ def test_compute_decomposition_has_one_row_per_canon_virus_plus_mean(patched_sou
     assert out.iloc[-1]["virus"] == "Mean"
 
 
-def test_bare_invocation_writes_nothing(patched_sources, tmp_path, capsys):
-    would_be_output = tmp_path / "would_not_be_written.csv"
+def test_bare_invocation_writes_nothing(patched_sources, tmp_path, capsys, monkeypatch):
+    # The previous form asserted that `tmp_path / "would_not_be_written.csv"` did not
+    # exist. That string appears nowhere in scripts/ or src/, so no code path could ever
+    # have created it and the assertion held for every possible implementation - including
+    # one that wrote the tracked artifact. Only the "Mean" check below ever bit.
+    #
+    # Two real anchors replace it. compute_loo_binding_confound.py:178-179 prints
+    # "wrote <path>" for the CSV and its sidecar, so that token is the script's own report
+    # of every write it makes. And the chdir gives a relative write somewhere observable:
+    # this module anchors nothing to REPO_ROOT, so a reinstated default would be resolved
+    # against the current directory and land in tmp_path.
+    # Snapshot rather than assert-empty: patched_sources writes its own input fixtures into
+    # tmp_path, so the directory is legitimately non-empty before main() runs. What must
+    # not change is its contents.
+    monkeypatch.chdir(tmp_path)
+    before = set(tmp_path.iterdir())
     clbc.main([])
-    assert not would_be_output.exists()
     captured = capsys.readouterr()
     assert "Mean" in captured.out  # table is still printed
+    assert "wrote " not in captured.out
+    assert set(tmp_path.iterdir()) == before
 
 
 def test_output_flag_writes_the_given_path(patched_sources, tmp_path):
