@@ -351,19 +351,75 @@ def test_the_encoding_scans_actually_cover_the_repository():
 def test_banned_typographic_characters_are_absent_from_tracked_files():
     """Rule 1 and rule 2: the local pre-commit hook checks only U+2014; this checks the class."""
     violations = []
+    undecodable = []
     for path in _tracked():
         if path.suffix not in TEXT_SUFFIXES:
             continue
         try:
             text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, FileNotFoundError):
+        except UnicodeDecodeError:
+            # Record instead of skipping. A tracked text file that is not valid UTF-8 is
+            # precisely where a banned character hides: an em-dash saved by a cp1252 editor
+            # is the single byte 0x97, which is not decodable as UTF-8, so a bare `continue`
+            # here exempted the file from the very scan that hunts em-dashes. Same reasoning
+            # as the `unparseable == 0` assertion above, and the same remedy.
+            #
+            # Decoding as latin-1 and scanning anyway does NOT fix it, and that was measured
+            # before being rejected: 0x97 decodes to U+0097 (a C1 control), not to U+2014, so
+            # the em-dash would be silently renamed rather than caught. Guessing the encoding
+            # would mean guessing which of several codepages produced the byte. Failing and
+            # having a human re-save the file as UTF-8 is the only sound response.
+            undecodable.append(path.relative_to(REPO_ROOT).as_posix())
+            continue
+        except FileNotFoundError:
+            # A tracked path absent from the working tree (sparse or partial checkout). It
+            # carries no bytes to scan here, which is a different situation from bytes this
+            # scan cannot read.
             continue
         relative = path.relative_to(REPO_ROOT).as_posix()
         for lineno, line in enumerate(text.splitlines(), 1):
             for char, name in BANNED_TYPOGRAPHIC.items():
                 if char in line:
                     violations.append(f"{relative}:{lineno} contains U+{ord(char):04X} {name}")
+    assert not undecodable, (
+        "tracked text file(s) are not valid UTF-8, so this scan cannot read them and they "
+        "are exempt from the banned-character check by construction. Re-save as UTF-8:\n"
+        + "\n".join(undecodable)
+    )
     assert not violations, (
         "banned typographic character(s) found; use the ASCII equivalent "
         "(.claude/rules/encoding.md rules 1-2):\n" + "\n".join(violations)
     )
+
+
+def test_cp1252_em_dash_is_unreadable_as_utf8_and_unrecoverable_as_latin1():
+    """Pin the byte-level facts the undecodable guard above rests on.
+
+    This is not a test of repository content; it is a test of the REASONING that makes the
+    guard necessary, so that a future simplification back to a bare `continue` fails here
+    with the explanation attached rather than silently reopening the hole.
+
+    Characters are built with chr() for the same reason BANNED_TYPOGRAPHIC is: an escape
+    would resolve back to the em-dash in `ast.Constant`, and this module's own AST scan
+    would then fail on its own source.
+    """
+    em_dash = chr(0x2014)
+    em_dash_cp1252 = em_dash.encode("cp1252")
+    assert em_dash_cp1252 == bytes([0x97])
+
+    try:
+        em_dash_cp1252.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    else:  # pragma: no cover - only reachable if Python's UTF-8 codec changes
+        raise AssertionError(
+            "0x97 decoded as UTF-8; the undecodable guard's premise no longer holds"
+        )
+
+    # The tempting one-line "fix" - decode as latin-1 and scan anyway - is unsound: the byte
+    # round-trips to a DIFFERENT character, so the scan would report nothing and the em-dash
+    # would pass under another name.
+    assert em_dash_cp1252.decode("latin-1") == chr(0x0097)
+    assert em_dash_cp1252.decode("latin-1") != em_dash
+    assert em_dash in BANNED_TYPOGRAPHIC
+    assert chr(0x0097) not in BANNED_TYPOGRAPHIC
