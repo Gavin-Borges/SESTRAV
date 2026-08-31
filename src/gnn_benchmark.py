@@ -14,16 +14,31 @@ The GNN learns position-dependent importance and inter-residue relationships
 through message passing, capturing structural context that fixed-position
 tabular features cannot represent.
 
-Project 2 results (5-fold CV, v2 dataset):
-  GCN (2-layer):            AUC-PR=0.7781, AUC-ROC=0.6138
-  GAT (2-layer, 4-head):    AUC-PR=0.7956, AUC-ROC=0.6366  (best GNN)
-  Bipartite Peptide-Allele: AUC-PR=0.7886, AUC-ROC=0.6124
+Project 2 results (5-fold CV, v2 dataset): RETRACTED AS UNBOUND (2026-08-30),
+on the same grounds as the comparator figures below and from the same source.
+These were sourced to "CMB 523 Injection for SESTRAV Progress/523 Project 2/
+Colab_outputs/gnn_sequence_benchmark.csv" and ".../gnn_bipartite_benchmark.csv",
+a directory absent from this repository and from any local workspace, so none of
+them can be reproduced or checked from anything tracked here. Retained as the
+record of what was reported, NOT as live results:
+  GCN (2-layer):            AUC-PR=0.7781, AUC-ROC=0.6138   [RETRACTED]
+  GAT (2-layer, 4-head):    AUC-PR=0.7956, AUC-ROC=0.6366   [RETRACTED]
+  Bipartite Peptide-Allele: AUC-PR=0.7886, AUC-ROC=0.6124   [RETRACTED]
+
+DO NOT "fix" these by repointing at the identically-named tracked files
+models/gnn_sequence_benchmark.csv and models/gnn_bipartite_benchmark.csv.
+Their values differ from every figure above, so a repoint would trade an
+unbound number for a MIS-ATTRIBUTED one. See docs/nn_gnn_optional_module_guide.md
+for the measured side-by-side and the full reasoning.
 
 Note: GNNs were reported to underperform the tabular RF and ANN on this
 dataset.  The two comparator figures that stood here, RF AUC-PR=0.8102 and
 ANN AUC-PR=0.8252, are RETRACTED as unbound (2026-08-17): both trace to the
 same external course export, absent from this repository, so neither the
 comparison nor its direction can be checked from anything tracked here.
+With the GNN figures above now retracted on identical grounds, the entire
+Project 2 comparison in this docstring is unbound and none of it can be
+checked from this repository.
 Included as an exploratory benchmark to characterize the representation
 space, not as a production classifier.
 
