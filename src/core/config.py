@@ -60,6 +60,21 @@ class SestravConfig(BaseModel):
 
     @classmethod
     def load(cls, path: str | Path = "config.yaml") -> "SestravConfig":
+        """Load config from `path`. NOTE: the default is CWD-RELATIVE.
+
+        A bare `SestravConfig.load()` therefore only works when the process starts in the
+        project root. This was the FIRST failure in API startup from a foreign cwd - it
+        runs before any model lookup, so anchoring the model registry alone did not make
+        startup cwd-independent. `api/main.py` fixes it by passing an explicit
+        `__file__`-anchored path rather than relying on this default.
+
+        The default is left cwd-relative ON PURPOSE. Several callers still use the bare
+        form (src/generate_dataset_v3.py, scripts/batch_experiment_runner.py, pipeline.py)
+        and at least the batch runner may legitimately want the config of whatever
+        directory it is invoked from. Changing this default would silently alter which
+        file those callers read, so it is a separate decision, not a drive-by fix.
+        New callers should pass an anchored path, as `src/cli.py` and `api/main.py` do.
+        """
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls(**data)
