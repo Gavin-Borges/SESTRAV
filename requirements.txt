@@ -400,7 +400,7 @@ cuda-bindings==13.3.1 \
 cuda-pathfinder==1.6.0 \
     --hash=sha256:1503af579d8379c24bdd65528379bc57039b0455be9f5f9686cf8e473a1fce51
     # via cuda-bindings
-cuda-toolkit==13.0.3.0 \
+cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3.0 \
     --hash=sha256:d693caaa261214ddd7dbb60d68e71cbed884e68c2be7509778f3051da0b91c3f
     # via torch
 cycler==0.12.1 \
@@ -1459,7 +1459,7 @@ nvidia-cusparselt-cu13==0.8.1 \
     --hash=sha256:786ce87568c303fadb5afcc7102d454cd3040d75f6f8626f5db460d1871f4dd0 \
     --hash=sha256:dccbd362f91a7b9024d1f55ee9f548ac065027ff15d8c8b0db889ab3a8f31215
     # via torch
-nvidia-nccl-cu12==2.30.7 \
+nvidia-nccl-cu12==2.30.7 ; platform_system == "Linux" \
     --hash=sha256:03ecd776fd1d58fd2c9a0a687dcf8db9ecd0057382dba646fa3d65786d4a9ea1 \
     --hash=sha256:8ce1b8213f61f2bfac132e6df890af6450b77cbd140c6ce4e98cb0c2d8e678c9
     # via
@@ -2287,12 +2287,6 @@ scipy==1.17.1 \
     #   scikit-learn
     #   shap
     #   xgboost
-setuptools==84.0.0 \
-    --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670 \
-    --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73
-    # via
-    #   -r requirements.in
-    #   torch
 shap==0.51.0 \
     --hash=sha256:07b0367408b1b9fc51556f2ddac5ee4209cc51be592099e6d51d0834c9b037d8 \
     --hash=sha256:0b1f9e62d6a3fa28765d7b61abda7caf76aba21e769423fbf3ce8a7a5e498243 \
@@ -2431,9 +2425,9 @@ urllib3==2.7.0 \
     --hash=sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c \
     --hash=sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897
     # via requests
-uvicorn==0.52.3 \
-    --hash=sha256:116af2710dbf47c80f463cd20ee4884b6662f4c9f227d797ddc7279d2fcc2c7c \
-    --hash=sha256:18857b9e6579300be55c91c0a1cfd37d9a2cf0cabea33b88275f199eb73b8b58
+uvicorn==0.52.4 \
+    --hash=sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86 \
+    --hash=sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1
     # via -r requirements.in
 xgboost==3.2.0 \
     --hash=sha256:0d169736fd836fc13646c7ab787167b3a8110351c2c6bc770c755ee1618f0442 \
