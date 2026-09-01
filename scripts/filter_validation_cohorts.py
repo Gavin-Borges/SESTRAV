@@ -31,9 +31,10 @@ STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
 MIN_LEN = 8
 MAX_LEN = 11
 
+# v5 is the required contamination-filter corpus. A missing path must raise;
+# skipping silently built an empty trie and filtered nothing.
 TRAINING_DATA_PATHS = [
-    os.path.join(PROJECT_ROOT, "immunogenicity_dataset.csv"),
-    os.path.join(PROJECT_ROOT, "data", "immunogenicity_dataset_v4.csv"),
+    os.path.join(PROJECT_ROOT, "data", "immunogenicity_dataset_v5.csv"),
 ]
 
 SARS2_OUTPUT = os.path.join(PROJECT_ROOT, "data", "external", "sars2_clean.csv")
@@ -155,18 +156,47 @@ def clean_and_curate(records, virus_name):
     return agg[["peptide", "label", "virus", "allele"]].reset_index(drop=True)
 
 
+def _training_path_rel(path):
+    """Repo-relative POSIX path for error messages (no absolute workstation path)."""
+    try:
+        rel = os.path.relpath(path, PROJECT_ROOT)
+    except ValueError:
+        rel = os.path.basename(path)
+    return rel.replace("\\", "/")
+
+
 def load_training_peptides():
-    """Load all unique peptides from existing training datasets."""
+    """Load all unique peptides from required training datasets.
+
+    Every path in TRAINING_DATA_PATHS must exist. A missing reference is a
+    hard error: the previous exists-skip loop returned an empty peptide set
+    and contamination filtering then removed nothing.
+    """
+    missing = [p for p in TRAINING_DATA_PATHS if not os.path.exists(p)]
+    if missing:
+        listed = ", ".join(_training_path_rel(p) for p in missing)
+        raise FileNotFoundError(
+            "Required training reference corpus missing: " + listed
+        )
+
     peptides = set()
     for path in TRAINING_DATA_PATHS:
-        if os.path.exists(path):
-            try:
-                df = pd.read_csv(path)
-                if "peptide" in df.columns:
-                    peptides.update(df["peptide"].dropna().str.strip().str.upper())
-                print(f"Loaded {len(df)} rows from training dataset: {os.path.basename(path)}")
-            except Exception as e:
-                print(f"Error reading {path}: {e}", file=sys.stderr)
+        df = pd.read_csv(path)
+        if "peptide" not in df.columns:
+            raise ValueError(
+                "Training reference "
+                + _training_path_rel(path)
+                + " has no peptide column"
+            )
+        peptides.update(df["peptide"].dropna().str.strip().str.upper())
+        print(
+            "Loaded "
+            + str(len(df))
+            + " rows from training dataset: "
+            + os.path.basename(path)
+        )
+    if not peptides:
+        raise ValueError("Training reference corpus contained no peptides")
     return list(peptides)
 
 
@@ -225,12 +255,6 @@ def main():
     # Load training dataset peptides
     train_peptides = load_training_peptides()
     print(f"Total unique training peptides loaded: {len(train_peptides)}")
-    if not train_peptides:
-        print(
-            "ERROR: No training peptides found! Ensure immunogenicity_dataset.csv is present.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
     # 1. Fetch, clean, and filter SARS-CoV-2
     sars2_raw = fetch_cohort_data("Severe acute respiratory syndrome coronavirus 2")
