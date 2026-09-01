@@ -45,9 +45,11 @@ def test_maybe_write_json_does_nothing_when_path_is_empty_string(tmp_path, capsy
     # After the chdir, a relative path (which is what a reinstated default would be, since
     # this module anchors nothing to REPO_ROOT) lands inside tmp_path and is caught.
     #
-    # The stdout check is the independent one: eval_tsnadb_crossdomain.py:314 prints
-    # "Results written to ..." on every write it performs, so absence of that token is a
-    # real signal about the function's behaviour rather than about the directory.
+    # The stdout check is the independent one: maybe_write_json, the function under test,
+    # prints "Results written to ..." on every write it performs, so absence of that token
+    # is a real signal about the function's behaviour rather than about the directory.
+    # Named by symbol rather than pinned to a line number, which would rot on the next
+    # edit upstream of it.
     monkeypatch.chdir(tmp_path)
     etc.maybe_write_json({"a": 1}, "")
     assert list(tmp_path.iterdir()) == []

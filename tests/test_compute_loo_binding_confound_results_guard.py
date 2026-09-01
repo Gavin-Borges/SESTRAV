@@ -68,9 +68,12 @@ def test_bare_invocation_writes_nothing(patched_sources, tmp_path, capsys, monke
     # have created it and the assertion held for every possible implementation - including
     # one that wrote the tracked artifact. Only the "Mean" check below ever bit.
     #
-    # Two real anchors replace it. compute_loo_binding_confound.py:178-179 prints
-    # "wrote <path>" for the CSV and its sidecar, so that token is the script's own report
-    # of every write it makes. And the chdir gives a relative write somewhere observable:
+    # Two real anchors replace it. The --output branch of this script's main() prints
+    # "wrote <path>" for the CSV and again for its sidecar, so that token is the script's
+    # own report of every write it makes. Cited by symbol rather than by line number on
+    # purpose: a path:NNN pin here rots on the next edit upstream of it, which is the
+    # whole failure class scripts/check_doc_line_citations.py exists to catch.
+    # And the chdir gives a relative write somewhere observable:
     # this module anchors nothing to REPO_ROOT, so a reinstated default would be resolved
     # against the current directory and land in tmp_path.
     # Snapshot rather than assert-empty: patched_sources writes its own input fixtures into
