@@ -1,9 +1,10 @@
 {
-  "timestamp": "2026-06-26T03:06:00.085360+00:00",
-  "git_sha": "317b5d4",
-  "input_file": "data\\iedb_tcell_export_2026-06-26.csv\\tcell_full_v3.csv",
+  "timestamp": "2026-08-31T19:58:18.200989+00:00",
+  "git_sha": "32f2cb2",
+  "derivation": "direct generator run using scripts/ingest_iedb_negatives.py from the pinned raw IEDB export and the gitignored v4 dataset",
+  "input_file": "data/iedb_tcell_export_2026-06-26.csv/tcell_full_v3.csv",
   "input_sha256": "9c3b7c30dcf44b5308a2194dcf7cd947dbc2237b6b9ff69b2181af94e6b2636a",
-  "existing_dataset": "data\\immunogenicity_dataset_v4.csv",
+  "existing_dataset": "data/immunogenicity_dataset_v4.csv",
   "filter_stats": {
     "raw_input": 573409,
     "after_human_host_filter": 403277,
@@ -12,11 +13,60 @@
     "after_negative_measure_filter": 264079,
     "after_peptide_filter": 51624,
     "after_hla_filter": 42737,
-    "intra_export_duplicates_removed": 4994,
-    "after_intra_export_dedup": 37743,
-    "deduplication_hits": 3385,
-    "final_output_rows": 34358
+    "biological_activity_rows_excluded": 2332,
+    "after_assay_type_filter": 40405,
+    "intra_export_duplicates_removed": 4739,
+    "after_intra_export_dedup": 35666,
+    "deduplication_hits": 3160,
+    "final_output_rows": 32506
   },
-  "output_file": "data\\iedb_negatives_v5.csv",
-  "output_checksum_sha256": "75aa5b875ee0b4387220bc26abdbadb47338aae6c2fcafa28300c2301a9cec52"
+  "final_output_rows": 32506,
+  "output_file": "data/iedb_negatives_v5.csv",
+  "output_checksum_sha256": "f4b7a130b1d8d87341dc9a946f255766eacf17b896aca80dddcc85e6cfd92a41",
+  "reproducibility": {
+    "status": "REPRODUCIBLE only on a workstation holding BOTH inputs, and NEITHER is in a clone: the raw export pinned by input_sha256, and existing_dataset (data/immunogenicity_dataset_v4.csv), which .gitignore excludes by its own bare path and which has never appeared in any commit (git log --all -- that path is empty). deduplication_hits is measured against that dataset and so co-determines final_output_rows; this sidecar previously called it tracked, which was wrong.",
+    "adoption_verification": "Before adoption, the generated 32506-row output was compared as a whole-row multiset across all 23 fields with the tracked 32470-row artifact: 0 rows absent and 36 added. All 36 added rows carry label 0; virus is Unknown (29) or Self (7); assay types are ICS (28), surface plasmon resonance (SPR) (3), ELISPOT (3), ELISA (1), and multimer/tetramer (1).",
+    "measurement_scope": "The generator run was measured locally on 2026-08-31 and depends on both gitignored inputs named in status, so a clone cannot repeat it. Two things do remain independently re-derivable from tracked Git objects alone: final_output_rows and output_checksum_sha256 from this artifact's portable LF blob, and the whole of adoption_verification, whose two sides are both tracked blobs of data/iedb_negatives_v5.csv - the superseded one at 32f2cb2 and the one this sidecar attests to."
+  },
+  "downstream_status": {
+    "state": "NOT PROPAGATED, deliberately. Every tracked artifact derived from this file still descends from the superseded 32470-row version. Propagation is scheduled with the next planned v5 rebuild, not with this data change.",
+    "evidence": "Whole-row multiset comparison over the 23 fields the two files share, re-derivable from tracked Git objects alone: data/iedb_negatives_v5_merged.csv (36689 rows) contains every one of the superseded 32470 rows and exactly 0 of the 36 rows added here. data/immunogenicity_dataset_v5_provenance.json records iedb_negatives = 36689, so the shipped corpus data/immunogenicity_dataset_v5.csv descends from that merged file and therefore from the superseded negatives.",
+    "affected_tracked_artifacts": [
+      "data/iedb_negatives_v5_merged.csv",
+      "data/immunogenicity_dataset_v5.csv",
+      "models/peptide_binding_matrix_v5.csv",
+      "models/v5/training_results_mode31.csv"
+    ],
+    "propagation_steps": "scripts/merge_iedb_api_negatives.py --existing data/iedb_negatives_v5.csv --output data/iedb_negatives_v5_merged.csv, then scripts/build_dataset_v5.py, then the RF mode-31 retrain quoted in docs/model_cards/rf_31feature_integrated.md and docs/data_registry.md.",
+    "expected_effect_PREDICTION_NOT_MEASUREMENT": "The 36 rows carry 35 distinct peptides, of which 29 are absent from data/immunogenicity_dataset_v5.csv and all 35 are absent from models/peptide_binding_matrix_v5.csv, so a rebuild does need fresh binding predictions. Their virus is Unknown (29) or Self (7), and both of those values are quarantined by a NAME-DETERMINISTIC path rather than by a depth threshold, which is why adding rows cannot lift the quarantine. Neither string is a key in scripts/build_dataset_v5.py's VIRUS_FAMILY_MAP (27 keys) nor in scripts/_dataset_utils.py's _VIRUS_NAME_MAP (21 keys, and nothing maps TO them), so virus_family stays null and apply_quarantine's null-family branch adds them to quarantined_viruses; the mask it then applies is df['virus'].isin(quarantined_viruses), which catches every row with those virus values regardless of source_type. The threshold path is ruled OUT by measurement against the shipped corpus, where both pass the depth thresholds by wide margins: Unknown 4577 rows and 4576 real negatives, Self 3811 and 3811, against MIN_ROWS_PER_VIRUS 50 and MIN_REAL_NEGATIVES_PER_VIRUS 10. These rows are therefore expected to land quarantined and leave the active training matrix, and hence the RF mode-31 figures, unchanged. This contradicts the superseded sidecar's assertion that regeneration 'moves published figures'. It is now a mechanism read out of the build code plus a measurement of the CURRENT corpus, which is stronger than the bare correlation this field first recorded, but it is still NOT a measurement of a rebuild that has not been run. Confirm it against the rebuild before citing it.",
+    "guard": "tests/test_iedb_negatives_v5_composition_guard.py::test_downstream_merge_lag_is_pinned_not_silent pins the 36-row lag and fails loudly if it changes size in either direction, so propagation cannot happen silently and neither can a second unrecorded edit."
+  },
+  "assay_mix_review": {
+    "date": "2026-08-31",
+    "question": "EXCLUDED_ASSAY_TYPES may be under-inclusive on a15d05e's own stated rationale, that biochemical / non-T-cell-functional readouts must not serve as immunogenicity negatives. This artifact contains surface plasmon resonance (SPR) 22, binding assay 2, and RNA/DNA detection 3 rows. The SPR figure was 19 when the question was first raised against the superseded 32470-row artifact; the regeneration recorded above has since added the 3 further SPR rows the question anticipated, so the mix ruled on below is the post-regeneration mix of 22, not the 19 originally asked about.",
+    "ruling": "Accepted as-is by the maintainer on 2026-08-31 (Ruling R2). These rows stand as negatives under the current exclusion rationale; no further exclusion is applied by this sidecar. Signing this sidecar blesses the current assay mix. The ruling is restated here in full rather than cited, deliberately: an attestation must not rest its authority on a document that a reader of a clone cannot open."
+  },
+  "upstream_generator_run": {
+    "note": "The June generation run that produced the 34358-row INTERMEDIATE, which is this block's own output_file and was the superseded sidecar's top-level input_file. Retained as history with ONE documented change: input_file, existing_dataset and output_file had their Windows backslash separators normalized to forward slashes. Every other field, including filter_stats, git_sha, timestamp, input_sha256 and output_checksum_sha256, is byte-for-byte as recorded in June. Recording that edit rather than calling this verbatim, because those backslashes were a second independent signature of the Windows-worktree provenance this sidecar exists to diagnose. Its filter_stats are all TRUE of that run - verified by bit-for-bit re-derivation - and describe the intermediate, NOT this artifact. Its recorded output_checksum_sha256 is the CRLF (Windows worktree) form of the intermediate, which never matched that file's own committed blob either.",
+    "timestamp": "2026-06-26T03:06:00.085360+00:00",
+    "git_sha": "317b5d4",
+    "input_file": "data/iedb_tcell_export_2026-06-26.csv/tcell_full_v3.csv",
+    "input_sha256": "9c3b7c30dcf44b5308a2194dcf7cd947dbc2237b6b9ff69b2181af94e6b2636a",
+    "existing_dataset": "data/immunogenicity_dataset_v4.csv",
+    "filter_stats": {
+      "raw_input": 573409,
+      "after_human_host_filter": 403277,
+      "negatives_by_qualitative_measure": 264079,
+      "negatives_by_response_frequency": 0,
+      "after_negative_measure_filter": 264079,
+      "after_peptide_filter": 51624,
+      "after_hla_filter": 42737,
+      "intra_export_duplicates_removed": 4994,
+      "after_intra_export_dedup": 37743,
+      "deduplication_hits": 3385,
+      "final_output_rows": 34358
+    },
+    "output_file": "data/iedb_negatives_v5.csv",
+    "output_checksum_sha256": "75aa5b875ee0b4387220bc26abdbadb47338aae6c2fcafa28300c2301a9cec52"
+  }
 }
