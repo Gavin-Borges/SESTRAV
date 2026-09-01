@@ -105,6 +105,18 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-xdist>=3.6.0",
     "hypothesis>=6.100.0",
+    # fastapi and pydantic added 2026-09-01. They are NOT api-only in practice:
+    # three tracked test modules import them at module scope
+    # (tests/test_api_main.py, tests/test_api_log_injection.py,
+    # tests/test_config_schema.py), so without them the documented
+    # `pip install -e ".[dev]" && pytest` aborted during COLLECTION - zero tests
+    # run, not three failures. Same class as the matplotlib move above: a package
+    # declared in the wrong extra passes any check that only asks whether
+    # pyproject.toml mentions it somewhere. Gated by
+    # tests/test_dev_extra_runs_the_test_suite.py. Versions match [api]/[demo]
+    # deliberately, so the three extras cannot drift into a resolver conflict.
+    "fastapi>=0.100.0",
+    "pydantic>=2.0.0",
 ]
 api = [
     "fastapi>=0.100.0",
