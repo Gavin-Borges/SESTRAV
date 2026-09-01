@@ -1,5 +1,14 @@
 # SESTRAV Model Evaluation Summary
 
+> **READER DISCLOSURE: no model binary in this document exists in a clone.** Every
+> `models/*.joblib` path cited below (mode 31 and mode 33, RF and XGB) is a build output,
+> not a tracked file. Verified: `git ls-tree -r --name-only origin/main` matches exactly one
+> `.joblib` in the whole repository, `tests/fixtures/dag_smoke/rf_stub.joblib`, which is a
+> test stub and not any model discussed here. Rebuild one with
+> `python -m src.train_classifier --feature-mode <N>` (see `USAGE.md`). The CSV artifacts
+> cited alongside them - `models/rf_oof_predictions*.csv`, `models/v5/training_results_*.csv`,
+> `results/*.csv` - ARE tracked and can be opened directly.
+
 ## v5 Canonical Track: 31-Feature RF (Trained 2026-07-04)
 
 > **Status:** Current production model. Dataset: v5, 35,597 active rows (51,185 total),
