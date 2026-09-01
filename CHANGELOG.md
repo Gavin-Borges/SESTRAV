@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
+  edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
+  `assay_type == "biological activity"` rows by editing the finished file in place, after
+  the intra-export dedup. `scripts/ingest_iedb_negatives.py` later gained that same
+  exclusion as Filter 6, which runs *before* the dedup, so the committed artifact and the
+  code path that claims to produce it had disagreed ever since. Re-running the generator
+  closes that gap. Verified against the file it replaces as a strict order-preserving
+  superset over all 23 fields: 0 rows removed and 0 modified, 36 added, every one carrying
+  `label` 0, `virus` Unknown (29) or Self (7), and assay types ICS (28), SPR (3),
+  ELISPOT (3), ELISA (1) and multimer/tetramer (1). Both operands are tracked blobs, so
+  that comparison is re-derivable inside a clone.
+  **Deliberately not propagated downstream, so no published figure moves here.**
+  `data/iedb_negatives_v5_merged.csv` still contains all 32,470 of the superseded rows and
+  none of the 36 new ones, and the shipped corpus `data/immunogenicity_dataset_v5.csv` is
+  built from that merged file, so every downstream artifact and every RF mode-31 figure
+  continues to describe exactly the corpus it always did. The lag is recorded in the new
+  `downstream_status` block of `data/iedb_negatives_v5_provenance.json` and pinned by
+  `tests/test_iedb_negatives_v5_composition_guard.py::test_downstream_merge_lag_is_pinned_not_silent`,
+  which fails if the lag is closed or widened without the sidecar being updated with it.
+
 ### Fixed
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
