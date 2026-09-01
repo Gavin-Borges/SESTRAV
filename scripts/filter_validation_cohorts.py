@@ -31,8 +31,10 @@ STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
 MIN_LEN = 8
 MAX_LEN = 11
 
-# v5 is the required contamination-filter corpus. A missing path must raise;
-# skipping silently built an empty trie and filtered nothing.
+# v5 is the required contamination-filter corpus. A missing path must raise.
+# The previous exists-skip loop returned an EMPTY LIST, which main() turned into
+# sys.exit(1), so the script could not run at all. It did not build an empty trie
+# and it did not filter nothing: filter_bidirectional_overlap was never reached.
 TRAINING_DATA_PATHS = [
     os.path.join(PROJECT_ROOT, "data", "immunogenicity_dataset_v5.csv"),
 ]
@@ -169,8 +171,11 @@ def load_training_peptides():
     """Load all unique peptides from required training datasets.
 
     Every path in TRAINING_DATA_PATHS must exist. A missing reference is a
-    hard error: the previous exists-skip loop returned an empty peptide set
-    and contamination filtering then removed nothing.
+    hard error. Raising here is a usability fix, not a correctness one: the
+    previous exists-skip loop returned an empty peptide set, and main() already
+    refused to continue on that (sys.exit(1) with an ERROR line naming a
+    filename that no longer existed). The gain is that the failure now names
+    the real missing path at the point of the read.
     """
     missing = [p for p in TRAINING_DATA_PATHS if not os.path.exists(p)]
     if missing:
@@ -204,8 +209,25 @@ def filter_bidirectional_overlap(train_peptides, eval_df, name=""):
     """
     Remove any peptide from eval_df that has an exact match or substring match
     with the training set (either direction).
+
+    An empty train_peptides is a HARD ERROR, not an early return. The previous
+    combined guard returned eval_df UNFILTERED in that case, which is the one
+    outcome this function exists to prevent: the caller receives a cohort that
+    was never contamination-checked, and nothing downstream can tell it apart
+    from a filtered one. An empty eval_df is different and stays an early
+    return, because there is genuinely nothing to filter.
+
+    main() cannot reach this with an empty set now that load_training_peptides
+    raises, so this guard exists for any other caller.
     """
-    if eval_df.empty or not train_peptides:
+    if not train_peptides:
+        raise ValueError(
+            "Refusing to filter "
+            + (name or "cohort")
+            + " against an empty training peptide set: the result would be "
+            "unfiltered but indistinguishable from a contamination-filtered cohort"
+        )
+    if eval_df.empty:
         return eval_df
 
     eval_peptides = eval_df["peptide"].unique()
