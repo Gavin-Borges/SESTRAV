@@ -321,9 +321,13 @@ results/*
 # scripts/compute_d29_corpus_composition.py)
 !results/d29_corpus_composition.csv
 !results/d29_corpus_composition.csv.provenance.json
-# Pooled (single-pass) mode-31 CV metrics. README/USAGE/ARCHITECTURE and five other
-# reader-facing files cite 0.6055 against no artifact at all; models/v5/
-# training_results_mode31.csv holds only the fold-mean 0.6058. Must be reader-visible;
+# Pooled (single-pass) mode-31 CV metrics. This file is the only artifact in the repo
+# that holds the pooled 0.6055; models/v5/training_results_mode31.csv holds the
+# fold-mean 0.6058 and contains no 0.6055 at any precision. State that invariant, not a
+# site count: this comment carried "README/USAGE/ARCHITECTURE and five other reader-facing
+# files cite 0.6055 against no artifact at all" until 2026-08-31, which was wrong twice -
+# most of those sites cited the WRONG artifact rather than none, and the count disagreed
+# with two other counts recorded elsewhere for the same set. Must be reader-visible;
 # regenerate with scripts/compute_pooled_cv_metrics.py
 !results/pooled_cv_metrics_mode31.csv
 !results/pooled_cv_metrics_mode31.csv.provenance.json

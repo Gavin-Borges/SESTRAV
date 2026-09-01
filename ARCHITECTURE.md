@@ -199,7 +199,9 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   scored OOF frame `models/v5/rf_oof_predictions_mode31.csv` carries 27,534, eight fewer):
   canonical `mode_31` per-virus within-CV mean AUC-ROC
   **0.658** over nine viruses (`results/per_virus_eval_v5_mode31.csv`), and pooled CV AUC-PR
-  **0.6055** (`models/v5/training_results_mode31.csv`). This same-pathogen number is
+  **0.6055** (`results/pooled_cv_metrics_mode31.csv`, row `mode31_pooled_auc_pr`,
+  `kind = pooled_single_pass`; the fold-mean of the same five folds is a distinct **0.6058** in
+  `models/v5/training_results_mode31.csv`, which does not contain `0.6055`). This same-pathogen number is
   lower by design because the task is harder - **not** because of self-proteome hard decoys:
   all 5,000 of those are quarantined and none reaches this 35,597-row active pool (D19); the
   pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
