@@ -173,6 +173,12 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
     "nc state": (
         "docs/claims_register.md",  # D35, the retraction row
         ".claude/rules/third-party-claims.md",  # instance #7
+        # The GENERATED Antigravity mirror of the entry above. sync_agent_rules.py
+        # copies .claude/rules/*.md verbatim, so exempting a source without its
+        # mirror is a state the sync tool makes inevitable, not a one-off slip.
+        # The Cursor mirror needs no entry only because ".mdc" is absent from
+        # SCAN_SUFFIXES and that file is never opened; add it here if that changes.
+        ".agents/rules/third-party-claims.md",
         # The note that first spotted the contradiction, five days before the
         # fix. Kept as the record of how long detection took.
         "_local/notes/authorship_analysis_2026-08-21.md",
