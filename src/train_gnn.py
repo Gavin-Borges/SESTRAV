@@ -546,6 +546,29 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         )
 
 
+def _drops_a_lone_last_sample(n_samples: int, batch_size: int) -> bool:
+    """Whether a TRAINING loader must discard a final batch of exactly one sample.
+
+    GraphPredictorV2's physico_block ends in nn.BatchNorm1d, which raises
+    "Expected more than 1 value per channel when training" on a (1, C) input. A
+    training pool with n % batch_size == 1 therefore crashes on its last batch,
+    after every earlier batch has already trained. Shuffling does not help: the
+    final batch's SIZE is a property of n, not of the draw order.
+
+    Unconditional drop_last=True would trade that crash for a ZeroDivisionError,
+    because train_epoch_v2 returns total_loss / len(dataloader) and a pool
+    smaller than one batch would then measure zero batches. The n > batch_size
+    guard is what removes the trade. It also covers n == 1, where
+    1 % batch_size == 1 holds but dropping the only sample would empty the
+    loader for the same reason.
+
+    Only training loaders may use this. On a validation loader it would discard
+    an evaluation sample, which silently shifts the early-stopping metric and
+    desynchronises build_oof_records' positional val_preds[i] indexing.
+    """
+    return n_samples > batch_size and n_samples % batch_size == 1
+
+
 def train_epoch_v2(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
@@ -706,7 +729,13 @@ def train_gnn_v2(
             max_len=config.max_peptide_length,
         )
 
-        train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = PyGDataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=_drops_a_lone_last_sample(len(train_dataset), batch_size),
+        )
+        # No drop_last on the validation loader, deliberately: see _drops_a_lone_last_sample.
         val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         model = GraphPredictorV2(
@@ -828,7 +857,12 @@ def train_gnn_v2(
         esm2_cache,
         max_len=config.max_peptide_length,
     )
-    full_loader = PyGDataLoader(full_dataset, batch_size=batch_size, shuffle=True)
+    full_loader = PyGDataLoader(
+        full_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=_drops_a_lone_last_sample(len(full_dataset), batch_size),
+    )
 
     model_final = GraphPredictorV2(
         num_continuous_features=X_feats.shape[1], node_dim=node_dim, pooling=pooling
