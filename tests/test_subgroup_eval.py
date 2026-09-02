@@ -97,9 +97,11 @@ def test_pick_operating_threshold_empty_raises():
 
 
 def test_pick_operating_threshold_skips_small_subgroup():
-    """Covers line 126: small groups are skipped inside the threshold loop."""
+    """A group smaller than min_group_size must not set min_subgroup_f1."""
     df = _frame(n=40)
-    # Replace 3 EBV rows with a rare virus - 3 < min_group_size=10, so skipped.
     df.loc[df.index[:3], "virus"] = "RARE"
+    df.loc[df.index[:3], "label"] = 1
+    df.loc[df.index[:3], "score"] = 0.0
     best = se.pick_operating_threshold(df, score_col="score", group_col="virus", min_group_size=10)
     assert "threshold" in best
+    assert best["min_subgroup_f1"] > 0.0

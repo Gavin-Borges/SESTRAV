@@ -585,12 +585,11 @@ def test_load_oof_returns_dataframe_on_valid_file(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_time_model_ms_returns_positive_float():
-    from src.verify.promote_gnn import _time_model_ms
-    import torch
+def test_time_model_ms_v2_returns_positive_float():
+    from src.verify.promote_gnn import _time_model_ms_v2
 
-    x = torch.zeros(2, 3)
-    ms = _time_model_ms(lambda a, b: a + b, x, x, warmup=1, reps=3)
+    batch = object()
+    ms = _time_model_ms_v2(lambda _batch: None, batch, warmup=1, reps=3)
     assert isinstance(ms, float)
     assert ms >= 0.0
 

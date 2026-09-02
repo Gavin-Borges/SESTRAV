@@ -308,3 +308,64 @@ freeze_mode: true
         f"QC gate failed in freeze mode with {'CRLF' if use_crlf else 'LF'} file:\n{output}"
     )
     assert "All dataset QC gates passed successfully." in output
+
+
+def test_qc_gate_freeze_mode_checksum_mismatch_fails(tmp_path, valid_df):
+    buf = io.StringIO()
+    valid_df.to_csv(buf, index=False, lineterminator="\n")
+    lf_bytes = buf.getvalue().encode("utf-8")
+    dataset_path = tmp_path / "freeze_dataset.csv"
+    dataset_path.write_bytes(lf_bytes)
+
+    bogus = "0" * 64
+    config_content = f"""
+dataset_governance:
+  qc_thresholds:
+    min_peptide_yield: 5
+    max_conflict_ratio: 0.15
+    max_null_allele_fraction: 0.50
+    class_ratio_bounds: [1.5, 4.0]
+  require_checksum_match_in_freeze_mode: true
+  provenance:
+    checksum: "{bogus}"
+freeze_mode: true
+"""
+    config_path = tmp_path / "freeze_config.yaml"
+    config_path.write_text(config_content, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "does not match expected" in output
+
+
+def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
+    dataset_path = tmp_path / "valid.csv"
+    valid_df.to_csv(dataset_path, index=False)
+    config_path = tmp_path / "bad.yaml"
+    config_path.write_text("freeze_mode: [unterminated\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0

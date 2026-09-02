@@ -314,7 +314,7 @@ class TestGenerateDecoys:
 
     def test_no_overlap_with_positives(self):
         pos = ["GILGFVFTL"]
-        proteome = ["ACDEFGHIK", "LMNPQRSTV"]
+        proteome = ["GILGFVFTL", "ACDEFGHIK", "LMNPQRSTV"]
         alleles = ["HLA-A*02:01"]
         decoys = generate_decoys(pos, proteome, alleles)
         decoy_seqs = {d[0] for d in decoys}
