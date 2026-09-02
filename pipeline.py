@@ -59,6 +59,7 @@ def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, regis
         mc_dropout=mc_dropout,
         calibration_path=calibration_path,
         thresholds_path=thresholds_path,
+        freeze_mode=config.freeze_mode,
     )
     plot_immunogenicity_scores(ranked_df, proteome_id)
 
