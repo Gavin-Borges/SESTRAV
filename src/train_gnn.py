@@ -350,6 +350,7 @@ def train_gnn(
 
     # 1. Load Data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     print(f"Training pool: {len(train_pool)} records")
