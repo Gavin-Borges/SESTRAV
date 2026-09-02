@@ -1,4 +1,4 @@
-"""Coverage for app/demo.py's binding-block assembly (D31).
+"""Coverage for app/demo.py's binding-block assembly (D31) and PDF scorecard.
 
 app/demo.py carried a SECOND, independently wrong implementation of the D31
 defect: it wrote the queried allele's single MHCflurry score into that
@@ -105,3 +105,79 @@ def test_build_feature_vector_takes_no_allele(demo) -> None:
 
     params = list(inspect.signature(demo._build_feature_vector).parameters)
     assert params == ["sequence"], f"unexpected signature: {params}"
+
+
+def _scorecard_shap_figure():
+    """A minimal stand-in for the real SHAP waterfall figure.
+
+    _build_pdf_scorecard only rasterizes whatever figure it is handed, so the
+    panel's contents are irrelevant to what these tests assert.
+    """
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure(figsize=(6, 4))
+    fig.gca().barh(["f1", "f2"], [0.4, -0.2])
+    return fig
+
+
+def test_pdf_scorecard_builds_on_the_pinned_matplotlib(demo) -> None:
+    """The download button was unreachable in practice: _build_pdf_scorecard
+    called canvas.tostring_rgb(), absent from the pinned Matplotlib 3.11.1, so
+    the unguarded call site raised AttributeError. Nothing in this file reached
+    the function before, which is why that shipped."""
+    import matplotlib.pyplot as plt
+
+    shap_fig = _scorecard_shap_figure()
+    try:
+        pdf_bytes = demo._build_pdf_scorecard(
+            PANEL_PEPTIDE, "HLA-A*02:01", 0.731, 0.512, "HIGH", shap_fig
+        )
+    finally:
+        plt.close(shap_fig)
+
+    assert pdf_bytes.startswith(b"%PDF-"), "did not return a PDF document"
+    assert len(pdf_bytes) > 1024, f"implausibly small PDF: {len(pdf_bytes)} bytes"
+
+
+def test_pdf_scorecard_handles_an_absent_binding_score(demo) -> None:
+    """bind_score is None whenever MHCflurry is unavailable, which is the
+    configuration the demo actually ships in, so that branch has to render."""
+    import matplotlib.pyplot as plt
+
+    shap_fig = _scorecard_shap_figure()
+    try:
+        pdf_bytes = demo._build_pdf_scorecard(
+            PANEL_PEPTIDE, "HLA-A*02:01", 0.128, None, "LOW", shap_fig
+        )
+    finally:
+        plt.close(shap_fig)
+
+    assert pdf_bytes.startswith(b"%PDF-"), "did not return a PDF document"
+
+
+def test_scorecard_panel_image_is_three_channel(demo) -> None:
+    """buffer_rgba() is 4-channel where the removed tostring_rgb() was 3, so a
+    fix that swapped the call without adjusting the channel count would hand
+    imshow an array of the wrong shape. Pins the drop to RGB."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    captured = []
+    original = plt.Axes.imshow
+
+    def _capture(self, X, *args, **kwargs):
+        captured.append(np.asarray(X))
+        return original(self, X, *args, **kwargs)
+
+    shap_fig = _scorecard_shap_figure()
+    plt.Axes.imshow = _capture
+    try:
+        demo._build_pdf_scorecard(PANEL_PEPTIDE, "HLA-A*02:01", 0.5, 0.5, "MED", shap_fig)
+    finally:
+        plt.Axes.imshow = original
+        plt.close(shap_fig)
+
+    assert captured, "_build_pdf_scorecard never drew the SHAP panel"
+    panel = captured[0]
+    assert panel.ndim == 3, f"panel image is not 2D RGB: shape {panel.shape}"
+    assert panel.shape[2] == 3, f"panel image has {panel.shape[2]} channels, expected 3"
