@@ -122,3 +122,14 @@ def test_score_peptide_raises_503_when_model_not_loaded() -> None:
 
 def test_health_check_reports_loaded_state(fake_manager: _FakeRFModel) -> None:
     assert api_main.health_check()["model_loaded"] is True
+
+
+def test_provenance_points_at_tracked_v5_corpus_not_missing_root_file() -> None:
+    """Cruft item 2: /provenance used a root CSV that is not in the tree."""
+    expected = api_main._PROJECT_ROOT / "data" / "immunogenicity_dataset_v5.csv"
+    assert api_main._TRAINING_DATASET_PATH == expected
+    historical_root = api_main._PROJECT_ROOT / "immunogenicity_dataset.csv"
+    assert api_main._TRAINING_DATASET_PATH != historical_root
+    # verify_tier_a_provenance.py git-shows the historical name at 69e0e5c
+    # on purpose; this route must not be "fixed" onto that path.
+    assert api_main._TRAINING_DATASET_PATH.name != "immunogenicity_dataset.csv"
