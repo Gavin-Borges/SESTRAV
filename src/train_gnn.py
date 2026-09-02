@@ -22,6 +22,7 @@ it. See GNN_CV_SPLITTER for why the provenance lives in the rows.
 import os
 import random
 import argparse
+import hashlib
 import numpy as np
 import pandas as pd
 import torch
@@ -254,6 +255,26 @@ def set_seed(seed: int = 42) -> None:
     torch.backends.cudnn.benchmark = False
 
 
+def _dataset_cache_tag(data_path: str | os.PathLike[str]) -> str:
+    """Short SHA-256 fingerprint of the ENTIRE dataset file.
+
+    The digest must cover every byte. A single 64 KiB read fingerprints only the
+    first chunk, and the dataset builder's final merge concatenates its parts
+    without shuffling (the `merged = pd.concat(parts, ...)` call in
+    scripts/build_dataset_v5.py), so a rebuild that only extends a later part
+    leaves the leading bytes untouched and the two corpora collapse onto one
+    tag. FeatureStore.load_cached_features validates neither row count nor
+    columns, so a collision pairs the previous corpus's feature rows with the new
+    corpus's labels. This is the streaming form already used by _sha256_file in
+    src/verify/promote_gnn.py and by FeatureStore.verify_integrity.
+    """
+    digest = hashlib.sha256()
+    with open(data_path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:8]
+
+
 def planned_gnn_artifact_paths(
     model_dir: str, pooling: str = "mean", architecture: str = "v2"
 ) -> list[str]:
@@ -356,9 +377,7 @@ def train_gnn(
 
     # 2. Extract physicochemical features (with Cache resolution)
     # Include dataset fingerprint so switching datasets invalidates the cache.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
+    _data_tag = _dataset_cache_tag(data_path)
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
@@ -647,9 +666,7 @@ def train_gnn_v2(
 
     # Extract feature matrix.  Mode 31 adds 10 per-allele MHCflurry binding scores,
     # matching RF mode 31 feature parity.  Mode 21 uses physico-only features.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
+    _data_tag = _dataset_cache_tag(data_path)
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
