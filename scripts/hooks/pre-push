@@ -114,7 +114,7 @@ fi
 # crash is fixed upstream or the dependency is replaced (same condition as
 # the test_run_analysis_results_guard.py exclusion above, since both trace to
 # the same root cause).
-cd "${REPO_ROOT}" && python -m pytest tests/ -q -m "not heavy and not slow" \
+cd "${REPO_ROOT}" && python -m pytest tests/ -q \
     --ignore=tests/test_run_analysis_results_guard.py \
     --ignore=tests/test_pipeline_stages.py \
     --deselect 'tests/test_entry_point_help_smoke.py::test_help_parses_and_exits_clean[src.shap_analysis]' \
