@@ -22,6 +22,7 @@ it. See GNN_CV_SPLITTER for why the provenance lives in the rows.
 import os
 import random
 import argparse
+import functools
 import numpy as np
 import pandas as pd
 import torch
@@ -315,6 +316,34 @@ def _guard_output_dir(
     )
 
 
+def _restore_anomaly_mode(func):
+    """Keep train_gnn's autograd anomaly flag from escaping into the process.
+
+    torch.autograd.set_detect_anomaly enables the flag inside __init__, so
+    calling it as a bare statement switches anomaly detection on for the whole
+    interpreter and nothing ever switches it back, not even when the run aborts
+    before training the way the --model-dir guard does. A train_gnn_v2 run later
+    in the same process would then inherit the 25-30 percent slowdown that
+    commit b73ce33 removed from that path.
+
+    torch's own class is a context manager but not a decorator, and train_gnn
+    spans 172 lines, so this wrapper restores the caller's mode without
+    re-indenting the entire function body.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        previous = torch.is_anomaly_enabled()
+        previous_check_nan = torch.is_anomaly_check_nan_enabled()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            torch.set_anomaly_enabled(previous, previous_check_nan)
+
+    return wrapper
+
+
+@_restore_anomaly_mode
 def train_gnn(
     data_path,
     model_dir: str,
@@ -342,6 +371,8 @@ def train_gnn(
     store = FeatureStore(config.output_dir)
 
     set_seed(seed)
+    # Deliberate for the v1 path (see b73ce33); @_restore_anomaly_mode keeps it
+    # from leaking into any train_gnn_v2 run later in the same process.
     torch.autograd.set_detect_anomaly(True)
     _guard_output_dir(model_dir, "mean", "v1", allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
