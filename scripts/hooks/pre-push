@@ -166,9 +166,9 @@ printf '[pre-push] All checks passed -- affiliation allowlist clean.\n'
 # the main checkout's copy from a worktree certifies the WRONG tree. Always
 # pass --repo-root as the push source. Never call the harness without that
 # flag. A worktree that has not copied _local/integrity/ skips rather than
-# falling back to another checkout. Do not merge this hook while origin/main
-# still FAILs the harness (the prereg gitignored-path citation); it would
-# block the fix that makes the harness green.
+# falling back to another checkout. This comment once said not to merge
+# while main still failed the harness on the pre-registration's
+# gitignored-path citation, fixed in 09ee647, an ancestor of ebac4e9.
 HARNESS="${REPO_ROOT}/_local/integrity/integrity_check.py"
 if [[ -f "${HARNESS}" ]]; then
     printf '[pre-push] Running integrity harness against this worktree...\n'

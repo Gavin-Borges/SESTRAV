@@ -34,6 +34,27 @@ def test_pre_push_invokes_harness_only_with_repo_root() -> None:
         assert "--repo-root" in line, line
 
 
+def test_check4_comment_carries_no_expired_merge_caveat() -> None:
+    """The Check 4 comment must not gate merging on a condition that expired.
+
+    It once told the reader not to merge while main still failed the harness
+    on the pre-registration's gitignored-path citation. That citation was
+    fixed in 09ee647, so the sentence became a false present-tense claim in a
+    tracked file. The engineering warning it sits beside is load-bearing and
+    must survive any future trim of this block.
+    """
+    lines = PRE_PUSH.read_text(encoding="utf-8").splitlines()
+    starts = [i for i, ln in enumerate(lines) if ln.startswith("# ---- Check 4:")]
+    assert len(starts) == 1, "Check 4 header not found exactly once"
+    start = starts[0]
+    ends = [i for i, ln in enumerate(lines[start:], start) if ln.startswith("HARNESS=")]
+    assert ends, "HARNESS= assignment not found after the Check 4 header"
+    block = "\n".join(lines[start:ends[0]])
+    assert "do not merge" not in block.lower(), block
+    assert "Never call the harness without that" in block
+    assert "skips rather than" in block
+
+
 def test_harness_repo_root_flag_requires_a_path() -> None:
     if not HARNESS.is_file():
         pytest.skip("local integrity harness is not in this tree")
