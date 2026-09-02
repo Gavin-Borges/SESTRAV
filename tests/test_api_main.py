@@ -7,16 +7,8 @@ availability or the requested allele) survived from 2026-06-13 to 2026-08-19
 across 13 commits that edited the file (`git log --since=2026-06-13
 --until=2026-08-19 -- api/main.py`).
 
-These call the route handlers directly rather than going through
-fastapi.testclient.TestClient. That is deliberate: TestClient pulls in
-starlette.testclient, which on current starlette hard-requires the httpx2
-package, and CI installs from hash-pinned lockfiles (`pip install
---require-hashes`), so satisfying it would mean adding a dependency plus
-SBOM/pip-audit churn purely to reach a test helper. The defect this file
-exists for lives in _score_peptide's feature-vector assembly and the
-handler's error mapping, not in HTTP serialisation, so a direct call covers
-it without that cost. Pydantic still validates PeptideInput on construction,
-and HTTPException carries the same status_code the HTTP layer would emit.
+The feature-vector tests call route handlers directly. Startup behavior is
+covered through TestClient so the FastAPI lifespan runs.
 
 Tests avoid loading the real 128MB rf_31feature_integrated.joblib
 (gitignored, absent from a clean CI checkout): the fixture pre-seeds
@@ -27,12 +19,16 @@ Tests avoid loading the real 128MB rf_31feature_integrated.joblib
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 import api.main as api_main
+from src.core.model_registry import ModelRegistry
 from src.features import BINDING_ALLELE_COLUMNS, FEATURE_COLUMNS_31
 
 PANEL_PEPTIDE = "GILGFVFTL"
@@ -122,3 +118,72 @@ def test_score_peptide_raises_503_when_model_not_loaded() -> None:
 
 def test_health_check_reports_loaded_state(fake_manager: _FakeRFModel) -> None:
     assert api_main.health_check()["model_loaded"] is True
+
+
+class _StopAfterModelResolution(Exception):
+    pass
+
+
+def test_configured_model_subdirectory_is_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    configured_path = Path("models/promoted/model.joblib")
+    config = SimpleNamespace(model_path=configured_path)
+    resolved: list[Path] = []
+
+    class _RecordingRegistry:
+        def __init__(self, registry_config: SimpleNamespace) -> None:
+            self._registry = ModelRegistry(registry_config)
+
+        def load(self, model_name: str) -> None:
+            resolved.append(self._registry.resolve_model(model_name))
+            raise _StopAfterModelResolution
+
+    monkeypatch.setattr(
+        api_main.SestravConfig,
+        "load",
+        classmethod(lambda cls, path: config),
+    )
+    monkeypatch.setattr(api_main, "ModelRegistry", _RecordingRegistry)
+    api_main._manager._loaded = False
+
+    with pytest.raises(_StopAfterModelResolution):
+        api_main._manager.load()
+
+    expected = (api_main._PROJECT_ROOT / configured_path).resolve()
+    assert resolved == [expected]
+
+
+def test_missing_configured_model_degrades_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured_path = Path("models/promoted/missing.pth")
+    config = SimpleNamespace(model_path=configured_path)
+    monkeypatch.setattr(
+        api_main.SestravConfig,
+        "load",
+        classmethod(lambda cls, path: config),
+    )
+    api_main._manager._loaded = False
+
+    try:
+        with TestClient(api_main.app) as client:
+            health = client.get("/health")
+            assert health.status_code == 200
+            assert health.json()["status"] == "degraded"
+            assert health.json()["model_loaded"] is False
+            assert health.json()["reason"]
+
+            response = client.post(
+                "/score",
+                json={"sequence": PANEL_PEPTIDE, "allele": "HLA-A*02:01"},
+            )
+            assert response.status_code == 503
+            assert configured_path.as_posix() in response.json()["detail"]
+    finally:
+        api_main._manager._loaded = False
+
+
+def test_model_registry_rejects_directory_escape() -> None:
+    registry = ModelRegistry(SimpleNamespace())
+
+    with pytest.raises(ValueError, match="escapes models/ directory"):
+        registry.resolve_model("../outside.joblib")
