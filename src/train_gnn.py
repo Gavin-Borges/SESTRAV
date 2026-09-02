@@ -22,6 +22,7 @@ it. See GNN_CV_SPLITTER for why the provenance lives in the rows.
 import os
 import random
 import argparse
+import functools
 import hashlib
 import numpy as np
 import pandas as pd
@@ -246,13 +247,21 @@ def build_oof_records(
 
 
 def set_seed(seed: int = 42) -> None:
-    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs."""
+    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs.
+
+    The three flags below are process-global and are left set on purpose: a
+    caller asking for a seeded run wants them for the whole run. Confining them
+    to it is _restore_torch_global_flags' job, on the two entry points that call
+    this. warn_only keeps an op with no deterministic kernel a warning rather
+    than an abort, which is what makes the flag safe to set unconditionally.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 
 def _dataset_cache_tag(data_path: str | os.PathLike[str]) -> str:
@@ -336,6 +345,51 @@ def _guard_output_dir(
     )
 
 
+def _restore_torch_global_flags(func):
+    """Keep a training run's process-global torch flags from escaping the run.
+
+    Both entry points mutate interpreter-wide torch state and neither scopes it.
+    torch.autograd.set_detect_anomaly enables the flag inside __init__, so
+    calling it as a bare statement switches anomaly detection on for the whole
+    interpreter, and set_seed writes cudnn.deterministic, cudnn.benchmark and
+    deterministic-algorithms mode straight onto the process. Nothing ever
+    switches any of them back, not even when the run aborts before training the
+    way the --model-dir guard does. A train_gnn_v2 run later in the same process
+    would then inherit the 25-30 percent slowdown that commit b73ce33 removed
+    from that path.
+
+    torch's own class is a context manager but not a decorator, and both entry
+    points are long enough that wrapping their bodies in a with-block would
+    re-indent every line and swamp the diff. A decorator restores the caller's
+    flags without touching the body at all. (No line count is quoted here on
+    purpose: the previous wording named one, and it went stale the moment two
+    comment lines were added inside train_gnn.)
+
+    It deliberately does NOT decorate set_seed. Leaving the determinism flags
+    set is set_seed's whole contract, and tests/test_train_gnn_seed.py pins
+    that; scoping belongs at the entry point, which is what calls set_seed.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        anomaly = torch.is_anomaly_enabled()
+        anomaly_check_nan = torch.is_anomaly_check_nan_enabled()
+        deterministic = torch.are_deterministic_algorithms_enabled()
+        deterministic_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+        cudnn_deterministic = torch.backends.cudnn.deterministic
+        cudnn_benchmark = torch.backends.cudnn.benchmark
+        try:
+            return func(*args, **kwargs)
+        finally:
+            torch.set_anomaly_enabled(anomaly, anomaly_check_nan)
+            torch.use_deterministic_algorithms(deterministic, warn_only=deterministic_warn_only)
+            torch.backends.cudnn.deterministic = cudnn_deterministic
+            torch.backends.cudnn.benchmark = cudnn_benchmark
+
+    return wrapper
+
+
+@_restore_torch_global_flags
 def train_gnn(
     data_path,
     model_dir: str,
@@ -363,6 +417,8 @@ def train_gnn(
     store = FeatureStore(config.output_dir)
 
     set_seed(seed)
+    # Deliberate for the v1 path (see b73ce33); @_restore_torch_global_flags keeps it
+    # from leaking into any train_gnn_v2 run later in the same process.
     torch.autograd.set_detect_anomaly(True)
     _guard_output_dir(model_dir, "mean", "v1", allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
@@ -592,6 +648,7 @@ def evaluate_model_v2(model, dataloader, device):
     return np.array(all_labels), np.array(all_preds)
 
 
+@_restore_torch_global_flags
 def train_gnn_v2(
     data_path,
     model_dir: str,
