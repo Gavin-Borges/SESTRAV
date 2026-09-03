@@ -59,8 +59,12 @@ run is **the most favourable of the eight on both reported quantities**.
 Note which way this cuts. Disclosing the series makes the **null stronger, not weaker**: no
 run in the series reaches the bar, so Gate 1's FAIL is better supported at n = 8 than the
 single archive run implies. The effect underneath it also survives at the worst observation
-(seed 7: delta +0.0243, 95% CI [0.0122, 0.0365], still excluding zero). The run series is
-recorded in `_local/state/session_plan_2026-08-29.md`.
+(seed 7: delta +0.0243, 95% CI [0.0122, 0.0365], still excluding zero).
+
+The run series is recorded in the maintainer's local session log for 2026-08-29, which sits
+in the permanently gitignored `_local/` workspace and is **not distributed with this
+repository**. A reader of a clone cannot open it, so what this document commits to is the
+summary in the table above; the eight individual per-run values are not reproduced here.
 
 **Gate 2's convention is pinned here, because the tally depends on it.** Gate 2 is
 `np.std(fold_auc_prs)`, i.e. **ddof=0**, which is what `promote_gnn.py` ships. The same
