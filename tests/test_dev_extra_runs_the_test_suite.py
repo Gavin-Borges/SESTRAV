@@ -21,7 +21,8 @@ guards the contract `README.md` offers a developer, which is a different promise
 over a different dependency set, so neither test subsumes the other.
 
 Scope note: only TRACKED test files are scanned. `tests/wave_test_package/` is
-gitignored scratch (`.gitignore:490`) and is absent from a fresh clone and from
+gitignored scratch (the `tests/wave_test_package/` entry in `.gitignore`) and is
+absent from a fresh clone and from
 CI, so including it would make this test's verdict depend on local scratch
 content - the opposite of what a gate is for.
 """
@@ -122,15 +123,55 @@ def _is_first_party(name: str, importer: pathlib.Path) -> bool:
     return False
 
 
-def _module_scope_imports(path: pathlib.Path) -> set[str]:
-    """Top-level import names, skipping try/except-guarded and conditional (`if`) blocks.
+def _importorskip_modules(tree: ast.Module) -> set[str]:
+    """Top-level module names passed to `pytest.importorskip(...)`.
 
-    A guarded import degrades on failure rather than aborting collection, so it is
-    not a hard requirement; an `if` block (most commonly `if TYPE_CHECKING:`) is
-    not evaluated when a plain `import module` runs.
+    Only module-scope calls count. An importorskip inside a function or a class
+    body does not gate the module's own top-level imports, so counting it would
+    wrongly excuse a genuinely unguarded import.
+    """
+    out: set[str] = set()
+    for node in tree.body:
+        call = None
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            call = node.value
+        elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            call = node.value
+        if call is None:
+            continue
+        func = call.func
+        is_importorskip = (
+            isinstance(func, ast.Attribute) and func.attr == "importorskip"
+        ) or (isinstance(func, ast.Name) and func.id == "importorskip")
+        if not is_importorskip or not call.args:
+            continue
+        first = call.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            out.add(first.value.split(".")[0])
+    return out
+
+
+def _module_scope_imports(path: pathlib.Path) -> set[str]:
+    """Top-level import names that would abort collection if unsatisfied.
+
+    Three guard forms are excluded, because none of them aborts collection:
+
+      - `try`/`except ImportError` degrades on failure rather than raising;
+      - an `if` block (most commonly `if TYPE_CHECKING:`) is not evaluated when
+        a plain `import module` runs;
+      - `pytest.importorskip("mod")` at module scope SKIPS the module when `mod`
+        is absent, so every later top-level import of `mod` is reached only when
+        it is importable.
+
+    The importorskip form is the established idiom in this repo for optional
+    heavy dependencies: six test modules use it for `torch` and
+    `torch_geometric`. Treating those as hard requirements would demand the
+    `dev` extra pull the whole GNN stack, which is the opposite of what `dev`
+    is for.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     stdlib = set(sys.stdlib_module_names)
+    skipped = _importorskip_modules(tree)
     names: set[str] = set()
     for node in tree.body:
         if isinstance(node, (ast.Try, ast.If)):
@@ -144,7 +185,7 @@ def _module_scope_imports(path: pathlib.Path) -> set[str]:
         else:
             continue
         for name in candidates:
-            if name in stdlib:
+            if name in stdlib or name in skipped:
                 continue
             names.add(name)
     return names
