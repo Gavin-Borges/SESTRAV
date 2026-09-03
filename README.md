@@ -305,7 +305,7 @@ To prevent machine learning models from over-indexing on EBV-specific anchor mot
 
 ### 1. Environment Setup
 
-**Conda (recommended for reproducibility):**
+**Conda (recommended for reproducibility; LINUX x86-64 only, see the note below):**
 ```bash
 conda env create -f environment.yml
 conda activate sestrav
@@ -332,11 +332,16 @@ mhcflurry-downloads fetch models_class1_presentation
 > across its 2,740 lines, so pip attempts every pin on every platform. Measured on Windows:
 > the command above exits 1 with `No matching distribution found for nvidia-nccl-cu12`,
 > while a cross-platform pin from the same file resolves normally, so the failure is
-> specific to those CUDA pins. The marker that would exclude them exists in the source
-> `requirements.in` and is dropped by the compile step.
+> specific to those CUDA pins. Only one of the seventeen is markered in the source
+> (`requirements.in:57`); the other sixteen arrive transitively from `torch`. None survives
+> compilation, because the file is generated with `uv pip compile ... --python-platform linux`
+> (its own header, line 2) - a single-target resolution that evaluates markers away rather
+> than emitting them.
 >
-> On macOS or Windows use the conda or editable-install paths above instead. Both resolve
-> per-platform and neither goes through this lock.
+> On macOS or Windows use the **editable install** above (`pip install -e ".[dev]"`). It
+> resolves per-platform from the `pyproject.toml` floors and never reads this lock.
+> **The conda path is not an alternative**: `environment.yml` installs `-r requirements.txt`
+> inside its `pip:` block, so `conda env create` fails off Linux for the same reason.
 
 ### 2. Install and Train Models
 

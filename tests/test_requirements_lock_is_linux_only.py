@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REQUIREMENTS = REPO_ROOT / "requirements.txt"
 README = REPO_ROOT / "README.md"
@@ -73,7 +75,9 @@ def test_readme_discloses_the_platform_constraint():
     """
     text = _requirements_text()
     if not _cuda_pins(text) or MARKER.findall(text):
-        return  # premise gone; the other test reports it
+        # skip, not a bare `return`: a return reports as PASSED, which would hide the
+        # fact that this test had stopped asserting anything.
+        pytest.skip("premise gone; the other test reports it")
 
     readme = README.read_text(encoding="utf-8")
     assert "requirements.txt" in readme
@@ -91,11 +95,47 @@ def test_readme_offers_a_path_for_other_platforms():
     """A constraint without an alternative is a dead end.
 
     FAILS IF: the note says the lock is Linux-only but stops there.
+
+    Carries the same premise guard as the test above. Without it this fires when the
+    underlying defect is FIXED: a future compile that emits markers would let the note
+    be removed correctly, and an unguarded assertion would then report that correct
+    removal as a failure.
     """
+    text = _requirements_text()
+    if not _cuda_pins(text) or MARKER.findall(text):
+        pytest.skip("premise gone; the lock no longer needs a platform note")
+
     readme = README.read_text(encoding="utf-8")
     assert "Linux x86-64 lock" in readme
     tail = readme.split("Linux x86-64 lock", 1)[1][:1200]
-    assert "conda" in tail and "editable" in tail, (
-        "README states the Linux-only constraint but does not name the conda or "
-        "editable-install path that works on macOS and Windows."
+    assert "editable" in tail, (
+        "README states the Linux-only constraint but does not name the editable "
+        "install, which is the only path that works on macOS and Windows."
+    )
+
+
+def test_readme_does_not_offer_conda_as_the_cross_platform_path():
+    """conda routes through the SAME lock, so it cannot be the alternative.
+
+    environment.yml's pip block ends with `-r requirements.txt`, so `conda env create`
+    installs the very file this note is about and fails off Linux for the identical
+    reason. An earlier version of the README named conda as a macOS/Windows path,
+    which is why this is pinned to the mechanism rather than to prose: the assertion
+    is driven by what environment.yml actually installs.
+
+    FAILS IF: environment.yml still installs the lock while the README's platform note
+    presents conda as a working alternative.
+    """
+    env_yml = REPO_ROOT / "environment.yml"
+    if not env_yml.is_file():
+        pytest.skip("no environment.yml; premise gone")
+    if "-r requirements.txt" not in env_yml.read_text(encoding="utf-8"):
+        pytest.skip("environment.yml no longer installs the lock; premise gone")
+
+    readme = README.read_text(encoding="utf-8")
+    tail = readme.split("Linux x86-64 lock", 1)[1][:1200]
+    assert "conda path is not an alternative" in tail, (
+        "environment.yml installs `-r requirements.txt`, so the conda path hits the "
+        "same Linux-only lock. The README note must rule conda out explicitly rather "
+        "than leaving a reader to try it."
     )
