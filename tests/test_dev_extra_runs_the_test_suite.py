@@ -164,10 +164,15 @@ def _module_scope_imports(path: pathlib.Path) -> set[str]:
         it is importable.
 
     The importorskip form is the established idiom in this repo for optional
-    heavy dependencies: six test modules use it for `torch` and
-    `torch_geometric`. Treating those as hard requirements would demand the
-    `dev` extra pull the whole GNN stack, which is the opposite of what `dev`
-    is for.
+    heavy dependencies. Measured at 877850d by an AST walk of module-scope
+    statements, not by grep: 14 test modules carry a module-scope
+    `pytest.importorskip` for `torch` or `torch_geometric`, and exactly one
+    (`test_train_gnn_partial_batch.py`) relies on it to gate a LATER
+    module-scope import, which is the mechanism this handling exists for.
+    A plain grep reports 16, counting function-scope calls too, so the three
+    figures are worth keeping distinct. Treating these as hard requirements
+    would demand the `dev` extra pull the whole GNN stack, which is the
+    opposite of what `dev` is for.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     stdlib = set(sys.stdlib_module_names)
