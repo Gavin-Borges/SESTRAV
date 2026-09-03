@@ -357,6 +357,9 @@ pip install ".[gnn]"
 # With Snakemake pipeline runner
 pip install ".[pipeline]"
 
+# To run the data-ingest and benchmark helpers under scripts/
+pip install ".[scripts]"
+
 # Developer install (ruff, mypy, pytest)
 pip install -e ".[dev]"
 ```

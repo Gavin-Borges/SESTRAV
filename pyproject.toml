@@ -134,6 +134,22 @@ demo = [
     "uvicorn>=0.23.0",
     "pydantic>=2.0.0",
 ]
+# scripts/ is not packaged (tool.setuptools.packages.find include is
+# sestrav*, src*, functions*). Two distributions are imported unguarded at
+# module scope by tracked scripts and were absent from this file:
+#   pyahocorasick  scripts/benchmark_runner.py and
+#                  scripts/filter_validation_cohorts.py (import name
+#                  ahocorasick). Pinned in requirements.in.
+#   mhcgnomes      scripts/ingest_iedb_negatives.py. Satisfied only
+#                  transitively via mhcflurry; declared because relying on a
+#                  transitive dependency is not a contract (same argument as
+#                  scipy in [project].dependencies).
+# Not added to [project].dependencies: that would burden every PyPI consumer
+# with packages they cannot reach.
+scripts = [
+    "pyahocorasick>=2.3.0",
+    "mhcgnomes>=3.33.0",
+]
 
 [project.scripts]
 sestrav = "src.cli:main"
