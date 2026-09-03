@@ -82,6 +82,26 @@ Serving a promoted GNN therefore requires an api/main.py change. It is not a
 config-only operation. Verified 2026-08-16; recorded here rather than in a
 planning document because that is where it was lost the last time.
 
+Scoring-pool identity - recorded, never gated (added 2026-09-02)
+----------------------------------------------------------------
+Gate 1's splitter precondition establishes HOW the folds were built and nothing
+at all about WHICH ROWS were in them. Both training entry points in
+src/train_gnn.py stamp identical fold/splitter columns through the same
+build_oof_records helper, and the v1 path writes the default OOF_PATH, so an
+OOF frame computed over a different corpus clears that precondition
+indistinguishably from one computed over the intended pool.
+
+check_promotion_gates therefore records a scoring-pool identity line on every
+run: the row count, the positive count, the identity columns actually present,
+and a SHA-256 over those columns that is independent of row order and preserves
+row multiplicity. It is RECORDED and soft-compared against EXPECTED_POOL_ROWS /
+EXPECTED_POOL_DIGEST, and it does not gate anything - see the comment on those
+constants for why a hard assert is the wrong first move. This is the mechanical
+implementation of the corpus commitment in
+docs/gnn_gate_retry_preregistration.md section 2.2, which asks for the scoring
+pool to be measured and both counts reported rather than inferred, and which
+until now had no implementation anywhere.
+
 Security hardening:
   - All torch.load calls use weights_only=True (prevents arbitrary code exec).
   - Checksum generation uses native Python hashlib (no shell injection risk).
@@ -100,6 +120,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 import argparse
 import logging
 import time
+from collections.abc import Iterable, Iterator
 from typing import NamedTuple
 
 import numpy as np
@@ -147,6 +168,62 @@ SPLITTER_COLUMN: str = "splitter"
 GROUPED_SPLITTERS: frozenset[str] = frozenset({"PeptideGroupedKFold"})
 FOLD_COLUMN: str = "fold"
 
+# Scoring-pool identity.
+#
+# POOL_IDENTITY_COLUMNS are the columns that IDENTIFY a row rather than score
+# it, in a fixed order. Read off src/train_gnn.py's build_oof_records, which
+# writes 'peptide' unconditionally and 'hla_allele' only when the corpus
+# supplies it, because (peptide, hla_allele) is the v5 dedup key and peptide
+# alone does not uniquely identify a row. 'hla_allele' being OPTIONAL is the
+# reason the digest below binds the covered column names into its own preamble:
+# a peptide-only digest must never be comparable to a peptide-plus-allele
+# digest by accident.
+POOL_IDENTITY_COLUMNS: tuple[str, ...] = ("peptide", "hla_allele")
+
+# Digest encoding version. Bump it if the byte layout in _pool_row_bytes or
+# oof_pool_identity ever changes, so a digest recorded under one encoding can
+# never be silently compared against one recorded under another.
+POOL_DIGEST_VERSION: str = "sestrav-oof-pool-v1"
+
+# ASCII unit (0x1F) and record (0x1E) separators. Neither can occur inside a
+# peptide or an allele string, so no field value can forge a field or row
+# boundary and make two different pools hash the same.
+_POOL_FIELD_SEP: bytes = b"\x1f"
+_POOL_ROW_SEP: bytes = b"\x1e"
+
+# Expected scoring-pool identity - DELIBERATELY UNPINNED (both None).
+#
+# docs/gnn_gate_retry_preregistration.md section 2.2 commits to measuring the
+# scoring pool - not the active pool - and showing that it differs before any
+# retry justified by "the corpus changed". That is a COMPARISON, not a
+# threshold, and four things say a hard assert would be the wrong first move:
+#
+#   1. No expected value is pinned anywhere in this repository, and the
+#      pre-registration that would authorise one is still marked DRAFT / NOT IN
+#      FORCE. Asserting would invent an owner commitment rather than implement
+#      one.
+#   2. The tracked artifact at OOF_PATH would fail such an assert immediately.
+#      It is the pre-repair frame (columns peptide,label,gnn_oof_score), so an
+#      assert would abort before Gate 1's splitter precondition could report -
+#      destroying the specific diagnostic that precondition exists to give.
+#   3. The commitment is bidirectional. A genuinely fresh corpus SHOULD differ;
+#      an equality assert would block the legitimate case and pass the
+#      illegitimate one only by coincidence.
+#   4. Pinning a value nobody has measured yet is how a pinned gate goes stale
+#      (.claude/rules/deletion-safety.md, rule 4).
+#
+# Pin these only from a value this scorecard itself printed, in a deliberate
+# commit, once the pre-registration is ratified.
+EXPECTED_POOL_ROWS: int | None = None
+EXPECTED_POOL_DIGEST: str | None = None
+
+# pool_identity_drift statuses that are NOT drift. Spelled out as distinct
+# strings rather than both returning None, because "nothing is pinned" and
+# "matches the pin" are opposite facts, and collapsing them into one falsy
+# value is exactly the polarity inversion that has bitten this repo before.
+POOL_DRIFT_UNPINNED: str = "UNPINNED (no expected pool identity is recorded)"
+POOL_DRIFT_MATCH: str = "MATCH (pool identity equals the pinned expectation)"
+
 # Latency benchmark settings
 LATENCY_BATCH_SIZE: int = 50
 LATENCY_WARMUP_REPS: int = 3
@@ -158,6 +235,21 @@ class GateResult(NamedTuple):
     passed: bool
     value: float | str
     threshold: str
+
+
+class PoolIdentity(NamedTuple):
+    """Census and digest of the rows an OOF frame was actually scored over.
+
+    columns records WHICH identity columns the digest covered, because
+    'hla_allele' is optional in the artifact; two digests are comparable only
+    when this tuple is equal. digest is "" when the frame carries no identity
+    column at all, which is a stated absence rather than a hash of nothing.
+    """
+
+    n_rows: int
+    n_positives: int | None
+    columns: tuple[str, ...]
+    digest: str
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +266,124 @@ def _sha256_file(filepath: Path) -> str:
         for chunk in iter(lambda: fh.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Scoring-pool identity
+# ---------------------------------------------------------------------------
+
+
+def _pool_row_bytes(df: pd.DataFrame, columns: tuple[str, ...]) -> Iterator[bytes]:
+    """Yield one canonical byte record per row, over *columns* only.
+
+    A null field becomes empty rather than the text 'nan', so a missing allele
+    cannot depend on how pandas happens to render a float NaN, and cannot
+    collide with a real allele literally spelled 'nan'.
+    """
+    for values in df[list(columns)].itertuples(index=False, name=None):
+        fields = [b"" if pd.isna(value) else str(value).encode("utf-8") for value in values]
+        yield _POOL_FIELD_SEP.join(fields) + _POOL_ROW_SEP
+
+
+def _sha256_pool(preamble: bytes, rows: Iterable[bytes]) -> str:
+    """SHA-256 over a preamble plus sorted row records, fed in incrementally.
+
+    Same shape as _sha256_file above: one hashlib object updated in a loop,
+    never a single joined bytes object and never a bounded read.
+    src/train_gnn.py's dataset cache tag takes the other route - a bare
+    open(...).read(65536) - and therefore fingerprints only the first 64 KiB of
+    its input, which is the failure mode this form exists to avoid.
+
+    Sorting the ENCODED records rather than the decoded tuples keeps the
+    ordering a pure byte comparison: independent of locale, of pandas dtype,
+    and of how Python happens to order non-ASCII strings. That is what makes
+    the digest stable across row order and across platforms.
+    """
+    import hashlib
+
+    digest = hashlib.sha256()
+    digest.update(preamble)
+    for row in sorted(rows):
+        digest.update(row)
+    return digest.hexdigest()
+
+
+def oof_pool_identity(df: pd.DataFrame) -> PoolIdentity:
+    """Row census plus a stable digest over the frame's identity columns.
+
+    The digest answers exactly one question - WHICH ROWS were scored - and
+    deliberately does not cover 'label' or 'gnn_oof_score'. Two measured
+    reasons, both from tracked artifacts in this repository:
+
+      - Scores are floats, so a score-bearing digest would really be a digest
+        over repr formatting and would move on a harmless writer change.
+      - The label is already spelled differently by different writers:
+        models/gnn_oof_predictions.csv carries '0.0' where
+        models/v5/rf_oof_predictions_mode31.csv carries '0' for the same
+        logical label. A label-bearing digest therefore could not be compared
+        across the two frames the pre-registration wants matched 1:1.
+
+    The cost of leaving labels out is real: a label flip on an otherwise
+    identical pool leaves the digest unchanged. n_positives is recorded beside
+    the digest for precisely that case. It is a census of the frame, not a
+    model metric, and it moves when labels move.
+
+    Multiplicity is preserved - the records are sorted, never de-duplicated -
+    so a frame carrying a duplicated row is a different pool. Section 2.2 of
+    the pre-registration counts ROWS, so the digest has to as well.
+    """
+    columns = tuple(c for c in POOL_IDENTITY_COLUMNS if c in df.columns)
+    n_positives = int((df["label"] == 1).sum()) if "label" in df.columns else None
+    if not columns:
+        return PoolIdentity(n_rows=int(len(df)), n_positives=n_positives, columns=(), digest="")
+    preamble = (
+        POOL_DIGEST_VERSION.encode("ascii")
+        + _POOL_FIELD_SEP
+        + b",".join(c.encode("utf-8") for c in columns)
+        + _POOL_ROW_SEP
+    )
+    return PoolIdentity(
+        n_rows=int(len(df)),
+        n_positives=n_positives,
+        columns=columns,
+        digest=_sha256_pool(preamble, _pool_row_bytes(df, columns)),
+    )
+
+
+def format_pool_identity(identity: PoolIdentity) -> str:
+    """One-line rendering of a PoolIdentity for the scorecard."""
+    positives = "n/a" if identity.n_positives is None else str(identity.n_positives)
+    if not identity.columns:
+        return (
+            f"n_rows={identity.n_rows} n_positives={positives} "
+            f"pool_sha256=UNAVAILABLE (the frame carries none of "
+            f"{', '.join(POOL_IDENTITY_COLUMNS)}, so its rows cannot be identified)"
+        )
+    return (
+        f"n_rows={identity.n_rows} n_positives={positives} "
+        f"identity_columns={'+'.join(identity.columns)} "
+        f"pool_sha256={identity.digest}"
+    )
+
+
+def pool_identity_drift(identity: PoolIdentity) -> str:
+    """POOL_DRIFT_UNPINNED, POOL_DRIFT_MATCH, or a description of the mismatch.
+
+    Soft by construction. The caller logs this string and does not gate on it;
+    see the EXPECTED_POOL_ROWS comment for why.
+    """
+    if EXPECTED_POOL_ROWS is None and EXPECTED_POOL_DIGEST is None:
+        return POOL_DRIFT_UNPINNED
+    mismatches: list[str] = []
+    if EXPECTED_POOL_ROWS is not None and identity.n_rows != EXPECTED_POOL_ROWS:
+        mismatches.append(f"n_rows {identity.n_rows} != expected {EXPECTED_POOL_ROWS}")
+    if EXPECTED_POOL_DIGEST is not None and identity.digest != EXPECTED_POOL_DIGEST:
+        mismatches.append(
+            f"pool_sha256 {identity.digest or 'UNAVAILABLE'} != expected {EXPECTED_POOL_DIGEST}"
+        )
+    if not mismatches:
+        return POOL_DRIFT_MATCH
+    return "DRIFT: " + "; ".join(mismatches)
 
 
 # ---------------------------------------------------------------------------
@@ -583,6 +793,19 @@ def check_promotion_gates(oof_path: Path | None = None, checkpoint_path: Path | 
         logger.error(str(exc))
         return False
 
+    # Recorded, never gated. The splitter marker proves how the folds were
+    # built; this proves which rows were in them.
+    identity = oof_pool_identity(df)
+    pool_status = pool_identity_drift(identity)
+    if pool_status.startswith("DRIFT"):
+        logger.warning(
+            "Scoring pool differs from the pinned expectation - %s. This is RECORDED, not "
+            "gated: no gate verdict below changes because of it. Reconcile it against "
+            "docs/gnn_gate_retry_preregistration.md section 2.2 before treating this "
+            "scorecard as a measurement of the pre-registered pool.",
+            pool_status,
+        )
+
     results: list[GateResult] = []
 
     # Gates 1, 2, 4, 5 depend only on OOF CSV
@@ -620,6 +843,9 @@ def check_promotion_gates(oof_path: Path | None = None, checkpoint_path: Path | 
         logger.info(f"    Value: {r.value}   Threshold: {r.threshold}   [{status}]")
         if not r.passed:
             all_passed = False
+    logger.info("  Scoring pool identity (recorded, not gated)")
+    logger.info(f"    {format_pool_identity(identity)}")
+    logger.info(f"    expectation: {pool_status}")
     logger.info("-" * 60)
     if all_passed:
         logger.info("SCORECARD RESULT: ALL GATES PASSED - ready for promotion.")

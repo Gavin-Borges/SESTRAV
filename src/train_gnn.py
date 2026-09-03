@@ -23,6 +23,7 @@ import os
 import random
 import argparse
 import functools
+import hashlib
 import numpy as np
 import pandas as pd
 import torch
@@ -263,6 +264,26 @@ def set_seed(seed: int = 42) -> None:
     torch.use_deterministic_algorithms(True, warn_only=True)
 
 
+def _dataset_cache_tag(data_path: str | os.PathLike[str]) -> str:
+    """Short SHA-256 fingerprint of the ENTIRE dataset file.
+
+    The digest must cover every byte. A single 64 KiB read fingerprints only the
+    first chunk, and the dataset builder's final merge concatenates its parts
+    without shuffling (the `merged = pd.concat(parts, ...)` call in
+    scripts/build_dataset_v5.py), so a rebuild that only extends a later part
+    leaves the leading bytes untouched and the two corpora collapse onto one
+    tag. FeatureStore.load_cached_features validates neither row count nor
+    columns, so a collision pairs the previous corpus's feature rows with the new
+    corpus's labels. This is the streaming form already used by _sha256_file in
+    src/verify/promote_gnn.py and by FeatureStore.verify_integrity.
+    """
+    digest = hashlib.sha256()
+    with open(data_path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:8]
+
+
 def planned_gnn_artifact_paths(
     model_dir: str, pooling: str = "mean", architecture: str = "v2"
 ) -> list[str]:
@@ -406,15 +427,14 @@ def train_gnn(
 
     # 1. Load Data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     print(f"Training pool: {len(train_pool)} records")
 
     # 2. Extract physicochemical features (with Cache resolution)
     # Include dataset fingerprint so switching datasets invalidates the cache.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
+    _data_tag = _dataset_cache_tag(data_path)
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
@@ -602,6 +622,29 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         )
 
 
+def _drops_a_lone_last_sample(n_samples: int, batch_size: int) -> bool:
+    """Whether a TRAINING loader must discard a final batch of exactly one sample.
+
+    GraphPredictorV2's physico_block ends in nn.BatchNorm1d, which raises
+    "Expected more than 1 value per channel when training" on a (1, C) input. A
+    training pool with n % batch_size == 1 therefore crashes on its last batch,
+    after every earlier batch has already trained. Shuffling does not help: the
+    final batch's SIZE is a property of n, not of the draw order.
+
+    Unconditional drop_last=True would trade that crash for a ZeroDivisionError,
+    because train_epoch_v2 returns total_loss / len(dataloader) and a pool
+    smaller than one batch would then measure zero batches. The n > batch_size
+    guard is what removes the trade. It also covers n == 1, where
+    1 % batch_size == 1 holds but dropping the only sample would empty the
+    loader for the same reason.
+
+    Only training loaders may use this. On a validation loader it would discard
+    an evaluation sample, which silently shifts the early-stopping metric and
+    desynchronises build_oof_records' positional val_preds[i] indexing.
+    """
+    return n_samples > batch_size and n_samples % batch_size == 1
+
+
 def train_epoch_v2(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
@@ -704,9 +747,7 @@ def train_gnn_v2(
 
     # Extract feature matrix.  Mode 31 adds 10 per-allele MHCflurry binding scores,
     # matching RF mode 31 feature parity.  Mode 21 uses physico-only features.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
+    _data_tag = _dataset_cache_tag(data_path)
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
@@ -763,7 +804,13 @@ def train_gnn_v2(
             max_len=config.max_peptide_length,
         )
 
-        train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = PyGDataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=_drops_a_lone_last_sample(len(train_dataset), batch_size),
+        )
+        # No drop_last on the validation loader, deliberately: see _drops_a_lone_last_sample.
         val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         model = GraphPredictorV2(
@@ -885,7 +932,12 @@ def train_gnn_v2(
         esm2_cache,
         max_len=config.max_peptide_length,
     )
-    full_loader = PyGDataLoader(full_dataset, batch_size=batch_size, shuffle=True)
+    full_loader = PyGDataLoader(
+        full_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=_drops_a_lone_last_sample(len(full_dataset), batch_size),
+    )
 
     model_final = GraphPredictorV2(
         num_continuous_features=X_feats.shape[1], node_dim=node_dim, pooling=pooling
