@@ -278,9 +278,15 @@ def assign_mcda_verdict(
     auc_ci_sig = boot["auc_pr_significant"].values[0] == "yes" if not boot.empty else False
     issr_ci_sig = boot["issr10_significant"].values[0] == "yes" if not boot.empty else False
 
-    contaminated = overlap_pct is not None and overlap_pct > CONTAMINATION_CAP_PCT
-    cap_note = ""
-    if contaminated:
+    if overlap_pct is None:
+        contaminated: Optional[bool] = None
+        overlap_status = "skipped"
+        cap_note = " Training overlap unmeasured; contamination cap not applied."
+    else:
+        contaminated = overlap_pct > CONTAMINATION_CAP_PCT
+        overlap_status = "fail" if contaminated else "pass"
+        cap_note = ""
+    if contaminated is True:
         cap_note = f" Overlap {overlap_pct:.1f}% exceeds {CONTAMINATION_CAP_PCT}% cap."
 
     rf_wins_auc = auc_delta > 0
@@ -294,10 +300,16 @@ def assign_mcda_verdict(
             f"SESTRAV RF leads on both primary metrics (ΔAUC-PR={auc_delta:+.3f}, "
             f"ΔISSR@10={issr_delta:+.3f}). Bootstrap/FDR support RF advantage on AUC-PR." + cap_note
         )
-    elif tool_wins_auc and tool_wins_issr and auc_fdr_sig and issr_fdr_sig and not contaminated:
+    elif (
+        tool_wins_auc
+        and tool_wins_issr
+        and auc_fdr_sig
+        and issr_fdr_sig
+        and contaminated is False
+    ):
         verdict = "Strongly Better"
         rationale = f"{tool_name} leads on both primary metrics with FDR-significant differences."
-    elif tool_wins_auc and tool_wins_issr and not contaminated:
+    elif tool_wins_auc and tool_wins_issr and contaminated is not True:
         verdict = "Comparable"
         rationale = (
             f"{tool_name} leads on point estimates but uncertainty is wide or FDR "
@@ -340,6 +352,7 @@ def assign_mcda_verdict(
         "auc_pr_fdr_significant": auc_fdr_sig,
         "issr10_fdr_significant": issr_fdr_sig,
         "overlap_contaminated": contaminated,
+        "overlap_status": overlap_status,
         "rationale": rationale,
     }
 
