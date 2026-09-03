@@ -44,9 +44,16 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HOOK_SOURCE = REPO_ROOT / "scripts" / "hooks" / "pre-commit"
 
-# Built from the codepoint on purpose. A literal U+2014 in this file would be caught
-# by the very gate under test, and by tests/test_encoding_ascii_output.py.
-EM_DASH = "\u2014"
+# Built with chr() on purpose, and deliberately NOT as a string literal.
+# A bare U+2014 here would be caught by the very gate under test. An escape keeps
+# the SOURCE ascii but does not help either: the allowlist gate in
+# tests/test_encoding_ascii_output.py walks ast.Constant nodes and inspects the
+# PARSED VALUE, so an escaped literal still holds U+2014 and still fails.
+# chr() builds the codepoint at runtime, so no string literal in this module
+# carries it. Allowlisting this module instead would also have worked, but that
+# gate skips the whole FILE, which would stop it noticing a genuinely stray
+# literal added here later.
+EM_DASH = chr(0x2014)
 
 # Long enough that appending one line keeps similarity far above git's 50% rename
 # threshold, so the staged change is classified R rather than A plus D.
