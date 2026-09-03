@@ -22,6 +22,8 @@ it. See GNN_CV_SPLITTER for why the provenance lives in the rows.
 import os
 import random
 import argparse
+import functools
+import hashlib
 import numpy as np
 import pandas as pd
 import torch
@@ -245,13 +247,41 @@ def build_oof_records(
 
 
 def set_seed(seed: int = 42) -> None:
-    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs."""
+    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs.
+
+    The three flags below are process-global and are left set on purpose: a
+    caller asking for a seeded run wants them for the whole run. Confining them
+    to it is _restore_torch_global_flags' job, on the two entry points that call
+    this. warn_only keeps an op with no deterministic kernel a warning rather
+    than an abort, which is what makes the flag safe to set unconditionally.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+def _dataset_cache_tag(data_path: str | os.PathLike[str]) -> str:
+    """Short SHA-256 fingerprint of the ENTIRE dataset file.
+
+    The digest must cover every byte. A single 64 KiB read fingerprints only the
+    first chunk, and the dataset builder's final merge concatenates its parts
+    without shuffling (the `merged = pd.concat(parts, ...)` call in
+    scripts/build_dataset_v5.py), so a rebuild that only extends a later part
+    leaves the leading bytes untouched and the two corpora collapse onto one
+    tag. FeatureStore.load_cached_features validates neither row count nor
+    columns, so a collision pairs the previous corpus's feature rows with the new
+    corpus's labels. This is the streaming form already used by _sha256_file in
+    src/verify/promote_gnn.py and by FeatureStore.verify_integrity.
+    """
+    digest = hashlib.sha256()
+    with open(data_path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:8]
 
 
 def planned_gnn_artifact_paths(
@@ -315,6 +345,51 @@ def _guard_output_dir(
     )
 
 
+def _restore_torch_global_flags(func):
+    """Keep a training run's process-global torch flags from escaping the run.
+
+    Both entry points mutate interpreter-wide torch state and neither scopes it.
+    torch.autograd.set_detect_anomaly enables the flag inside __init__, so
+    calling it as a bare statement switches anomaly detection on for the whole
+    interpreter, and set_seed writes cudnn.deterministic, cudnn.benchmark and
+    deterministic-algorithms mode straight onto the process. Nothing ever
+    switches any of them back, not even when the run aborts before training the
+    way the --model-dir guard does. A train_gnn_v2 run later in the same process
+    would then inherit the 25-30 percent slowdown that commit b73ce33 removed
+    from that path.
+
+    torch's own class is a context manager but not a decorator, and both entry
+    points are long enough that wrapping their bodies in a with-block would
+    re-indent every line and swamp the diff. A decorator restores the caller's
+    flags without touching the body at all. (No line count is quoted here on
+    purpose: the previous wording named one, and it went stale the moment two
+    comment lines were added inside train_gnn.)
+
+    It deliberately does NOT decorate set_seed. Leaving the determinism flags
+    set is set_seed's whole contract, and tests/test_train_gnn_seed.py pins
+    that; scoping belongs at the entry point, which is what calls set_seed.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        anomaly = torch.is_anomaly_enabled()
+        anomaly_check_nan = torch.is_anomaly_check_nan_enabled()
+        deterministic = torch.are_deterministic_algorithms_enabled()
+        deterministic_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+        cudnn_deterministic = torch.backends.cudnn.deterministic
+        cudnn_benchmark = torch.backends.cudnn.benchmark
+        try:
+            return func(*args, **kwargs)
+        finally:
+            torch.set_anomaly_enabled(anomaly, anomaly_check_nan)
+            torch.use_deterministic_algorithms(deterministic, warn_only=deterministic_warn_only)
+            torch.backends.cudnn.deterministic = cudnn_deterministic
+            torch.backends.cudnn.benchmark = cudnn_benchmark
+
+    return wrapper
+
+
+@_restore_torch_global_flags
 def train_gnn(
     data_path,
     model_dir: str,
@@ -342,6 +417,8 @@ def train_gnn(
     store = FeatureStore(config.output_dir)
 
     set_seed(seed)
+    # Deliberate for the v1 path (see b73ce33); @_restore_torch_global_flags keeps it
+    # from leaking into any train_gnn_v2 run later in the same process.
     torch.autograd.set_detect_anomaly(True)
     _guard_output_dir(model_dir, "mean", "v1", allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
@@ -350,15 +427,14 @@ def train_gnn(
 
     # 1. Load Data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     print(f"Training pool: {len(train_pool)} records")
 
     # 2. Extract physicochemical features (with Cache resolution)
     # Include dataset fingerprint so switching datasets invalidates the cache.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
+    _data_tag = _dataset_cache_tag(data_path)
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
@@ -546,6 +622,29 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         )
 
 
+def _drops_a_lone_last_sample(n_samples: int, batch_size: int) -> bool:
+    """Whether a TRAINING loader must discard a final batch of exactly one sample.
+
+    GraphPredictorV2's physico_block ends in nn.BatchNorm1d, which raises
+    "Expected more than 1 value per channel when training" on a (1, C) input. A
+    training pool with n % batch_size == 1 therefore crashes on its last batch,
+    after every earlier batch has already trained. Shuffling does not help: the
+    final batch's SIZE is a property of n, not of the draw order.
+
+    Unconditional drop_last=True would trade that crash for a ZeroDivisionError,
+    because train_epoch_v2 returns total_loss / len(dataloader) and a pool
+    smaller than one batch would then measure zero batches. The n > batch_size
+    guard is what removes the trade. It also covers n == 1, where
+    1 % batch_size == 1 holds but dropping the only sample would empty the
+    loader for the same reason.
+
+    Only training loaders may use this. On a validation loader it would discard
+    an evaluation sample, which silently shifts the early-stopping metric and
+    desynchronises build_oof_records' positional val_preds[i] indexing.
+    """
+    return n_samples > batch_size and n_samples % batch_size == 1
+
+
 def train_epoch_v2(model, dataloader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
@@ -573,6 +672,7 @@ def evaluate_model_v2(model, dataloader, device):
     return np.array(all_labels), np.array(all_preds)
 
 
+@_restore_torch_global_flags
 def train_gnn_v2(
     data_path,
     model_dir: str,
@@ -647,9 +747,7 @@ def train_gnn_v2(
 
     # Extract feature matrix.  Mode 31 adds 10 per-allele MHCflurry binding scores,
     # matching RF mode 31 feature parity.  Mode 21 uses physico-only features.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
+    _data_tag = _dataset_cache_tag(data_path)
     cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
@@ -706,7 +804,13 @@ def train_gnn_v2(
             max_len=config.max_peptide_length,
         )
 
-        train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = PyGDataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=_drops_a_lone_last_sample(len(train_dataset), batch_size),
+        )
+        # No drop_last on the validation loader, deliberately: see _drops_a_lone_last_sample.
         val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         model = GraphPredictorV2(
@@ -828,7 +932,12 @@ def train_gnn_v2(
         esm2_cache,
         max_len=config.max_peptide_length,
     )
-    full_loader = PyGDataLoader(full_dataset, batch_size=batch_size, shuffle=True)
+    full_loader = PyGDataLoader(
+        full_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=_drops_a_lone_last_sample(len(full_dataset), batch_size),
+    )
 
     model_final = GraphPredictorV2(
         num_continuous_features=X_feats.shape[1], node_dim=node_dim, pooling=pooling
