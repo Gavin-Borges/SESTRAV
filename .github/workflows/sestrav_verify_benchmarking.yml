@@ -11,6 +11,7 @@ permissions: read-all
 jobs:
   verify-benchmark:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.13"]
@@ -25,6 +26,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          # Every file this job installs from, not setup-python's default of
+          # **/requirements.txt. The default keys on the root file alone, so a
+          # change confined to environments/ leaves the key unchanged, hits the
+          # primary key, and setup-python then SKIPS the save. The new wheels are
+          # re-downloaded on every subsequent run and never cached, until the root
+          # file happens to change. All three are hash-pinned and installed below.
+          cache-dependency-path: |
+            requirements.txt
+            environments/requirements-ci.txt
+            environments/requirements-ci-torch-cpu.txt
 
       - name: Install CPU PyTorch
         run: |

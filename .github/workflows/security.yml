@@ -16,6 +16,7 @@ jobs:
   bandit:
     name: Bandit Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +41,7 @@ jobs:
   secret-pattern-scan:
     name: Custom Secret Pattern Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,6 +61,10 @@ jobs:
   codeql:
     name: CodeQL Static Analysis
     runs-on: ubuntu-latest
+    # 20 rather than a tighter multiple of the 1.4 min observed max: the database
+    # build is the most variable step in this repo, and a spike there should not
+    # read as a hang.
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
@@ -98,6 +104,7 @@ jobs:
   semgrep:
     name: Semgrep Security Scan (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       actions: read
       contents: read
