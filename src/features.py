@@ -682,9 +682,21 @@ def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None
 _ESM_MODEL_NAME = "facebook/esm2_t6_8M_UR50D"
 _esm_model = None
 _esm_tokenizer = None
+_esm_fallback_count = 0
 
 FEATURE_COLUMNS_30_ESM = FEATURE_COLUMNS_30 + [f"esm_{i}" for i in range(320)]
 FEATURE_COLUMNS_30_GRAPH = FEATURE_COLUMNS_30 + [f"graph_wl_{i}" for i in range(32)]
+
+
+def get_esm_fallback_count() -> int:
+    """Return the number of ESM calls that used the deterministic fallback."""
+    return _esm_fallback_count
+
+
+def reset_esm_fallback_count() -> None:
+    """Reset the process-local ESM fallback diagnostic."""
+    global _esm_fallback_count
+    _esm_fallback_count = 0
 
 
 def get_esm_cls_token(peptide: str) -> np.ndarray:
@@ -695,7 +707,7 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
     import numpy as np
 
     try:
-        global _esm_model, _esm_tokenizer
+        global _esm_fallback_count, _esm_model, _esm_tokenizer
         if _esm_model is None or _esm_tokenizer is None:
             import torch
 
@@ -722,6 +734,7 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
             cls_repr = outputs.last_hidden_state[0, 0].numpy()
         return cls_repr
     except Exception as e:
+        _esm_fallback_count += 1
         print(
             f"[ESM Feature] WARNING: Failed to compute ESM-2 CLS token: {e}. Falling back to deterministic mock vector."
         )
