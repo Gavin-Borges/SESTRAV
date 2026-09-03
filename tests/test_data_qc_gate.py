@@ -369,3 +369,23 @@ def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
         text=True,
     )
     assert result.returncode != 0
+
+    # Assert the REASON, not just the exit code.
+    #
+    # A bare `returncode != 0` here is vacuous, and measurably so. With the
+    # load_config fix reverted, this gate STILL exits 1 - but for an unrelated
+    # reason: the small fixture is under the default min_peptide_yield, so the
+    # run fails on a QC verdict while the malformed config is swallowed and
+    # freeze_mode silently becomes False. Two different failures, one exit code.
+    #
+    # Measured discriminator. Fix present: no QC report is printed and the YAML
+    # ParserError surfaces. Fix reverted: the QC report IS printed and no
+    # ParserError appears.
+    combined = result.stdout + result.stderr
+    assert "ADMISSIBILITY REPORT" not in combined.upper(), (
+        "the gate produced a QC report, so it parsed the malformed config as "
+        "defaults instead of failing on it:\n" + combined[-2000:]
+    )
+    assert "ParserError" in combined, (
+        "expected the YAML parse failure to surface uncaught:\n" + combined[-2000:]
+    )
