@@ -260,9 +260,10 @@ def _build_pdf_scorecard(
         ax_shap.axis("off")
         # Draw the SHAP figure onto the PDF axes via a canvas draw call
         shap_fig.canvas.draw()
-        img = np.frombuffer(shap_fig.canvas.tostring_rgb(), dtype=np.uint8)
-        w, h = shap_fig.canvas.get_width_height()
-        img = img.reshape(h, w, 3)
+        # buffer_rgba() carries its own (h, w, 4) shape, so the alpha channel is
+        # dropped deliberately here rather than reshaped away against a separately
+        # queried width/height, which disagrees with the buffer on HiDPI canvases.
+        img = np.asarray(shap_fig.canvas.buffer_rgba())[..., :3]
         ax_shap.imshow(img, aspect="auto", extent=[0, 1, 0, 1])
         ax_shap.set_xlim(0, 1)
         ax_shap.set_ylim(0, 1)

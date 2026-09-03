@@ -37,7 +37,6 @@ def _sanitize_name(name):
 
 
 def predict_binding(peptides_df, proteome_id, alleles=None):
-    proteome_id = _sanitize_name(proteome_id)
     """
     Predict MHC-I presentation using MHCflurry for all unique peptides.
 
@@ -54,6 +53,7 @@ def predict_binding(peptides_df, proteome_id, alleles=None):
         peptide, allele, affinity, presentation_score,
         presentation_percentile, protein_id
     """
+    proteome_id = _sanitize_name(proteome_id)
     if alleles is None:
         alleles = DEFAULT_ALLELES
 
