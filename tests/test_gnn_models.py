@@ -105,6 +105,55 @@ def test_graph_predictor_v2_forward_shape():
     assert out.shape == (4,)
 
 
+# ---------------------------------------------------------------------------
+# Gradient flow - the graph encoder must actually receive a gradient
+#
+# Every other test in this file is a forward-shape test, so detaching the
+# encoder output in GraphPredictor.forward / GraphPredictorV2.forward leaves the
+# whole suite green while reducing the model to a physico-only MLP. These two
+# assert the loss reaches the first conv weight of each encoder.
+# ---------------------------------------------------------------------------
+
+
+def test_graph_predictor_gradient_reaches_encoder():
+    """v1: backward must leave a non-zero grad on the first GCN layer weight."""
+    torch.manual_seed(0)
+    model = GraphPredictor(num_continuous_features=30)
+    batch = 4  # > 1 so BatchNorm1d is happy in train mode
+    node_x = torch.rand(batch, MAX_LEN, 20)
+    feat_x = torch.rand(batch, 30)
+    adj = torch.eye(MAX_LEN)
+    y = torch.tensor([float(i % 2) for i in range(batch)])
+
+    out = model(node_x, feat_x, adj)
+    loss = torch.nn.functional.binary_cross_entropy_with_logits(out, y)
+    loss.backward()
+
+    grad = model.encoder.gcn1.weight.grad
+    assert grad is not None, "no gradient reached GraphEncoder.gcn1 - encoder is detached"
+    assert grad.norm().item() > 0.0, "gradient reached GraphEncoder.gcn1 but is all zeros"
+    # Control: the physico branch trains either way, so its grad separates a
+    # severed encoder from a backward pass that never ran at all.
+    assert model.physico_block[0].weight.grad is not None
+
+
+def test_graph_predictor_v2_gradient_reaches_encoder():
+    """v2 production path: backward must reach GINEConv 1's first Linear weight."""
+    torch.manual_seed(0)
+    model = GraphPredictorV2(num_continuous_features=30, node_dim=32)
+    model.encoder = GraphEncoderV2(node_dim=32, hidden_dim=16, out_dim=128, edge_dim=3)
+    batch = _make_pyg_batch(batch_size=4, num_features=30, node_dim=32)
+
+    out = model(batch)
+    loss = torch.nn.functional.binary_cross_entropy_with_logits(out, batch.y.view(-1))
+    loss.backward()
+
+    grad = model.encoder.conv1.nn[0].weight.grad
+    assert grad is not None, "no gradient reached GraphEncoderV2.conv1 - encoder is detached"
+    assert grad.norm().item() > 0.0, "gradient reached GraphEncoderV2.conv1 but is all zeros"
+    assert model.physico_block[0].weight.grad is not None
+
+
 def test_graph_predictor_v2_eval_single_sample():
     model = GraphPredictorV2(num_continuous_features=12, node_dim=32)
     model.encoder = GraphEncoderV2(node_dim=32, hidden_dim=16, out_dim=128, edge_dim=3)
