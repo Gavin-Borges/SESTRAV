@@ -585,13 +585,40 @@ def test_load_oof_returns_dataframe_on_valid_file(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_time_model_ms_v2_returns_positive_float():
+def test_time_model_ms_v2_times_every_rep_and_reports_milliseconds():
+    """The timer must actually run the model, and report ms, not seconds.
+
+    The previous form asserted only `isinstance(ms, float)` and `ms >= 0.0`.
+    Both hold unconditionally: `float(np.median(...))` is always a float and
+    elapsed wall-clock is never negative, so no defect in the timer could fail
+    it. Four separate mutations of `_time_model_ms_v2` were observed to pass
+    it: never calling `predict_fn`, returning seconds instead of milliseconds,
+    `return 0.0`, and ignoring `reps`. That matters because Gate 3 rejects a
+    checkpoint on latency, so a timer stubbed to a small constant disarms the
+    gate for an arbitrarily slow model.
+
+    Each assertion below is aimed at one of those four.
+    """
+    import time as _time
+
     from src.verify.promote_gnn import _time_model_ms_v2
 
+    calls: list[object] = []
+
+    def predict(batch: object) -> None:
+        calls.append(batch)
+        _time.sleep(0.002)  # 2 ms, well above the perf_counter floor
+
     batch = object()
-    ms = _time_model_ms_v2(lambda _batch: None, batch, warmup=1, reps=3)
-    assert isinstance(ms, float)
-    assert ms >= 0.0
+    ms = _time_model_ms_v2(predict, batch, warmup=1, reps=3)
+
+    # kills "never calls predict_fn" and "ignores reps"
+    assert len(calls) == 4, f"expected 1 warmup + 3 timed reps, got {len(calls)}"
+    assert all(c is batch for c in calls), "the batch under test must be passed through"
+    # kills "return 0.0" and "returns seconds": 2 ms of real work cannot median
+    # below 1.5 in ms, and would be ~0.002 if the unit were seconds.
+    assert ms >= 1.5, f"expected milliseconds of measured work, got {ms}"
+    assert ms < 1000.0, f"implausible latency for a 2 ms sleep: {ms}"
 
 
 # ---------------------------------------------------------------------------

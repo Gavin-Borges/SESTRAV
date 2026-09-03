@@ -97,11 +97,35 @@ def test_pick_operating_threshold_empty_raises():
 
 
 def test_pick_operating_threshold_skips_small_subgroup():
-    """A group smaller than min_group_size must not set min_subgroup_f1."""
+    """A group smaller than min_group_size must not set min_subgroup_f1.
+
+    `min_subgroup_f1 > 0.0` used to be the whole assertion, and it does not
+    discriminate: with the size skip removed the optimizer ROUTES AROUND the
+    change rather than scoring zero. It selects threshold 0.0, where the RARE
+    group (3 rows, label 1, score 0.0) is fully predicted positive and scores
+    F1 = 1.0, leaving min_subgroup_f1 at 0.6429 - comfortably above the old
+    floor. Measured with the skip disabled:
+
+        skip on : threshold 0.5009, overall_precision 1.00, min_subgroup_f1 1.0000
+        skip off: threshold 0.0000, overall_precision 0.65, min_subgroup_f1 0.6429
+
+    So the assertions below pin the two fields that actually move.
+    """
     df = _frame(n=40)
     df.loc[df.index[:3], "virus"] = "RARE"
     df.loc[df.index[:3], "label"] = 1
     df.loc[df.index[:3], "score"] = 0.0
     best = se.pick_operating_threshold(df, score_col="score", group_col="virus", min_group_size=10)
     assert "threshold" in best
-    assert best["min_subgroup_f1"] > 0.0
+    # A degenerate all-positive threshold is exactly what including the tiny
+    # group forces the optimizer into, so reject it explicitly.
+    assert best["threshold"] > 0.0, (
+        "the optimizer fell back to an all-positive threshold, which is what "
+        "happens when the small group is scored instead of skipped"
+    )
+    # The 3-row group must not enter the minimum at all.
+    assert best["min_subgroup_f1"] == pytest.approx(1.0), (
+        "min_subgroup_f1 was dragged below 1.0, so a group under min_group_size "
+        f"was included in the minimum: {best}"
+    )
+    assert best["overall_precision"] == pytest.approx(1.0)
