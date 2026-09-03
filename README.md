@@ -318,14 +318,25 @@ pip install -e ".[dev]"          # lint + test tools
 mhcflurry-downloads fetch models_class1_presentation
 ```
 
-**venv:**
+**venv (LINUX x86-64 only, see the note below):**
 ```bash
 python -m venv .venv
-source .venv/bin/activate      # Linux/macOS
+source .venv/bin/activate      # Linux
 pip install --no-deps --require-hashes -r requirements.txt
 pip install snakemake
 mhcflurry-downloads fetch models_class1_presentation
 ```
+
+> **`requirements.txt` is a Linux x86-64 lock and does not resolve elsewhere.** It pins
+> 17 CUDA packages (`triton` plus 16 `nvidia-*`) and carries **zero environment markers**
+> across its 2,740 lines, so pip attempts every pin on every platform. Measured on Windows:
+> the command above exits 1 with `No matching distribution found for nvidia-nccl-cu12`,
+> while a cross-platform pin from the same file resolves normally, so the failure is
+> specific to those CUDA pins. The marker that would exclude them exists in the source
+> `requirements.in` and is dropped by the compile step.
+>
+> On macOS or Windows use the conda or editable-install paths above instead. Both resolve
+> per-platform and neither goes through this lock.
 
 ### 2. Install and Train Models
 
