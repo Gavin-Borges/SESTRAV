@@ -10,14 +10,18 @@ from typing import List
 # assignment and names like AWS_SECRET_ACCESS_KEY (keyword is not adjacent
 # to `=`). Suffixes after the keyword are allowed; `author =` is not, because
 # `or` is not a `_`-separated suffix.
+# No left anchor. An earlier revision required `(?:^|[^a-z0-9])` before the keyword,
+# which silently dropped every camelCase and run-together credential name that the
+# previous scanner caught: accessToken, sessionToken, mytoken, authtoken, apitoken,
+# userpassword, dbpassword, clientsecret. Measured: 8 names went from BLOCK to allow.
+# The anchor was never needed for the `author =` exclusion either, which is enforced
+# by the `\s*[=:]` requirement below: in `author = "..."` the characters after `auth`
+# are `or`, not a `_`-separated suffix, so the assignment part cannot match.
 CREDENTIAL_ASSIGNMENT = re.compile(
-    r"(?i)(?:^|[^a-z0-9])"
+    r"(?i)"
     r"(api[_-]?key|token|secret|password|passwd|auth|private[_-]?key)"
     r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*['\"]([^'\"]+)['\"]"
 )
-
-# Pip/hash-pin lines are high entropy by construction and are not secrets.
-_SKIP_LINE_MARKERS = ("--hash=", "sha256:")
 
 # Refuse a vacuous pass over an empty walk (wrong cwd, or every file excluded).
 MIN_SCANNED_FILES = 10
@@ -82,14 +86,22 @@ def scan_file(path: str) -> List[int]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             for line_no, line in enumerate(f, 1):
-                if any(marker in line for marker in _SKIP_LINE_MARKERS):
-                    continue
-                match = CREDENTIAL_ASSIGNMENT.search(line)
-                if not match:
-                    continue
-                val = match.group(2)
-                if len(val) > 8 and calculate_entropy(val) > 3.0:
-                    flagged_line_numbers.append(line_no)
+                # finditer, not search: a line can carry more than one assignment,
+                # and search() inspects only the FIRST. A short decoy earlier on the
+                # line then shields a real secret later on it, which is a
+                # one-character bypass. Measured: `token = "abc"; password = "<36
+                # chars>"` went from BLOCK to allow under search().
+                for match in CREDENTIAL_ASSIGNMENT.finditer(line):
+                    val = match.group(2)
+                    # Whitespace inside the captured value means prose, not a
+                    # credential. This is what keeps sentences like
+                    # `A password: "must be at least twelve characters"` quiet, and
+                    # it discriminates on the VALUE rather than on the whole line.
+                    if any(ch.isspace() for ch in val):
+                        continue
+                    if len(val) > 8 and calculate_entropy(val) > 3.0:
+                        flagged_line_numbers.append(line_no)
+                        break
     except (OSError, UnicodeDecodeError):
         return flagged_line_numbers
     return flagged_line_numbers
