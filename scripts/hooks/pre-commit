@@ -18,7 +18,14 @@ RED='\033[0;31m'
 NC='\033[0m'
 block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+# The filter MUST include R. git does rename detection by default, so a moved
+# file is reported as R and an ACM-only filter drops it from this list entirely -
+# and every gate below iterates this one list, so a rename bypassed all four.
+# Measured on ce31e02: 8 changed paths, 6 of them R100, only 1 survived ACM.
+# Renames are not only pure moves either (R056 observed in this history), so
+# content can enter through that hole, not merely relocate. With --name-only a
+# rename yields its DESTINATION path, which is the one that needs scanning.
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 
 # ---- Gate 1: Blocked path patterns ------------------------------------------
 # Pattern categories (add new entries here, never remove existing ones):
