@@ -179,6 +179,15 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # The Cursor mirror needs no entry only because ".mdc" is absent from
         # SCAN_SUFFIXES and that file is never opened; add it here if that changes.
         ".agents/rules/third-party-claims.md",
+        # The rule file was split in two on 2026-09-03: its Antigravity mirror
+        # had reached 13,450 characters against that tool's 12,000-char cap, so
+        # the eight instances, #7 among them, moved to a companion file. The
+        # retracted name therefore sits in the companion on a checkout where the
+        # split has been applied and in the original everywhere else. Both are
+        # listed because the rules tree is gitignored: which file carries the
+        # name is a per-workstation fact no gate can resolve for itself.
+        ".claude/rules/third-party-claims-cases.md",
+        ".agents/rules/third-party-claims-cases.md",
         # The note that first spotted the contradiction, five days before the
         # fix. Kept as the record of how long detection took.
         "_local/notes/authorship_analysis_2026-08-21.md",
