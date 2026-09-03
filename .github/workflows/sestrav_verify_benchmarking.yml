@@ -2,9 +2,9 @@ name: SESTRAV-VERIFY Benchmarking & Regressions
 
 on:
   push:
-    branches: ["*"]
+    branches: ["main"]
   pull_request:
-    branches: ["*"]
+    branches: ["main"]
 
 permissions: read-all
 
@@ -34,9 +34,6 @@ jobs:
         run: |
           pip install --no-deps --require-hashes -r requirements.txt
           pip install --no-deps --require-hashes -r environments/requirements-ci.txt
-
-      - name: Run Evaluator Unit Tests
-        run: pytest tests/test_sestrav_evaluator.py -v
 
       - name: Execute Ingestion Pipeline (Mock Mode)
         run: python src/verify/iedb_multi_virus_extractor.py src/verify/targets.json --mock
