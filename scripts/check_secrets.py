@@ -4,13 +4,29 @@ import sys
 import math
 from typing import List
 
-# Keywords associated with credentials
-KEYWORD_PATTERN = re.compile(
-    r"(?i)(api_key|token|secret|password|passwd|auth|private_key)\s*=\s*[\'\"].{4,}[\'\"]"
+# Credential-class identifier, then an assignment. Entropy is applied to the
+# captured value, not used as a second pass over the whole line. The old
+# scanner required `keyword\s*=\s*["']` and therefore missed YAML/JSON `:`
+# assignment and names like AWS_SECRET_ACCESS_KEY (keyword is not adjacent
+# to `=`). Suffixes after the keyword are allowed; `author =` is not, because
+# `or` is not a `_`-separated suffix.
+# No left anchor. An earlier revision required `(?:^|[^a-z0-9])` before the keyword,
+# which silently dropped every camelCase and run-together credential name that the
+# previous scanner caught: accessToken, sessionToken, mytoken, authtoken, apitoken,
+# userpassword, dbpassword, clientsecret. Measured: 8 names went from BLOCK to allow.
+# The anchor was never needed for the `author =` exclusion either, which is enforced
+# by the `\s*[=:]` requirement below: in `author = "..."` the characters after `auth`
+# are `or`, not a `_`-separated suffix, so the assignment part cannot match.
+CREDENTIAL_ASSIGNMENT = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*['\"]([^'\"]+)['\"]"
 )
 
+# Refuse a vacuous pass over an empty walk (wrong cwd, or every file excluded).
+MIN_SCANNED_FILES = 10
 
-# High entropy strings (likely random API keys / secrets)
+
 def calculate_entropy(s: str) -> float:
     if not s:
         return 0.0
@@ -22,7 +38,6 @@ def calculate_entropy(s: str) -> float:
     return entropy
 
 
-# Folders to exclude from secret scan
 EXCLUDE_DIRS = {
     ".git",
     ".venv",
@@ -36,10 +51,31 @@ EXCLUDE_DIRS = {
     "scratch",
     ".pytest_tmp2",
     "_local",
+    ".claude",
+    ".cursor",
+    ".codex",
+    ".agents",
+    ".ruff_cache",
+    ".mypy_cache",
+    "build",
 }
 
-# Files to exclude from secret scan to avoid false positives in ruleset/scanning scripts
 EXCLUDE_FILES = {"apply-branch-ruleset.ps1", "apply_protection.sh", "check_secrets.py"}
+
+_SCAN_SUFFIXES = (
+    ".py",
+    ".sh",
+    ".ps1",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".txt",
+    ".md",
+    ".toml",
+    ".cff",
+    ".in",
+    ".def",
+)
 
 
 def scan_file(path: str) -> List[int]:
@@ -50,60 +86,63 @@ def scan_file(path: str) -> List[int]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             for line_no, line in enumerate(f, 1):
-                # Check for standard assignment keywords
-                if KEYWORD_PATTERN.search(line):
-                    # Check if the matched string is actually high entropy to filter false positives
-                    # Find assignments of format name = "value"
-                    matches = re.findall(r"=\s*[\'\"]([^\'\"]+)[\'\"]", line)
-                    for val in matches:
-                        if len(val) > 8 and calculate_entropy(val) > 3.0:
-                            flagged_line_numbers.append(line_no)
-                            break
+                # finditer, not search: a line can carry more than one assignment,
+                # and search() inspects only the FIRST. A short decoy earlier on the
+                # line then shields a real secret later on it, which is a
+                # one-character bypass. Measured: `token = "abc"; password = "<36
+                # chars>"` went from BLOCK to allow under search().
+                for match in CREDENTIAL_ASSIGNMENT.finditer(line):
+                    val = match.group(2)
+                    # Whitespace inside the captured value means prose, not a
+                    # credential. This is what keeps sentences like
+                    # `A password: "must be at least twelve characters"` quiet, and
+                    # it discriminates on the VALUE rather than on the whole line.
+                    if any(ch.isspace() for ch in val):
+                        continue
+                    if len(val) > 8 and calculate_entropy(val) > 3.0:
+                        flagged_line_numbers.append(line_no)
+                        break
     except (OSError, UnicodeDecodeError):
-        # Unreadable or non-UTF-8 files cannot contain a scannable line; skip them.
         return flagged_line_numbers
     return flagged_line_numbers
 
 
-def main() -> None:
-    has_error = False
-    for root, dirs, files in os.walk("."):
-        # Filter directories in-place
+def iter_scanned_files(root: str) -> List[str]:
+    found: List[str] = []
+    for dirpath, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
-        for f in files:
-            if f in EXCLUDE_FILES:
+        for name in files:
+            if name in EXCLUDE_FILES:
                 continue
-            if f.endswith(
-                (
-                    ".py",
-                    ".sh",
-                    ".ps1",
-                    ".yaml",
-                    ".yml",
-                    ".json",
-                    ".txt",
-                    ".md",
-                    ".toml",
-                    ".cff",
-                    ".in",
-                    ".def",
-                )
-            ) or f.startswith("Dockerfile"):
-                path = os.path.join(root, f)
-                flagged = scan_file(path)
-                for line_no in flagged:
-                    # Report only the location; the matched value is never captured (no clear-text logging).
-                    print(
-                        f"[FLAGGED] {path}:{line_no} (credential-like assignment; value not shown)"
-                    )
-                    has_error = True
+            if name.endswith(_SCAN_SUFFIXES) or name.startswith("Dockerfile"):
+                found.append(os.path.join(dirpath, name))
+    return found
 
+
+def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
+    paths = iter_scanned_files(root)
+    if len(paths) < min_files:
+        print(
+            f"[ERROR] scanned {len(paths)} files (floor {min_files}); "
+            "refusing a vacuous pass. Run from the repository root."
+        )
+        return 1
+    has_error = False
+    for path in paths:
+        for line_no in scan_file(path):
+            print(
+                f"[FLAGGED] {path}:{line_no} (credential-like assignment; value not shown)"
+            )
+            has_error = True
     if has_error:
         print("\n[ERROR] Potential secrets detected. Action blocked.")
-        sys.exit(1)
-    else:
-        print("[SUCCESS] No secrets detected.")
-        sys.exit(0)
+        return 1
+    print("[SUCCESS] No secrets detected.")
+    return 0
+
+
+def main() -> None:
+    sys.exit(scan_tree("."))
 
 
 if __name__ == "__main__":
