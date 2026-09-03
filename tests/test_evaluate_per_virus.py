@@ -223,12 +223,19 @@ def test_evaluate_virus_auc_roc_in_range() -> None:
 
 
 def test_evaluate_virus_real_neg_only_differs() -> None:
-    # Real-neg-only AUC may differ from full AUC when decoys inflate it.
+    # Real-neg-only AUC must differ from full AUC when decoys look like positives.
+    # Using the full y_true/y_score pair for both keys is the mutation this
+    # assertion is built to catch.
     df = _make_df(n_pos=30, n_neg_real=20, n_neg_decoy=40)
+    df.loc[df["label"] == 1, "score"] = 0.9
+    real_neg = (df["label"] == 0) & (df["negative_origin"] == "tested_negative")
+    decoy = (df["label"] == 0) & (df["negative_origin"] == "self_proteome_decoy")
+    df.loc[real_neg, "score"] = 0.1
+    df.loc[decoy, "score"] = 0.99
     r = evaluate_virus(df, "score", n_bootstrap=20)
-    # Both should be computable; values may differ.
     assert r["auc_roc"] is not None
     assert r["auc_roc_real_neg_only"] is not None
+    assert r["auc_roc"] != r["auc_roc_real_neg_only"]
 
 
 def test_evaluate_virus_real_neg_none_when_no_real_negs() -> None:
