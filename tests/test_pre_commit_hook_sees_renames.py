@@ -35,6 +35,7 @@ allowed (proving the fix is not the degenerate "reject every rename").
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -59,6 +60,22 @@ EM_DASH = chr(0x2014)
 # threshold, so the staged change is classified R rather than A plus D.
 BASELINE_BODY = "\n".join(f"line {i} of ordinary ASCII content" for i in range(40)) + "\n"
 
+# git reads the developer's GLOBAL and SYSTEM config even inside a throwaway repo, so
+# without this the result depends on the machine rather than on the hook. Each of these
+# was measured to break this file against otherwise unmodified branch content:
+#   commit.gpgsign=true with no key  -> 4 errors, the fixture commit exits 128
+#   core.hooksPath=<failing hook>    -> 4 errors, same
+#   core.excludesFile matching *.md  -> 4 errors, `git add baseline.md` exits 1
+#   diff.renames=false               -> 2 failed, the rename anchors see D plus A
+# This workstation and ubuntu CI are both clean, so CI cannot catch any of them; the
+# failure would land on a contributor. Passed to the hook run as well as to the fixture,
+# because the hook makes its own git calls and inherits the same config.
+GIT_ENV = {
+    **os.environ,
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_SYSTEM": os.devnull,
+}
+
 pytestmark = pytest.mark.skipif(
     shutil.which("bash") is None,
     reason="pre-commit is a bash script; without bash it cannot run at all",
@@ -67,7 +84,7 @@ pytestmark = pytest.mark.skipif(
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["git", *args], cwd=repo, capture_output=True, text=True, check=True
+        ["git", *args], cwd=repo, capture_output=True, text=True, check=True, env=GIT_ENV
     )
 
 
@@ -92,7 +109,12 @@ def repo(tmp_path: Path) -> Path:
 
 def _run_hook(repo: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["bash", "hook"], cwd=repo, capture_output=True, text=True, check=False
+        ["bash", "hook"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=GIT_ENV,
     )
 
 
@@ -153,8 +175,12 @@ def test_clean_rename_is_still_allowed(repo: Path) -> None:
     A hook changed to block renames outright would satisfy the two tests above, so
     this pins the other side of the contract.
     """
+    # No `git add -A` here: `git mv` already stages both halves of the rename, and
+    # `-A` would additionally stage the copied hook script, making this control depend
+    # on the hook passing its OWN gates. A future comment in the hook holding a
+    # credential-shaped string or an example workstation path would then break this
+    # test for a reason that has nothing to do with renames.
     _git(repo, "mv", "baseline.md", "renamed_cleanly.md")
-    _git(repo, "add", "-A")
     status = _git(repo, "diff", "--cached", "--name-status").stdout
     assert any(line.startswith("R") for line in status.splitlines()), (
         f"fixture did not produce a rename; got:\n{status}"
