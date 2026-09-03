@@ -13,6 +13,7 @@ jobs:
     # Coding-standards gate (OpenSSF Silver: coding_standards_enforced).
     # Ruff enforces PEP 8; mypy enforces type correctness on src/.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,6 +67,7 @@ jobs:
     # deliberate call, not a drive-by edit. ARCHITECTURE.md's container/dependency bullet
     # records the same correction.
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -90,6 +92,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         python-version: ["3.13"]
