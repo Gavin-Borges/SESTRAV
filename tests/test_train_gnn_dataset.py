@@ -191,6 +191,28 @@ def test_use_spatial_without_allele_column_raises(tmp_path):
         )
 
 
+def test_use_spatial_uses_each_row_own_allele(tmp_path):
+    # Two rows, two different alleles, a cached matrix for the SECOND one only.
+    # If the dataset broadcast row 0's allele to every row, row 1 would miss and
+    # fall back, so this is what pins the per-row lookup.
+    from src.gnn.graph_builder import GraphBuilder, structural_cache_filename
+
+    dist = torch.full((11, 11), 2.0, dtype=torch.float32)
+    torch.save(  # nosec B614 - test fixture, trusted tensor
+        dist, tmp_path / structural_cache_filename("CCCCCCCCC", "HLA-B*07:02")
+    )
+    ds = _make_dataset(
+        ["AAAAAAAAA", "CCCCCCCCC"],
+        max_len=11,
+        cache_dir=str(tmp_path),
+        use_spatial=True,
+        alleles=["HLA-A*02:01", "HLA-B*07:02"],
+    )
+    chain = GraphBuilder.build_chain_adj(max_len=11)
+    assert torch.allclose(ds[0][2], chain), "row 0 has no cached matrix and must fall back"
+    assert not torch.allclose(ds[1][2], chain), "row 1 has a cached matrix and must use it"
+
+
 def test_use_spatial_reads_the_allele_keyed_cache(tmp_path):
     from src.gnn.graph_builder import GraphBuilder, structural_cache_filename
 

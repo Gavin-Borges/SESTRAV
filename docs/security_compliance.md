@@ -71,7 +71,8 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 |----------|---------|-------------|
 | `scripts/resave_checkpoint.py:61` (2026-06-18 scan; now line 63) | `torch.save(ckpt, path)` - internal maintenance script saving trusted model state | Acceptable: script not exposed to user input; data is internally generated. **Reproducibility caveat (2026-08-11): this file is gitignored** (`.gitignore:366`, "Legacy pipeline configs and checkpoint utilities"), so it is absent from a fresh clone and a reader cannot reproduce these two findings without the local working tree. |
 | `scripts/resave_checkpoint.py:355` (2026-06-18 scan; now line 357) | `torch.save(new_ckpt, output_path)` - same script | Same rationale, and the same gitignored-reproducibility caveat as the row above. |
-| `tests/test_graph_builder.py:48` (2026-06-18 scan; now line 47) | `torch.save(dist, tmp_path / "PEP_dist.pt")` - test fixture writing a known tensor | `# nosec B614` added 2026-06-18 |
+| `tests/test_graph_builder.py:48` (2026-06-18 scan; now line 66) | `torch.save(dist, tmp_path / name)` - test fixture writing a known tensor; the name is now built by `structural_cache_filename` | `# nosec B614` added 2026-06-18 |
+| `tests/test_graph_builder.py:80` (2026-09-04) | `torch.save(` - second test fixture, added with the allele-keyed structural cache, writing a known tensor | `# nosec B614` added 2026-09-04 |
 | `tests/test_sestrav_evaluator_extended.py:165` (2026-06-18 scan; now line 178) | `torch.save(state, chk)` - test fixture writing known state dict | `# nosec B614` added 2026-06-18 |
 | `tests/test_sestrav_evaluator_extended.py:175` (2026-06-18 scan; now line 189) | `torch.save(state, chk)` - second test fixture in same file | `# nosec B614` added 2026-06-18 |
 
