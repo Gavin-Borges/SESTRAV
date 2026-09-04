@@ -96,6 +96,40 @@ def prepare_features(df, include_binding=False, binding_col="binding_score"):
     return pd.DataFrame(feature_records)[cols]
 
 
+def _report_binding_coverage(peptides, binding_lookup, binding_matrix_path):
+    """Report how much of the joined corpus the binding matrix actually reaches.
+
+    A peptide absent from the matrix is zero-filled rather than dropped or raised
+    on. That keeps row alignment, which is the right contract, but it makes an
+    absent peptide indistinguishable from one that genuinely scored zero against
+    all ten alleles. When matrix membership correlates with the label, those
+    zeros become a label proxy that a model reads directly.
+
+    That is not hypothetical. Measured on the v5 corpus, peptide_binding_matrix_v4
+    reaches 8,725 of 35,555 rows, and those rows are 73.2% positive against 6.1%
+    for the rest, because v4 predates the corpus's negative-class expansion and
+    covers 0.79% of its tested_negative rows where v5 covers all of them. Holding
+    everything else fixed, that swing is worth roughly +0.17 pooled AUC-PR.
+
+    Reported unconditionally, and with print rather than the logging module,
+    because silence was the defect: a run recorded the binding matrix it was
+    GIVEN but nothing recorded how much of the corpus that matrix reached, so an
+    artifact could name a matrix while its features told a different story.
+    """
+    total = len(peptides)
+    if total == 0:
+        return 0
+    covered = int(pd.Index(peptides).isin(binding_lookup.index).sum())
+    missing = total - covered
+    prefix = "Binding coverage" if missing == 0 else "WARNING: binding coverage"
+    print(
+        f"{prefix}: {covered}/{total} rows ({covered / total:.1%}) found in "
+        f"{binding_matrix_path}; {missing} zero-filled across "
+        f"{len(BINDING_ALLELE_COLUMNS)} allele columns"
+    )
+    return missing
+
+
 def prepare_features_30(df, binding_matrix_path):
     """Build the 30-feature matrix by joining physico features with per-allele binding.
 
@@ -116,6 +150,7 @@ def prepare_features_30(df, binding_matrix_path):
     physico_df = pd.DataFrame(physico_records)[PHYSICO_COLUMNS]
 
     peptides = df["peptide"].values
+    _report_binding_coverage(peptides, binding_lookup, binding_matrix_path)
     bind_rows = []
     for pep in peptides:
         if pep in binding_lookup.index:
@@ -145,6 +180,7 @@ def prepare_features_10(df, binding_matrix_path):
     binding_lookup = binding_df.set_index("peptide")[bind_cols_present]
 
     peptides = df["peptide"].values
+    _report_binding_coverage(peptides, binding_lookup, binding_matrix_path)
     bind_rows = []
     for pep in peptides:
         if pep in binding_lookup.index:
