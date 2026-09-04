@@ -852,6 +852,38 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
 # mislabel is worth keeping fixed rather than treating as cosmetic.
 
 
+def _report_self_similarity_coverage(peptides, cache, cache_path) -> int:
+    """Report how much of the joined corpus the self-similarity cache reaches.
+
+    A peptide absent from the cache is filled with 0.0. That keeps row
+    alignment, which is the right contract, but 0.0 is a MEANINGFUL value in
+    this feature's own scale: compute_self_similarity returns 0.0 for a genuine
+    non-match. A filled row is therefore indistinguishable from a measured one,
+    and nothing in a run's output recorded how far the cache reached. That is
+    the same shape as the binding-matrix defect measured on 2026-09-04, where
+    coverage correlated with the label and the fill became a proxy a model read
+    directly.
+
+    Reported unconditionally, and with print rather than the logging module,
+    because a diagnostic that a missing basicConfig can swallow is not a
+    diagnostic. No threshold is imposed and nothing raises: what coverage is
+    acceptable is an owner policy question, and this only makes the fact
+    observable.
+    """
+    total = len(peptides)
+    if total == 0:
+        return 0
+    missing = int((~pd.Index(peptides).isin(cache.index)).sum())
+    covered = total - missing
+    prefix = "Self-similarity coverage" if missing == 0 else "WARNING: self-similarity coverage"
+    print(
+        f"{prefix}: {covered}/{total} rows ({covered / total:.1%}) found in "
+        f"{cache_path}; {missing} filled with 0.0, which is a real value here "
+        f"(no self-match) and not a null"
+    )
+    return missing
+
+
 def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
     """Join precomputed human-proteome self-similarity scores onto a peptide DataFrame.
 
@@ -880,17 +912,7 @@ def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFram
     result["self_similarity_exact_match"] = (
         result["peptide"].map(cache["self_similarity_exact_match"]).fillna(0.0).astype(float)
     )
-    missing = int(
-        (result["self_similarity_max_identity"] == 0.0).sum()
-        - (cache["self_similarity_max_identity"] == 0.0)
-        .reindex(result["peptide"])
-        .fillna(True)
-        .sum()
-    )
-    if missing > 0:
-        print(
-            f"[features] {missing} peptides not found in self-similarity cache - defaulting to 0.0"
-        )
+    _report_self_similarity_coverage(result["peptide"], cache, cache_path)
     return result
 
 
