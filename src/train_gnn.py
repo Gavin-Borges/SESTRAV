@@ -1054,7 +1054,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to peptide_binding_matrix_v4.csv (required for --feature-mode 31)",
+        help="Path to the binding matrix, required for --feature-mode 31. Use "
+        "models/peptide_binding_matrix_v5.csv with the v5 corpus: v5 is a strict "
+        "superset of v4, and v4 reaches only 8,725 of the 35,555 pool rows while "
+        "prepare_features_30 zero-fills every peptide it misses, which makes matrix "
+        "membership a label proxy. Pair a matrix with the corpus it was built for",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible runs")
     parser.add_argument(
