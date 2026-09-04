@@ -34,8 +34,12 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
   the same chain-plus-self-loop topology with 3-dim one-hot edge features
   (self-loop / forward / backward).
 - **Spatial adjacency is present but off.** `GraphBuilder.build_spatial_adj` loads a
-  per-peptide pairwise distance matrix (`{peptide}_dist.pt`) from the configured
-  structural cache and falls back to the chain graph when none is cached. The code
+  per-peptide-and-allele pairwise distance matrix
+  (`{peptide}_{allele_key}_dist.pt`, e.g. `CLGGLLTMV_A0201_dist.pt`) from the
+  configured structural cache and falls back to the chain graph when none is
+  cached. Writer and reader share one filename builder
+  (`GraphBuilder`'s module-level `structural_cache_filename`), because they
+  previously disagreed and every lookup missed silently. The code
   does not source those distances from any particular predictor - an earlier revision
   of this line attributed them to AlphaFold, which the implementation does not
   establish. It is disabled in the shipped configuration

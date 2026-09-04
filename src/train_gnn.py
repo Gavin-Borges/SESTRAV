@@ -59,6 +59,13 @@ class GraphPeptideDataset(Dataset):
         self.max_len = max_len
         self.cache_dir = cache_dir
         self.use_spatial = use_spatial
+        self.alleles = df["hla_allele"].values if "hla_allele" in df.columns else None
+        if use_spatial and cache_dir is not None and self.alleles is None:
+            raise ValueError(
+                "use_spatial_adj requires an 'hla_allele' column: the structural "
+                "cache is keyed by (peptide, allele), so a peptide-only lookup "
+                "misses every entry silently and falls back to the chain graph."
+            )
 
     def __len__(self):
         return len(self.sequences)
@@ -67,7 +74,9 @@ class GraphPeptideDataset(Dataset):
         seq = self.sequences[idx]
         node_feats = GraphBuilder.sequence_to_node_features(seq, max_len=self.max_len)
         if self.use_spatial and self.cache_dir:
-            adj = GraphBuilder.build_spatial_adj(seq, self.cache_dir, max_len=self.max_len)
+            adj = GraphBuilder.build_spatial_adj(
+                seq, self.alleles[idx], self.cache_dir, max_len=self.max_len
+            )
         else:
             adj = GraphBuilder.build_chain_adj(max_len=self.max_len)
         physico = self.physico_features[idx]

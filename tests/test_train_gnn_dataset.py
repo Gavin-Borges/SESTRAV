@@ -47,9 +47,17 @@ def _isolated_global_flags():
 
 
 def _make_dataset(
-    peptides, n_features=21, labels=None, max_len=11, cache_dir=None, use_spatial=False
+    peptides,
+    n_features=21,
+    labels=None,
+    max_len=11,
+    cache_dir=None,
+    use_spatial=False,
+    alleles="HLA-A*02:01",
 ):
     df = pd.DataFrame({"peptide": peptides})
+    if alleles is not None:
+        df["hla_allele"] = alleles
     n = len(peptides)
     feat_matrix = pd.DataFrame(
         np.random.default_rng(0).standard_normal((n, n_features)),
@@ -167,6 +175,32 @@ def test_use_spatial_missing_cache_falls_back(tmp_path):
     _, _, adj_chain, _ = ds_chain[0]
 
     torch.testing.assert_close(adj_spatial, adj_chain)
+
+
+def test_use_spatial_without_allele_column_raises(tmp_path):
+    # The structural cache is keyed by (peptide, allele). A corpus with no allele
+    # column cannot address it, and the old peptide-only lookup missed every
+    # entry silently instead of saying so.
+    with pytest.raises(ValueError, match="hla_allele"):
+        _make_dataset(
+            ["CLGGLLTMV"],
+            max_len=11,
+            cache_dir=str(tmp_path),
+            use_spatial=True,
+            alleles=None,
+        )
+
+
+def test_use_spatial_reads_the_allele_keyed_cache(tmp_path):
+    from src.gnn.graph_builder import GraphBuilder, structural_cache_filename
+
+    dist = torch.full((11, 11), 2.0, dtype=torch.float32)
+    torch.save(  # nosec B614 - test fixture, trusted tensor
+        dist, tmp_path / structural_cache_filename("CLGGLLTMV", "HLA-A*02:01")
+    )
+    ds = _make_dataset(["CLGGLLTMV"], max_len=11, cache_dir=str(tmp_path), use_spatial=True)
+    _, _, adj_spatial, _ = ds[0]
+    assert not torch.allclose(adj_spatial, GraphBuilder.build_chain_adj(max_len=11))
 
 
 # ---------------------------------------------------------------------------

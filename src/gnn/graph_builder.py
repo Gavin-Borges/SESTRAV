@@ -5,6 +5,21 @@ AA_TO_IDX = {aa: i for i, aa in enumerate(AA_VOCAB)}
 MAX_PEPTIDE_LEN: int = 11  # longest supported peptide (9-11-mer; pad shorter seqs)
 
 
+def allele_cache_key(allele: str) -> str:
+    """Convert 'HLA-A*02:01' -> 'A0201' for use in filenames."""
+    return allele.replace("HLA-", "").replace("*", "").replace(":", "")
+
+
+def structural_cache_filename(peptide: str, allele: str) -> str:
+    """Canonical filename for one peptide+allele structural distance matrix.
+
+    Peptide backbone geometry is groove-dependent, so the cache is keyed by the
+    pair, not by the peptide alone. scripts/run_pandora_structures.py imports this
+    function so that the writer and the reader cannot drift apart again.
+    """
+    return f"{peptide}_{allele_cache_key(allele)}_dist.pt"
+
+
 class GraphBuilder:
     """Builds chain graph representations from peptide sequences."""
 
@@ -31,6 +46,7 @@ class GraphBuilder:
     @staticmethod
     def build_spatial_adj(
         peptide: str,
+        allele: str,
         cache_dir: str,
         max_len: int = MAX_PEPTIDE_LEN,
         distance_threshold: float = 8.0,
@@ -42,13 +58,16 @@ class GraphBuilder:
 
         Args:
             peptide: The sequence to look up in the structural cache.
-            cache_dir: Directory containing '{peptide}_dist.pt' distance matrices.
+            allele: The MHC allele the structure was modelled against, e.g.
+                'HLA-A*02:01'. The cache is keyed by the pair; see
+                structural_cache_filename.
+            cache_dir: Directory holding '{peptide}_{allele_key}_dist.pt' matrices.
             max_len: Padding length.
             distance_threshold: Angstrom cutoff for edge creation.
         """
         import os
 
-        cache_path = os.path.join(cache_dir, f"{peptide}_dist.pt")
+        cache_path = os.path.join(cache_dir, structural_cache_filename(peptide, allele))
 
         # Fallback to chain graph if structure is not cached
         if not os.path.exists(cache_path):
