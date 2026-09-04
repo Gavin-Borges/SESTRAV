@@ -284,6 +284,7 @@ def prepare_features_50(df, binding_matrix_path):
     physico_df = pd.DataFrame(physico_records)[EXPANDED_PHYSICO_COLUMNS]
 
     peptides = df["peptide"].values
+    _report_binding_coverage(peptides, binding_lookup, binding_matrix_path)
     bind_rows = []
     for pep in peptides:
         if pep in binding_lookup.index:
@@ -352,14 +353,29 @@ def prepare_features_166(df, binding_matrix_path):
     bind_cols_present = [c for c in BINDING_ALLELE_COLUMNS if c in binding_df.columns]
     if bind_cols_present:
         binding_lookup = binding_df.set_index("peptide")[bind_cols_present]
+        peptides = df["peptide"].values
+        _report_binding_coverage(peptides, binding_lookup, binding_matrix_path)
         bind_rows = []
-        for pep in df["peptide"].values:
+        for pep in peptides:
             if pep in binding_lookup.index:
                 bind_rows.append(binding_lookup.loc[pep].values)
             else:
                 bind_rows.append(np.zeros(len(bind_cols_present)))
         bind_df_out = pd.DataFrame(bind_rows, columns=BINDING_ALLELE_COLUMNS)
     else:
+        # Unlike modes 10, 30 and 50, which raise below ten allele columns, mode
+        # 166 substitutes an all-zero block for the WHOLE corpus. That contract is
+        # pinned by tests/test_train_classifier.py and is left unchanged here:
+        # whether it should raise instead is an owner policy call, and this work
+        # is about silence, not behaviour. What changes is that it now says so.
+        # An all-zero block from a matrix with no allele columns at all is
+        # indistinguishable from a corpus that genuinely scores zero everywhere.
+        print(
+            f"WARNING: binding coverage: 0/{len(df)} rows (0.0%) found in "
+            f"{binding_matrix_path}; it carries NONE of the "
+            f"{len(BINDING_ALLELE_COLUMNS)} expected allele columns, so every "
+            f"binding feature is zero-filled"
+        )
         bind_df_out = pd.DataFrame(np.zeros((len(df), 10)), columns=BINDING_ALLELE_COLUMNS)
 
     # 136 HLA pseudo-sequence features (already in df)
