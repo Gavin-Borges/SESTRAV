@@ -91,3 +91,30 @@ def test_returned_frame_is_unchanged_by_the_report(tmp_path, n_absent):
     for i in range(2, 2 + n_absent):
         assert result.loc[i, "self_similarity_max_identity"] == 0.0
         assert result.loc[i, "self_similarity_exact_match"] == 0.0
+
+
+def test_nan_value_in_cache_counts_as_filled(tmp_path, capsys):
+    # CCCCCCCCC is IN the cache but its identity value is NaN, so it maps to NaN
+    # and is filled with 0.0 exactly like an absent peptide. Testing index
+    # membership alone would call this row covered, which is the whole defect.
+    cache = _write_cache(
+        tmp_path / "sim.csv",
+        [("AAAAAAAAA", 0.4, 0.0), ("CCCCCCCCC", float("nan"), 0.0)],
+    )
+    df = pd.DataFrame({"peptide": ["AAAAAAAAA", "CCCCCCCCC"]})
+
+    result = load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    assert "WARNING: self-similarity coverage" in out
+    assert "1/2 rows (50.0%)" in out
+    assert result.loc[1, "self_similarity_max_identity"] == 0.0
+
+
+def test_empty_frame_reports_nothing_and_does_not_divide_by_zero(tmp_path, capsys):
+    cache = _write_cache(tmp_path / "sim.csv", [("AAAAAAAAA", 0.4, 0.0)])
+
+    result = load_self_similarity_cache(cache, pd.DataFrame({"peptide": []}))
+
+    assert len(result) == 0
+    assert capsys.readouterr().out == ""

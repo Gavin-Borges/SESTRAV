@@ -852,7 +852,7 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
 # mislabel is worth keeping fixed rather than treating as cosmetic.
 
 
-def _report_self_similarity_coverage(peptides, cache, cache_path) -> int:
+def _report_self_similarity_coverage(mapped_identity, cache_path) -> None:
     """Report how much of the joined corpus the self-similarity cache reaches.
 
     A peptide absent from the cache is filled with 0.0. That keeps row
@@ -864,16 +864,21 @@ def _report_self_similarity_coverage(peptides, cache, cache_path) -> int:
     coverage correlated with the label and the fill became a proxy a model read
     directly.
 
+    Takes the mapped series BEFORE fillna rather than the peptide list, so that a
+    peptide which IS in the cache but carries a NaN value counts as filled. It
+    receives 0.0 exactly like an absent one, and an earlier form of this report
+    that tested index membership alone called such a row covered.
+
     Reported unconditionally, and with print rather than the logging module,
     because a diagnostic that a missing basicConfig can swallow is not a
     diagnostic. No threshold is imposed and nothing raises: what coverage is
     acceptable is an owner policy question, and this only makes the fact
     observable.
     """
-    total = len(peptides)
+    total = len(mapped_identity)
     if total == 0:
-        return 0
-    missing = int((~pd.Index(peptides).isin(cache.index)).sum())
+        return
+    missing = int(mapped_identity.isna().sum())
     covered = total - missing
     prefix = "Self-similarity coverage" if missing == 0 else "WARNING: self-similarity coverage"
     print(
@@ -881,7 +886,6 @@ def _report_self_similarity_coverage(peptides, cache, cache_path) -> int:
         f"{cache_path}; {missing} filled with 0.0, which is a real value here "
         f"(no self-match) and not a null"
     )
-    return missing
 
 
 def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
@@ -905,14 +909,13 @@ def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFram
     )
     cache = cache.drop_duplicates(subset="peptide").set_index("peptide")
     result = df.copy()
-    result["self_similarity_max_identity"] = (
-        result["peptide"].map(cache["self_similarity_max_identity"]).fillna(0.0).astype(float)
-    )
+    mapped_identity = result["peptide"].map(cache["self_similarity_max_identity"])
+    result["self_similarity_max_identity"] = mapped_identity.fillna(0.0).astype(float)
     # Store as float (0.0 / 1.0) so the feature matrix stays homogeneous
     result["self_similarity_exact_match"] = (
         result["peptide"].map(cache["self_similarity_exact_match"]).fillna(0.0).astype(float)
     )
-    _report_self_similarity_coverage(result["peptide"], cache, cache_path)
+    _report_self_similarity_coverage(mapped_identity, cache_path)
     return result
 
 
