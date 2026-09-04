@@ -464,6 +464,34 @@ def _planned_paths(output_path: Path) -> list[str]:
     )
 
 
+def _feature_input_provenance() -> dict[str, dict[str, str]]:
+    """Digest every feature input this audit reads, not just the corpus.
+
+    The sidecar recorded dataset_sha256 alone, so a run was reproducible in its
+    ROWS but not in its FEATURES. That gap is not hypothetical: on 2026-09-04 a
+    stale binding matrix was found to reach 0.79% of the v5 corpus's
+    tested_negative rows, turning "every bind_ column is zero" into a label proxy
+    worth roughly -0.154 pooled AUC-PR, and no artifact of the affected runs
+    recorded which matrix had been opened. The self-similarity and antigen
+    processing caches carry the same exposure: both fill absent peptides with an
+    in-scale value, so their coverage is a silent input to modes 33 and 35.
+
+    All three paths are read unconditionally by run(), so a missing one fails the
+    audit long before this function is reached.
+    """
+    return {
+        name: {
+            "path": path.resolve().relative_to(PROJECT_ROOT).as_posix(),
+            "sha256": _sha256_file(path),
+        }
+        for name, path in (
+            ("binding_matrix", BINDING_MATRIX_PATH),
+            ("antigen_processing_cache", ANTIGEN_PROCESSING_CACHE_PATH),
+            ("self_similarity_cache", SELF_SIMILARITY_CACHE_PATH),
+        )
+    }
+
+
 def _write_provenance(output_path: Path, dataset_path: Path, n_rows: int) -> None:
     try:
         dataset_rel = dataset_path.resolve().relative_to(PROJECT_ROOT).as_posix()
@@ -489,6 +517,9 @@ def _write_provenance(output_path: Path, dataset_path: Path, n_rows: int) -> Non
         "sha256": _sha256_file(output_path),
         "dataset_path": dataset_rel,
         "dataset_sha256": _sha256_file(dataset_path),
+        # The corpus alone does not determine the features. See
+        # _feature_input_provenance for why each of these is recorded.
+        "feature_inputs": _feature_input_provenance(),
         "random_state": RANDOM_STATE,
         "n_splits": N_SPLITS,
         "n_estimators": N_ESTIMATORS,
