@@ -281,7 +281,7 @@ def assign_mcda_verdict(
     if overlap_pct is None:
         contaminated: Optional[bool] = None
         overlap_status = "skipped"
-        cap_note = " Training overlap unmeasured; contamination cap not applied."
+        cap_note = " Training overlap unmeasured; contamination cap could not be evaluated."
     else:
         contaminated = overlap_pct > CONTAMINATION_CAP_PCT
         overlap_status = "fail" if contaminated else "pass"
@@ -309,6 +309,23 @@ def assign_mcda_verdict(
     ):
         verdict = "Strongly Better"
         rationale = f"{tool_name} leads on both primary metrics with FDR-significant differences."
+    elif (
+        tool_wins_auc
+        and tool_wins_issr
+        and auc_fdr_sig
+        and issr_fdr_sig
+        and contaminated is None
+    ):
+        # Same statistical evidence as "Strongly Better"; only the unmeasured cap withholds it.
+        # Falling through to the branch below would state the opposite of the FDR flags
+        # serialized beside it.
+        verdict = "Comparable"
+        rationale = (
+            f"{tool_name} leads on both primary metrics with FDR-significant differences. "
+            f"Strongly Better is withheld only because training overlap is unmeasured and the "
+            f"contamination cap could not be evaluated, not because the statistical evidence "
+            f"is weak."
+        )
     elif tool_wins_auc and tool_wins_issr and contaminated is not True:
         verdict = "Comparable"
         rationale = (

@@ -41,7 +41,19 @@ def test_unmeasured_overlap_is_skipped_not_clean():
     assert result["overlap_contaminated"] is None
     assert result["overlap_status"] == "skipped"
     assert result["verdict"] != "Strongly Better"
-    assert "overlap unmeasured" in result["rationale"].lower()
+    assert "unmeasured" in result["rationale"].lower()
+
+
+def test_unmeasured_overlap_rationale_does_not_contradict_the_fdr_flags():
+    # The fixture sets fdr_significant True on both metrics. The rationale is published
+    # into results/external_benchmark_comparison.md directly beside those flags, so a
+    # rationale claiming the evidence is weak would be self-refuting on the page.
+    result = _verdict(None)
+    rationale = result["rationale"].lower()
+    assert "fdr non-significant" not in rationale
+    assert "uncertainty is wide" not in rationale
+    assert "fdr-significant" in rationale
+    assert "cap could not be evaluated" in rationale
 
 
 def test_measured_clean_overlap_allows_strongly_better():
