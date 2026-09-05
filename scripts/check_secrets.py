@@ -30,8 +30,8 @@ CREDENTIAL_ASSIGNMENT = re.compile(
 # This pattern is format-scoped, and the scope is a language fact rather than a
 # heuristic: in Python, JSON and TOML a string literal is ALWAYS quoted, so a bare
 # right-hand side there is an expression and can never be a hardcoded credential.
-# Applying it to .py was measured to flag `token = match.group(1)` at
-# scripts/check_doc_commit_refs.py:239 - a 13-character value with entropy 3.7,
+# Applying it to .py was measured to flag `token = match.group(1)` inside
+# check_doc_commit_refs.py's SHA_RE loop - a 13-character value with entropy 3.7,
 # clearing both floors below - which turns this gate red on real tracked code.
 # It captures no quoted value on purpose; it is run IN ADDITION to the pattern
 # above, never instead of it, because a bare match ends at the first quote and

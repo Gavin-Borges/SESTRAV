@@ -300,7 +300,7 @@ def test_the_net_respects_the_same_suffix_filter_as_the_walk(tmp_path: Path) -> 
 # an unquoted right-hand side there is an EXPRESSION and cannot be a hardcoded
 # credential. In YAML, shell, .env, Dockerfile and prose an unquoted scalar IS the
 # literal. Allowing bare values everywhere was measured to flag exactly one line,
-# scripts/check_doc_commit_refs.py:239, which is `token = match.group(1)` - a real
+# `token = match.group(1)` in check_doc_commit_refs.py's SHA_RE loop - a real
 # CI failure on a real false positive, which is why the .py direction is tested.
 
 
