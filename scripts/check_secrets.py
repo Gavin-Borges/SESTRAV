@@ -24,8 +24,34 @@ CREDENTIAL_ASSIGNMENT = re.compile(
     r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*['\"]([^'\"]+)['\"]"
 )
 
+# Unquoted value. Requiring quotes above missed the everyday leak shape entirely:
+# `AWS_SECRET_ACCESS_KEY=<value>` in a .env and `export API_KEY=<value>` in a shell
+# script both went BLOCK-to-allow because neither value is quoted.
+# This pattern is format-scoped, and the scope is a language fact rather than a
+# heuristic: in Python, JSON and TOML a string literal is ALWAYS quoted, so a bare
+# right-hand side there is an expression and can never be a hardcoded credential.
+# Applying it to .py was measured to flag `token = match.group(1)` at
+# scripts/check_doc_commit_refs.py:239 - a 13-character value with entropy 3.7,
+# clearing both floors below - which turns this gate red on real tracked code.
+# It captures no quoted value on purpose; it is run IN ADDITION to the pattern
+# above, never instead of it, because a bare match ends at the first quote and
+# could otherwise consume a keyword that a later quoted match needed.
+CREDENTIAL_ASSIGNMENT_BARE = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*([^\s'\"#,;)\]}]+)"
+)
+
+# Formats in which an unquoted scalar IS the string literal.
+_BARE_VALUE_SUFFIXES = (".yml", ".yaml", ".sh", ".env", ".md", ".txt", ".cfg", ".ini")
+
 # Refuse a vacuous pass over an empty walk (wrong cwd, or every file excluded).
 MIN_SCANNED_FILES = 10
+
+
+def allows_bare_value(path: str) -> bool:
+    name = os.path.basename(path)
+    return name.endswith(_BARE_VALUE_SUFFIXES) or name.startswith("Dockerfile")
 
 
 def calculate_entropy(s: str) -> float:
@@ -84,25 +110,36 @@ def scan_file(path: str) -> List[int]:
     # text is deliberately never stored or returned, so a flagged value cannot be
     # logged or leaked downstream.
     flagged_line_numbers: List[int] = []
+    # The bare pattern is ADDITIVE, never a replacement: the quoted pattern runs on
+    # every format, so no line that is caught today can stop being caught.
+    patterns = [CREDENTIAL_ASSIGNMENT]
+    if allows_bare_value(path):
+        patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     try:
         with open(path, "r", encoding="utf-8") as f:
             for line_no, line in enumerate(f, 1):
-                # finditer, not search: a line can carry more than one assignment,
-                # and search() inspects only the FIRST. A short decoy earlier on the
-                # line then shields a real secret later on it, which is a
-                # one-character bypass. Measured: `token = "abc"; password = "<36
-                # chars>"` went from BLOCK to allow under search().
-                for match in CREDENTIAL_ASSIGNMENT.finditer(line):
-                    val = match.group(2)
-                    # Whitespace inside the captured value means prose, not a
-                    # credential. This is what keeps sentences like
-                    # `A password: "must be at least twelve characters"` quiet, and
-                    # it discriminates on the VALUE rather than on the whole line.
-                    if any(ch.isspace() for ch in val):
-                        continue
-                    if len(val) > 8 and calculate_entropy(val) > 3.0:
-                        flagged_line_numbers.append(line_no)
+                flagged = False
+                for pattern in patterns:
+                    # finditer, not search: a line can carry more than one assignment,
+                    # and search() inspects only the FIRST. A short decoy earlier on the
+                    # line then shields a real secret later on it, which is a
+                    # one-character bypass. Measured: `token = "abc"; password = "<36
+                    # chars>"` went from BLOCK to allow under search().
+                    for match in pattern.finditer(line):
+                        val = match.group(2)
+                        # Whitespace inside the captured value means prose, not a
+                        # credential. This is what keeps sentences like
+                        # `A password: "must be at least twelve characters"` quiet, and
+                        # it discriminates on the VALUE rather than on the whole line.
+                        if any(ch.isspace() for ch in val):
+                            continue
+                        if len(val) > 8 and calculate_entropy(val) > 3.0:
+                            flagged = True
+                            break
+                    if flagged:
                         break
+                if flagged:
+                    flagged_line_numbers.append(line_no)
     except (OSError, UnicodeDecodeError):
         return flagged_line_numbers
     return flagged_line_numbers

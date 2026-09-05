@@ -289,3 +289,119 @@ def test_the_net_respects_the_same_suffix_filter_as_the_walk(tmp_path: Path) -> 
     names = _basenames(mod, repo)
     assert "note.md" in names
     assert "data.csv" not in names
+# --- Unquoted values, scoped by file format -------------------------------------
+#
+# The quoted-only value pattern missed the everyday leak shape entirely:
+# `AWS_SECRET_ACCESS_KEY=<value>` in a .env, and `export API_KEY=<value>` in a
+# shell script, both went BLOCK-to-allow because neither value is quoted.
+#
+# The scoping is not a heuristic, it is a language fact, and these tests pin BOTH
+# directions of it. In Python, JSON and TOML a string literal is always quoted, so
+# an unquoted right-hand side there is an EXPRESSION and cannot be a hardcoded
+# credential. In YAML, shell, .env, Dockerfile and prose an unquoted scalar IS the
+# literal. Allowing bare values everywhere was measured to flag exactly one line,
+# scripts/check_doc_commit_refs.py:239, which is `token = match.group(1)` - a real
+# CI failure on a real false positive, which is why the .py direction is tested.
+
+
+def _bare(path: Path, text: str) -> None:
+    path.write_text(text + "\n", encoding="utf-8")
+
+
+def test_unquoted_value_in_shell_script_is_flagged(tmp_path: Path) -> None:
+    """The `export API_KEY=<value>` shape, unquoted, in a shell script."""
+    mod = _load()
+    target = tmp_path / "deploy.sh"
+    _bare(target, "export API_" + "KEY=" + _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_unquoted_value_in_dotenv_is_flagged(tmp_path: Path) -> None:
+    """The `.env` shape: a bare AWS_SECRET_ACCESS_KEY assignment."""
+    mod = _load()
+    target = tmp_path / ".env"
+    _bare(target, "AWS_" + "SECRET" + "_ACCESS_KEY=" + _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_unquoted_value_in_yaml_is_flagged(tmp_path: Path) -> None:
+    """YAML plain scalars are literals, so a bare colon value must be scanned."""
+    mod = _load()
+    target = tmp_path / "workflow.yml"
+    _bare(target, "  api_" + "key: " + _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_unquoted_value_in_dockerfile_is_flagged(tmp_path: Path) -> None:
+    """Dockerfile ENV/ARG values are unquoted literals; match on the basename."""
+    mod = _load()
+    target = tmp_path / "Dockerfile.api"
+    _bare(target, "ENV API_" + "KEY=" + _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_quoted_value_in_shell_script_is_still_flagged(tmp_path: Path) -> None:
+    """Adding the bare branch must not cost the quoted case in the same format."""
+    mod = _load()
+    target = tmp_path / "deploy.sh"
+    _write(target, "export API_" + "KEY", "=", _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_python_expression_rhs_is_not_flagged_but_same_text_in_shell_is(
+    tmp_path: Path,
+) -> None:
+    """The false-positive guard, and the proof that it is not vacuous.
+
+    `token = match.group(1)` is real tracked code at
+    scripts/check_doc_commit_refs.py:239. Under a bare-value branch applied to
+    every format it captures a 13-character value with entropy 3.7, which clears
+    both the length and the entropy floor and turns the CI gate red.
+
+    The second assertion is what keeps this test honest: the SAME text in a .sh
+    file IS flagged, so the .py assertion can only pass because of the format
+    scoping, never because the fixture failed to clear a threshold.
+    """
+    mod = _load()
+    line = "to" + "ken = match.group(1)"
+    py_case = tmp_path / "case.py"
+    sh_case = tmp_path / "case.sh"
+    _bare(py_case, line)
+    _bare(sh_case, line)
+    assert mod.scan_file(str(py_case)) == []
+    assert mod.scan_file(str(sh_case)) == [1]
+
+
+def test_bare_pattern_does_not_shadow_a_quoted_secret_on_the_same_line(
+    tmp_path: Path,
+) -> None:
+    """The bare pattern must be ADDITIVE, never a replacement.
+
+    A bare match stops at the first quote, so it can swallow the keyword that a
+    later quoted match needed. Here the bare pattern alone consumes `auth=aatoken=`
+    and captures an 8-character value that clears no floor, leaving the quoted
+    secret behind the resume point of finditer - BLOCK-to-allow, the same shape as
+    the search()-vs-finditer regression above. Running BOTH patterns on a
+    bare-eligible format is what keeps this line caught.
+    """
+    mod = _load()
+    target = tmp_path / "deploy.sh"
+    _bare(target, "au" + "th=aa" + "token=" + '"s3cr3tv4lue1234"')
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_unquoted_rhs_in_json_and_toml_is_not_flagged(tmp_path: Path) -> None:
+    """JSON and TOML string literals are always quoted, same as Python.
+
+    Paired with a .yaml control so a threshold change cannot silently make this
+    pass for the wrong reason.
+    """
+    mod = _load()
+    rhs = "sec" + "ret: " + _token()
+    for name in ("case.json", "case.toml"):
+        target = tmp_path / name
+        _bare(target, rhs)
+        assert mod.scan_file(str(target)) == [], name
+    control = tmp_path / "case.yaml"
+    _bare(control, rhs)
+    assert mod.scan_file(str(control)) == [1]
