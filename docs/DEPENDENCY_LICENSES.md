@@ -1,7 +1,7 @@
 | Name                                  | Version     | License                                                                                             |
 |---------------------------------------|-------------|-----------------------------------------------------------------------------------------------------|
 | ConfigArgParse                        | 1.7.5       | MIT License                                                                                         |
-| GitPython                             | 3.1.58      | BSD-3-Clause                                                                                        |
+| GitPython                             | 3.1.61      | BSD-3-Clause                                                                                        |
 | Jinja2                                | 3.1.6       | BSD License                                                                                         |
 | MarkupSafe                            | 3.0.3       | BSD-3-Clause                                                                                        |
 | PuLP                                  | 3.3.2       | MIT                                                                                                 |
