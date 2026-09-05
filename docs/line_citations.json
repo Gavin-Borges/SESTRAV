@@ -30,7 +30,7 @@
     {
       "citing": "docs/security_compliance.md",
       "target": "tests/test_graph_builder.py",
-      "lines": "66",
+      "lines": "67",
       "pinned": [
         "torch.save(dist, tmp_path / name) # nosec B614 - test fixture, trusted tensor"
       ]
@@ -38,7 +38,7 @@
     {
       "citing": "docs/security_compliance.md",
       "target": "tests/test_graph_builder.py",
-      "lines": "80",
+      "lines": "90",
       "pinned": [
         "torch.save( # nosec B614 - test fixture, trusted tensor"
       ]

@@ -45,7 +45,7 @@ from src.train_classifier import (
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 
-from src.gnn.graph_builder import GraphBuilder
+from src.gnn.graph_builder import GraphBuilder, report_structural_cache_coverage
 from src.gnn.models import GraphPredictor
 
 
@@ -66,6 +66,12 @@ class GraphPeptideDataset(Dataset):
                 "cache is keyed by (peptide, allele), so a peptide-only lookup "
                 "misses every entry silently and falls back to the chain graph."
             )
+        if use_spatial and cache_dir is not None:
+            # One line per dataset, not one per row. See the docstring on
+            # report_structural_cache_coverage for why the count is taken here,
+            # where the whole panel is in hand, rather than inside the per-row
+            # lookup in build_spatial_adj.
+            report_structural_cache_coverage(self.sequences, self.alleles, cache_dir)
 
     def __len__(self):
         return len(self.sequences)

@@ -1,3 +1,6 @@
+import os
+from typing import Sequence
+
 import torch
 
 AA_VOCAB = "ACDEFGHIKLMNPQRSTVWY"
@@ -18,6 +21,61 @@ def structural_cache_filename(peptide: str, allele: str) -> str:
     function so that the writer and the reader cannot drift apart again.
     """
     return f"{peptide}_{allele_cache_key(allele)}_dist.pt"
+
+
+def report_structural_cache_coverage(
+    peptides: Sequence[str],
+    alleles: Sequence[str],
+    cache_dir: str,
+) -> int:
+    """Report how many (peptide, allele) pairs the structural cache actually reaches.
+
+    A pair with no cached distance matrix is not dropped or raised on: it falls
+    back to GraphBuilder.build_chain_adj, which keeps every row addressable and
+    is the right contract. The cost is that a total miss is indistinguishable
+    from a total hit at the tensor level, so a run configured with
+    use_spatial_adj could train entirely on chain graphs while its artifact
+    recorded a structural cache directory. That is the defect this reports: the
+    writer emitted '{peptide}_{allele_key}_dist.pt' while the reader looked for
+    '{peptide}_dist.pt', and every lookup missed in total silence.
+
+    Counted ONCE over the whole panel rather than per row, deliberately.
+    build_spatial_adj is called from GraphPeptideDataset.__getitem__, once per
+    row per epoch, so a per-row warning on a 35k-row corpus is ~35,000 stderr
+    lines per epoch and warnings.warn cannot dedup them: its key is
+    (text, category, lineno), so a message naming the peptide is unique every
+    time. This is the shape src/train_classifier.py's binding-coverage report
+    already uses for the same problem - accumulate a count against the panel
+    total, emit one line - and the output here is bounded by the number of
+    datasets built, never by corpus size.
+
+    Uses print rather than the logging module, and reports unconditionally, for
+    the same reason that one does: silence was the defect.
+
+    Returns:
+        The number of pairs with no cached matrix.
+    """
+    total = len(peptides)
+    if total == 0:
+        return 0
+    try:
+        cached = set(os.listdir(cache_dir))
+    except OSError:
+        # An unreadable or absent cache directory is a 100% miss, which is
+        # exactly what the caller needs told rather than an exception.
+        cached = set()
+    missing = sum(
+        1
+        for peptide, allele in zip(peptides, alleles)
+        if structural_cache_filename(peptide, allele) not in cached
+    )
+    covered = total - missing
+    prefix = "Structural cache coverage" if missing == 0 else "WARNING: structural cache coverage"
+    print(
+        f"{prefix}: {covered}/{total} rows ({covered / total:.1%}) found in "
+        f"{cache_dir}; {missing} fell back to the chain adjacency"
+    )
+    return missing
 
 
 class GraphBuilder:
@@ -65,11 +123,12 @@ class GraphBuilder:
             max_len: Padding length.
             distance_threshold: Angstrom cutoff for edge creation.
         """
-        import os
-
         cache_path = os.path.join(cache_dir, structural_cache_filename(peptide, allele))
 
-        # Fallback to chain graph if structure is not cached
+        # Fallback to chain graph if structure is not cached. Silent BY DESIGN at
+        # this level: this runs once per row per epoch, so anything emitted here
+        # scales with the corpus. The miss count is reported once per panel by
+        # report_structural_cache_coverage, which GraphPeptideDataset calls.
         if not os.path.exists(cache_path):
             return GraphBuilder.build_chain_adj(max_len)
 
