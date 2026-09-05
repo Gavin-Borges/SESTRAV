@@ -851,8 +851,10 @@ def compute_wl_features(peptide: str, edges: list, num_iterations: int = 2) -> n
 # a manuscript sentence asserting the opposite had to be retracted (S4), so the
 # mislabel is worth keeping fixed rather than treating as cosmetic.
 
+SELF_SIMILARITY_MISS_NAME_LIMIT = 10
 
-def _report_self_similarity_coverage(mapped_identity, cache_path) -> None:
+
+def _report_self_similarity_coverage(mapped_identity, peptides, cache_path) -> None:
     """Report how much of the joined corpus the self-similarity cache reaches.
 
     A peptide absent from the cache is filled with 0.0. That keeps row
@@ -869,6 +871,11 @@ def _report_self_similarity_coverage(mapped_identity, cache_path) -> None:
     receives 0.0 exactly like an absent one, and an earlier form of this report
     that tested index membership alone called such a row covered.
 
+    `peptides` is the parallel name column and exists ONLY to label the rows the
+    NaN mask already selected. Detection stays on `mapped_identity.isna()`; the
+    cache index is deliberately not a parameter here, so the membership test that
+    undercounts a NaN-valued row cannot be reintroduced by accident.
+
     Reported unconditionally, and with print rather than the logging module,
     because a diagnostic that a missing basicConfig can swallow is not a
     diagnostic. No threshold is imposed and nothing raises: what coverage is
@@ -878,20 +885,48 @@ def _report_self_similarity_coverage(mapped_identity, cache_path) -> None:
     total = len(mapped_identity)
     if total == 0:
         return
-    missing = int(mapped_identity.isna().sum())
+    filled_mask = mapped_identity.isna()
+    missing = int(filled_mask.sum())
     covered = total - missing
     prefix = "Self-similarity coverage" if missing == 0 else "WARNING: self-similarity coverage"
-    print(
+    line = (
         f"{prefix}: {covered}/{total} rows ({covered / total:.1%}) found in "
         f"{cache_path}; {missing} filled with 0.0, which is a real value here "
         f"(no self-match) and not a null"
     )
+    if missing:
+        # Names come from the SAME NaN mask that produced the count, never from
+        # index membership: a peptide that IS in the cache with a NaN value is
+        # filled exactly like an absent one and has to be nameable here too.
+        # Masked positionally (to_numpy) rather than by label, so a frame with a
+        # duplicated or non-unique index cannot misalign names against the mask.
+        filled_names = peptides.to_numpy()[filled_mask.to_numpy()]
+        # Per-ROW, so a corpus with duplicate peptides could otherwise fill the
+        # whole window with copies of one name. dict.fromkeys dedupes in
+        # insertion order, so the sample always shows distinct peptides.
+        distinct_names = list(dict.fromkeys(str(name) for name in filled_names))
+        distinct = len(distinct_names)
+        shown = distinct_names[:SELF_SIMILARITY_MISS_NAME_LIMIT]
+        names = ", ".join(shown)
+        # The remainder counts unshown DISTINCT names, matching what is listed.
+        remaining = distinct - len(shown)
+        if remaining > 0:
+            names = f"{names}, and {remaining} more"
+        # Every count above this clause is a ROW count and stays one; the sample
+        # is on the DISTINCT basis, so it states that basis in every branch
+        # rather than only when the two totals differ. The line is bounded by
+        # SELF_SIMILARITY_MISS_NAME_LIMIT however large the corpus is.
+        noun = "peptide" if distinct == 1 else "peptides"
+        line = f"{line}; {distinct} distinct filled {noun}: {names}"
+    print(line)
 
 
 def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFrame:
     """Join precomputed human-proteome self-similarity scores onto a peptide DataFrame.
 
     Missing peptides receive 0.0 / False (conservative: no known self-match).
+    Coverage is reported unconditionally, with a bounded sample of the distinct
+    peptide names that were filled.
     The cache CSV must have columns: peptide, self_similarity_max_identity,
     self_similarity_exact_match.
 
@@ -915,7 +950,7 @@ def load_self_similarity_cache(cache_path: str, df: pd.DataFrame) -> pd.DataFram
     result["self_similarity_exact_match"] = (
         result["peptide"].map(cache["self_similarity_exact_match"]).fillna(0.0).astype(float)
     )
-    _report_self_similarity_coverage(mapped_identity, cache_path)
+    _report_self_similarity_coverage(mapped_identity, result["peptide"], cache_path)
     return result
 
 

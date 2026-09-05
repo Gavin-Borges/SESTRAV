@@ -10,12 +10,20 @@ equal by construction, so its count was identically zero.
 These tests pin the report and, critically, pin that a peptide which IS in the
 cache with a genuine 0.0 is not counted as missing. That distinction is the
 whole defect.
+
+The report also names the filled peptides, bounded and deduplicated. The name
+sample is derived from the SAME NaN mask as the count, not from cache-index
+membership, so a peptide present in the cache with a NaN value is both counted
+and named. A sibling branch detected misses with `~peptide.isin(cache.index)`;
+measured in isolation on a cache holding one NaN value plus one absent peptide,
+that reports 1 of 2 filled rows and names only the absent one. The tests below
+pin the mask so that undercount cannot come back in with the names.
 """
 
 import pandas as pd
 import pytest
 
-from src.features import load_self_similarity_cache
+from src.features import SELF_SIMILARITY_MISS_NAME_LIMIT, load_self_similarity_cache
 
 
 def _write_cache(path, rows):
@@ -118,3 +126,126 @@ def test_empty_frame_reports_nothing_and_does_not_divide_by_zero(tmp_path, capsy
 
     assert len(result) == 0
     assert capsys.readouterr().out == ""
+
+
+def test_nan_valued_and_absent_peptides_are_both_counted_and_named(tmp_path, capsys):
+    """The decisive case for the name sample's detection basis.
+
+    NANVALUEP is IN the cache index but carries NaN; ABSENTPEP is not in the
+    index at all. Both are filled with a substituted 0.0 and are therefore
+    indistinguishable from a measured non-match, so both must be counted AND
+    both must be nameable. Deriving the names from `~peptide.isin(cache.index)`
+    reports 1 of 2 and names only ABSENTPEP, which is the original silent-fill
+    defect surviving inside its own fix.
+    """
+    cache = _write_cache(
+        tmp_path / "sim.csv",
+        [("PRESENTAA", 0.4, 0.0), ("NANVALUEP", float("nan"), 0.0)],
+    )
+    df = pd.DataFrame({"peptide": ["PRESENTAA", "NANVALUEP", "ABSENTPEP"]})
+
+    result = load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    assert "WARNING: self-similarity coverage" in out
+    assert "1/3 rows (33.3%)" in out
+    assert "2 filled with 0.0" in out
+    # Both names, in corpus order, on the distinct basis.
+    assert "2 distinct filled peptides: NANVALUEP, ABSENTPEP" in out
+    # The NaN-valued row really was substituted, exactly like the absent one.
+    assert result.loc[1, "self_similarity_max_identity"] == 0.0
+    assert result.loc[2, "self_similarity_max_identity"] == 0.0
+
+
+def test_duplicate_heavy_miss_set_names_distinct_peptides(tmp_path, capsys):
+    # 30 rows of one filled peptide plus 3 others: 33 filled ROWS, 4 distinct
+    # names. Without an order-preserving dedupe the whole window renders as
+    # copies of DUPEPEPTI, which defeats the point of showing a sample.
+    cache = _write_cache(tmp_path / "sim.csv", [("COVEREDAA", 0.7, 1.0)])
+    peptides = (
+        ["COVEREDAA"] + ["DUPEPEPTI"] * 30 + ["OTHERAAAA", "OTHERBBBB", "OTHERCCCC"]
+    )
+    df = pd.DataFrame({"peptide": peptides})
+
+    load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    # Row-basis counts stay row-basis: 34 rows, 1 covered, 33 filled.
+    assert "1/34 rows (2.9%)" in out
+    assert "33 filled with 0.0" in out
+    # Sample states its own DISTINCT basis and lists each name once.
+    assert (
+        "4 distinct filled peptides: DUPEPEPTI, OTHERAAAA, OTHERBBBB, OTHERCCCC" in out
+    )
+    assert out.count("DUPEPEPTI") == 1
+    assert "more" not in out
+
+
+def test_name_sample_is_capped_but_the_totals_stay_true(tmp_path, capsys):
+    # Far more distinct filled peptides than the cap. The emitted line must stay
+    # bounded while still stating the real row and distinct totals.
+    missing = [f"PEP{i:02d}AAAA" for i in range(50)]
+    cache = _write_cache(tmp_path / "sim.csv", [("COVEREDAA", 0.7, 1.0)])
+    df = pd.DataFrame({"peptide": ["COVEREDAA"] + missing})
+
+    load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    assert "1/51 rows (2.0%)" in out
+    assert "50 filled with 0.0" in out
+    assert "50 distinct filled peptides:" in out
+    # Exactly the first SELF_SIMILARITY_MISS_NAME_LIMIT names are shown.
+    assert missing[SELF_SIMILARITY_MISS_NAME_LIMIT - 1] in out
+    assert missing[SELF_SIMILARITY_MISS_NAME_LIMIT] not in out
+    assert sum(name in out for name in missing) == SELF_SIMILARITY_MISS_NAME_LIMIT
+    # The remainder is on the DISTINCT basis, matching what the sample lists.
+    assert f"and {50 - SELF_SIMILARITY_MISS_NAME_LIMIT} more" in out
+
+
+def test_name_sample_stays_bounded_on_a_large_corpus(tmp_path, capsys):
+    # Corpus scale must not reach the output. 2000 distinct filled peptides.
+    missing = [f"Q{i:04d}AAAA" for i in range(2000)]
+    cache = _write_cache(tmp_path / "sim.csv", [("COVEREDAA", 0.7, 1.0)])
+    df = pd.DataFrame({"peptide": ["COVEREDAA"] + missing})
+
+    load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    assert "2000 filled with 0.0" in out
+    assert "2000 distinct filled peptides:" in out
+    assert f"and {2000 - SELF_SIMILARITY_MISS_NAME_LIMIT} more" in out
+    assert sum(name in out for name in missing) == SELF_SIMILARITY_MISS_NAME_LIMIT
+    # One line, and a short one, whatever the corpus size.
+    assert out.count("\n") == 1
+    assert len(out) < 500
+
+
+def test_full_coverage_reports_unconditionally_with_no_name_clause(tmp_path, capsys):
+    # Silence is ambiguous between "no fills" and "the diagnostic never ran", so
+    # a clean run must still state its coverage. There is nothing to name, and
+    # "0 filled with 0.0" already says so, so no distinct clause is emitted.
+    cache = _write_cache(
+        tmp_path / "sim.csv",
+        [("AAAAAAAAA", 0.0, 0.0), ("CCCCCCCCC", 0.85, 1.0)],
+    )
+    df = pd.DataFrame({"peptide": ["AAAAAAAAA", "CCCCCCCCC"]})
+
+    load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    assert out.strip()
+    assert out.startswith("Self-similarity coverage:")
+    assert "WARNING" not in out
+    assert "2/2 rows (100.0%)" in out
+    assert "0 filled with 0.0" in out
+    assert "distinct filled" not in out
+
+
+def test_a_single_filled_peptide_is_named_in_the_singular(tmp_path, capsys):
+    cache = _write_cache(tmp_path / "sim.csv", [("AAAAAAAAA", 0.4, 0.0)])
+    df = pd.DataFrame({"peptide": ["AAAAAAAAA", "MISSINGPE"]})
+
+    load_self_similarity_cache(cache, df)
+
+    out = capsys.readouterr().out
+    assert "1 distinct filled peptide: MISSINGPE" in out
