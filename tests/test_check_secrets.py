@@ -183,3 +183,109 @@ def test_long_low_entropy_value_is_not_flagged(tmp_path: Path) -> None:
     target = tmp_path / "case.py"
     _write(target, "pass" + "word", " = ", "a" * 22)
     assert mod.scan_file(str(target)) == []
+
+
+# ---------------------------------------------------------------------------
+# EXCLUDE_DIRS prunes by directory NAME, which silently hid TRACKED files
+# ---------------------------------------------------------------------------
+
+
+def _git(repo: Path, *argv: str) -> None:
+    import subprocess
+
+    subprocess.run(["git", "-C", str(repo), *argv], check=True, capture_output=True)
+
+
+def _repo_with(tmp_path: Path, relpath: str, *, track: bool) -> Path:
+    """A throwaway git repo holding one credential-bearing file at relpath."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    target = repo / relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _write(target, "api_" + "key", " = ", _token())
+    if track:
+        _git(repo, "add", "-f", relpath)
+    return repo
+
+
+def _basenames(mod, repo: Path) -> set:
+    import os as _os
+
+    return {_os.path.basename(p) for p in mod.iter_scanned_files(str(repo))}
+
+
+def test_tracked_file_under_an_excluded_dir_is_scanned(tmp_path: Path) -> None:
+    """The defect: 'results' is in EXCLUDE_DIRS and pruning is by directory NAME,
+    so os.walk never opened 26 tracked files. A tracked file is published
+    content, which is precisely what this gate exists to stop being published.
+
+    min_files=0 is deliberate. With the default floor this test would pass even
+    with the fix reverted, because scan_tree also returns 1 when it refuses a
+    vacuous pass over too few files - a mutation confirmed exactly that. The
+    floor is set out of the way so the 1 can only mean "credential found", and
+    the membership assertion pins that the file was OPENED rather than merely
+    that something somewhere failed.
+    """
+    mod = _load()
+    repo = _repo_with(tmp_path, "results/leak.md", track=True)
+    assert "leak.md" in _basenames(mod, repo)
+    assert mod.scan_tree(str(repo), min_files=0) == 1
+
+
+def test_untracked_file_under_an_excluded_dir_is_still_skipped(tmp_path: Path) -> None:
+    """The safety net must stay ADDITIVE. Untracked material under an excluded
+    name - .venv, __pycache__, _local, the gitignored assistant trees - is still
+    pruned, so neither the walk's cost nor its intent changes."""
+    mod = _load()
+    repo = _repo_with(tmp_path, "results/leak.md", track=False)
+    assert "leak.md" not in _basenames(mod, repo)
+    assert mod.scan_tree(str(repo), min_files=0) == 0
+
+
+def test_tracked_file_outside_an_excluded_dir_is_unaffected(tmp_path: Path) -> None:
+    mod = _load()
+    repo = _repo_with(tmp_path, "docs/leak.md", track=True)
+    assert "leak.md" in _basenames(mod, repo)
+    assert mod.scan_tree(str(repo), min_files=0) == 1
+
+
+def test_tracked_paths_returns_empty_outside_a_work_tree(tmp_path: Path) -> None:
+    """Failure must degrade to the old behaviour, not to an exception: a
+    non-git checkout scans exactly what the walk found."""
+    mod = _load()
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert mod._tracked_paths(str(plain)) == []
+
+
+def test_scanned_list_has_no_duplicates_at_the_repo_root() -> None:
+    """A tracked file that the walk already found must not be scanned twice."""
+    mod = _load()
+    root = str(Path(__file__).resolve().parents[1])
+    paths = mod.iter_scanned_files(root)
+    import os as _os
+
+    keys = [_os.path.normcase(_os.path.abspath(p)) for p in paths]
+    assert len(keys) == len(set(keys))
+
+
+def test_the_net_respects_the_same_suffix_filter_as_the_walk(tmp_path: Path) -> None:
+    """The net must not widen WHAT is scanned, only WHERE it is looked for.
+
+    Without this, dropping the filter would pull every tracked .csv and binary
+    under an excluded name into the scan: more work, and entropy false positives
+    on data files. .csv is deliberately absent from _SCAN_SUFFIXES.
+    """
+    mod = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    (repo / "results").mkdir()
+    (repo / "results" / "data.csv").write_text("peptide,label\nAAAA,1\n", encoding="utf-8")
+    (repo / "results" / "note.md").write_text("plain prose, no credential\n", encoding="utf-8")
+    _git(repo, "add", "-f", "results/data.csv", "results/note.md")
+
+    names = _basenames(mod, repo)
+    assert "note.md" in names
+    assert "data.csv" not in names
