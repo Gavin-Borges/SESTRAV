@@ -7,9 +7,11 @@ the zero-fill into a label proxy worth roughly -0.154 pooled AUC-PR, and no
 artifact of the affected runs recorded which matrix had been opened. The
 self-similarity and antigen-processing caches carry the same exposure.
 
-The three input paths are module constants pointing at real repo files, two of
-which are gitignored and therefore absent from a fresh clone, so these tests
-monkeypatch them onto tmp_path fixtures rather than depending on the workstation.
+The three input paths are module constants pointing at real repo files. Exactly
+one of them, data/self_similarity_cache.csv, is gitignored and untracked and so
+is absent from a fresh clone; the binding matrix and the antigen-processing
+cache are both tracked. These tests monkeypatch all three onto tmp_path fixtures
+rather than depending on the workstation.
 """
 
 import hashlib
@@ -44,6 +46,26 @@ def test_feature_input_provenance_names_all_three_inputs(fake_inputs):
     _, paths = fake_inputs
     prov = acl._feature_input_provenance()
     assert set(prov) == set(paths)
+
+
+def test_an_absent_input_is_recorded_absent_and_does_not_raise(fake_inputs):
+    # Only the binding matrix is read unconditionally by run(). Both mode-35
+    # caches are read inside a try/except that records the failure and keeps
+    # going, and self_similarity_cache.csv is gitignored, so reaching this
+    # function with it missing is the fresh-clone case. Digesting it unguarded
+    # aborted a run that had already done all of its work.
+    _, paths = fake_inputs
+    paths["self_similarity_cache"].unlink()
+
+    prov = acl._feature_input_provenance()
+
+    assert prov["self_similarity_cache"]["status"] == "absent"
+    assert "sha256" not in prov["self_similarity_cache"]
+    assert prov["self_similarity_cache"]["path"] == "data/self_similarity_cache.csv"
+    # the inputs that ARE present still carry a real digest
+    for name in ("binding_matrix", "antigen_processing_cache"):
+        assert prov[name]["status"] == "present"
+        assert prov[name]["sha256"] == hashlib.sha256(paths[name].read_bytes()).hexdigest()
 
 
 def test_feature_input_provenance_digests_match_the_files(fake_inputs):
