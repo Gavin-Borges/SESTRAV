@@ -362,7 +362,7 @@ the chain graph itself contributes. `train_gnn.py --edge-mode self-loop-only` ke
 feature and removes the neighbour edges, so message passing carries no topology. Eight seeds
 per arm with everything else held fixed (v5 corpus, `models/peptide_binding_matrix_v5.csv`,
 `data/esm2_embeddings_t12_v5.pt`, feature mode 31, mean pooling, 18 epochs, one shared feature
-cache confirmed by zero re-extractions in all sixteen runs). Full-graph pooled AUC-PR mean
+cache). Full-graph pooled AUC-PR mean
 0.625927, self-loop-only 0.643458, mean paired delta **+0.017531** (paired sd 0.008213),
 **8 of 8 seeds positive**, exact sign test and Wilcoxon signed-rank both p = 0.0078125.
 
