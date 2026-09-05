@@ -629,19 +629,22 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         y:          (1,)              - batches to (B,) via PyG collation
     """
 
-    def __init__(self, df, feature_matrix, labels, esm2_cache, max_len=11):
+    def __init__(self, df, feature_matrix, labels, esm2_cache, max_len=11, edge_mode="full"):
         self.sequences = df["peptide"].values
         self.physico_features = torch.tensor(feature_matrix.values, dtype=torch.float32)
         self.labels = torch.tensor(labels, dtype=torch.float32) if labels is not None else None
         self.esm2_cache = esm2_cache
         self.max_len = max_len
+        self.edge_mode = edge_mode
         # Pre-build edge tensors for each supported peptide length (8-11) to
         # avoid repeated construction in the hot __getitem__ path.
         self._edge_cache: dict = {}
 
     def _get_edges(self, length: int):
         if length not in self._edge_cache:
-            self._edge_cache[length] = GraphBuilder.build_pyg_chain_graph(length)
+            self._edge_cache[length] = GraphBuilder.build_pyg_chain_graph(
+                length, edge_mode=self.edge_mode
+            )
         return self._edge_cache[length]
 
     def __len__(self):
@@ -731,6 +734,7 @@ def train_gnn_v2(
     seed=42,
     pooling="mean",
     allow_overwrite: bool = False,
+    edge_mode: str = "full",
 ):
     """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR.
 
@@ -849,6 +853,7 @@ def train_gnn_v2(
             y_train,
             esm2_cache,
             max_len=config.max_peptide_length,
+            edge_mode=edge_mode,
         )
         val_dataset = GraphPeptideDatasetV2(
             df_val,
@@ -856,6 +861,7 @@ def train_gnn_v2(
             y_val,
             esm2_cache,
             max_len=config.max_peptide_length,
+            edge_mode=edge_mode,
         )
 
         train_loader = PyGDataLoader(
@@ -985,6 +991,7 @@ def train_gnn_v2(
         y,
         esm2_cache,
         max_len=config.max_peptide_length,
+        edge_mode=edge_mode,
     )
     full_loader = PyGDataLoader(
         full_dataset,
@@ -1022,6 +1029,10 @@ def train_gnn_v2(
         "epochs": avg_best_epochs,
         "early_stopping_patience": early_stopping_patience,
         "pooling": pooling,
+        # Recorded so an ablation run is distinguishable from a production run by
+        # its artifacts alone. Configs written before this key existed are
+        # full-graph runs by construction.
+        "edge_mode": edge_mode,
     }
     config_tagged_path = os.path.join(model_dir, f"gnn_config_{pooling}.json")
     with open(config_tagged_path, "w") as fh:
@@ -1066,6 +1077,17 @@ if __name__ == "__main__":
         choices=["v1", "v2"],
         default="v2",
         help="GNN architecture: v1 (dense-adj GCN) or v2 (GINEConv + ESM-2)",
+    )
+    parser.add_argument(
+        "--edge-mode",
+        choices=["full", "self-loop-only"],
+        default="full",
+        help=(
+            "v2 peptide graph topology. 'full' is the production chain graph. "
+            "'self-loop-only' is the ablation control: it strips the chain edges "
+            "so message passing carries no neighbour information, isolating what "
+            "the graph adds over the ESM-2 node features. Ignored by --architecture v1."
+        ),
     )
     parser.add_argument(
         "--esm2-cache",
@@ -1124,6 +1146,7 @@ if __name__ == "__main__":
             seed=args.seed,
             pooling=args.pooling,
             allow_overwrite=args.allow_overwrite,
+            edge_mode=args.edge_mode,
         )
     else:
         train_gnn(
