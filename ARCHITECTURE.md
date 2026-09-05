@@ -368,7 +368,7 @@ cache). Full-graph pooled AUC-PR mean
 
 **The sign is established; the pre-registered 0.0160 threshold is NOT cleared robustly, and
 the two must not be conflated.** The 95% CI on the mean delta is [0.0107, 0.0244] and straddles
-0.0160, and dropping the single largest seed (1337, +0.0316, about twice the next largest)
+0.0160, and dropping the single largest seed (1337, +0.031560, 1.51x the next largest)
 returns the mean to 0.015527, back below criterion. So removing the chain edges did not hurt
 and consistently helped, while whether the effect exceeds the pre-registered band remains
 unsettled at n=8. An earlier n=3 measurement gave +0.014750 and was recorded as "no measurable
