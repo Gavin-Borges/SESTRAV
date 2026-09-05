@@ -54,4 +54,8 @@ def test_both_cache_sites_use_the_streaming_helper():
     """Guards the wiring: a fixed helper is useless if a call site keeps the old form."""
     source = Path(train_gnn.__file__).read_text(encoding="utf-8")
     assert "read(65536)).hexdigest()" not in source
-    assert source.count("_dataset_cache_tag(data_path)") == 2
+    # Both call sites now route through _feature_cache_name, which is what folds
+    # the binding matrix into the key; a site that rebuilt the name inline would
+    # reintroduce the matrix-blind key this module exists to prevent.
+    assert source.count("_feature_cache_name(feature_mode, data_path, binding_matrix_path)") == 2
+    assert source.count('f"physico_features_mode') == 1

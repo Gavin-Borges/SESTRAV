@@ -2479,7 +2479,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     0.789 - all six match the artifact exactly). A bare `python scripts/compute_population_coverage.py`
     on `main` silently rewrote the file behind a manuscript table.
   - `results/baseline_comparison.csv` is the source of the "Pipeline Gold-Standard Recovery" table
-    at `docs/model_evaluation_summary.md:169-174`, whose row labels ("RF (SESTRAV)", "ANN (MLP)",
+    in `docs/model_evaluation_summary.md` (**anchor de-line-cited 2026-08-27**: it read lines
+    169-174, which now resolve to that file's "GNN Benchmark Results (Exploratory)" table and not
+    to this one. The section heading replaces the line range because a heading does not rot),
+    whose row labels ("RF (SESTRAV)", "ANN (MLP)",
     "Binding-only baseline") are emitted by `src/baseline_comparison.py` and by no other module in
     the repo. It is also summarized at `README.md:90` and named by path in
     `results/final_validation_report.md:5`.
@@ -2511,10 +2514,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **Three tracked reports carry numbers their source artifacts no longer produce.**
     `results/v1_v2_quality_comparison.md:33,35` publishes v2 Brier 0.170 / BSS 0.198 against the
     current CSV's 0.199 / 0.059; `results/multi_run_stability_report.md:147-148` mirrors the same
-    mismatch; and `docs/model_evaluation_summary.md:172-174` publishes RF 6/15, 8/15, 27.1% against
+    mismatch; and the "Pipeline Gold-Standard Recovery" table in
+    `docs/model_evaluation_summary.md` published RF 6/15, 8/15, 27.1% against
     the current `baseline_comparison.csv`'s 4, 7, 34.65% (XGBoost and ANN rows likewise). This is
     ledger-independent drift of exactly the kind an unguarded regeneration produces, which is the
     argument for the guards in this entry, not against them.
+
+    **Forward correction, 2026-08-27 (the record is annotated, not rewritten).** The third of those
+    three has since closed: the "Pipeline Gold-Standard Recovery" table in
+    `docs/model_evaluation_summary.md` now reads RF 4/15, 7/15, 34.7% and matches the Combined rows
+    of `results/baseline_comparison.csv` exactly, as do its XGBoost, ANN and binding-only rows.
+    Both line anchors this entry aimed into that file were also stale - they read lines 169-174 and
+    172-174, which now resolve to the GNN benchmark table - and both have been de-line-cited to the
+    section heading. The other two reports named above are NOT re-checked by this note.
 
   What remains true, and is the honest severity comparison: **none of the four carries a
   certified-ledger headline metric** the way `h2_tier_a_summary.md` carries the certified

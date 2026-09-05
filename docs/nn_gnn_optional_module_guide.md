@@ -31,7 +31,7 @@ deliverable, **not** as artifacts anyone can retrieve or verify.
   - `seed`: `42`
   - Project 2 best config: `256-128-64 ReLU d0.2`
 
-## Exact Benchmark Values (Project 2)
+## Project 2 Benchmark Values (sources, and which of them exist)
 
 ### ANN (30-feature best)
 
@@ -85,6 +85,13 @@ to - the D16 failure class, and the identical trap already documented above for 
 column, where `models/ann_cv_summary.csv` measures a different architecture on a different
 peptide pool. The tracked values are given here so a reader can verify the mismatch, **not
 as replacements**. Quote the tracked files under their own provenance or not at all.
+
+**What this repository does track**, under the same two basenames:
+`models/gnn_sequence_benchmark.csv` and `models/gnn_bipartite_benchmark.csv`, read by
+`scripts/generate_baseline_report.py`. They do not match the three lines above, and they rank GCN
+first on both metrics. Neither has a provenance sidecar and neither records a splitter, corpus or
+seed, so they are named here as the artifacts a reader can actually open - not as corrected values
+for the list above, and not as a basis for ranking any GNN against any RF or ANN figure.
 
 ## Runtime and Dependency Matrix
 
