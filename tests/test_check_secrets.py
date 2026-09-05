@@ -353,8 +353,8 @@ def test_python_expression_rhs_is_not_flagged_but_same_text_in_shell_is(
 ) -> None:
     """The false-positive guard, and the proof that it is not vacuous.
 
-    `token = match.group(1)` is real tracked code at
-    scripts/check_doc_commit_refs.py:239. Under a bare-value branch applied to
+    `token = match.group(1)` is real tracked code in
+    check_doc_commit_refs.py's SHA_RE loop. Under a bare-value branch applied to
     every format it captures a 13-character value with entropy 3.7, which clears
     both the length and the entropy floor and turns the CI gate red.
 
