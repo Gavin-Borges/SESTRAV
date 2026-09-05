@@ -8,7 +8,13 @@ across 13 commits that edited the file (`git log --since=2026-06-13
 --until=2026-08-19 -- api/main.py`).
 
 The feature-vector tests call route handlers directly. Startup behavior is
-covered through TestClient so the FastAPI lifespan runs.
+covered by driving api_main.app's real lifespan directly - `async with
+api_main.app.router.lifespan_context(api_main.app):` - rather than through
+fastapi.testclient.TestClient. TestClient pulls in starlette.testclient,
+which on current starlette hard-requires the httpx2 package, and CI installs
+from hash-pinned lockfiles (`pip install --require-hashes`) that pin neither
+httpx2 nor httpx, so importing fastapi.testclient fails CI's collection step
+outright. See test_missing_configured_model_degrades_api.
 
 Tests avoid loading the real 128MB rf_31feature_integrated.joblib
 (gitignored, absent from a clean CI checkout): the fixture pre-seeds
@@ -18,6 +24,7 @@ Tests avoid loading the real 128MB rf_31feature_integrated.joblib
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,7 +32,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 
 import api.main as api_main
 from src.core.model_registry import ModelRegistry
@@ -155,6 +161,9 @@ def test_configured_model_subdirectory_is_preserved(monkeypatch: pytest.MonkeyPa
 def test_missing_configured_model_degrades_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Drives api_main.app's real lifespan (not a bare _manager.load() call),
+    so this also proves the FastAPI app is wired to the failing-load path -
+    see the module docstring for why this avoids fastapi.testclient."""
     configured_path = Path("models/promoted/missing.pth")
     config = SimpleNamespace(model_path=configured_path)
     monkeypatch.setattr(
@@ -164,20 +173,20 @@ def test_missing_configured_model_degrades_api(
     )
     api_main._manager._loaded = False
 
-    try:
-        with TestClient(api_main.app) as client:
-            health = client.get("/health")
-            assert health.status_code == 200
-            assert health.json()["status"] == "degraded"
-            assert health.json()["model_loaded"] is False
-            assert health.json()["reason"]
+    async def _through_lifespan() -> None:
+        async with api_main.app.router.lifespan_context(api_main.app):
+            health = api_main.health_check()
+            assert health["status"] == "degraded"
+            assert health["model_loaded"] is False
+            assert health["reason"]
 
-            response = client.post(
-                "/score",
-                json={"sequence": PANEL_PEPTIDE, "allele": "HLA-A*02:01"},
-            )
-            assert response.status_code == 503
-            assert configured_path.as_posix() in response.json()["detail"]
+            with pytest.raises(HTTPException) as excinfo:
+                _score(PANEL_PEPTIDE, "HLA-A*02:01")
+            assert excinfo.value.status_code == 503
+            assert configured_path.as_posix() in excinfo.value.detail
+
+    try:
+        asyncio.run(_through_lifespan())
     finally:
         api_main._manager._loaded = False
 
