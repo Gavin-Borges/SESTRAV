@@ -246,6 +246,11 @@ def _resolve_calibrator_path(model_dir, calibration_path=None, virus=None, per_v
          identically to a recognised-but-not-yet-promoted one;
       3. an isotonic calibrator alongside the model (isotonic_calibrator.joblib);
       4. the legacy Platt calibrator (platt_calibrator.joblib).
+
+    No current fitter writes platt_calibrator.joblib (scripts/fit_calibrator.py
+    emits isotonic). The tuple entry is retained for legacy local artifacts.
+    scripts/score_validation_cohorts.py is a second independent consumer of the
+    same filename and does not call this resolver.
     """
     if calibration_path and os.path.isfile(calibration_path):
         return calibration_path
