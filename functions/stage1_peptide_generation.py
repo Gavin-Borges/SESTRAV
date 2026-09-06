@@ -20,7 +20,6 @@ def _sanitize_name(name):
 
 
 def generate_peptides(fasta_path, proteome_id, peptide_lengths=None):
-    proteome_id = _sanitize_name(proteome_id)
     """
     Generate all overlapping peptides from a multi-protein FASTA file.
 
@@ -32,6 +31,7 @@ def generate_peptides(fasta_path, proteome_id, peptide_lengths=None):
     Returns:
         DataFrame with columns: protein_id, peptide, length, start, end
     """
+    proteome_id = _sanitize_name(proteome_id)
     if peptide_lengths is None:
         peptide_lengths = DEFAULT_LENGTHS
 

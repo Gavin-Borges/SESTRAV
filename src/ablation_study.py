@@ -80,7 +80,7 @@ from src.model import (
     SEED,
     N_FOLDS,
 )
-from src.train_classifier import prepare_features_30
+from src.train_classifier import _filter_quarantined, prepare_features_30
 
 
 # Feature group definitions
@@ -142,6 +142,7 @@ def run_ablation(
 
     # Load data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     pool = df[~gs_mask].copy()
     y = pool["label"].values
