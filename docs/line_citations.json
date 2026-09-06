@@ -66,6 +66,14 @@
       "pinned": [
         "oof_rf = oof_rf.drop_duplicates(subset=[\"peptide\"], keep=\"first\")[[\"peptide\", \"score\"]].rename("
       ]
+    },
+    {
+      "citing": "scripts/score_validation_cohorts.py",
+      "target": ".gitignore",
+      "lines": "249",
+      "pinned": [
+        "results/*"
+      ]
     }
   ]
 }
