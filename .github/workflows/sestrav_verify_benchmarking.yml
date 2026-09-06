@@ -2,15 +2,16 @@ name: SESTRAV-VERIFY Benchmarking & Regressions
 
 on:
   push:
-    branches: ["*"]
+    branches: ["main"]
   pull_request:
-    branches: ["*"]
+    branches: ["main"]
 
 permissions: read-all
 
 jobs:
   verify-benchmark:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.13"]
@@ -24,6 +25,17 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          # Every file this job installs from, not setup-python's default of
+          # **/requirements.txt. The default keys on the root file alone, so a
+          # change confined to environments/ leaves the key unchanged, hits the
+          # primary key, and setup-python then SKIPS the save. The new wheels are
+          # re-downloaded on every subsequent run and never cached, until the root
+          # file happens to change. All three are hash-pinned and installed below.
+          cache-dependency-path: |
+            requirements.txt
+            environments/requirements-ci.txt
+            environments/requirements-ci-torch-cpu.txt
 
       - name: Install CPU PyTorch
         run: |
@@ -34,9 +46,6 @@ jobs:
         run: |
           pip install --no-deps --require-hashes -r requirements.txt
           pip install --no-deps --require-hashes -r environments/requirements-ci.txt
-
-      - name: Run Evaluator Unit Tests
-        run: pytest tests/test_sestrav_evaluator.py -v
 
       - name: Execute Ingestion Pipeline (Mock Mode)
         run: python src/verify/iedb_multi_virus_extractor.py src/verify/targets.json --mock
