@@ -35,3 +35,11 @@ As for GCN vs. GAT, I side with the ML Engineer for V2. Let's build a **GCN with
 2. **Data Flow:** We will not run AlphaFold at runtime. We will create a standalone script that pre-computes distance matrices for the dataset and saves them to `data/structural_cache/`.
    > **Implemented as (added 2026-08-08):** this became `scripts/run_pandora_structures.py`, which generates Cb-Cb distance tensors via PANDORA/MODELLER rather than AlphaFold. `data/structural_cache/` is wired through `config.yaml` (`structural_cache_dir`) and consumed by `src/train_gnn.py`. The originally proposed filename `src/generate_structural_cache.py` was never created; this note records the rename so the design record stays traceable to the code that actually exists.
 3. **GraphBuilder Update:** `GraphBuilder.build_chain_adj` will be extended to `GraphBuilder.build_spatial_adj(peptide, cache_dir)` which loads the distance matrix and thresholds it into a sparse adjacency tensor.
+   > **Signature corrected (2026-09-04):** the shipped method is
+   > `GraphBuilder.build_spatial_adj(peptide, allele, cache_dir, max_len=MAX_PEPTIDE_LEN, distance_threshold=8.0)`.
+   > The allele is a REQUIRED second positional argument, because peptide backbone
+   > geometry is groove-dependent and the cache is keyed by the pair
+   > (`{peptide}_{allele_key}_dist.pt`). The two-argument form above is the original
+   > proposal, kept for the design record; it is not the current API. A reader who
+   > coded to it would key the cache by peptide alone, which is the exact defect the
+   > allele keying exists to remove.

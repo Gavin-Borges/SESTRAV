@@ -25,7 +25,11 @@ import os
 import pathlib
 from typing import Callable, Optional, Sequence
 
-from src.artifact_integrity import model_provenance_fields, write_provenance_sidecar
+from src.artifact_integrity import (
+    binding_matrix_provenance_fields,
+    model_provenance_fields,
+    write_provenance_sidecar,
+)
 
 # ---------------------------------------------------------------------------
 # Constants (Part 11 spec)
@@ -144,6 +148,40 @@ def load_inputs(paths: Sequence[str]):
     return df
 
 
+def binding_matrix_coverage(df, binding_matrix_path: str) -> dict:
+    """How much of the scored frame the binding matrix actually reaches.
+
+    This job scores a FRESHLY FETCHED IEDB export against a FROZEN binding
+    matrix, so coverage necessarily decays as IEDB grows: every peptide added
+    since the matrix was built is one the matrix cannot contain.
+    `prepare_features_31` -> `prepare_features_30` substitutes `np.zeros(10)` for
+    each of them without raising, and an all-zero binding block is not a neutral
+    value - on the v5 corpus it correlates with the label strongly enough to be
+    worth roughly 0.15 AUC-PR on its own.
+
+    The failure direction is the dangerous one for a regression alarm: decaying
+    coverage inflates the proxy, so genuine drift would tend to present as
+    stability and the alert would stay quiet. Recording the fraction is what
+    makes that visible; no threshold is imposed here, because what coverage is
+    acceptable is a policy question and not one this function can answer.
+    """
+    import pandas as pd
+
+    try:
+        matrix_peptides = set(
+            pd.read_csv(binding_matrix_path, usecols=["peptide"])["peptide"].astype(str)
+        )
+    except (FileNotFoundError, ValueError):
+        return {"binding_matrix_covered": None, "binding_matrix_coverage": None}
+
+    total = int(len(df))
+    covered = int(df["peptide"].astype(str).isin(matrix_peptides).sum())
+    return {
+        "binding_matrix_covered": covered,
+        "binding_matrix_coverage": round(covered / total, 6) if total else None,
+    }
+
+
 def score_iedb_export(df, model_path: str, binding_matrix_path: str) -> dict:
     """Score a labeled peptide frame with the production model; return metrics."""
     from sklearn.metrics import average_precision_score
@@ -159,6 +197,7 @@ def score_iedb_export(df, model_path: str, binding_matrix_path: str) -> dict:
         "auc_pr": auc_pr,
         "n_peptides": int(len(df)),
         "n_positive": int(df["label"].sum()),
+        **binding_matrix_coverage(df, binding_matrix_path),
     }
 
 
@@ -245,6 +284,16 @@ def run(
     if model_path:
         model_fields = model_provenance_fields(model_path)
         metrics.update(model_fields)
+
+    # The binding matrix is the OTHER input this score is a function of, and it
+    # was the one left out when the model half was added. A mode-31 score depends
+    # on the matrix's coverage as much as on the model, because an uncovered
+    # peptide is zero-filled rather than refused; recording the path and hash
+    # here makes a matrix swap or an in-place rebuild as visible as a model swap.
+    if binding_matrix_path:
+        matrix_fields = binding_matrix_provenance_fields(binding_matrix_path)
+        model_fields.update(matrix_fields)
+        metrics.update(matrix_fields)
 
     baselines = load_baseline(baseline_path)
     result = compute_regression(metrics["auc_pr"], baseline_auc_pr(baselines))
