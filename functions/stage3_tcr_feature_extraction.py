@@ -15,7 +15,6 @@ def _sanitize_name(name):
 
 
 def extract_tcr_features(binding_df, proteome_id):
-    proteome_id = _sanitize_name(proteome_id)
     """
     Extract 22 per-position physicochemical features for all peptide rows.
 
@@ -29,6 +28,7 @@ def extract_tcr_features(binding_df, proteome_id):
     Returns:
         DataFrame with original columns + 22 new feature columns
     """
+    proteome_id = _sanitize_name(proteome_id)
     binding_col = "presentation_score"
     if binding_col not in binding_df.columns:
         binding_col = "affinity"

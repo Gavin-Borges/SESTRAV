@@ -107,3 +107,28 @@ models/allele_aware/training_subgroup_metrics.csv text eol=lf
 # data/published_panels_v5_combined.csv, data/vdjdb_v5.csv, data/vdjdb_v5_provenance.json.
 data/iedb_negatives_v5.csv text eol=lf
 data/iedb_negatives_v5_provenance.json text eol=lf
+
+# Added 2026-09-01. PATTERN RULES, superseding the enumerations above by
+# last-match-wins. Motivation: the file-by-file approach missed 77 of 154 tracked
+# csv/json paths, including models/v5/training_results_mode31.csv, the source of the
+# four cv.mode31.* claims. Verified content-neutral before adding: `git show HEAD:<p>`
+# over ALL 154 tracked .csv/.json files finds ZERO CRLF bytes and ZERO NUL bytes, so
+# no blob changes and no binary file is being forced to text. Verified with `git status`
+# NOWHERE - git normalizes on comparison, so a clean status is not evidence.
+# `**` semantics verified empirically on git 2.55.0: `data/**/*.csv` matches
+# data/top.csv, data/sub/mid.csv AND data/sub/deep/deep.csv (zero, one and two levels).
+# NOTE: a pin does not rewrite an already-checked-out working tree. See
+# docs/zenodo_deposition.md:26-28 (the pin is not retroactive) and :36-43
+# (the sha256sum -c verification block); re-materialize with
+# `git checkout HEAD -- <path>`.
+data/**/*.csv text eol=lf
+data/**/*.json text eol=lf
+models/**/*.csv text eol=lf
+models/**/*.json text eol=lf
+results/**/*.csv text eol=lf
+results/**/*.json text eol=lf
+docs/**/*.json text eol=lf
+src/**/*.json text eol=lf
+tests/**/*.csv text eol=lf
+.github/**/*.json text eol=lf
+

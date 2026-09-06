@@ -183,7 +183,15 @@ documented in `docs/nn_gnn_optional_module_guide.md`.
 | GAT (2-layer, 4-head) | **0.796 ± 0.028** | **0.637 ± 0.045** |
 | Bipartite Peptide-Allele | 0.789 ± 0.032 | 0.612 ± 0.055 |
 
-GNNs underperform tabular models on this dataset but capture structural inter-residue patterns that fixed-position features cannot represent. Included for representation space characterization.
+GNNs were **reported** to underperform the tabular models on this dataset, and that ranking cannot
+be checked as stated: one of the two comparator figures it rested on, the ANN AUC-PR, is retracted
+as unbound (2026-08-17), having traced to the same absent external course export as the retracted
+ANN column above. The RF comparator is **not** retracted - this document still carries it un-struck
+in the cross-validation table above - so what is withdrawn is the ANN half of the comparison, not
+the pair. The ranking is reported speech rather than a result this repository can verify end to
+end, and `src/gnn_benchmark.py` states it in that form. The GNN rows are
+retained as an exploratory benchmark for representation-space characterization: they capture
+structural inter-residue patterns that fixed-position features cannot represent.
 
 ### Exact Project 2 Optional Benchmark Values
 

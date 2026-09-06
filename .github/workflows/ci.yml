@@ -13,6 +13,7 @@ jobs:
     # Coding-standards gate (OpenSSF Silver: coding_standards_enforced).
     # Ruff enforces PEP 8; mypy enforces type correctness on src/.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,6 +67,7 @@ jobs:
     # deliberate call, not a drive-by edit. ARCHITECTURE.md's container/dependency bullet
     # records the same correction.
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -90,6 +92,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         python-version: ["3.13"]
@@ -192,6 +195,22 @@ jobs:
           snakemake --snakefile pipeline.smk \
             --configfile tests/fixtures/dag_smoke/config.smoke.yaml \
             --dry-run --cores 1
+
+      - name: Validate Snakemake pipeline wiring (SHIPPED config, as a reader runs it)
+        # The fixture leg above overrides every config.get() default in pipeline.smk,
+        # so it proves the FIXTURE resolves and says nothing about the product. The
+        # shipped config.yaml had therefore never been DAG-resolved by any automated
+        # check, and it shipped a default naming data/immunogenicity_dataset_v4.csv,
+        # a gitignored file absent from every clone. Every documented
+        # `snakemake --snakefile pipeline.smk` command in README.md, USAGE.md and
+        # CONTRIBUTING.md died with MissingInputException in rule qc_dataset, while
+        # passing on any workstation that still had the v4 file on disk.
+        #
+        # This leg runs the command a reader actually copies, with no --configfile,
+        # against the runner's checkout, which holds tracked files only: exactly the
+        # clone view. Measured before it was added: exit 1 on a tracked-only export
+        # of main, exit 0 with training_dataset set.
+        run: snakemake --snakefile pipeline.smk --dry-run --cores 1
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
