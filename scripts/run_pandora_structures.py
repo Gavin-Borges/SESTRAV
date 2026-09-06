@@ -41,6 +41,8 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.gnn.graph_builder import allele_cache_key, structural_cache_filename
+
 try:
     from pandora import Pandora
     from pandora.peptide import Peptide
@@ -62,11 +64,6 @@ CANONICAL_10_ALLELES = [
     "HLA-B*35:01",
     "HLA-B*44:02",
 ]
-
-
-def _allele_key(allele: str) -> str:
-    """Convert 'HLA-A*02:01' -> 'A0201' for use in filenames."""
-    return allele.replace("HLA-", "").replace("*", "").replace(":", "")
 
 
 def _cb_cb_distance_matrix(structure_path: pathlib.Path) -> torch.Tensor | None:
@@ -125,8 +122,7 @@ def run_pandora_for_pair(peptide_seq: str, allele: str, out_dir: pathlib.Path) -
 
     Returns True on success.
     """
-    allele_key = _allele_key(allele)
-    out_path = out_dir / f"{peptide_seq}_{allele_key}_dist.pt"
+    out_path = out_dir / structural_cache_filename(peptide_seq, allele)
     if out_path.exists():
         return True  # already computed
 
@@ -226,7 +222,7 @@ def main() -> None:
     total_wall = 0.0
 
     for allele in args.alleles:
-        allele_key = _allele_key(allele)
+        allele_key = allele_cache_key(allele)
         n_ok = n_fail = 0
         allele_times = []
 
