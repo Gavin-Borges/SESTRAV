@@ -62,7 +62,12 @@ docs/
 _local/
 .env
 .venv
-environments/
+# Environments: copy only the production lock (see Dockerfile). `environments/`
+# as a directory exclusion would make a later negation a no-op, because an
+# excluded directory is not walked. Narrowing to `environments/*` lets the
+# un-ignore of the lock file take effect. Other files here are CI-only.
+environments/*
+!environments/requirements.lock
 ci_install_test.log
 
 # OS artifacts
