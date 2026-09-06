@@ -48,6 +48,7 @@ class _Config:
         self.calibration_path = None
         self.thresholds_path = None
         self.freeze_mode = freeze_mode
+        self.output_dir = "results"
 
 
 def _stub_stages(monkeypatch, module, captured):

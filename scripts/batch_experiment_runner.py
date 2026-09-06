@@ -292,11 +292,12 @@ def run_single_trial(
 
         duration = round(time.time() - start_time, 3)
 
-        # Inspect output ranked.csv if generated. Stage 4 writes to a literal
-        # "results/" directory regardless of cfg.output_dir, so check both.
+        # Stage 4 now honors cfg.output_dir (threaded through run_pipeline), so this
+        # trial's ranked CSV lands under its own results_dir instead of the shared
+        # literal "results/" every concurrent trial used to collide on
+        # (SESTRAV-Dev C5). The both-locations fallback this replaced is no longer
+        # needed.
         ranked_csv = results_dir / f"{antigen}_ranked.csv"
-        if not ranked_csv.exists():
-            ranked_csv = Path("results") / f"{antigen}_ranked.csv"
         total_peptides = 0
         mean_score = 0.0
         top5_avg = 0.0

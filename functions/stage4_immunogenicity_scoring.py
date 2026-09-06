@@ -359,6 +359,7 @@ def score_immunogenicity(
     thresholds_path=None,
     virus=None,
     per_virus_calibration_dir=None,
+    output_dir=None,
 ):
     """
     Score each peptide's immunogenicity.
@@ -395,6 +396,10 @@ def score_immunogenicity(
                      DEFAULT_PER_VIRUS_CALIBRATION_DIR, which does not exist
                      until a per-virus calibrator is promoted (see the
                      open-item register's A1-promote).
+        output_dir:  directory the ranked CSV is written into; unset keeps the
+                     original "results" default. Two concurrent calls for the
+                     same proteome_id no longer collide as long as each is
+                     given a distinct output_dir (SESTRAV-Dev C5).
 
     Returns:
         (ranked_df, model) tuple.
@@ -579,7 +584,13 @@ def score_immunogenicity(
     ).reset_index(drop=True)
     features_df["rank"] = features_df.index + 1
 
-    output_path = f"results/{proteome_id}_ranked.csv"
+    # SESTRAV-Dev C5: this used to be hardcoded to "results/", so two concurrent
+    # scoring runs for the same proteome_id (e.g. a batch sweep across models)
+    # overwrote each other's output. output_dir defaults to "results" so any
+    # caller that does not pass it keeps the original behavior unchanged.
+    resolved_output_dir = output_dir if output_dir is not None else "results"
+    os.makedirs(resolved_output_dir, exist_ok=True)
+    output_path = os.path.join(str(resolved_output_dir), f"{proteome_id}_ranked.csv")
     features_df.to_csv(output_path, index=False)
     print(f"[Stage 4] Scored and ranked {len(features_df)} peptides")
 
