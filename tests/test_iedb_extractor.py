@@ -313,12 +313,38 @@ class TestGenerateDecoys:
         assert len(decoys) == 6  # 3 pos * 2.0 ratio
 
     def test_no_overlap_with_positives(self):
+        """The positive must be EXCLUDED, not merely left undrawn.
+
+        With the default decoy_ratio of 1.0 and a single positive, target_count
+        is 1: the seeded shuffle puts the positive last of three candidates, so
+        it is never reached and the assertion holds no matter what the exclusion
+        logic does. Measured: dropping the exact-match filter, the substring
+        overlap filter, or both leaves this test green.
+
+        A decoy_ratio large enough to request every proteome entry forces each
+        candidate to be considered, so the filter has to do the work. The length
+        assertion is the load-bearing half: without exclusion, every candidate
+        comes back.
+
+        `GILGFVFTLL` is here to pin the SUBSTRING filter independently. The
+        exact-match prefilter removes a strict subset of what the substring loop
+        removes (if a candidate equals a positive then `cand in pos` is also
+        true), so dropping the prefilter alone is an equivalent mutation that no
+        test can fail on. A candidate that merely CONTAINS the positive is
+        removed only by the substring loop, and is what makes disabling that
+        loop observable.
+        """
         pos = ["GILGFVFTL"]
-        proteome = ["ACDEFGHIK", "LMNPQRSTV"]
+        proteome = ["GILGFVFTL", "GILGFVFTLL", "ACDEFGHIK", "LMNPQRSTV"]
         alleles = ["HLA-A*02:01"]
-        decoys = generate_decoys(pos, proteome, alleles)
+        decoys = generate_decoys(pos, proteome, alleles, decoy_ratio=4.0)
         decoy_seqs = {d[0] for d in decoys}
-        assert "GILGFVFTL" not in decoy_seqs
+        assert "GILGFVFTL" not in decoy_seqs, "the positive itself leaked in"
+        assert "GILGFVFTLL" not in decoy_seqs, "a peptide containing the positive leaked in"
+        assert len(decoys) == 2, (
+            "all four candidates were requested, so exactly the positive and the "
+            f"peptide containing it must have been filtered out; got {sorted(decoy_seqs)}"
+        )
 
 
 # ---------------------------------------------------------------------------
