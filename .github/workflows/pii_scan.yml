@@ -2,15 +2,27 @@ name: PII & Path Leak Gatekeeper
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'release/**' ]
   pull_request:
     branches: [ main ]
+  # Weekly sweep of published refs. This half of the gate is a DETECTION
+  # control with up to seven days of latency: it prevents and detects the next
+  # leak, it does not un-publish one that is already public.
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
 
 permissions: read-all
 
 jobs:
   scan-leaks:
     name: Check for Paths and Credentials
+    # Diff-scoped by construction (it reads added lines), so it is meaningful
+    # only on the events that produce a diff. On schedule/workflow_dispatch it
+    # would fall through to the `git diff HEAD~1...HEAD` branch and measure an
+    # arbitrary commit, so it is skipped there; scan-published-refs covers
+    # those events instead.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -91,3 +103,214 @@ jobs:
             exit 1
           fi
           echo "Placeholder check PASSED."
+
+  # ---------------------------------------------------------------------------
+  # Content-scoped half of the gate.
+  #
+  # scan-leaks above reads ADDED DIFF LINES on main. That is structurally unable
+  # to see a leak that is already committed history on another ref: nothing is
+  # being added, so there is nothing for it to match. This job reads the CONTENT
+  # of the refs the fetch step below names instead - main, `release/*` and all
+  # tags, not every published branch - via `git ls-tree -r` at each ref.
+  #
+  # It prevents and detects the next leak. It does not un-publish an existing
+  # one; content that has been pushed to a public ref must be treated as
+  # disclosed regardless of what this job reports.
+  # ---------------------------------------------------------------------------
+  scan-published-refs:
+    name: Content Scan of Published Refs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Fetch published refs
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          # Public repository, so an unauthenticated https fetch is enough and
+          # persist-credentials:false stays intact. `--no-tags` only disables
+          # automatic tag following; the explicit tag refspec still applies.
+          git -c protocol.version=2 fetch --no-tags --quiet \
+            "https://github.com/${REPO}.git" \
+            '+refs/heads/main:refs/scan/main' \
+            '+refs/heads/release/*:refs/scan/release/*' \
+            '+refs/tags/*:refs/scantags/*'
+          git for-each-ref refs/scan refs/scantags \
+            --format='  %(refname) %(objectname:short)'
+
+      - name: Scan Published Ref Content
+        run: |
+          set -u
+          WORK="$(mktemp -d)"
+
+          # Every ERE is written by a QUOTED heredoc and read back with
+          # `grep -f`. None is interpolated into a shell command string:
+          # measured, routing this pattern through one extra command-string
+          # layer rewrites `Users\\` to `Users\`, which silently drops the
+          # Windows backslash form (3 of 3 sample forms matched, then 2 of 3)
+          # while the job still runs and still reports clean.
+          cat > "$WORK/pat_paths.txt" <<'PATEOF'
+          (/Users/|Users\\|/mnt/c/Users/)
+          PATEOF
+          cat > "$WORK/pat_home.txt" <<'PATEOF'
+          /home/[A-Za-z0-9_.-]+
+          PATEOF
+          cat > "$WORK/pat_home_ok.txt" <<'PATEOF'
+          /home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])
+          PATEOF
+
+          # AI-footprint paths. Mirrors the AI-assistant, session-state and
+          # prompt entries of BLOCKED_PATTERNS in scripts/hooks/pre-commit,
+          # which is the canonical list; keep the two in step. Two entries are
+          # deliberately WIDER than the hook's, because the hook's own patterns
+          # do not reach two files that are published on a release ref today:
+          #   `^\.claude`            widened from `^\.claude/` to also match
+          #                          `.claudeignore`
+          #   `AI_REPOSITORY_MANIFEST` has no counterpart in the hook at all
+          cat > "$WORK/pat_ai.txt" <<'PATEOF'
+          ^CLAUDE
+          ^\.claude
+          ^\.cursor/
+          ^\.gemini/
+          ^\.windsurf/
+          ^\.continue/
+          ^\.cline/
+          ^\.aider
+          ^\.antigravityrules
+          ^STATE\.md$
+          ^_local/
+          ^scratch/
+          ^dry-runs/
+          ^results/trials/
+          SESSION_.*\.md$
+          ^NOTES\.md$
+          ^SCRATCH
+          \.draft\.md$
+          \.wip\.md$
+          ^prompts/
+          \.prompt\.md$
+          prompt.*\.md$
+          AI_REPOSITORY_MANIFEST
+          PATEOF
+
+          # Mirrors PATH_SCAN_EXEMPT in scripts/hooks/pre-commit: exact
+          # repo-relative paths where an example workstation path is
+          # legitimately quoted. Compared with string equality, never as a
+          # substring, so `docs/notes_CHANGELOG.md` cannot inherit it. This
+          # workflow is exempt because it quotes the patterns itself.
+          is_exempt() {
+            case "$1" in
+              CHANGELOG.md|.github/workflows/pii_scan.yml) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          # The single code path that decides "does this blob leak?". The
+          # positive control below drives THIS function, not a copy of it.
+          scan_blob() {
+            { grep -n -I -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
+            { grep -n -I -E -f "$WORK/pat_home.txt" "$1" \
+                | grep -v -E -f "$WORK/pat_home_ok.txt" || true; } > "$WORK/h2"
+            cat "$WORK/h1" "$WORK/h2" | grep -E '.' || true
+          }
+
+          # Positive control. An instrument that cannot detect the thing it is
+          # asked about answers anyway, so prove the real code path fires
+          # before trusting any clean verdict it produces.
+          #
+          # The canary strings are ASSEMBLED FROM FRAGMENTS rather than written
+          # literally, and that is load-bearing rather than stylistic: a literal
+          # workstation path here is blocked by scripts/hooks/pre-commit, which
+          # by design cannot tell a path-detector's own test fixture apart from
+          # a real leak. Writing them literally makes this file uncommittable.
+          # The printf output is byte-identical either way (verified by diff).
+          U="U""sers"; H="ho""me"; BS='\'
+          printf '%s\n' "x /$U/someone/y" "x C:${BS}${U}${BS}someone${BS}y" \
+            "x /mnt/c/$U/someone/y" "x /$H/someone/y" \
+            "ok /$H/runner/work" 'no path here' > "$WORK/canary"
+          CANARY=$(scan_blob "$WORK/canary" | wc -l)
+          if [ "$CANARY" -ne 4 ]; then
+            echo "::error::Leak-scanner positive control FAILED: expected 4 canary hits, got $CANARY. Do not trust a clean result from this run."
+            exit 1
+          fi
+          echo "Positive control PASSED: 4/4 canary forms detected."
+
+          FAILED=0
+
+          scan_ref() {
+            REF="$1"
+            MODE="$2"   # enforce | report
+            SHORT=$(git rev-parse --short "$REF")
+            echo "------------------------------------------------------------"
+            echo "$REF ($SHORT) [$MODE]"
+            git ls-tree -r --name-only "$REF" > "$WORK/files.txt"
+
+            AI_HITS=$(grep -E -f "$WORK/pat_ai.txt" "$WORK/files.txt" || true)
+
+            SCANNED=0
+            : > "$WORK/leaks.txt"
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              is_exempt "$f" && continue
+              git show "$REF:$f" > "$WORK/blob" 2>/dev/null || continue
+              SCANNED=$((SCANNED + 1))
+              HITS=$(scan_blob "$WORK/blob")
+              if [ -n "$HITS" ]; then
+                {
+                  printf -- '--- %s\n' "$f"
+                  printf '%s\n' "$HITS" | head -5
+                } >> "$WORK/leaks.txt"
+              fi
+            done < "$WORK/files.txt"
+
+            echo "  tracked=$(wc -l < "$WORK/files.txt") scanned=$SCANNED"
+
+            # A sweep that examined nothing is vacuous, not clean.
+            if [ "$SCANNED" -eq 0 ]; then
+              echo "::error::Scanned 0 blobs on $REF - the sweep is vacuous, not clean."
+              exit 1
+            fi
+
+            LVL="error"
+            [ "$MODE" = "report" ] && LVL="warning"
+            BAD=0
+            if [ -n "$AI_HITS" ]; then
+              echo "::${LVL}::AI-footprint files published on $REF ($SHORT):"
+              printf '%s\n' "$AI_HITS"
+              BAD=1
+            fi
+            if [ -s "$WORK/leaks.txt" ]; then
+              echo "::${LVL}::Workstation absolute paths in published content on $REF ($SHORT):"
+              cat "$WORK/leaks.txt"
+              BAD=1
+            fi
+            [ "$BAD" -eq 0 ] && echo "  PASSED"
+            [ "$MODE" = "enforce" ] && [ "$BAD" -ne 0 ] && FAILED=1
+            return 0
+          }
+
+          echo "===== BRANCHES (enforced) ====="
+          for REF in $(git for-each-ref --format='%(refname)' refs/scan/ | sort); do
+            scan_ref "$REF" enforce
+          done
+
+          # Tags are REPORTED, not enforced. A tag is immutable published
+          # provenance; whether the two legacy unreleased tags are retired is
+          # an owner decision that is not this workflow's to force, and wiring
+          # them to `exit 1` would wedge the job red on history no push can
+          # change. Promoting them to enforced is a one-word edit here once
+          # that decision is made.
+          echo "===== TAGS (reported, not enforced) ====="
+          for REF in $(git for-each-ref --format='%(refname)' refs/scantags/ | sort); do
+            scan_ref "$REF" report
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::Published-ref content scan FAILED. Remediate the offending ref. Note that this gate prevents and detects the next leak; it does not un-publish content that is already public."
+            exit 1
+          fi
+          echo "Published-ref content scan PASSED."

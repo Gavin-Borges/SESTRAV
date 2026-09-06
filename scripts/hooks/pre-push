@@ -159,5 +159,31 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+printf '[pre-push] All checks passed -- affiliation allowlist clean.\n'
+
+# ---- Check 4: Integrity harness (local-only; skipped on a bare clone) --
+# integrity_check.py resolves REPO_ROOT from __file__ by default, so invoking
+# the main checkout's copy from a worktree certifies the WRONG tree. Always
+# pass --repo-root as the push source. Never call the harness without that
+# flag. A worktree that has not copied _local/integrity/ skips rather than
+# falling back to another checkout. This comment once said not to merge
+# while main still failed the harness on the pre-registration's
+# gitignored-path citation, fixed in 09ee647, an ancestor of ebac4e9.
+HARNESS="${REPO_ROOT}/_local/integrity/integrity_check.py"
+if [[ -f "${HARNESS}" ]]; then
+    printf '[pre-push] Running integrity harness against this worktree...\n'
+    python "${HARNESS}" --repo-root "${REPO_ROOT}"
+    if [[ $? -ne 0 ]]; then
+        printf '\n' >&2
+        block "Integrity harness failed for ${REPO_ROOT}."
+        printf '\n' >&2
+        printf '%s\n' "  The harness must report 0 FAIL / 0 WARN on THIS tree." >&2
+        printf '%s\n' "  A green CI run is not integrity evidence." >&2
+        exit 1
+    fi
+else
+    printf '[pre-push] No _local/integrity harness in this tree; skipping.\n'
+fi
+
 printf '[pre-push] All checks passed -- push allowed.\n'
 exit 0
