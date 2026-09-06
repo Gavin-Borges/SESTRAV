@@ -51,3 +51,37 @@ if "PYTEST_DEBUG_TEMPROOT" not in os.environ:
         _tmp_root = os.path.join(os.path.dirname(__file__), ".pytest_tmp2")
         os.makedirs(_tmp_root, exist_ok=True)
     os.environ["PYTEST_DEBUG_TEMPROOT"] = _tmp_root
+
+# Make HYPOTHESIS_MAX_EXAMPLES actually control fuzz depth.
+#
+# .github/workflows/fuzzing.yml exports it (200 on push/PR, 1000 on the weekly
+# schedule) and docs/SCORECARD_REMEDIATION.md documents it as the depth knob,
+# but Hypothesis has no built-in support for that name. Measured on hypothesis
+# 6.157.1: with HYPOTHESIS_MAX_EXAMPLES=7 exported, settings.default.max_examples
+# still reported the library default of 100. Nothing in this repository read it
+# either - no register_profile, load_profile or settings() call existed. So the
+# weekly run was never deeper than a PR run; only its seed differed, and the
+# documented knob was inert on both.
+#
+# The import is guarded because hypothesis is an optional [dev] extra, and this
+# conftest is imported by every pytest run including tool environments that do
+# not install it.
+try:
+    from hypothesis import settings as _hypothesis_settings
+except ImportError:
+    pass
+else:
+    _max_examples = os.environ.get("HYPOTHESIS_MAX_EXAMPLES")
+    if _max_examples:
+        # Validated rather than passed straight to int(), because this runs at
+        # conftest import: a typo in the CI expression would otherwise abort
+        # collection for the WHOLE suite with a bare "invalid literal for int()"
+        # that names neither this file nor the variable responsible.
+        try:
+            _parsed_max_examples = int(_max_examples)
+        except ValueError:
+            raise ValueError(
+                f"HYPOTHESIS_MAX_EXAMPLES must be an integer, got {_max_examples!r}"
+            ) from None
+        _hypothesis_settings.register_profile("sestrav", max_examples=_parsed_max_examples)
+        _hypothesis_settings.load_profile("sestrav")
