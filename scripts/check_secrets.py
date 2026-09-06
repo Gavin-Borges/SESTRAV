@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess  # nosec B404 - fixed argv, no shell, reads git ls-files only
 import sys
 import math
 from typing import List
@@ -107,15 +108,60 @@ def scan_file(path: str) -> List[int]:
     return flagged_line_numbers
 
 
+def _is_scannable_name(name: str) -> bool:
+    if name in EXCLUDE_FILES:
+        return False
+    return name.endswith(_SCAN_SUFFIXES) or name.startswith("Dockerfile")
+
+
+def _tracked_paths(root: str) -> List[str]:
+    """Repo-relative paths of tracked files, or [] outside a work tree.
+
+    Returning [] on failure keeps this an ADDITIVE safety net: a non-git
+    checkout scans exactly what the walk found, as before, rather than erroring.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "ls-files"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return []
+    if out.returncode != 0:
+        return []
+    return [line for line in out.stdout.splitlines() if line]
+
+
 def iter_scanned_files(root: str) -> List[str]:
     found: List[str] = []
     for dirpath, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
         for name in files:
-            if name in EXCLUDE_FILES:
-                continue
-            if name.endswith(_SCAN_SUFFIXES) or name.startswith("Dockerfile"):
+            if _is_scannable_name(name):
                 found.append(os.path.join(dirpath, name))
+
+    # EXCLUDE_DIRS prunes the walk by directory NAME, which is right for build
+    # output and virtualenvs but wrong for anything TRACKED: a tracked file is
+    # published content, and publishing it is exactly the thing this gate exists
+    # to stop. Measured 2026-09-04: 26 tracked files under results/ had scannable
+    # suffixes and were never opened, so a credential committed to, say,
+    # results/data_bias_audit.md passed CI silently.
+    #
+    # Additive by construction. Nothing is removed from EXCLUDE_DIRS, so
+    # untracked material under those names - .venv, __pycache__, _local, the
+    # gitignored assistant trees - stays unscanned and the walk's cost is
+    # unchanged. Only tracked files are pulled back in.
+    seen = {os.path.normcase(os.path.abspath(p)) for p in found}
+    for rel in _tracked_paths(root):
+        if not _is_scannable_name(os.path.basename(rel)):
+            continue
+        absolute = os.path.abspath(os.path.join(root, rel))
+        key = os.path.normcase(absolute)
+        if key not in seen and os.path.isfile(absolute):
+            found.append(absolute)
+            seen.add(key)
     return found
 
 
