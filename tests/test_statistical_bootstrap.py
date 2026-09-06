@@ -59,7 +59,7 @@ class TestBootstrapIter:
 
     def test_returns_tuple_on_two_class_resample(self):
         y, ref, comp = self._arrays()
-        result = _bootstrap_iter(y, ref, comp, len(y))
+        result = _bootstrap_iter(y, ref, comp, np.arange(len(y)))
         assert result is not None
         assert len(result) == 3
         assert all(isinstance(v, float) for v in result)
@@ -68,7 +68,7 @@ class TestBootstrapIter:
         y = np.ones(20, dtype=int)
         ref = np.ones(20) * 0.9
         comp = np.ones(20) * 0.5
-        result = _bootstrap_iter(y, ref, comp, len(y))
+        result = _bootstrap_iter(y, ref, comp, np.arange(len(y)))
         assert result is None
 
     def test_delta_sign_matches_model_ordering(self):
@@ -80,22 +80,20 @@ class TestBootstrapIter:
         (-1, 1) - the previous assertion - is arithmetically forced for a
         difference of two scores in [0, 1] and holds under a full sign inversion.
 
-        _bootstrap_iter seeds its own unseeded RNG, so this samples repeatedly
-        rather than trusting one draw. Two exact ties in 20,000 draws make a
-        per-draw `> 0` flaky, so each draw is required to be non-negative (which
-        the separation anchor below makes exact: ref scores every positive above
-        every negative, so ref's AP and ROC are 1.0 in any two-class resample and
-        no single delta can go negative) and the mean is required to be strictly
-        positive (which rules out the degenerate all-zero case).
+        Seeded indices sample repeatedly rather than trusting one draw. Each
+        draw is required to be non-negative (the separation anchor below makes
+        that exact), and the mean must be positive to reject all-zero deltas.
         """
+        from src.statistical_bootstrap import _bootstrap_resample_indices
+
         y, ref, comp = self._arrays(n_pos=40, n_neg=40)
         # Precondition the sign claim rests on: ref separates the classes perfectly.
         assert ref[y == 1].min() > ref[y == 0].max()
 
         ap_deltas: list[float] = []
         roc_deltas: list[float] = []
-        for _ in range(20):
-            result = _bootstrap_iter(y, ref, comp, len(y))
+        for idx in _bootstrap_resample_indices(seed=1, n_clean=len(y), n_resamples=20):
+            result = _bootstrap_iter(y, ref, comp, idx)
             assert result is not None, "80 samples balanced 40/40 cannot resample single-class"
             ap_delta, roc_delta, _ = result
             assert ap_delta >= 0, f"ref outranks comp, so AP delta must not be negative: {ap_delta}"
@@ -105,6 +103,36 @@ class TestBootstrapIter:
 
         assert float(np.mean(ap_deltas)) > 0
         assert float(np.mean(roc_deltas)) > 0
+
+
+# ---------------------------------------------------------------------------
+# Reproducible bootstrap draws
+# ---------------------------------------------------------------------------
+
+
+def test_bootstrap_resample_indices_same_seed_are_identical():
+    from src.statistical_bootstrap import _bootstrap_resample_indices
+
+    a = _bootstrap_resample_indices(seed=7, n_clean=30, n_resamples=10)
+    b = _bootstrap_resample_indices(seed=7, n_clean=30, n_resamples=10)
+    assert len(a) == len(b) == 10
+    assert all(np.array_equal(x, y) for x, y in zip(a, b))
+
+
+def test_bootstrap_resample_indices_different_seeds_differ():
+    from src.statistical_bootstrap import _bootstrap_resample_indices
+
+    a = _bootstrap_resample_indices(seed=7, n_clean=30, n_resamples=10)
+    b = _bootstrap_resample_indices(seed=8, n_clean=30, n_resamples=10)
+    assert not all(np.array_equal(x, y) for x, y in zip(a, b))
+
+
+def test_bootstrap_resample_indices_within_call_are_not_all_identical():
+    from src.statistical_bootstrap import _bootstrap_resample_indices
+
+    indices = _bootstrap_resample_indices(seed=7, n_clean=30, n_resamples=5)
+    assert len(indices) == 5
+    assert len({arr.tobytes() for arr in indices}) > 1
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +217,22 @@ def test_paired_bootstrap_ref_superior_to_comp():
     with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
         result = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=50, seed=7)
     assert result["auc_roc"]["delta_base"] > 0
+
+
+def test_paired_bootstrap_same_seed_produces_identical_output():
+    df = _df(n_pos=30, n_neg=30)
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        first = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=100, seed=7)
+        second = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=100, seed=7)
+    assert first == second
+
+
+def test_paired_bootstrap_different_seeds_produce_different_output():
+    df = _df(n_pos=30, n_neg=30)
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        first = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=100, seed=7)
+        second = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=100, seed=8)
+    assert first != second
 
 
 # ---------------------------------------------------------------------------
