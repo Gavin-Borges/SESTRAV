@@ -31,6 +31,22 @@ Their values differ from every figure above, so a repoint would trade an
 unbound number for a MIS-ATTRIBUTED one. See docs/nn_gnn_optional_module_guide.md
 for the measured side-by-side and the full reasoning.
 
+The "(best GNN)" annotation that stood on the GAT row is WITHDRAWN (2026-08-27).
+Its source is the Colab export under "CMB 523 Injection for SESTRAV Progress",
+absent from this repository, so that ranking cannot be checked against anything
+tracked here - and the only tracked GNN benchmark artifacts INVERT it.
+models/gnn_sequence_benchmark.csv and models/gnn_bipartite_benchmark.csv, which
+scripts/generate_baseline_report.py reads to build its comparison table, rank
+GCN FIRST on both metrics: GCN AUC-PR 0.8465 / AUC-ROC 0.6535, GAT 0.8352 /
+0.6088, bipartite 0.8120 / 0.5611.
+
+Those two CSVs are NOT offered as corrected Project 2 figures. Neither has a
+provenance sidecar, and their columns record no splitter, corpus or seed, so
+which run produced them is not established here and nothing in this repository
+binds them to the corpus or split behind any RF or ANN figure. What is
+established is only this: the tracked artifacts and the quoted export disagree
+about which architecture ranks first.
+
 Note: GNNs were reported to underperform the tabular RF and ANN on this
 dataset.  The two comparator figures that stood here, RF AUC-PR=0.8102 and
 ANN AUC-PR=0.8252, are RETRACTED as unbound (2026-08-17): both trace to the

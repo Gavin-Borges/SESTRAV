@@ -96,6 +96,40 @@ def prepare_features(df, include_binding=False, binding_col="binding_score"):
     return pd.DataFrame(feature_records)[cols]
 
 
+def _report_binding_coverage(peptides, binding_lookup, binding_matrix_path):
+    """Report how much of the joined corpus the binding matrix actually reaches.
+
+    A peptide absent from the matrix is zero-filled rather than dropped or raised
+    on. That keeps row alignment, which is the right contract, but it makes an
+    absent peptide indistinguishable from one that genuinely scored zero against
+    all ten alleles. When matrix membership correlates with the label, those
+    zeros become a label proxy that a model reads directly.
+
+    That is not hypothetical. Measured on the v5 corpus, peptide_binding_matrix_v4
+    reaches 8,725 of 35,555 rows, and those rows are 73.2% positive against 6.1%
+    for the rest, because v4 predates the corpus's negative-class expansion and
+    covers 0.79% of its tested_negative rows where v5 covers all of them. Holding
+    everything else fixed, that swing is worth roughly +0.17 pooled AUC-PR.
+
+    Reported unconditionally, and with print rather than the logging module,
+    because silence was the defect: a run recorded the binding matrix it was
+    GIVEN but nothing recorded how much of the corpus that matrix reached, so an
+    artifact could name a matrix while its features told a different story.
+    """
+    total = len(peptides)
+    if total == 0:
+        return 0
+    covered = int(pd.Index(peptides).isin(binding_lookup.index).sum())
+    missing = total - covered
+    prefix = "Binding coverage" if missing == 0 else "WARNING: binding coverage"
+    print(
+        f"{prefix}: {covered}/{total} rows ({covered / total:.1%}) found in "
+        f"{binding_matrix_path}; {missing} zero-filled across "
+        f"{len(BINDING_ALLELE_COLUMNS)} allele columns"
+    )
+    return missing
+
+
 def prepare_features_30(df, binding_matrix_path):
     """Build the 30-feature matrix by joining physico features with per-allele binding.
 
@@ -116,6 +150,7 @@ def prepare_features_30(df, binding_matrix_path):
     physico_df = pd.DataFrame(physico_records)[PHYSICO_COLUMNS]
 
     peptides = df["peptide"].values
+    _report_binding_coverage(peptides, binding_lookup, binding_matrix_path)
     bind_rows = []
     for pep in peptides:
         if pep in binding_lookup.index:
@@ -145,6 +180,7 @@ def prepare_features_10(df, binding_matrix_path):
     binding_lookup = binding_df.set_index("peptide")[bind_cols_present]
 
     peptides = df["peptide"].values
+    _report_binding_coverage(peptides, binding_lookup, binding_matrix_path)
     bind_rows = []
     for pep in peptides:
         if pep in binding_lookup.index:
@@ -261,6 +297,41 @@ def prepare_features_50(df, binding_matrix_path):
     ]
 
 
+def _report_contact_weight_coverage(alleles, allele_col, column_present):
+    """Report how many rows matched a real per-allele TCR contact-weight panel.
+
+    A row whose allele is absent from ALLELE_CONTACT_WEIGHTS receives
+    POPULATION_AVG_CONTACT_WEIGHTS. That fallback is deliberate, documented and
+    UNCHANGED here. What was missing is any record of how many rows took it. The
+    substituted values sit in the same scale as measured ones, so a fallback row
+    is indistinguishable from a row whose allele genuinely is average, and
+    nothing in a run's output said how far the panel reached.
+
+    That matters more here than the name "fallback" suggests: the table carries
+    ten alleles, so on a corpus with hundreds of distinct alleles this is the
+    MAJORITY path rather than an edge case.
+
+    print rather than the logging module, matching the binding-coverage report in
+    this file: nothing configures logging here, so a logger call would be
+    swallowed and a diagnostic a missing basicConfig can swallow is not a
+    diagnostic. No threshold is imposed and nothing raises; what coverage is
+    acceptable is an owner policy question. This makes the fact observable.
+    """
+    total = len(alleles)
+    if total == 0:
+        return 0
+    fallback = sum(1 for allele in alleles if allele not in ALLELE_CONTACT_WEIGHTS)
+    matched = total - fallback
+    prefix = "Contact-weight coverage" if fallback == 0 else "WARNING: contact-weight coverage"
+    detail = "" if column_present else f"; column '{allele_col}' is ABSENT from the frame"
+    print(
+        f"{prefix}: {matched}/{total} rows ({matched / total:.1%}) matched an allele in "
+        f"ALLELE_CONTACT_WEIGHTS ({len(ALLELE_CONTACT_WEIGHTS)} alleles); {fallback} fell "
+        f"back to POPULATION_AVG_CONTACT_WEIGHTS{detail}"
+    )
+    return fallback
+
+
 def prepare_features_51(df, binding_matrix_path, allele_col="hla_allele"):
     """Build the 55-feature matrix: mode-50 expanded + per-allele TCR contact weights.
 
@@ -270,7 +341,9 @@ def prepare_features_51(df, binding_matrix_path, allele_col="hla_allele"):
     """
     base_50 = prepare_features_50(df, binding_matrix_path)
 
-    alleles = df[allele_col].values if allele_col in df.columns else [None] * len(df)
+    column_present = allele_col in df.columns
+    alleles = df[allele_col].values if column_present else [None] * len(df)
+    _report_contact_weight_coverage(alleles, allele_col, column_present)
     weight_records = []
     for allele in alleles:
         weights = ALLELE_CONTACT_WEIGHTS.get(allele, POPULATION_AVG_CONTACT_WEIGHTS)

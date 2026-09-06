@@ -335,6 +335,40 @@ def test_dataset_v2_node_count_equals_peptide_length():
         assert item.x.shape[0] != 11 or L == 11, "Padding nodes must not appear for sub-11-mers"
 
 
+def test_dataset_v2_threads_edge_mode_to_emitted_graphs():
+    """--edge-mode must reach the Data items, not just the builder.
+
+    Builder-level tests pass even if the dataset never forwards the flag, which
+    would silently run the full graph while the run is recorded as an ablation.
+    """
+    import numpy as np
+    import pandas as pd
+    from src.train_gnn import GraphPeptideDatasetV2
+
+    seqs = ["GILGFVFT", "GILGFVFTL", "GILGFVFTLV", "GILGFVFTLVA"]
+    lengths = [8, 9, 10, 11]
+    df = pd.DataFrame({"peptide": seqs, "label": [1, 0, 1, 0]})
+
+    esm2_cache = {}
+    for seq in seqs:
+        padded = torch.zeros(11, 320)
+        padded[: len(seq)] = torch.randn(len(seq), 320)
+        esm2_cache[seq] = padded
+
+    X = pd.DataFrame(np.zeros((4, 21)))
+    labels = np.array([1.0, 0.0, 1.0, 0.0])
+
+    full = GraphPeptideDatasetV2(df, X, labels, esm2_cache, max_len=11)
+    ablated = GraphPeptideDatasetV2(
+        df, X, labels, esm2_cache, max_len=11, edge_mode="self-loop-only"
+    )
+
+    for i, L in enumerate(lengths):
+        assert full[i].edge_index.shape[1] == L + 2 * (L - 1)
+        assert ablated[i].edge_index.shape[1] == L
+        assert (ablated[i].edge_index[0] == ablated[i].edge_index[1]).all()
+
+
 def test_dataset_v2_edge_index_within_node_range():
     """All edge indices must reference nodes within [0, L-1]."""
     import numpy as np
