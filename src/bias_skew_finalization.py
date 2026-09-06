@@ -25,9 +25,9 @@ def _gate_status(
     subgroup_csv: str,
     threshold_json: str,
     sensitivity_delta_csv: str,
-) -> Dict[str, bool]:
-    """Compute release-gate booleans from produced artifacts."""
-    gates: Dict[str, bool] = {}
+) -> Dict[str, bool | None]:
+    """Compute release gates, using None when sensitivity was not measured."""
+    gates: Dict[str, bool | None] = {}
 
     subgroup_df = pd.read_csv(subgroup_csv) if os.path.isfile(subgroup_csv) else pd.DataFrame()
     severe_underperf = False
@@ -47,7 +47,7 @@ def _gate_status(
         )
     gates["acceptable_threshold_tradeoff"] = threshold_ok
 
-    sensitivity_ok = True
+    sensitivity_ok: bool | None = None
     if os.path.isfile(sensitivity_delta_csv):
         deltas = pd.read_csv(sensitivity_delta_csv)
         if not deltas.empty:
@@ -58,8 +58,13 @@ def _gate_status(
         bias_summary.get("n_total", 0) > 0 and bias_summary.get("raw_n_records", 0) > 0
     )
     gates["dataset_provenance_complete"] = provenance_ok
-    gates["all_passed"] = all(gates.values())
+    gates["all_passed"] = all(value is True for value in gates.values())
     return gates
+
+
+def _gate_label(value: bool | None) -> str:
+    """Render tri-state gates without presenting an unmeasured check as a boolean."""
+    return "Unmeasured (sensitivity deltas absent or empty)" if value is None else str(value)
 
 
 def planned_bias_skew_paths(results_dir: str) -> list[str]:
@@ -236,7 +241,8 @@ def run_bias_skew_finalization(
             "## Release gate\n"
             f"- No severe subgroup underperformance: `{gates['no_severe_subgroup_underperformance']}`\n"
             f"- Acceptable threshold tradeoff: `{gates['acceptable_threshold_tradeoff']}`\n"
-            f"- Gold-standard sensitivity non-brittle: `{gates['gold_standard_not_brittle']}`\n"
+            f"- Gold-standard sensitivity non-brittle: "
+            f"`{_gate_label(gates['gold_standard_not_brittle'])}`\n"
             f"- Dataset provenance complete: `{gates['dataset_provenance_complete']}`\n"
             f"- Final release-ready status: **`{gates['all_passed']}`**\n"
         )
