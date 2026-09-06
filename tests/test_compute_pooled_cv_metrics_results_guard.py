@@ -12,10 +12,18 @@ harness depends on them and neither is visible by reading the CSV in an editor:
    `results/*.csv text eol=lf` and check_provenance hashes RAW BYTES, so a CRLF write
    records a digest that does not reproduce from a clean clone. That is the
    "NON-PORTABLE digest" FAIL class.
-2. The emitted fold-mean must reproduce models/v5/training_results_mode31.csv's
-   `rf_cv_mean`. It is the control that establishes the OOF frame and the training
-   summary describe the same run, and it is what distinguishes the pooled 0.6055 from
-   the fold-mean 0.6058 that four reader-facing docs still conflate.
+2. The emitted fold-mean must be computed as a mean of per-fold scores, never as an
+   alias of the pooled value. It is the control that distinguishes the pooled 0.6055
+   from the fold-mean 0.6058; four reader-facing docs conflated the two until
+   2026-08-31, when they were repointed at this artifact.
+
+   Scope note, because the wording here overstated it until 2026-08-31: this is checked
+   against SYNTHETIC fixtures, not against the real ledger. The emitted fold-mean agrees
+   with models/v5/training_results_mode31.csv's `rf_cv_mean` to 5 decimals but NOT to 6
+   - 0.6058259889375138 here versus 0.6058273241425536 there, a delta of 1.34e-06 from
+   the two being computed by different code paths over the same folds. Both round to
+   0.6058, so no published figure is affected, but do not assert exact equality between
+   them.
 
 The fixtures are synthetic and deliberately tiny; the real committed OOF frame is not
 read, so these tests neither depend on nor re-certify the published science.

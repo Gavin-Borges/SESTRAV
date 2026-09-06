@@ -165,7 +165,7 @@ The canonical same-pathogen (within-virus) discrimination metric is the per-viru
 | HPV | 0.482 |
 | **Mean** | **0.658** |
 
-**Retracted, prior ungrouped table (leakage-inflated, D15):** HIV-1 0.894, DENV 0.859, IAV 0.856, CMV 0.819, EBV 0.790, HBV 0.708, SARS-CoV-2 0.699, HCV 0.575, HPV 0.561, Mean 0.751. The pooled mode-31 AUC-PR moves the same way under the same repair: **0.8312 (ungrouped, retracted) -> 0.6055 (peptide-grouped, certified)**, `models/v5/training_results_mode31.csv`. Excluding the out-of-panel `Orthopoxvirus vaccinia` bloc (77.8% of active negatives) from the validation side of each fold - an evaluation-scope re-slice of the same model, not a refit on a smaller corpus - gives AUC-PR 0.733 / AUC-ROC 0.670 (`rf_cv_mean_no_vaccinia` in the same file); Both metrics move as expected and neither is an error: AUC-PR rises partly mechanically because the validation base rate goes from 0.226 to 0.568, while AUC-ROC falls because those trivially separable negatives leave the negative set (AUC-ROC is prevalence-invariant, so the base rate does not explain that fall). Those 21,432 rows are **not** decoys - they are genuine IEDB assay-confirmed negatives (`database_source = IEDB`), out-of-panel rather than synthetic; this sentence called them decoys until 2026-08-10 (`docs/claims_register.md` D19).
+**Retracted, prior ungrouped table (leakage-inflated, D15):** HIV-1 0.894, DENV 0.859, IAV 0.856, CMV 0.819, EBV 0.790, HBV 0.708, SARS-CoV-2 0.699, HCV 0.575, HPV 0.561, Mean 0.751. The pooled mode-31 AUC-PR moves the same way under the same repair: **0.8312 (ungrouped, retracted) -> 0.6055 (peptide-grouped, certified)**; the certified 0.6055 is `mode31_pooled_auc_pr` in `results/pooled_cv_metrics_mode31.csv` (`kind = pooled_single_pass`), not `models/v5/training_results_mode31.csv`, which holds the fold-mean 0.6058 and contains no `0.6055`. Excluding the out-of-panel `Orthopoxvirus vaccinia` bloc (77.8% of active negatives) from the validation side of each fold - an evaluation-scope re-slice of the same model, not a refit on a smaller corpus - gives AUC-PR 0.733 / AUC-ROC 0.670 (`rf_cv_mean_no_vaccinia` in the same file); Both metrics move as expected and neither is an error: AUC-PR rises partly mechanically because the validation base rate goes from 0.226 to 0.568, while AUC-ROC falls because those trivially separable negatives leave the negative set (AUC-ROC is prevalence-invariant, so the base rate does not explain that fall). Those 21,432 rows are **not** decoys - they are genuine IEDB assay-confirmed negatives (`database_source = IEDB`), out-of-panel rather than synthetic; this sentence called them decoys until 2026-08-10 (`docs/claims_register.md` D19).
 
 **Correction (2026-08-08, superseded 2026-08-10):** this paragraph previously reported "Self-proteome Gate 1 (viral epitopes vs. self-peptide background): AUC-PR 0.8897". That label was wrong on two counts. **0.8897 is not a self-proteome evaluation** - it is the global pooled cross-validation `auc_pr` in `models/v5/training_results.csv`, written by `58bbc15` (2026-06-26); no self-proteome-versus-viral evaluation artifact exists anywhere in this repository, and "Gate 1" is a GNN promotion threshold (`src/verify/promote_gnn.py`), not an RF metric. **And it is not the current corpus**: the 35,597-active-row build cited in this section reported 0.8312 for that same pooled metric under the ungrouped splitter (`models/v5/training_results_mode31.csv`, `d3972f7`, 2026-07-05); that figure was itself peptide-leakage-inflated (`docs/claims_register.md` D15) and is now superseded by the peptide-grouped 0.6055 above.
 
@@ -305,7 +305,7 @@ To prevent machine learning models from over-indexing on EBV-specific anchor mot
 
 ### 1. Environment Setup
 
-**Conda (recommended for reproducibility):**
+**Conda (recommended for reproducibility; LINUX x86-64 only, see the note below):**
 ```bash
 conda env create -f environment.yml
 conda activate sestrav
@@ -318,14 +318,30 @@ pip install -e ".[dev]"          # lint + test tools
 mhcflurry-downloads fetch models_class1_presentation
 ```
 
-**venv:**
+**venv (LINUX x86-64 only, see the note below):**
 ```bash
 python -m venv .venv
-source .venv/bin/activate      # Linux/macOS
+source .venv/bin/activate      # Linux
 pip install --no-deps --require-hashes -r requirements.txt
 pip install snakemake
 mhcflurry-downloads fetch models_class1_presentation
 ```
+
+> **`requirements.txt` is a Linux x86-64 lock and does not resolve elsewhere.** It pins
+> 17 CUDA packages (`triton` plus 16 `nvidia-*`) and carries **zero environment markers**
+> across its 2,740 lines, so pip attempts every pin on every platform. Measured on Windows:
+> the command above exits 1 with `No matching distribution found for nvidia-nccl-cu12`,
+> while a cross-platform pin from the same file resolves normally, so the failure is
+> specific to those CUDA pins. Only one of the seventeen is markered in the source
+> (`requirements.in:57`); the other sixteen arrive transitively from `torch`. None survives
+> compilation, because the file is generated with `uv pip compile ... --python-platform linux`
+> (its own header, line 2) - a single-target resolution that evaluates markers away rather
+> than emitting them.
+>
+> On macOS or Windows use the **editable install** above (`pip install -e ".[dev]"`). It
+> resolves per-platform from the `pyproject.toml` floors and never reads this lock.
+> **The conda path is not an alternative**: `environment.yml` installs `-r requirements.txt`
+> inside its `pip:` block, so `conda env create` fails off Linux for the same reason.
 
 ### 2. Install and Train Models
 
@@ -340,6 +356,9 @@ pip install ".[gnn]"
 
 # With Snakemake pipeline runner
 pip install ".[pipeline]"
+
+# To run the data-ingest and benchmark helpers under scripts/
+pip install ".[scripts]"
 
 # Developer install (ruff, mypy, pytest)
 pip install -e ".[dev]"
@@ -491,7 +510,7 @@ peptides remaining after the 16 gold-standard epitopes are held out of the 720-p
 It is therefore not a replacement value for the architecture named above, and is not presented as
 one. Re-derived from `models/ann_oof_predictions.csv` and reproduces digit-for-digit.
 * **GNN v2.3 (research track):** `pip install ".[gnn]"` (from source; not published to PyPI), then `python -m src.train_gnn --help`.
-Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. Its v4 evaluation once reported a mean-fold AUC-PR of 0.7281; **that figure is RETRACTED as unreproducible (2026-08-12 re-audit), not merely superseded** - the tracked out-of-fold artifact (`models/gnn_oof_predictions.csv`) carries no fold column, so no per-fold statistic can be recomputed from anything in this repository, and the notebook cited as its retrain provenance has never been executed. The one number from that same run that does reproduce from the tracked artifact is the pooled AUC-PR, 0.7160 - itself produced by the ungrouped splitter carrying the D15 exact-peptide leakage, so it remains a labeled historical figure, not comparable to any peptide-grouped result. The v4 out-of-fold artifact above (`models/gnn_oof_predictions.csv`) is not marked peptide-grouped and carries no fold identity, so Gates 1 and 2 fail by precondition against it and it cannot be re-scored for those gates. **v5 retraining, on a peptide-grouped splitter with a proper ESM-2 cache (`data/esm2_embeddings_t12_v5.pt`, 30,687 keyed peptides, zero misses against the shipped corpus - not the stale "27,376" figure some older docs cite), completed 2026-08-13**: Gate 1 (pooled AUC-PR) 0.6458 vs threshold 0.65, FAIL by 0.0042; Gate 2 FAIL; Gates 3-5 PASS; but AUC-PR is +0.0402 over the RF mode-31 baseline, a real and statistically significant delta (95% CI [0.0286, 0.0520], excludes zero). Net result: a null result on the pre-registered AND-conjunction promotion bar, reported honestly alongside the genuine improvement underneath it - not re-run with different hyperparameters against the same held-out set, since that would be exactly the leakage this project flags on any other model. The GNN remains a research track, not a promoted scorer. The full scorecard and reproduction commands live in `STATE.md`'s 2026-08-13 session entry, which is gitignored and so cannot be opened from a clone; the gate results and the delta above are the readable summary.
+Architecture: GINEConv x2 over a per-residue peptide graph with ESM-2 node embeddings (`facebook/esm2_t12_35M_UR50D`, 480-dim), fused with the canonical mode-31 physicochemical features. Its v4 evaluation once reported a mean-fold AUC-PR of 0.7281; **that figure is RETRACTED as unreproducible (2026-08-12 re-audit), not merely superseded** - the tracked out-of-fold artifact (`models/gnn_oof_predictions.csv`) carries no fold column, so no per-fold statistic can be recomputed from anything in this repository, and the notebook cited as its retrain provenance has never been executed. The one number from that same run that does reproduce from the tracked artifact is the pooled AUC-PR, 0.7160 - itself produced by the ungrouped splitter carrying the D15 exact-peptide leakage, so it remains a labeled historical figure, not comparable to any peptide-grouped result. The v4 out-of-fold artifact above (`models/gnn_oof_predictions.csv`) is not marked peptide-grouped and carries no fold identity, so Gates 1 and 2 fail by precondition against it and it cannot be re-scored for those gates. **v5 retraining, on a peptide-grouped splitter with a proper ESM-2 cache (`data/esm2_embeddings_t12_v5.pt`, 30,687 keyed peptides, zero misses against the shipped corpus - not the stale "27,376" figure some older docs cite), completed 2026-08-13**: Gate 1 (pooled AUC-PR) 0.6458 vs threshold 0.65, FAIL by 0.0042; Gate 2 FAIL; Gates 3-5 PASS; but AUC-PR is +0.0402 over the RF mode-31 baseline, a real and statistically significant delta (95% CI [0.0286, 0.0520], excludes zero). Net result: a null result on the pre-registered AND-conjunction promotion bar, reported honestly alongside the genuine improvement underneath it - not re-run with different hyperparameters against the same held-out set, since that would be exactly the leakage this project flags on any other model. The GNN remains a research track, not a promoted scorer. **An edge ablation at 8 seeds (2026-09-04) found that removing the chain edges entirely did not hurt and consistently helped**: mean paired AUC-PR delta +0.0175, 8 of 8 seeds positive, sign test p = 0.0078. The 95% CI [0.0107, 0.0244] straddles the pre-registered 0.0160 band, so the threshold is not cleared robustly and an earlier n=3 reading of "no measurable contribution" is superseded on the sign rather than on the magnitude. Because the node features are ESM-2 embeddings that already encode whole-peptide context, the supported reading is that chain-edge message passing adds nothing on top of those embeddings, not that graph topology is uninformative; and these 18-epoch runs are not comparable to the 0.6458 gate figure above. See ARCHITECTURE.md 6.3. The full scorecard and reproduction commands live in `STATE.md`'s 2026-08-13 session entry, which is gitignored and so cannot be opened from a clone; the gate results and the delta above are the readable summary.
 
 ### 7. Google Colab
 

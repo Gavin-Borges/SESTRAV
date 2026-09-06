@@ -199,7 +199,9 @@ Evaluation uses two complementary paradigms, both reported in the README and pap
   scored OOF frame `models/v5/rf_oof_predictions_mode31.csv` carries 27,534, eight fewer):
   canonical `mode_31` per-virus within-CV mean AUC-ROC
   **0.658** over nine viruses (`results/per_virus_eval_v5_mode31.csv`), and pooled CV AUC-PR
-  **0.6055** (`models/v5/training_results_mode31.csv`). This same-pathogen number is
+  **0.6055** (`results/pooled_cv_metrics_mode31.csv`, row `mode31_pooled_auc_pr`,
+  `kind = pooled_single_pass`; the fold-mean of the same five folds is a distinct **0.6058** in
+  `models/v5/training_results_mode31.csv`, which does not contain `0.6055`). This same-pathogen number is
   lower by design because the task is harder - **not** because of self-proteome hard decoys:
   all 5,000 of those are quarantined and none reaches this 35,597-row active pool (D19); the
   pooled AUC-PR is a base-rate artifact and is not reported as a headline. **Splitter disclosure
@@ -354,6 +356,33 @@ displayed SHA-256. `--checkpoint` is refused unless `--dry-run` is given too, so
 promotion can never certify a file different from the one just scored. The roadmap to clear
 Gate 1 centers on a larger multi-virus training set and an ESM-2 capacity scaling curve
 (t6 -> t12 -> t33).
+
+**Edge ablation (N4), measured 2026-09-04 at n=8 seeds.** A pre-registered ablation asks what
+the chain graph itself contributes. `train_gnn.py --edge-mode self-loop-only` keeps every node
+feature and removes the neighbour edges, so message passing carries no topology. Eight seeds
+per arm with everything else held fixed (v5 corpus, `models/peptide_binding_matrix_v5.csv`,
+`data/esm2_embeddings_t12_v5.pt`, feature mode 31, mean pooling, 18 epochs, one shared feature
+cache). Full-graph pooled AUC-PR mean
+0.625927, self-loop-only 0.643458, mean paired delta **+0.017531** (paired sd 0.008213),
+**8 of 8 seeds positive**, exact sign test and Wilcoxon signed-rank both p = 0.0078125.
+
+**The sign is established; the pre-registered 0.0160 threshold is NOT cleared robustly, and
+the two must not be conflated.** The 95% CI on the mean delta is [0.0107, 0.0244] and straddles
+0.0160, and dropping the single largest seed (1337, +0.031560, 1.51x the next largest)
+returns the mean to 0.015527, back below criterion. So removing the chain edges did not hurt
+and consistently helped, while whether the effect exceeds the pre-registered band remains
+unsettled at n=8. An earlier n=3 measurement gave +0.014750 and was recorded as "no measurable
+contribution"; that verdict is superseded by the sign result, not by the threshold.
+
+**What this licenses and what it does not.** Under `self-loop-only` the GINEConv stack
+degenerates to a per-node MLP followed by mean pooling, but the node features are ESM-2
+embeddings that are ALREADY contextual: a transformer has encoded whole-peptide context into
+every residue vector. The ablation therefore does not remove sequence information, it removes
+a second and largely redundant round of local mixing over 8 to 11 nodes. The supported claim
+is that **chain-edge message passing adds nothing on top of ESM-2 embeddings**, not that graph
+topology is uninformative in general. These are 18-epoch runs and their absolute levels are
+comparable within the ablation only; they must not be read against the 0.6458 Gate 1 figure
+above, which came from a different epoch budget.
 
 ### 6.4 Structural edges (in development, not active)
 

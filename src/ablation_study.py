@@ -11,12 +11,47 @@ Feature group definitions (from CMB 523 Project 2):
   combined_30 : physico + binding (legacy comparator 30-feature track)
   full_31     : physico + binding + peptide_length
 
-Project 2 results (5-fold CV, best ANN: 256-128-64 ReLU d0.2):
+RETRACTED 2026-08-31 (ruling R3). Every one of the ten Project 2 figures below is
+an UNBOUND course-export value. Their only cited source is a CMB 523 Colab export
+absent from git, from disk, and from the local workspace, so none can ever acquire
+provenance here. They are retained rather than repaired or deleted: substituting
+models/ann_cv_summary.csv would trade an unbound number for a mis-attributed one
+(it measures the legacy 64-32 d0.3 network over the 704 peptides left after 16
+gold-standard epitopes are held out of 720, and carries no per-feature-group
+breakdown). Do not cite, quote, or compare these numbers.
+
+SCOPE, stated because this retraction is narrower than it reads. The same ten
+values, rounded to 3 decimals, are LIVE and unmarked on eight other tracked
+surfaces, and this change amends none of them: the identical ablation table in
+docs/model_evaluation_summary.md; README.md (0.864 in the headline paragraph and
+in the model comparison table, 0.825 as the legacy comparator);
+docs/data_registry.md AD-1, a LOCKED row in which "full_31 0.864 vs combined_30
+0.825" is the stated rationale for the canonical feature_mode=31;
+docs/claims_register.md D8, recording the same pair for the same decision;
+docs/feature_glossary.md; and the rf_31feature_integrated and rf_30feature model
+cards. The retracted-token sweep cannot see any of them - it is keyed on the
+4-decimal literals and the 3-decimal restatements are outside its vocabulary by
+construction - so a green sweep here is not evidence that the retraction is
+complete.
+
+It also stands against docs/claims_register.md D17, a CLOSED row which states
+that "those ablation numbers are therefore not void and are not retracted" and
+corroborates them as a real run against a real binding matrix (its binding_10 row
+scores AUC-ROC 0.727 on the ten binding features alone, impossible against the
+all-zeros matrix D17 concerns). The two are not strictly contradictory: D17
+argues the numbers are a genuine measurement, this header argues no artifact in
+this repo can re-derive them, and both can hold at once. But a reader will meet
+both, and reconciling them touches a LOCKED row and the README headline. That is
+an owner decision and it has not been made.
+
+Project 2 results (5-fold CV, best ANN: 256-128-64 ReLU d0.2) - ALL RETRACTED:
   physico_20:  AUC-ROC=0.5766, AUC-PR=0.7719
   binding_10:  AUC-ROC=0.7273, AUC-PR=0.8509
   sestrav_21:  AUC-ROC=0.6215, AUC-PR=0.7844
   combined_30: AUC-ROC=0.6699, AUC-PR=0.8252
-  full_31:     AUC-ROC=0.7433, AUC-PR=0.8639  (best overall)
+  full_31:     AUC-ROC=0.7433, AUC-PR=0.8639
+RETRACTED: the "(best overall)" superlative formerly carried on the full_31 line is
+WITHDRAWN - it rested on two of these unbound values.
 
 --output-dir is required and has no default. The existing
 models/ablation_study_results.csv there is never replaced unless --allow-overwrite
@@ -45,7 +80,7 @@ from src.model import (
     SEED,
     N_FOLDS,
 )
-from src.train_classifier import prepare_features_30
+from src.train_classifier import _filter_quarantined, prepare_features_30
 
 
 # Feature group definitions
@@ -107,6 +142,7 @@ def run_ablation(
 
     # Load data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     pool = df[~gs_mask].copy()
     y = pool["label"].values

@@ -1,5 +1,14 @@
 # SESTRAV Model Evaluation Summary
 
+> **READER DISCLOSURE: no model binary in this document exists in a clone.** Every
+> `models/*.joblib` path cited below (mode 31 and mode 33, RF and XGB) is a build output,
+> not a tracked file. Verified: `git ls-tree -r --name-only origin/main` matches exactly one
+> `.joblib` in the whole repository, `tests/fixtures/dag_smoke/rf_stub.joblib`, which is a
+> test stub and not any model discussed here. Rebuild one with
+> `python -m src.train_classifier --feature-mode <N>` (see `USAGE.md`). The CSV artifacts
+> cited alongside them - `models/rf_oof_predictions*.csv`, `models/v5/training_results_*.csv`,
+> `results/*.csv` - ARE tracked and can be opened directly.
+
 ## v5 Canonical Track: 31-Feature RF (Trained 2026-07-04)
 
 > **Status:** Current production model. Dataset: v5, 35,597 active rows (51,185 total),
@@ -17,7 +26,8 @@
 | Evaluation context | AUC-PR | AUC-ROC | Notes |
 |---|---|---|---|
 | Within-virus (same-pathogen discrimination) | see per-virus table | **0.658** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses, peptide-grouped (`results/per_virus_eval_v5_mode31.csv`). Prior ungrouped 0.751 retracted. |
-| Pooled cross-validation (whole v5 corpus) | **0.6055** | **0.8137** | Peptide-grouped, re-baselined 2026-08-10 (`models/v5/training_results_mode31.csv`). **Two superseded predecessors:** this row once read "Self-proteome Gate 1, AUC-PR 0.8897, Gate 1 threshold protocol" - wrong on two counts (0.8897 is the pooled `auc_pr` of an earlier 2026-06-26 v5 build, and no self-proteome-vs-viral evaluation artifact exists here; "Gate 1" is a GNN promotion threshold, `src/verify/promote_gnn.py`, unrelated to this RF metric). It then read 0.8312, which was itself peptide-leakage-inflated (D15) and is now retracted in favour of the grouped 0.6055. The same ledger also carries `rf_cv_mean_no_vaccinia` (AUC-PR 0.7328 / AUC-ROC 0.6702), an OOF re-slice excluding the vaccinia bloc from validation - not a refit on a vaccinia-free corpus. |
+| Pooled cross-validation, single pass over the concatenated OOF rows (whole v5 corpus) | **0.6055** | **0.8136** | Peptide-grouped, re-baselined 2026-08-10. Both cells from `results/pooled_cv_metrics_mode31.csv` (`mode31_pooled_auc_pr`, `mode31_pooled_auc_roc`, both `kind = pooled_single_pass`), computed in one pass over the 35,555 rows of `models/v5/rf_oof_predictions_mode31.csv`. |
+| Fold-mean across the same five folds (whole v5 corpus) | **0.6058** | **0.8137** | Peptide-grouped, re-baselined 2026-08-10. Both cells from `models/v5/training_results_mode31.csv` (`rf_cv_mean`). **This row is the one to quote against the mode-33/35 antigen-processing ablation ladder**, which is computed fold-wise. **Until 2026-08-31 this row and the one above it were a single row** that paired the pooled AUC-PR with the fold-mean AUC-ROC under one "Pooled" label and cited only `training_results_mode31.csv` - a file that contains `0.6058` and no `0.6055`. The two errors cancelled into looking consistent: a reviewer spot-checking only the AUC-ROC column would have certified the row. **Two superseded predecessors:** this row once read "Self-proteome Gate 1, AUC-PR 0.8897, Gate 1 threshold protocol" - wrong on two counts (0.8897 is the pooled `auc_pr` of an earlier 2026-06-26 v5 build, and no self-proteome-vs-viral evaluation artifact exists here; "Gate 1" is a GNN promotion threshold, `src/verify/promote_gnn.py`, unrelated to this RF metric). It then read 0.8312, which was itself peptide-leakage-inflated (D15) and is now retracted in favour of the grouped 0.6055. The same ledger also carries `rf_cv_mean_no_vaccinia` (AUC-PR 0.7328 / AUC-ROC 0.6702), an OOF re-slice excluding the vaccinia bloc from validation - not a refit on a vaccinia-free corpus. |
 
 [^retracted]: Two successive retractions apply to this figure, and they are different defects.
 **(1) Decoy inflation (2026-07-11):** the previously reported pooled same-pathogen AUC-ROC
@@ -173,7 +183,15 @@ documented in `docs/nn_gnn_optional_module_guide.md`.
 | GAT (2-layer, 4-head) | **0.796 ± 0.028** | **0.637 ± 0.045** |
 | Bipartite Peptide-Allele | 0.789 ± 0.032 | 0.612 ± 0.055 |
 
-GNNs underperform tabular models on this dataset but capture structural inter-residue patterns that fixed-position features cannot represent. Included for representation space characterization.
+GNNs were **reported** to underperform the tabular models on this dataset, and that ranking cannot
+be checked as stated: one of the two comparator figures it rested on, the ANN AUC-PR, is retracted
+as unbound (2026-08-17), having traced to the same absent external course export as the retracted
+ANN column above. The RF comparator is **not** retracted - this document still carries it un-struck
+in the cross-validation table above - so what is withdrawn is the ANN half of the comparison, not
+the pair. The ranking is reported speech rather than a result this repository can verify end to
+end, and `src/gnn_benchmark.py` states it in that form. The GNN rows are
+retained as an exploratory benchmark for representation-space characterization: they capture
+structural inter-residue patterns that fixed-position features cannot represent.
 
 ### Exact Project 2 Optional Benchmark Values
 

@@ -373,6 +373,7 @@ AGYDAPRAV,0,HLA-B*51:08,Unknown,AGDDAPRAV,,Virus,IEDB,,,,tested_negative,ELISPOT
 AHFQLQML,0,HLA-B*38:01,Unknown,AHFQLQML,,Virus,IEDB,,,,tested_negative,in vitro assay,2,0.7,29895573.0,http://www.iedb.org/assay/7693260,,,,,,False
 AHFQLQML,0,HLA-B*39:01,Unknown,AHFQLQML,,Virus,IEDB,,,,tested_negative,in vitro assay,2,0.7,29895573.0,http://www.iedb.org/assay/7693261,,,,,,False
 AHHGGWTTK,0,HLA-A*03:01,Self,"Phosphatidylinositol 4,5-bisphosphate 3-kinase catalytic subunit alpha isoform",,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35484264.0,http://www.iedb.org/assay/18918555,,,,,,False
+AHHGGWTTK,0,HLA-A*03:01,Self,AHHGGWTTK,,Virus,IEDB,,,,tested_negative,surface plasmon resonance (SPR),2,0.7,39833157.0,http://www.iedb.org/assay/22948429,,,,,,False
 AHHGGWTTK,0,HLA-A*11:01,Self,AHHGGWTTK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,38832948.0,http://www.iedb.org/assay/22909180,,,,,,False
 AHVDKCLEL,0,HLA-B*07:02,Self,AHVDKCLEL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,22997432.0,http://www.iedb.org/assay/1956115,,,,,,False
 AIADLLKSV,0,HLA-A*02:01,CoxsackievirusB,AIADLLKSV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,18753217.0,http://www.iedb.org/assay/1500941,,,,,,False
@@ -429,6 +430,7 @@ AINSEMFLR,0,HLA-A*11:01,Mus musculus,AINSEMFLR,,Virus,IEDB,,,,tested_negative,mu
 AINSKQLTY,0,HLA-A*01:01,Self,AINSKQLTY,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,29789417.0,http://www.iedb.org/assay/17861235,,,,,,False
 AINSKQLTY,0,HLA-A*03:01,Self,AINSKQLTY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,29789417.0,http://www.iedb.org/assay/5637510,,,,,,False
 AIPAMVVPNV,0,HLA-A*02:01,Unknown,AIPAMVVPNV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23644516.0,http://www.iedb.org/assay/22730817,,,,,,False
+AIPHPLPKA,0,HLA-A*02:01,Unknown,AIPHPLPKA,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117488,,,,,,False
 AIPINFTISV,0,HLA-A*02:01,SARS-CoV-2,AIPINFTISV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,37117789.0,http://www.iedb.org/assay/22505251,,,,,,False
 AIQDFIIEV,0,HLA-A*02:01,Orthopoxvirus vaccinia,AIQDFIIEV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1293823,,,,,,False
 AIQDLCLAV,0,HLA-A*02:01,Unknown,AIQDLCLAV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,27473564.0,http://www.iedb.org/assay/22912523,,,,,,False
@@ -626,6 +628,7 @@ ALHDLPENLR,0,HLA-A*02:01,Self,ALHDLPENLR,,Virus,IEDB,,,,tested_negative,multimer
 ALHEEVVCV,0,HLA-A*02:01,Unknown,ALHEEVVCV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553362,,,,,,False
 ALHGENHARV,0,HLA-A*02:01,Unknown,ALHGENHARV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,37192158.0,http://www.iedb.org/assay/22511198,,,,,,False
 ALHGGWTTK,0,HLA-A*03:01,Unknown,"Phosphatidylinositol 4,5-bisphosphate 3-kinase catalytic subunit alpha isoform",,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35484264.0,http://www.iedb.org/assay/18918595,,,,,,False
+ALHGGWTTK,0,HLA-A*03:01,Unknown,AHHGGWTTK,,Virus,IEDB,,,,tested_negative,surface plasmon resonance (SPR),2,0.7,39833157.0,http://www.iedb.org/assay/22948415,,,,,,False
 ALHIYMNGT,0,HLA-A*02:01,Self,ALHIYMNGT,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,27821860.0,http://www.iedb.org/assay/2924549,,,,,,False
 ALHNHYTQK,0,HLA-A*01:01,Self,ALHNHYTQK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,29789417.0,http://www.iedb.org/assay/17861242,,,,,,False
 ALHNHYTQK,0,HLA-A*03:01,Self,ALHNHYTQK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,29789417.0,http://www.iedb.org/assay/6126452,,,,,,False
@@ -3367,6 +3370,7 @@ DVYYHKNNK,0,HLA-A*03:01,SARS-CoV-2,DVYYHKNNK,,Virus,IEDB,,,,tested_negative,mult
 DWANKQYKF,0,HLA-A*23:01,Orthopoxvirus vaccinia,DWANKQYKF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1296073,,,,,,False
 DWANKQYKF,0,HLA-A*24:02,Orthopoxvirus vaccinia,DWANKQYKF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1296074,,,,,,False
 DWANKQYKF,0,HLA-A*24:07,Orthopoxvirus vaccinia,DWANKQYKF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1296075,,,,,,False
+DWFLENKSEVR,0,HLA-A*33:03,Unknown,DWFLENKSEVR,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117581,,,,,,False
 DYALYIYLF,0,HLA-A*23:01,Orthopoxvirus vaccinia,DYALYIYLF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297286,,,,,,False
 DYALYIYLF,0,HLA-A*24:02,Orthopoxvirus vaccinia,DYALYIYLF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297287,,,,,,False
 DYALYIYLF,0,HLA-A*24:07,Orthopoxvirus vaccinia,DYALYIYLF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297288,,,,,,False
@@ -3456,6 +3460,7 @@ EEAKRKLTEL,0,HLA-B*40:01,Orthopoxvirus vaccinia,EEAKRKLTEL,,Virus,IEDB,,,,tested
 EEAKRKLTEL,0,HLA-B*40:02,Orthopoxvirus vaccinia,EEAKRKLTEL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1305419,,,,,,False
 EEAKRKLTEL,0,HLA-B*44:02,Orthopoxvirus vaccinia,EEAKRKLTEL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1305420,,,,,,False
 EEAKRKLTEL,0,HLA-B*49:01,Orthopoxvirus vaccinia,EEAKRKLTEL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1305421,,,,,,False
+EEALHYMQSL,0,HLA-B*40:01,Unknown,EEALHYMQSL,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117507,,,,,,False
 EEALTRLIF,0,HLA-B*37:01,Orthopoxvirus vaccinia,EEALTRLIF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1307832,,,,,,False
 EEALTRLIF,0,HLA-B*40:01,Orthopoxvirus vaccinia,EEALTRLIF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1307833,,,,,,False
 EEALTRLIF,0,HLA-B*40:02,Orthopoxvirus vaccinia,EEALTRLIF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1307834,,,,,,False
@@ -4138,6 +4143,7 @@ EPQRARSLTV,0,HLA-B*08:01,Unknown,EPQRARSLTV,,Virus,IEDB,,,,tested_negative,multi
 EPRDLDQRPY,0,HLA-B*35:01,HCV,EPRDLDQRPY,,Virus,IEDB,,,,tested_negative,51 chromium,2,0.7,9680137.0,http://www.iedb.org/assay/1278607,,,,,,False
 EPRKLLTQDL,0,HLA-B*07:02,Self,EPRKLLTQDL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,32314731.0,http://www.iedb.org/assay/7689497,,,,,,False
 EPRSGFHGVL,0,HLA-B*07:02,Unknown,EPRPGFHGVL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,33303615.0,http://www.iedb.org/assay/22501953,,,,,,False
+EPRSPSHSM,0,HLA-B*07:02,Self,EPRSPSHSM,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,37353482.0,http://www.iedb.org/assay/22555189,,,,,,False
 EPSDKHIEQY,0,HLA-B*35:01,Plasmodium falciparum,EPSDKHIEQY,,Virus,IEDB,,,,tested_negative,51 chromium,2,0.7,1280333.0,http://www.iedb.org/assay/1345352,,,,,,False
 EPSDQHIEKY,0,HLA-B*35:01,Plasmodium falciparum,EPSDQHIEKY,,Virus,IEDB,,,,tested_negative,51 chromium,2,0.7,1280333.0,http://www.iedb.org/assay/1345353,,,,,,False
 EPSERLTSQEI,0,HLA-B*51:01,Self,EPSERLTSQEI,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,30783092.0,http://www.iedb.org/assay/5643002,,,,,,False
@@ -4429,6 +4435,7 @@ EYFISRTSIW,0,HLA-A*24:07,Orthopoxvirus vaccinia,EYFISRTSIW,,Virus,IEDB,,,,tested
 EYFNKYGHL,0,HLA-A*23:01,Orthopoxvirus vaccinia,EYFNKYGHL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297586,,,,,,False
 EYFNKYGHL,0,HLA-A*24:02,Orthopoxvirus vaccinia,EYFNKYGHL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297587,,,,,,False
 EYFNKYGHL,0,HLA-A*24:07,Orthopoxvirus vaccinia,EYFNKYGHL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297588,,,,,,False
+EYFRRCRIEIF,0,HLA-A*24:02,Unknown,EYFRRCRIEIF,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117497,,,,,,False
 EYFRYLYHR,0,HLA-A*68:01,Unknown,EYFRYLYHR,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553743,,,,,,False
 EYFSLVSNI,0,HLA-A*23:01,Orthopoxvirus vaccinia,EYFSLVSNI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297199,,,,,,False
 EYFSLVSNI,0,HLA-A*24:02,Orthopoxvirus vaccinia,EYFSLVSNI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297200,,,,,,False
@@ -5338,6 +5345,7 @@ FLGDTHSSI,0,HLA-A*02:01,Self,FLGDTHSSI,,Virus,IEDB,,,,tested_negative,multimer/t
 FLGGELWGV,0,HLA-A*02:01,Unknown,HT-29 cell (epithelial cell) from gastrointestinal tract (Homo sapiens (human)),,Virus,IEDB,,,,tested_negative,in vitro assay,2,0.7,24077852.0,http://www.iedb.org/assay/22990268,,,,,,False
 FLGGGGAGI,0,HLA-A*02:01,Trypanosoma cruzi,FLGGGGAGI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,15848276.0,http://www.iedb.org/assay/1377209,,,,,,False
 FLGILSVML,0,HLA-A*02:01,Self,FLGILSVML,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,24344295.0,http://www.iedb.org/assay/22939062,,,,,,False
+FLGITNML,0,HLA-A*02:01,Unknown,FQGITNML,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502474,,,,,,False
 FLGKIWPSH,0,HLA-C*12:02,HIV-1,FLGKIWPSH,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,31217245.0,http://www.iedb.org/assay/5993552,,,,,,False
 FLGLFILSHL,0,HLA-A*02:01,Orthopoxvirus vaccinia,FLGLFILSHL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1294154,,,,,,False
 FLGMESCGI,0,HLA-A*02:01,Self,FLGMESCGI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,26061065.0,http://www.iedb.org/assay/2466745,,,,,,False
@@ -5358,6 +5366,7 @@ FLHKGVFKL,0,HLA-A*02:01,Unknown,FLHKGVFKL,,Virus,IEDB,,,,tested_negative,multime
 FLHKGYVPC,0,HLA-A*02:01,Unknown,FLHKGYVPC,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12386065,,,,,,False
 FLHNYILYA,0,HLA-A*02:01,Orthopoxvirus vaccinia,FLHNYILYA,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1293983,,,,,,False
 FLHQSSVPTL,0,HLA-A*02:01,Unknown,FLHQSSVPTL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,24323902.0,http://www.iedb.org/assay/12344556,,,,,,False
+FLHSVVVPY,0,HLA-A*32:01,Unknown,FLHSVVVPY,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117544,,,,,,False
 FLHTTFIDV,0,HLA-A*02:01,Orthopoxvirus vaccinia,FLHTTFIDV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23543059.0,http://www.iedb.org/assay/1984294,,,,,,False
 FLHWLMSV,0,HLA-A*02:01,Self,FLHWLMSV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,34270940.0,http://www.iedb.org/assay/16366522,,,,,,False
 FLHWLMSVYV,0,HLA-A*02:01,Self,FLHWLMSVYV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,34270940.0,http://www.iedb.org/assay/16366520,,,,,,False
@@ -5472,6 +5481,7 @@ FLLVIGACV,0,HLA-A*02:01,Rhadinovirus humangamma8,FLLVIGACV,,Virus,IEDB,,,,tested
 FLLVTPHL,0,HLA-A*02:01,Self,FLLVTPHL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,34270940.0,http://www.iedb.org/assay/16366576,,,,,,False
 FLLVTPHLT,0,HLA-A*02:01,Self,FLLVTPHLT,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,34270940.0,http://www.iedb.org/assay/16366578,,,,,,False
 FLLWKATGV,0,HLA-A*02:01,Unknown,FLLWKATGV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553388,,,,,,False
+FLLYGLSSVAL,0,HLA-A*02:01,Unknown,FLLYGLSSVAL,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502440,,,,,,False
 FLLYYGQDI,0,HLA-A*02:01,Unknown,FLLYYGQDI,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12386103,,,,,,False
 FLMASISSF,0,HLA-A*02:01,Unknown,FLMASISSF,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,27198675.0,http://www.iedb.org/assay/12167355,,,,,,False
 FLMASISSFL,0,HLA-A*02:01,Unknown,FLMASISSFL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,27198675.0,http://www.iedb.org/assay/12167365,,,,,,False
@@ -5972,6 +5982,7 @@ FQEQDKELY,0,HLA-A*30:02,Orthopoxvirus vaccinia,FQEQDKELY,,Virus,IEDB,,,,tested_n
 FQETHLPI,0,HLA-B*39:01,Unknown,cell found in tissue from ovary (Homo sapiens (human)),,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,29296522.0,http://www.iedb.org/assay/8117569,,,,,,False
 FQETHLPI,0,HLA-B*39:01,Unknown,FQETHLPI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,24323902.0,http://www.iedb.org/assay/12344574,,,,,,False
 FQFYKVREI,0,HLA-A*02:01,Streptococcus pyogenes,FQFYKVREI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,31015529.0,http://www.iedb.org/assay/5590190,,,,,,False
+FQGITNML,0,HLA-A*02:01,Self,FQGITNML,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502503,,,,,,False
 FQHPYDQAHLL,0,HLA-A*02:01,Unknown,FQHPYDQAHLL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12386127,,,,,,False
 FQIEEFGTGV,0,HLA-A*02:01,YFV,FQIEEFGTGV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,28386132.0,http://www.iedb.org/assay/2397350,,,,,,False
 FQIEEFGTGV,0,HLA-A*02:05,YFV,FQIEEFGTGV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,28386132.0,http://www.iedb.org/assay/2397351,,,,,,False
@@ -8437,6 +8448,8 @@ HMQHFPGFAY,0,HLA-B*35:01,Self,HMQHFPGFAY,,Virus,IEDB,,,,tested_negative,multimer
 HMRTVTNYF,0,HLA-C*04:01,Self,HMRTVTNYF,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,30783092.0,http://www.iedb.org/assay/5643330,,,,,,False
 HMSEFMECNL,0,HLA-A*02:01,Self,HMSEFMECNL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,26061065.0,http://www.iedb.org/assay/2466760,,,,,,False
 HMSSYIASF,0,HLA-A*26:01,Unknown,HMSSYIASF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23644516.0,http://www.iedb.org/assay/22730929,,,,,,False
+HMTEVVRHC,0,HLA-A*02:01,Unknown,YKQSQHMTEVVRRCPHHERCSDSDG,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,30714987.0,http://www.iedb.org/assay/22555704,,,,,,False
+HMTEVVRHC,0,HLA-A*02:01,Unknown,HMTEVVRRC,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,38816232.0,http://www.iedb.org/assay/22907760,,,,,,False
 HMTEVVRHC,0,HLA-A*02:01,Unknown,HMTEVVRRC,,Virus,IEDB,,,,tested_negative,ELISA,2,0.7,31996390.0,http://www.iedb.org/assay/25579957,,,,,,False
 HMTRDPLYI,0,HLA-A*23:01,Orthopoxvirus vaccinia,HMTRDPLYI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1294793,,,,,,False
 HMTRDPLYI,0,HLA-A*24:02,Orthopoxvirus vaccinia,HMTRDPLYI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1294794,,,,,,False
@@ -9857,6 +9870,7 @@ ILFNLSKFLL,0,HLA-A*26:01,Orthopoxvirus vaccinia,ILFNLSKFLL,,Virus,IEDB,,,,tested
 ILFNLSKFLL,0,HLA-A*29:02,Orthopoxvirus vaccinia,ILFNLSKFLL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1290870,,,,,,False
 ILFNLSKFLL,0,HLA-A*30:02,Orthopoxvirus vaccinia,ILFNLSKFLL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1290871,,,,,,False
 ILFPDDVQEL,0,HLA-A*02:01,Orthopoxvirus vaccinia,ILFPDDVQEL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23543059.0,http://www.iedb.org/assay/1984297,,,,,,False
+ILFQCMPVPV,0,HLA-A*02:01,Unknown,VLFQCMPVPV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502422,,,,,,False
 ILFRMIETY,0,HLA-A*03:01,Orthopoxvirus vaccinia,ILFRMIETY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1281167,,,,,,False
 ILFRMIETY,0,HLA-A*11:01,Orthopoxvirus vaccinia,ILFRMIETY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1303738,,,,,,False
 ILFRMIETY,0,HLA-A*33:01,Orthopoxvirus vaccinia,ILFRMIETY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1303739,,,,,,False
@@ -10999,6 +11013,7 @@ IVFIATSEF,0,HLA-B*15:03,Unknown,IVFIATSEF,,Virus,IEDB,,,,tested_negative,ELISPOT
 IVFNLPVSK,0,HLA-A*11:01,Orthopoxvirus vaccinia,IVFNLPVSK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1280928,,,,,,False
 IVFNLPVSK,0,HLA-A*33:01,Orthopoxvirus vaccinia,IVFNLPVSK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299263,,,,,,False
 IVFNLPVSK,0,HLA-A*33:03,Orthopoxvirus vaccinia,IVFNLPVSK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299264,,,,,,False
+IVFPIIVIVV,0,HLA-A*02:01,Unknown,IVFPIIVIVV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502483,,,,,,False
 IVFPLRCRK,0,HLA-A*11:01,Unknown,IVFPLRCRK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,39725148.0,http://www.iedb.org/assay/22947997,,,,,,False
 IVFVDVIIIK,0,HLA-A*03:01,Orthopoxvirus vaccinia,IVFVDVIIIK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299841,,,,,,False
 IVFVDVIIIK,0,HLA-A*11:01,Orthopoxvirus vaccinia,IVFVDVIIIK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299842,,,,,,False
@@ -11691,6 +11706,7 @@ KELNPNDIF,0,HLA-B*37:01,Orthopoxvirus vaccinia,KELNPNDIF,,Virus,IEDB,,,,tested_n
 KELNPNDIF,0,HLA-B*40:01,Orthopoxvirus vaccinia,KELNPNDIF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1310094,,,,,,False
 KELNPNDIF,0,HLA-B*40:02,Orthopoxvirus vaccinia,KELNPNDIF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1310095,,,,,,False
 KELNPNDIF,0,HLA-B*49:01,Orthopoxvirus vaccinia,KELNPNDIF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1310096,,,,,,False
+KELPMFTYRV,0,HLA-A*02:01,Unknown,KELPMFTYRV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502491,,,,,,False
 KELSYDICY,0,HLA-B*37:01,Orthopoxvirus vaccinia,KELSYDICY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1309612,,,,,,False
 KELSYDICY,0,HLA-B*40:01,Orthopoxvirus vaccinia,KELSYDICY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1309613,,,,,,False
 KELSYDICY,0,HLA-B*40:02,Orthopoxvirus vaccinia,KELSYDICY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1309614,,,,,,False
@@ -12498,6 +12514,8 @@ KLNSGIKTK,0,HLA-A*33:03,Orthopoxvirus vaccinia,KLNSGIKTK,,Virus,IEDB,,,,tested_n
 KLNSGIKTK,0,HLA-A*68:01,Orthopoxvirus vaccinia,KLNSGIKTK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1298405,,,,,,False
 KLNSSVYSL,0,HLA-A*02:01,CoxsackievirusB,KLNSSVYSL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,18753217.0,http://www.iedb.org/assay/1500940,,,,,,False
 KLPDALSNL,0,HLA-A*02:01,CoxsackievirusB,KLPDALSNL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,18753217.0,http://www.iedb.org/assay/1500956,,,,,,False
+KLPDLWCKI,0,HLA-A*02:01,Unknown,KLPDLWRK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502462,,,,,,False
+KLPDLWRK,0,HLA-A*02:01,Self,KLPDLWRK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502499,,,,,,False
 KLPEPTSGV,0,HLA-A*02:01,Self,KLPEPTSGV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,32198668.0,http://www.iedb.org/assay/8158646,,,,,,False
 KLPEVVQLI,0,HLA-A*02:01,Unknown,KLPEVVQLI,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,39753970.0,http://www.iedb.org/assay/22951865,,,,,,False
 KLPEVVQLIEK,0,HLA-A*03:01,Unknown,KLPEVVQLIEK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,39753970.0,http://www.iedb.org/assay/22951864,,,,,,False
@@ -15090,6 +15108,7 @@ LLAAPSAMA,0,HLA-A*02:01,Unknown,LLAAPSAMA,,Virus,IEDB,,,,tested_negative,ICS,2,0
 LLAARQLL,0,HLA-A*02:01,Unknown,LLAARQLL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553463,,,,,,False
 LLACAVIHA,0,HLA-A*02:01,Mycobacterium tuberculosis,LLACAVIHA,,Virus,IEDB,,,,tested_negative,51 chromium,2,0.7,11035787.0,http://www.iedb.org/assay/1506606,,,,,,False
 LLADQNFKFI,0,HLA-A*02:01,Unknown,LLADQNFKFI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23644516.0,http://www.iedb.org/assay/22730797,,,,,,False
+LLAEELNQLKA,0,HLA-A*02:01,Unknown,LLAEELNQLKA,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502444,,,,,,False
 LLAELPASVHV,0,HLA-A*02:01,Unknown,LLAELPASVHV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553464,,,,,,False
 LLAELYCRA,0,HLA-A*02:01,Unknown,LLAELYCRA,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12385629,,,,,,False
 LLAEVKSL,0,HLA-A*02:01,Unknown,LLAEVKSL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12385997,,,,,,False
@@ -15719,6 +15738,7 @@ LLYSDILLK,0,HLA-A*11:01,Influenza B virus,LLYSDILLK,,Virus,IEDB,,,,tested_negati
 LLYVALAQR,0,HLA-A*68:01,Unknown,LLYVALAQR,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,35727629.0,http://www.iedb.org/assay/22392835,,,,,,False
 LMAKRGLYY,0,HLA-A*01:01,Self,LMAKRGLYY,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,32314731.0,http://www.iedb.org/assay/7689297,,,,,,False
 LMALPPCHAL,0,HLA-A*02:01,Self,LMALPPCHAL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,35874702.0,http://www.iedb.org/assay/22385885,,,,,,False
+LMAPLSPGA,0,HLA-A*02:01,Unknown,LMAPLSPGA,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502424,,,,,,False
 LMASISSFL,0,HLA-A*02:01,Unknown,LMASISSFL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,27198675.0,http://www.iedb.org/assay/12167384,,,,,,False
 LMASISSFLL,0,HLA-A*02:01,Unknown,LMASISSFLL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,27198675.0,http://www.iedb.org/assay/12167367,,,,,,False
 LMASTSLKQQL,0,HLA-A*02:01,Unknown,LMASTSLKQQL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12385791,,,,,,False
@@ -18954,6 +18974,7 @@ NLNAILESK,0,HLA-A*03:01,Orthopoxvirus vaccinia,NLNAILESK,,Virus,IEDB,,,,tested_n
 NLNAILESK,0,HLA-A*11:01,Orthopoxvirus vaccinia,NLNAILESK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299254,,,,,,False
 NLNAILESK,0,HLA-A*33:01,Orthopoxvirus vaccinia,NLNAILESK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299255,,,,,,False
 NLNAILESK,0,HLA-A*33:03,Orthopoxvirus vaccinia,NLNAILESK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299256,,,,,,False
+NLNCCSVPV,0,HLA-A*02:01,Unknown,other from other (Homo sapiens (human)),,Virus,IEDB,,,,tested_negative,ICS,2,0.7,27198675.0,http://www.iedb.org/assay/12167295,,,,,,False
 NLNCCSVPV,0,HLA-A*02:01,Unknown,NLNCCSVPV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553982,,,,,,False
 NLNDNAIHL,0,HLA-A*02:01,Plasmodium falciparum,NLNDNAIHL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,11012976.0,http://www.iedb.org/assay/1409384,,,,,,False
 NLNELVKHGL,0,HLA-A*02:01,Self,NLNELVKHGL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,26061065.0,http://www.iedb.org/assay/2466779,,,,,,False
@@ -20925,6 +20946,8 @@ QYYILKNEY,0,HLA-A*24:02,Orthopoxvirus vaccinia,QYYILKNEY,,Virus,IEDB,,,,tested_n
 QYYILKNEY,0,HLA-A*24:07,Orthopoxvirus vaccinia,QYYILKNEY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1296261,,,,,,False
 RAAEKGFNK,0,HLA-A*03:01,Unknown,RAAEKGFNK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,31857430.0,http://www.iedb.org/assay/22555015,,,,,,False
 RAAQKRTAA,0,HLA-B*08:01,ZIKV,RAAQKRTAA,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,28978707.0,http://www.iedb.org/assay/3839201,,,,,,False
+RACEWALQY,0,HLA-A*32:01,Unknown,RACEWALQY,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117542,,,,,,False
+RACEWALQYKL,0,HLA-A*32:01,Unknown,RACEWALQYKL,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117538,,,,,,False
 RAEDNSCPF,0,HLA-B*35:01,Self,RAEDNSCPF,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,30783092.0,http://www.iedb.org/assay/5644194,,,,,,False
 RAFYILMEK,0,HLA-A*03:01,Unknown,RAFYILMEK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,33479501.0,http://www.iedb.org/assay/16748121,,,,,,False
 RAGLQVRKNK,0,HLA-A*03:01,Self,RAGLQVRKNK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,32314731.0,http://www.iedb.org/assay/7689729,,,,,,False
@@ -22777,6 +22800,7 @@ RYSKKFQESF,0,HLA-A*24:07,Orthopoxvirus vaccinia,RYSKKFQESF,,Virus,IEDB,,,,tested
 RYSNISKSL,0,HLA-A*23:01,Orthopoxvirus vaccinia,RYSNISKSL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297310,,,,,,False
 RYSNISKSL,0,HLA-A*24:02,Orthopoxvirus vaccinia,RYSNISKSL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297311,,,,,,False
 RYSNISKSL,0,HLA-A*24:07,Orthopoxvirus vaccinia,RYSNISKSL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297312,,,,,,False
+RYSQKKPCYI,0,HLA-A*24:02,Unknown,RYSQKKPCYI,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117503,,,,,,False
 RYSSLTLANF,0,HLA-A*23:01,Orthopoxvirus vaccinia,RYSSLTLANF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1294454,,,,,,False
 RYSSLTLANF,0,HLA-A*24:02,Orthopoxvirus vaccinia,RYSSLTLANF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1294455,,,,,,False
 RYSSLTLANF,0,HLA-A*24:07,Orthopoxvirus vaccinia,RYSSLTLANF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1294456,,,,,,False
@@ -24101,6 +24125,7 @@ SLPETENSL,0,HLA-A*02:01,Self,SLPETENSL,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,
 SLPFQFAHRL,0,HLA-A*02:01,Unknown,SLPFQFAHRL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12386016,,,,,,False
 SLPGLSYNV,0,HLA-A*02:01,Self,SLPGLSYNV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,37192158.0,http://www.iedb.org/assay/22503604,,,,,,False
 SLPGLSYNVSV,0,HLA-A*02:01,Self,SLPGLSYNVSV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,37192158.0,http://www.iedb.org/assay/22503605,,,,,,False
+SLPHDPGVFRV,0,HLA-A*02:01,Unknown,SLPHDPGVFRV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117490,,,,,,False
 SLPKHNVTI,0,HLA-A*02:01,Self,SLPKHNVTI,,Virus,IEDB,,,,tested_negative,ELISA,2,0.7,23475216.0,http://www.iedb.org/assay/2024691,,,,,,False
 SLPKHSVTI,0,HLA-A*02:01,Self,SLPKHNVTI,,Virus,IEDB,,,,tested_negative,ELISA,2,0.7,23475216.0,http://www.iedb.org/assay/2030876,,,,,,False
 SLPMLYFLY,0,HLA-A*03:01,Orthopoxvirus vaccinia,SLPMLYFLY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1304110,,,,,,False
@@ -26165,6 +26190,7 @@ SYLRYYNML,0,HLA-A*24:02,Orthopoxvirus vaccinia,SYLRYYNML,,Virus,IEDB,,,,tested_n
 SYLRYYNML,0,HLA-A*24:07,Orthopoxvirus vaccinia,SYLRYYNML,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1296198,,,,,,False
 SYLSRHQQI,0,HLA-A*24:02,Unknown,SYLSRHQQI,,Virus,IEDB,,,,tested_negative,bioassay,2,0.7,40280722.0,http://www.iedb.org/assay/22974051,,,,,,False
 SYLSRHSSL,0,HLA-C*07:02,Unknown,SYLSRHSSL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,35727629.0,http://www.iedb.org/assay/22392778,,,,,,False
+SYLTTTAPSL,0,HLA-A*24:02,Unknown,SYLTTTAPSL,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117499,,,,,,False
 SYLVSSLSEI,0,HLA-A*23:01,Orthopoxvirus vaccinia,SYLVSSLSEI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1295315,,,,,,False
 SYLVSSLSEI,0,HLA-A*24:02,Orthopoxvirus vaccinia,SYLVSSLSEI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1295316,,,,,,False
 SYLVSSLSEI,0,HLA-A*24:07,Orthopoxvirus vaccinia,SYLVSSLSEI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1295317,,,,,,False
@@ -26360,6 +26386,7 @@ TEEYIGNTY,0,HLA-B*40:01,Orthopoxvirus vaccinia,TEEYIGNTY,,Virus,IEDB,,,,tested_n
 TEEYIGNTY,0,HLA-B*40:02,Orthopoxvirus vaccinia,TEEYIGNTY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1308290,,,,,,False
 TEEYIGNTY,0,HLA-B*44:02,Orthopoxvirus vaccinia,TEEYIGNTY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1308291,,,,,,False
 TEEYIGNTY,0,HLA-B*49:01,Orthopoxvirus vaccinia,TEEYIGNTY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1308292,,,,,,False
+TEFFPFYAL,0,HLA-B*40:01,Unknown,TEFLPFYAL,,Virus,IEDB,,,,tested_negative,ELISA,2,0.7,38039963.0,http://www.iedb.org/assay/22731092,,,,,,False
 TEFHHYNNF,0,HLA-B*37:01,Orthopoxvirus vaccinia,TEFHHYNNF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1307562,,,,,,False
 TEFHHYNNF,0,HLA-B*40:01,Orthopoxvirus vaccinia,TEFHHYNNF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1307563,,,,,,False
 TEFHHYNNF,0,HLA-B*40:02,Orthopoxvirus vaccinia,TEFHHYNNF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1307564,,,,,,False
@@ -28601,6 +28628,7 @@ VEVVNDNEMY,0,HLA-B*49:01,Orthopoxvirus vaccinia,VEVVNDNEMY,,Virus,IEDB,,,,tested
 VEVYSWFDF,0,HLA-B*37:01,Orthopoxvirus vaccinia,VEVYSWFDF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1308504,,,,,,False
 VEVYSWFDF,0,HLA-B*40:01,Orthopoxvirus vaccinia,VEVYSWFDF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1308505,,,,,,False
 VEVYSWFDF,0,HLA-B*40:02,Orthopoxvirus vaccinia,VEVYSWFDF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1308506,,,,,,False
+VEYFRRCRI,0,HLA-B*40:01,Unknown,VEYFRRCRI,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117505,,,,,,False
 VEYILKNGNL,0,HLA-B*37:01,Orthopoxvirus vaccinia,VEYILKNGNL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1306112,,,,,,False
 VEYILKNGNL,0,HLA-B*40:01,Orthopoxvirus vaccinia,VEYILKNGNL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1306113,,,,,,False
 VEYILKNGNL,0,HLA-B*40:02,Orthopoxvirus vaccinia,VEYILKNGNL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1306114,,,,,,False
@@ -28963,6 +28991,7 @@ VLFLQQSIFR,0,HLA-A*33:03,Orthopoxvirus vaccinia,VLFLQQSIFR,,Virus,IEDB,,,,tested
 VLFLQQSIFR,0,HLA-A*68:01,Orthopoxvirus vaccinia,VLFLQQSIFR,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1299825,,,,,,False
 VLFNLSPCW,0,HLA-B*58:01,Self,VLFNLSPCW,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,34270940.0,http://www.iedb.org/assay/16365888,,,,,,False
 VLFPGCTPPAY,0,HLA-A*29:02,Unknown,VLFPGCTPPAY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,39840067.0,http://www.iedb.org/assay/22952564,,,,,,False
+VLFQCMPVPV,0,HLA-A*02:01,Self,VLFQCMPVPV,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502497,,,,,,False
 VLFRLENHA,0,HLA-A*02:01,Orthopoxvirus vaccinia,VLFRLENHA,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23543059.0,http://www.iedb.org/assay/1984414,,,,,,False
 VLFSNESSL,0,HLA-A*02:01,Unknown,VLFSNESSL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553557,,,,,,False
 VLFSTVFPLT,0,HLA-A*02:01,SARS-CoV-2,VLFSTVFPLT,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,37117789.0,http://www.iedb.org/assay/22505360,,,,,,False
@@ -29426,6 +29455,7 @@ VPLCDLLLEM,0,HLA-A*02:01,Unknown,VPLCDLLLEM,,Virus,IEDB,,,,tested_negative,ICS,2
 VPLCGLLLEM,0,HLA-A*02:01,Unknown,VPLYDLLLEM,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,40554954.0,http://www.iedb.org/assay/23026722,,,,,,False
 VPLKEPVPTIF,0,HLA-B*51:01,Unknown,VPLKEPVPTIF,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,39753970.0,http://www.iedb.org/assay/22952038,,,,,,False
 VPLKRPFDL,0,HLA-B*08:01,Unknown,VPLKRPFDL,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,39753970.0,http://www.iedb.org/assay/22951700,,,,,,False
+VPLLEDSLL,0,HLA-B*35:01,Unknown,VPLLEDSLL,,Virus,IEDB,,,,tested_negative,surface plasmon resonance (SPR),2,0.7,30053426.0,http://www.iedb.org/assay/4140763,,,,,,False
 VPLLMIGCY,0,HLA-B*35:01,ZIKV,VPLLMIGCY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,28978707.0,http://www.iedb.org/assay/3839226,,,,,,False
 VPLLMIGCYS,0,HLA-B*35:01,ZIKV,VPLLMIGCYS,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,28978707.0,http://www.iedb.org/assay/3839227,,,,,,False
 VPLNDLLLEM,0,HLA-A*02:01,Unknown,VPLNDLLLEM,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,40554954.0,http://www.iedb.org/assay/23026713,,,,,,False
@@ -29870,6 +29900,7 @@ VTYSLYDQK,0,HLA-A*11:01,Orthopoxvirus vaccinia,VTYSLYDQK,,Virus,IEDB,,,,tested_n
 VTYSLYDQK,0,HLA-A*33:01,Orthopoxvirus vaccinia,VTYSLYDQK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297710,,,,,,False
 VTYSLYDQK,0,HLA-A*33:03,Orthopoxvirus vaccinia,VTYSLYDQK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297711,,,,,,False
 VTYSLYDQK,0,HLA-A*68:01,Orthopoxvirus vaccinia,VTYSLYDQK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1297712,,,,,,False
+VVAADAYCGW,0,HLA-A*32:01,Unknown,VVAADAYCGW,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117540,,,,,,False
 VVAASIIGI,0,HLA-A*02:01,Influenza A virus,VVAASIIGI,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,21846636.0,http://www.iedb.org/assay/1854028,,,,,,False
 VVADVKTV,0,HLA-B*51:01,unidentified,VVADVKTV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,41558215.0,http://www.iedb.org/assay/25752078,,,,,,False
 VVAGTILVCY,0,HLA-A*01:01,Orthopoxvirus vaccinia,VVAGTILVCY,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1291671,,,,,,False
@@ -29914,11 +29945,13 @@ VVGACGVGK,0,HLA-A*03:01,Unknown,VVGACGVGK,,Virus,IEDB,,,,tested_negative,ELISPOT
 VVGACGVGK,0,HLA-A*03:01,Unknown,VVGACGVGK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35720289.0,http://www.iedb.org/assay/22399848,,,,,,False
 VVGACGVGK,0,HLA-A*11:01,Unknown,VVGACGVGK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35720289.0,http://www.iedb.org/assay/22399950,,,,,,False
 VVGAGGVGK,0,HLA-A*11:01,Self,VVGAGGVGK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,36436020.0,http://www.iedb.org/assay/22385999,,,,,,False
+VVGAGGVGK,0,HLA-A*11:01,Self,VVGAGGVGK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,34138742.0,http://www.iedb.org/assay/22464110,,,,,,False
 VVGARGVGK,0,HLA-A*03:01,Self,VVGARGVGK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35720289.0,http://www.iedb.org/assay/25454393,,,,,,False
 VVGARGVGK,0,HLA-A*11:01,Self,VVGARGVGK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35720289.0,http://www.iedb.org/assay/25454394,,,,,,False
 VVGARTFRR,0,HLA-A*11:01,Self,VVGARTFRR,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,34270940.0,http://www.iedb.org/assay/16366108,,,,,,False
 VVGASGVGK,0,HLA-A*11:01,Self,VVGASGVGK,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35720289.0,http://www.iedb.org/assay/25454400,,,,,,False
 VVGAVGVGK,0,HLA-A*03:01,Unknown,VVGAVGVGK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,39287991.0,http://www.iedb.org/assay/22961763,,,,,,False
+VVGAVGVGK,0,HLA-A*11:01,Unknown,VVGAVGVGK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,36436020.0,http://www.iedb.org/assay/22386009,,,,,,False
 VVGAVGVGK,0,HLA-A*11:01,Unknown,VVGAVGVGK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,39287991.0,http://www.iedb.org/assay/22961762,,,,,,False
 VVHKRIHLGEK,0,HLA-A*03:01,Unknown,VVHKRIHLGEK,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12385475,,,,,,False
 VVHKSNRLYK,0,HLA-A*03:01,Orthopoxvirus vaccinia,VVHKSNRLYK,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1298736,,,,,,False
@@ -31180,6 +31213,8 @@ YISKCWDYA,0,HLA-A*02:01,Unknown,YISKCWDYA,,Virus,IEDB,,,,tested_negative,multime
 YISKYSVFL,0,HLA-A*02:01,Self,YISKYSVFL,,Virus,IEDB,,,,tested_negative,51 chromium,2,0.7,31685621.0,http://www.iedb.org/assay/6346088,,,,,,False
 YISRRLLGTF,0,HLA-A*34:02,LassaVirus,YISRRLLGTF,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,32269122.0,http://www.iedb.org/assay/7691170,,,,,,False
 YISRRLLGTF,0,HLA-C*16:01,LassaVirus,YISRRLLGTF,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,32269122.0,http://www.iedb.org/assay/7691293,,,,,,False
+YITAAYVEM,0,HLA-A*02:01,Self,YITAAYVEM,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502495,,,,,,False
+YITAAYVEV,0,HLA-A*02:01,Unknown,YITAAYVEM,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35468205.0,http://www.iedb.org/assay/22502418,,,,,,False
 YITKRIIAV,0,HLA-A*02:01,Unknown,YITKRIIAV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,33038342.0,http://www.iedb.org/assay/22553571,,,,,,False
 YITNRLELL,0,HLA-A*02:01,Orthopoxvirus vaccinia,YITNRLELL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23543059.0,http://www.iedb.org/assay/1984308,,,,,,False
 YIVAASRLFFV,0,HLA-A*02:01,Unknown,YIVAASRLFFV,,Virus,IEDB,,,,tested_negative,multimer/tetramer,1,1.0,31511069.0,http://www.iedb.org/assay/12385616,,,,,,False
@@ -31758,6 +31793,7 @@ YPLLSPIGL,0,HLA-B*07:02,Orthopoxvirus vaccinia,YPLLSPIGL,,Virus,IEDB,,,,tested_n
 YPLLSPIGL,0,HLA-B*51:01,Orthopoxvirus vaccinia,YPLLSPIGL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1311054,,,,,,False
 YPLLSPIGL,0,HLA-B*53:01,Orthopoxvirus vaccinia,YPLLSPIGL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1311055,,,,,,False
 YPLLSPIGL,0,HLA-B*55:01,Orthopoxvirus vaccinia,YPLLSPIGL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1311056,,,,,,False
+YPLYINQTCY,0,HLA-A*01:01,Unknown,YPLYINQTCY,,Virus,IEDB,,,,tested_negative,ICS,2,0.7,35665491.0,http://www.iedb.org/assay/21117534,,,,,,False
 YPNQEYDYF,0,HLA-B*07:02,Orthopoxvirus vaccinia,YPNQEYDYF,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,23543059.0,http://www.iedb.org/assay/1984383,,,,,,False
 YPNSQRIVPPV,0,HLA-B*35:01,Unknown,YPNSQRIVPPV,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,34486463.0,http://www.iedb.org/assay/21791708,,,,,,False
 YPPMMCYFL,0,HLA-B*07:02,Orthopoxvirus vaccinia,YPPMMCYFL,,Virus,IEDB,,,,tested_negative,ELISPOT,1,1.0,,http://www.iedb.org/assay/1310791,,,,,,False
