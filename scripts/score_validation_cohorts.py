@@ -61,6 +61,17 @@ INFLUENZA_CLEAN = os.path.join(PROJECT_ROOT, "data", "external", "influenza_clea
 SARS2_SCORED = os.path.join(PROJECT_ROOT, "results", "sars2_scored.csv")
 INFLUENZA_SCORED = os.path.join(PROJECT_ROOT, "results", "influenza_scored.csv")
 
+# The run log lands under results/, which is gitignored (.gitignore:249), NOT under
+# docs/. It carries AUC-PR, AUC-ROC and ISSR to four decimals with bootstrap CIs, plus
+# a YES/NO verdict against an unpublished 0.75 threshold - none of it bound through
+# _local/integrity/claims_manifest.toml or passed by claims-auditor. Writing that to
+# docs/stage3_results_log.md put unbound numbers on a path that is NOT gitignored and
+# that WAS tracked historically (added 328202f, deleted b6c9d50), so the next person to
+# run this script and `git add -A` would publish them. Same failure class the citation
+# and retracted-token gates exist for, but no gate watches an untracked file appearing
+# in docs/.
+RESULTS_LOG_PATH = os.path.join(PROJECT_ROOT, "results", "stage3_results_log.md")
+
 
 def predict_binding_matrix(peptides):
     """Predict MHC-I presentation using MHCflurry for the 10 target alleles."""
@@ -233,9 +244,11 @@ def main():
     if flu_res:
         results.append(flu_res)
 
-    # Write pre-registration results log in docs or results
+    # Write the pre-registration run log under results/ (gitignored). See
+    # RESULTS_LOG_PATH above for why this must not be a docs/ path.
     if results:
-        log_path = os.path.join(PROJECT_ROOT, "docs", "stage3_results_log.md")
+        log_path = RESULTS_LOG_PATH
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
         with open(log_path, "w") as f:
             f.write("# Stage 3 Computational Validation Results Log\n\n")
             f.write(

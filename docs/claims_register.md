@@ -144,6 +144,15 @@ Data curation decisions that establish evaluation scope for per-virus metrics. A
 quarantine decisions are archived in `data/holding/conflicts_v5_preaudit.csv` with
 full scientific justification.
 
+> **READER DISCLOSURE: the archive cited in this section does not exist in a clone.**
+> `data/holding/conflicts_v5_preaudit.csv`, named both in the paragraph above and in the
+> Archive location column below, is **not distributed with this repository.**
+> `data/holding/` is gitignored, so a fresh clone does not contain it (confirm the live
+> rule with `git check-ignore -v data/holding/conflicts_v5_preaudit.csv`). What a reader
+> can verify from a clone instead: the table below names the peptides and the HLA alleles
+> that each boundary decision affects, so the scope of every decision recorded here is
+> readable without the archive.
+
 | ID | Boundary decision | Justification | Affected metric | Date | Archive location |
 |---|---|---|---|---|---|
 | ES1 | 3 EBV negatives transferred to conflict-audit table: FRKAQIQGL (HLA-B*27:02), FRKAQIQGL (HLA-B*27:04), RRARSLSAERY (HLA-B*27:04) | Within-dataset label conflict: the same peptide sequences appear as label=1 for other HLA-B*27 subtypes in the same dataset. feature_mode=31 uses population-average binding features and cannot resolve intra-supertype subtype-specific immunogenicity. Evaluating against allele-subtype-specific labels constitutes a structural scope mismatch, consistent with the documented limitation: "labels do not represent allele-specific immunogenicity" (D3, claims_register Section 3). | EBV AUC-ROC increases from 0.553 (FAIL) to 0.656 (PASS) after quarantine. Amendment 6 EBV threshold (point-estimate >= 0.57) is met. Bootstrap CI widens from [0.429, 0.656] to a tighter interval as the outlier scores (0.874-0.949) are removed. | 2026-06-27 | data/holding/conflicts_v5_preaudit.csv |
