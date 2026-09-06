@@ -280,7 +280,19 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   Risk-accepted. OpenSSF Silver requires strict compiler/linter warnings to be enabled and addressed.
   - **Scope:** `pytest` test collection and runtime.
   - **Rationale:** Deep dependencies within `torch_geometric` raise unpatchable `DeprecationWarning`s during import (e.g., `torch_geometric.distributed` deprecation since 2.7.0). Enforcing `-W error` globally breaks the CI pipeline.
-  - **Mitigation:** We enforce strict warnings exclusively through our linting pipeline (Ruff) which is set to fail on any warning or error, satisfying the Silver criteria for static analysis, while allowing runtime PyTorch deprecation warnings to pass in test execution.
+  - **Mitigation:** A selected-rule static-analysis gate. **Corrected 2026-09-02:** this entry
+    previously said Ruff was "set to fail on any warning or error", which reads wider than the
+    gate that runs. What runs is `ruff check .` in the `lint` job of `.github/workflows/ci.yml`,
+    with no `--exit-zero`, so any violation of the ENABLED rule set fails the job. The enabled
+    set is `E4`, `E7`, `E9`, `F` and `S` (`[tool.ruff.lint]` in `pyproject.toml`), with nine
+    rules ignored repository-wide; Pycodestyle's `W` warning category is **not selected at
+    all**. Measured 2026-09-02 against this repository's own config, with a control in each
+    direction: trailing whitespace (`W291`) and an over-length line (`E501`) exit 0, while an
+    unused import (`F401`) and an insecure hash (`S324`) exit 1 - `S324` fires although `S` is
+    outside Ruff's default selection, and `E402` exits 0 although `E4` is selected, which is
+    how the measurement is shown to be reading this config and not a default one. The Silver
+    static-analysis judgement recorded above predates this correction and is not re-assessed
+    here. Runtime PyTorch deprecation warnings continue to pass in test execution.
   - **Re-review trigger:** any `torch` or `torch-geometric` major/minor upgrade (which may
     drop the import-time `DeprecationWarning`s this bypass exists for), or any narrowing of
     the pytest warning filter. Added 2026-08-05: this entry previously carried no trigger,
