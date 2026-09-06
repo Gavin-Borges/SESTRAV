@@ -4,11 +4,28 @@ channels:
   - defaults
 dependencies:
   - python=3.11.15
-  - numpy=1.26.4
-  - pandas=2.2.1
-  - scikit-learn=1.4.1.post1
+  # Unpinned on purpose. requirements.txt is the compiled tier 1 output in
+  # CONTRIBUTING.md's dependency table, whose source is requirements.in and
+  # which must never be hand-edited. It is what the pip block below installs,
+  # and pip runs after conda, so it decides the installed versions and a
+  # version asserted here is silently overwritten. Both halves used to pin
+  # these and disagreed: 1.26.4 / 2.2.1 / 1.4.1.post1 here against
+  # 2.4.6 / 3.0.3 / 1.8.0 there.
+  - numpy
+  - pandas
+  - scikit-learn
+  # Installed by conda rather than by the pip block below, because the pip block
+  # runs in hash-checking mode. Authoritative CI versions live in
+  # environments/requirements-ci-ruff.in and environments/requirements-ci-mypy.in.
+  - ruff
+  - mypy
   - pip=24.0
   - pip:
+      # Every entry here must be "==" pinned AND carry a --hash=. conda writes
+      # this whole list into one requirements file and runs a single pip install,
+      # and pip switches the entire invocation into --require-hashes mode as soon
+      # as any requirement carries a hash, including across a nested "-r". An
+      # unpinned entry beside the line below therefore fails the whole bootstrap
+      # with "In --require-hashes mode, all requirements must have their versions
+      # pinned with ==", which is what ruff>=0.4.0 and mypy>=1.10.0 were doing.
       - -r requirements.txt
-      - ruff>=0.4.0
-      - mypy>=1.10.0

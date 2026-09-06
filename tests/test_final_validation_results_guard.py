@@ -52,6 +52,7 @@ from src.final_validation_report import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+REQUIRED_ARGS_MARKER = "the following arguments are required:"
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +162,16 @@ def test_final_validation_cli_requires_results_dir_explicitly():
         cwd=REPO_ROOT,
     )
     assert result.returncode != 0
-    assert "--results-dir" in result.stderr
+    required_lines = [
+        ln for ln in result.stderr.splitlines() if REQUIRED_ARGS_MARKER in ln
+    ]
+    assert required_lines, (
+        f"expected argparse to reject the run outright, got: {result.stderr[:400]}"
+    )
+    assert "--results-dir" in required_lines[0], (
+        f"--results-dir was not named as required; it may have regained a default: "
+        f"{required_lines[0][:200]}"
+    )
 
 
 def test_final_validation_cli_advertises_allow_overwrite():

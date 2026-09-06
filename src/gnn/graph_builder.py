@@ -78,7 +78,7 @@ class GraphBuilder:
         return norm_adj
 
     @staticmethod
-    def build_pyg_chain_graph(max_len: int = MAX_PEPTIDE_LEN):
+    def build_pyg_chain_graph(max_len: int = MAX_PEPTIDE_LEN, *, edge_mode: str = "full"):
         """Build PyG-format edge_index and edge_attr for a 1D chain graph with self-loops.
 
         Edge features (3-dim one-hot):
@@ -86,16 +86,31 @@ class GraphBuilder:
             [0, 1, 0] = forward    (i → i+1)
             [0, 0, 1] = backward   (i → i-1)
 
+        Args:
+            max_len: number of residue nodes.
+            edge_mode: "full" emits self-loops plus the bidirectional chain.
+                "self-loop-only" emits self-loops alone, which reduces each
+                GINEConv layer to a per-node transform and makes the encoder a
+                DeepSets-style null arm. It is the control for whether the chain
+                topology contributes anything beyond the ESM-2 node features.
+
         Returns:
             edge_index: LongTensor  (2, num_edges) - num_edges = max_len + 2*(max_len-1)
+                        under "full", and max_len under "self-loop-only"
             edge_attr:  FloatTensor (num_edges, 3)
         """
+        # Rejected rather than defaulted: a typo would otherwise silently select the
+        # ablation arm and be reported as a full-graph run.
+        if edge_mode not in ("full", "self-loop-only"):
+            raise ValueError(
+                f"edge_mode must be 'full' or 'self-loop-only', got {edge_mode!r}"
+            )
         src, dst, attrs = [], [], []
         for i in range(max_len):
             src.append(i)
             dst.append(i)
             attrs.append([1.0, 0.0, 0.0])
-            if i < max_len - 1:
+            if edge_mode == "full" and i < max_len - 1:
                 src.append(i)
                 dst.append(i + 1)
                 attrs.append([0.0, 1.0, 0.0])
