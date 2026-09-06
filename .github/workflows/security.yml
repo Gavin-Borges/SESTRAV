@@ -16,6 +16,7 @@ jobs:
   bandit:
     name: Bandit Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +41,7 @@ jobs:
   secret-pattern-scan:
     name: Custom Secret Pattern Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,6 +61,10 @@ jobs:
   codeql:
     name: CodeQL Static Analysis
     runs-on: ubuntu-latest
+    # 20 rather than a tighter multiple of the 1.4 min observed max: the database
+    # build is the most variable step in this repo, and a spike there should not
+    # read as a hang.
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
@@ -98,6 +104,7 @@ jobs:
   semgrep:
     name: Semgrep Security Scan (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       actions: read
       contents: read
@@ -171,6 +178,7 @@ jobs:
   pip-audit:
     name: pip-audit Dependency Scan (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -294,6 +302,7 @@ jobs:
   python-sbom:
     name: Python SBOM (pip-licenses)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -348,6 +357,63 @@ jobs:
             sbom.json
             DEPENDENCY_LICENSES.md
           retention-days: 90
+
+      - name: Assert generated SBOM covers the production set
+        # Guards the artifact the freshness gate below actually consumes, not the
+        # installed environment that produced it. The lockfile install above is
+        # continue-on-error, so a run in which it failed still reaches this point with
+        # pip-licenses reporting the SBOM tooling alone.
+        #
+        # Why that is not already caught: tools/check_sbom_freshness.py treats
+        # "listed in the committed artifact but absent from this run" as a NOTICE, so a
+        # truncated generated set whose surviving packages version-match docs/sbom.json
+        # exits 0 after comparing very few of them. Measured at c37819f against a
+        # 6-package generated file drawn from docs/sbom.json with no sentinel in it:
+        # exit 0, "docs/sbom.json is in sync with the freshly generated artifact".
+        # Its parse_artifact() already rejects an unparseable, non-list or zero-package
+        # artifact (exit 2), so the parse and non-empty branches here are a clearer
+        # error message rather than new coverage; the sentinel branch is the new gate.
+        #
+        # all-of, not the pip-audit job's any-of. `pip install --require-hashes
+        # --no-deps` fails during collection or hash verification, before anything is
+        # installed, so the environment is all-or-nothing and any-of buys nothing there.
+        # On the ARTIFACT the two differ, because pip-licenses output is filtered by
+        # --ignore-packages (currently pip-licenses, prettytable, wcwidth, pip, wheel -
+        # none of them a sentinel) and depends on each distribution's .dist-info being
+        # intact. all-of is what turns a sentinel silently dropping out of the SBOM into
+        # a failure. If the lockfile ever stops pinning one of these three, update this
+        # list in the same commit rather than weakening the check.
+        run: |
+          python - <<'PY'
+          import json, sys
+
+          SENTINELS = ("numpy", "pandas", "scikit-learn")
+
+          try:
+              with open("sbom.json", encoding="utf-8") as fh:
+                  data = json.load(fh)
+          except (OSError, ValueError) as exc:
+              print(f"::error::generated sbom.json is not parseable: {exc}")
+              sys.exit(1)
+          if not isinstance(data, list) or not data:
+              print("::error::generated sbom.json is empty or not a JSON list - pip-licenses did not run")
+              sys.exit(1)
+          names = {
+              str(row.get("Name", "")).strip().lower().replace("_", "-")
+              for row in data
+              if isinstance(row, dict)
+          }
+          missing = [pkg for pkg in SENTINELS if pkg not in names]
+          if missing:
+              print(f"::error::generated sbom.json lists {len(data)} package(s) but is "
+                    f"missing {missing} from the production sentinel set "
+                    f"{list(SENTINELS)}. The lockfile install above is continue-on-error, "
+                    f"so a failed or truncated install yields a tooling-only SBOM that "
+                    f"tools/check_sbom_freshness.py accepts as fresh.")
+              sys.exit(1)
+          print(f"SBOM production-set sentinel OK: {len(data)} packages, "
+                f"all of {list(SENTINELS)} present")
+          PY
 
       # Fail-closed freshness gate. docs/sbom.json and docs/DEPENDENCY_LICENSES.md are
       # committed pip-licenses output, but nothing regenerated them on a schedule and
