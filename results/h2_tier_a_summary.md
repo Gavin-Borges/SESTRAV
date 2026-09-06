@@ -2,7 +2,12 @@
 
 ## Inputs
 - Dataset: `data/immunogenicity_dataset_v3.csv`
-- Integrated model template: `models/rf_30feature_integrated.joblib` (sha256: `9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3`)
+- Integrated model template: `models/rf_30feature_integrated.joblib` (sha256: `9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3`). That binary is a
+  build output and is **not tracked in this repository**, so a clone does not contain it.
+  It is the only untracked input listed here: the dataset and binding matrix above are both
+  tracked. Its identity remains verifiable without it, because the same sha256 is recorded
+  in the tracked `models/model_artifact_checksums.json` and in the `.provenance.json`
+  sidecars beside this evaluation's CSVs.
 - Binding matrix: `models/peptide_binding_matrix_v3.csv`
 - CV: StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 - Splitter note: this is a label-only (ungrouped) splitter, but it is **peptide-disjoint

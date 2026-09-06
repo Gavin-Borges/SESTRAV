@@ -246,8 +246,10 @@ applies `adj @ (x @ W) + b` over a dense adjacency matrix; node features are 20-
 one-hot amino acids in `(batch, max_len=11, 20)` shape; two GCN blocks (20 -> 32 -> 64)
 are followed by global mean pooling and fused with a physicochemical dense block. The
 graph builder also carries an optional spatial adjacency (`GraphBuilder.build_spatial_adj`)
-that reads a pre-computed pairwise distance matrix per peptide from
-`structural_cache_dir` and falls back to the chain graph when none is cached. **It is off
+that reads a pre-computed pairwise distance matrix per peptide AND allele from
+`structural_cache_dir` and falls back to the chain graph when none is cached. Writer
+and reader share one filename builder (`structural_cache_filename`), because they
+previously disagreed and every lookup missed in silence. **It is off
 in the shipped configuration** (`use_spatial_adj: false` in `config.yaml`) and is reachable
 only from this v1 path; the v2 PyG path has no spatial builder at all.
 

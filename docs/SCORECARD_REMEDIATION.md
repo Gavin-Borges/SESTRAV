@@ -195,9 +195,19 @@ recognition of the MIT license.
 ## Fuzzing - How to Run Locally
 
 ```bash
-# Standard fuzz run (200 examples)
+# Default run. HYPOTHESIS_MAX_EXAMPLES is unset, so this is Hypothesis's own
+# default of 100 examples, NOT the 200 that CI uses.
 conda run -n sestrav pytest tests/test_fuzz.py -v
+
+# Standard fuzz run (200 examples, matches push and pull_request CI)
+HYPOTHESIS_MAX_EXAMPLES=200 conda run -n sestrav pytest tests/test_fuzz.py -v
 
 # Extended fuzz run (1000 examples, matches weekly CI)
 HYPOTHESIS_MAX_EXAMPLES=1000 conda run -n sestrav pytest tests/test_fuzz.py -v
 ```
+
+Confirm the depth actually took effect with `--hypothesis-show-statistics`, which
+reports the passing-example count per test. The variable is read by the root
+`conftest.py`, which registers and loads a Hypothesis profile from it; Hypothesis
+itself has no built-in support for that name, so a run that bypasses this
+`conftest.py` falls back to 100 regardless of what the variable says.
