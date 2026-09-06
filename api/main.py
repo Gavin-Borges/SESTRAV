@@ -82,6 +82,10 @@ def _sanitize_for_log(value: object) -> str:
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CHECKSUM_FILE = _PROJECT_ROOT / "models" / "model_artifact_checksums.json"
 _CONFIG_PATH = _PROJECT_ROOT / "config.yaml"
+# Tracked v5 corpus. The historical root filename immunogenicity_dataset.csv
+# is reserved for scripts/verify_tier_a_provenance.py, which git-shows it at
+# 69e0e5c on purpose and must not be "fixed" to this path.
+_TRAINING_DATASET_PATH = _PROJECT_ROOT / "data" / "immunogenicity_dataset_v5.csv"
 
 # No archival DOI has been minted yet; the API reports null rather than a fake
 # placeholder. Set this to the real DOI (e.g. "10.5281/zenodo.NNNNNNN") once the
@@ -468,12 +472,10 @@ def provenance() -> ProvenanceInfo:
             manifest = json.load(fh)
 
     dataset_sha: str | None = None
-    # Point to the actual training dataset (project root), not the expansion v3 file.
-    dataset_path = _PROJECT_ROOT / "immunogenicity_dataset.csv"
-    if dataset_path.exists():
+    if _TRAINING_DATASET_PATH.exists():
         from src.artifact_integrity import sha256_file
 
-        dataset_sha = sha256_file(dataset_path)
+        dataset_sha = sha256_file(_TRAINING_DATASET_PATH)
 
     return ProvenanceInfo(
         dataset_sha256=dataset_sha,
