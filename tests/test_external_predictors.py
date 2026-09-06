@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import pandas as pd
 import requests
@@ -9,6 +11,8 @@ from src.external_predictors import (
     query_netchop,
     query_tapreg,
     get_predictor_dataframe,
+    _generate_mock_netchop_scores,
+    _generate_mock_tapreg_score,
 )
 
 
@@ -98,16 +102,65 @@ def test_get_predictor_dataframe():
     assert isinstance(row0["tap_score"], float)
 
 
-def test_live_query_smoke():
-    # Smoke test with 2-3 sample peptides using standard remote queries
-    # but allowing mock fallbacks automatically on connection issues.
+def _assert_live_scores_are_not_in_process_mocks(df, peptides, tap_model="blosum"):
+    """Fail if either predictor's column equals this process's mock generator.
+
+    mock_fallback does not mean 'allow fallback'. It means 'skip the network'.
+    Three return sites in query_netchop / query_tapreg emit mock scores without
+    consulting it, so a live call can silently degrade. Both predictors fall
+    back independently, so a NetChop-only check would still pass when only
+    TAPreg degraded. Values are compared to generators called in-process:
+    both mocks are seeded by the builtin hash() of a str, which is stable
+    within a process and not across processes, so literals would be flaky.
+    """
+    for pep in peptides:
+        mock_netchop = _generate_mock_netchop_scores(pep)["scores"]
+        mock_tap = _generate_mock_tapreg_score(pep, tap_model)
+        got_netchop = list(df.loc[pep, "netchop_all_scores"])
+        got_tap = df.loc[pep, "tap_score"]
+        assert got_netchop != mock_netchop, (
+            f"{pep}: netchop_all_scores matched the in-process mock generator; "
+            "silent mock fallback, not a live NetChop response"
+        )
+        assert got_tap != mock_tap, (
+            f"{pep}: tap_score matched the in-process mock generator; "
+            "silent mock fallback, not a live TAPreg response"
+        )
+
+
+def test_live_query_smoke_fails_when_handed_mock_output():
+    """The mock-detection assertion, without touching the network."""
     peptides = ["GLFYTRTGL", "AAYSDQWAL"]
-    try:
-        df = get_predictor_dataframe(peptides, mock_fallback=False)
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) == 2
-    except Exception as e:
-        pytest.fail(f"get_predictor_dataframe crashed unexpectedly: {e}")
+    rows = []
+    for pep in peptides:
+        mock_n = _generate_mock_netchop_scores(pep)
+        rows.append(
+            {
+                "peptide": pep,
+                "netchop_all_scores": mock_n["scores"],
+                "tap_score": _generate_mock_tapreg_score(pep, "blosum"),
+            }
+        )
+    df = pd.DataFrame(rows).set_index("peptide")
+    with pytest.raises(AssertionError, match="silent mock fallback"):
+        _assert_live_scores_are_not_in_process_mocks(df, peptides)
+
+
+@pytest.mark.skipif(
+    os.environ.get("SESTRAV_LIVE_PREDICTORS") != "1",
+    reason=(
+        "live NetChop/TAPreg query: skipped unless SESTRAV_LIVE_PREDICTORS=1. "
+        "The default CI and pre-push paths must not POST to "
+        "services.healthtech.dtu.dk or imed.med.ucm.es. Run locally with "
+        "that variable set when you intend to hit those servers."
+    ),
+)
+def test_live_query_smoke():
+    peptides = ["GLFYTRTGL", "AAYSDQWAL"]
+    df = get_predictor_dataframe(peptides, mock_fallback=False)
+    assert isinstance(df, pd.DataFrame)
+    assert list(df.index) == peptides
+    _assert_live_scores_are_not_in_process_mocks(df, peptides)
 
 
 # ---------------------------------------------------------------------------
