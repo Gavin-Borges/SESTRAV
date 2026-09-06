@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-07T11:51:55.724466+00:00",
+  "generated_utc": "2026-09-06T00:54:01.854527+00:00",
   "artifacts": {
     "rf_30feature_integrated.joblib": {
       "sha256": "9a7bd2051c85e360c89a59f2bb1b4688e64a316900422e0cf45ba5967bf711f3",
@@ -72,6 +72,10 @@
     "isotonic_calibrator.joblib": {
       "sha256": "f4fbed458b47e52ffdd7eac5f1a575be28a759b6ed65de5e36d715c53122536f",
       "size_bytes": 2455
+    },
+    "ann_30feature_integrated.pt": {
+      "sha256": "e7472490fe026a97e459eb25149effe110750490cc62c18edf3fcd4e607056d3",
+      "size_bytes": 201557
     }
   }
 }
