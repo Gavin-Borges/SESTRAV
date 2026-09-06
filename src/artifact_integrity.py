@@ -216,3 +216,31 @@ def model_provenance_fields(model_path: str | Path) -> dict[str, object]:
         "model_path": _relative_to_project_root(model_path),
         "model_sha256": sha256_file(model_path) if model_path.is_file() else None,
     }
+
+
+def binding_matrix_provenance_fields(
+    binding_matrix_path: str | Path,
+) -> dict[str, object]:
+    """Return `{binding_matrix_path, binding_matrix_sha256}`, the companion to
+    `model_provenance_fields` for the other input a mode-30/31/50 score depends on.
+
+    The model half of this pair exists because a benchmark once recorded no model
+    hash, the model was later overwritten, and the figure became permanently
+    unreproducible. The binding matrix is the same class of input and was left
+    out. It is not a lesser one: `prepare_features_30` substitutes `np.zeros(10)`
+    for every peptide the matrix omits, without raising, so a score is a function
+    of the matrix's COVERAGE as much as of the model. Measured on the v5 corpus,
+    swapping one tracked matrix for another moves pooled AUC-PR by roughly 0.15,
+    which is larger than any regression threshold a benchmark would alert on.
+
+    `binding_matrix_sha256` is `None` when the file is not present locally rather
+    than raising, matching `model_provenance_fields` and how `check_provenance`
+    treats a missing referenced artifact as a benign SKIP.
+    """
+    binding_matrix_path = Path(binding_matrix_path)
+    return {
+        "binding_matrix_path": _relative_to_project_root(binding_matrix_path),
+        "binding_matrix_sha256": (
+            sha256_file(binding_matrix_path) if binding_matrix_path.is_file() else None
+        ),
+    }
