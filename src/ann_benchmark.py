@@ -53,6 +53,7 @@ from src.features import (
 )
 from src.evaluate_metrics import summarize_fold_metrics
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.train_classifier import _filter_quarantined
 from src.model import (
     set_seeds,
     get_device,
@@ -214,6 +215,7 @@ def train_ann(
 
     # --- Load data ---
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     print(f"Loaded {len(df)} records from {data_path}")
 
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)

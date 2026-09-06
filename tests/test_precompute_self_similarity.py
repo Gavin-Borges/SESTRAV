@@ -180,10 +180,11 @@ class TestBuildKmerSets:
         assert "ACDEFGHI" in ksets[8]
 
     def test_non_standard_aa_excluded(self, tmp_path):
-        """X residues (ambiguous) must not appear in any k-mer."""
+        """X residues must not appear in any k-mer, and some windows must survive."""
         fasta = tmp_path / "test.fasta"
-        fasta.write_text(">sp|TEST\nACDEFGHXKL\n")
+        fasta.write_text(">sp|TEST\nACDEXGHIKLMNPQRST\n")
         ksets = build_kmer_sets(str(fasta), kmer_lengths=(9,))
+        assert len(ksets[9]) > 0
         for kmer in ksets[9]:
             assert "X" not in kmer
 
