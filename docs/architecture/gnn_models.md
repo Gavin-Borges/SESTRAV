@@ -73,6 +73,14 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
   v5 dedup key that joins this frame to the RF OOF frame one-to-one; `fold` and
   `splitter` are per-row so provenance travels with the scores rather than in a
   detachable sidecar.
+- **`--edge-mode {full,self-loop-only}`** selects the graph topology on the v2 path.
+  `full` is the default chain graph. `self-loop-only` drops the neighbour edges while
+  keeping every node feature, which is the N4 ablation. At n=8 seeds removing the edges
+  consistently helped (mean paired AUC-PR delta +0.0175, 8 of 8 seeds, sign test
+  p = 0.0078), but the 95% CI [0.0107, 0.0244] straddles the pre-registered 0.0160 band,
+  so the threshold is not cleared robustly. Read ARCHITECTURE.md 6.3 before quoting it:
+  the node features are ESM-2 embeddings that already carry whole-peptide context, so the
+  ablation removes redundant local mixing rather than sequence information.
 - Full-dataset retrain; checkpoint saved as `models/gnn/structural_gnn_v2.pth`.
 
 ## Tensor Shapes & Boundaries
