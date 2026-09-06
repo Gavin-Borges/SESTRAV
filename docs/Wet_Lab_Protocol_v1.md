@@ -131,6 +131,10 @@ To prospectively test, in a rigorous *in vitro* setting using PBMCs (Peripheral 
 Cells) from human donors, whether the **production SESTRAV scorer** - the RandomForest mode-31
 model (`models/rf_31feature_integrated.joblib`, `FEATURE_COLUMNS_31` in `src/features.py`) -
 enriches for genuinely immunogenic peptides relative to an MHC-binding-affinity-only baseline.
+That `.joblib` is a build output and is **not** in the repository: no model binary is tracked,
+so anyone running this protocol must train it first with
+`python -m src.train_classifier --feature-mode 31`. `FEATURE_COLUMNS_31` in `src/features.py`
+IS tracked and defines the exact feature contract that model must satisfy.
 
 **The pre-specified expectation is a null.** The certified computational estimate of this exact
 enrichment ratio is 0.9494 (no enrichment over binding-only). This study is therefore powered and

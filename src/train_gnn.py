@@ -22,6 +22,8 @@ it. See GNN_CV_SPLITTER for why the provenance lives in the rows.
 import os
 import random
 import argparse
+import functools
+import hashlib
 import numpy as np
 import pandas as pd
 import torch
@@ -245,13 +247,84 @@ def build_oof_records(
 
 
 def set_seed(seed: int = 42) -> None:
-    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs."""
+    """Seed all RNGs (Python, NumPy, Torch) for reproducible GNN runs.
+
+    The three flags below are process-global and are left set on purpose: a
+    caller asking for a seeded run wants them for the whole run. Confining them
+    to it is _restore_torch_global_flags' job, on the two entry points that call
+    this. warn_only keeps an op with no deterministic kernel a warning rather
+    than an abort, which is what makes the flag safe to set unconditionally.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+def _dataset_cache_tag(data_path: str | os.PathLike[str]) -> str:
+    """Short SHA-256 fingerprint of the ENTIRE dataset file.
+
+    The digest must cover every byte. A single 64 KiB read fingerprints only the
+    first chunk, and the dataset builder's final merge concatenates its parts
+    without shuffling (the `merged = pd.concat(parts, ...)` call in
+    scripts/build_dataset_v5.py), so a rebuild that only extends a later part
+    leaves the leading bytes untouched and the two corpora collapse onto one
+    tag. FeatureStore.load_cached_features validates neither row count nor
+    columns, so a collision pairs the previous corpus's feature rows with the new
+    corpus's labels. This is the streaming form already used by _sha256_file in
+    src/verify/promote_gnn.py and by FeatureStore.verify_integrity.
+    """
+    digest = hashlib.sha256()
+    with open(data_path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:8]
+
+
+# Feature modes whose matrix is a function of the binding matrix as well as the
+# corpus, and whose cache key must therefore fingerprint both.
+_BINDING_MATRIX_MODES = frozenset({31, 50})
+
+
+def _feature_cache_name(
+    feature_mode: int,
+    data_path: str | os.PathLike[str],
+    binding_matrix_path: str | os.PathLike[str] | None,
+) -> str:
+    """Cache filename for an extracted physico/binding feature matrix.
+
+    Modes in _BINDING_MATRIX_MODES build their per-allele columns from the
+    binding matrix, so keying on the corpus alone lets two different matrices
+    share one filename. That is not hypothetical here: peptide_binding_matrix_v5
+    is a strict superset of v4, and prepare_features_30 substitutes np.zeros(10)
+    for any peptide the matrix omits without raising, so the two produce
+    materially different features under one key.
+    """
+    tag = _dataset_cache_tag(data_path)
+    if feature_mode in _BINDING_MATRIX_MODES and binding_matrix_path is not None:
+        tag = f"{tag}_bm{_dataset_cache_tag(binding_matrix_path)}"
+    return f"physico_features_mode{feature_mode}_{tag}.csv"
+
+
+def _validate_cached_features(X_feats, cache_name: str, n_pool: int):
+    """Reject a cached feature frame that cannot be positionally aligned.
+
+    save_cached_features writes index=False and the frame keeps no peptide
+    column, so X_feats.iloc[train_idx] has nothing to re-align against. A cache
+    at least as long as the pool misaligns features against labels silently;
+    only a shorter one raises IndexError of its own accord.
+    """
+    if len(X_feats) != n_pool:
+        raise ValueError(
+            f"Cached features {cache_name} have {len(X_feats)} rows against a "
+            f"training pool of {n_pool}. The cache carries no key column, so "
+            "positional indexing would pair features with the wrong labels. "
+            "Delete the cache file and re-run."
+        )
+    return X_feats
 
 
 def planned_gnn_artifact_paths(
@@ -315,6 +388,51 @@ def _guard_output_dir(
     )
 
 
+def _restore_torch_global_flags(func):
+    """Keep a training run's process-global torch flags from escaping the run.
+
+    Both entry points mutate interpreter-wide torch state and neither scopes it.
+    torch.autograd.set_detect_anomaly enables the flag inside __init__, so
+    calling it as a bare statement switches anomaly detection on for the whole
+    interpreter, and set_seed writes cudnn.deterministic, cudnn.benchmark and
+    deterministic-algorithms mode straight onto the process. Nothing ever
+    switches any of them back, not even when the run aborts before training the
+    way the --model-dir guard does. A train_gnn_v2 run later in the same process
+    would then inherit the 25-30 percent slowdown that commit b73ce33 removed
+    from that path.
+
+    torch's own class is a context manager but not a decorator, and both entry
+    points are long enough that wrapping their bodies in a with-block would
+    re-indent every line and swamp the diff. A decorator restores the caller's
+    flags without touching the body at all. (No line count is quoted here on
+    purpose: the previous wording named one, and it went stale the moment two
+    comment lines were added inside train_gnn.)
+
+    It deliberately does NOT decorate set_seed. Leaving the determinism flags
+    set is set_seed's whole contract, and tests/test_train_gnn_seed.py pins
+    that; scoping belongs at the entry point, which is what calls set_seed.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        anomaly = torch.is_anomaly_enabled()
+        anomaly_check_nan = torch.is_anomaly_check_nan_enabled()
+        deterministic = torch.are_deterministic_algorithms_enabled()
+        deterministic_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+        cudnn_deterministic = torch.backends.cudnn.deterministic
+        cudnn_benchmark = torch.backends.cudnn.benchmark
+        try:
+            return func(*args, **kwargs)
+        finally:
+            torch.set_anomaly_enabled(anomaly, anomaly_check_nan)
+            torch.use_deterministic_algorithms(deterministic, warn_only=deterministic_warn_only)
+            torch.backends.cudnn.deterministic = cudnn_deterministic
+            torch.backends.cudnn.benchmark = cudnn_benchmark
+
+    return wrapper
+
+
+@_restore_torch_global_flags
 def train_gnn(
     data_path,
     model_dir: str,
@@ -342,6 +460,8 @@ def train_gnn(
     store = FeatureStore(config.output_dir)
 
     set_seed(seed)
+    # Deliberate for the v1 path (see b73ce33); @_restore_torch_global_flags keeps it
+    # from leaking into any train_gnn_v2 run later in the same process.
     torch.autograd.set_detect_anomaly(True)
     _guard_output_dir(model_dir, "mean", "v1", allow_overwrite)
     os.makedirs(model_dir, exist_ok=True)
@@ -350,22 +470,20 @@ def train_gnn(
 
     # 1. Load Data
     df = pd.read_csv(data_path)
+    df = _filter_quarantined(df)
     gs_mask = df["peptide"].isin(GOLD_STANDARD_EPITOPES)
     train_pool = df[~gs_mask].copy().reset_index(drop=True)
     print(f"Training pool: {len(train_pool)} records")
 
     # 2. Extract physicochemical features (with Cache resolution)
     # Include dataset fingerprint so switching datasets invalidates the cache.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
-    cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
+    if feature_mode == 50 and binding_matrix_path is None:
+        raise ValueError("binding_matrix_path required for feature mode 50")
+    cache_name = _feature_cache_name(feature_mode, data_path, binding_matrix_path)
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
         print(f"Extracting SESTRAV physicochemical features (mode {feature_mode})...")
         if feature_mode == 50:
-            if binding_matrix_path is None:
-                raise ValueError("binding_matrix_path required for feature mode 50")
             X_feats = prepare_features_50(train_pool, binding_matrix_path)
         else:
             X_feats = prepare_features(train_pool, include_binding=False)
@@ -377,6 +495,7 @@ def train_gnn(
         ]
         if non_feat_cols:
             X_feats = X_feats.drop(columns=non_feat_cols)
+        _validate_cached_features(X_feats, cache_name, len(train_pool))
     y = train_pool["label"].values
 
     # 3. Peptide-grouped, composite-stratified K-Fold CV (see GNN_CV_SPLITTER)
@@ -510,19 +629,22 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
         y:          (1,)              - batches to (B,) via PyG collation
     """
 
-    def __init__(self, df, feature_matrix, labels, esm2_cache, max_len=11):
+    def __init__(self, df, feature_matrix, labels, esm2_cache, max_len=11, edge_mode="full"):
         self.sequences = df["peptide"].values
         self.physico_features = torch.tensor(feature_matrix.values, dtype=torch.float32)
         self.labels = torch.tensor(labels, dtype=torch.float32) if labels is not None else None
         self.esm2_cache = esm2_cache
         self.max_len = max_len
+        self.edge_mode = edge_mode
         # Pre-build edge tensors for each supported peptide length (8-11) to
         # avoid repeated construction in the hot __getitem__ path.
         self._edge_cache: dict = {}
 
     def _get_edges(self, length: int):
         if length not in self._edge_cache:
-            self._edge_cache[length] = GraphBuilder.build_pyg_chain_graph(length)
+            self._edge_cache[length] = GraphBuilder.build_pyg_chain_graph(
+                length, edge_mode=self.edge_mode
+            )
         return self._edge_cache[length]
 
     def __len__(self):
@@ -544,6 +666,29 @@ class GraphPeptideDatasetV2(torch.utils.data.Dataset):
             physico=self.physico_features[idx].unsqueeze(0),
             y=label,
         )
+
+
+def _drops_a_lone_last_sample(n_samples: int, batch_size: int) -> bool:
+    """Whether a TRAINING loader must discard a final batch of exactly one sample.
+
+    GraphPredictorV2's physico_block ends in nn.BatchNorm1d, which raises
+    "Expected more than 1 value per channel when training" on a (1, C) input. A
+    training pool with n % batch_size == 1 therefore crashes on its last batch,
+    after every earlier batch has already trained. Shuffling does not help: the
+    final batch's SIZE is a property of n, not of the draw order.
+
+    Unconditional drop_last=True would trade that crash for a ZeroDivisionError,
+    because train_epoch_v2 returns total_loss / len(dataloader) and a pool
+    smaller than one batch would then measure zero batches. The n > batch_size
+    guard is what removes the trade. It also covers n == 1, where
+    1 % batch_size == 1 holds but dropping the only sample would empty the
+    loader for the same reason.
+
+    Only training loaders may use this. On a validation loader it would discard
+    an evaluation sample, which silently shifts the early-stopping metric and
+    desynchronises build_oof_records' positional val_preds[i] indexing.
+    """
+    return n_samples > batch_size and n_samples % batch_size == 1
 
 
 def train_epoch_v2(model, dataloader, criterion, optimizer, device):
@@ -573,6 +718,7 @@ def evaluate_model_v2(model, dataloader, device):
     return np.array(all_labels), np.array(all_preds)
 
 
+@_restore_torch_global_flags
 def train_gnn_v2(
     data_path,
     model_dir: str,
@@ -588,6 +734,7 @@ def train_gnn_v2(
     seed=42,
     pooling="mean",
     allow_overwrite: bool = False,
+    edge_mode: str = "full",
 ):
     """Train GNN v2: GINEConv + ESM-2 node embeddings with early stopping on val AUC-PR.
 
@@ -647,31 +794,40 @@ def train_gnn_v2(
 
     # Extract feature matrix.  Mode 31 adds 10 per-allele MHCflurry binding scores,
     # matching RF mode 31 feature parity.  Mode 21 uses physico-only features.
-    import hashlib as _hl
-
-    _data_tag = _hl.sha256(open(data_path, "rb").read(65536)).hexdigest()[:8]
-    cache_name = f"physico_features_mode{feature_mode}_{_data_tag}.csv"
+    if feature_mode == 31 and binding_matrix_path is None:
+        raise ValueError(
+            "binding_matrix_path required for feature mode 31. This previously "
+            "fell back to mode 21, which wrote 21 physico columns under the "
+            "mode31 cache key while gnn_config.json still recorded "
+            "feature_mode=31, so the artifact misdescribed itself and a later "
+            "genuine mode-31 run loaded 21 columns believing they were 31."
+        )
+    if feature_mode not in (21, 31):
+        raise ValueError(f"train_gnn_v2 supports feature_mode 21 or 31, got {feature_mode}")
+    cache_name = _feature_cache_name(feature_mode, data_path, binding_matrix_path)
     X_feats = store.load_cached_features(cache_name)
     if X_feats is None:
-        if feature_mode == 31 and binding_matrix_path is not None:
+        if feature_mode == 31:
             print(
                 f"Extracting 31-feature set (physico + per-allele binding; matrix: {binding_matrix_path}) ..."
             )
             X_feats = prepare_features_31(train_pool, binding_matrix_path)
         else:
-            if feature_mode == 31 and binding_matrix_path is None:
-                print(
-                    "WARNING: feature_mode=31 requested but --binding-matrix not supplied; falling back to mode 21."
-                )
             print("Extracting 21-feature physicochemical set ...")
             X_feats = prepare_features(train_pool, include_binding=False)
         store.save_cached_features(X_feats, cache_name)
     else:
+        # A cache HIT is otherwise silent (load_cached_features uses logger.info
+        # and no logging is configured), so an affected run's log said nothing
+        # about the feature source at all while gnn_config.json recorded the
+        # binding_matrix_path argument unconditionally.
+        print(f"Loaded cached feature matrix {cache_name}")
         non_feat_cols = [
             c for c in ["peptide", "label", "protein", "allele"] if c in X_feats.columns
         ]
         if non_feat_cols:
             X_feats = X_feats.drop(columns=non_feat_cols)
+        _validate_cached_features(X_feats, cache_name, len(train_pool))
     y = train_pool["label"].values
 
     # 5-fold peptide-grouped, composite-stratified CV (see GNN_CV_SPLITTER)
@@ -697,6 +853,7 @@ def train_gnn_v2(
             y_train,
             esm2_cache,
             max_len=config.max_peptide_length,
+            edge_mode=edge_mode,
         )
         val_dataset = GraphPeptideDatasetV2(
             df_val,
@@ -704,9 +861,16 @@ def train_gnn_v2(
             y_val,
             esm2_cache,
             max_len=config.max_peptide_length,
+            edge_mode=edge_mode,
         )
 
-        train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = PyGDataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=_drops_a_lone_last_sample(len(train_dataset), batch_size),
+        )
+        # No drop_last on the validation loader, deliberately: see _drops_a_lone_last_sample.
         val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         model = GraphPredictorV2(
@@ -827,8 +991,14 @@ def train_gnn_v2(
         y,
         esm2_cache,
         max_len=config.max_peptide_length,
+        edge_mode=edge_mode,
     )
-    full_loader = PyGDataLoader(full_dataset, batch_size=batch_size, shuffle=True)
+    full_loader = PyGDataLoader(
+        full_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=_drops_a_lone_last_sample(len(full_dataset), batch_size),
+    )
 
     model_final = GraphPredictorV2(
         num_continuous_features=X_feats.shape[1], node_dim=node_dim, pooling=pooling
@@ -859,6 +1029,10 @@ def train_gnn_v2(
         "epochs": avg_best_epochs,
         "early_stopping_patience": early_stopping_patience,
         "pooling": pooling,
+        # Recorded so an ablation run is distinguishable from a production run by
+        # its artifacts alone. Configs written before this key existed are
+        # full-graph runs by construction.
+        "edge_mode": edge_mode,
     }
     config_tagged_path = os.path.join(model_dir, f"gnn_config_{pooling}.json")
     with open(config_tagged_path, "w") as fh:
@@ -891,7 +1065,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to peptide_binding_matrix_v4.csv (required for --feature-mode 31)",
+        help="Path to the binding matrix, required for --feature-mode 31. Use "
+        "models/peptide_binding_matrix_v5.csv with the v5 corpus: v5 is a strict "
+        "superset of v4, and v4 reaches only 8,725 of the 35,555 pool rows while "
+        "prepare_features_30 zero-fills every peptide it misses, which makes matrix "
+        "membership a label proxy. Pair a matrix with the corpus it was built for",
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible runs")
     parser.add_argument(
@@ -899,6 +1077,17 @@ if __name__ == "__main__":
         choices=["v1", "v2"],
         default="v2",
         help="GNN architecture: v1 (dense-adj GCN) or v2 (GINEConv + ESM-2)",
+    )
+    parser.add_argument(
+        "--edge-mode",
+        choices=["full", "self-loop-only"],
+        default="full",
+        help=(
+            "v2 peptide graph topology. 'full' is the production chain graph. "
+            "'self-loop-only' is the ablation control: it strips the chain edges "
+            "so message passing carries no neighbour information, isolating what "
+            "the graph adds over the ESM-2 node features. Ignored by --architecture v1."
+        ),
     )
     parser.add_argument(
         "--esm2-cache",
@@ -957,6 +1146,7 @@ if __name__ == "__main__":
             seed=args.seed,
             pooling=args.pooling,
             allow_overwrite=args.allow_overwrite,
+            edge_mode=args.edge_mode,
         )
     else:
         train_gnn(

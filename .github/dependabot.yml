@@ -41,7 +41,15 @@ updates:
       - dependency-name: "nbclient"
       # Same file, reached transitively rather than directly, which is how it
       # evaded the two entries above and edited the render closure anyway.
+      # pyzmq is the next one. It is pinned in exactly one tracked file - the
+      # render closure itself - so it cannot have been reached directly, and PR
+      # #312 bumped it there and had to be closed for editing a tier-4 file.
+      # Adding a name here is necessary and is NOT the fix: this list is keyed
+      # by package name, so it can only ever be reactive, one name behind. The
+      # path-scoped guard in dependency-lockfile-check.yml is the actual
+      # protection.
       - dependency-name: "platformdirs"
+      - dependency-name: "pyzmq"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
@@ -86,7 +94,15 @@ updates:
       - dependency-name: "nbclient"
       # Same file, reached transitively rather than directly, which is how it
       # evaded the two entries above and edited the render closure anyway.
+      # pyzmq is the next one. It is pinned in exactly one tracked file - the
+      # render closure itself - so it cannot have been reached directly, and PR
+      # #312 bumped it there and had to be closed for editing a tier-4 file.
+      # Adding a name here is necessary and is NOT the fix: this list is keyed
+      # by package name, so it can only ever be reactive, one name behind. The
+      # path-scoped guard in dependency-lockfile-check.yml is the actual
+      # protection.
       - dependency-name: "platformdirs"
+      - dependency-name: "pyzmq"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump

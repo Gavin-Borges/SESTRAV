@@ -7,7 +7,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "GitPython",
-    "Version": "3.1.58"
+    "Version": "3.1.61"
   },
   {
     "License": "BSD License",
@@ -592,7 +592,7 @@
   {
     "License": "MIT",
     "Name": "snakemake",
-    "Version": "9.25.1"
+    "Version": "9.25.2"
   },
   {
     "License": "UNKNOWN",
@@ -707,7 +707,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "uvicorn",
-    "Version": "0.52.3"
+    "Version": "0.52.4"
   },
   {
     "License": "BSD-2-Clause",

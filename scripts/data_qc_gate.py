@@ -75,8 +75,8 @@ def load_config(config_path: str) -> dict:
                 "require_checksum": gov.get("require_checksum_match_in_freeze_mode", False),
             }
     except Exception as e:
-        logger.error(f"Failed to parse config: {e}. Using defaults.")
-        return defaults
+        logger.error(f"Failed to parse config: {e}. Refusing defaults that disable freeze.")
+        raise
 
 
 def check_dataset_qc(

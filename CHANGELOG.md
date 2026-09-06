@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
+  edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
+  `assay_type == "biological activity"` rows by editing the finished file in place, after
+  the intra-export dedup. `scripts/ingest_iedb_negatives.py` later gained that same
+  exclusion as Filter 6, which runs *before* the dedup, so the committed artifact and the
+  code path that claims to produce it had disagreed ever since. Re-running the generator
+  closes that gap. Verified against the file it replaces as a strict order-preserving
+  superset over all 23 fields: 0 rows removed and 0 modified, 36 added, every one carrying
+  `label` 0, `virus` Unknown (29) or Self (7), and assay types ICS (28), SPR (3),
+  ELISPOT (3), ELISA (1) and multimer/tetramer (1). Both operands are tracked blobs, so
+  that comparison is re-derivable inside a clone.
+  **Deliberately not propagated downstream, so no published figure moves here.**
+  `data/iedb_negatives_v5_merged.csv` still contains all 32,470 of the superseded rows and
+  none of the 36 new ones, and the shipped corpus `data/immunogenicity_dataset_v5.csv` is
+  built from that merged file, so every downstream artifact and every RF mode-31 figure
+  continues to describe exactly the corpus it always did. The lag is recorded in the new
+  `downstream_status` block of `data/iedb_negatives_v5_provenance.json` and pinned by
+  `tests/test_iedb_negatives_v5_composition_guard.py::test_downstream_merge_lag_is_pinned_not_silent`,
+  which fails if the lag is closed or widened without the sidecar being updated with it.
+
 ### Fixed
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
@@ -2458,7 +2479,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     0.789 - all six match the artifact exactly). A bare `python scripts/compute_population_coverage.py`
     on `main` silently rewrote the file behind a manuscript table.
   - `results/baseline_comparison.csv` is the source of the "Pipeline Gold-Standard Recovery" table
-    at `docs/model_evaluation_summary.md:169-174`, whose row labels ("RF (SESTRAV)", "ANN (MLP)",
+    in `docs/model_evaluation_summary.md` (**anchor de-line-cited 2026-08-27**: it read lines
+    169-174, which now resolve to that file's "GNN Benchmark Results (Exploratory)" table and not
+    to this one. The section heading replaces the line range because a heading does not rot),
+    whose row labels ("RF (SESTRAV)", "ANN (MLP)",
     "Binding-only baseline") are emitted by `src/baseline_comparison.py` and by no other module in
     the repo. It is also summarized at `README.md:90` and named by path in
     `results/final_validation_report.md:5`.
@@ -2490,10 +2514,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **Three tracked reports carry numbers their source artifacts no longer produce.**
     `results/v1_v2_quality_comparison.md:33,35` publishes v2 Brier 0.170 / BSS 0.198 against the
     current CSV's 0.199 / 0.059; `results/multi_run_stability_report.md:147-148` mirrors the same
-    mismatch; and `docs/model_evaluation_summary.md:172-174` publishes RF 6/15, 8/15, 27.1% against
+    mismatch; and the "Pipeline Gold-Standard Recovery" table in
+    `docs/model_evaluation_summary.md` published RF 6/15, 8/15, 27.1% against
     the current `baseline_comparison.csv`'s 4, 7, 34.65% (XGBoost and ANN rows likewise). This is
     ledger-independent drift of exactly the kind an unguarded regeneration produces, which is the
     argument for the guards in this entry, not against them.
+
+    **Forward correction, 2026-08-27 (the record is annotated, not rewritten).** The third of those
+    three has since closed: the "Pipeline Gold-Standard Recovery" table in
+    `docs/model_evaluation_summary.md` now reads RF 4/15, 7/15, 34.7% and matches the Combined rows
+    of `results/baseline_comparison.csv` exactly, as do its XGBoost, ANN and binding-only rows.
+    Both line anchors this entry aimed into that file were also stale - they read lines 169-174 and
+    172-174, which now resolve to the GNN benchmark table - and both have been de-line-cited to the
+    section heading. The other two reports named above are NOT re-checked by this note.
 
   What remains true, and is the honest severity comparison: **none of the four carries a
   certified-ledger headline metric** the way `h2_tier_a_summary.md` carries the certified

@@ -85,6 +85,15 @@ freeze_mode: true
 calibration_path: models/isotonic_calibrator.joblib
 thresholds_path: models/optimal_thresholds.json
 
+# Training corpus for the Snakemake pipeline (pipeline.smk TRAINING_DATASET).
+# Set explicitly because pipeline.smk's fallback is data/immunogenicity_dataset_v4.csv,
+# which is gitignored and therefore absent from every clone. Leaving this unset made
+# every documented `snakemake --snakefile pipeline.smk` command in README.md, USAGE.md
+# and CONTRIBUTING.md die with MissingInputException in rule qc_dataset, while passing
+# on any workstation that still had the v4 file on disk. v5 is what the rest of this
+# file already declares: see dataset_mode, dataset_version and the binding matrix below.
+training_dataset: data/immunogenicity_dataset_v5.csv
+
 # Binding matrix for 31-feature training (v5 canonical)
 binding_matrix_path: models/peptide_binding_matrix_v5.csv
 
