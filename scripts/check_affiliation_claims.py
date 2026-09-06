@@ -111,11 +111,20 @@ EXCLUDED_DIR_PARTS = {
     ".pytest_cache",
     ".ruff_cache",
     "site-packages",
-    # _local/tools/ holds vendored competitor source (DeepImmuno, MixMHCpred,
-    # BigMHC). Their own READMEs and banners name their own institutions, which
-    # is correct for them and says nothing about this project's affiliation.
-    "tools",
 }
+
+# Excluded by PATH PREFIX, never by bare directory name. A bare name unscans
+# EVERY directory carrying it, at any depth. "tools" used to sit in the set
+# above to skip the vendored competitor source under _local/tools/ (DeepImmuno,
+# MixMHCpred, BigMHC, whose own READMEs name their own institutions, which is
+# correct for them and says nothing about this project's affiliation). It also
+# unscanned the tracked top-level tools/, which holds 8 tracked files the CI
+# gate is meant to cover and never opened. It unscanned .claude/tools/ too, but
+# that directory is gitignored (0 tracked files), so it was only ever reachable
+# under --all. Same shape as EXCLUDED_PREFIXES in
+# scripts/check_doc_line_citations.py and scripts/check_doc_commit_refs.py,
+# cited by symbol rather than by line number so the reference cannot drift.
+EXCLUDED_PATH_PREFIXES = ("_local/tools/",)
 
 # THIS PROJECT'S OWN AFFILIATION. Exactly one entry is the point of the gate.
 # Changing it is a deliberate act with an evidence trail, not a cleanup edit.
@@ -296,7 +305,12 @@ def working_tree_files() -> list[str]:
     """
     found: list[str] = []
     for root, dirs, files in os.walk("."):
-        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIR_PARTS]
+        dirs[:] = [
+            d
+            for d in dirs
+            if d not in EXCLUDED_DIR_PARTS
+            and not is_excluded_prefix(str(Path(root) / d))
+        ]
         for name in files:
             path = Path(root) / name
             if path.suffix.lower() in SCAN_SUFFIXES:
@@ -329,6 +343,8 @@ SELF_EXEMPT_FILENAMES = frozenset(
 
 
 def should_scan(path: str) -> bool:
+    if is_excluded_prefix(path):
+        return False
     parts = set(Path(path).parts)
     if parts & EXCLUDED_DIR_PARTS:
         return False
@@ -343,6 +359,20 @@ def normalise_path(path: str) -> str:
     # lstrip("./") turned ".claude/rules/..." into "claude/rules/..." and no
     # dotfile path ever matched its own allowlist entry.
     return normalised[2:] if normalised.startswith("./") else normalised
+
+
+def is_excluded_prefix(path: str) -> bool:
+    """True for an excluded directory itself and for anything beneath it.
+
+    Goes through normalise_path deliberately. ``--all`` builds its paths with
+    ``os.walk``, so on Windows they arrive backslash-separated and no
+    forward-slash prefix would ever match them.
+    """
+    normalised = normalise_path(path)
+    return any(
+        normalised == prefix.rstrip("/") or normalised.startswith(prefix)
+        for prefix in EXCLUDED_PATH_PREFIXES
+    )
 
 
 def is_allowed(name: str, path: str) -> bool:

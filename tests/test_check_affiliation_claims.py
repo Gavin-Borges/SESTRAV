@@ -202,6 +202,52 @@ def test_dotfile_paths_normalise_correctly():
     assert mod.normalise_path("docs/claims_register.md") == "docs/claims_register.md"
 
 
+def test_tools_exclusion_is_a_path_prefix_not_a_bare_directory_name():
+    """A bare directory name unscans that name at EVERY depth.
+
+    "tools" sat in EXCLUDED_DIR_PARTS to skip the vendored competitor source
+    under `_local/tools/`, whose own READMEs name their own institutions
+    correctly. Because the test was a bare-name set intersection, it also
+    unscanned the tracked top-level `tools/`, which holds 8 tracked files the
+    CI gate is meant to cover and never opened.
+
+    `.claude/tools/` was unscanned too, but that directory is gitignored and
+    holds no tracked file, so it is reachable only under `--all`. It is
+    asserted below as a path-predicate property, NOT as recovered CI coverage.
+
+    Both directions are load-bearing. The vendored tree must stay excluded,
+    including the backslash-separated form that `--all` produces on Windows
+    via os.walk, and the tracked tree must now be scanned.
+    """
+    assert "tools" not in mod.EXCLUDED_DIR_PARTS
+
+    # Still excluded: the vendored competitor source the entry was added for.
+    assert mod.should_scan("_local/tools/DeepImmuno/README.md") is False
+    assert mod.should_scan("_local\\tools\\DeepImmuno\\README.md") is False
+    assert mod.should_scan("./_local/tools/BigMHC/setup.py") is False
+
+    # The directory NODE itself, carrying no trailing slash. This is the form
+    # the os.walk prune tests, and it is the only thing the equality half of
+    # is_excluded_prefix covers, so without these two the clause could be
+    # deleted with every other assertion here still passing. Losing it would
+    # not change any verdict, but the walk would descend into roughly 1840
+    # vendored files and discard them one at a time instead of pruning.
+    assert mod.is_excluded_prefix("_local/tools") is True
+    assert mod.is_excluded_prefix("./_local/tools") is True
+    assert mod.is_excluded_prefix("_local\\tools") is True
+
+    # No longer excluded: the tracked tree the bare name also caught.
+    assert mod.should_scan("tools/check_hash_pins.py") is True
+    assert mod.should_scan("tools/coverage_subprocess/sitecustomize.py") is True
+
+    # Gitignored, so this one is reachable only under --all. Asserted as a
+    # path-predicate property, not as coverage the CI gate regains.
+    assert mod.should_scan(".claude/tools/sync_agent_rules.py") is True
+
+    # A directory merely named "tools" elsewhere is not the vendored one.
+    assert mod.should_scan("docs/tools/overview.md") is True
+
+
 def test_name_is_not_matched_across_a_sentence_boundary():
     """"...Rhode Island. Corresponding-author..." is one name, not five words."""
     line = "Schellenberg, Jouaneh, Byers, all University of Rhode Island. Corresponding-author TBD"

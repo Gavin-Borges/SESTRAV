@@ -18,6 +18,29 @@ import pytest
 from src.train_gnn import GraphPeptideDataset, set_seed
 
 
+@pytest.fixture(autouse=True)
+def _isolated_global_flags():
+    """Restore the process-global flags set_seed writes, so this file leaks nothing.
+
+    set_seed sets deterministic-algorithms mode and the two cudnn flags on the
+    whole interpreter, deliberately: scoping them to a run is the trainers' job,
+    not set_seed's. A test module that calls set_seed directly bypasses those
+    trainers, so without this fixture every test that runs after this file would
+    silently execute under deterministic algorithms. The same fixture guards
+    tests/test_train_gnn_seed.py for the same reason.
+    """
+    deterministic = torch.are_deterministic_algorithms_enabled()
+    warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+    cudnn_deterministic = torch.backends.cudnn.deterministic
+    cudnn_benchmark = torch.backends.cudnn.benchmark
+    try:
+        yield
+    finally:
+        torch.use_deterministic_algorithms(deterministic, warn_only=warn_only)
+        torch.backends.cudnn.deterministic = cudnn_deterministic
+        torch.backends.cudnn.benchmark = cudnn_benchmark
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
