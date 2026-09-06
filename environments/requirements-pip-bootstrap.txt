@@ -1,0 +1,26 @@
+# Hash-locked pip bootstrap for the container images (see Dockerfile).
+#
+# WHY THIS FILE EXISTS. pip accepts hashes only from a requirements file, never
+# as a flag on a bare `pip==X` spec, so the image's previous
+# `pip install --user "pip==26.1.2"` step was version-pinned but not
+# hash-pinned. Scorecard's PinnedDependencies check reads that as an unpinned
+# pipCommand (`checks/raw/shell_download_validate.go`, isUnpinnedPipInstall:
+# a bare package argument with no --require-hashes returns unpinned).
+#
+# WHY IT IS SEPARATE FROM requirements.lock. `--require-hashes` demands a hash
+# for EVERY requirement in the file it is handed, and the bootstrap has to run
+# BEFORE the production closure is installed. Keep this file to the single
+# `pip` requirement; do not add anything else to it.
+#
+# Tier 4 in CONTRIBUTING.md's dependency-tier table: hand-maintained, no `.in`
+# source. Regenerate with:
+#   pip download pip==<version> --no-deps -d /tmp/pipboot                # wheel
+#   pip download pip==<version> --no-deps --no-binary :all: -d /tmp/pipboot  # sdist
+#   pip hash /tmp/pipboot/*
+# Both the wheel and the sdist hash are listed so the install succeeds whether
+# or not pip resolves to the wheel. Hashes below were cross-checked against the
+# PyPI JSON API, the PEP 691 simple index, and a local sha256 of the downloaded
+# bytes on 2026-09-06.
+pip==26.1.2 \
+    --hash=sha256:382ff9f685ee3bc25864f820aa50505825f10f5458ffff07e30a6d96e5715cab \
+    --hash=sha256:f49cd134c61cf2fd75e0ce2676db03e4054504a5a4986d00f8299ae632dc4605

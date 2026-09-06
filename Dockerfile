@@ -49,13 +49,23 @@ COPY --chown=sestrav_user:sestrav_user sestrav/ ./sestrav/
 # image.
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
 COPY --chown=sestrav_user:sestrav_user environments/requirements.lock ./environments/requirements.lock
+COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.txt ./environments/requirements-pip-bootstrap.txt
 
-# Hash-pinned production closure, then the package itself with --no-deps so
-# pip cannot re-resolve. docs/sbom.json is generated from this same lock
-# (security.yml python-sbom job). The previous `pip install --user .` resolved
-# [project].dependencies from PyPI at build time, so the attested SBOM and
-# the image described different sets.
-RUN pip install --user "pip==26.1.2" && \
+# Hash-pinned pip bootstrap, then the hash-pinned production closure, then
+# the package itself with --no-deps so pip cannot re-resolve. docs/sbom.json
+# is generated from this same lock (security.yml python-sbom job). The
+# previous `pip install --user .` resolved [project].dependencies from PyPI
+# at build time, so the attested SBOM and the image described different sets.
+#
+# The bootstrap gets its own one-line manifest because pip accepts hashes
+# only from a requirements file, never as a flag on a bare `pip==X` spec. It
+# cannot be folded into requirements.lock either: it has to run before the
+# production closure is installed, and `--require-hashes` demands a hash for
+# every requirement in whatever file it is handed. The previous
+# `pip install --user "pip==26.1.2"` was version-pinned but not hash-pinned,
+# which is what Scorecard's PinnedDependencies check reports as an unpinned
+# pipCommand.
+RUN pip install --user --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt && \
     pip install --user --require-hashes --no-deps -r environments/requirements.lock && \
     pip install --user --no-deps .
 
