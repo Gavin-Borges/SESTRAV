@@ -32,13 +32,8 @@ omit =
     src/external_validation_cross_virus.py
     src/external_validation_fairness.py
     src/external_validation_finalize.py
-    src/external_validation_tier_a_review.py
-    src/external_validation_tier_b_finalize.py
     src/external_validation_tier_b_recovery.py
-    src/fetch_consensus_sequences.py
-    src/fetch_prime_train_peptides.py
     src/final_validation_report.py
-    src/generate_binding_matrix.py
     src/generate_dataset_v3.py
     src/gnn_benchmark.py
     src/gold_standard_sensitivity.py

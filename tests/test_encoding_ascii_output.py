@@ -77,14 +77,13 @@ TEXT_SUFFIXES = {
 #                                   (`_build_pdf_scorecard`), which is a glyph-availability
 #                                   question, not an encoder one. Neither sink is a terminal.
 #   src/external_validation_finalize.py         Report bodies are written through
-#   src/external_validation_tier_b_finalize.py  `open(..., encoding="utf-8")`, so those are
-#                                   safe. BUT both modules ALSO print to stdout/stderr
-#                                   (finalize's `[finalize] ...` lines near the end of main,
-#                                   tier_b's `[tier-b-finalize] ...` lines). Their CURRENT
-#                                   non-ASCII literals are scientific notation bound for the
-#                                   utf-8 report files, which rule 3 permits - but nothing
-#                                   here stops a future non-ASCII literal in these two
-#                                   modules from reaching those print() calls uncaught.
+#                                   `open(..., encoding="utf-8")`, so those are safe. BUT the
+#                                   module ALSO prints to stdout/stderr (its `[finalize] ...`
+#                                   lines near the end of main). Its CURRENT non-ASCII
+#                                   literals are scientific notation bound for the utf-8
+#                                   report files, which rule 3 permits - but nothing here
+#                                   stops a future non-ASCII literal in this module from
+#                                   reaching those print() calls uncaught.
 #
 # Anything NOT listed here must stay ASCII, because a string literal can be handed to a
 # logger far from where it is written: `src/verify/promote_gnn.py` built its gate messages
@@ -93,7 +92,6 @@ TEXT_SUFFIXES = {
 NON_ASCII_LITERAL_ALLOWLIST = {
     "app/demo.py",
     "src/external_validation_finalize.py",
-    "src/external_validation_tier_b_finalize.py",
 }
 
 

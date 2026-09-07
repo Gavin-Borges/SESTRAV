@@ -48,10 +48,16 @@ COPY --chown=sestrav_user:sestrav_user sestrav/ ./sestrav/
 # separately - packaging config.yaml as package data is a wider change than this
 # image.
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
+COPY --chown=sestrav_user:sestrav_user environments/requirements.lock ./environments/requirements.lock
 
-# Install SESTRAV package
+# Hash-pinned production closure, then the package itself with --no-deps so
+# pip cannot re-resolve. docs/sbom.json is generated from this same lock
+# (security.yml python-sbom job). The previous `pip install --user .` resolved
+# [project].dependencies from PyPI at build time, so the attested SBOM and
+# the image described different sets.
 RUN pip install --user "pip==26.1.2" && \
-    pip install --user .
+    pip install --user --require-hashes --no-deps -r environments/requirements.lock && \
+    pip install --user --no-deps .
 
 # Default command
 ENTRYPOINT ["sestrav"]

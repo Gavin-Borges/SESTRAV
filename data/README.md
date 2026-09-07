@@ -86,7 +86,7 @@ Files are versioned by source date (format: `IEDB-YYYYMMDD-*`).
 | `HPV16_*.fasta` | HPV-16 protein consensus sequences (E2, E5, E6, E7) |
 | `HPV18_*.fasta` | HPV-18 protein consensus sequences (E6, E7) |
 
-These are used by `src/generate_binding_matrix.py` to pre-compute the peptide binding matrix.
+These FASTA files are reference protein sequences used when assembling peptide binding matrices.
 
 ---
 

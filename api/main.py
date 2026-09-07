@@ -170,22 +170,45 @@ from src.core.config import SestravConfig
 from src.core.model_registry import ModelRegistry
 
 
+def _registry_model_name(configured_path: Path) -> str:
+    """Return a models/-relative name while preserving nested directories."""
+    models_dir = (_PROJECT_ROOT / "models").resolve()
+    if configured_path.is_absolute():
+        try:
+            return str(configured_path.resolve().relative_to(models_dir))
+        except ValueError as exc:
+            raise ValueError(
+                f"Configured model path escapes models/ directory: {configured_path!s}"
+            ) from exc
+
+    try:
+        return str(configured_path.relative_to("models"))
+    except ValueError:
+        return str(configured_path)
+
+
 class ModelManager:
     """Loads and holds the RF model and feature config exactly once."""
 
     _instance: "ModelManager | None" = None
     _loaded: bool = False
+    _configured_model_path: Path | None = None
+    _load_error: str | None = None
 
     def __new__(cls) -> "ModelManager":
         if cls._instance is None:
             obj = super().__new__(cls)
             obj._loaded = False
+            obj._configured_model_path = None
+            obj._load_error = None
             cls._instance = obj
         return cls._instance
 
     def load(self) -> None:
         if self._loaded:
             return
+        self._configured_model_path = None
+        self._load_error = None
         import sys
 
         # Ensure the project root is importable as a package source
@@ -198,12 +221,13 @@ class ModelManager:
         # call runs BEFORE the model load below, so a wrong cwd failed here first and the
         # registry fix alone would not have made startup cwd-independent.
         self.config = SestravConfig.load(_CONFIG_PATH)
+        self._configured_model_path = self.config.model_path
         self.registry = ModelRegistry(self.config)
 
         logger.info("Loading RF model ...")
         # Load verified model from registry - the canonical model_path from config.yaml
         # (rf_31feature_integrated.joblib for the v5 production scorer).
-        self.rf_model = self.registry.load(self.config.model_path.name)
+        self.rf_model = self.registry.load(_registry_model_name(self.config.model_path))
         logger.info("RF model loaded successfully.")
 
         # Load feature config for column ordering
@@ -235,6 +259,26 @@ class ModelManager:
     @property
     def is_ready(self) -> bool:
         return self._loaded
+
+    @property
+    def configured_model_path(self) -> str | None:
+        if self._configured_model_path is None:
+            return None
+        return self._configured_model_path.as_posix()
+
+    @property
+    def load_error(self) -> str | None:
+        return self._load_error
+
+    def record_load_failure(self, exc: Exception) -> None:
+        self._loaded = False
+        path = self.configured_model_path
+        if path is None:
+            self._load_error = f"{type(exc).__name__} before the model path was loaded"
+        else:
+            self._load_error = (
+                f"{type(exc).__name__} while loading configured model path {path!r}"
+            )
 
 
 _manager = ModelManager()
@@ -342,7 +386,14 @@ def _rank_label(score: float) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _manager.load()
+    try:
+        _manager.load()
+    except Exception as exc:
+        _manager.record_load_failure(exc)
+        logger.error(
+            "Model startup load failed; API is serving in degraded mode: %s",
+            _sanitize_for_log(exc),
+        )
     yield
 
 
@@ -364,7 +415,13 @@ app = FastAPI(
 
 @app.get("/health", tags=["Operations"])
 def health_check():
-    return {"status": "healthy", "model_loaded": _manager.is_ready}
+    if _manager.is_ready:
+        return {"status": "healthy", "model_loaded": True, "reason": None}
+    return {
+        "status": "degraded",
+        "model_loaded": False,
+        "reason": _manager.load_error or "Model has not been loaded.",
+    }
 
 
 @app.post(
@@ -375,9 +432,16 @@ def health_check():
 )
 def score_peptide(body: PeptideInput) -> ScoreResponse:
     if not _manager.is_ready:
+        configured_path = _manager.configured_model_path
+        path_detail = (
+            f" at configured path {configured_path!r}" if configured_path is not None else ""
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Model not loaded. Check /health.",
+            detail=(
+                f"Model unavailable{path_detail}: "
+                f"{_manager.load_error or 'model has not been loaded'}. Check /health."
+            ),
         )
     try:
         imm_score, bind_score = _score_peptide(body.sequence, body.allele)

@@ -21,9 +21,15 @@ from src.evaluate_metrics import issr_at_k
 from joblib import Parallel, delayed
 
 
-def _bootstrap_iter(y, ref_scores, comp_scores, n_clean):
-    rng_local = np.random.default_rng()
-    idx = rng_local.integers(0, n_clean, size=n_clean)
+def _bootstrap_resample_indices(
+    seed: int, n_clean: int, n_resamples: int
+) -> list[np.ndarray]:
+    """Generate reproducible, distinct bootstrap draws in the parent process."""
+    rng = np.random.default_rng(seed)
+    return [rng.integers(0, n_clean, size=n_clean) for _ in range(n_resamples)]
+
+
+def _bootstrap_iter(y, ref_scores, comp_scores, idx):
     y_b = y[idx]
     if len(np.unique(y_b)) < 2:
         return None
@@ -48,9 +54,6 @@ def paired_bootstrap_comparison(
     Perform paired bootstrapping over peptide indices to compare two models.
     Returns delta metrics, 95% confidence intervals, and empirical p-values.
     """
-    rng = np.random.default_rng(seed)
-    n = len(df)
-
     # Extract clean vectors (drop rows with missing scores or labels)
     clean_df = df.dropna(subset=[ref_col, comp_col, label_col])
     n_clean = len(clean_df)
@@ -74,8 +77,9 @@ def paired_bootstrap_comparison(
     base_comp_issr = issr_at_k(y, comp_scores, 10)
     base_delta_issr = base_ref_issr - base_comp_issr
 
+    indices = _bootstrap_resample_indices(seed, n_clean, n_resamples)
     results_parallel = Parallel(n_jobs=-1, batch_size="auto")(
-        delayed(_bootstrap_iter)(y, ref_scores, comp_scores, n_clean) for _ in range(n_resamples)
+        delayed(_bootstrap_iter)(y, ref_scores, comp_scores, idx) for idx in indices
     )
 
     _ap: list[float] = []
