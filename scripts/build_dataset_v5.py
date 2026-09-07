@@ -128,7 +128,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 def get_git_sha() -> str:
     try:
-        result = subprocess.run(  # nosec
+        result = subprocess.run(  # nosec B603 B607 - fixed argv, no shell, no user input
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,

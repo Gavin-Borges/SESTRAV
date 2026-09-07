@@ -15,7 +15,41 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 PATTERNS = ("*provenance*.json", "*.provenance.json", "*model_artifact_checksums.json")
 DIGEST = re.compile(r"[0-9a-fA-F]{64}")
-CATEGORIES = ("PORTABLE", "WINDOWS_ONLY", "MISMATCH", "MISSING", "UNRESOLVED")
+CATEGORIES = ("PORTABLE", "WINDOWS_ONLY", "MISMATCH", "MISSING", "UNRESOLVED", "EXEMPT")
+
+EXEMPT_REASON = "retained historical record, not a live pin; exempt by exact (manifest, source) pair"
+
+# (manifest, digest source) pairs whose recorded digest is a RETAINED HISTORICAL
+# record of a superseded artifact rather than a live pin on the tracked file.
+#
+# Scoped to the exact pair. Not to the manifest, not to a path prefix, and not
+# to free-text matching on a neighbouring `note` field. A manifest-wide rule
+# would let any digest later added to the same sidecar go unchecked, and prose
+# is not a gate input - a note-matching rule would exempt by accident, in
+# whichever direction the wording drifted. Naming the pair keeps each one a
+# deliberate, greppable decision. scripts/check_doc_line_citations.py's
+# EXEMPT_CITATIONS uses the same shape for the same reason.
+#
+# The single entry below is the June generation run that produced the 34358-row
+# INTERMEDIATE, superseded by the 32506-row artifact this manifest's top-level
+# block attests to. Its digest is the CRLF (Windows worktree) form of that
+# intermediate and never matched that file's own committed blob either, so it
+# cannot be "corrected" without destroying the history the block exists to
+# preserve. The block's own `note` records that, and records the single edit
+# ever applied to it (backslash separators normalized).
+#
+# THE COST, STATED RATHER THAN HIDDEN: this pair is no longer checked in the
+# failing direction at all, so a later edit to that recorded value would not be
+# caught here. Exempted rows are still printed, and counted as EXEMPT in the
+# summary, so the size of the blind spot is visible on every run. Every OTHER
+# digest in the same manifest - including its live output_checksum_sha256, which
+# names the same subject path - is checked exactly as before.
+EXEMPT_DIGESTS = {
+    (
+        "data/iedb_negatives_v5_provenance.json",
+        "upstream_generator_run.output_checksum_sha256",
+    ),
+}
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
@@ -109,6 +143,18 @@ def classify(recorded: str, blob: str | None, worktree: str | None) -> str:
     return "MISMATCH"
 
 
+def apply_exemption(manifest: str, source: str, verdict: str) -> tuple[str, str | None]:
+    """Downgrade a non-portable verdict to EXEMPT for an exact listed pair.
+
+    Only the two FAILING verdicts are downgraded. MISSING and UNRESOLVED keep
+    their own meaning, and a listed pair that starts reproducing is reported as
+    PORTABLE rather than hidden behind the exemption.
+    """
+    if verdict in {"WINDOWS_ONLY", "MISMATCH"} and (manifest, source) in EXEMPT_DIGESTS:
+        return "EXEMPT", EXEMPT_REASON
+    return verdict, None
+
+
 def scan_repository(repo: Path) -> list[dict[str, str | None]]:
     raw = _git(repo, "ls-files", "-z").stdout.decode("utf-8")
     tracked = {path for path in raw.split("\0") if path}
@@ -142,15 +188,19 @@ def scan_repository(repo: Path) -> list[dict[str, str | None]]:
             worktree = _sha256(target.read_bytes()) if target.is_file() else None
             attr_result = _git(repo, "check-attr", "eol", "--", path)
             attr = attr_result.stdout.decode("utf-8", "replace").strip().rsplit(": ", 1)[-1]
+            verdict, reason = apply_exemption(
+                manifest, str(record["source"]), classify(record["recorded"], blob, worktree)
+            )
             rows.append({**record, "path": path, "blob": blob, "worktree": worktree,
-                         "eol": attr or None, "verdict": classify(record["recorded"], blob, worktree),
-                         "reason": None})
+                         "eol": attr or None, "verdict": verdict, "reason": reason})
     return rows
 
 
 def print_human(rows: list[dict[str, str | None]]) -> None:
     counts = Counter(row["verdict"] for row in rows)
     print("SUMMARY " + " ".join(f"{name}={counts[name]}" for name in CATEGORIES))
+    if counts["EXEMPT"]:
+        print(f"{counts['EXEMPT']} digest(s) exempt by exact (manifest, source) pair; see EXEMPT_DIGESTS.")
     for row in rows:
         fields = [(f"{row['verdict']} ", f"path={row.get('path') or '<unresolved>'}")]
         fields.extend(
