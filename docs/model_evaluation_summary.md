@@ -191,15 +191,21 @@ comparator figures it rested on, the ANN AUC-PR, is retracted as unbound (2026-0
 to the same absent external course export as the retracted ANN column above. **The RF comparator's
 status is a separate, still-open owner item (OWN-7), not settled by this document.** Two mutually
 exclusive provenances exist in tracked files for the un-struck `0.810 ± 0.025` in the
-cross-validation table above: it is a 3-decimal rounding of the same retracted `f360b90` export, but
-`src/gnn_benchmark.py`'s 2026-06-18 note separately attributes an identical figure to a different,
-SESTRAV-internal weighted evaluation. No tracked artifact reproduces either reading
-(`models/training_results.csv` gives `0.8312 ± 0.0084`). Until that conflict is resolved, treat the
-RF cell as unconfirmed rather than as either retracted or bound. The ranking is reported speech
-rather than a result this repository can verify end to end, and `src/gnn_benchmark.py` states it in
-that form. The GNN rows are
-retained as an exploratory benchmark for representation-space characterization: they capture
-structural inter-residue patterns that fixed-position features cannot represent.
+cross-validation table above, and they point opposite ways. Commit `f360b90` introduced that exact
+`0.810 ± 0.025` cell in the same commit that added the GNN rows struck here, and
+`src/gnn_benchmark.py` records its 4-decimal parent, in the passage beginning "The two
+comparator figures that stood here", as `RF AUC-PR=0.8102` RETRACTED as unbound (2026-08-17),
+traced to the same absent external course export. Against that, commit `1e2dbe2` (2026-06-18)
+introduced the reading that still stands earlier in this document, which describes `0.810 ±
+0.025` as "the 30-feature result ... from the same weighted evaluation context", that is,
+SESTRAV's own weighted v3 run. No tracked artifact reproduces either reading
+(`models/training_results.csv` gives `0.8312 ± 0.0084`, itself D15-retracted as
+peptide-leakage-inflated). Until the owner resolves that conflict, treat the RF cell as
+unconfirmed rather than as either retracted or bound. The ranking is reported speech rather
+than a result this repository can verify end to end, and `src/gnn_benchmark.py` states it in
+that form. The GNN rows are retained as an exploratory benchmark for representation-space
+characterization: they capture structural inter-residue patterns that fixed-position features
+cannot represent.
 
 ### Exact Project 2 Optional Benchmark Values
 
