@@ -165,12 +165,15 @@ def cmd_predict(args: argparse.Namespace) -> int:
         freeze_mode=False,
         virus=args.virus,
         per_virus_calibration_dir=args.per_virus_calibration_dir,
+        output_dir=args.output,
     )
     print(f"          {len(ranked_df)} peptides scored")
 
-    # Write final output
+    # score_immunogenicity already wrote the ranked CSV into args.output above
+    # (SESTRAV-Dev C5); this used to also write it here as a second copy, and both
+    # copies had raced against any concurrent `sestrav predict` run on the same
+    # proteome_id before output_dir was threaded through.
     out_path = os.path.join(args.output, f"{proteome_id}_ranked.csv")
-    ranked_df.to_csv(out_path, index=False)
     print(f"[sestrav predict] Ranked output -> {out_path}")
 
     # Top 10 preview

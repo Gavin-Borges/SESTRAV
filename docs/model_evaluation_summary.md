@@ -179,17 +179,25 @@ documented in `docs/nn_gnn_optional_module_guide.md`.
 
 | Model | AUC-PR (mean ± std) | AUC-ROC (mean ± std) |
 |-------|---------------------|---------------------|
-| GCN (2-layer) | 0.778 ± 0.030 | 0.614 ± 0.050 |
-| GAT (2-layer, 4-head) | **0.796 ± 0.028** | **0.637 ± 0.045** |
-| Bipartite Peptide-Allele | 0.789 ± 0.032 | 0.612 ± 0.055 |
+| GCN (2-layer) | ~~0.778 ± 0.030~~ retracted, unbound | ~~0.614 ± 0.050~~ retracted, unbound |
+| GAT (2-layer, 4-head) | ~~0.796 ± 0.028~~ retracted, unbound | ~~0.637 ± 0.045~~ retracted, unbound |
+| Bipartite Peptide-Allele | ~~0.789 ± 0.032~~ retracted, unbound | ~~0.612 ± 0.055~~ retracted, unbound |
 
-GNNs were **reported** to underperform the tabular models on this dataset, and that ranking cannot
-be checked as stated: one of the two comparator figures it rested on, the ANN AUC-PR, is retracted
-as unbound (2026-08-17), having traced to the same absent external course export as the retracted
-ANN column above. The RF comparator is **not** retracted - this document still carries it un-struck
-in the cross-validation table above - so what is withdrawn is the ANN half of the comparison, not
-the pair. The ranking is reported speech rather than a result this repository can verify end to
-end, and `src/gnn_benchmark.py` states it in that form. The GNN rows are
+**Struck 2026-09-06: these three rows are 3-decimal roundings of the GCN/GAT/bipartite figures
+already retracted under the "GNN" heading of `docs/nn_gnn_optional_module_guide.md`** (all five entered in one commit,
+`f360b90`, as one "Project 2, 5-fold CV, v2 dataset" export). GNNs were **reported** to underperform
+the tabular models on this dataset, and that ranking cannot be checked as stated: one of the two
+comparator figures it rested on, the ANN AUC-PR, is retracted as unbound (2026-08-17), having traced
+to the same absent external course export as the retracted ANN column above. **The RF comparator's
+status is a separate, still-open owner item (OWN-7), not settled by this document.** Two mutually
+exclusive provenances exist in tracked files for the un-struck `0.810 ± 0.025` in the
+cross-validation table above: it is a 3-decimal rounding of the same retracted `f360b90` export, but
+`src/gnn_benchmark.py`'s 2026-06-18 note separately attributes an identical figure to a different,
+SESTRAV-internal weighted evaluation. No tracked artifact reproduces either reading
+(`models/training_results.csv` gives `0.8312 ± 0.0084`). Until that conflict is resolved, treat the
+RF cell as unconfirmed rather than as either retracted or bound. The ranking is reported speech
+rather than a result this repository can verify end to end, and `src/gnn_benchmark.py` states it in
+that form. The GNN rows are
 retained as an exploratory benchmark for representation-space characterization: they capture
 structural inter-residue patterns that fixed-position features cannot represent.
 

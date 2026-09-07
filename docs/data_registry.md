@@ -11,15 +11,24 @@ This document catalogs the current datasets, schemas, and evidence freezes used 
 
 ### v4 Schema (Frozen)
 
-> **READER DISCLOSURE (added 2026-08-31).** Every `data/*_v4.csv` artifact cited in this
-> section is **gitignored and untracked**, so a clone contains none of them and the counts
-> and distributions below cannot be verified from the repository. Confirmed for
-> `data/immunogenicity_dataset_v4.csv`, `data/hard_decoys.csv`, `data/vdjdb_v4.csv`,
-> `data/tsnadb_v4.csv` and `data/holding/conflicts_v5_preaudit.csv` (each returns nothing
-> from `git ls-files` and is matched by `git check-ignore`). The figures are retained as
-> the record of what the frozen v4 corpus contained; they are **measurements made against
-> a local artifact, not reproducible claims**. Anything reader-verifiable in this document
-> is measured against a tracked file and says so.
+> **READER DISCLOSURE (added 2026-08-31; scope widened 2026-09-01).** Every `data/*_v4.csv`
+> artifact cited **anywhere in this document** is **gitignored and untracked**, so a clone
+> contains none of them and the counts and distributions drawn from them cannot be verified
+> from the repository. Confirmed for `data/immunogenicity_dataset_v4.csv`,
+> `data/hard_decoys.csv`, `data/vdjdb_v4.csv`, `data/tsnadb_v4.csv`,
+> `data/tsnadb_crossdomain_cohort.csv`, `data/tsnadb_crossdomain_binding.csv` and
+> `data/holding/conflicts_v5_preaudit.csv` (each returns nothing from `git ls-files` and is
+> matched by `git check-ignore`). The figures are retained as the record of what the frozen
+> v4 corpus contained; they are **measurements made against a local artifact, not
+> reproducible claims**.
+>
+> **The widening is deliberate, and its limit matters as much as its reach.** This block
+> previously covered only the "v4 Schema (Frozen)" section, so a reader landing on the v4
+> Composition Audit or on decision row AD-4 got no local signal about the very same
+> untracked files. It now covers the whole document. It does **not** say that every `data/`
+> artifact cited here is untracked: `data/immunogenicity_dataset_v3.csv` and
+> `data/immunogenicity_dataset_v5.csv` **are** tracked and are reader-verifiable. Anything
+> reader-verifiable in this document is measured against a tracked file and says so.
 
 *   **Status**: Frozen. Superseded by v5. The v4 artifact (`data/immunogenicity_dataset_v4.csv`) is retained as the paper's published baseline.
 *   **Description**: Introduced in the Post-Badge Phase 1 expansion.
@@ -84,7 +93,9 @@ Recorded here so they cannot be silently reversed without a documented rationale
 
 ## v4 Composition Audit (2026-06-24)
 
-Measured from `data/immunogenicity_dataset_v4.csv` (14,699 total rows).
+Measured from `data/immunogenicity_dataset_v4.csv` (14,699 total rows). That file is
+gitignored and untracked, so this table cannot be reproduced from a clone; see the READER
+DISCLOSURE under "v4 Schema (Frozen)" above.
 
 | Virus | n | Pos rate | Assessment |
 |---|---|---|---|

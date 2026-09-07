@@ -19,8 +19,10 @@ from src.features import (
     compute_features_for_dataset,
     compute_sample_weights,
     compute_weisfeiler_lehman_features,
+    get_esm_fallback_count,
     get_esm_cls_token,
     FEATURE_COLUMNS,
+    reset_esm_fallback_count,
 )
 
 
@@ -349,6 +351,7 @@ class TestGetEsmClsToken:
         monkeypatch.setattr(f, "_esm_model", None)
         monkeypatch.setattr(f, "_esm_tokenizer", None)
         monkeypatch.setitem(sys.modules, "transformers", self._mock_transformers())
+        reset_esm_fallback_count()
 
         result = get_esm_cls_token("CLGGLLTMV")
         assert result.shape == (320,)
@@ -356,6 +359,7 @@ class TestGetEsmClsToken:
         # fallback returns float64 Gaussians, not the mock's ramp.
         np.testing.assert_array_equal(result, self._sentinel())
         assert result.dtype == np.float32  # the fallback returns float64
+        assert get_esm_fallback_count() == 0
         assert "Falling back" not in capsys.readouterr().out
 
     def test_esm_cls_token_reuses_cached_model(self, monkeypatch, capsys):
@@ -379,6 +383,7 @@ class TestGetEsmClsToken:
         monkeypatch.setattr(f, "_esm_model", mock_model_cached)
         monkeypatch.setattr(f, "_esm_tokenizer", mock_tok_cached)
         monkeypatch.setitem(sys.modules, "transformers", mock_transformers)
+        reset_esm_fallback_count()
 
         result = get_esm_cls_token("CLGGLLTMV")
         assert result.shape == (320,)
@@ -403,9 +408,11 @@ class TestGetEsmClsToken:
         bad_transformers = MagicMock()
         bad_transformers.AutoTokenizer.from_pretrained.side_effect = RuntimeError("net")
         monkeypatch.setitem(sys.modules, "transformers", bad_transformers)
+        reset_esm_fallback_count()
 
         result = get_esm_cls_token("CLGGLLTMV")
         assert result.shape == (320,)
+        assert get_esm_fallback_count() == 1
         assert "Falling back" in capsys.readouterr().out
         # Pin the stream. The seed is sha256-derived and NOT the builtin hash():
         # hash() is salted per interpreter (see _wl_color), so a revert to it would

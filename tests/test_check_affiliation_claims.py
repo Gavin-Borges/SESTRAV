@@ -132,6 +132,43 @@ def test_retracted_name_is_quotable_only_in_the_retraction_record():
     assert _unreviewed(line, "docs/paper.md") == ["NC State"]
 
 
+def test_generated_rule_mirror_is_exempt_only_for_the_retracted_name():
+    """The .agents mirror may quote D35, and nothing more.
+
+    The narrowness is the load-bearing half. Exempting the mirror DIRECTORY, or
+    keying the exemption on the "GENERATED FILE - DO NOT EDIT" banner, would let
+    a file win exemption by its own content.
+    """
+    mirror = ".agents/rules/third-party-claims.md"
+    line = 'the prior version read "coursework at NC State", which was false'
+
+    assert _unreviewed(line, mirror) == []
+    # A DIFFERENT name in the SAME exempt file is still unreviewed.
+    assert _unreviewed("Affiliation: Stanford University", mirror) == [
+        "Stanford University"
+    ]
+    # A DIFFERENT file in the SAME mirror directory is still scanned and caught.
+    assert mod.should_scan(".agents/rules/gnn.md") is True
+    assert _unreviewed(line, ".agents/rules/gnn.md") == ["NC State"]
+
+
+def test_mirror_exemption_tracks_its_canonical_source():
+    """Any .claude/rules exemption must also name its generated .agents mirror.
+
+    Pure string logic over the table, with no filesystem access: .claude/ and
+    .agents/ are gitignored, so a CI checkout has neither and an existence
+    assertion would fail there for reasons unrelated to the gate.
+    """
+    for name, paths in mod.RETRACTED_INSTITUTIONS.items():
+        for rel in paths:
+            if rel.startswith(".claude/rules/"):
+                mirror = rel.replace(".claude/rules/", ".agents/rules/", 1)
+                assert mirror in paths, (
+                    f"{name}: {rel} is exempt but its generated mirror "
+                    f"{mirror} is not; re-read sync_agent_rules.py"
+                )
+
+
 def test_self_exemption_covers_the_gate_and_its_suite_and_nothing_else():
     """The gate must not fail on its own machinery, and must stay narrow.
 
