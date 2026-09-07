@@ -50,6 +50,15 @@ updates:
       # protection.
       - dependency-name: "platformdirs"
       - dependency-name: "pyzmq"
+      # The predicted next ones arrived on 2026-09-07, and there were three, not
+      # one: PRs #396 and #397 both edited the render closure through ipython,
+      # jupyter-client and wcwidth, and both had to be closed exactly as #312
+      # was. Note the spelling: the closure file emits "jupyter_client" with an
+      # underscore, but Dependabot matches PEP 503 normalized names, so the
+      # hyphenated form is the one that binds here.
+      - dependency-name: "ipython"
+      - dependency-name: "jupyter-client"
+      - dependency-name: "wcwidth"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
@@ -103,6 +112,15 @@ updates:
       # protection.
       - dependency-name: "platformdirs"
       - dependency-name: "pyzmq"
+      # The predicted next ones arrived on 2026-09-07, and there were three, not
+      # one: PRs #396 and #397 both edited the render closure through ipython,
+      # jupyter-client and wcwidth, and both had to be closed exactly as #312
+      # was. Note the spelling: the closure file emits "jupyter_client" with an
+      # underscore, but Dependabot matches PEP 503 normalized names, so the
+      # hyphenated form is the one that binds here.
+      - dependency-name: "ipython"
+      - dependency-name: "jupyter-client"
+      - dependency-name: "wcwidth"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
