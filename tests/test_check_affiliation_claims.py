@@ -31,6 +31,7 @@ development and both are the kind a later "simplification" would reintroduce:
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -266,11 +267,22 @@ def _git(*args: str, cwd: Path) -> None:
 
 
 def _run_all(cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run the gate's ``--all`` mode with the output format pinned.
+
+    The script prints GitHub's ``::error::`` annotation form when
+    ``GITHUB_ACTIONS=true`` and a plain ``ERROR `` prefix otherwise, so a test
+    asserting on the prefix passes locally and fails on the runner. Dropping
+    the variable makes the format a property of the test rather than of where
+    it happens to run.
+    """
+    env = dict(os.environ)
+    env.pop("GITHUB_ACTIONS", None)
     return subprocess.run(
         [sys.executable, str(_SCRIPT), "--all"],
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
