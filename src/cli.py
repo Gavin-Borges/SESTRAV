@@ -165,12 +165,15 @@ def cmd_predict(args: argparse.Namespace) -> int:
         freeze_mode=False,
         virus=args.virus,
         per_virus_calibration_dir=args.per_virus_calibration_dir,
+        output_dir=args.output,
     )
     print(f"          {len(ranked_df)} peptides scored")
 
-    # Write final output
+    # Stage 4 used to write the literal results/ while this wrote into --output, so
+    # this was the only copy landing in the requested directory. Threading output_dir
+    # through (SESTRAV-Dev C5) makes score_immunogenicity write there itself, so this
+    # second write is now redundant and is gone.
     out_path = os.path.join(args.output, f"{proteome_id}_ranked.csv")
-    ranked_df.to_csv(out_path, index=False)
     print(f"[sestrav predict] Ranked output -> {out_path}")
 
     # Top 10 preview
