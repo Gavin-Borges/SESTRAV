@@ -134,7 +134,8 @@ Notes:
   * --no-emit-index-url matches the repo convention and keeps a local
     [tool.uv.pip] emit-index-url setting from leaking an index into the file.
   * Files without a `.in` source (requirements-ci-render.txt,
-    requirements-ci-torch-cpu.txt, requirements-sbom.txt) are curated by hand
+    requirements-ci-torch-cpu.txt, requirements-sbom.txt,
+    requirements-pip-bootstrap.txt) are curated by hand
     with `pip download` + `pip hash` and are deliberately not managed here.
 
 The 'runtime' and 'lock' specs constrain setuptools to 83.0.0 for

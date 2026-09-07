@@ -56,7 +56,7 @@ them, find the tier it belongs to.
 | 1. Runtime | `requirements.in` | `requirements.txt` | `tools/update_dependencies.py` |
 | 2. Environment lock (CVE floors) | `environments/requirements-lock.in` | `environments/requirements.lock` | `tools/update_dependencies.py` |
 | 3. CI tool environments (8) | `environments/requirements-ci*.in`, `-pip-audit.in`, `-security.in`, `-semgrep.in` | matching `.txt` | `tools/update_dependencies.py --ci-env <name>` |
-| 4. Hand-maintained hash locks (3) | none - the `.txt` *is* the source | `requirements-ci-render.txt`, `requirements-ci-torch-cpu.txt`, `requirements-sbom.txt` | by hand, following each file's own header |
+| 4. Hand-maintained hash locks (4) | none - the `.txt` *is* the source | `requirements-ci-render.txt`, `requirements-ci-torch-cpu.txt`, `requirements-sbom.txt`, `requirements-pip-bootstrap.txt` | by hand, following each file's own header |
 | 5. Optional extras | `pyproject.toml` `[project.optional-dependencies]` | none - resolved at install time | edit by hand |
 | 6. Conda environment | `environment.yml` | none | edit by hand |
 
@@ -75,10 +75,15 @@ them, find the tier it belongs to.
    is a closure pinned to a single platform (Linux x86_64 / Python 3.13), and
    `requirements-sbom.txt` exists to back the fallback install in
    `scripts/generate_sbom.sh`. Follow the header of the file you are changing -
-   two of the three record a `pip download` + `pip hash` recipe, while
+   three of the four record a `pip download` + `pip hash` recipe, while
    `requirements-ci-torch-cpu.txt` records its install flags and wheel provenance
    instead. Do not convert any of them into a tier 1-3 pair. Note that neither
    CI gate covers `requirements-sbom.txt`, so changes to it are reviewed by hand.
+   `requirements-pip-bootstrap.txt` (added 2026-09-06) is the fourth: it carries
+   the single `pip` pin that `Dockerfile` installs before anything else, because
+   pip accepts hashes only from a requirements file and `--require-hashes` demands
+   a hash for every requirement in that file, so the bootstrap cannot share
+   `environments/requirements.lock`. Keep it to one requirement.
 3. **Every install path in this repo is hash-verified**
    (`pip install --no-deps --require-hashes -r ...`). This matters when adding a
    manifest: pip enables `--require-hashes` automatically as soon as *any*
