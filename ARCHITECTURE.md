@@ -111,7 +111,7 @@ SESTRAV proceeds through six computational stages under a reproducible Snakemake
 | 1. Peptide generation | Viral proteome FASTA | Sliding-window 8-11mer extraction | `{proteome}_peptides.csv` |
 | 2. MHC binding | Peptides + allele panel | MHCflurry 2.2.1 presentation scores, 10 HLA alleles (pinned, CI-gated) | `{proteome}_binding.csv` |
 | 3. Feature extraction | Binding CSV | `src/features.py`: 20 physicochemical properties at p4-p8 + 10 per-allele binding + peptide length | `{proteome}_features.csv` |
-| 4. Immunogenicity scoring | Features + serialized model | RF / XGBoost ensemble; SHAP attribution; conformal intervals | `{proteome}_ranked.csv` |
+| 4. Immunogenicity scoring | Features + serialized model | RF / XGBoost ensemble; SHAP attribution; isotonic calibration + tuned threshold. **No conformal intervals** - claimed here until 2026-09-07, never implemented, RETRACTED (`docs/claims_register.md` D37) | `{proteome}_ranked.csv` |
 | 5. Antigen processing (optional) | Peptides | Cleavage + transport scores joined as features (`mode_33`). **The shipped cache holds MOCK values, not real NetChop 3.1 / TAPreg output** (`docs/claims_register.md` D18) | extended feature cache |
 | 6. GNN benchmark (optional, research) | Peptide graphs + ESM-2 cache | GINEConv + ESM-2 scoring, fused with mode-31 features | GNN OOF predictions, eval JSON |
 
