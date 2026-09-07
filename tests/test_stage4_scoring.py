@@ -85,6 +85,57 @@ def test_freeze_mode_without_model_raises(monkeypatch, tmp_path):
         s4.score_immunogenicity(df, "HPV16", model_path=None, freeze_mode=True)
 
 
+# --- output_dir threading (regression for SESTRAV-Dev C5) ----------------------------
+
+
+def test_output_dir_defaults_to_results_for_backward_compatibility(monkeypatch, tmp_path):
+    """A caller that does not pass output_dir must keep writing to results/,
+    exactly as before this parameter existed."""
+    _run_in_results_dir(monkeypatch, tmp_path)
+    df = _feature_frame(FEATURE_COLUMNS)
+    s4.score_immunogenicity(df, "HPV16", model_path=None)
+    assert os.path.isfile("results/HPV16_ranked.csv")
+
+
+def test_output_dir_isolates_concurrent_runs_for_the_same_proteome_id(monkeypatch, tmp_path):
+    """Regression for SESTRAV-Dev C5: score_immunogenicity used to hardcode
+    "results/<proteome_id>_ranked.csv", so two runs for the SAME proteome_id (e.g.
+    a batch sweep scoring several models against one antigen) silently overwrote
+    each other's output on that one shared file. Passing distinct output_dir
+    values must keep each run's file separate and correct, and the directory need
+    not exist beforehand.
+    """
+    monkeypatch.chdir(tmp_path)  # so the old hardcoded "results/" is checkable below
+    dir_a = tmp_path / "trial_a"
+    dir_b = tmp_path / "trial_b"
+    # Deliberately not pre-created: threading output_dir through must create it.
+
+    df_a = _feature_frame(FEATURE_COLUMNS, seed=1)
+    df_a["peptide"] = [f"A{i:03d}" for i in range(len(df_a))]
+    df_b = _feature_frame(FEATURE_COLUMNS, seed=2)
+    df_b["peptide"] = [f"B{i:03d}" for i in range(len(df_b))]
+
+    s4.score_immunogenicity(df_a, "SHARED_ID", model_path=None, output_dir=str(dir_a))
+    s4.score_immunogenicity(df_b, "SHARED_ID", model_path=None, output_dir=str(dir_b))
+
+    path_a = dir_a / "SHARED_ID_ranked.csv"
+    path_b = dir_b / "SHARED_ID_ranked.csv"
+    assert path_a.is_file()
+    assert path_b.is_file()
+
+    on_disk_a = pd.read_csv(path_a)
+    on_disk_b = pd.read_csv(path_b)
+    # Each file must hold its own run's peptides, never the other run's - the
+    # exact substitution the shared-file race produced (C5's measured
+    # consequence was one run's output silently standing in for another's).
+    assert set(on_disk_a["peptide"]) == set(df_a["peptide"])
+    assert set(on_disk_b["peptide"]) == set(df_b["peptide"])
+    assert set(on_disk_a["peptide"]).isdisjoint(set(on_disk_b["peptide"]))
+
+    # Neither run touched the old shared default location.
+    assert not (tmp_path / "results" / "SHARED_ID_ranked.csv").exists()
+
+
 # --- joblib model branch (heavy loader mocked) ---------------------------------------
 
 

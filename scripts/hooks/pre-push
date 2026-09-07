@@ -60,6 +60,37 @@ if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; the
     fi
 fi
 
+# Say WHY when the environment is not usable, instead of blaming the tests.
+#
+# The activation above is a silent no-op in Git Bash: `command -v conda` finds
+# nothing there, because conda is not on PATH under that shell (verified
+# 2026-09-02). The gate then runs whatever `python` resolves to - on Windows that
+# is usually the WindowsApps store shim, which has no pytest - so `python -m
+# pytest` exits non-zero and Check 2 reports "Fast test gate failed. Fix failures
+# before pushing."
+#
+# That message is misleading in the worst way: it names the tests when the tests
+# never ran. The gate does FAIL CLOSED, so nothing unsafe reaches the remote, but
+# a reader is sent to debug a suite that was never executed. This check converts
+# that into an accurate diagnosis. It changes nothing when the environment IS
+# active: if pytest imports, the gate proceeds exactly as before.
+if ! python -c "import pytest" >/dev/null 2>&1; then
+    block "pytest is not importable, so the fast test gate cannot run."
+    printf '\n' >&2
+    printf '%s\n' "  This is an ENVIRONMENT problem, not a test failure. Nothing ran." >&2
+    printf '\n' >&2
+    printf '%s\n' "  'conda' is not on PATH in Git Bash, so the activation above is a" >&2
+    printf '%s\n' "  no-op and 'python' resolves to an interpreter without pytest." >&2
+    printf '\n' >&2
+    printf '%s\n' "  Activate the environment, then push again:" >&2
+    printf '%s\n' '    eval "$(<conda-root>/Scripts/conda.exe shell.bash hook)"' >&2
+    printf '%s\n' "    conda activate sestrav" >&2
+    printf '\n' >&2
+    printf '%s\n' "  Confirm with:" >&2
+    printf '%s\n' "    python -c 'import sys, pytest; print(sys.executable)'" >&2
+    exit 1
+fi
+
 # Run fast tests: exclude heavy (model checkpoints) and slow (network) markers.
 # tests/test_run_analysis_results_guard.py is also excluded here: it imports
 # scripts.run_analysis, which imports the `shap` library, which on at least one
@@ -114,7 +145,7 @@ fi
 # crash is fixed upstream or the dependency is replaced (same condition as
 # the test_run_analysis_results_guard.py exclusion above, since both trace to
 # the same root cause).
-cd "${REPO_ROOT}" && python -m pytest tests/ -q -m "not heavy and not slow" \
+cd "${REPO_ROOT}" && python -m pytest tests/ -q \
     --ignore=tests/test_run_analysis_results_guard.py \
     --ignore=tests/test_pipeline_stages.py \
     --deselect 'tests/test_entry_point_help_smoke.py::test_help_parses_and_exits_clean[src.shap_analysis]' \
