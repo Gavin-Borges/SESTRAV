@@ -45,9 +45,10 @@ def test_unmeasured_overlap_is_skipped_not_clean():
 
 
 def test_unmeasured_overlap_rationale_does_not_contradict_the_fdr_flags():
-    # The fixture sets fdr_significant True on both metrics. The rationale is published
-    # into results/external_benchmark_comparison.md directly beside those flags, so a
-    # rationale claiming the evidence is weak would be self-refuting on the page.
+    # The fixture sets fdr_significant True on both metrics. append_finalize_report()
+    # emits the rationale as item 3 of each entry in the "MCDA Verdicts" section it
+    # appends to results/external_benchmark_comparison.md, directly beneath the FDR
+    # flags in item 2, so a rationale calling the evidence weak would contradict them.
     result = _verdict(None)
     rationale = result["rationale"].lower()
     assert "fdr non-significant" not in rationale
