@@ -26,9 +26,9 @@ fastjsonschema==2.22.2 \
     --hash=sha256:72064e12356a7d6ef02165be2946b9abadbdf238536e07eb587e3dbaa33099cf
 ipykernel==6.29.5 \
     --hash=sha256:afdb66ba5aa354b09b91379bac28ae4afebbb30e8b39510c9690afb7a10421b5
-ipython==9.16.1 \
-    --hash=sha256:4acae635506f6d352d94c4899a19d5f85f8bc4d230932342dca556fdab1c69b4 \
-    --hash=sha256:5a3d1f9a47ff216d6cf9cf863124f6a2c1a198d1354c546a4d24a370a283b64c
+ipython==9.17.0 \
+    --hash=sha256:1dc69e6966b270fb259f676c71a21450e63607729b14a672b942914a54e8b730 \
+    --hash=sha256:ce647713be8fef3fab2418c515a0def4d45d6705dd102be2c6d1f3015d7368b0
 ipython_pygments_lexers==1.1.1 \
     --hash=sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c
 jedi==0.20.0 \
@@ -37,8 +37,9 @@ jsonschema==4.26.0 \
     --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
 jsonschema_specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
-jupyter_client==8.9.1 \
-    --hash=sha256:0b7a295bc46e8751e9adae84781f726c851c1d911bd793edc4a3bde942e3da81
+jupyter_client==8.10.0 \
+    --hash=sha256:5f73f24f22fa25192cfff6b23c051932a2473a797b05734aff495b392103e14e \
+    --hash=sha256:9f7116294dca55f1785be880057d44544db9b1567718d92cb33c58886afb9497
 jupyter_core==5.9.1 \
     --hash=sha256:ebf87fdc6073d142e114c72c9e29a9d7ca03fad818c5d300ce2adc1fb0743407
 matplotlib_inline==0.2.2 \
@@ -327,6 +328,6 @@ traitlets==5.16.1 \
 typing_extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
-wcwidth==0.8.2 \
-    --hash=sha256:91fbef97204b96a3d4d421609b80340b760cf33e26da123ff243d76b1fda8dda \
-    --hash=sha256:d63947694a0539a1d51e01eda7caf800c291020e6cdd7e28ad7b14dd33ad4f85
+wcwidth==0.8.3 \
+    --hash=sha256:d128512515fbf4612e0ff21fd6380399210318b7b54a9af59dff8454cf9730eb \
+    --hash=sha256:d5b73dba6158a595ec9370350e7f2637bcac8d6c5e4fde34f30fcffb6103a5e4
