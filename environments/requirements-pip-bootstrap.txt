@@ -20,7 +20,15 @@
 # Both the wheel and the sdist hash are listed so the install succeeds whether
 # or not pip resolves to the wheel. Hashes below were cross-checked against the
 # PyPI JSON API, the PEP 691 simple index, and a local sha256 of the downloaded
-# bytes on 2026-09-06.
-pip==26.1.2 \
-    --hash=sha256:382ff9f685ee3bc25864f820aa50505825f10f5458ffff07e30a6d96e5715cab \
-    --hash=sha256:f49cd134c61cf2fd75e0ce2676db03e4054504a5a4986d00f8299ae632dc4605
+# bytes on 2026-09-07.
+#
+# WHY 26.2.1 AND NOT 26.1.2. Writing the bootstrap as a manifest is what first
+# made this pin visible to the dependency-review action, which scans manifest
+# files and never reads a RUN line. It immediately reported GHSA-qwm4-qh6w-59xr
+# (moderate, "pip would incorrectly handle doubly-encoded package URLs from
+# indexes"), first patched in 26.2.0. The image was ALREADY installing the
+# affected 26.1.2 before this file existed; the manifest did not introduce the
+# exposure, it revealed it. Keep this pin at or above 26.2.0.
+pip==26.2.1 \
+    --hash=sha256:71138adf1f4ca900cdb7d289c21b7494329f2332b6d85f0e1c42108c0384ed3e \
+    --hash=sha256:f6ad667e89a1fe78046c8f13232b247200f5258d7828f3f7883d660878e0813f
