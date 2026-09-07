@@ -142,7 +142,7 @@
   {
     "License": "Apache-2.0 OR BSD-3-Clause",
     "Name": "cryptography",
-    "Version": "50.0.0"
+    "Version": "50.0.1"
   },
   {
     "License": "LicenseRef-NVIDIA-SOFTWARE-LICENSE",
@@ -237,7 +237,7 @@
   {
     "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.165.10"
+    "Version": "6.167.1"
   },
   {
     "License": "BSD-3-Clause",
@@ -257,7 +257,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "joblib",
-    "Version": "1.5.3"
+    "Version": "1.6.0"
   },
   {
     "License": "MIT",
@@ -327,7 +327,7 @@
   {
     "License": "Apache-2.0",
     "Name": "msgpack",
-    "Version": "1.2.1"
+    "Version": "1.2.2"
   },
   {
     "License": "Apache License 2.0",
@@ -502,7 +502,7 @@
   {
     "License": "MIT",
     "Name": "pydantic",
-    "Version": "2.13.4"
+    "Version": "2.13.5"
   },
   {
     "License": "MIT",
@@ -512,7 +512,7 @@
   {
     "License": "MIT",
     "Name": "pydantic_core",
-    "Version": "2.46.4"
+    "Version": "2.46.5"
   },
   {
     "License": "MIT",
@@ -592,7 +592,7 @@
   {
     "License": "MIT",
     "Name": "snakemake",
-    "Version": "9.25.2"
+    "Version": "9.26.1"
   },
   {
     "License": "UNKNOWN",

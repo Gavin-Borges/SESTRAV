@@ -28,7 +28,7 @@
 | conda-inject                          | 1.3.2       | UNKNOWN                                                                                             |
 | connection_pool                       | 0.0.3       | MIT License                                                                                         |
 | contourpy                             | 1.3.3       | BSD License                                                                                         |
-| cryptography                          | 50.0.0      | Apache-2.0 OR BSD-3-Clause                                                                          |
+| cryptography                          | 50.0.1      | Apache-2.0 OR BSD-3-Clause                                                                          |
 | cuda-bindings                         | 13.3.1      | LicenseRef-NVIDIA-SOFTWARE-LICENSE                                                                  |
 | cuda-pathfinder                       | 1.6.0       | Apache-2.0                                                                                          |
 | cuda-toolkit                          | 13.0.3.0    | UNKNOWN                                                                                             |
@@ -47,11 +47,11 @@
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.165.10    | MPL-2.0                                                                                             |
+| hypothesis                            | 6.167.1     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
-| joblib                                | 1.5.3       | BSD-3-Clause                                                                                        |
+| joblib                                | 1.6.0       | BSD-3-Clause                                                                                        |
 | jsonschema                            | 4.26.0      | MIT                                                                                                 |
 | jsonschema-specifications             | 2025.9.1    | MIT                                                                                                 |
 | jupyter_core                          | 5.9.1       | BSD-3-Clause                                                                                        |
@@ -266,7 +266,7 @@
 |                                       |             |                                                                                                     |
 | ml_dtypes                             | 0.5.4       | Apache-2.0                                                                                          |
 | mpmath                                | 1.3.0       | BSD License                                                                                         |
-| msgpack                               | 1.2.1       | Apache-2.0                                                                                          |
+| msgpack                               | 1.2.2       | Apache-2.0                                                                                          |
 | multidict                             | 6.7.1       | Apache License 2.0                                                                                  |
 | namex                                 | 0.1.0       | UNKNOWN                                                                                             |
 | nbformat                              | 5.11.1      | BSD License                                                                                         |
@@ -301,9 +301,9 @@
 | psutil                                | 7.2.2       | BSD-3-Clause                                                                                        |
 | pyahocorasick                         | 2.3.1       | BSD-3-Clause and Public-Domain                                                                      |
 | pycparser                             | 3.0         | BSD-3-Clause                                                                                        |
-| pydantic                              | 2.13.4      | MIT                                                                                                 |
+| pydantic                              | 2.13.5      | MIT                                                                                                 |
 | pydantic-settings                     | 2.15.0      | MIT                                                                                                 |
-| pydantic_core                         | 2.46.4      | MIT                                                                                                 |
+| pydantic_core                         | 2.46.5      | MIT                                                                                                 |
 | pyparsing                             | 3.3.2       | MIT                                                                                                 |
 | pytest                                | 9.1.1       | MIT                                                                                                 |
 | python-dateutil                       | 2.9.0.post0 | Apache Software License; BSD License                                                                |
@@ -319,7 +319,7 @@
 | slicer                                | 0.0.8       | MIT License                                                                                         |
 | smart_open                            | 7.7.1       | MIT License                                                                                         |
 | smmap                                 | 5.0.3       | BSD License                                                                                         |
-| snakemake                             | 9.25.2      | MIT                                                                                                 |
+| snakemake                             | 9.26.1      | MIT                                                                                                 |
 | snakemake-interface-common            | 1.23.0      | UNKNOWN                                                                                             |
 | snakemake-interface-executor-plugins  | 9.4.0       | MIT License                                                                                         |
 | snakemake-interface-logger-plugins    | 2.1.0       | UNKNOWN                                                                                             |
