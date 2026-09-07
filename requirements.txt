@@ -1076,9 +1076,9 @@ mhcflurry==2.2.1 \
     --hash=sha256:cd934e9b092de76e477442c6f84aab1265def91acfa5ae129308116dbfa66ac7 \
     --hash=sha256:cda123729b649e94e1da9af40cdedf2d6823f39ebfd87dd36e47eb994bb3c4a0
     # via -r requirements.in
-mhcgnomes==3.33.4 \
-    --hash=sha256:3c7334e9cd75261e896a85f0ef37307e3b64f0fbf94ff69b0385c0972b5c6a2b \
-    --hash=sha256:7947ecef1ef00cf6ea0027f8be7fa22a96171e54eeb76d281d3e9e5fda65e479
+mhcgnomes==3.41.0 \
+    --hash=sha256:089dc67ef1edfd03847fff7a8a5e3d53fffb180e2c2b0626f1ac9f84a1002aeb \
+    --hash=sha256:c03d7a14b40198309e861f4107d2d0d3589ddbe3f79afe2027fa788027dc16bc
     # via mhcflurry
 ml-dtypes==0.5.4 \
     --hash=sha256:0d2ffd05a2575b1519dc928c0b93c06339eb67173ff53acb00724502cda231cf \
