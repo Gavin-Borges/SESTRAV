@@ -1,6 +1,6 @@
 # Core data and ML
 biopython==1.88
-joblib==1.5.3
+joblib==1.6.0
 numpy==2.4.6
 openpyxl==3.1.5
 pandas==3.0.3
@@ -26,7 +26,7 @@ shap==0.51.0
 
 # Test tooling
 pytest==9.1.1
-hypothesis==6.165.10
+hypothesis==6.167.1
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
@@ -40,7 +40,7 @@ torch-geometric==2.7.0
 # API scaffolding
 fastapi==0.141.1
 uvicorn==0.52.4
-pydantic==2.13.4
+pydantic==2.13.5
 
 # Security: minimum version pins to close known CVEs
 # keras < 3.13.2 is affected by multiple CVEs (directory traversal, SSRF,
