@@ -58,7 +58,7 @@ mhcflurry_model_version: "2.2.1"
 # Feature mode: 21 (legacy sequence-only) | 30 (physico + binding, legacy) | 31 (canonical) | 33 (+ antigen processing)
 # Canonical production model: feature_mode=31 (full_31: physico_20 + binding_10 + peptide_length)
 # Certified OOF CV (v5, mode 31, peptide-grouped, fold-mean): RF AUC-PR 0.6058, AUC-ROC 0.8137.
-# The 0.8276 / 0.8205 / 0.864 figures this comment held until 2026-09-07 are pre-D15, RETRACTED (D39).
+# The 0.8276 / 0.8205 / 0.864 figures held here until 2026-09-07 are v3 (n=1,004), valid on that corpus (D8) and superseded here, not retracted.
 # See docs/model_evaluation_summary.md and docs/feature_glossary.md for full details.
 feature_mode: 31
 
