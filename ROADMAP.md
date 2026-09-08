@@ -5,7 +5,7 @@ This roadmap describes the project's intended direction for at least the next
 with research findings and contributor availability. Progress is tracked in
 GitHub Issues and reflected in `CHANGELOG.md`.
 
-_Last updated: 2026-08._
+_Last updated: 2026-09._
 
 ## Near term (0-3 months)
 
@@ -64,6 +64,26 @@ _Last updated: 2026-08._
   tag-triggered only), and the publisher is bound to the `Gavin-Borges` personal
   account, so the planned GitHub-organization migration should happen first - see the
   ordering constraint in `docs/releasing.md`.
+- **Calibrated uncertainty on ranked output - planned, not built.** Ranked proteome
+  output today carries point scores only. The intent is to add split-conformal
+  prediction over the RF track, emitting `lower_bound`, `upper_bound` and
+  `interval_width` on `{proteome}_ranked.csv` alongside an empirical-coverage
+  artifact with a provenance sidecar. **The calibration split must be designed under
+  `src.ml_utils.PeptideGroupedKFold` and its validity argued explicitly**, because a
+  conformal guarantee inherits the leakage properties of the split it is computed on;
+  a peptide-leaky split yields a guarantee that is arithmetically correct and
+  scientifically meaningless. Any published coverage figure will be ledger-bound like
+  every other number here. Note that `README.md` and `ARCHITECTURE.md` have described
+  Stage 4 as emitting conformal intervals; that description is being retracted, since
+  the shipped stage applies isotonic calibration and a tuned threshold and emits no
+  intervals.
+- **`torch` moving out of the core dependency set.** `torch` is currently a hard
+  `[project].dependencies` requirement, so every install pays the deep-learning
+  footprint even though the ANN/GNN tracks are optional benchmarks (see
+  "Deep-learning promotion" below). The intent is to move it behind the existing
+  `[gnn]` extra and add import guards, so the default install is substantially
+  lighter. This is a breaking change for anyone importing the GNN modules without the
+  extra, and it will be called out in `CHANGELOG.md` when it lands.
 
 ## Mid term (3-9 months)
 
@@ -112,6 +132,19 @@ _Last updated: 2026-08._
   evaluated-but-not-adopted extension, not pending work; re-opening it needs
   both a corrected featurization (D30) and a fair, symmetric, peptide-grouped
   re-evaluation of both arms, not a re-run of this retracted comparison.
+- **Vaccine cocktail selection - planned, and deliberately sequenced after
+  calibrated uncertainty.** The intent is an integer-linear-programming selector that
+  chooses a small peptide panel maximising modelled population coverage. **It will
+  optimise over the conformal LOWER BOUNDS from the near-term uncertainty work, not
+  over point estimates**, and that ordering is the whole point: built over point
+  scores, the selector is an ordinary set-cover and contributes nothing novel.
+  Prerequisites are promoting `pulp` to a direct dependency (it is transitive-only
+  today) and versioning the AFND allele-frequency inputs as a provenance-tracked data
+  artifact. **The population-coverage ceiling will be reported inline as an equity
+  constraint rather than a footnote:** the current 10-allele panel's modelled coverage
+  is highest in EUR and materially lower in AFR, so a "population coverage" figure
+  quoted without its per-population spread overstates the result for exactly the
+  groups least represented in the training data.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
   for balanced recall across taxa and peptide lengths.
 - **Release automation.** Attach the `src.release_bundle` ZIP to the GitHub
