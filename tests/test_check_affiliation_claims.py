@@ -31,6 +31,7 @@ development and both are the kind a later "simplification" would reintroduce:
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -259,6 +260,146 @@ def test_quoted_and_line_wrapped_names_still_resolve():
     # A line-based scan sees a wrapped name truncated; a prefix of an allowed
     # name is not an unreviewed institution.
     assert _unreviewed("OpenSSF Passing; MIT; University of Rhode") == []
+
+
+def _git(*args: str, cwd: Path) -> None:
+    subprocess.run(["git", *args], cwd=str(cwd), check=True, capture_output=True)
+
+
+def _run_all(cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run the gate's ``--all`` mode with the output format pinned.
+
+    The script prints GitHub's ``::error::`` annotation form when
+    ``GITHUB_ACTIONS=true`` and a plain ``ERROR `` prefix otherwise, so a test
+    asserting on the prefix passes locally and fails on the runner. Dropping
+    the variable makes the format a property of the test rather than of where
+    it happens to run.
+    """
+    env = dict(os.environ)
+    env.pop("GITHUB_ACTIONS", None)
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), "--all"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def test_nested_checkout_detection_is_structural_not_a_name_glob():
+    """A worktree is detected by carrying .git, never by being called wt_*.
+
+    Keying on a name prefix would match a NAME rather than the property
+    (.claude/rules/git-instruments-diffs.md rule 14), so a checkout parked
+    under any other name would keep flooding the report while a plain
+    directory that happened to be named wt_something would go unscanned.
+
+    The scan root itself is the load-bearing negative case: `os.walk(".")`
+    starts at the repository root, which of course carries .git. Treating it
+    as nested would unscan every tracked file and make --all report LESS than
+    the default mode.
+    """
+    # A `git worktree add` checkout carries .git as a FILE, a clone as a DIR.
+    assert mod.is_nested_checkout("./_local/wt_x", [], [".git", "a.md"]) is True
+    assert mod.is_nested_checkout("./_local/clone", [".git"], ["a.md"]) is True
+
+    # The scan root is never nested, whichever form it carries.
+    assert mod.is_nested_checkout(".", [".git"], []) is False
+    assert mod.is_nested_checkout(".", [], [".git"]) is False
+
+    # A directory that merely looks like a worktree by name is not one.
+    assert mod.is_nested_checkout("./_local/wt_stale", ["docs"], ["notes.md"]) is False
+
+
+def test_untracked_file_in_a_nested_checkout_is_still_scanned_and_still_fails(tmp_path):
+    """THE anti-regression test. Excluding worktrees wholesale was rejected.
+
+    Wholesale exclusion measured identically on this workstation, but it
+    blinds every untracked file inside those checkouts - 858 of them when
+    this was measured, 815 under a checkout's own nested `_local/`. Untracked
+    files under `_local/` are the unpublished outreach and manuscript copy
+    that `--all` exists to read, so blinding them would remove the mode's
+    entire reason for existing while leaving it apparently healthier.
+
+    So: the file git TRACKS in the nested checkout is skipped (CI and
+    pre-push already scan that branch's tracked content), and the untracked
+    one beside it is still reported.
+    """
+    _git("init", "-q", cwd=tmp_path)
+    (tmp_path / "outer_tracked.md").write_text("coursework at NC State\n")
+    _git("add", "outer_tracked.md", cwd=tmp_path)
+
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    _git("init", "-q", cwd=nested)
+    (nested / "nested_tracked.md").write_text("coursework at NC State\n")
+    (nested / "nested_untracked.md").write_text("coursework at NC State\n")
+    _git("add", "nested_tracked.md", cwd=nested)
+
+    result = _run_all(tmp_path)
+    out = result.stdout.replace("\\", "/")
+
+    assert result.returncode == 1, out + result.stderr
+    # Skipped: tracked inside the nested checkout.
+    assert "nested/nested_tracked.md" not in out
+    # Kept: untracked inside the nested checkout. This is the whole point.
+    assert "nested/nested_untracked.md" in out
+    # Kept: the SCAN ROOT's own tracked files. --all stays a superset of the
+    # default mode; the root is not itself a "nested" checkout.
+    assert "outer_tracked.md" in out
+
+
+def test_a_broken_nested_gitdir_falls_back_to_scanning_everything(tmp_path):
+    """git ls-files failing must fail toward MORE scanning, never less.
+
+    A stale `git worktree` whose gitdir has been deleted leaves a .git
+    pointer file that resolves to nothing. Silently treating that as "no
+    tracked files here" is the safe direction; treating it as "skip the
+    directory" would be a hole opened by an error path.
+    """
+    nested = tmp_path / "broken"
+    nested.mkdir()
+    (nested / ".git").write_text("gitdir: /nonexistent/path/to/gitdir\n")
+    (nested / "note.md").write_text("coursework at NC State\n")
+
+    assert mod.nested_tracked_paths(str(nested)) == set()
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "note.md" in result.stdout.replace("\\", "/")
+
+
+def test_findings_are_grouped_one_line_per_file_and_name(tmp_path):
+    """Grouping is presentation only: it must lose no occurrence and no name.
+
+    The D35 retraction row puts the same name on ONE line five times, and
+    that line is replicated across every checkout, so per-occurrence
+    reporting turned a single reviewed sentence into a hundred-odd errors.
+    Per (file, name) is the readable unit. The occurrence count is still
+    printed so nothing is hidden, and a SECOND name in the same file must
+    still get its own line.
+    """
+    doc = tmp_path / "notes.md"
+    doc.write_text(
+        "coursework at NC State\n"
+        "still at NC State\n"
+        "NC State and NC State on one line\n"
+        "also Affiliation: Stanford University\n"
+    )
+
+    result = _run_all(tmp_path)
+    out = result.stdout
+    errors = [ln for ln in out.splitlines() if ln.startswith("ERROR ")]
+
+    assert result.returncode == 1, out + result.stderr
+    # Two names in one file: two lines, not five.
+    assert len(errors) == 2, errors
+    nc = next(ln for ln in errors if "NC State" in ln)
+    assert "4 occurrence(s)" in nc
+    assert "line(s) 1, 2, 3" in nc
+    assert any("Stanford University" in ln and "1 occurrence(s)" in ln for ln in errors)
+    # The occurrence total survives the grouping and is reported alongside it.
+    assert "5 unreviewed institution reference(s) in 2 (file, name) group(s)." in out
 
 
 def test_the_live_repository_passes_its_own_gate():
