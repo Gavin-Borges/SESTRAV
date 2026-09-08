@@ -21,8 +21,19 @@ COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
 COPY --chown=sestrav_user:sestrav_user src/ ./src/
 COPY --chown=sestrav_user:sestrav_user app/ ./app/
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
+COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.txt ./environments/requirements-pip-bootstrap.txt
 
-RUN pip install --user --no-cache-dir "pip==26.1.2" && \
+# Bootstrap pip from the hash-locked manifest. See that file's header for the
+# full rationale, and Dockerfile.api for why the dismissed Scorecard alerts on
+# this line (#37 and #38, the demo-image pair) were only half right.
+#
+# GHSA-qwm4-qh6w-59xr: this image was pinned to pip 26.1.2, inside the affected
+# range (first patched 26.2.0).
+#
+# The second command remains an unpinned local install and Scorecard still
+# reports it; that needs a prebuilt wheel and is tracked separately.
+RUN pip install --user --no-cache-dir --require-hashes --no-deps \
+        -r environments/requirements-pip-bootstrap.txt && \
     pip install --user --no-cache-dir ".[demo]"
 
 EXPOSE 8501

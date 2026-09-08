@@ -79,8 +79,10 @@ donors: a single-pathogen holdout rather than a cycle in which each pathogen is 
 in turn. BigMHC [7] applied deep learning
 transfer from large-scale MHC binding data to immunogenicity scoring and achieved
 strong performance on a curated benchmark, though its immunogenicity training set is
-predominantly neoepitopes (5,279 of 6,873 experimentally validated examples) and no
-leave-one-pathogen-out evaluation was reported. T-SCAPE
+predominantly neoepitopes (5,279 of 6,873 experimentally validated examples), its
+infectious-disease evaluation set was separated from training only by removing overlapping
+peptide-MHC instances rather than by source organism, and no leave-one-pathogen-out
+evaluation was reported. T-SCAPE
 [8] is a deep learning framework that combines multidomain pretraining with
 immunogenicity-specific fine-tuning, and reports improved performance over binding
 predictors including NetMHCpan-4.1, MHCflurry-2.0 and MixMHCpred-2.2 on a neoantigen
