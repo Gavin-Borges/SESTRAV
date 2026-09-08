@@ -82,6 +82,53 @@ By default only tracked files are scanned. ``--all`` additionally walks
 untracked, gitignored working-tree files (``_local/`` drafts, outreach copy),
 which are where an unreviewed name is written before it is ever committed.
 
+Why ``--all`` skips tracked files inside NESTED checkouts
+--------------------------------------------------------
+``--all`` is the pre-outreach ritual (``.claude/rules/third-party-claims.md``),
+so its readability *is* its enforcement - no workflow and no hook runs it,
+verified by ``git grep "check_affiliation_claims.py --all"`` returning empty.
+Measured 2026-09-07 from this workstation at ``origin/main`` ``02ac1b1``: it
+reported **154** findings, of which **zero** were real. 117 of the 154 came
+from nested ``git worktree`` checkouts under ``_local/``, and 115 of those 117
+were ONE line - the ``docs/claims_register.md`` D35 retraction row, which has
+to quote the fabricated name, times its five occurrences on that line, times
+23 checkouts.
+
+Quote none of those numbers back; re-measure. **The invariant is that the
+count only ever grows**, because every worktree added and every document
+written *about* the incident raises it: the recorded trajectory is
+11, 61, 133, 141, 152, 154 over six days. A gate reporting a hundred-odd
+known-benign errors gets skipped, and a skipped gate is worse than no gate
+because it is believed.
+
+So a directory that carries its own ``.git`` entry is treated as a nested
+checkout, and the files GIT TRACKS THERE are not scanned again. Detection is
+structural, never a name glob: a ``wt_*`` pattern would match a name rather
+than the property (``.claude/rules/git-instruments-diffs.md`` rule 14).
+
+**What that suppresses, stated rather than hidden.** Exactly one class: a
+fabricated institution in git-tracked content on a branch checked out in a
+worktree. Two live instruments already cover it, both running the DEFAULT mode
+over that branch's tracked content - ``.github/workflows/affiliation_claims.yml``
+on every pull request to ``main``, and ``scripts/hooks/pre-push`` on every push.
+The residual is tracked worktree content that is never pushed and never PR'd,
+which also reaches no reader; it is accepted knowingly.
+
+**What it deliberately does NOT suppress**, because this is the whole point:
+untracked and gitignored files inside those checkouts are STILL scanned. On
+the tree measured above, 858 files inside the 23 checkouts survived this
+filter, 815 of them under one checkout's own nested ``_local/``. Excluding a
+worktree WHOLESALE was the obvious alternative and was rejected: it scores
+identically today and scans none of those 858, and untracked files under
+``_local/`` are the unpublished outreach and manuscript copy this mode exists
+to read. That would blind the gate to its own reason for existing while
+making it look healthier. If ``git ls-files`` fails for a nested checkout the
+whole directory is scanned, which fails toward MORE scanning.
+
+Findings are reported one line per ``(file, name)`` pair rather than one per
+occurrence. That changes presentation only and blinds nothing; the occurrence
+count is still printed.
+
 Exit codes: 0 clean, 1 findings, 2 invocation/environment error.
 """
 
@@ -280,6 +327,11 @@ NOT_INSTITUTIONS = re.compile(
 # reason on the same line so the suppression is self-documenting.
 SUPPRESS_MARKER = "affiliation-check:ignore"
 
+# How many distinct line numbers a grouped finding lists before it says
+# "+N more". A cap on DISPLAY only - every occurrence is still counted, and
+# the reviewer opens the file anyway.
+MAX_LINES_LISTED = 5
+
 
 def run_git(args: list[str]) -> tuple[int, str]:
     proc = subprocess.run(["git", *args], capture_output=True, text=True)
@@ -294,6 +346,35 @@ def tracked_files() -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
+def is_nested_checkout(root: str, dirs: list[str], files: list[str]) -> bool:
+    """True when ``root`` is a git checkout nested inside the scan root.
+
+    ``.git`` is a DIRECTORY in a clone and a FILE (a gitdir pointer) in a
+    ``git worktree add`` checkout, so both listings have to be consulted; the
+    23 nested checkouts measured here were all the file form.
+
+    The scan root itself (``"."``) is never nested. Treating it as such would
+    unscan every tracked file and make ``--all`` report LESS than the default
+    mode, inverting the flag's meaning.
+    """
+    return root != "." and (".git" in dirs or ".git" in files)
+
+
+def nested_tracked_paths(root: str) -> set[str]:
+    """Paths git tracks inside nested checkout ``root``, keyed for the walk.
+
+    On failure - a broken gitdir pointer, a stale worktree, no git on PATH -
+    returns the empty set, so the whole directory stays scanned. The safe
+    direction for this gate is always MORE scanning.
+    """
+    code, out = run_git(["-C", root, "ls-files"])
+    if code != 0:
+        return set()
+    return {
+        normalise_path(str(Path(root) / line)) for line in out.splitlines() if line
+    }
+
+
 def working_tree_files() -> list[str]:
     """Every scannable file on disk, including gitignored ones.
 
@@ -302,9 +383,16 @@ def working_tree_files() -> list[str]:
     manuscript drafts are written there BEFORE anything is committed, so a
     tracked-files-only scan sees a fabricated name only after it has already
     been published somewhere else.
+
+    Files that git tracks inside a NESTED checkout are dropped - see the
+    module docstring for what that suppresses and what covers it. Everything
+    untracked inside those checkouts is kept, which is the load-bearing half.
     """
     found: list[str] = []
+    tracked_elsewhere: set[str] = set()
     for root, dirs, files in os.walk("."):
+        if is_nested_checkout(root, dirs, files):
+            tracked_elsewhere |= nested_tracked_paths(root)
         dirs[:] = [
             d
             for d in dirs
@@ -315,7 +403,7 @@ def working_tree_files() -> list[str]:
             path = Path(root) / name
             if path.suffix.lower() in SCAN_SUFFIXES:
                 found.append(str(path.relative_to(".")))
-    return found
+    return [p for p in found if normalise_path(p) not in tracked_elsewhere]
 
 
 #: This gate's own source and its test suite, both of which necessarily
@@ -430,7 +518,12 @@ def main() -> int:
 
     paths = working_tree_files() if args.all else tracked_files()
 
-    findings: list[str] = []
+    # Keyed by (file, name), never by (file, line, name). A repeated name in
+    # one file is one thing to review, and the D35 retraction row alone put the
+    # same name on one line five times, in 23 checkouts. Grouping is
+    # presentation only: nothing is dropped and the occurrence count is printed
+    # below, so it cannot hide a finding the ungrouped form would have shown.
+    findings: dict[tuple[str, str], list[int]] = {}
     scanned = 0
     seen_names: set[str] = set()
 
@@ -447,12 +540,10 @@ def main() -> int:
             if SUPPRESS_MARKER in line:
                 continue
             for name in find_institutions(line):
-                seen_names.add(" ".join(name.split()))
+                normalised_name = " ".join(name.split())
+                seen_names.add(normalised_name)
                 if not is_allowed(name, path):
-                    findings.append(
-                        f"{path}:{lineno}: UNREVIEWED INSTITUTION {name!r} "
-                        f"is not on the affiliation allowlist"
-                    )
+                    findings.setdefault((path, normalised_name), []).append(lineno)
 
     print(
         f"Scanned {scanned} file(s); saw {len(seen_names)} distinct "
@@ -460,12 +551,25 @@ def main() -> int:
     )
 
     if findings:
+        occurrences = sum(len(lines) for lines in findings.values())
         print("")
         in_ci = os.environ.get("GITHUB_ACTIONS") == "true"
-        for finding in findings:
-            print(f"::error::{finding}" if in_ci else f"ERROR {finding}")
+        for (path, name), lines in findings.items():
+            unique = sorted(set(lines))
+            shown = ", ".join(str(n) for n in unique[:MAX_LINES_LISTED])
+            if len(unique) > MAX_LINES_LISTED:
+                shown += f", +{len(unique) - MAX_LINES_LISTED} more"
+            message = (
+                f"{path}: UNREVIEWED INSTITUTION {name!r} is not on the "
+                f"affiliation allowlist ({len(lines)} occurrence(s) "
+                f"on line(s) {shown})"
+            )
+            print(f"::error::{message}" if in_ci else f"ERROR {message}")
         print("")
-        print(f"{len(findings)} unreviewed institution reference(s).")
+        print(
+            f"{occurrences} unreviewed institution reference(s) "
+            f"in {len(findings)} (file, name) group(s)."
+        )
         print(
             "This project's own affiliation is University of Rhode Island. If a "
             "name above is being claimed as OURS and is not URI, it is a "
