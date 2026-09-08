@@ -1,9 +1,17 @@
 # Pre-registration: any retry of the GNN promotion gates
 
-**STATUS: DRAFT. NOT IN FORCE until the maintainer ratifies it by merging this file.**
-A pre-registration has force only because the owner committed to it before seeing the
-result. Until that happens this document records a proposal, not a rule, and nothing in it
-licenses a run.
+**STATUS: IN FORCE since 2026-09-01, ratified by merging this file (PR #324, merge commit
+`2a0c5a9`).** A pre-registration has force only because the owner committed to it before
+seeing the result. That commitment is the merge, and it happened: the file is present at
+`2a0c5a9` and absent at its first parent, so that merge is what brought it onto `main`.
+This document is a rule, not a proposal, and it binds any retry of the gates below.
+
+*This line read "STATUS: DRAFT. NOT IN FORCE until the maintainer ratifies it by merging
+this file" until 2026-09-07, while the file had been merged since 2026-09-01. By its own
+ratification criterion it was already in force, so the header contradicted the document.
+Recorded rather than silently corrected, because a governance file that can be read as
+non-binding after the fact is unfalsifiable, and that is the specific defect this fixes
+(owner decision OWN-12).*
 
 **Scope.** This governs any future evaluation of a model against the five canonical
 promotion gates in `src/verify/promote_gnn.py`. It does not re-open anything by itself. It

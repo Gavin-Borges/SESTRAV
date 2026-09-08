@@ -42,22 +42,28 @@ SESTRAV carries the OpenSSF Best Practices **Passing** badge (project 13191), wh
 | OpenSSF Passing badge | ✓ | ✗ | ✗ | ✗ | ✗ |
 | Antigen processing as training features | `feature_mode=33` | ✓ | ✗ - binding + physicochemical + length only (PRIME2.0's 28-node input layer carries no proteasomal-cleavage or TAP feature) | ✗ | ✗ - NetChop/NetMHCstabPan run as optional post-hoc annotation on already-ranked output, not as input to a trained scorer |
 | Graph Neural Network scorer | ✓ (v2.3 GINEConv+ESM-2; research/ensemble component) | ✗ | ✗ | ✗ | ✗ |
-| Pan-allele training | ✗ - ten fixed HLA-A/-B binding columns; allele identity is not a model feature, so the production model is allele-blind. A `feature_mode=166` allele-aware track exists but was not adopted (`ROADMAP.md`), and its pocket features are under review - see claims register D30 | ✓ - pan-HLA-I predictions (allele identity is not a direct model input; abstracted through upstream MHCflurry2/NOAH) | Partial - trained/validated on an expanding but still finite HLA-I allele list; its MixMHCpred binding feature is itself pan-allele | ✓ | ✓ (see note below - this cell is unverified) |
+| Pan-allele training | ✗ - ten fixed HLA-A/-B binding columns; allele identity is not a model feature, so the production model is allele-blind. A `feature_mode=166` allele-aware track exists but was not adopted (`ROADMAP.md`), and its pocket features are under review - see claims register D30 | ✓ - pan-HLA-I predictions (allele identity is not a direct model input; abstracted through upstream MHCflurry2/NOAH) | Partial - trained/validated on an expanding but still finite HLA-I allele list; its MixMHCpred binding feature is itself pan-allele | ✓ | N/A - trains no binding model; wraps third-party predictors whose allele coverage differs between them (PMC7056579) |
 | Multi-virus support | 9 viruses (v5 active), each a separately-validated within-virus panel - not cross-virus transfer, see LOO below: CMV, EBV, HBV, HCV, HPV, HIV-1, IAV, DENV, SARS-CoV-2 | Limited - only SARS-CoV-2 explicitly named/validated | Limited - trained mainly on tumor neoepitopes; validated prospectively on SARS-CoV-2 only | Pan-pathogen (see note below - this cell is flagged unresolved) | Tumor |
 | Wet-lab candidate protocol included | ✓ | ✗ | ✗ | ✗ | Partial |
 | AUC-PR on labeled benchmark (Tier A) | **0.828 (OOF, 30-feature, unweighted, 2026-05; not `mode_31` - see note below)** | capabilities only (see note) | capabilities only (see note) | N/A | N/A |
 
-*Of the 36 PredIG/PRIME/NetMHCpan/pVACtools cells above (B4/L-1), **34 are bound to a primary
+*Of the 36 PredIG/PRIME/NetMHCpan/pVACtools cells above (B4/L-1), **35 are bound to a primary
 source read in full** - the tool's own paper and, where one exists, its GitHub README/docs - per
-`docs/claims_register.md` **D34**, which lists every source consulted. **Two cells are not, and
-both are flagged inline above rather than counted as verified.** (1) NetMHCpan's "Multi-virus
+`docs/claims_register.md` **D34**, which lists every source consulted. **One cell is not, and it
+is flagged inline above rather than counted as verified.** (1) NetMHCpan's "Multi-virus
 support" (currently "Pan-pathogen") is **unresolved**: it could not be traced to primary-source
 language about pathogen/antigen-source breadth - the closest passage in its own paper only
 supports MHC allele/species breadth, a different claim - so the label is retained pending a
 maintainer ruling rather than being silently rewritten to a synthesized replacement. (2)
-pVACtools's "Pan-allele training" cell is **unverified**: one research pass transcribed SESTRAV's
-own column text into that row, so the row was excluded from the verification pass entirely rather
-than corrected from a guess, and the cell stands as originally written with nothing behind it.
+pVACtools's "Pan-allele training" cell was **corrected 2026-09-07**. It previously carried a bare
+check mark that an earlier pass had transcribed from SESTRAV's own column text, with nothing
+behind it. pVACtools trains no binding model of its own: it is a framework integrating
+third-party predictors ("The current MHC Class I algorithms supported by pVACseq are NetMHCpan,
+NetMHC, NetMHCcons, PickPocket, SMM, SMMPMBEC, MHCflurry, and MHCnuggets", Materials and Methods),
+and its own paper measures allele coverage per wrapped algorithm rather than for pVACtools as a
+whole ("Next we determined if the number of human HLA alleles supported by these eight algorithms
+differed", Results). Pan-allele training is therefore not a property it can hold, so the cell now
+reads N/A rather than a value in either direction.
 **An earlier version of this footnote said "every" cell was source-bound and named only the first
 exception**, which overstated the pass's coverage by one cell in the flattering direction; it is
 corrected here (`docs/claims_register.md` D34).*
@@ -218,7 +224,7 @@ graph LR
 1. **Peptide Generation:** Sliding-window extraction of 8-11mer peptides from viral proteome FASTA files.
 2. **MHC Binding Prediction:** MHCflurry 2.2.1 presentation scores across 10 common HLA alleles (pinned version, CI-gated).
 3. **TCR Feature Extraction:** 20 physicochemical properties at TCR-contact positions p4-p8 + 10 binding scores + peptide length = 31 features (canonical) or 33 with antigen processing tier.
-4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with SHAP interpretability, a global isotonic calibrator, and a tuned decision threshold. **Stage 4 emits point scores, not intervals.** The "conformal prediction intervals" this line claimed until 2026-09-07 were never implemented in any tracked module; the claim is RETRACTED (`docs/claims_register.md` D37).
+4. **Immunogenicity Scoring:** Ensemble classification (RF, XGBoost) with SHAP interpretability, a global isotonic calibrator, and a tuned decision threshold. **Stage 4 emits point scores, not intervals.** The "conformal prediction intervals" this line claimed until 2026-09-07 were never implemented in any tracked module; the claim is RETRACTED.
 5. **Antigen Processing** *(optional, `feature_mode=33`)*: proteasomal cleavage + TAP transport scores as additional training features. **The shipped cache holds locally generated mock values, not real NetChop 3.1 / TAPreg output** - see Release Tracks above and `docs/claims_register.md` D18.
 6. **GNN Structural Benchmark** *(optional, research track)*: Graph neural network scoring (GINEConv + ESM-2) over the peptide residue graph. **v5 retraining under peptide-grouped CV completed 2026-08-13 with a null result**, not "pending": Gate 1 (pooled AUC-PR) 0.6458 vs the >=0.65 threshold, FAIL by 0.0042; Gate 2 (cross-fold std) FAIL; Gates 3-5 PASS. A real, statistically significant +0.0402 AUC-PR delta over the RF mode-31 baseline was measured nonetheless (95% CI [0.0286, 0.0520], excludes zero) - reported honestly alongside the gate miss per the pre-registered bar. The ESM-2 embedding cache used (`data/esm2_embeddings_t12_v5.pt`, gitignored and regenerable, so absent from a clean clone) held 30,687 keyed peptides with zero misses against the shipped corpus; the older "27,376 peptides" figure some docs still cite traces to a superseded pre-shipped-corpus snapshot and should not be restated. See `ARCHITECTURE.md` for the gating policy. (The full scorecard lives in `STATE.md`'s 2026-08-13 session entry, which is gitignored, so no reader of a clone can open it; the gate results above are the readable summary.)
 
