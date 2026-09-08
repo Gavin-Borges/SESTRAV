@@ -42,20 +42,38 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4.3.0
 
+      # Publishing is gated on the TAG trigger, not on the workflow running.
+      # `workflow_dispatch` is documented above as a manual trigger "for testing",
+      # but `push` was unconditional, so a dispatch run published to public GHCR -
+      # there was no way to exercise this Dockerfile without releasing it, and no
+      # workflow builds it on push or PR. A dispatch run now builds and loads the
+      # image locally so the smoke test can exercise it, and publishes nothing.
+      #
+      # `load` and `push` are mutually exclusive in buildx, hence the inverse
+      # condition. Attestations are dropped on the dry run because provenance and
+      # SBOM require the registry exporter and fail under the docker exporter that
+      # `load` uses; that is a property of the exporter, not a weakening of the
+      # release path, which still sets both.
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
         with:
           context: .
-          push: true
+          push: ${{ github.event_name == 'push' }}
+          load: ${{ github.event_name != 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: true      # SLSA build provenance attestation
-          sbom: true            # Software Bill of Materials
+          provenance: ${{ github.event_name == 'push' }}   # SLSA build provenance attestation
+          sbom: ${{ github.event_name == 'push' }}         # Software Bill of Materials
 
-      - name: Smoke-test pulled image
+      # On a tag run the image only exists in the registry, so it is pulled back -
+      # that also proves the push succeeded. On a dispatch run it is already in the
+      # local daemon from `load`, and pulling would fail because nothing was pushed.
+      - name: Smoke-test image
         run: |
           IMAGE=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
-          docker pull "$IMAGE"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            docker pull "$IMAGE"
+          fi
           docker run --rm "$IMAGE" info
