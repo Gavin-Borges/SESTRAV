@@ -19,8 +19,27 @@ COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
 COPY --chown=sestrav_user:sestrav_user src/ ./src/
 COPY --chown=sestrav_user:sestrav_user api/ ./api/
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
+COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.txt ./environments/requirements-pip-bootstrap.txt
 
-RUN pip install --user --no-cache-dir "pip==26.1.2" && \
+# Bootstrap pip from the hash-locked manifest, for the same two reasons the
+# runtime Dockerfile does. See that file's header for the full rationale.
+#
+# GHSA-qwm4-qh6w-59xr. This image was pinned to pip 26.1.2, inside the affected
+# range (first patched 26.2.0). The exposure was NOT visible on the Security
+# tab: Scorecard reported it as PinnedDependencies alerts #35 and #36, which
+# were dismissed as false positives. The dismissal comment - that a local-path
+# install has no remote artifact to hash-pin - is true of the `.[api]` half of
+# the line below and false of the `pip==` half, which is a remote artifact and
+# is hash-pinnable. Scorecard emits one result per unpinned pip command but
+# anchors every result to the whole RUN span, so one comment was applied to a
+# pair where it held for only one member.
+#
+# The second command is still an unpinned local install and Scorecard still
+# reports it. Silencing that one needs a prebuilt wheel rather than a bare `.`
+# (a `.whl` argument is accepted where `.` is not); it is tracked separately
+# and is deliberately NOT bundled into this security fix.
+RUN pip install --user --no-cache-dir --require-hashes --no-deps \
+        -r environments/requirements-pip-bootstrap.txt && \
     pip install --user --no-cache-dir ".[api]"
 
 EXPOSE 8000
