@@ -168,8 +168,27 @@ def _load_pytorch_model(model_path, features_df, model_cols):
         def forward(self, x):
             return self.net(x).squeeze(-1)
 
-    model = FlexibleMLP(input_dim=n_features)
-    model.load_state_dict(checkpoint["model_state_dict"])
+    state_dict = checkpoint["model_state_dict"]
+    if "hidden_sizes" in checkpoint:
+        hidden_sizes = tuple(checkpoint["hidden_sizes"])
+    else:
+        # Extract linear layer shapes from state_dict keys (net.<idx>.weight)
+        weight_keys = [
+            k for k in state_dict.keys()
+            if k.startswith("net.") and k.endswith(".weight")
+        ]
+        if weight_keys:
+            weight_keys.sort(key=lambda k: int(k.split(".")[1]))
+            # All linear layers except the final 1-dim projection layer
+            if len(weight_keys) > 1:
+                hidden_sizes = tuple(int(state_dict[k].shape[0]) for k in weight_keys[:-1])
+            else:
+                hidden_sizes = (64, 32)
+        else:
+            hidden_sizes = (64, 32)
+
+    model = FlexibleMLP(input_dim=n_features, hidden_sizes=hidden_sizes)
+    model.load_state_dict(state_dict)
     model.eval()
 
     X = features_df[model_cols].values.astype(np.float64)
@@ -555,7 +574,20 @@ def score_immunogenicity(
             print(f"[Stage 4] Using {len(model_cols)} features ({layout_label})")
 
             X = features_df[model_cols].copy()
-            features_df["immunogenicity_score"] = model.predict_proba(X)[:, 1]
+            raw_scores = model.predict_proba(X)[:, 1]
+
+            # BAT-4: When a model uses a ranking objective (such as XGBoost rank:pairwise
+            # in models/xgb_50feature_integrated.joblib), its predict_proba outputs raw
+            # margins rather than probabilities. Convert these margins to probabilities
+            # in [0, 1] via the standard logistic sigmoid prior to probability assertions.
+            model_obj = str(getattr(model, "objective", "") or "")
+            if model_obj.startswith("rank:") or getattr(model, "_is_ranking_model", False):
+                raw_scores = 1.0 / (1.0 + np.exp(-raw_scores))
+                print(
+                    "[Stage 4] Converted raw ranking margins to [0, 1] probabilities via logistic sigmoid"
+                )
+
+            features_df["immunogenicity_score"] = raw_scores
             print(f"[Stage 4] Loaded trained model from {model_path}")
         else:
             print("[Stage 4] WARNING: joblib not available, cannot load .joblib model")
