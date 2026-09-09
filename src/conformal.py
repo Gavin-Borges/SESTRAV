@@ -40,14 +40,14 @@ WHAT IS GUARANTEED, AND WHAT IS NOT. Read this before quoting the output.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.isotonic import IsotonicRegression
 from sklearn.model_selection import StratifiedGroupKFold
 
-FloatArray = NDArray[np.float64]
+FloatArray: TypeAlias = NDArray[np.float64]
 
 # Guards log(0) in the geometric-mean merge. A single fold reporting an exact
 # 0 or 1 must still be able to drive the merged endpoint to 0 or 1.
