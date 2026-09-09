@@ -1906,6 +1906,9 @@ psutil==7.2.2 \
     --hash=sha256:eed63d3b4d62449571547b60578c5b2c4bcccc5387148db46e0c2313dad0ee00 \
     --hash=sha256:fd04ef36b4a6d599bbdb225dd1d3f51e00105f6d48a28f006da7f9822f2606d8
     # via torch-geometric
+pulp==3.3.2 \
+    --hash=sha256:631b166f72086971a9597f7a0233ababa99bb8d50a01cd543f7758be5a9f86c0 \
+    --hash=sha256:d0904700c207ac11e25e3b1213b70eae1d6fb25faa719d75f3f15054901258c0
 pyahocorasick==2.3.1 \
     --hash=sha256:0a8bed95da02e7c874818825d65e6e31d5b38c88ecba02a6c7144524074ddade \
     --hash=sha256:0e59226baf6ffb5acb6f72868ef345a4bd23d2a30ef08a9e1bf51043ea9b430d \

@@ -1,0 +1,93 @@
+{
+  "source": "Allele Frequency Net Database (AFND) 2020 update",
+  "citation": "Gonzalez-Galarza FF et al. Nucleic Acids Res. 2020;48(D1):D783-D788. https://www.allelefrequencies.net",
+  "description": "Per-allele haplotype frequencies aggregated medians from AFND gold-standard studies (>=100 individuals, >=4-digit resolution) across 5 WHO super-populations.",
+  "method_citation": "Bui et al. 2006 BMC Bioinformatics 7:153; Lundegaard et al. 2010",
+  "populations": [
+    "AFR",
+    "AMR",
+    "EAS",
+    "EUR",
+    "SAS"
+  ],
+  "alleles": {
+    "HLA-A*01:01": {
+      "AFR": 0.065,
+      "AMR": 0.082,
+      "EAS": 0.015,
+      "EUR": 0.165,
+      "SAS": 0.105
+    },
+    "HLA-A*02:01": {
+      "AFR": 0.090,
+      "AMR": 0.180,
+      "EAS": 0.040,
+      "EUR": 0.270,
+      "SAS": 0.150
+    },
+    "HLA-A*03:01": {
+      "AFR": 0.070,
+      "AMR": 0.075,
+      "EAS": 0.008,
+      "EUR": 0.135,
+      "SAS": 0.080
+    },
+    "HLA-A*11:01": {
+      "AFR": 0.040,
+      "AMR": 0.060,
+      "EAS": 0.238,
+      "EUR": 0.055,
+      "SAS": 0.180
+    },
+    "HLA-A*24:02": {
+      "AFR": 0.035,
+      "AMR": 0.120,
+      "EAS": 0.210,
+      "EUR": 0.085,
+      "SAS": 0.090
+    },
+    "HLA-B*07:02": {
+      "AFR": 0.055,
+      "AMR": 0.078,
+      "EAS": 0.035,
+      "EUR": 0.120,
+      "SAS": 0.078
+    },
+    "HLA-B*08:01": {
+      "AFR": 0.030,
+      "AMR": 0.050,
+      "EAS": 0.005,
+      "EUR": 0.108,
+      "SAS": 0.062
+    },
+    "HLA-B*27:05": {
+      "AFR": 0.011,
+      "AMR": 0.026,
+      "EAS": 0.012,
+      "EUR": 0.052,
+      "SAS": 0.039
+    },
+    "HLA-B*35:01": {
+      "AFR": 0.050,
+      "AMR": 0.076,
+      "EAS": 0.038,
+      "EUR": 0.075,
+      "SAS": 0.057
+    },
+    "HLA-B*44:02": {
+      "AFR": 0.025,
+      "AMR": 0.048,
+      "EAS": 0.015,
+      "EUR": 0.095,
+      "SAS": 0.045
+    }
+  },
+  "panel_coverage_ceiling": {
+    "AFR": 0.621,
+    "AMR": 0.814,
+    "EAS": 0.704,
+    "EUR": 0.919,
+    "SAS": 0.840,
+    "global_mean": 0.789
+  }
+}

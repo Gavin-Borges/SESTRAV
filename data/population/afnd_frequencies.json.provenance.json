@@ -1,0 +1,9 @@
+{
+  "dataset_path": "data/population/afnd_frequencies.json",
+  "dataset_sha256": "e757dbfd1b5c99543b3ad42c15c5f04bb0983ae4296224f2cfb0050bcae8a38a",
+  "source": "Allele Frequency Net Database (AFND) 2020 update",
+  "source_citation": "Gonzalez-Galarza FF et al. Nucleic Acids Res. 2020;48(D1):D783-D788. https://www.allelefrequencies.net",
+  "method_citation": "Bui et al. 2006 BMC Bioinformatics 7:153; Lundegaard et al. 2010",
+  "n_alleles": 10,
+  "n_populations": 5
+}

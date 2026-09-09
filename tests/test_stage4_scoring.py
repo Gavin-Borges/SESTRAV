@@ -524,12 +524,21 @@ def test_apply_calibration_explicit_path(monkeypatch, tmp_path):
 # --- PyTorch .pt branch (real lightweight checkpoint) --------------------------------
 
 
-def _save_ann_checkpoint(path, n_features):
-    torch = pytest.importorskip("torch")
+def _safe_import_torch():
+    try:
+        import torch
+
+        return torch
+    except (ImportError, OSError) as exc:
+        pytest.skip(f"torch unavailable in this environment: {exc}")
+
+
+def _save_ann_checkpoint(path, n_features, hidden=(64, 32)):
+    torch = _safe_import_torch()
     import torch.nn as nn
 
     class _MLP(nn.Module):
-        def __init__(self, input_dim, hidden=(64, 32), dropout=0.3):
+        def __init__(self, input_dim, hidden=hidden, dropout=0.3):
             super().__init__()
             layers, prev = [], input_dim
             for h in hidden:
@@ -559,7 +568,7 @@ def _save_ann_checkpoint(path, n_features):
 
 
 def test_pytorch_branch_scores(monkeypatch, tmp_path):
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann.pt"
     _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30))
@@ -570,7 +579,7 @@ def test_pytorch_branch_scores(monkeypatch, tmp_path):
 
 
 def test_pytorch_branch_mc_dropout(monkeypatch, tmp_path):
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann.pt"
     _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30))
@@ -582,7 +591,7 @@ def test_pytorch_branch_mc_dropout(monkeypatch, tmp_path):
 
 
 def test_pytorch_freeze_mode_missing_features_raises(monkeypatch, tmp_path):
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann.pt"
     _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30))
@@ -610,7 +619,7 @@ def test_plot_immunogenicity_scores(monkeypatch, tmp_path):
 
 def test_pytorch_branch_50feat(monkeypatch, tmp_path):
     """Covers lines 186-187: PyTorch checkpoint with 50-feature count."""
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann50.pt"
     _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_50))
@@ -622,7 +631,7 @@ def test_pytorch_branch_50feat(monkeypatch, tmp_path):
 
 def test_pytorch_branch_train_feat(monkeypatch, tmp_path):
     """Covers lines 191-196: PyTorch checkpoint with TRAIN_FEATURE_COLUMNS count."""
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann_train.pt"
     _save_ann_checkpoint(str(pt_path), len(TRAIN_FEATURE_COLUMNS))
@@ -633,7 +642,7 @@ def test_pytorch_branch_train_feat(monkeypatch, tmp_path):
 
 def test_pytorch_missing_features_warns_non_freeze(monkeypatch, tmp_path, capsys):
     """Covers line 204: missing-features WARNING path when freeze_mode=False."""
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann30.pt"
     _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30))
@@ -674,7 +683,7 @@ def test_pytorch_branch_else_legacy(monkeypatch, tmp_path):
     ``_resolve_feature_layout`` returns FEATURE_COLUMNS for any width absent from
     ``_FEATURE_LAYOUTS``, and the ANN branch warns rather than refuses.
     """
-    pytest.importorskip("torch")
+    _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann_legacy.pt"
     # 15 matches no shipped layout, so the legacy 22-column set is the fallback.
@@ -787,3 +796,49 @@ def test_prototype_is_still_reachable_when_no_model_is_named(monkeypatch, tmp_pa
     df = _feature_frame(FEATURE_COLUMNS)
     ranked, _model = s4.score_immunogenicity(df, "TEST", model_path=None, calibrate=False)
     assert "immunogenicity_score" in ranked.columns
+
+
+def test_xgboost_rank_pairwise_margins_calibrated_via_sigmoid(monkeypatch, tmp_path):
+    """BAT-4: XGBoost models trained with rank:pairwise return raw margins.
+
+    Stage 4 converts margins to probabilities in [0, 1] via logistic sigmoid.
+    """
+    _run_in_results_dir(monkeypatch, tmp_path)
+    model_path = tmp_path / "model.joblib"
+    model_path.write_bytes(b"stub")
+
+    class _FakeXGBRankModel:
+        def __init__(self, n_features):
+            self.n_features_in_ = n_features
+            self.objective = "rank:pairwise"
+
+        def predict_proba(self, X):
+            n = len(X)
+            margins = np.linspace(-5.0, 3.0, n)
+            return np.column_stack([1.0 - margins, margins])
+
+    monkeypatch.setattr(
+        s4,
+        "load_verified_joblib",
+        lambda p, required_checksum=True: _FakeXGBRankModel(len(FEATURE_COLUMNS_50)),
+    )
+    df = _feature_frame(FEATURE_COLUMNS_50, n=5)
+    ranked, _ = s4.score_immunogenicity(df, "HPV16", model_path=str(model_path), calibrate=False)
+    assert "immunogenicity_score" in ranked.columns
+    scores = ranked["immunogenicity_score"].to_numpy()
+    assert (scores >= 0.0).all() and (scores <= 1.0).all()
+    assert (scores > 0.0).all() and (scores < 1.0).all()
+
+
+def test_pytorch_dynamic_hidden_sizes(monkeypatch, tmp_path):
+    """BAT-3: PyTorch ANN checkpoints with non-default layer dimensions ([256, 128, 64, 1])
+    are auto-detected from model_state_dict rather than failing with size mismatch.
+    """
+    _safe_import_torch()
+    _run_in_results_dir(monkeypatch, tmp_path)
+    pt_path = tmp_path / "ann_deep.pt"
+    _save_ann_checkpoint(str(pt_path), len(FEATURE_COLUMNS_30), hidden=(256, 128, 64))
+    df = _feature_frame(FEATURE_COLUMNS_30, n=10)
+    ranked, model = s4.score_immunogenicity(df, "HPV16", model_path=str(pt_path), calibrate=False)
+    assert ranked["immunogenicity_score"].between(0, 1).all()
+    assert model is not None
