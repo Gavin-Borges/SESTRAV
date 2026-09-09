@@ -408,12 +408,12 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
         return False
 
     try:
-        if load_verified_joblib is not None:
-            conformal_model = load_verified_joblib(resolved_path, required_checksum=False)
-        else:
-            import joblib
-
-            conformal_model = joblib.load(resolved_path)
+        if load_verified_joblib is None:
+            raise RuntimeError(
+                f"[Stage 4] Cannot verify and load conformal calibrator from {resolved_path}: "
+                "artifact_integrity module not available."
+            )
+        conformal_model = load_verified_joblib(resolved_path, required_checksum=True)
     except Exception as exc:
         if freeze_mode:
             raise RuntimeError(
