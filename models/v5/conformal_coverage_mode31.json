@@ -1,0 +1,124 @@
+{
+  "method": "RandomForest",
+  "feature_mode": 31,
+  "n_samples": 35555,
+  "n_groups": 16344,
+  "n_folds": 5,
+  "random_state": 42,
+  "source_model": {
+    "path": "models/v5/rf_31feature_integrated.joblib",
+    "sha256": "e2acd33228f2270ca0cde5af4605359c83faadae8f3f5b1f9147132f26d80c3f"
+  },
+  "source_oof": {
+    "path": "models/v5/rf_oof_predictions.csv",
+    "sha256": "331b00a819dbdab28d8a8e5b261606af5a2b9fa14680276e4a1cb4969089595c"
+  },
+  "metrics": {
+    "mean_raw_score": 0.25974956761229495,
+    "mean_calibrated_mid": 0.22542786600505904,
+    "mean_label": 0.22559414990859233,
+    "calibration_in_large_gap": 0.00016628390353329303,
+    "mean_interval_width": 0.0052386427213293564,
+    "median_interval_width": 0.0026722379707843635,
+    "q25_interval_width": 0.0018664641366833573,
+    "q75_interval_width": 0.005014873294284683,
+    "min_lower": 9.999999999999992e-13,
+    "max_upper": 0.9999999999989999,
+    "ordering_violations": 0,
+    "brier_score_raw": 0.13308961380861722,
+    "brier_score_calibrated_mid": 0.12914636997353124
+  },
+  "validity_scope": "Cross Venn-Abers Predictor (CVAP) produces probability intervals [lower, upper] via multi-fold geometric mean merging (Vovk et al. 2015). CVAP intervals reflect multi-fold calibration uncertainty and shrink with local density rather than holding a nominal coverage level. Peptide groups are kept disjoint across folds to eliminate group leakage.",
+  "per_virus": {
+    "CMV": {
+      "n_samples": 1312,
+      "mean_raw_score": 0.37999007915467403,
+      "mean_calibrated_mid": 0.3720595784031696,
+      "mean_label": 0.5640243902439024,
+      "mean_interval_width": 0.009141599199824803,
+      "median_interval_width": 0.003370943108134801,
+      "brier_raw": 0.23780754235018764,
+      "brier_mid": 0.24295916486936397
+    },
+    "DENV": {
+      "n_samples": 1818,
+      "mean_raw_score": 0.3321184890421694,
+      "mean_calibrated_mid": 0.31434712753334304,
+      "mean_label": 0.44334433443344334,
+      "mean_interval_width": 0.005857340058246981,
+      "median_interval_width": 0.0030768970870117263,
+      "brier_raw": 0.20054917006365722,
+      "brier_mid": 0.1953089141474077
+    },
+    "EBV": {
+      "n_samples": 659,
+      "mean_raw_score": 0.34319055651501396,
+      "mean_calibrated_mid": 0.3244404286752571,
+      "mean_label": 0.4355083459787557,
+      "mean_interval_width": 0.006816491250976918,
+      "median_interval_width": 0.003230153626439747,
+      "brier_raw": 0.22048363749018066,
+      "brier_mid": 0.2232301111903257
+    },
+    "HBV": {
+      "n_samples": 554,
+      "mean_raw_score": 0.4171263898635909,
+      "mean_calibrated_mid": 0.41789378832139207,
+      "mean_label": 0.5866425992779783,
+      "mean_interval_width": 0.009766137405048603,
+      "median_interval_width": 0.004330362958803402,
+      "brier_raw": 0.25832702406092184,
+      "brier_mid": 0.26695206721763004
+    },
+    "HCV": {
+      "n_samples": 653,
+      "mean_raw_score": 0.4176148257282131,
+      "mean_calibrated_mid": 0.43598624342515546,
+      "mean_label": 0.5099540581929556,
+      "mean_interval_width": 0.00894939446189344,
+      "median_interval_width": 0.004526480588342707,
+      "brier_raw": 0.2706594619139091,
+      "brier_mid": 0.29326958961301375
+    },
+    "HIV-1": {
+      "n_samples": 3269,
+      "mean_raw_score": 0.41049657568976644,
+      "mean_calibrated_mid": 0.40959949914136445,
+      "mean_label": 0.7696543285408382,
+      "mean_interval_width": 0.009980384293806138,
+      "median_interval_width": 0.0034269303619597347,
+      "brier_raw": 0.31328147696478026,
+      "brier_mid": 0.33243071851027717
+    },
+    "HPV": {
+      "n_samples": 318,
+      "mean_raw_score": 0.3458967116831975,
+      "mean_calibrated_mid": 0.33760501740183607,
+      "mean_label": 0.5691823899371069,
+      "mean_interval_width": 0.005483761315532864,
+      "median_interval_width": 0.003402693399661927,
+      "brier_raw": 0.32283255954483064,
+      "brier_mid": 0.3483261201109377
+    },
+    "IAV": {
+      "n_samples": 906,
+      "mean_raw_score": 0.320412845615872,
+      "mean_calibrated_mid": 0.29776467113910204,
+      "mean_label": 0.37748344370860926,
+      "mean_interval_width": 0.0056435279414701845,
+      "median_interval_width": 0.002809566605348063,
+      "brier_raw": 0.2075020466246302,
+      "brier_mid": 0.21194931257568334
+    },
+    "SARS-CoV-2": {
+      "n_samples": 3827,
+      "mean_raw_score": 0.3666776545243852,
+      "mean_calibrated_mid": 0.36514328731300405,
+      "mean_label": 0.6461980663705252,
+      "mean_interval_width": 0.006197525580095806,
+      "median_interval_width": 0.003617913989109489,
+      "brier_raw": 0.30264833249038514,
+      "brier_mid": 0.31608126700084643
+    }
+  }
+}

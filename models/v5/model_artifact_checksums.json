@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-08-10T03:01:36.643910+00:00",
+  "generated_utc": "2026-09-09T16:18:40.930751+00:00",
   "artifacts": {
     "rf_31feature_integrated.joblib": {
       "sha256": "e2acd33228f2270ca0cde5af4605359c83faadae8f3f5b1f9147132f26d80c3f",
@@ -28,6 +28,14 @@
     "optimal_thresholds.json": {
       "sha256": "6cfe3d136358e1680a6a96dcd49f8e5933091103a273f794e6828a1415edb10e",
       "size_bytes": 319
+    },
+    "conformal_calibrator.joblib": {
+      "sha256": "89b5b8879e01969fc368911edd0187d223bf894749dd676ea7357a7c47e76d1d",
+      "size_bytes": 1152001
+    },
+    "conformal_coverage_mode31.json": {
+      "sha256": "e3853df5c327e42d149abaccb68c4d6a43e0f97191c4c96864f113eeb144f92d",
+      "size_bytes": 4709
     }
   }
 }
