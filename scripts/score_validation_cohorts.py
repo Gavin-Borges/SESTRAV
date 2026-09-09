@@ -15,6 +15,7 @@ Outputs:
   - results/influenza_scored.csv
 """
 
+import argparse
 import os
 import sys
 import numpy as np
@@ -141,8 +142,9 @@ def run_evaluation(cohort_path, scored_output, name):
         binding_df, peptide_col="peptide", binding_col="presentation_score"
     )
 
-    # Keep the original labels and virus info
-    features_df = features_df.merge(df[["peptide", "label", "virus"]], on="peptide", how="left")
+    # Keep the original labels, allele, virus, and assay metadata
+    meta_cols = [c for c in ["peptide", "label", "virus", "allele", "assay_names"] if c in df.columns]
+    features_df = features_df.merge(df[meta_cols], on="peptide", how="left")
 
     # 4. Score immunogenicity
     print(f"Loading trained RF model: {os.path.basename(MODEL_PATH)}")
@@ -228,9 +230,23 @@ def run_evaluation(cohort_path, scored_output, name):
     }
 
 
-def main():
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Score external validation cohorts using SESTRAV RF model.")
+    parser.add_argument("--cohort", default=None, help="Path to input cohort CSV. If omitted, scores default cohorts.")
+    parser.add_argument("--output", default=None, help="Path to output scored CSV.")
+    parser.add_argument("--name", default="Validation Cohort", help="Name of cohort.")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
     print("SESTRAV Out-of-Distribution Cohorts Scoring and Validation")
     print("=" * 60)
+
+    if args.cohort:
+        out = args.output or os.path.join(PROJECT_ROOT, "results", f"{os.path.splitext(os.path.basename(args.cohort))[0]}_scored.csv")
+        res = run_evaluation(args.cohort, out, args.name)
+        return 0 if res else 1
 
     results = []
 
@@ -280,7 +296,8 @@ def main():
                 "CSV in `results/`.*\n"
             )
         print(f"\n[SUCCESS] Wrote Stage 3 results log to: {log_path}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
