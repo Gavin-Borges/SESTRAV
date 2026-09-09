@@ -62,7 +62,7 @@ def cmd_info(args: argparse.Namespace) -> int:
         import mhcflurry
 
         print(f"  mhcflurry       : {mhcflurry.__version__}")
-    except ImportError:
+    except (ImportError, OSError):
         print("  mhcflurry       : not installed")
 
     # PyTorch version
@@ -72,7 +72,7 @@ def cmd_info(args: argparse.Namespace) -> int:
         print(f"  torch           : {torch.__version__}")
         cuda = "available" if torch.cuda.is_available() else "not available"
         print(f"  CUDA            : {cuda}")
-    except ImportError:
+    except (ImportError, OSError):
         print("  torch           : not installed")
 
     # Active config
@@ -103,7 +103,7 @@ def cmd_info(args: argparse.Namespace) -> int:
                 print(f"    config pins   : {pinned}")
                 print(f"    installed     : {installed}")
                 print("    Update mhcflurry_model_version in config.yaml to silence this.")
-        except ImportError:
+        except (ImportError, OSError):
             pass
 
     print("=" * 60)
@@ -162,6 +162,8 @@ def cmd_predict(args: argparse.Namespace) -> int:
         features_df,
         proteome_id,
         model_path=args.model,
+        conformal=args.conformal,
+        conformal_path=args.conformal_calibrator,
         freeze_mode=False,
         virus=args.virus,
         per_virus_calibration_dir=args.per_virus_calibration_dir,
@@ -183,7 +185,18 @@ def cmd_predict(args: argparse.Namespace) -> int:
         else ranked_df.columns[-1]
     )
     print(f"\nTop 10 candidates (by {score_col}):")
-    preview_cols = [c for c in ["peptide", "protein_id", score_col] if c in ranked_df.columns]
+    preview_cols = [
+        c
+        for c in [
+            "peptide",
+            "protein_id",
+            score_col,
+            "lower_bound",
+            "upper_bound",
+            "interval_width",
+        ]
+        if c in ranked_df.columns
+    ]
     print(ranked_df[preview_cols].head(10).to_string(index=False))
     return 0
 
@@ -481,6 +494,18 @@ Examples:
         help="Directory to search for <virus>.joblib calibrators (default: "
         "models/calibration/per_virus, which does not exist until a per-virus "
         "calibrator is promoted).",
+    )
+    p_predict.add_argument(
+        "--conformal",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Compute Cross Venn-Abers conformal prediction intervals (default: True)",
+    )
+    p_predict.add_argument(
+        "--conformal-calibrator",
+        type=str,
+        default=None,
+        help="Path to conformal calibrator joblib (default: resolved from model directory or models/v5/)",
     )
 
     # validate

@@ -10,7 +10,8 @@ Supported model formats:
   - PyTorch .pt      (ANN, 30 features - includes embedded scaler)
 
 Optional post-scoring enhancements (when artifact files are present):
-  - Platt calibration via platt_calibrator.joblib
+  - Platt / isotonic calibration via calibrator artifact
+  - Cross Venn-Abers conformal intervals (lower_bound, upper_bound, interval_width)
   - Threshold-based binary classification via optimal_thresholds.json
   - MC Dropout uncertainty via PyTorch ANN (N=50 forward passes)
 
@@ -348,6 +349,71 @@ def _apply_thresholds(features_df, model_dir, thresholds_path=None):
     print(f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f}")
 
 
+def _resolve_conformal_path(model_dir, conformal_path=None):
+    """Return an existing conformal calibrator path, or None if none is available.
+
+    Preference order:
+      1. an explicit ``conformal_path``, if given: MUST exist, or FileNotFoundError is raised;
+      2. ``conformal_calibrator.joblib`` alongside the model in ``model_dir``;
+      3. canonical ``models/v5/conformal_calibrator.joblib``.
+    """
+    if conformal_path:
+        if os.path.isfile(conformal_path):
+            return conformal_path
+        raise FileNotFoundError(
+            f"[Stage 4] Conformal calibrator artifact not found: {conformal_path!r}. "
+            "Refusing to fall back to an unrequested calibrator."
+        )
+    if model_dir:
+        candidate = os.path.join(model_dir, "conformal_calibrator.joblib")
+        if os.path.isfile(candidate):
+            return candidate
+    canonical = os.path.join("models", "v5", "conformal_calibrator.joblib")
+    if os.path.isfile(canonical):
+        return canonical
+    return None
+
+
+def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=False):
+    """Apply Cross Venn-Abers conformal prediction intervals.
+
+    Adds 'lower_bound', 'upper_bound', and 'interval_width' columns to features_df.
+    Returns True if intervals were computed and added, False otherwise.
+    """
+    resolved_path = _resolve_conformal_path(model_dir, conformal_path)
+    if resolved_path is None:
+        if conformal_path and freeze_mode:
+            raise FileNotFoundError(
+                f"[Stage 4] Conformal calibrator artifact not found: {conformal_path!r}"
+            )
+        return False
+
+    try:
+        if load_verified_joblib is not None:
+            conformal_model = load_verified_joblib(resolved_path, required_checksum=False)
+        else:
+            import joblib
+
+            conformal_model = joblib.load(resolved_path)
+    except Exception as exc:
+        if freeze_mode:
+            raise RuntimeError(
+                f"[Stage 4] Failed to load conformal calibrator from {resolved_path}: {exc}"
+            ) from exc
+        print(f"[Stage 4] WARNING: Could not load conformal calibrator from {resolved_path}: {exc}")
+        return False
+
+    from src.conformal import predict_interval
+
+    score_values = features_df["immunogenicity_score"].to_numpy(dtype=float)
+    lower, upper = predict_interval(conformal_model, score_values)
+    features_df["lower_bound"] = lower
+    features_df["upper_bound"] = upper
+    features_df["interval_width"] = upper - lower
+    print(f"[Stage 4] Applied Cross Venn-Abers conformal intervals from {resolved_path}")
+    return True
+
+
 def _sanitize_name(name):
     """Allow only alphanumeric, underscores, and hyphens."""
     return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
@@ -358,9 +424,11 @@ def score_immunogenicity(
     proteome_id,
     model_path=None,
     calibrate=True,
+    conformal=True,
     mc_dropout=False,
     freeze_mode=False,
     calibration_path=None,
+    conformal_path=None,
     thresholds_path=None,
     virus=None,
     per_virus_calibration_dir=None,
@@ -384,10 +452,14 @@ def score_immunogenicity(
         model_path:  path to a serialized model (optional)
         calibrate:   apply calibration if a calibrator artifact exists
                      (isotonic or Platt)
+        conformal:   apply Cross Venn-Abers conformal intervals if calibrator
+                     artifact exists (emits lower_bound, upper_bound, interval_width)
         mc_dropout:  run MC Dropout uncertainty (PyTorch models only)
         freeze_mode: raise on any missing artifact or model incompatibility
         calibration_path: explicit calibrator path (from config); when unset,
                      the model directory is searched for a calibrator artifact
+        conformal_path: explicit conformal calibrator path (from config); when
+                     unset, the model directory is searched for conformal_calibrator.joblib
         thresholds_path: explicit optimal-thresholds path (from config); when
                      unset, the model directory is searched for
                      optimal_thresholds.json
@@ -575,6 +647,14 @@ def score_immunogenicity(
         )
         if was_calibrated:
             features_df["calibrated_score"] = cal_scores
+
+    if conformal:
+        _apply_conformal(
+            features_df,
+            model_dir,
+            conformal_path=conformal_path,
+            freeze_mode=freeze_mode,
+        )
 
     _apply_thresholds(features_df, model_dir, thresholds_path)
 
