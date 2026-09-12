@@ -130,7 +130,7 @@ this roadmap needs to fix, but worth flagging as adjacent technical debt.
 (`src/ml_utils.py`), which accepts a `peptides=` argument but uses it only to bin peptide
 length for stratification, never as a fold group. No `GroupKFold` or `StratifiedGroupKFold`
 exists anywhere in the tracked tree. `LeaveOneGroupOut` on `metadata["protein"]` exists but is
-opt-in (`--lopo`) and off by default. This is audited quantitatively in Section 2.
+opt-in (`--lopo`) and off by default. **Corrected 2026-09-12: this sentence ended "This is audited quantitatively in Section 2", an unfulfilled forward reference (D23).** Section 2 is titled "The measurement problem: peptide-level cross-validation leakage" and audits PEPTIDE-level grouping, which is a different property from protein-level grouping. The protein-grouped `--lopo` path has never been quantitatively audited, here or anywhere else in the tracked tree. `results/cv_leakage_audit.csv` carries no protein-grouped arm: its seven configs are `dataset_shape`, `peptide_grouped_splitter`, `peptide_grouped_splitter_no_vaccinia`, `production_grouped_splitter`, `production_splitter`, `production_splitter_repaired` and `tier_a`. A reader can confirm the gap cheaply: `lopo` occurs exactly once in this document, in this sentence.
 
 A second, related finding: every split executed in this audit printed `Composite stratum
 minimum count 2 < min_stratum_size=5; falling back to label-only stratification.` The HLA-
