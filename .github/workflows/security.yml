@@ -335,11 +335,18 @@ jobs:
         # continue-on-error: this step turns the `pip-audit` JOB red, unlike the
         # advisory audit above it. Corrected 2026-08-22: this comment used to say it
         # "is supposed to block a merge", which it cannot - `pip-audit` is not among
-        # ruleset 16846770's five required status checks (`test (3.13)`, `Require
-        # human review`, `check_dco`, `Cited commits resolve`, `Cited lines still
-        # hold their content`), so a red job here
-        # does not gate the merge button. CodeQL is the only scanner that blocks,
-        # via the ruleset's code-scanning rule. Failing the job is still the point:
+        # ruleset 16846770's required status checks, so a red job here does not gate
+        # the merge button. That much still holds.
+        # Corrected again 2026-09-12: the list above read "five required status
+        # checks" and named only `test (3.13)`, `Require human review`, `check_dco`,
+        # `Cited commits resolve` and `Cited lines still hold their content`. The
+        # ruleset carries SEVEN; the two omitted are `CodeQL Static Analysis` and
+        # `Bandit Security Scan`. So the sentence that followed - "CodeQL is the only
+        # scanner that blocks" - was false in the direction of understating
+        # enforcement. CodeQL is the only scanner blocking via the ruleset's
+        # CODE-SCANNING rule, but Bandit blocks too, as a required STATUS CHECK whose
+        # context matches this file's own job name (the `bandit` job declares
+        # `name: Bandit Security Scan`). Failing the job is still the point:
         # it is the visible, fail-closed signal. See SECURITY.md's CI gate map,
         # which states the same distinction.
         run: python tools/check_lockfile_advisories.py pip-audit-report.json
