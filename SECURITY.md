@@ -150,18 +150,21 @@ mechanically enforced today, and the two are not yet the same for every row.
 | Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
 | Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: moderate`) | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
 | CodeQL (`security.yml`) | Deep SAST -> Security > Code scanning | **Blocking** - the ruleset's code-scanning rule names `CodeQL` |
-| Semgrep (`security.yml`) | SAST ruleset `p/python` -> Security > Code scanning | Advisory |
+| Semgrep custom rules (`security.yml`, `semgrep-rules/`) | SESTRAV's own three ERROR rules: unsafe `pickle.load`, raw `joblib.load` bypassing `load_verified_joblib`, `subprocess(..., shell=True)` | **Blocking at the job level** - no `continue-on-error`, so any finding fails the run. Whether it also holds the merge button depends on `Semgrep Custom Rules (blocking)` being among the required status checks on `Protect Main Branch`; the job was added 2026-09-12 and that promotion is a separate repo-settings change |
+| Semgrep `p/python` (`security.yml`) | Registry SAST ruleset -> Security > Code scanning | Advisory |
 | pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` -> run summary | Advisory - fails closed (non-`continue-on-error`) on any lockfile advisory absent from `environments/accepted_advisories.toml`, but is not a required status check |
 | Dependabot alerts | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged) |
 
 Advisory findings never block a merge on their own - none of them is a required
-status check or a code-scanning rule on `Protect Main Branch`. Three of them
-(Bandit, Dependency Review, pip-audit) still turn their *own* CI job red on a
+status check or a code-scanning rule on `Protect Main Branch`. Four of them
+(Bandit, Dependency Review, pip-audit and the Semgrep custom-rules job) still
+turn their *own* CI job red on a
 finding rather than merely reporting one; that failure is visible in the run and
 in branch-status UI, but does not prevent the merge button from going green.
 Findings surface as **(a)** tracked, dismissable alerts in *Security > Code
 scanning* (Semgrep/CodeQL SARIF), **(b)** a red or markdown-annotated
-`security.yml` job run (Bandit, Dependency Review, pip-audit), and **(c)**
+`security.yml` job run (Bandit, Dependency Review, pip-audit, Semgrep custom
+rules), and **(c)**
 Dependabot alerts/PRs. They are reviewed on the weekly cadence and logged in the
 register below whenever consciously deferred.
 
