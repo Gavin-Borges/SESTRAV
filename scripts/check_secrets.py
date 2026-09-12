@@ -171,6 +171,45 @@ def _tracked_paths(root: str) -> List[str]:
     return [line for line in out.stdout.splitlines() if line]
 
 
+def _ignored_paths(root: str, candidates: List[str]) -> set:
+    """Absolute, normcased paths among *candidates* that git ignores.
+
+    Empty on any failure, which keeps this SUBTRACTIVE step fail-open: if git
+    cannot answer, the walk scans exactly what it found, as before.
+
+    One subprocess for the whole candidate list. `git check-ignore` exits 0 when
+    at least one path is ignored and 1 when none are, so 1 is a normal answer
+    and only anything else is treated as failure.
+    """
+    if not candidates:
+        return set()
+    rels = []
+    for absolute in candidates:
+        try:
+            rels.append(os.path.relpath(absolute, root).replace("\\", "/"))
+        except ValueError:  # different drive on Windows; cannot be inside root
+            continue
+    if not rels:
+        return set()
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "check-ignore", "--stdin", "-z"],
+            input="\0".join(rels),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return set()
+    if out.returncode not in (0, 1):
+        return set()
+    return {
+        os.path.normcase(os.path.abspath(os.path.join(root, rel)))
+        for rel in out.stdout.split("\0")
+        if rel
+    }
+
+
 def iter_scanned_files(root: str) -> List[str]:
     found: List[str] = []
     for dirpath, dirs, files in os.walk(root):
@@ -178,6 +217,31 @@ def iter_scanned_files(root: str) -> List[str]:
         for name in files:
             if _is_scannable_name(name):
                 found.append(os.path.join(dirpath, name))
+
+    # EXCLUDE_DIRS prunes by directory NAME, so a gitignored file sitting at the
+    # REPO ROOT has no directory to prune and the walk opens it anyway. STATE.md
+    # is the live case: gitignored, absent from HEAD, and full of prose about
+    # credential patterns, so it turned this gate red locally while CI stayed
+    # green. A gate that is red for a reason CI can never see is a gate people
+    # learn to skip, which is the actual cost.
+    #
+    # Only files that are BOTH untracked and ignored are dropped, so `git add -f`
+    # is not a way past this gate. TWO independent things ensure that, and the
+    # distinction is recorded because the plausible answer is the wrong one:
+    #
+    #   1. OPERATIVE: `git check-ignore` without --no-index does not report a
+    #      TRACKED file as ignored at all. It exits 1 with empty output, so a
+    #      force-added file is never subtracted here in the first place.
+    #   2. REDUNDANT BUT REAL: even if it were subtracted, _tracked_paths reads
+    #      `git ls-files`, which reports the INDEX, so the union below re-adds
+    #      it. Demonstrated by forcing --no-index on: the force-add test still
+    #      passes, and fails only once BOTH layers are removed.
+    #
+    # An earlier draft of this comment credited (2) alone, which is the layer
+    # that does not currently do the work.
+    ignored = _ignored_paths(root, found)
+    if ignored:
+        found = [p for p in found if os.path.normcase(os.path.abspath(p)) not in ignored]
 
     # EXCLUDE_DIRS prunes the walk by directory NAME, which is right for build
     # output and virtualenvs but wrong for anything TRACKED: a tracked file is
