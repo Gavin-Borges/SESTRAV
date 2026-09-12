@@ -15,7 +15,6 @@ existing artifacts there unless --allow-overwrite is passed.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
@@ -26,6 +25,7 @@ from typing import Tuple
 import pandas as pd
 
 from src.artifact_guard import guard_planned_paths, planned_paths_under
+from src.artifact_integrity import sha256_file
 from src.baseline_comparison import compare_methods
 from src.gold_standard import full_validation_report
 from src.h2_tier_a_evaluation import run_h2_tier_a
@@ -91,11 +91,7 @@ def run_final_validation(
     def _sha256_or_missing(path: str) -> str:
         if not os.path.isfile(path):
             return "missing"
-        digest = hashlib.sha256()
-        with open(path, "rb") as fh:
-            for chunk in iter(lambda: fh.read(8192), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
+        return sha256_file(path)
 
     if freeze_mode and not os.path.isfile(model_path):
         raise RuntimeError(
