@@ -19,6 +19,16 @@ import sys
 # ---------------------------------------------------------------------------
 
 
+def _package_version() -> str:
+    """Return the installed sestrav version, or a marker for a source checkout."""
+    import importlib.metadata
+
+    try:
+        return importlib.metadata.version("sestrav")
+    except importlib.metadata.PackageNotFoundError:
+        return "(editable install - see pyproject.toml)"
+
+
 def _require_file(path: str, parser: argparse.ArgumentParser, label: str) -> None:
     if not os.path.isfile(path):
         parser.error(f"{label} not found: '{path}'")
@@ -44,18 +54,12 @@ def _read_config() -> dict:
 
 def cmd_info(args: argparse.Namespace) -> int:
     """Print installed versions, active config, and model provenance."""
-    import importlib.metadata
-
     print("=" * 60)
     print("SESTRAV Environment Info")
     print("=" * 60)
 
     # Package version
-    try:
-        version = importlib.metadata.version("sestrav")
-        print(f"  sestrav version : {version}")
-    except importlib.metadata.PackageNotFoundError:
-        print("  sestrav version : (editable install - see pyproject.toml)")
+    print(f"  sestrav version : {_package_version()}")
 
     # MHCflurry version
     try:
@@ -422,10 +426,6 @@ def _build_benchmark_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _build_info_parser() -> argparse.ArgumentParser:
-    return argparse.ArgumentParser(add_help=False)
-
-
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -449,6 +449,11 @@ Examples:
   sestrav validate --dataset data/immunogenicity_dataset_v5.csv --model-dir models/local --feature-mode 31 --binding-matrix models/peptide_binding_matrix_v5.csv
   sestrav benchmark --predictions results/ebv_run/EBV_B95_8_panel8_ranked.csv
 """,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"sestrav {_package_version()}",
     )
     subparsers = parser.add_subparsers(dest="subcommand")
 
