@@ -25,7 +25,6 @@ Higher score = higher predicted immunogenicity.  Rank 1 = top candidate.
 
 import json
 import os
-import re
 import numpy as np
 import matplotlib
 
@@ -41,7 +40,7 @@ from src.features import (
     FEATURE_COLUMNS_35,
     FEATURE_COLUMNS_50,
 )
-from src.naming import resolve_model_path
+from src.naming import resolve_model_path, sanitize_name as _sanitize_name
 
 try:
     from src.artifact_integrity import load_verified_joblib
@@ -431,11 +430,6 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
     features_df["interval_width"] = upper - lower
     print(f"[Stage 4] Applied Cross Venn-Abers conformal intervals from {resolved_path}")
     return True
-
-
-def _sanitize_name(name):
-    """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def score_immunogenicity(

@@ -53,6 +53,7 @@ from scripts.fit_calibrator import (  # noqa: E402
     expected_calibration_error,
 )
 from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa: E402
+from src.naming import sanitize_name as _sanitize_name  # noqa: E402
 from src.artifact_integrity import (  # noqa: E402
     default_manifest_path_for,
     update_checksum_manifest,
@@ -81,16 +82,6 @@ def _load_rf_oof(oof_path: Path) -> pd.DataFrame:
     df["score"] = df["score"].astype(np.float64).clip(0.0, 1.0)
     df["label"] = df["label"].astype(int)
     return df.reset_index(drop=True)
-
-
-def _sanitize_name(name: str) -> str:
-    """Mirrors functions.stage4_immunogenicity_scoring._sanitize_name exactly -
-    the calibrator filename this script writes must match the filename
-    _resolve_calibrator_path looks up, or a promoted calibrator would silently
-    never be found."""
-    import re
-
-    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def fit_final_calibrators(df: pd.DataFrame) -> dict[str, dict]:

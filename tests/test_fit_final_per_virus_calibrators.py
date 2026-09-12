@@ -11,6 +11,8 @@ a worse defect than not promoting one at all).
 
 from __future__ import annotations
 
+import pathlib
+
 import numpy as np
 import pandas as pd
 
@@ -35,11 +37,54 @@ def _oof_frame(virus_counts: dict[str, int], seed: int = 0) -> pd.DataFrame:
 
 def test_sanitize_name_matches_stage4s_sanitizer():
     """The writer and the reader must agree on every target-virus name, or a
-    promoted calibrator silently becomes unreachable."""
+    promoted calibrator silently becomes unreachable.
+
+    This now holds by construction: both names resolve to the single definition
+    in src/naming.py. The value check is kept because it states the property
+    the two call sites actually depend on, but it can no longer FAIL while the
+    two are the same object, so the two tests below are what defend the
+    property from here on.
+    """
     from scripts.fit_calibrator import TARGET_VIRUSES
 
     for virus in TARGET_VIRUSES:
         assert _sanitize_name(virus) == stage4_sanitize(virus)
+
+
+def test_both_sanitizers_are_the_canonical_object():
+    """Pins the de-duplication itself, which is what the value check above used
+    to do before it became tautological. Reintroducing a local copy in either
+    module fails here even if the copy happens to be byte-identical today."""
+    from src.naming import sanitize_name
+
+    assert _sanitize_name is sanitize_name
+    assert stage4_sanitize is sanitize_name
+
+
+def test_sanitize_name_is_defined_exactly_once_in_the_repo():
+    """The definition was copied into six modules and every copy had to stay in
+    step by hand. Enumerated over TRACKED files via `git ls-files`, so it sees
+    neither the gitignored `_local/` tree nor `.claude/worktrees/`, which holds
+    full duplicate checkouts of this repo parked on other branches and would
+    otherwise report definitions that are not on this branch at all.
+    """
+    import ast
+    import subprocess
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    listing = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "*.py"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    definers = []
+    for rel in listing.stdout.splitlines():
+        source = (root / rel).read_text(encoding="utf-8", errors="replace")
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.FunctionDef) and node.name.lstrip("_") == "sanitize_name":
+                definers.append(rel)
+    assert definers == ["src/naming.py"], definers
 
 
 def test_fit_final_calibrators_fits_only_viruses_with_enough_rows():
