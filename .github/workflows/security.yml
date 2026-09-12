@@ -175,6 +175,61 @@ jobs:
           sarif_file: semgrep.sarif
           category: semgrep
 
+  semgrep-custom:
+    name: Semgrep Custom Rules (blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        # Same hash-pinned set the advisory job installs (semgrep==1.175.0).
+        run: pip install --require-hashes -r environments/requirements-semgrep.txt
+
+      - name: Run SESTRAV custom rules
+        # BLOCKING - deliberately no `continue-on-error`. Scans ONLY
+        # `semgrep-rules/sestrav-custom.yml`: the three repo-authored ERROR rules
+        # (unsafe `pickle.load`, raw `joblib.load` bypassing `load_verified_joblib`,
+        # `subprocess(..., shell=True)`). The registry ruleset `p/python` stays in
+        # the advisory job below, unchanged, because ITS error rules do produce
+        # false positives here - alerts #40/#41/#42 were triaged and dismissed.
+        # These three have never raised one: every finding was a real defect.
+        #
+        # Added 2026-09-12 after PR #418 merged two `joblib.load` violations that
+        # this exact rule had already flagged. The advisory job reported them and
+        # did not stop the merge, so they sat on `main` until PR #422. Two costs,
+        # and the second is the one that is easy to miss:
+        #   1. A real unsafe-deserialization path reached `main`.
+        #   2. The red `Semgrep OSS` code-scanning check run shares ONE
+        #      `github-advanced-security` check SUITE with `CodeQL` (suite
+        #      93140947505 on 9177eeb), so the suite concluded `failure`. OSSF
+        #      Scorecard's SAST check reads check SUITES, not runs, and accepts
+        #      only success/neutral - so all four of PR #418's commits counted as
+        #      never SAST-scanned. That is code-scanning alert #87: SAST 9/10,
+        #      "26 commits out of 30". An advisory SARIF failure is therefore not
+        #      free; it silently costs a Scorecard point for 30 commits.
+        #
+        # Scope note: this inherits semgrep's DEFAULT ignore list, which excludes
+        # `tests/` - the same scope the advisory job scans (166 non-test tracked
+        # .py files; CI reports "Ran 154 rules on 164 files"). That is why
+        # `tests/test_train_classifier.py:608,611` calling `joblib.load` does not
+        # trip this gate. If the pinned semgrep version is ever bumped, re-check
+        # that default, because those two call sites would start failing here.
+        # Local rules only - no registry fetch - so this gate has no network
+        # dependency, and `--metrics=off` keeps it that way.
+        run: semgrep scan --config semgrep-rules/ --error --metrics=off
+
   pip-audit:
     name: pip-audit Dependency Scan (advisory)
     runs-on: ubuntu-latest
