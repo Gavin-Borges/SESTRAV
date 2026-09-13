@@ -197,6 +197,12 @@ def _filtered_df() -> tuple[pd.DataFrame, dict]:
     df = pd.DataFrame([_NEG_ROW])
     mapping = resolve_columns(df, {}, LOGGER)
     filtered, _ = filter_rows(df, mapping, LOGGER)
+    # Anchor here rather than in each caller: every build_output test below
+    # asserts with `.all()`, and `(empty_series == x).all()` is True. Without
+    # this, one dropped fixture row (an mhcgnomes bump changing allele
+    # normalisation, say) would silently empty the frame and turn all of them
+    # green while testing nothing.
+    assert len(filtered) == 1, "fixture row was dropped; the .all() assertions below would be vacuous"
     return filtered, mapping
 
 
