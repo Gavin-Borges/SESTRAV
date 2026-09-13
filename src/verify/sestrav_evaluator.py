@@ -12,6 +12,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import json
 import logging
+import pickle
 from typing import Dict, Any, Optional
 
 import numpy as np
@@ -320,7 +321,18 @@ def _load_torch_checkpoint(model_path, device):
             ]
         )
         return torch.load(model_path, map_location=device, weights_only=True)  # nosec B614 - own model artifact; weights_only=True prevents arbitrary code execution
-    except Exception as e:
+    except (
+        # Measured or read at torch 2.13.0+cu130 / numpy 2.4.6. Every member has a raise
+        # site on this exact call path; see the branch commit body for evidence.
+        ImportError,  # `import numpy` / `import torch.serialization` above
+        AttributeError,  # numpy internal rename breaks np._core.multiarray.scalar
+        TypeError,  # malformed safe-globals entry, torch/_weights_only_unpickler.py
+        ValueError,  # unpickler operand, or unknown byteorder record in the archive
+        OSError,  # unreadable path: FileNotFoundError, PermissionError
+        EOFError,  # empty or truncated stream (NOT an OSError subclass)
+        RuntimeError,  # PytorchStreamReader failure, unknown map_location
+        pickle.UnpicklingError,  # weights_only refusal (NOT an OSError subclass)
+    ) as e:
         raise RuntimeError(
             f"Failed to load GNN checkpoint with weights_only=True: {e}. "
             "Re-save the checkpoint with torch.save(model.state_dict(), path) "

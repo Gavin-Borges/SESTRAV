@@ -201,6 +201,31 @@ def test_load_torch_checkpoint_raises_on_complete_failure(tmp_path):
         _load_torch_checkpoint(chk, torch.device("cpu"))
 
 
+def test_load_torch_checkpoint_raises_on_missing_file(tmp_path):
+    """A missing path raises FileNotFoundError inside the try; it must normalize."""
+    with pytest.raises(RuntimeError, match="Failed to load GNN checkpoint"):
+        _load_torch_checkpoint(tmp_path / "absent.pth", torch.device("cpu"))
+
+
+def test_load_torch_checkpoint_raises_on_empty_file(tmp_path):
+    """An empty file raises EOFError, which is not an OSError; it must normalize."""
+    chk = tmp_path / "empty.pth"
+    chk.write_bytes(b"")
+
+    with pytest.raises(RuntimeError, match="Failed to load GNN checkpoint"):
+        _load_torch_checkpoint(chk, torch.device("cpu"))
+
+
+def test_load_torch_checkpoint_normalizes_numpy_internal_rename(tmp_path, monkeypatch):
+    """A numpy rename breaks np._core.multiarray.scalar; it must still normalize."""
+    chk = tmp_path / "model.pth"
+    torch.save({"w": torch.tensor([1.0])}, chk)  # nosec B614 - test fixture, trusted tensor
+
+    monkeypatch.delattr(np, "_core")
+    with pytest.raises(RuntimeError, match="Failed to load GNN checkpoint"):
+        _load_torch_checkpoint(chk, torch.device("cpu"))
+
+
 # ---------------------------------------------------------------------------
 # main() CLI entry point
 # ---------------------------------------------------------------------------
