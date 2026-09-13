@@ -223,22 +223,6 @@ def parse_raw_prime(path: str, sep: str = "\t") -> Tuple[pd.DataFrame, pd.DataFr
     return collapse_allele_scores(raw, pep, sc, "prime")
 
 
-def quantify_overlap(
-    eval_peptides: set,
-    train_path: Optional[str],
-    train_col: str = "epitope",
-) -> dict:
-    """Exact-match overlap only (legacy). Prefer quantify_overlap_robust."""
-    meta = quantify_overlap_robust(eval_peptides, train_path, train_col)
-    return {
-        "overlap_count": meta.get("exact_overlap_count", "unknown"),
-        "overlap_total_eval": meta.get("eval_peptide_count", "unknown"),
-        "overlap_pct": meta.get("exact_overlap_pct", "unknown"),
-        "status": meta.get("status", "missing_train_list"),
-        "overlap_peptides_sample": meta.get("exact_overlap_peptides_sample", []),
-    }
-
-
 def quantify_overlap_robust(
     eval_peptides: set,
     train_path: Optional[str],
