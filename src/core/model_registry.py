@@ -1,8 +1,7 @@
-import hashlib
 from pathlib import Path
 from typing import Any
 from src.core.config import SestravConfig
-from src.artifact_integrity import load_verified_joblib
+from src.artifact_integrity import load_verified_joblib, sha256_file
 
 # Anchored to the installed package, NOT to the current working directory.
 # `Path("models")` resolves against os.getcwd(), so every model lookup silently
@@ -59,11 +58,7 @@ class ModelRegistry:
 
     def artifact_checksum(self, path: Path) -> str:
         """Compute SHA256 checksum of an artifact."""
-        sha256 = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
+        return sha256_file(path)
 
     def load(self, model_name: str) -> Any:
         """Load a model by name."""

@@ -133,6 +133,52 @@ def test_retracted_name_is_quotable_only_in_the_retraction_record():
     assert _unreviewed(line, "docs/paper.md") == ["NC State"]
 
 
+def test_directory_exemption_requires_a_trailing_slash_and_stops_at_it():
+    """Prefix entries are opt-in per entry, and must not leak past the slash.
+
+    `_local/state/` is exempt as a DIRECTORY because its filenames are dated:
+    every session that discusses D35 creates a new one, so an exact-path list
+    would leave this gate permanently red, and a permanently red gate is
+    ignored. The narrowness is the load-bearing half. Without the trailing
+    slash a plain `str.startswith` would also exempt `_local/statement...`,
+    silently widening a security allowlist by string coincidence.
+    """
+    line = 'the earlier draft said "coursework at NC State", now retracted'
+
+    # Dated and nested names nobody can enumerate in advance.
+    assert _unreviewed(line, "_local/state/session_plan_2026-12-31.md") == []
+    assert _unreviewed(line, "_local/state/nested/deep.md") == []
+    # The exemption stops at the slash: a sibling merely sharing the prefix
+    # characters is NOT beneath the directory and stays gated.
+    assert _unreviewed(line, "_local/statement_of_work.md") == ["NC State"]
+    # An exact entry stays exact: no implied directory, no implied suffix.
+    assert _unreviewed(line, "STATE.md") == []
+    assert _unreviewed(line, "STATE.md.bak") == ["NC State"]
+
+
+def test_outreach_drafts_are_never_blanket_exempt():
+    """`_local/drafts/` is where copy is written that cannot be edited later.
+
+    Outreach publishes to places with no edit button, so a verbatim D35
+    recurrence there is the worst case this gate exists for. Only two exact
+    files inside one dated, frozen packet are exempt, and only because they
+    are snapshots of records that document the retraction. A packet
+    regenerated under a new date must trip the gate again and be re-reviewed.
+    """
+    line = 'SESTRAV grew out of coursework at NC State'
+
+    assert _unreviewed(line, "_local/drafts/linkedin_post_3.md") == ["NC State"]
+    assert _unreviewed(line, "_local/drafts/SESTRAV_manuscript_draft.md") == ["NC State"]
+    # The frozen packet snapshots that legitimately carry the retraction row.
+    packet = "_local/drafts/mountain_view_packet_2026-09-06"
+    assert _unreviewed(line, f"{packet}/07_claims_register.md") == []
+    assert _unreviewed(line, f"{packet}/11_PRIVATE_brain_map.md") == []
+    # A later packet is a new directory and is deliberately not carried over.
+    assert _unreviewed(
+        line, "_local/drafts/mountain_view_packet_2026-10-01/07_claims_register.md"
+    ) == ["NC State"]
+
+
 def test_generated_rule_mirror_is_exempt_only_for_the_retracted_name():
     """The .agents mirror may quote D35, and nothing more.
 

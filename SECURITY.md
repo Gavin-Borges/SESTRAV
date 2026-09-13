@@ -123,12 +123,30 @@ SESTRAV is designed as a standalone, offline bioinformatics pipeline.
 How findings from Dependabot, code scanning, and the CI security workflows are
 prioritized and acted on. The policy is deliberately **two-tiered**, but "blocking"
 here means one specific, verifiable thing: gating the merge button via the
-`Protect Main Branch` ruleset (id `16846770`) - its five required status checks
+`Protect Main Branch` ruleset (id `16846770`) - its **seven** required status checks
 (`test (3.13)`, `Require human review`, `check_dco`, `Cited commits resolve`,
-`Cited lines still hold their content`) plus its code-scanning rule, which names
-`CodeQL` only. A tool that is not on either of those two lists cannot block a merge,
-even if it fails its own CI job red. Check list re-read from the live ruleset API
-2026-08-24; it last changed 2026-08-22, when the fifth check was added.
+`Cited lines still hold their content`, `Bandit Security Scan` and
+`CodeQL Static Analysis`) plus its code-scanning rule, which names `CodeQL`. A tool
+that is not on either of those two lists cannot block a merge, even if it fails its
+own CI job red.
+
+**Corrected 2026-09-13.** This paragraph read "its five required status checks" and
+enumerated five, omitting `Bandit Security Scan` and `CodeQL Static Analysis`. That
+understated enforcement, and it contradicted this document's own CI gate map below,
+which was corrected on 2026-09-12 to record Bandit as blocking. Both statements were
+true of different dates and neither said so. **Do not quote this enumeration as
+current** - the count has already changed at least twice (five as of 2026-08-24,
+seven as of 2026-09-13). Re-measure instead:
+
+```bash
+gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 \
+  --jq '[.rules[] | select(.type=="required_status_checks")
+         | .parameters.required_status_checks[].context] | sort'
+```
+
+Note the classic branch-protection API is a confident false negative here:
+`gh api .../branches/main/protection` returns 404 "Branch not protected", because
+this repository uses a ruleset rather than legacy branch protection.
 
 ### Severity -> action (target SLA)
 
