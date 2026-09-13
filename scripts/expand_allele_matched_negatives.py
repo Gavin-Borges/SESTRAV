@@ -28,7 +28,6 @@ Success Criterion:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import sys
@@ -50,6 +49,7 @@ from scripts.filter_validation_cohorts import (
     load_training_peptides,
     normalise_allele,
 )
+from src.artifact_integrity import sha256_file
 
 FROZEN_COHORT_PATH = os.path.join(PROJECT_ROOT, "data", "external", "influenza_clean.csv")
 EXPANDED_COHORT_PATH = os.path.join(PROJECT_ROOT, "data", "external", "influenza_expanded_clean.csv")
@@ -196,8 +196,7 @@ def expand_cohort(
     print(f"\n[SUCCESS] Saved expanded cohort ({len(combined)} rows) -> {output_path}")
 
     # 7. Write provenance sidecar
-    with open(output_path, "rb") as f:
-        sha256 = hashlib.sha256(f.read()).hexdigest()
+    sha256 = sha256_file(output_path)
 
     prov = {
         "artifact": os.path.basename(output_path),

@@ -50,7 +50,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import hashlib
 import json
 import os
 import re
@@ -59,6 +58,7 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 from src.features import ALLELE_CONTACT_WEIGHTS  # noqa: E402
 
 DATASET_SRC = "data/immunogenicity_dataset_v5.csv"
@@ -67,14 +67,6 @@ TRACKED_OUTPUT = "results/d29_corpus_composition.csv"
 PANEL_ALLELES = sorted(ALLELE_CONTACT_WEIGHTS.keys())
 
 _LOCUS_RE = re.compile(r"^HLA-([A-E])")
-
-
-def _sha256_file(path: str) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _active(frame: pd.DataFrame) -> pd.DataFrame:
