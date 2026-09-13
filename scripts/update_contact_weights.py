@@ -141,17 +141,6 @@ def _parse_existing_weights(source: str) -> dict[str, list[float]]:
     return result
 
 
-def _parse_existing_pop_avg(source: str) -> list[float]:
-    """Extract current POPULATION_AVG_CONTACT_WEIGHTS from features.py source."""
-    m = re.search(
-        r"POPULATION_AVG_CONTACT_WEIGHTS:\s*list\[float\]\s*=\s*\[([0-9., ]+)\]",
-        source,
-    )
-    if m:
-        return [float(x.strip()) for x in m.group(1).split(",") if x.strip()]
-    return []
-
-
 def _replace_weights_in_source(
     source: str,
     new_allele_block: str,

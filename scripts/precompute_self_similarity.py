@@ -84,24 +84,6 @@ _VALID_AA = frozenset("ACDEFGHIKLMNPQRSTVWY")
 # ---------------------------------------------------------------------------
 
 
-def _iter_sequences(fasta_path: str):
-    """Yield (header, sequence) pairs from a FASTA file."""
-    header = None
-    chunks: list[str] = []
-    with open(fasta_path, "r") as fh:
-        for line in fh:
-            line = line.rstrip()
-            if line.startswith(">"):
-                if header is not None:
-                    yield header, "".join(chunks)
-                header = line[1:]
-                chunks = []
-            elif line:
-                chunks.append(line.upper())
-    if header is not None:
-        yield header, "".join(chunks)
-
-
 # ---------------------------------------------------------------------------
 # K-mer index builder
 # ---------------------------------------------------------------------------
