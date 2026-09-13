@@ -85,7 +85,16 @@ which are where an unreviewed name is written before it is ever committed.
 Why ``--all`` skips tracked files inside NESTED checkouts
 --------------------------------------------------------
 ``--all`` is the pre-outreach ritual (``.claude/rules/third-party-claims.md``).
-**Since 2026-09-08 it is also enforced, by ``scripts/hooks/pre-push`` Check 5.**
+**Since 2026-09-13 it is also enforced, by ``scripts/hooks/pre-push`` Check 5**,
+the date PR #448 landed on ``main`` as ``8d485dc``. It was developed and run
+locally from 2026-09-08, and ``core.hooksPath`` is ``scripts/hooks`` so an
+uncommitted hook edit is live at once, but for the REPOSITORY enforcement
+begins at the merge commit. This line first shipped saying 2026-09-08, which
+read the gate five days older than it is:
+``git log --all -S "Check 5" -- scripts/hooks/pre-push`` resolves to
+``8d485dc``, the squash merge of PR #448, authored 2026-09-13. A pre-squash
+branch commit with the same content exists in the author's local history only
+and is on no origin ref, so a clone sees the merge commit alone.
 This paragraph previously said "no workflow and no hook runs it", which that
 change made false. CI still cannot carry it and never will: ``_local/`` is
 gitignored and never cloned, so on a fresh checkout ``--all`` collapses onto
@@ -274,23 +283,39 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # outreach copy is written, and outreach publishes where it cannot be
         # edited afterwards, so blanket-permitting the fabricated name there
         # would blind the gate to a verbatim recurrence of D35 on the one
-        # surface that matters most. The two entries below are exact paths
-        # into a dated, frozen packet: they are snapshots of the claims
-        # register and the brain map, both of which record the retraction.
-        # A regenerated packet gets a new dated directory and will correctly
-        # trip this gate again, forcing a fresh review.
+        # surface that matters most.
+        #
+        # STATE.md, the session log at the repo root. An EXACT path, not a
+        # prefix. What cites it: three occurrences on three lines, measured
+        # 2026-09-13, every one a record of the D35 triage and none a claim
+        # of affiliation - two are session notes reporting this gate's own
+        # --all hit counts, one is a table row identifying the generated rule
+        # mirror as an already-exempted file. STATE.md is gitignored (it is
+        # named in .gitignore; confirm with `git check-ignore -v STATE.md`)
+        # and so untracked, which means only --all ever reads it; the
+        # default-mode tracked-file scan that guards README.md is unaffected
+        # by this entry.
         "STATE.md",
+        # The PREFIX entry the trailing-slash paragraph above describes: the
+        # private session-record tree, permitted BENEATH the path, not at it.
+        # Every other entry in this tuple is an exact path.
         "_local/state/",
+        # The two entries below are exact paths into a dated, frozen packet:
+        # they are snapshots of the claims register and the brain map, both
+        # of which record the retraction. A regenerated packet gets a new
+        # dated directory and will correctly trip this gate again, forcing a
+        # fresh review.
         "_local/drafts/mountain_view_packet_2026-09-06/07_claims_register.md",
         "_local/drafts/mountain_view_packet_2026-09-06/11_PRIVATE_brain_map.md",
         # The 2026-09-09 regeneration of that packet, reviewed 2026-09-13 -
-        # the mechanism two paragraphs above working exactly as described,
-        # not an exception to it. All 8 occurrences were read before this
-        # entry was added: 5 in 07_claims_register.md are the D35 retraction
-        # row itself (a snapshot of docs/claims_register.md, which is already
-        # the first entry in this tuple), and 3 in 11_PRIVATE_brain_map.md are
-        # the section documenting the fabrication. Zero claim NC State as this
-        # project's affiliation; every one is a record OF the retraction.
+        # the mechanism stated just above the 2026-09-06 entries working
+        # exactly as described, not an exception to it. All 8 occurrences
+        # were read before this entry was added: 5 in 07_claims_register.md
+        # are the D35 retraction row itself (a snapshot of
+        # docs/claims_register.md, which is already the first entry in this
+        # tuple), and 3 in 11_PRIVATE_brain_map.md are the section
+        # documenting the fabrication. Zero claim NC State as this project's
+        # affiliation; every one is a record OF the retraction.
         #
         # The recurrence is structural, not incidental: a packet regeneration
         # copies two documents whose exempted status is already settled at
