@@ -43,11 +43,18 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import hashlib
 import json
 import os
+import sys
+from pathlib import Path
 
 import pandas as pd
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 
 DATASET_SRC = "data/immunogenicity_dataset_v5.csv"
 MATRIX_SRC = "models/peptide_binding_matrix_v5.csv"
@@ -55,14 +62,6 @@ TRACKED_OUTPUT = "results/section33_decoy_binding_join.csv"
 
 DECOY_ORIGIN = "allele_matched_nonbinder"
 REAL_NEG_ORIGINS = ("tested_negative", "iedb_api")
-
-
-def _sha256_file(path: str) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _active(frame: pd.DataFrame) -> pd.DataFrame:

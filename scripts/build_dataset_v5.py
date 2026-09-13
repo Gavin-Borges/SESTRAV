@@ -17,7 +17,6 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import logging
 import random
@@ -30,11 +29,17 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _dataset_utils import (  # noqa: E402
     normalize_hla_alleles,
     normalize_virus_names,
     _HLA_AMBIGUOUS,
+)
+from src.artifact_integrity import (  # noqa: E402
+    sha256_file as compute_file_sha256,
 )
 
 # ---------------------------------------------------------------------------
@@ -137,14 +142,6 @@ def get_git_sha() -> str:
         return result.stdout.strip()
     except Exception:
         return "unknown"
-
-
-def compute_file_sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 # ---------------------------------------------------------------------------
