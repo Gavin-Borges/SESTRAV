@@ -607,7 +607,7 @@ def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
             value="RF model not found",
             threshold=f"<= {GATE3_LATENCY_FACTOR}x RF latency",
         )
-    rf_model = load_verified_joblib(RF_MODEL_PATH)
+    rf_model = load_verified_joblib(RF_MODEL_PATH, required_checksum=True)
 
     rng = np.random.default_rng(0)
     rf_features = getattr(rf_model, "n_features_in_", 30)
