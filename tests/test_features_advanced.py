@@ -72,21 +72,34 @@ class TestComputeSampleWeights:
         np.testing.assert_allclose(w.mean(), 1.0, atol=1e-9)
 
     def test_missing_virus_column_returns_length_weights(self):
-        df = pd.DataFrame({"peptide": ["CLGGLLTMV"] * 3 + ["TIHDIILECV"] * 3})
+        # Deliberately UNBALANCED (4 nine-mers, 2 ten-mers). With a balanced
+        # fixture the length correction is the identity, so the assertions
+        # below would hold even if length weighting were removed entirely -
+        # compute_sample_weights normalises to mean 1.0, which makes
+        # `mean == 1.0` true of every vector it can return.
+        df = pd.DataFrame({"peptide": ["CLGGLLTMV"] * 4 + ["TIHDIILECV"] * 2})
         w = compute_sample_weights(df, virus_col="virus")
         assert w.shape == (6,)
         np.testing.assert_allclose(w.mean(), 1.0, atol=1e-9)
+        # The 10-mers are the minority and must be up-weighted. Fails if the
+        # length correction is skipped (which returns all-ones).
+        assert w[4] > w[0]
 
     def test_custom_length_col(self):
+        # Unbalanced for the same reason as above: this is the only test that
+        # pins that a CUSTOM length_col is honoured at all, and a balanced
+        # fixture cannot tell "honoured" from "ignored".
         df = pd.DataFrame(
             {
                 "virus": ["EBV"] * 4,
-                "seq": ["CLGGLLTMV"] * 2 + ["TIHDIILECV"] * 2,
+                "seq": ["CLGGLLTMV"] * 3 + ["TIHDIILECV"] * 1,
             }
         )
         w = compute_sample_weights(df, length_col="seq")
         assert w.shape == (4,)
         np.testing.assert_allclose(w.mean(), 1.0, atol=1e-9)
+        # Honoured -> [0.833, 0.833, 0.833, 1.5]; ignored -> [1, 1, 1, 1].
+        assert w[3] > w[0]
 
     def test_output_is_ndarray(self):
         df = self._df(["EBV", "HPV16"])
