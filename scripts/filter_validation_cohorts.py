@@ -14,6 +14,7 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -126,7 +127,18 @@ def fetch_cohort_data(
             data = json.loads(response.read().decode("utf-8"))
         print(f"  Successfully retrieved {len(data)} raw records.")
         return data
-    except Exception as e:
+    # OSError covers urllib.error.URLError, ssl.SSLError and TimeoutError;
+    # HTTPException (IncompleteRead, RemoteDisconnected) is NOT an OSError, so
+    # it needs its own member; JSONDecodeError catches a maintenance HTML page
+    # served with a 200.
+    #
+    # Deliberately NOT ValueError. The non-HTTPS guard above raises a bare
+    # ValueError, and a bare `except Exception` swallowed that security check
+    # into the same `return []` as a network timeout - so a misconfigured
+    # base_url degraded to "0 records" instead of stopping. JSONDecodeError is
+    # a ValueError SUBCLASS, so naming it does not re-catch the guard.
+    # A KeyError or AttributeError from a defect in this module also propagates.
+    except (OSError, http.client.HTTPException, json.JSONDecodeError) as e:
         print(f"  Error fetching data: {e}", file=sys.stderr)
         return []
 
