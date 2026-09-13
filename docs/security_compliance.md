@@ -132,6 +132,13 @@ on `Protect Main Branch` (`test (3.13)`, `Require human review`, `check_dco`,
 rule names `CodeQL` only, so they never gated a merge. (List re-read from the live ruleset API
 2026-08-24; the fifth check was added 2026-08-22 and this enumeration was one short until then.)
 
+> *Enumeration superseded 2026-09-13, kept as the 2026-08-24 reading rather than rewritten.* The
+> ruleset now requires **seven** checks, adding `Bandit Security Scan` and `CodeQL Static Analysis`.
+> The load-bearing claim of the paragraph above is unaffected and still holds: `Semgrep OSS` is
+> still not a required check, so the alerts discussed here still never gated a merge. Only the
+> parenthetical enumeration has gone stale. `SECURITY.md` carries the current list and the command
+> to re-measure it.
+
 **Fixed at the root 2026-08-17 rather than dismissed.** `security.yml` now carries a
 `Drop nosemgrep-suppressed results from the SARIF` step between the scan and the upload, which
 removes results carrying a `suppressions` tag so the uploaded SARIF states what the scanner

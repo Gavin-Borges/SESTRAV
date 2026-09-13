@@ -9,6 +9,8 @@ All heavy I/O (torch.load, joblib, real model files) is mocked.
 
 from __future__ import annotations
 
+import runpy
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -319,16 +321,6 @@ def test_cli_exposes_oof_and_defaults_it_to_none():
     )
 
 
-def test_main_forwards_oof_into_promote_model():
-    """Advertising and parsing the flag is not the same as wiring it."""
-    source = (Path(pgnn.__file__)).read_text(encoding="utf-8")
-    call_start = source.index("    promote_model(")
-    call_block = source[call_start : source.index(")", call_start)]
-    assert "oof_path=_args.oof" in call_block, (
-        "__main__ parses --oof but never forwards it to promote_model"
-    )
-
-
 def test_promote_model_threads_oof_path_into_check_promotion_gates():
     seen: dict[str, object] = {}
 
@@ -403,16 +395,6 @@ def test_cli_exposes_checkpoint_and_defaults_it_to_none():
     assert parser.parse_args([]).checkpoint is None
     assert parser.parse_args(["--checkpoint", "models/scratch/run/gnn.pth"]).checkpoint == Path(
         "models/scratch/run/gnn.pth"
-    )
-
-
-def test_main_forwards_checkpoint_into_promote_model():
-    """Advertising and parsing the flag is not the same as wiring it."""
-    source = (Path(pgnn.__file__)).read_text(encoding="utf-8")
-    call_start = source.index("    promote_model(")
-    call_block = source[call_start : source.index(")", call_start)]
-    assert "checkpoint_path=_args.checkpoint" in call_block, (
-        "__main__ parses --checkpoint but never forwards it to promote_model"
     )
 
 
@@ -755,3 +737,120 @@ def test_gate3_latency_fails_when_gnn_missing():
 
     assert result.passed is False
     assert "GNN checkpoint not found" in str(result.value)
+
+
+# ---------------------------------------------------------------------------
+# The `if __name__ == "__main__"` entry point, executed for real.
+#
+# This replaces two substring checks against the module's own SOURCE TEXT.
+# promote_model() and below is covered by the threading tests above, and
+# _build_arg_parser by the two test_cli_exposes_* ones; the two-line bridge
+# between them was guarded only by text matching, which is blind to whether
+# that line is reachable and whether the value survives the trip to read_csv.
+#
+# Measured: a 4-space-indented usage example in the module docstring containing
+# `promote_model(... oof_path=_args.oof)` satisfies `source.index("    promote_
+# model(")` FIRST, so the old assertion passed against documentation while the
+# live call fell back to the tracked models/gnn_oof_predictions.csv. The old
+# form also red-flagged two behaviour-preserving refactors, because
+# `source.index(")", call_start)` truncates the call at the first ")".
+#
+# runpy, not subprocess: `python -m src.verify.promote_gnn` would need a real
+# models/gnn/structural_gnn_v2.pth, which is NOT tracked (only gnn_config.json
+# is), so a subprocess run would diverge between this workstation and a fresh
+# CI checkout. Every canonical path in the module is RELATIVE, so chdir(tmp_path)
+# controls the tracked default and the override alike.
+#
+# pd.read_csv is the spy because it is the only boundary that survives runpy:
+# run_name="__main__" re-executes the module into a FRESH namespace, so patching
+# src.verify.promote_gnn.<anything> would not reach the copy that runs. The spy
+# raises ValueError, which check_promotion_gates already catches, so the run
+# stops before gate3_latency and therefore never imports torch.
+# ---------------------------------------------------------------------------
+
+
+class _CapturedOofRead(ValueError):
+    """Raised by the read_csv spy. ValueError so check_promotion_gates catches it."""
+
+
+def _stage_promotion_tree(tmp_path: Path) -> None:
+    """Lay out the relative paths promote_gnn resolves against the cwd."""
+    (tmp_path / "models" / "gnn").mkdir(parents=True)
+    (tmp_path / "models" / "gnn" / "structural_gnn_v2.pth").write_bytes(b"stub-weights")
+    # The tracked artifact a scratch run must not be scored against.
+    (tmp_path / "models" / "gnn_oof_predictions.csv").write_text(
+        "label,gnn_oof_score\n1,0.11\n0,0.12\n", encoding="utf-8"
+    )
+    scratch = tmp_path / "models" / "scratch" / "run"
+    scratch.mkdir(parents=True)
+    (scratch / "oof.csv").write_text("label,gnn_oof_score\n1,0.91\n0,0.92\n", encoding="utf-8")
+
+
+def _run_entry_point(monkeypatch, argv: list[str]) -> dict[str, object]:
+    """Execute the module's __main__ block and report what it tried to read."""
+    seen: dict[str, object] = {}
+
+    def _capture(filepath_or_buffer, *args, **kwargs):
+        seen["oof_read"] = Path(filepath_or_buffer)
+        raise _CapturedOofRead("captured")
+
+    monkeypatch.setattr(pd, "read_csv", _capture)
+    monkeypatch.setattr(sys, "argv", ["promote_gnn", *argv])
+    runpy.run_path(pgnn.__file__, run_name="__main__")
+    return seen
+
+
+def test_entry_point_scores_the_oof_named_on_argv(monkeypatch, tmp_path):
+    """`--oof X` must reach pd.read_csv as X, with the tracked default present."""
+    _stage_promotion_tree(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    seen = _run_entry_point(monkeypatch, ["--dry-run", "--oof", "models/scratch/run/oof.csv"])
+
+    assert seen.get("oof_read") == Path("models/scratch/run/oof.csv"), (
+        "--oof did not reach _load_oof; a scratch promotion run would have been "
+        f"scored against {pgnn.OOF_PATH}, the tracked artifact"
+    )
+
+
+def test_entry_point_scores_the_tracked_default_when_oof_is_omitted(monkeypatch, tmp_path):
+    """The other direction, deliberately.
+
+    Pinning only the override would also pass against an entry point that
+    hardcoded the scratch path, a different defect in the opposite direction.
+    """
+    _stage_promotion_tree(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    seen = _run_entry_point(monkeypatch, ["--dry-run"])
+
+    assert seen.get("oof_read") == Path("models/gnn_oof_predictions.csv")
+
+
+def test_entry_point_refuses_a_missing_checkpoint_named_on_argv(monkeypatch, tmp_path):
+    """`--checkpoint Y` must reach the existence guard as Y, not as the default.
+
+    Y is deliberately never created while the tracked default IS, so correct
+    wiring short-circuits at the checkpoint guard and no OOF frame is ever read.
+    Asserting _load_oof was never reached is what proves the guard fired, the
+    same idiom as
+    test_check_promotion_gates_existence_check_uses_the_override_not_the_default.
+    """
+    _stage_promotion_tree(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    seen = _run_entry_point(
+        monkeypatch,
+        [
+            "--dry-run",
+            "--oof",
+            "models/scratch/run/oof.csv",
+            "--checkpoint",
+            "models/scratch/run/gnn.pth",  # deliberately never created
+        ],
+    )
+
+    assert "oof_read" not in seen, (
+        "--checkpoint did not reach the existence guard: the run got past a "
+        "checkpoint that does not exist and began scoring"
+    )

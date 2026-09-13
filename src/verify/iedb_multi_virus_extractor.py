@@ -77,7 +77,12 @@ def query_vdjdb_cached(tax_id: int, cache_dir: Path) -> List[Dict[str, Any]]:
             response = requests.get(VDJDB_URL, timeout=30, verify=True)
             response.raise_for_status()
             cache_path.write_text(response.text, encoding="utf-8")
-        except Exception as e:
+        # OSError alone covers this block: requests.exceptions.RequestException
+        # subclasses OSError (so raise_for_status's HTTPError does too), and
+        # write_text raises OSError. A defect in this module - a NameError, an
+        # AttributeError on a renamed response field - is NOT a download failure
+        # and must not be reported as an empty VDJdb.
+        except OSError as e:
             logger.error(f"Could not download VDJdb: {e}. Returning empty list.")
             return []
 
@@ -106,7 +111,17 @@ def query_vdjdb_cached(tax_id: int, cache_dir: Path) -> List[Dict[str, Any]]:
             )
         logger.info(f"Parsed {len(records)} entries for TaxID {tax_id} from VDJdb.")
         return records
-    except Exception as e:
+    # (OSError, ValueError) is the measured raise set of this block: an unreadable
+    # or vanished cache file raises OSError, and every pandas corruption mode
+    # subclasses ValueError - EmptyDataError on a zero-byte cache, ParserError on
+    # ragged rows, UnicodeDecodeError on binary garbage (all three verified
+    # against the installed pandas). Catching bare Exception here also swallowed
+    # KeyError/AttributeError/TypeError from a defect in the parsing code below,
+    # and returned [] - which this function's caller cannot distinguish from
+    # "no epitopes match this TaxID", and which makes it fall back to
+    # extract_mock_data. A code defect must not be able to silently become
+    # fabricated verification data.
+    except (OSError, ValueError) as e:
         logger.error(f"Failed to process VDJdb: {e}")
         return []
 
