@@ -12,8 +12,10 @@ from pathlib import Path
 # `src.` import below cannot resolve on its own. A checkout with an editable
 # install hides that, because the .pth file puts the repo root on sys.path in
 # every interpreter; CI installs with --no-deps against the lockfiles and has no
-# such entry, so the import fails there and only there. Same bootstrap shape as
-# src/verify/promote_gnn.py.
+# such entry, so the import fails in ANY environment where this package is not
+# installed. On CI that is the test job, and it failed there and nowhere else.
+# A bare clone running pipeline.smk before `pip install .` would hit it too.
+# Same bootstrap shape as src/verify/promote_gnn.py.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
