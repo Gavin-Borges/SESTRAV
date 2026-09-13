@@ -63,7 +63,8 @@ Rules in force (every field below read from the live API, not from the script's 
 re-read 2026-08-24, when the fifth required status check was found missing from this list -
 it was added to the ruleset 2026-08-22T19:14:42-04:00, 2h06m after the commit that wrote this
 section and 2h27m after that commit was authored, so the list was accurate when written and
-stale thereafter):
+stale thereafter; the sixth and seventh required status checks were re-read from the live API
+on 2026-09-13 and appended, see the correction note below the list):
 - **ID / Name:** `16846770` / `Protect Main Branch`
 - **Target:** `refs/heads/main`
 - **Enforcement:** Active
@@ -82,11 +83,31 @@ stale thereafter):
     - Required status check: `check_dco`
     - Required status check: `Cited commits resolve`
     - Required status check: `Cited lines still hold their content`
+    - Required status check: `Bandit Security Scan`
+    - Required status check: `CodeQL Static Analysis`
   - ☑ **Require code scanning results: `CodeQL`**, `security_alerts_threshold: all`,
     `alerts_threshold: errors_and_warnings`. This is what makes CodeQL a merge blocker
-    for any alert a pull request introduces, as distinct from the Bandit, semgrep and
+    for any alert a pull request introduces, as distinct from the semgrep and
     dependency-review jobs, which fail their own CI job but are not required checks and
-    so do not gate the merge button. See `SECURITY.md`'s CI gate map.
+    so do not gate the merge button. Bandit is not in that group: it gates as a required
+    STATUS CHECK, whose context matches the `bandit` job's own `name:`. See `SECURITY.md`'s
+    CI gate map.
+
+**Corrected 2026-09-13.** The enumeration above listed five required status checks, and the
+paragraph beneath it named Bandit among the jobs that "are not required checks and so do not
+gate the merge button". Both were false. Ruleset `16846770` requires SEVEN status checks, and
+`Bandit Security Scan` and `CodeQL Static Analysis` are two of them, so a red Bandit run does
+block the merge button. The error was in the direction of understating enforcement. Do not
+trust the list above as durable; re-measure it, which is the only binding source:
+
+```bash
+gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 --jq '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'
+```
+
+Note that the classic branch-protection API is a confident false negative here:
+`gh api repos/Gavin-Borges/SESTRAV/branches/main/protection` returns 404 "Branch not
+protected", because protection is expressed as a ruleset rather than legacy branch
+protection.
 
 Note the context strings: they are the bare check-run names (`test (3.13)`), not
 workflow-qualified (`SESTRAV CI / test (3.13)`). A required context that no check reports

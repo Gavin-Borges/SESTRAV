@@ -12,8 +12,9 @@
 #   The live branch protection for Gavin-Borges/SESTRAV is ruleset
 #   id 16846770, name "Protect Main Branch", configured and maintained
 #   through the GitHub web UI (created 2026-05-25, last updated
-#   2026-08-22T19:14:42-04:00 - re-read from the live API 2026-08-24;
-#   this line previously said 2026-07-26 and was a month stale, which
+#   2026-09-09T20:31:45.369-04:00 - re-read from the live API 2026-09-13;
+#   this line previously said 2026-08-22T19:14:42-04:00, stale by the
+#   two contexts added since, and before that 2026-07-26, which
 #   matters because the freshness of this whole transcription is
 #   asserted by that date). This file is a downstream transcription of it, not
 #   its definition. Change protection in the UI, then update the
@@ -154,6 +155,9 @@
 #           { "context": "check_dco",            "integration_id": 15368 },
 #           { "context": "Cited commits resolve","integration_id": 15368 },
 #           { "context": "Cited lines still hold their content",
+#                                                "integration_id": 15368 },
+#           { "context": "Bandit Security Scan", "integration_id": 15368 },
+#           { "context": "CodeQL Static Analysis",
 #                                                "integration_id": 15368 }
 #         ]
 #       }
@@ -170,22 +174,31 @@
 # and is also 15368.
 #
 # Cite a pull-request head here, not a main-branch commit. Measured
-# against main HEAD's check runs on 2026-08-24, exactly TWO of the five
-# required contexts report on a push to main: "test (3.13)" and
+# against main HEAD's check runs on 2026-08-24, when five contexts were
+# in force, exactly TWO of those five reported on a push to main: "test (3.13)" and
 # "Cited lines still hold their content" - the latter because
 # doc_line_citations.yml carries BOTH a pull_request and a push
 # trigger. "Require human review", "check_dco" and "Cited commits
 # resolve" are pull_request-only and are absent from main HEAD's check
-# runs entirely. A main-branch commit therefore evidences two of the
-# five entries below, not five.
+# runs entirely. A main-branch commit therefore evidenced two of the
+# five entries in force at that date, not five. That ratio has not been
+# re-measured since the ruleset grew to seven.
 #
 # An earlier version of this note said only "test (3.13)" reports on a
 # push to main. That was false, and it was false in the direction that
 # made this file look more carefully reasoned than it was.
 #
-# The five required contexts are documented in SECURITY.md under
+# The seven required contexts are documented in SECURITY.md under
 # "Vulnerability Triage & Remediation Policy" / "CI gate map". Keep
 # that table, this block, and the live ruleset in agreement.
+#
+# Corrected 2026-09-13: this sentence said FIVE and the payload above
+# listed five. "Bandit Security Scan" and "CodeQL Static Analysis" had
+# been added to the ruleset and to no carrier here, so this block was
+# stale in the direction of understating enforcement - the same
+# direction as every other miss recorded in this file. Re-measure
+# rather than trusting the payload above:
+#   gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 --jq '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'
 #
 # That instruction was not followed when the fifth context was added on
 # 2026-08-22: this block, SECURITY.md, docs/SCORECARD_REMEDIATION.md,

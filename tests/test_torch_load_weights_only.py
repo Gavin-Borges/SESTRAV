@@ -4,8 +4,14 @@ The original sweep (STATE.md 2026-07-xx security-ci-sweep: "torch.load audit: al
 paths enforce weights_only=True (only 2 dev-only checkpoint-inspect scripts use False,
 nosec, off serving path)") was a one-off manual audit; this test makes it a standing,
 enforced check so a new call site cannot silently regress T2 (arbitrary code execution
-via a malicious model file, `docs/threat_model.md`) instead of relying on Bandit B614,
-which is Advisory and does not gate the merge (see `SECURITY.md`'s CI gate map).
+via a malicious model file, `docs/threat_model.md`) rather than relying on Bandit B614
+alone. B614 DOES gate the merge: it is MEDIUM severity, CI runs `bandit -r . -ll`
+(`.github/workflows/security.yml`), and `Bandit Security Scan` is a required status
+check on ruleset 16846770. What B614 cannot see is this directory: that same CI
+invocation passes `-x ./tests/`, so a `torch.load` without `weights_only=True` under
+`tests/` is invisible to it. That gap, not an absence of enforcement, is why this test
+exists. Corrected 2026-09-13; this docstring previously said B614 "is Advisory and does
+not gate the merge", citing `SECURITY.md`'s CI gate map, which says the opposite.
 
 Scope: the enforced surface is exactly what `git ls-files` reports, because that is the
 only code the repository actually ships. The two checkpoint-inspection scripts named in
