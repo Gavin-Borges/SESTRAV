@@ -1,7 +1,8 @@
 import pandas as pd
 from pathlib import Path
-import hashlib
 import logging
+
+from src.artifact_integrity import sha256_file
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +38,7 @@ class FeatureStore:
         if not path.exists():
             return False
 
-        sha256 = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                sha256.update(chunk)
-
-        actual = sha256.hexdigest()
-        return actual == expected_checksum
+        return sha256_file(path) == expected_checksum
 
     def load_cached_features(self, cache_name: str) -> pd.DataFrame | None:
         """Load pre-computed features from output cache to speed up development."""
