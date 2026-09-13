@@ -34,7 +34,7 @@ This document catalogs the current datasets, schemas, and evidence freezes used 
 *   **Description**: Introduced in the Post-Badge Phase 1 expansion.
 *   **Schema File**: `data/immunogenicity_dataset_v4_schema.json`
 *   **New Columns**:
-    *   `hla_allele`: Crucial for pan-allele prediction and zero-shot capabilities.
+    *   `hla_allele`: Crucial for pan-allele prediction.
     *   `source_type`: (Virus, Tumor, Self) to categorize the expanded origin of data.
     *   `database_source`: Provenance tracking (IEDB, VDJdb, UniProt, TSNAdb).
 
