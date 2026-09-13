@@ -7,16 +7,10 @@ Parses viral proteome FASTA files and generates all overlapping k-mer peptides
 from Bio import SeqIO
 import pandas as pd
 
+from src.naming import sanitize_name as _sanitize_name
+
 STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
 DEFAULT_LENGTHS = [8, 9, 10, 11]
-
-
-import re
-
-
-def _sanitize_name(name):
-    """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def generate_peptides(fasta_path, proteome_id, peptide_lengths=None):
