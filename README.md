@@ -334,12 +334,13 @@ mhcflurry-downloads fetch models_class1_presentation
 ```
 
 > **`requirements.txt` is a Linux x86-64 lock and does not resolve elsewhere.** It pins
-> 17 CUDA packages (`triton` plus 16 `nvidia-*`) and carries **zero environment markers**
-> across its 2,740 lines, so pip attempts every pin on every platform. Measured on Windows:
+> 17 CUDA packages (`triton` plus 16 `nvidia-*`) and carries **zero environment markers**,
+> so pip attempts every pin on every platform. Measured on Windows:
 > the command above exits 1 with `No matching distribution found for nvidia-nccl-cu12`,
 > while a cross-platform pin from the same file resolves normally, so the failure is
 > specific to those CUDA pins. Only one of the seventeen is markered in the source
-> (`requirements.in:57`); the other sixteen arrive transitively from `torch`. None survives
+> (the `nvidia-nccl-cu12` pin in `requirements.in`); the other sixteen arrive transitively
+> from `torch`. None survives
 > compilation, because the file is generated with `uv pip compile ... --python-platform linux`
 > (its own header, line 2) - a single-target resolution that evaluates markers away rather
 > than emitting them.

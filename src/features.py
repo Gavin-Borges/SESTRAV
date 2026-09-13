@@ -702,8 +702,21 @@ def reset_esm_fallback_count() -> None:
 def get_esm_cls_token(peptide: str) -> np.ndarray:
     """
     Extract CLS token from ESM-2 t6 model for the peptide.
-    Uses deterministic settings. Falls back to a deterministic mock vector if model fails to load.
+    Uses deterministic settings.
+
+    Fails loudly by default: any failure loading or running the model raises
+    RuntimeError rather than being silently absorbed. A model or dependency
+    failure here would otherwise be replaced by a sha256-seeded random
+    320-vector with no signal in it, indistinguishable downstream from a real
+    embedding - exactly the kind of silent corruption that makes a trained
+    model's ESM-derived features permanently unverifiable. Set
+    SESTRAV_ALLOW_ESM_FALLBACK=1 to opt back into the deterministic mock
+    vector for a known-degraded environment (e.g. no network access to fetch
+    the pinned model revision); get_esm_fallback_count() still records how
+    many calls used it.
     """
+    import os
+
     import numpy as np
 
     try:
@@ -734,6 +747,14 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
             cls_repr = outputs.last_hidden_state[0, 0].numpy()
         return cls_repr
     except Exception as e:
+        if os.environ.get("SESTRAV_ALLOW_ESM_FALLBACK") != "1":
+            raise RuntimeError(
+                f"Failed to compute ESM-2 CLS token for peptide {peptide!r}: {e}. "
+                "Refusing to substitute a fabricated feature vector, since that would "
+                "silently corrupt any model trained on it with no signal that it "
+                "happened. Set SESTRAV_ALLOW_ESM_FALLBACK=1 to opt into the "
+                "deterministic mock vector for a known-degraded environment."
+            ) from e
         _esm_fallback_count += 1
         print(
             f"[ESM Feature] WARNING: Failed to compute ESM-2 CLS token: {e}. Falling back to deterministic mock vector."
