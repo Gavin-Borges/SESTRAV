@@ -22,7 +22,6 @@ Output:     results/cv_leakage_audit.csv (+ .provenance.json sidecar)
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -39,6 +38,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa: E402
+from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 from src.evaluate_metrics import evaluate  # noqa: E402
 from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold  # noqa: E402
 from src.train_classifier import (  # noqa: E402
@@ -70,14 +70,6 @@ DATASET_PATH = PROJECT_ROOT / "data" / "immunogenicity_dataset_v5.csv"
 BINDING_MATRIX_PATH = PROJECT_ROOT / "models" / "peptide_binding_matrix_v5.csv"
 ANTIGEN_PROCESSING_CACHE_PATH = PROJECT_ROOT / "data" / "antigen_processing_cache.csv"
 SELF_SIMILARITY_CACHE_PATH = PROJECT_ROOT / "data" / "self_similarity_cache.csv"
-
-
-def _sha256_file(path: Path) -> str:
-    sha256 = hashlib.sha256()
-    with open(path, "rb") as fb:
-        for chunk in iter(lambda: fb.read(4096), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
 
 
 def _load_active(dataset_path: Path) -> pd.DataFrame:
