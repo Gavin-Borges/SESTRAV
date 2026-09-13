@@ -20,6 +20,8 @@ Run from repo root:
 import sys
 import os
 
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.features import compute_features, get_tcr_positions
@@ -181,7 +183,19 @@ def test_feature_count():
 
 
 def test_esm_and_graph_features():
-    """Verify that ESM-2 CLS and Graph WL descriptors yield expected shapes."""
+    """Verify that ESM-2 CLS and Graph WL descriptors yield expected shapes.
+
+    transformers is the optional `gnn` extra, absent from both the base dev
+    install and CI's test dependencies - this test was silently exercising
+    get_esm_cls_token's deterministic mock-vector fallback rather than the
+    real model in every environment it has ever run in, since a fallback
+    vector also satisfies the shape-only assertions below. Now that the
+    fallback is opt-in (SESTRAV_ALLOW_ESM_FALLBACK=1) rather than the
+    silent default, skip explicitly instead of raising.
+    """
+    pytest.importorskip(
+        "transformers", reason="ESM-2 CLS token requires the optional gnn extra (transformers)"
+    )
     from src.features import get_esm_cls_token, get_cb_cb_edges, compute_wl_features
 
     # Test 9-mer
@@ -245,6 +259,11 @@ if __name__ == "__main__":
     test_hpvgeadyfey_11mer()
     test_get_tcr_positions_length_relative()
     test_feature_count()
-    test_esm_and_graph_features()
+    try:
+        test_esm_and_graph_features()
+    except pytest.skip.Exception as e:
+        # pytest.importorskip raises this outside a pytest session too;
+        # standalone mode has no runner to report a SKIP, so print and move on.
+        print(f"Skipped test_esm_and_graph_features: {e}")
     test_mode_51_contact_weights()
     print("All feature extraction tests passed.")
