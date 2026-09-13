@@ -12,6 +12,8 @@ import re
 from mhcflurry import Class1PresentationPredictor
 import pandas as pd
 
+from src.naming import sanitize_name as _sanitize_name
+
 DEFAULT_ALLELES = [
     "HLA-A*02:01",
     "HLA-A*01:01",
@@ -29,11 +31,6 @@ DEFAULT_ALLELES = [
 def _allele_to_col(allele):
     """Convert 'HLA-A*02:01' to 'bind_A0201'."""
     return "bind_" + re.sub(r"[^A-Za-z0-9]", "", allele.replace("HLA-", ""))
-
-
-def _sanitize_name(name):
-    """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def predict_binding(peptides_df, proteome_id, alleles=None):

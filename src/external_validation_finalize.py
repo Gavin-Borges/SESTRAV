@@ -18,7 +18,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import platform
@@ -30,6 +29,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
 
+from src.artifact_integrity import sha256_file
 from src.evaluate_metrics import issr_at_k
 from src.external_benchmark_comparison import (
     per_virus_metrics,
@@ -51,14 +51,6 @@ PRIMARY_TOOLS = {
 REFERENCE_NAME = "SESTRAV RF (31-feat)"
 REFERENCE_COL = "rf_oof_score"
 DEFAULT_PREDIG_TRAIN = "data/external/predig_train_modf.csv"
-
-
-def sha256_file(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def benjamini_hochberg(p_values: Sequence[float]) -> List[float]:

@@ -221,11 +221,16 @@ jobs:
         #      free; it silently costs a Scorecard point for 30 commits.
         #
         # Scope note: this inherits semgrep's DEFAULT ignore list, which excludes
-        # `tests/` - the same scope the advisory job scans (166 non-test tracked
-        # .py files; CI reports "Ran 154 rules on 164 files"). That is why
-        # `tests/test_train_classifier.py:608,611` calling `joblib.load` does not
-        # trip this gate. If the pinned semgrep version is ever bumped, re-check
-        # that default, because those two call sites would start failing here.
+        # `tests/`. CI's own verdict at 529c5bc (2026-09-13, run 34735879724) was
+        # "Ran 154 rules on 166 files: 0 findings" - a specific run's count, not a
+        # formula to re-derive (it is NOT simply "tracked non-test .py files";
+        # that equality holds today by coincidence, not by mechanism, since this
+        # job's real target set is git-tracked files minus semgrep's own default
+        # ignores, language-filtered - a different filter shape entirely). That is
+        # why `tests/test_train_classifier.py:608,611` calling `joblib.load` does
+        # not trip this gate. If the pinned semgrep version is ever bumped,
+        # re-check that default, because those two call sites would start
+        # failing here.
         # Local rules only - no registry fetch - so this gate has no network
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off
