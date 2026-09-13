@@ -91,8 +91,10 @@ locally from 2026-09-08, and ``core.hooksPath`` is ``scripts/hooks`` so an
 uncommitted hook edit is live at once, but for the REPOSITORY enforcement
 begins at the merge commit. This line first shipped saying 2026-09-08, which
 read the gate five days older than it is:
-``git log --all -S "Check 5" -- scripts/hooks/pre-push`` returns exactly two
-commits, ``28b7755`` and its squash ``8d485dc``, both authored 2026-09-13.
+``git log --all -S "Check 5" -- scripts/hooks/pre-push`` resolves to
+``8d485dc``, the squash merge of PR #448, authored 2026-09-13. A pre-squash
+branch commit with the same content exists in the author's local history only
+and is on no origin ref, so a clone sees the merge commit alone.
 This paragraph previously said "no workflow and no hook runs it", which that
 change made false. CI still cannot carry it and never will: ``_local/`` is
 gitignored and never cloned, so on a fresh checkout ``--all`` collapses onto
