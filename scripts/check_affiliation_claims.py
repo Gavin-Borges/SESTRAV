@@ -288,10 +288,11 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # 2026-09-13, every one a record of the D35 triage and none a claim
         # of affiliation - two are session notes reporting this gate's own
         # --all hit counts, one is a table row identifying the generated rule
-        # mirror as an already-exempted file. STATE.md is gitignored
-        # (.gitignore:220) and so untracked, which means only --all ever
-        # reads it; the default-mode tracked-file scan that guards README.md
-        # is unaffected by this entry.
+        # mirror as an already-exempted file. STATE.md is gitignored (it is
+        # named in .gitignore; confirm with `git check-ignore -v STATE.md`)
+        # and so untracked, which means only --all ever reads it; the
+        # default-mode tracked-file scan that guards README.md is unaffected
+        # by this entry.
         "STATE.md",
         # The PREFIX entry the trailing-slash paragraph above describes: the
         # private session-record tree, permitted BENEATH the path, not at it.
