@@ -24,6 +24,19 @@ jobs:
         with:
           python-version: "3.13"
           cache: 'pip'
+          # Every file this job installs from, not setup-python's default of
+          # **/requirements.txt. That default resolves to the root requirements.txt
+          # alone (the only tracked file matching it), so a change confined to
+          # environments/ leaves the key unchanged, hits the primary key, and
+          # setup-python then SKIPS the save. The new wheels are re-downloaded on
+          # every subsequent run and never cached, until the root file happens to
+          # change. Same fix already applied in fuzzing.yml and
+          # sestrav_verify_benchmarking.yml; ci.yml was left on the default.
+          # This job installs NEITHER file the default keys on, so before this
+          # the key tracked a file lint never installs and ignored both it does.
+          cache-dependency-path: |
+            environments/requirements-ci-ruff.txt
+            environments/requirements-ci-mypy.txt
 
       - name: Verify every requirement is hash-pinned
         # Guards the OpenSSF Scorecard Pinned-Dependencies contract. Every install
@@ -81,6 +94,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          # Every file this job installs from; see the lint job above for why the
+          # **/requirements.txt default silently skips the cache save.
+          cache-dependency-path: |
+            requirements.txt
+            environments/requirements-ci.txt
 
       - name: Install dependencies
         run: |
@@ -107,6 +125,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          # Every file this job installs from; see the lint job above for why the
+          # **/requirements.txt default silently skips the cache save.
+          cache-dependency-path: |
+            environments/requirements-ci-torch-cpu.txt
+            requirements.txt
+            environments/requirements-ci.txt
+            environments/requirements-ci-pytest-cov.txt
+            environments/requirements-ci-render.txt
 
       - name: Install CPU PyTorch
         run: |

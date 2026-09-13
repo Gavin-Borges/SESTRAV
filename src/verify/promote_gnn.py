@@ -290,9 +290,12 @@ def _sha256_pool(preamble: bytes, rows: Iterable[bytes]) -> str:
 
     Same shape as _sha256_file above: one hashlib object updated in a loop,
     never a single joined bytes object and never a bounded read.
-    src/train_gnn.py's dataset cache tag takes the other route - a bare
-    open(...).read(65536) - and therefore fingerprints only the first 64 KiB of
-    its input, which is the failure mode this form exists to avoid.
+    Corrected 2026-09-12: this paragraph used to say that src/train_gnn.py's
+    dataset cache tag "takes the other route - a bare open(...).read(65536)"
+    and "fingerprints only the first 64 KiB of its input". That is backwards.
+    src/train_gnn.py hashes with iter(lambda: fh.read(65536), b""), the same
+    streaming loop over the whole file in 64 KiB chunks, and its own docstring
+    names _sha256_file here as the form it follows. No bounded-read site exists.
 
     Sorting the ENCODED records rather than the decoded tuples keeps the
     ordering a pure byte comparison: independent of locale, of pandas dtype,
@@ -554,22 +557,6 @@ def gate2_stability(df: pd.DataFrame) -> GateResult:
         value=round(std, 4),
         threshold=threshold,
     )
-
-
-def _time_model_ms(predict_fn, node_x, feat_x, warmup: int, reps: int) -> float:
-    """Returns median wall-clock latency in milliseconds over *reps* timed calls."""
-    import torch
-
-    for _ in range(warmup):
-        with torch.no_grad():
-            predict_fn(node_x, feat_x)
-    times: list[float] = []
-    for _ in range(reps):
-        t0 = time.perf_counter()
-        with torch.no_grad():
-            predict_fn(node_x, feat_x)
-        times.append((time.perf_counter() - t0) * 1000.0)
-    return float(np.median(times))
 
 
 def _time_model_ms_v2(predict_fn, batch, warmup: int, reps: int) -> float:

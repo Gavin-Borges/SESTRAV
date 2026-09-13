@@ -174,11 +174,18 @@ def test_a_null_allele_is_normalised_and_does_not_render_as_nan():
 def test_pool_digest_covers_the_whole_frame_not_a_64_kib_prefix():
     """FAILS IF: the digest is computed from a bounded read of its input.
 
-    src/train_gnn.py's dataset cache tag is a bare open(...).read(65536), so it
-    fingerprints only the first 64 KiB. This test makes that mutation
-    detectable here: the two frames below produce byte streams whose first
-    64 KiB are IDENTICAL and which differ only near the end, so a 64 KiB-bounded
-    digest would report them as the same pool.
+    The two frames below produce byte streams whose first 64 KiB are IDENTICAL
+    and which differ only near the end, so a 64 KiB-bounded digest would report
+    them as the same pool. That is what makes the bounded-read mutation
+    detectable here.
+
+    Corrected 2026-09-12: this docstring used to motivate the test by asserting
+    that "src/train_gnn.py's dataset cache tag is a bare open(...).read(65536),
+    so it fingerprints only the first 64 KiB". That is backwards. train_gnn
+    hashes with iter(lambda: fh.read(65536), b""), the same streaming loop over
+    the whole file in 64 KiB chunks, and its own docstring names _sha256_file in
+    src/verify/promote_gnn.py as the form it follows. No bounded-read site exists
+    in the tree. The test stands on its own construction, above, and is unchanged.
     """
     n = 5000
     big = pd.DataFrame(
