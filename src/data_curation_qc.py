@@ -2,8 +2,21 @@ import pandas as pd
 import numpy as np
 import logging
 import json
+import sys
 import yaml
 from pathlib import Path
+
+# This module is executed directly as a script, by pipeline.smk:112 and by every
+# case in tests/test_data_curation_qc.py. Script execution puts this file's own
+# directory (src/) on sys.path[0] and does NOT add the repo root, so the absolute
+# `src.` import below cannot resolve on its own. A checkout with an editable
+# install hides that, because the .pth file puts the repo root on sys.path in
+# every interpreter; CI installs with --no-deps against the lockfiles and has no
+# such entry, so the import fails there and only there. Same bootstrap shape as
+# src/verify/promote_gnn.py.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file
 
