@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 import logging
-import hashlib
 import json
 import yaml
 from pathlib import Path
+
+from src.artifact_integrity import sha256_file
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -201,11 +202,7 @@ if __name__ == "__main__":
             with open(args.config, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
 
-            sha256 = hashlib.sha256()
-            with open(args.check_dataset, "rb") as fb:
-                for chunk in iter(lambda: fb.read(4096), b""):
-                    sha256.update(chunk)
-            checksum = sha256.hexdigest()
+            checksum = sha256_file(args.check_dataset)
             logger.info(f"Dataset SHA256: {checksum}")
 
             gov = config.get("dataset_governance", {})
