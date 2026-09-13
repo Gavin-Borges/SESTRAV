@@ -32,7 +32,13 @@ def main():
         )
         if res.returncode == 0:
             docker_found = True
-    except:
+    # Only a real "docker is not usable here" signal: a missing binary is
+    # FileNotFoundError (an OSError), and subprocess's own failures are
+    # SubprocessError, which is NOT an OSError, so both members are needed.
+    # A bare `except:` here also swallowed KeyboardInterrupt, so a Ctrl-C
+    # during tool detection silently became docker_found=False and produced
+    # a simulated artifact.
+    except (OSError, subprocess.SubprocessError):
         pass
 
     # Build recombinant input path
@@ -81,7 +87,10 @@ def main():
             output_path=temp_predig_input_abs,
         )
         predig_input_built = True
-    except Exception as e:
+    # build_recombinant_table does file I/O (OSError) and DataFrame column
+    # work (KeyError, ValueError). Anything else is a defect in this wrapper
+    # and must not be reported as "failed to build recombinant input".
+    except (OSError, ValueError, KeyError) as e:
         print(f"[PredIG Wrapper] Failed to build recombinant input: {e}")
         predig_input_built = False
 
@@ -140,7 +149,10 @@ def main():
                 if os.path.isfile(p):
                     os.remove(p)
             sys.exit(0)
-        except Exception as e:
+        # Narrow so that only an actual docker/subprocess failure falls back to
+        # simulation. sys.exit(0) above raises SystemExit, which is a
+        # BaseException and was never caught here; that is preserved.
+        except (OSError, subprocess.SubprocessError) as e:
             print(
                 f"[PredIG Wrapper] Docker failed: {e}. Falling back to simulation.", file=sys.stderr
             )
