@@ -398,12 +398,34 @@ class TestGetEsmClsToken:
         mock_transformers.AutoTokenizer.from_pretrained.assert_not_called()
         assert "Falling back" not in capsys.readouterr().out
 
-    def test_esm_cls_token_fallback_on_error(self, monkeypatch, capsys):
-        """When the model raises, the except path returns a deterministic mock vector."""
+    def test_esm_cls_token_raises_by_default_on_error(self, monkeypatch):
+        """When the model raises and the opt-in flag is unset, the failure propagates.
+
+        Fail-loud is the default: a silently fabricated feature vector would be
+        indistinguishable downstream from a real embedding, permanently
+        corrupting any model trained on it with no signal that it happened.
+        """
         import src.features as f
 
         monkeypatch.setattr(f, "_esm_model", None)
         monkeypatch.setattr(f, "_esm_tokenizer", None)
+        monkeypatch.delenv("SESTRAV_ALLOW_ESM_FALLBACK", raising=False)
+        bad_transformers = MagicMock()
+        bad_transformers.AutoTokenizer.from_pretrained.side_effect = RuntimeError("net")
+        monkeypatch.setitem(sys.modules, "transformers", bad_transformers)
+        reset_esm_fallback_count()
+
+        with pytest.raises(RuntimeError, match="Failed to compute ESM-2 CLS token"):
+            get_esm_cls_token("CLGGLLTMV")
+        assert get_esm_fallback_count() == 0
+
+    def test_esm_cls_token_fallback_on_error_when_opted_in(self, monkeypatch, capsys):
+        """With SESTRAV_ALLOW_ESM_FALLBACK=1, the except path returns a deterministic mock vector."""
+        import src.features as f
+
+        monkeypatch.setattr(f, "_esm_model", None)
+        monkeypatch.setattr(f, "_esm_tokenizer", None)
+        monkeypatch.setenv("SESTRAV_ALLOW_ESM_FALLBACK", "1")
         # Inject a broken transformers module that raises on import.
         bad_transformers = MagicMock()
         bad_transformers.AutoTokenizer.from_pretrained.side_effect = RuntimeError("net")
