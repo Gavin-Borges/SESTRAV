@@ -160,10 +160,13 @@ def test_outreach_drafts_are_never_blanket_exempt():
     """`_local/drafts/` is where copy is written that cannot be edited later.
 
     Outreach publishes to places with no edit button, so a verbatim D35
-    recurrence there is the worst case this gate exists for. Only two exact
-    files inside one dated, frozen packet are exempt, and only because they
-    are snapshots of records that document the retraction. A packet
-    regenerated under a new date must trip the gate again and be re-reviewed.
+    recurrence there is the worst case this gate exists for. Only four exact
+    files are exempt, two in each of two dated, frozen packets, and only
+    because they are snapshots of records that document the retraction. A
+    packet regenerated under a new date trips the gate again and is exempted
+    only after every occurrence in it has been read; the 2026-09-09 packet is
+    that mechanism having fired once. The assertions below cover the
+    2026-09-06 packet and a future date, not the 2026-09-09 pair.
     """
     line = 'SESTRAV grew out of coursework at NC State'
 

@@ -24,11 +24,18 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import hashlib
 import json
 import os
+import sys
+from pathlib import Path
 
 import pandas as pd
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 
 CANON = ["CMV", "DENV", "EBV", "HBV", "HCV", "HIV-1", "HPV", "IAV", "SARS-CoV-2"]
 PV_SRC = "results/per_virus_eval_v5_mode31.csv"
@@ -100,14 +107,6 @@ def compute_decomposition() -> pd.DataFrame:
         "decoy_frac_neg": "",
     }
     return pd.concat([tab, pd.DataFrame([mean_row])], ignore_index=True)
-
-
-def _sha256_file(path: str) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _write_sidecar(output_path: str) -> str:

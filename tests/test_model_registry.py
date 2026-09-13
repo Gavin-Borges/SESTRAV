@@ -126,3 +126,21 @@ def test_load_torch_corrupt_raises_runtime_error(tmp_path, monkeypatch):
     monkeypatch.setattr(registry, "resolve_model", lambda name: artifact)
     with pytest.raises(RuntimeError, match="Failed to load torch model"):
         registry.load("model.pth")
+
+
+def test_load_torch_normalizes_numpy_internal_rename(tmp_path, monkeypatch):
+    """A numpy rename breaks the np._core getattr chain; it must still normalize.
+
+    The artifact is a VALID checkpoint so the only thing that can fail is the
+    getattr chain: without the delattr this test loads cleanly and raises nothing.
+    """
+    torch = pytest.importorskip("torch")
+    numpy = pytest.importorskip("numpy")
+    registry = _registry(tmp_path)
+    artifact = tmp_path / "model.pt"
+    torch.save({"w": torch.tensor([1.0])}, artifact)
+    monkeypatch.setattr(registry, "resolve_model", lambda name: artifact)
+    monkeypatch.delattr(numpy, "_core")
+    with pytest.raises(RuntimeError, match="Failed to load torch model") as excinfo:
+        registry.load("model.pt")
+    assert isinstance(excinfo.value.__cause__, AttributeError)

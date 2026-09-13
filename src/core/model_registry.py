@@ -1,8 +1,8 @@
-import hashlib
+import pickle
 from pathlib import Path
 from typing import Any
 from src.core.config import SestravConfig
-from src.artifact_integrity import load_verified_joblib
+from src.artifact_integrity import load_verified_joblib, sha256_file
 
 # Anchored to the installed package, NOT to the current working directory.
 # `Path("models")` resolves against os.getcwd(), so every model lookup silently
@@ -59,11 +59,7 @@ class ModelRegistry:
 
     def artifact_checksum(self, path: Path) -> str:
         """Compute SHA256 checksum of an artifact."""
-        sha256 = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
+        return sha256_file(path)
 
     def load(self, model_name: str) -> Any:
         """Load a model by name."""
@@ -87,7 +83,18 @@ class ModelRegistry:
                     ]
                 )
                 return torch.load(path, map_location="cpu", weights_only=True)
-            except Exception as e:
+            except (
+                # Measured or read at torch 2.13.0+cu130 / numpy 2.4.6. Every member has a
+                # raise site on this exact call path; see the branch commit body for evidence.
+                ImportError,  # `import numpy` / `import torch.serialization` above
+                AttributeError,  # numpy internal rename breaks the np._core getattr chain
+                TypeError,  # malformed safe-globals entry, torch/_weights_only_unpickler.py
+                ValueError,  # unpickler operand, or unknown byteorder record in the archive
+                OSError,  # unreadable path: FileNotFoundError, PermissionError
+                EOFError,  # empty or truncated stream (NOT an OSError subclass)
+                RuntimeError,  # PytorchStreamReader failure, unknown map_location
+                pickle.UnpicklingError,  # weights_only refusal (NOT an OSError subclass)
+            ) as e:
                 raise RuntimeError(f"Failed to load torch model: {e}") from e
         else:
             raise ValueError(f"Unsupported model extension: {path.suffix}")
