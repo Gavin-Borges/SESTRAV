@@ -1,3 +1,4 @@
+import pickle
 from pathlib import Path
 from typing import Any
 from src.core.config import SestravConfig
@@ -82,7 +83,18 @@ class ModelRegistry:
                     ]
                 )
                 return torch.load(path, map_location="cpu", weights_only=True)
-            except Exception as e:
+            except (
+                # Measured or read at torch 2.13.0+cu130 / numpy 2.4.6. Every member has a
+                # raise site on this exact call path; see the branch commit body for evidence.
+                ImportError,  # `import numpy` / `import torch.serialization` above
+                AttributeError,  # numpy internal rename breaks the np._core getattr chain
+                TypeError,  # malformed safe-globals entry, torch/_weights_only_unpickler.py
+                ValueError,  # unpickler operand, or unknown byteorder record in the archive
+                OSError,  # unreadable path: FileNotFoundError, PermissionError
+                EOFError,  # empty or truncated stream (NOT an OSError subclass)
+                RuntimeError,  # PytorchStreamReader failure, unknown map_location
+                pickle.UnpicklingError,  # weights_only refusal (NOT an OSError subclass)
+            ) as e:
                 raise RuntimeError(f"Failed to load torch model: {e}") from e
         else:
             raise ValueError(f"Unsupported model extension: {path.suffix}")
