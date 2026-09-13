@@ -8,13 +8,14 @@ third parties can verify exact run outputs against a published release asset.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
+
+from src.artifact_integrity import sha256_file
 
 
 CANONICAL_RESULT_FILES = [
@@ -26,14 +27,6 @@ CANONICAL_RESULT_FILES = [
     "results/gold_standard_validation.csv",
     "results/baseline_comparison.csv",
 ]
-
-
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def build_release_bundle(
@@ -55,7 +48,7 @@ def build_release_bundle(
             {
                 "path": rel.replace("\\", "/"),
                 "size_bytes": p.stat().st_size,
-                "sha256": _sha256(p),
+                "sha256": sha256_file(p),
             }
         )
 

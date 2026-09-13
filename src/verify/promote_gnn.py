@@ -127,6 +127,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from src.artifact_integrity import sha256_file as _sha256_file
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("gnn-promote")
 
@@ -256,16 +258,8 @@ class PoolIdentity(NamedTuple):
 # Security helpers
 # ---------------------------------------------------------------------------
 
-
-def _sha256_file(filepath: Path) -> str:
-    """SHA-256 via native Python hashlib - no shell invocation."""
-    import hashlib
-
-    digest = hashlib.sha256()
-    with filepath.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+# _sha256_file is imported above from src.artifact_integrity (the canonical
+# implementation). It is native Python hashlib, so there is no shell invocation.
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +282,7 @@ def _pool_row_bytes(df: pd.DataFrame, columns: tuple[str, ...]) -> Iterator[byte
 def _sha256_pool(preamble: bytes, rows: Iterable[bytes]) -> str:
     """SHA-256 over a preamble plus sorted row records, fed in incrementally.
 
-    Same shape as _sha256_file above: one hashlib object updated in a loop,
+    Same shape as the canonical _sha256_file: one hashlib object updated in a loop,
     never a single joined bytes object and never a bounded read.
     Corrected 2026-09-12: this paragraph used to say that src/train_gnn.py's
     dataset cache tag "takes the other route - a bare open(...).read(65536)"
