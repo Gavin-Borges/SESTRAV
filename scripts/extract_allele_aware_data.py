@@ -269,9 +269,18 @@ def _load_processed_tcell_csv(fpath: str, verbose: bool = False) -> list[dict]:
 
     try:
         df = pd.read_csv(fpath, low_memory=False)
-    except Exception as e:
-        if verbose:
-            print(f"    [skip] {fpath}: read error ({e})")
+    # (OSError, ValueError) is the measured pandas raise set: an unreadable or
+    # vanished file raises OSError, and every corruption mode subclasses
+    # ValueError (EmptyDataError, ParserError, UnicodeDecodeError). A KeyError
+    # or AttributeError from a defect below is not a read error and propagates.
+    #
+    # Printed unconditionally rather than under `verbose` (which defaults to
+    # False): this returns [], and so does the "not a processed T-cell CSV"
+    # branch immediately below, so a corrupt input was silently
+    # indistinguishable from a non-matching one and just made the assembled
+    # dataset quietly shorter.
+    except (OSError, ValueError) as e:
+        print(f"    [skip] {fpath}: read error ({e})", file=sys.stderr)
         return []
 
     if not _is_processed_tcell_csv(df):
@@ -357,9 +366,8 @@ def load_tcell_assay_files(data_dir, verbose=False):
             )
             row0 = [str(v).lower().strip() for v in peek_raw.iloc[0]]
             row1 = [str(v).lower().strip() for v in peek_raw.iloc[1]] if len(peek_raw) > 1 else []
-        except Exception as e:
-            if verbose:
-                print(f"  [skip] {fname}: read error ({e})")
+        except (OSError, ValueError) as e:
+            print(f"  [skip] {fname}: read error ({e})", file=sys.stderr)
             continue
 
         # --- Format 3 (highest priority): processed fetch_iedb_tcell.py output ---
@@ -445,9 +453,10 @@ def load_tcell_assay_files(data_dir, verbose=False):
                     import openpyxl  # noqa
 
                     df = pd.read_excel(fpath)
-            except Exception as e:
-                if verbose:
-                    print(f"    -> read error: {e}")
+            # ImportError as well as the read set: this branch imports openpyxl
+            # for .xlsx inputs, and a missing optional extra is a legitimate skip.
+            except (OSError, ValueError, ImportError) as e:
+                print(f"    -> read error: {e}", file=sys.stderr)
                 continue
 
             col_map = {}
