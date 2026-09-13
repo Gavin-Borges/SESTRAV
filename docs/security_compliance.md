@@ -100,7 +100,7 @@ this paragraph previously blamed an "external Semgrep OSS GitHub App" that "does
 real mechanism was read off the uploaded SARIF rather than inferred:
 
 1. `semgrep` **does** honour the inline `# nosemgrep`. The CI step's own verdict is
-   `Ran 154 rules on 164 files: 0 findings.` / `Findings: 0 (0 blocking)`.
+   `Ran 154 rules on 166 files: 0 findings.` / `Findings: 0 (0 blocking)`.
 2. It nevertheless still **emits** every suppressed finding into `semgrep.sarif`, tagged
    `"suppressions": [{"state": "accepted"}]` with no `kind` field. GitHub code scanning does not act
    on that tag, so all 3 call sites are ingested as alerts from a step that reported none. The stored
@@ -136,7 +136,9 @@ rule names `CodeQL` only, so they never gated a merge. (List re-read from the li
 `Drop nosemgrep-suppressed results from the SARIF` step between the scan and the upload, which
 removes results carrying a `suppressions` tag so the uploaded SARIF states what the scanner
 actually concluded. Verified against the real uploaded artifact: 3 results in, 0 out, matching the
-step's own `Ran 154 rules on 164 files: 0 findings.` Only explicitly suppressed findings are
+step's own verdict at the time, `Ran 154 rules on 164 files: 0 findings` (166 files as of
+`529c5bc`, 2026-09-13 - the tracked-file count moves independently of this fix). Only explicitly
+suppressed findings are
 removed - an unsuppressed finding still reaches the Security tab, so the "anything new is visible"
 property above is preserved. This retires the per-alert dismissal ritual: #77 and #78 close as
 `fixed` on the next run of the workflow, and a future edit to a suppressed line no longer resurrects

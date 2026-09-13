@@ -251,7 +251,7 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     makes GitHub honour it. **Corrected 2026-08-17:** this entry previously stated that
     an inline `# nosemgrep` does *not* clear the taint-mode finding, and that Security-tab
     dismissal was therefore the mechanism. The marker does clear it - the scanner's own
-    verdict is `Ran 154 rules on 164 files: 0 findings.` What did not happen was GitHub
+    verdict is `Ran 154 rules on 166 files: 0 findings.` What did not happen was GitHub
     acting on it: semgrep still wrote each finding into the SARIF tagged
     `"suppressions": [{"state": "accepted"}]`, and code scanning ingested it regardless,
     so the alerts were held closed only by manual dismissals that a single edit to the
