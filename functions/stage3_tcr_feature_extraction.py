@@ -6,12 +6,7 @@ Canonical 30-feature mode adds 10 per-allele binding columns from Stage 2.
 """
 
 from src.features import compute_features_for_dataset
-import re
-
-
-def _sanitize_name(name):
-    """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
+from src.naming import sanitize_name as _sanitize_name
 
 
 def extract_tcr_features(binding_df, proteome_id):

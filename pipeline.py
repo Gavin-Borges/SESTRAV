@@ -4,13 +4,12 @@ Runs all 4 stages sequentially without Snakemake for quick local testing.
 """
 
 import os
-import re
 import logging
 from functions.stage1_peptide_generation import generate_peptides
 from functions.stage2_mhc_binding_prediction import predict_binding
 from functions.stage3_tcr_feature_extraction import extract_tcr_features
 from functions.stage4_immunogenicity_scoring import score_immunogenicity, plot_immunogenicity_scores
-from src.naming import canonicalize_proteome_id
+from src.naming import canonicalize_proteome_id, sanitize_name as _sanitize_name
 from src.core.config import SestravConfig
 from src.core.feature_store import FeatureStore
 from src.core.model_registry import ModelRegistry
@@ -22,11 +21,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(), logging.FileHandler("sestrav.log", encoding="utf-8")],
 )
 logger = logging.getLogger("sestrav")
-
-
-def _sanitize_name(name):
-    """Allow only alphanumeric, underscores, and hyphens."""
-    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, registry: ModelRegistry):
