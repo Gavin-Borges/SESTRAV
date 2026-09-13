@@ -46,7 +46,6 @@ fresh path instead when comparing against the committed copy.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -67,20 +66,13 @@ from scripts.fit_calibrator import (  # noqa: E402
     expected_calibration_error,
 )
 from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa: E402
+from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 
 RANDOM_STATE = 42
 N_SPLITS = 5
 
 DEFAULT_OOF_PATH = PROJECT_ROOT / "models" / "v5" / "rf_oof_predictions_mode31.csv"
 DEFAULT_OUT_PATH = PROJECT_ROOT / "results" / "calibration_assessment_v5_mode31.csv"
-
-
-def _sha256_file(path: Path) -> str:
-    sha256 = hashlib.sha256()
-    with open(path, "rb") as fb:
-        for chunk in iter(lambda: fb.read(4096), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
 
 
 def _load_rf_oof(oof_path: Path) -> pd.DataFrame:
