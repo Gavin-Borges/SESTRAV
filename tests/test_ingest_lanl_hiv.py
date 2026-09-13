@@ -209,6 +209,10 @@ class TestFilterRows:
         logger = logging.getLogger("test_filter")
         mapping = self._mapping(df)
         filtered, stats = filter_rows(df, mapping, negatives_only=True, logger=logger)
+        # Anchor first: both assertions below are vacuously true on an empty
+        # frame - `(empty == 0).all()` is True, and nothing is "in" an empty
+        # column - so a filter chain that dropped every row would read green.
+        assert not filtered.empty, "filter dropped every row; the assertions below would be vacuous"
         # All filtered rows should be label=0
         assert (filtered["_label"] == 0).all()
         # The positive row (KLNWASQIY) should be excluded
@@ -282,6 +286,7 @@ class TestFilterRows:
         }
         logger = logging.getLogger("test_filter")
         filtered, stats = filter_rows(df, mapping, negatives_only=False, logger=logger)
+        assert not filtered.empty, "filter dropped every row; the assertion below would be vacuous"
         assert (filtered["_label"] == 1).all()
 
 
