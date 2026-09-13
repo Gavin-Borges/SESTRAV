@@ -66,7 +66,10 @@ def main():
             )
             prime_bin = "PRIME"
             prime_found = True
-        except:
+        # See the note in run_predig_wrapper.py: SubprocessError is not an
+        # OSError, so both members are required, and a bare `except:` also
+        # swallowed KeyboardInterrupt.
+        except (OSError, subprocess.SubprocessError):
             pass
 
     # Check if we can run via WSL on windows
@@ -81,7 +84,7 @@ def main():
                 prime_bin = "PRIME"
                 prime_found = True
                 run_via_wsl = True
-        except:
+        except (OSError, subprocess.SubprocessError):
             pass
 
     if prime_found:
@@ -118,7 +121,9 @@ def main():
             if os.path.isfile(temp_peptides_file):
                 os.remove(temp_peptides_file)
             sys.exit(0)
-        except Exception as e:
+        # Only a real execution failure falls back to simulation. sys.exit(0)
+        # above raises SystemExit, a BaseException, and is unaffected.
+        except (OSError, subprocess.SubprocessError) as e:
             print(
                 f"[PRIME Wrapper] Executable failed: {e}. Falling back to simulation.",
                 file=sys.stderr,

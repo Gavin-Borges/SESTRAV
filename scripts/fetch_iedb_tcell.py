@@ -36,6 +36,7 @@ Vita R, et al. The Immune Epitope Database (IEDB): 2018 update.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -56,6 +57,17 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 IEDB_API_BASE = "https://query-api.iedb.org/api/v1/tcell_export"
+
+
+class IedbFetchError(RuntimeError):
+    """A page could not be retrieved from IEDB.
+
+    Deliberately distinct from an empty page: the pagination loop in
+    fetch_iedb_tcell treats an empty page as end-of-data, so a failure that
+    merely returned [] would silently truncate the cohort.
+    """
+
+
 PAGE_SIZE = 1000
 REQUEST_DELAY = 1.0  # seconds between paginated requests
 
@@ -161,17 +173,28 @@ def _build_url(organism_pattern: str, offset: int) -> str:
 def _fetch_page(url: str, *, max_retries: int = 4) -> list[dict]:
     """Fetch one page from the IEDB API with exponential backoff on 429/503.
 
-    Returns [] only after exhausting retries or on a non-retriable error.
-    """
-    import urllib.error
+    Returns a list ONLY on a successful HTTP 200 with parseable JSON. An empty
+    list therefore means the page was genuinely empty, and nothing else.
 
+    Raises:
+        IedbFetchError: on any failure to retrieve the page - a non-200 status,
+            an exhausted retry budget, a transport error, or unparseable JSON.
+
+    This function used to return [] on every one of those failures. That was
+    unsafe, because its only caller (fetch_iedb_tcell) uses `if not page:
+    break` as its END-OF-DATA signal. A dropped connection on page 40 was
+    therefore indistinguishable from "IEDB has no more records", and the
+    truncated result was processed and written as a complete cohort. The
+    docstring already documented the conflict ("Returns [] only after
+    exhausting retries or on a non-retriable error") and the caller ignored it.
+    A partial scientific dataset must not be writable as if it were whole.
+    """
     for attempt in range(max_retries):
         try:
             with urllib.request.urlopen(url, timeout=30) as resp:  # nosec B310
                 if resp.status == 200:
                     return json.loads(resp.read().decode("utf-8"))
-                print(f"  Warning: HTTP {resp.status}", file=sys.stderr)
-                return []
+                raise IedbFetchError(f"IEDB returned HTTP {resp.status} for {url}")
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 503) and attempt < max_retries - 1:
                 delay = 2**attempt
@@ -182,12 +205,17 @@ def _fetch_page(url: str, *, max_retries: int = 4) -> list[dict]:
                 )
                 time.sleep(delay)
             else:
-                print(f"  Warning: HTTP {exc.code} after {attempt + 1} attempt(s)", file=sys.stderr)
-                return []
-        except Exception as exc:
-            print(f"  Warning: request failed ({exc})", file=sys.stderr)
-            return []
-    return []
+                raise IedbFetchError(
+                    f"IEDB returned HTTP {exc.code} after {attempt + 1} attempt(s)"
+                ) from exc
+        # OSError covers urllib.error.URLError, ssl.SSLError and TimeoutError;
+        # HTTPException (IncompleteRead, RemoteDisconnected) is NOT an OSError,
+        # so it needs its own member; JSONDecodeError catches a maintenance HTML
+        # page served with a 200. A KeyError or AttributeError from a defect in
+        # this module is deliberately NOT caught and will propagate.
+        except (OSError, http.client.HTTPException, json.JSONDecodeError) as exc:
+            raise IedbFetchError(f"IEDB request failed for {url}: {exc}") from exc
+    raise IedbFetchError(f"IEDB retry budget of {max_retries} exhausted for {url}")
 
 
 # ---------------------------------------------------------------------------
