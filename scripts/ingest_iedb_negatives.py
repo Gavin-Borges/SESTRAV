@@ -25,7 +25,6 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import logging
 import random
@@ -39,6 +38,12 @@ from pathlib import Path
 import mhcgnomes
 import numpy as np
 import pandas as pd
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import sha256_file as compute_file_sha256  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -210,15 +215,6 @@ def get_git_sha() -> str:
     except Exception:  # nosec B110
         pass
     return "unknown"
-
-
-def compute_file_sha256(path: Path) -> str:
-    """Return the hex SHA-256 digest of a file."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _repair_allele_spacing(allele: str) -> str:

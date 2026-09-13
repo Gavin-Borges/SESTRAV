@@ -1,10 +1,26 @@
 import pandas as pd
 import numpy as np
 import logging
-import hashlib
 import json
+import sys
 import yaml
 from pathlib import Path
+
+# This module is executed directly as a script, by pipeline.smk:112 and by every
+# case in tests/test_data_curation_qc.py. Script execution puts this file's own
+# directory (src/) on sys.path[0] and does NOT add the repo root, so the absolute
+# `src.` import below cannot resolve on its own. A checkout with an editable
+# install hides that, because the .pth file puts the repo root on sys.path in
+# every interpreter; CI installs with --no-deps against the lockfiles and has no
+# such entry, so the import fails in ANY environment where this package is not
+# installed. On CI that is the test job, and it failed there and nowhere else.
+# A bare clone running pipeline.smk before `pip install .` would hit it too.
+# Same bootstrap shape as src/verify/promote_gnn.py.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from src.artifact_integrity import sha256_file
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -201,11 +217,7 @@ if __name__ == "__main__":
             with open(args.config, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
 
-            sha256 = hashlib.sha256()
-            with open(args.check_dataset, "rb") as fb:
-                for chunk in iter(lambda: fb.read(4096), b""):
-                    sha256.update(chunk)
-            checksum = sha256.hexdigest()
+            checksum = sha256_file(args.check_dataset)
             logger.info(f"Dataset SHA256: {checksum}")
 
             gov = config.get("dataset_governance", {})

@@ -212,7 +212,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/stage*.py" = ["F821"]  # `snakemake` is a magic global injected by the Snakemake runtime
-"scripts/*.py" = ["E722"]       # best-effort external-tool detection wrappers; failures are non-fatal and logged
 
 # ---------------------------------------------------------------------------
 # Static type checking

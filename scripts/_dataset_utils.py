@@ -6,13 +6,20 @@ the v4 schema, and provenance sidecars written alongside every output file.
 Underscore-prefixed so it is not itself treated as an ingest script.
 """
 
-import hashlib
 import json
 import os
 import subprocess
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import jsonschema
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import sha256_file  # noqa: E402
 
 # Standard 20 amino acids; matches the v4 schema's peptide `pattern`.
 VALID_AA_PATTERN = r"^[ACDEFGHIKLMNPQRSTVWY]+$"
@@ -252,11 +259,7 @@ def write_provenance(output_path, sources, row_count, extra=None):
     # artifact. Hash only when the output file exists (it does in real ingest usage,
     # where the artifact is written before its sidecar).
     if os.path.isfile(output_path):
-        h = hashlib.sha256()
-        with open(output_path, "rb") as af:
-            for chunk in iter(lambda: af.read(65536), b""):
-                h.update(chunk)
-        prov["sha256"] = h.hexdigest()
+        prov["sha256"] = sha256_file(output_path)
     if extra:
         prov.update(extra)
     prov_path = os.path.splitext(output_path)[0] + "_provenance.json"

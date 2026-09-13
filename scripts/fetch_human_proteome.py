@@ -18,7 +18,6 @@ UniProt Consortium. UniProt: the Universal Protein Database.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import sys
 import urllib.request
@@ -26,6 +25,12 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import sha256_file as _sha256  # noqa: E402
 
 # UniProt REST API endpoint for reference proteome download
 # UP000005640 = Homo sapiens (canonical + isoforms reviewed, Swiss-Prot)
@@ -54,14 +59,6 @@ def _download(url: str, dest: Path, chunk_size: int = 1 << 20) -> None:
     print()
     tmp.rename(dest)
     print(f"Saved: {dest} ({downloaded / 1e6:.1f} MB)")
-
-
-def _sha256(path: Path, chunk_size: int = 1 << 20) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while chunk := f.read(chunk_size):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _count_sequences(path: Path) -> int:
