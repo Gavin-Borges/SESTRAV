@@ -63,7 +63,8 @@ Rules in force (every field below read from the live API, not from the script's 
 re-read 2026-08-24, when the fifth required status check was found missing from this list -
 it was added to the ruleset 2026-08-22T19:14:42-04:00, 2h06m after the commit that wrote this
 section and 2h27m after that commit was authored, so the list was accurate when written and
-stale thereafter):
+stale thereafter; the sixth and seventh required status checks were re-read from the live API
+on 2026-09-13 and appended, see the correction note below the list):
 - **ID / Name:** `16846770` / `Protect Main Branch`
 - **Target:** `refs/heads/main`
 - **Enforcement:** Active
@@ -100,7 +101,7 @@ block the merge button. The error was in the direction of understating enforceme
 trust the list above as durable; re-measure it, which is the only binding source:
 
 ```bash
-gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770   --jq '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'
+gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 --jq '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'
 ```
 
 Note that the classic branch-protection API is a confident false negative here:

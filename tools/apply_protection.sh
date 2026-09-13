@@ -12,8 +12,9 @@
 #   The live branch protection for Gavin-Borges/SESTRAV is ruleset
 #   id 16846770, name "Protect Main Branch", configured and maintained
 #   through the GitHub web UI (created 2026-05-25, last updated
-#   2026-08-22T19:14:42-04:00 - re-read from the live API 2026-08-24;
-#   this line previously said 2026-07-26 and was a month stale, which
+#   2026-09-09T20:31:45.369-04:00 - re-read from the live API 2026-09-13;
+#   this line previously said 2026-08-22T19:14:42-04:00, stale by the
+#   two contexts added since, and before that 2026-07-26, which
 #   matters because the freshness of this whole transcription is
 #   asserted by that date). This file is a downstream transcription of it, not
 #   its definition. Change protection in the UI, then update the
@@ -197,8 +198,7 @@
 # stale in the direction of understating enforcement - the same
 # direction as every other miss recorded in this file. Re-measure
 # rather than trusting the payload above:
-#   gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 --jq #     '[.rules[]|select(.type=="required_status_checks")
-#       |.parameters.required_status_checks[].context]'
+#   gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 --jq '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'
 #
 # That instruction was not followed when the fifth context was added on
 # 2026-08-22: this block, SECURITY.md, docs/SCORECARD_REMEDIATION.md,

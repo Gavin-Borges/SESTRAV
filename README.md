@@ -95,7 +95,7 @@ This approach combines structural insights with multi-allele binding predictions
 ## Security & Compliance Posture
 
 SESTRAV 2.0 maintains a rigorous security posture suitable for biomedical data pipelines.
-*   **SAST & CI:** Bandit, CodeQL and Semgrep all run on every pull request via GitHub Actions, but only **CodeQL** gates a merge - it is named in the branch-protection ruleset's code-scanning rule. Bandit and Semgrep are advisory: each fails its own CI job on a finding, which is visible and fail-closed, but neither is a required status check. See `SECURITY.md`'s CI gate map, which is the authoritative list.
+*   **SAST & CI:** Bandit, CodeQL and Semgrep all run on every pull request via GitHub Actions. **Bandit and CodeQL both gate a merge**: each is a required status check on ruleset `16846770`, and CodeQL additionally gates through that ruleset's code-scanning rule. Semgrep is advisory: it fails its own CI job on a finding, which is visible and fail-closed, but it is not a required check. Measured 2026-09-13; this bullet previously said only CodeQL gates and that Bandit is not a required check, which contradicted the very document it cites. See `SECURITY.md`'s CI gate map, which is the authoritative list.
 *   **Dependency Pinning:** Environment files use strict `--require-hashes` to mitigate supply-chain attacks.
 *   **Data Integrity:** The pipeline uses `freeze_mode` constraints to guarantee data immutability during reproducibility benchmarking.
 
