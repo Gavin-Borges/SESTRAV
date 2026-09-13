@@ -113,7 +113,7 @@ def _bin_supertype(allele: str | None) -> str:
     try:
         st = get_hla_supertype(str(allele))
         return st if st else _SUPERTYPE_UNKNOWN
-    except Exception:  # noqa: BLE001 - defensive; hla_supertypes may raise on bad input
+    except ValueError:  # get_hla_supertype's only raise: unmapped allele
         return _SUPERTYPE_UNKNOWN
 
 
