@@ -293,13 +293,20 @@ documented in `SECURITY.md`. Version **tags** are annotated but not yet signed
 
 - Every change reaches `main` through a Pull Request; direct pushes to `main` are
   avoided.
-- Each PR must pass all **required status checks** before merge. As of 2026-08-24 the
-  branch-protection ruleset requires exactly five: `test (3.13)`, `Require human review`,
-  `check_dco`, `Cited commits resolve`, and `Cited lines still hold their content`. The
-  Snakemake DAG dry-run is a *step inside* `test (3.13)`, so it gates too, but not as a
-  check of its own. **`lint` and the security scans run on every PR and are NOT required
-  checks** - they fail their own jobs visibly but do not gate the merge button. Treat
-  `SECURITY.md`'s CI gate map as authoritative; this list is a convenience copy.
+- Each PR must pass all **required status checks** before merge. As of 2026-09-13 the
+  branch-protection ruleset requires seven: `test (3.13)`, `Require human review`,
+  `check_dco`, `Cited commits resolve`, `Cited lines still hold their content`,
+  `Bandit Security Scan`, and `CodeQL Static Analysis`. The Snakemake DAG dry-run is a
+  *step inside* `test (3.13)`, so it gates too, but not as a check of its own.
+  **`lint` is NOT a required check** - it fails its own job visibly but does not gate
+  the merge button. Treat `SECURITY.md`'s CI gate map as authoritative; this list is a
+  convenience copy, and the count has changed more than once, so re-measure rather than
+  quoting it back.
+
+  *Corrected 2026-09-13:* this bullet said the ruleset "requires exactly five" and that
+  "`lint` and the security scans ... are NOT required checks". Both halves were stale:
+  Bandit and CodeQL are now required status checks, so the security scans DO gate the
+  merge button. Only `lint` still does not.
 - The maintainer checks each PR for: correctness, adequate tests, adherence to the
   coding standards, security implications, and documentation/CHANGELOG updates.
 - **Be aware of what review actually means here.** SESTRAV has one maintainer, who
