@@ -30,3 +30,5 @@ pyjwt>=2.13.0
 # normally. The floor itself stays - it is the security constraint, not the
 # workaround.
 setuptools>=84.0.0
+# gitpython: PYSEC-2026-3785, PYSEC-2026-3786, PYSEC-2026-3787, PYSEC-2026-3788, CVE-2026-78679
+gitpython>=3.1.59

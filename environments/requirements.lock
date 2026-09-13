@@ -809,7 +809,9 @@ gitdb==4.0.12 \
 gitpython==3.1.61 \
     --hash=sha256:8ab28c9da863cdd9e7d7694ec46cf3e6c9a12d8a30a1acd3447aec11975d530c \
     --hash=sha256:f51c24d8c0f733a195447385f5774a5dfe8767f5acfd7994a33755644c6ecc95
-    # via snakemake
+    # via
+    #   -r environments/requirements-lock.in
+    #   snakemake
 greenlet==3.5.4 \
     --hash=sha256:0232ae1de90a8e07867bb127d7a6ba2301e859145489f25cda8a6096dabe1d20 \
     --hash=sha256:07bd44616608d873d06735b63ef1a88191d6ca57c8d291d6559c71bc14c0893c \
@@ -2369,7 +2371,9 @@ psutil==7.2.2 \
 pulp==3.3.2 \
     --hash=sha256:631b166f72086971a9597f7a0233ababa99bb8d50a01cd543f7758be5a9f86c0 \
     --hash=sha256:d0904700c207ac11e25e3b1213b70eae1d6fb25faa719d75f3f15054901258c0
-    # via snakemake
+    # via
+    #   -r environments/../requirements.in
+    #   snakemake
 pyahocorasick==2.3.1 \
     --hash=sha256:0a8bed95da02e7c874818825d65e6e31d5b38c88ecba02a6c7144524074ddade \
     --hash=sha256:0e59226baf6ffb5acb6f72868ef345a4bd23d2a30ef08a9e1bf51043ea9b430d \
