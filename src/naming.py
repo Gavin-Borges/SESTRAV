@@ -7,6 +7,7 @@ Provides one-release alias support for renamed proteome IDs and model filenames.
 from __future__ import annotations
 
 import os
+import re
 from typing import Dict, List
 
 
@@ -48,6 +49,26 @@ MODEL_NAME_ALIASES: Dict[str, List[str]] = {
     "xgb_21feature_legacy.joblib": ["xgb_immunogenicity.joblib"],
     "ann_21feature_legacy.pt": ["ann_immunogenicity.pt"],
 }
+
+
+def sanitize_name(name: str) -> str:
+    """Reduce *name* to alphanumerics, underscores and hyphens.
+
+    Every other character becomes an underscore, which makes the result safe as
+    a single path segment: separators and traversal sequences are stripped, so
+    "../../etc/passwd" cannot escape the directory it is joined to.
+
+    This is deliberately the only definition. It was previously copied verbatim
+    into six modules, and those copies are load-bearing rather than incidental:
+    stage 4 looks a per-virus calibrator up at "<virus>.joblib" under this
+    transformation, and scripts/fit_final_per_virus_calibrators.py writes the
+    file under the same one. Had the two ever drifted apart, a promoted
+    calibrator would silently never be found - no error, just a quiet fall back
+    to the global calibrator. That risk was real enough that
+    tests/test_fit_final_per_virus_calibrators.py pinned the pair against each
+    other; sharing one definition removes the drift rather than detecting it.
+    """
+    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name)
 
 
 def canonicalize_proteome_id(proteome_id: str) -> str:
