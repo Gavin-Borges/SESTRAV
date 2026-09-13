@@ -147,7 +147,7 @@ mechanically enforced today, and the two are not yet the same for every row.
 
 | Tool / workflow | What it checks | Tier |
 | --------------- | -------------- | ---- |
-| Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
+| Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | **Blocking** - the `bandit` job declares `name: Bandit Security Scan`, and that exact context is among ruleset 16846770's required status checks, so a MEDIUM+ finding fails the job AND holds the merge button. Corrected 2026-09-12: this row read "Advisory - ... is not a required status check, so it does not gate the merge button", which the ruleset refutes; the error understated enforcement |
 | Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: moderate`) | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
 | CodeQL (`security.yml`) | Deep SAST -> Security > Code scanning | **Blocking** - the ruleset's code-scanning rule names `CodeQL` |
 | Semgrep custom rules (`security.yml`, `semgrep-rules/`) | SESTRAV's own three ERROR rules: unsafe `pickle.load`, raw `joblib.load` bypassing `load_verified_joblib`, `subprocess(..., shell=True)` | **Blocking at the job level** - no `continue-on-error`, so any finding fails the run. Whether it also holds the merge button depends on `Semgrep Custom Rules (blocking)` being among the required status checks on `Protect Main Branch`; the job was added 2026-09-12 and that promotion is a separate repo-settings change |
@@ -156,8 +156,8 @@ mechanically enforced today, and the two are not yet the same for every row.
 | Dependabot alerts | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged) |
 
 Advisory findings never block a merge on their own - none of them is a required
-status check or a code-scanning rule on `Protect Main Branch`. Four of them
-(Bandit, Dependency Review, pip-audit and the Semgrep custom-rules job) still
+status check or a code-scanning rule on `Protect Main Branch`. Three of them
+(Dependency Review, pip-audit and the Semgrep custom-rules job) still
 turn their *own* CI job red on a
 finding rather than merely reporting one; that failure is visible in the run and
 in branch-status UI, but does not prevent the merge button from going green.

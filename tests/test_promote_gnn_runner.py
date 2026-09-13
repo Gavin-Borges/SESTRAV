@@ -581,7 +581,7 @@ def test_load_oof_returns_dataframe_on_valid_file(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _time_model_ms - direct unit test
+# _time_model_ms_v2 - direct unit test
 # ---------------------------------------------------------------------------
 
 
