@@ -196,11 +196,18 @@ def _git(repo: Path, *argv: str) -> None:
     subprocess.run(["git", "-C", str(repo), *argv], check=True, capture_output=True)
 
 
-def _repo_with(tmp_path: Path, relpath: str, *, track: bool) -> Path:
-    """A throwaway git repo holding one credential-bearing file at relpath."""
+def _repo_with(tmp_path: Path, relpath: str, *, track: bool, ignore: bool = False) -> Path:
+    """A throwaway git repo holding one credential-bearing file at relpath.
+
+    `ignore=True` writes a .gitignore matching relpath. Combined with
+    track=True that produces the force-added case (`git add -f`), which must
+    still be scanned.
+    """
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q")
+    if ignore:
+        (repo / ".gitignore").write_text(relpath + "\n", encoding="utf-8")
     target = repo / relpath
     target.parent.mkdir(parents=True, exist_ok=True)
     _write(target, "api_" + "key", " = ", _token())
@@ -248,6 +255,59 @@ def test_tracked_file_outside_an_excluded_dir_is_unaffected(tmp_path: Path) -> N
     repo = _repo_with(tmp_path, "docs/leak.md", track=True)
     assert "leak.md" in _basenames(mod, repo)
     assert mod.scan_tree(str(repo), min_files=0) == 1
+
+
+def test_gitignored_untracked_file_at_the_repo_root_is_skipped(tmp_path: Path) -> None:
+    """The defect: EXCLUDE_DIRS prunes the walk by directory NAME, so a
+    gitignored file at the REPO ROOT has no directory to prune and was opened
+    anyway. The live case was STATE.md, which is gitignored and absent from
+    HEAD: it turned this gate red locally on prose describing the scanner's own
+    patterns, while CI stayed green because CI never sees the file. A gate that
+    is red for a reason CI cannot reproduce is one people learn to skip.
+
+    min_files=0 for the reason the excluded-dir tests give: under the default
+    floor a 1 could mean "too few files scanned" rather than "credential
+    found", so the floor is moved out of the way and the membership assertion
+    pins that the file was never opened.
+    """
+    mod = _load()
+    repo = _repo_with(tmp_path, "leak.md", track=False, ignore=True)
+    assert "leak.md" not in _basenames(mod, repo)
+    assert mod.scan_tree(str(repo), min_files=0) == 0
+
+
+def test_gitignored_but_force_added_file_is_still_scanned(tmp_path: Path) -> None:
+    """`git add -f` must not become a way past this gate.
+
+    Two independent layers hold this, measured rather than assumed. The one
+    that actually operates is `git check-ignore`: without --no-index it does
+    not report a TRACKED file as ignored (exit 1, empty output), so the filter
+    never subtracts a force-added file. The tracked-file union in
+    iter_scanned_files is a real but redundant second net, confirmed by forcing
+    --no-index on and watching this test still pass; it fails only when both
+    layers are removed.
+    """
+    mod = _load()
+    repo = _repo_with(tmp_path, "leak.md", track=True, ignore=True)
+    assert "leak.md" in _basenames(mod, repo)
+    assert mod.scan_tree(str(repo), min_files=0) == 1
+
+
+def test_ignored_paths_returns_empty_outside_a_work_tree(tmp_path: Path) -> None:
+    """Failure must degrade to the old behaviour, not to an exception: with no
+    git answer available the walk scans exactly what it found, as before."""
+    mod = _load()
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    probe = plain / "note.md"
+    probe.write_text("nothing here\n", encoding="utf-8")
+    assert mod._ignored_paths(str(plain), [str(probe)]) == set()
+
+
+def test_ignored_paths_is_empty_for_an_empty_candidate_list(tmp_path: Path) -> None:
+    """No candidates means no subprocess and no subtraction."""
+    mod = _load()
+    assert mod._ignored_paths(str(tmp_path), []) == set()
 
 
 def test_tracked_paths_returns_empty_outside_a_work_tree(tmp_path: Path) -> None:
