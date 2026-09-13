@@ -307,6 +307,7 @@ def test_cross_validate_fold_impute_touches_only_named_columns():
         n_splits=5,
         fold_impute_columns=("netchop_score",),
     )
+    assert _RecordingClassifier.fit_calls  # sanity: folds ran
     for fitted_X in _RecordingClassifier.fit_calls:
         assert not fitted_X["netchop_score"].isna().any()
         assert fitted_X["f0"].isna().all()  # untouched: not in fold_impute_columns

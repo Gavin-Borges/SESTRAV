@@ -236,12 +236,43 @@ class TestQueryVdjdbCached:
         assert len(records) == 1
 
     def test_returns_empty_on_download_failure(self, tmp_path):
+        # RequestException, not a bare Exception: this is what a real network
+        # failure raises, and it is what test_returns_empty_on_all_failures
+        # above already uses for the sibling IEDB fetch. The handler under test
+        # deliberately catches OSError (RequestException subclasses it) rather
+        # than bare Exception, so that a defect in the module cannot be
+        # reported as a download failure.
+        import requests as req
+
         with patch(
             "src.verify.iedb_multi_virus_extractor.requests.get",
-            side_effect=Exception("network error"),
+            side_effect=req.exceptions.RequestException("network error"),
         ):
             records = query_vdjdb_cached(11520, tmp_path)
         assert records == []
+
+    def test_parse_failure_on_corrupt_cache_returns_empty(self, tmp_path):
+        """A corrupt cache is a data problem: report it and return no records."""
+        cache = tmp_path / "vdjdb_slim.txt"
+        cache.write_bytes(bytes(range(256)) * 20)  # binary garbage -> UnicodeDecodeError
+        assert query_vdjdb_cached(11520, tmp_path) == []
+
+    def test_defect_in_parsing_is_not_reported_as_no_records(self, tmp_path, monkeypatch):
+        """A code defect must propagate, not silently become an empty ingestion set.
+
+        The caller treats [] as "no epitopes for this TaxID" and falls back to
+        extract_mock_data, so a swallowed AttributeError here would silently
+        turn a bug into fabricated verification data.
+        """
+        cache = tmp_path / "vdjdb_slim.txt"
+        self._write_vdjdb(cache)
+
+        def _boom(*args, **kwargs):
+            raise AttributeError("simulated defect in the parsing path")
+
+        monkeypatch.setattr(pd, "read_csv", _boom)
+        with pytest.raises(AttributeError, match="simulated defect"):
+            query_vdjdb_cached(11520, tmp_path)
 
 
 # ---------------------------------------------------------------------------

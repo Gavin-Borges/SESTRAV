@@ -13,6 +13,15 @@
 # Check 3 -- blocks any institution name that is not on the affiliation
 #   allowlist (scripts/check_affiliation_claims.py). Guards claims_register
 #   D35, where a fabricated institution reached the public README.
+#
+# Check 4 -- runs the integrity harness. Local-only: _local/ is gitignored, so
+#   CI cannot run it and a green CI run is not integrity evidence. Announces a
+#   skip when the tree has no harness (the normal case in a worktree).
+#
+# Check 5 -- re-runs the affiliation gate with --all, covering _local/ drafts
+#   and outreach copy. Check 3 and CI both see tracked files only. Outreach
+#   publishes where it cannot be edited afterwards, so this is the surface with
+#   no second chance. Also local-only, and also announces its skip.
 
 set -uo pipefail
 
@@ -214,6 +223,42 @@ if [[ -f "${HARNESS}" ]]; then
     fi
 else
     printf '[pre-push] No _local/integrity harness in this tree; skipping.\n'
+fi
+
+# ---- Check 5: Affiliation gate, --all (private drafts and outreach copy) --
+# Check 3 sees TRACKED files only, which is all CI can EVER see: _local/ is
+# gitignored and never cloned, so .github/workflows/affiliation_claims.yml
+# cannot carry this no matter how it is written. Measured 2026-09-08 from a
+# linked worktree, --all scanned the same 471 files as default mode and exited
+# 0 - a silent false all-clear. Local is therefore the only viable carrier.
+#
+# _local/drafts/ is where manuscript and outreach copy is written, and outreach
+# publishes where it cannot be edited afterwards. That is the highest-
+# consequence surface in the project and until now no gate ran over it.
+#
+# Costs about 53s (measured 2026-09-08, 4209 files). Deliberate: the surface it
+# covers has no second chance.
+if [[ -d "${REPO_ROOT}/_local" ]]; then
+    printf '[pre-push] Checking _local/ drafts and outreach copy (--all)...\n'
+    cd "${REPO_ROOT}" && python scripts/check_affiliation_claims.py --all
+    if [[ $? -ne 0 ]]; then
+        printf '\n' >&2
+        block "Affiliation gate (--all) failed in _local/ drafts or outreach copy."
+        printf '\n' >&2
+        printf '%s\n' "  Outreach publishes where it cannot be edited afterwards." >&2
+        printf '%s\n' "  If a reported name is claimed as OURS and is not URI, it is" >&2
+        printf '%s\n' "  a fabrication - delete it. Otherwise allowlist that exact" >&2
+        printf '%s\n' "  path in scripts/check_affiliation_claims.py with a note" >&2
+        printf '%s\n' "  naming what cites it. See docs/claims_register.md D35." >&2
+        exit 1
+    fi
+else
+    # Announced, never silent. Check 4 above skips the same way, and a quiet
+    # skip reads exactly like a pass - the failure mode this repo keeps hitting.
+    printf '[pre-push] SKIPPED --all affiliation scan: no _local/ in %s\n' "${REPO_ROOT}"
+    printf '%s\n' "  Worktree or bare clone. Private drafts and outreach copy were"
+    printf '%s\n' "  NOT scanned. Before publishing anything, run from the main"
+    printf '%s\n' "  checkout: python scripts/check_affiliation_claims.py --all"
 fi
 
 printf '[pre-push] All checks passed -- push allowed.\n'

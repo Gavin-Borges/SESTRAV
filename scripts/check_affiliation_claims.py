@@ -84,22 +84,33 @@ which are where an unreviewed name is written before it is ever committed.
 
 Why ``--all`` skips tracked files inside NESTED checkouts
 --------------------------------------------------------
-``--all`` is the pre-outreach ritual (``.claude/rules/third-party-claims.md``),
-so its readability *is* its enforcement - no workflow and no hook runs it,
-verified by ``git grep "check_affiliation_claims.py --all"`` returning empty.
-Measured 2026-09-07 from this workstation at ``origin/main`` ``02ac1b1``: it
-reported **154** findings, of which **zero** were real. 117 of the 154 came
-from nested ``git worktree`` checkouts under ``_local/``, and 115 of those 117
-were ONE line - the ``docs/claims_register.md`` D35 retraction row, which has
-to quote the fabricated name, times its five occurrences on that line, times
-23 checkouts.
+``--all`` is the pre-outreach ritual (``.claude/rules/third-party-claims.md``).
+**Since 2026-09-08 it is also enforced, by ``scripts/hooks/pre-push`` Check 5.**
+This paragraph previously said "no workflow and no hook runs it", which that
+change made false. CI still cannot carry it and never will: ``_local/`` is
+gitignored and never cloned, so on a fresh checkout ``--all`` collapses onto
+the tracked set. Measured from a linked worktree, it scanned the same 471 files
+as default mode and exited 0 - a silent false all-clear, which is why Check 5
+announces its skip rather than passing quietly when no ``_local/`` is present.
 
-Quote none of those numbers back; re-measure. **The invariant is that the
-count only ever grows**, because every worktree added and every document
-written *about* the incident raises it: the recorded trajectory is
-11, 61, 133, 141, 152, 154 over six days. A gate reporting a hundred-odd
-known-benign errors gets skipped, and a skipped gate is worse than no gate
-because it is believed.
+Readability was the precondition for that enforcement, not a substitute for it.
+Measured 2026-09-07 at ``origin/main`` ``02ac1b1``: **154** findings, of which
+**zero** were real. 117 of the 154 came from nested ``git worktree`` checkouts
+under ``_local/``, and 115 of those 117 were ONE line - the
+``docs/claims_register.md`` D35 retraction row, which has to quote the
+fabricated name, times its five occurrences on that line, times 23 checkouts.
+Suppressing nested checkouts took it to 37, and allowlisting the private
+session-record tree took it to **0** on 2026-09-08, at which point the mode
+could be turned into a gate.
+
+Quote none of those numbers back; re-measure. **A former "the count only ever
+grows" invariant recorded here is now retired, and deliberately so**: the
+trajectory 11, 61, 133, 141, 152, 154 over six days was real, but it described
+a mode nothing enforced, where every worktree added and every document written
+*about* the incident raised the count. It is 0 now and must stay 0, because a
+gate reporting known-benign errors gets skipped, and a skipped gate is worse
+than no gate because it is believed. A non-zero ``--all`` is now a push
+blocker, not a reading.
 
 So a directory that carries its own ``.git`` entry is treated as a nested
 checkout, and the files GIT TRACKS THERE are not scanned again. Detection is
@@ -247,6 +258,50 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # The note that first spotted the contradiction, five days before the
         # fix. Kept as the record of how long detection took.
         "_local/notes/authorship_analysis_2026-08-21.md",
+        # A trailing "/" permits the name BENEATH a path rather than at it.
+        # Used only for the private session-record tree, whose filenames are
+        # dated and so cannot be enumerated in advance: every session that
+        # discusses D35 creates a new one, and an exact-path list would put
+        # this gate permanently red. A permanently red gate is ignored, which
+        # is the failure mode the D35 retraction itself illustrates.
+        #
+        # The cost, stated plainly: the name is no longer detectable anywhere
+        # under _local/state/. That tree is session records and is never
+        # published, and the tracked-file scan that guards README.md and the
+        # rest of the reader-facing surface is unaffected.
+        #
+        # Deliberately NOT "_local/drafts/". That is where manuscript and
+        # outreach copy is written, and outreach publishes where it cannot be
+        # edited afterwards, so blanket-permitting the fabricated name there
+        # would blind the gate to a verbatim recurrence of D35 on the one
+        # surface that matters most. The two entries below are exact paths
+        # into a dated, frozen packet: they are snapshots of the claims
+        # register and the brain map, both of which record the retraction.
+        # A regenerated packet gets a new dated directory and will correctly
+        # trip this gate again, forcing a fresh review.
+        "STATE.md",
+        "_local/state/",
+        "_local/drafts/mountain_view_packet_2026-09-06/07_claims_register.md",
+        "_local/drafts/mountain_view_packet_2026-09-06/11_PRIVATE_brain_map.md",
+        # The 2026-09-09 regeneration of that packet, reviewed 2026-09-13 -
+        # the mechanism two paragraphs above working exactly as described,
+        # not an exception to it. All 8 occurrences were read before this
+        # entry was added: 5 in 07_claims_register.md are the D35 retraction
+        # row itself (a snapshot of docs/claims_register.md, which is already
+        # the first entry in this tuple), and 3 in 11_PRIVATE_brain_map.md are
+        # the section documenting the fabrication. Zero claim NC State as this
+        # project's affiliation; every one is a record OF the retraction.
+        #
+        # The recurrence is structural, not incidental: a packet regeneration
+        # copies two documents whose exempted status is already settled at
+        # their source, which is the same shape as the sync_agent_rules.py
+        # mirror case at the top of this tuple. If packets start regenerating
+        # often enough that this list becomes the maintenance burden, the fix
+        # is a pattern keyed on these two FILENAMES within any packet
+        # directory - never a blanket "_local/drafts/" entry, for the reason
+        # stated above.
+        "_local/drafts/mountain_view_packet_2026-09-09/07_claims_register.md",
+        "_local/drafts/mountain_view_packet_2026-09-09/11_PRIVATE_brain_map.md",
     ),
 }
 
@@ -483,7 +538,14 @@ def is_allowed(name: str, path: str) -> bool:
     permitted_in = RETRACTED_INSTITUTIONS.get(key)
     if permitted_in is None:
         return False
-    return normalise_path(path) in permitted_in
+    # An entry ending in "/" permits everything beneath it; every other entry
+    # must match the whole path. Prefix matching is opt-in per entry so that
+    # adding a file to the list cannot accidentally exempt its whole directory.
+    here = normalise_path(path)
+    return any(
+        here.startswith(entry) if entry.endswith("/") else here == entry
+        for entry in permitted_in
+    )
 
 
 def find_institutions(line: str) -> list[str]:

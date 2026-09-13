@@ -47,15 +47,39 @@ BATCH_SIZE = 100
 RATE_LIMIT_SECONDS = 0.0
 
 
+class CorruptCacheError(RuntimeError):
+    """The cache file exists but could not be read.
+
+    Distinct from "no cache yet" on purpose. Both used to return an empty set,
+    and the two are not interchangeable: write_batch appends whenever the
+    output path EXISTS, so treating an unreadable cache as absent meant every
+    peptide was recomputed and then appended onto the unreadable bytes. That
+    compounds the corruption instead of repairing it, and the run's final row
+    count is read back off the concatenation.
+    """
+
+
 def load_existing_cache(output_path: str) -> set:
-    """Return set of peptides already in the cache (for --resume)."""
+    """Return set of peptides already in the cache (for --resume).
+
+    An empty set means the cache is absent. It never means "unreadable" -
+    see CorruptCacheError.
+    """
     if not os.path.exists(output_path):
         return set()
     try:
         existing = pd.read_csv(output_path, usecols=["peptide"])
         return set(existing["peptide"].dropna().unique())
-    except Exception:
-        return set()
+    # (OSError, ValueError) is the measured pandas raise set: OSError for an
+    # unreadable file, and ValueError for every corruption mode plus a usecols
+    # mismatch when the header has drifted. A defect in this module propagates.
+    except (OSError, ValueError) as exc:
+        raise CorruptCacheError(
+            f"Cache at '{output_path}' exists but could not be read: {exc}. "
+            "Refusing to append to it, which would concatenate new rows onto "
+            "unreadable bytes. Delete the file to rebuild it, or point "
+            "--output at a fresh path."
+        ) from exc
 
 
 def write_batch(output_path: str, rows: list, first_write: bool) -> None:
