@@ -10,7 +10,13 @@ name: Dependency Lockfile Freshness
 # rejected: it needs pull_request_target/workflow_run to get a write token,
 # which regresses OpenSSF Scorecard's Dangerous-Workflow check, and a
 # GITHUB_TOKEN-authored push does not re-trigger this repo's required status
-# checks, so an unreviewed, untested commit could merge. This workflow only
+# checks, so the relocked commit would sit at head with none of the required
+# contexts reported against it. For anyone without bypass that is a merge button
+# pending forever, not a merge; but ruleset 16846770 grants the repository-admin
+# role always-bypass and the sole maintainer holds it, so the realistic outcome
+# is an untested commit merged by a bypass click rather than a blocked PR. That
+# is the security objection, and it is why the design was rejected. This
+# workflow only
 # ever reads the checked-out PR branch and reports; the maintainer
 # regenerates and pushes the lockfile themselves, as a signed, DCO-compliant
 # commit that re-triggers every required check.
