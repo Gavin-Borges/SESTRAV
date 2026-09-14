@@ -6,7 +6,9 @@ against an unpublished 0.75 threshold. None of it is bound through
 `_local/integrity/claims_manifest.toml` or passed by claims-auditor.
 
 It used to write that to `docs/stage3_results_log.md`. That path is NOT
-gitignored and WAS tracked historically (added in 328202f, deleted in b6c9d50),
+gitignored and WAS tracked historically (added in 328202f, deleted in b6c9d50 - sha-check:ignore,
+both are pre-scrub commits on no live origin ref, named as history rather than
+as citations a reader is meant to resolve),
 so any run followed by `git add -A` would publish unbound numbers into `docs/`.
 No gate watches for an untracked file appearing there: the citation gate, the
 retracted-token sweep and the reconcile check all read files that already exist
@@ -81,7 +83,9 @@ def test_script_source_never_writes_a_log_into_docs():
 
 
 def test_the_historical_docs_log_is_not_tracked_again():
-    """It was tracked once (328202f) and removed (b6c9d50). Keep it removed."""
+    """Tracked once (328202f), removed (b6c9d50). Keep it removed. sha-check:ignore:
+    both are pre-scrub commits on no live origin ref, named as history here.
+    """
     probe = _git("ls-files", "--error-unmatch", "docs/stage3_results_log.md")
     if probe.returncode == 128 and "not a git repository" in probe.stderr.lower():
         pytest.skip("git unavailable")
