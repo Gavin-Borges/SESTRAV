@@ -597,3 +597,76 @@ def test_qc_gate_conflict_groups_include_null_allele_rows(tmp_path, temp_config)
         "alone; zero means the null-allele rows were dropped by groupby: "
         + output[-2000:]
     )
+
+
+# ---------------------------------------------------------------------------
+# The shipped class_ratio_bounds are DERIVED for the v5 corpus. The derivation
+# lives in docs/data_qc_criteria.md under "Derivation of class_ratio_bounds for
+# the v5 corpus". These tests read the SHIPPED config rather than a fixture, so
+# a future edit that silently re-widens or re-narrows the window has to come
+# through here and state why. The previous bound [1.5, 4.0] was fitted to the v3
+# corpus (ratio 3.3463) and was never re-derived; it fails v4 (0.8346) and v5
+# (0.2051) alike.
+# ---------------------------------------------------------------------------
+
+# Shipped v5 composition, reconciled exactly against dedup_dropped in
+# data/immunogenicity_dataset_v5_provenance.json. Stated as constants so these
+# tests do not read the corpus and stay fast.
+V5_POSITIVES = 8712
+V5_NEGATIVES = 42473
+
+
+def _shipped_class_ratio_bounds():
+    import pathlib
+
+    import yaml
+
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    cfg = yaml.safe_load((repo_root / "config.yaml").read_text(encoding="utf-8"))
+    bounds = cfg["dataset_governance"]["qc_thresholds"]["class_ratio_bounds"]
+    assert len(bounds) == 2, f"class_ratio_bounds must be a [low, high] pair: {bounds}"
+    return float(bounds[0]), float(bounds[1])
+
+
+def test_shipped_bounds_admit_the_v5_corpus_as_built():
+    low, high = _shipped_class_ratio_bounds()
+    ratio = V5_POSITIVES / V5_NEGATIVES
+    assert low <= ratio <= high, (
+        f"the shipped bound [{low}, {high}] rejects the corpus it governs "
+        f"(ratio {ratio:.4f}). Either the corpus was rebuilt or the bound was "
+        "edited without re-deriving it; see docs/data_qc_criteria.md."
+    )
+
+
+def test_shipped_bounds_reject_a_whole_stream_failure_on_either_side():
+    """The bound exists to catch the loss or duplication of a whole input stream.
+
+    0.1634 is the ratio when the published panels fail to merge; 0.2949 is the
+    ratio when the IEDB export returns only the out-of-panel block. Both are
+    modelled in the derivation and both must fall outside the window.
+    """
+    low, high = _shipped_class_ratio_bounds()
+    assert low > 0.1634, (
+        f"floor {low} would admit a build whose published panels failed to merge"
+    )
+    assert high < 0.2949, (
+        f"ceiling {high} would admit a build whose IEDB export returned only "
+        "the out-of-panel block"
+    )
+
+
+def test_shipped_bounds_keep_a_four_figure_row_margin():
+    """A bound whose margin is a few dozen rows is a checksum, not a gate.
+
+    The corpus already carries an exact SHA-256 pin, so a ratio window that
+    tight adds nothing and breaks on ordinary input churn.
+    """
+    import math
+
+    low, _high = _shipped_class_ratio_bounds()
+    positives_at_floor = math.ceil(low * V5_NEGATIVES)
+    margin_rows = V5_POSITIVES - positives_at_floor
+    assert margin_rows >= 1000, (
+        f"only {margin_rows} positives would have to vanish to breach the floor; "
+        "the derivation requires a four-figure margin."
+    )
