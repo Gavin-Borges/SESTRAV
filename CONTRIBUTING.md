@@ -117,8 +117,11 @@ so the workaround cannot quietly return and mask a real resolution conflict.
 ### 1. Code Style
 The project follows **PEP 8**, enforced automatically with [Ruff](https://docs.astral.sh/ruff/).
 The exact ruleset and any documented exceptions live in `pyproject.toml`
-(`[tool.ruff]`). CI runs `ruff check .` as a required gate, so please lint and
-format before submitting:
+(`[tool.ruff]`). CI runs `ruff check .` in the `lint` job of
+`.github/workflows/ci.yml`. That job's check context, `lint`, is **not** among the
+branch ruleset's required status checks, so it fails visibly without holding the
+merge button (see Code Review Process below, which has said so all along). Please
+lint and format before submitting:
 ```bash
 ruff check . --fix   # lint (and auto-fix what is safely fixable)
 ruff format .        # format (ruff-format, black-compatible)
