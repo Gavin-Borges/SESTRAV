@@ -16,7 +16,8 @@ We recommend using Conda to manage environment dependencies.
    ```bash
    bash scripts/hooks/install.sh
    ```
-   This installs three local hooks (`pre-commit`, `commit-msg`) that enforce:
+   This points `core.hooksPath` at `scripts/hooks/`, activating four local hooks
+   (`pre-commit`, `prepare-commit-msg`, `commit-msg`, `pre-push`) that enforce:
    - No AI-assistant footprint in commit messages
    - No credentials in staged content
    - No em-dashes (U+2014) in staged files or commit messages (use ASCII `-` instead)
@@ -236,7 +237,10 @@ gh pr create --fill          # or open via GitHub UI
 
 The `pre-push` hook (installed by `bash scripts/hooks/install.sh`) blocks direct pushes
 to `main` locally. The GitHub branch ruleset enforces the same policy at the remote.
-Admin overrides are available with `git push --no-verify` for authorized hotfixes.
+The local hook can be skipped with `git push --no-verify`; that flag does not touch
+the remote ruleset. Overriding the remote is available only to accounts in the
+ruleset's bypass list (the repository admin role), through GitHub's own bypass
+control, and is reserved for authorized hotfixes.
 
 ---
 
@@ -244,7 +248,7 @@ Admin overrides are available with `git push --no-verify` for authorized hotfixe
 
 When submitting a pull request, ensure the following checklist is completed:
 
-- [ ] Git hooks installed: `bash scripts/hooks/install.sh` (pre-commit, commit-msg, pre-push).
+- [ ] Git hooks installed: `bash scripts/hooks/install.sh` (pre-commit, prepare-commit-msg, commit-msg, pre-push).
 - [ ] Branch follows naming convention (`feat/`, `fix/`, `docs/`, `chore/`, etc.).
 - [ ] All tests pass locally using `pytest`.
 - [ ] Snakemake dry-run succeeds.
