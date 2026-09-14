@@ -10,6 +10,8 @@ rule run_prime:
         alleles = lambda wildcards: ",".join(config["alleles"])
     log:
         "logs/run_prime/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/run_prime/{proteome_id}.tsv"
     conda:
         "environments/prime.yaml"
     shell:
@@ -24,6 +26,8 @@ rule run_predig:
         alleles = lambda wildcards: ",".join(config["alleles"])
     log:
         "logs/run_predig/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/run_predig/{proteome_id}.tsv"
     conda:
         "environments/predig.yaml"
     shell:
@@ -39,6 +43,8 @@ rule standardize_predictor_outputs:
         std_out = "results/{proteome_id}_standardized_outputs.csv"
     log:
         "logs/standardize_predictor_outputs/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/standardize_predictor_outputs/{proteome_id}.tsv"
     conda:
         "environment.yml"
     shell:
