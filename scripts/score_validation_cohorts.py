@@ -67,7 +67,9 @@ INFLUENZA_SCORED = os.path.join(PROJECT_ROOT, "results", "influenza_scored.csv")
 # a YES/NO verdict against an unpublished 0.75 threshold - none of it bound through
 # _local/integrity/claims_manifest.toml or passed by claims-auditor. Writing that to
 # docs/stage3_results_log.md put unbound numbers on a path that is NOT gitignored and
-# that WAS tracked historically (added 328202f, deleted b6c9d50), so the next person to
+# that WAS tracked historically (added 328202f, deleted b6c9d50 - sha-check:ignore, both
+# are pre-scrub commits on no live origin ref and are named here as history, not as
+# citations a reader is meant to resolve), so the next person to
 # run this script and `git add -A` would publish them. Same failure class the citation
 # and retracted-token gates exist for, but no gate watches an untracked file appearing
 # in docs/.

@@ -48,7 +48,8 @@
 #
 #   3. MISSING RULES AND CONTEXTS.
 #      The old payload had no `code_scanning` rule and named only one
-#      of the five live required contexts.
+#      of the live required contexts (five at the time this was written,
+#      seven since 2026-09-09; re-measure rather than trusting either).
 #
 #   4. WRONG BYPASS ACTOR.
 #      The old payload added the owner as actor_type "User" with the
@@ -93,7 +94,12 @@
 #   `require_extra_approval_for_unattributed_changes`.
 #
 # ===================================================================
-# REFERENCE PAYLOAD - live state as of 2026-08-22, read-only verified.
+# REFERENCE PAYLOAD - live state as of 2026-09-09, read-only verified.
+# (The date moved with the payload: the seven contexts below are ruleset
+# version 49212955, applied 2026-09-09. This header still read 2026-08-22
+# after the 2026-09-13 pass rewrote the payload beneath it from five
+# contexts to seven, which left the provenance line describing a state the
+# payload no longer showed.)
 # Inert documentation. Read-only fields (id, node_id, _links,
 # created_at, updated_at, source, source_type, current_user_can_bypass)
 # are omitted because they are not writable. Strip the leading "# "
@@ -204,8 +210,13 @@
 # 2026-08-22: this block, SECURITY.md, docs/SCORECARD_REMEDIATION.md,
 # docs/security_compliance.md, .github/workflows/security.yml and one
 # CHANGELOG line all still said four. Corrected together 2026-08-24.
-# Six sites is what "keep in agreement" actually costs - if a seventh
-# is ever added, add it here too rather than to one document.
+# SEVEN sites is what "keep in agreement" actually costs: this block,
+# SECURITY.md, CONTRIBUTING.md, docs/SCORECARD_REMEDIATION.md,
+# docs/security_compliance.md, .github/workflows/security.yml and CHANGELOG.md.
+# Re-derive the list rather than trusting this one, and enumerate by the
+# context STRING, never by a count word - a count-word grep finds only the
+# carriers that already state a number:
+#   git grep -lF "check_dco" -- '*.md' '*.sh' '*.yml'
 # ===================================================================
 
 set -uo pipefail

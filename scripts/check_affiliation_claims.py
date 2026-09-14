@@ -23,8 +23,10 @@ Why this exists
 On 2026-07-23, a documentation hygiene pass titled "de-course-ify the docs
 layer" rewrote this line in ``README.md``. It reached ``main`` as ``ee780a5``
 (the PR #147 merge - the commit to cite, and the one ``docs/claims_register.md``
-D35 names). It was authored as ``a4543bf`` earlier the same day, but that SHA
-is **not an ancestor of main** and must not be cited on its own::
+D35 names). It was authored as ``a4543bf`` earlier the same day (sha-check:ignore
+- naming it is the whole point of this paragraph, and it is deliberately on no
+live origin ref), but that SHA is **not an ancestor of main** and must not be
+cited on its own::
 
     -*Academic affiliations: BPS 542 / CMB 522 / CSC 522 / STA 522: ...*
     +*Developed by Gavin Borges. Academic acknowledgements: bioinformatics
