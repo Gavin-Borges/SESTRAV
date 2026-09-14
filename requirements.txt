@@ -402,7 +402,7 @@ cuda-bindings==13.3.1 \
 cuda-pathfinder==1.6.0 \
     --hash=sha256:1503af579d8379c24bdd65528379bc57039b0455be9f5f9686cf8e473a1fce51
     # via cuda-bindings
-cuda-toolkit==13.0.3.0 \
+cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3.0 \
     --hash=sha256:d693caaa261214ddd7dbb60d68e71cbed884e68c2be7509778f3051da0b91c3f
     # via torch
 cycler==0.12.1 \
@@ -1076,9 +1076,9 @@ mhcflurry==2.2.1 \
     --hash=sha256:cd934e9b092de76e477442c6f84aab1265def91acfa5ae129308116dbfa66ac7 \
     --hash=sha256:cda123729b649e94e1da9af40cdedf2d6823f39ebfd87dd36e47eb994bb3c4a0
     # via -r requirements.in
-mhcgnomes==3.41.0 \
-    --hash=sha256:089dc67ef1edfd03847fff7a8a5e3d53fffb180e2c2b0626f1ac9f84a1002aeb \
-    --hash=sha256:c03d7a14b40198309e861f4107d2d0d3589ddbe3f79afe2027fa788027dc16bc
+mhcgnomes==3.64.2 \
+    --hash=sha256:15c30555c6ac1c8631df508ae0b131e7755ea6a8bbef8700c0cbdc11342f9474 \
+    --hash=sha256:eacc8328e47003d0d3caa494524b200990847042a3b3c8144ae760948ae10893
     # via mhcflurry
 ml-dtypes==0.5.4 \
     --hash=sha256:0d2ffd05a2575b1519dc928c0b93c06339eb67173ff53acb00724502cda231cf \
@@ -1461,7 +1461,7 @@ nvidia-cusparselt-cu13==0.8.1 \
     --hash=sha256:786ce87568c303fadb5afcc7102d454cd3040d75f6f8626f5db460d1871f4dd0 \
     --hash=sha256:dccbd362f91a7b9024d1f55ee9f548ac065027ff15d8c8b0db889ab3a8f31215
     # via torch
-nvidia-nccl-cu12==2.30.7 \
+nvidia-nccl-cu12==2.30.7 ; platform_system == "Linux" \
     --hash=sha256:03ecd776fd1d58fd2c9a0a687dcf8db9ecd0057382dba646fa3d65786d4a9ea1 \
     --hash=sha256:8ce1b8213f61f2bfac132e6df890af6450b77cbd140c6ce4e98cb0c2d8e678c9
     # via
@@ -1909,6 +1909,7 @@ psutil==7.2.2 \
 pulp==3.3.2 \
     --hash=sha256:631b166f72086971a9597f7a0233ababa99bb8d50a01cd543f7758be5a9f86c0 \
     --hash=sha256:d0904700c207ac11e25e3b1213b70eae1d6fb25faa719d75f3f15054901258c0
+    # via -r requirements.in
 pyahocorasick==2.3.1 \
     --hash=sha256:0a8bed95da02e7c874818825d65e6e31d5b38c88ecba02a6c7144524074ddade \
     --hash=sha256:0e59226baf6ffb5acb6f72868ef345a4bd23d2a30ef08a9e1bf51043ea9b430d \
@@ -2292,12 +2293,6 @@ scipy==1.17.1 \
     #   scikit-learn
     #   shap
     #   xgboost
-setuptools==84.0.0 \
-    --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670 \
-    --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73
-    # via
-    #   -r requirements.in
-    #   torch
 shap==0.51.0 \
     --hash=sha256:07b0367408b1b9fc51556f2ddac5ee4209cc51be592099e6d51d0834c9b037d8 \
     --hash=sha256:0b1f9e62d6a3fa28765d7b61abda7caf76aba21e769423fbf3ce8a7a5e498243 \
