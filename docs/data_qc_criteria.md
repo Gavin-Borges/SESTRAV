@@ -74,9 +74,13 @@ not estimated, and reconciles against `dedup_dropped` in the provenance sidecar.
 
 **The numerator is entirely designed; the denominator is 19% designed and 81% incidental.**
 Of 42,473 negatives, 8,112 are synthetic (5,000 self-proteome decoys plus 3,112
-allele-matched non-binders) and 34,361 come from IEDB. `scripts/generate_hard_decoys.py`
-takes `--num-decoys` as an absolute integer and contains no reference to the positive count,
-so the decoy count is not a ratio and cannot track the positive pool.
+allele-matched non-binders) and 34,361 come from IEDB. Those are corpus-composition counts
+and not training-pool membership: the 5,000 self-proteome decoys are all quarantined, so
+they are absent from the within-CV training pool and enter only the LOO cross-virus
+training pool, while the 3,112 allele-matched non-binders are not quarantined and sit
+inside the target panel. `scripts/generate_hard_decoys.py` takes `--num-decoys` as an
+absolute integer and contains no reference to the positive count, so the decoy count is not
+a ratio and cannot track the positive pool.
 
 **The bound therefore encodes the one property that is designed: v5 is deliberately
 negative-dominated at roughly one positive per five negatives.** `[0.18, 0.29]` is the widest
