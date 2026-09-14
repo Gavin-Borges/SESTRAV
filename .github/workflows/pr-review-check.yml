@@ -67,14 +67,45 @@ jobs:
               pull_number: prNumber,
             });
 
-            const approvals = reviews.filter(r => r.state === 'APPROVED');
+            // Two filters, both added 2026-09-13. Before them this counted ANY
+            // review whose state was APPROVED, which made the check satisfiable by
+            // any account that can see a public PR, and counted superseded
+            // approvals that the reviewer had already replaced.
+
+            // 1. Collapse to each reviewer's LATEST review. listReviews returns the
+            //    full history, so an APPROVED that was later replaced by
+            //    CHANGES_REQUESTED still appears in the raw list. The ruleset's
+            //    dismiss_stale_reviews_on_push covers a new push; it does not cover
+            //    a reviewer changing their own mind.
+            const latestByReviewer = new Map();
+            for (const review of reviews) {
+              const login = review.user && review.user.login;
+              if (!login) continue;
+              if (review.state === 'COMMENTED') continue;  // never supersedes a verdict
+              latestByReviewer.set(login, review);
+            }
+
+            // 2. Require write-level standing. author_association is OWNER for the
+            //    repository owner, MEMBER for an org member and COLLABORATOR for an
+            //    invited collaborator; CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR and NONE
+            //    are any other account and carry no permission at all.
+            const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+
+            const approvals = [...latestByReviewer.values()].filter(
+              r => r.state === 'APPROVED' &&
+                   TRUSTED_ASSOCIATIONS.includes(r.author_association) &&
+                   r.user.login !== prAuthor
+            );
 
             if (approvals.length === 0) {
+              const seen = [...latestByReviewer.values()]
+                .map(r => `${r.user.login} (${r.state}, ${r.author_association})`)
+                .join(', ') || 'none';
               // Hard-fail so this status check blocks the merge for external contributors.
               core.setFailed(
-                'No approving reviews found. ' +
-                'This PR requires at least 1 human approval before merge. ' +
-                'See CODEOWNERS for required reviewers.'
+                'No approving review from a repository owner, organization member or ' +
+                'collaborator. This PR requires at least 1 such approval before merge. ' +
+                `Latest review per reviewer: ${seen}. See CODEOWNERS for required reviewers.`
               );
             } else {
               core.info(
