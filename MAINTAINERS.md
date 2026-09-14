@@ -38,6 +38,12 @@ for why this matters and what the role requires.
 1. Add a row to the table above with name, GitHub username, role, and affiliation.
 2. Invite the GitHub user as a repository collaborator with Write access.
 3. Update `CODEOWNERS` if path-specific ownership should change.
-4. Enable branch protection requiring at least one maintainer review:
-   GitHub Settings > Branches > Branch protection rules > main >
-   "Require a pull request before merging" > "Required approvals: 1"
+4. Raise the review requirement in the branch RULESET, not in classic branch
+   protection:
+   GitHub Settings > Rules > Rulesets > "Protect Main Branch" >
+   "Require a pull request before merging" > set "Required approvals" to 1.
+   This repository has no classic branch protection rule - the
+   `branches/main/protection` API returns 404 - and all protection lives in
+   ruleset `16846770`. Rulesets and classic rules are ADDITIVE, so adding a
+   classic rule creates a second layer to maintain in parallel rather than
+   editing the live one.

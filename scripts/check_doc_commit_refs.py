@@ -52,7 +52,20 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCAN_SUFFIXES = {".md", ".json", ".toml", ".cff", ".txt", ".yaml", ".yml"}
+SCAN_SUFFIXES = {".md", ".json", ".toml", ".cff", ".txt", ".yaml", ".yml", ".py"}
+
+# Files this gate must not scan, because they legitimately contain example and
+# fixture SHAs that exist only to exercise the gate itself. Without this, adding
+# ".py" above makes the gate report its own docstring examples ("git_sha:
+# abc1234") and its own test fixtures as dead citations. Same trade, and the
+# same shape of exemption, as scripts/check_affiliation_claims.py's
+# SELF_EXEMPT_FILENAMES. Do NOT widen this to other test files.
+SELF_EXEMPT_FILENAMES = frozenset(
+    {
+        Path(__file__).name,
+        "test_check_doc_commit_refs.py",
+    }
+)
 
 EXCLUDED_PREFIXES = (
     ".github/",  # third-party action pins are upstream SHAs by design
@@ -130,6 +143,16 @@ CONTEXT_WINDOW = 60
 #               only tracked line in the repo that depends on this rule.
 #   "upstream"  is not a substring of any other English word; the leading \b is
 #               belt-and-braces and changes nothing (15 lines either way).
+#   "revision=" is the Hugging Face Hub pin form, reached once ".py" joined
+#               SCAN_SUFFIXES. src/features.py pins the ESM-2 weights by their
+#               upstream repository revision, which is a third-party SHA of
+#               exactly the kind this rule exists for, but it is spelled as a
+#               keyword argument rather than the org/repo@sha form above. It is
+#               anchored to the ASSIGNMENT, not to the bare word: "revision" is
+#               also a COMMIT_CONTEXT_RE trigger, so suppressing the word would
+#               blind the gate to any citation written "revision abc1234".
+#               Measured on this tree: the assignment form matches 2 lines, the
+#               bare word 29.
 EXTERNAL_CONTEXT_RE = re.compile(
     r"""(
       uses:                                          # workflow step calling an action
@@ -139,6 +162,7 @@ EXTERNAL_CONTEXT_RE = re.compile(
     | \b(?:sha|digest|commit|version|tag)[- ]?pinn?ed\b
     | \bpinn?ed\s+(?:to|at|by)\b
     | [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@               # org/repo@<sha>
+    | revision\s*=\s*["']                            # HF Hub revision="<sha>" pin
     )""",
     re.IGNORECASE | re.VERBOSE,
 )
@@ -168,6 +192,8 @@ def should_scan(path: str) -> bool:
     if path.startswith(EXCLUDED_PREFIXES):
         return False
     if Path(path).name in EXCLUDED_NAMES:
+        return False
+    if Path(path).name in SELF_EXEMPT_FILENAMES:
         return False
     return Path(path).suffix.lower() in SCAN_SUFFIXES
 

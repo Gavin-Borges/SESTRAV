@@ -6,7 +6,7 @@ import sys
 import yaml
 from pathlib import Path
 
-# This module is executed directly as a script, by pipeline.smk:112 and by every
+# This module is executed directly as a script, by pipeline.smk:124 and by every
 # case in tests/test_data_curation_qc.py. Script execution puts this file's own
 # directory (src/) on sys.path[0] and does NOT add the repo root, so the absolute
 # `src.` import below cannot resolve on its own. A checkout with an editable

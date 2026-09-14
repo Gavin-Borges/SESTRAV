@@ -64,19 +64,20 @@ _Last updated: 2026-09._
   tag-triggered only), and the publisher is bound to the `Gavin-Borges` personal
   account, so the planned GitHub-organization migration should happen first - see the
   ordering constraint in `docs/releasing.md`.
-- **Calibrated uncertainty on ranked output - planned, not built.** Ranked proteome
-  output today carries point scores only. The intent is to add split-conformal
-  prediction over the RF track, emitting `lower_bound`, `upper_bound` and
-  `interval_width` on `{proteome}_ranked.csv` alongside an empirical-coverage
-  artifact with a provenance sidecar. **The calibration split must be designed under
-  `src.ml_utils.PeptideGroupedKFold` and its validity argued explicitly**, because a
-  conformal guarantee inherits the leakage properties of the split it is computed on;
-  a peptide-leaky split yields a guarantee that is arithmetically correct and
-  scientifically meaningless. Any published coverage figure will be ledger-bound like
-  every other number here. Note that `README.md` and `ARCHITECTURE.md` have described
-  Stage 4 as emitting conformal intervals; that description is being retracted, since
-  the shipped stage applies isotonic calibration and a tuned threshold and emits no
-  intervals.
+- **Calibrated uncertainty on ranked output - DELIVERED 2026-09-09, by a different
+  method than planned.** Shipped as Cross Venn-Abers (CVAP) over the RF mode-31 track
+  rather than the split-conformal design this bullet sketched, emitting `lower_bound`,
+  `upper_bound` and `interval_width` on `{proteome}_ranked.csv`. The validity boundary
+  is narrower than a split-conformal guarantee and is stated in
+  `docs/claims_register.md` D40 and in `src/conformal.py`'s module docstring: these are
+  multi-probability bounds, not a fixed 1 - alpha coverage set. **The splitter
+  condition this bullet imposed was met only in part.** The calibration folds are
+  peptide-grouped, which is the leakage half of it and the half that mattered, but they
+  come from a bare `sklearn.model_selection.StratifiedGroupKFold` stratified on the
+  binary label alone, not from `src.ml_utils.PeptideGroupedKFold` and its composite
+  stratification key. Remaining: the calibrator artifact is gitignored and
+  `scripts/fit_conformal_calibrator.py` is reachable from no `pipeline.smk` rule, so a
+  checkout that has not run it by hand gets no interval columns and is not told so.
 - **`torch` moving out of the core dependency set.** `torch` is currently a hard
   `[project].dependencies` requirement, so every install pays the deep-learning
   footprint even though the ANN/GNN tracks are optional benchmarks (see
@@ -132,15 +133,18 @@ _Last updated: 2026-09._
   evaluated-but-not-adopted extension, not pending work; re-opening it needs
   both a corrected featurization (D30) and a fair, symmetric, peptide-grouped
   re-evaluation of both arms, not a re-run of this retracted comparison.
-- **Vaccine cocktail selection - planned, and deliberately sequenced after
-  calibrated uncertainty.** The intent is an integer-linear-programming selector that
-  chooses a small peptide panel maximising modelled population coverage. **It will
-  optimise over the conformal LOWER BOUNDS from the near-term uncertainty work, not
-  over point estimates**, and that ordering is the whole point: built over point
-  scores, the selector is an ordinary set-cover and contributes nothing novel.
-  Prerequisites are promoting `pulp` to a direct dependency (it is transitive-only
-  today) and versioning the AFND allele-frequency inputs as a provenance-tracked data
-  artifact. **The population-coverage ceiling will be reported inline as an equity
+- **Vaccine cocktail selection - DELIVERED 2026-09-09 as a library module, not yet
+  wired to any entry point.** `src/optimizer.py` implements the
+  integer-linear-programming selector that chooses a small peptide panel maximising
+  modelled population coverage. **It optimises over the conformal LOWER BOUNDS, not
+  over point estimates**, falling back to `immunogenicity_score` only when the ranked
+  frame carries no `lower_bound` column; that ordering was the whole point, and it
+  held, because the uncertainty layer landed first. Both prerequisites this bullet
+  listed are now met: `data/population/afnd_frequencies.json` is tracked with a
+  provenance sidecar, and `pulp` is a direct pin in `requirements.in` and the compiled
+  lockfiles. What remains is declaring `pulp` in `pyproject.toml`, where it is absent,
+  and giving the module a caller - nothing in `src/cli.py` or `pipeline.smk` reaches
+  it, so today it is exercised only by `tests/test_optimizer.py`. **The population-coverage ceiling will be reported inline as an equity
   constraint rather than a footnote:** the current 10-allele panel's modelled coverage
   is highest in EUR and materially lower in AFR, so a "population coverage" figure
   quoted without its per-population spread overstates the result for exactly the

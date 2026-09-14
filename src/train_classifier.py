@@ -1205,12 +1205,13 @@ if __name__ == "__main__":
         "--feature-mode",
         type=str,
         default="21",
-        choices=["10", "21", "30", "31", "33", "35", "50", "166", "30_esm", "30_graph"],
+        choices=["10", "21", "30", "31", "33", "35", "50", "51", "166", "30_esm", "30_graph"],
         help="Feature mode: 10 (binding-only, no physicochemistry - converse ablation "
         "of 21) | 21 (sequence-only) | 30 (physico+binding) | 31 canonical | "
         "33 (31+antigen-processing; MOCK scores, not real NetChop/TAPreg output - "
         "see docs/claims_register.md D18) | 35 (33+self-similarity) | 50 (expanded) | "
-        "30_esm | 30_graph",
+        "51 (50+per-allele TCR contact weights, 55 cols; requires --binding-matrix) | "
+        "166 | 30_esm | 30_graph",
     )
     parser.add_argument(
         "--binding-matrix",
