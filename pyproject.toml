@@ -186,7 +186,12 @@ include = ["sestrav*", "src*", "functions*"]
 # Coding standards (OpenSSF Silver: coding_standards / coding_standards_enforced)
 # ---------------------------------------------------------------------------
 # Style is PEP 8, enforced automatically by Ruff (lint) and Ruff's
-# black-compatible formatter. CI runs `ruff check .` as a required gate.
+# black-compatible formatter. CI runs `ruff check .` in ci.yml's `lint` job,
+# whose check context is NOT among the branch ruleset's required status checks:
+# it fails its own job visibly but does not hold the merge button. Stated
+# precisely because this header is OpenSSF Silver evidence for
+# coding_standards_enforced, and "enforced" there means the lint runs and fails
+# on CI, not that it gates a merge. See CONTRIBUTING.md's Code Review Process.
 [tool.ruff]
 line-length = 100
 target-version = "py311"

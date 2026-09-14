@@ -114,10 +114,20 @@ dataset_governance:
     "4.0.0": "SESTRAV_v4_HARD_DECOY_EXPANSION"
     "5.0.0": "SESTRAV_v5_IEDB_NEGATIVES_MERGE"
   provenance:
-    timestamp: "2026-07-04T02:35:21Z"
+    # Describes the SHIPPED v5 corpus, built 2026-07-05 by d3972f7. Both fields
+    # below described the superseded 2026-07-04 build until 2026-09-13.
+    #
+    # checksum is the portable git-blob (LF) digest, the same convention
+    # .gitattributes pins for this file and the same value carried by
+    # data/immunogenicity_dataset_v5_provenance.json, docs/data_registry.md and
+    # docs/zenodo_deposition.md. The previous value was the CRLF (Windows
+    # working-tree) digest of the 2026-07-04 build, so it was wrong twice over:
+    # wrong build and wrong line-ending convention. 9a94852 (2026-08-17) fixed
+    # exactly this defect in nine files and did not reach config.yaml.
+    timestamp: "2026-07-05T04:31:30Z"
     source_databases: ["IEDB", "VDJdb", "self_proteome_decoys"]
     negative_sampling_strategy: "high-binding_decoy_proteome"
-    checksum: "8ba4d85cd48cae7d3fc7fb09e1bfa68e0b19683ffbee50439858866b439cfd32"
+    checksum: "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4"
   qc_thresholds:
     min_peptide_yield: 500
     max_conflict_ratio: 0.15
