@@ -244,6 +244,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   turn CI red" contradicted the document's own later description of pip-audit's
   fail-closed step. All three verified live via `gh api` against the actual ruleset
   before the text was rewritten.
+
+  **Superseded 2026-09-09; recorded here 2026-09-13.** The required-status-check half
+  of (2) no longer holds for Bandit. Ruleset version `49212955`, applied
+  2026-09-09T20:31:45-04:00, added `Bandit Security Scan` and `CodeQL Static Analysis`
+  to the required contexts, taking the count from five to seven. The entry above was
+  true when written: the version then in force, `47339826`, carried neither. Bandit now
+  does hold the merge button.
+
+  The rest of (2) still stands, and the distinction matters. Bandit remains absent from
+  the code-scanning rule, which is still `CodeQL`-only, so Bandit gates as a required
+  STATUS CHECK and not through code scanning. Dependency Review is required by neither
+  mechanism. Re-measure both rather than quoting this, with
+  `gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770/history`.
+
+  Note the four-day gap between the ruleset change and this note. Every carrier in the
+  tree dates the promotion to the day the DOCS were corrected, 2026-09-12 or 09-13; the
+  ruleset version history above is the only record of when it actually happened, and
+  until now no tracked file stated it.
 - **Log forging closed in the scoring API (CWE-117, CodeQL `py/log-injection` alert
   #79, `api/main.py`).** `api/main.py` is the project's only HTTP entrypoint, and its
   two exception handlers interpolated request-derived values straight into a log

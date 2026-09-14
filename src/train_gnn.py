@@ -23,7 +23,6 @@ import os
 import random
 import argparse
 import functools
-import hashlib
 import numpy as np
 import pandas as pd
 import torch
@@ -35,6 +34,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
 from src.artifact_guard import guard_planned_paths
+from src.artifact_integrity import sha256_file
 from src.ml_utils import PeptideGroupedKFold
 from src.train_classifier import (
     _filter_quarantined,
@@ -289,14 +289,12 @@ def _dataset_cache_tag(data_path: str | os.PathLike[str]) -> str:
     leaves the leading bytes untouched and the two corpora collapse onto one
     tag. FeatureStore.load_cached_features validates neither row count nor
     columns, so a collision pairs the previous corpus's feature rows with the new
-    corpus's labels. This is the streaming form already used by _sha256_file in
-    src/verify/promote_gnn.py and by FeatureStore.verify_integrity.
+    corpus's labels. The digest itself is src/artifact_integrity.py's sha256_file,
+    the same canonical helper _sha256_file in src/verify/promote_gnn.py and
+    FeatureStore.verify_integrity route through; only the 8-character truncation
+    below is local to this cache-tag use.
     """
-    digest = hashlib.sha256()
-    with open(data_path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()[:8]
+    return sha256_file(os.fspath(data_path))[:8]
 
 
 # Feature modes whose matrix is a function of the binding matrix as well as the
