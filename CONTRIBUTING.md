@@ -16,7 +16,8 @@ We recommend using Conda to manage environment dependencies.
    ```bash
    bash scripts/hooks/install.sh
    ```
-   This installs three local hooks (`pre-commit`, `commit-msg`) that enforce:
+   This points `core.hooksPath` at `scripts/hooks/`, activating four local hooks
+   (`pre-commit`, `prepare-commit-msg`, `commit-msg`, `pre-push`) that enforce:
    - No AI-assistant footprint in commit messages
    - No credentials in staged content
    - No em-dashes (U+2014) in staged files or commit messages (use ASCII `-` instead)
@@ -116,8 +117,11 @@ so the workaround cannot quietly return and mask a real resolution conflict.
 ### 1. Code Style
 The project follows **PEP 8**, enforced automatically with [Ruff](https://docs.astral.sh/ruff/).
 The exact ruleset and any documented exceptions live in `pyproject.toml`
-(`[tool.ruff]`). CI runs `ruff check .` as a required gate, so please lint and
-format before submitting:
+(`[tool.ruff]`). CI runs `ruff check .` in the `lint` job of
+`.github/workflows/ci.yml`. That job's check context, `lint`, is **not** among the
+branch ruleset's required status checks, so it fails visibly without holding the
+merge button (see Code Review Process below, which has said so all along). Please
+lint and format before submitting:
 ```bash
 ruff check . --fix   # lint (and auto-fix what is safely fixable)
 ruff format .        # format (ruff-format, black-compatible)
@@ -236,7 +240,10 @@ gh pr create --fill          # or open via GitHub UI
 
 The `pre-push` hook (installed by `bash scripts/hooks/install.sh`) blocks direct pushes
 to `main` locally. The GitHub branch ruleset enforces the same policy at the remote.
-Admin overrides are available with `git push --no-verify` for authorized hotfixes.
+The local hook can be skipped with `git push --no-verify`; that flag does not touch
+the remote ruleset. Overriding the remote is available only to accounts in the
+ruleset's bypass list (the repository admin role), through GitHub's own bypass
+control, and is reserved for authorized hotfixes.
 
 ---
 
@@ -244,7 +251,7 @@ Admin overrides are available with `git push --no-verify` for authorized hotfixe
 
 When submitting a pull request, ensure the following checklist is completed:
 
-- [ ] Git hooks installed: `bash scripts/hooks/install.sh` (pre-commit, commit-msg, pre-push).
+- [ ] Git hooks installed: `bash scripts/hooks/install.sh` (pre-commit, prepare-commit-msg, commit-msg, pre-push).
 - [ ] Branch follows naming convention (`feat/`, `fix/`, `docs/`, `chore/`, etc.).
 - [ ] All tests pass locally using `pytest`.
 - [ ] Snakemake dry-run succeeds.

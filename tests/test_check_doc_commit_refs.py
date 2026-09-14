@@ -184,3 +184,50 @@ def test_gate_passes_on_the_live_tree(monkeypatch):
         "scripts/check_doc_commit_refs.py reported unresolvable commit "
         "citations against the current tree"
     )
+
+
+# --- The gate must READ Python sources, not only prose ----------------------
+#
+# Until 2026-09-13 SCAN_SUFFIXES omitted ".py", so a false commit citation in a
+# docstring was invisible to the REQUIRED "Cited commits resolve" check, and one
+# shipped before a hand audit caught it. The two sibling gates over the same
+# tracked tree, scripts/check_doc_line_citations.py and
+# scripts/check_affiliation_claims.py, both already scanned ".py"; this one was
+# the sole holdout, with no rationale recorded anywhere in its docstring.
+
+
+def test_python_sources_are_scanned():
+    """The widening itself. Reverting it silently reopens the hole."""
+    module = _load_module()
+    assert ".py" in module.SCAN_SUFFIXES
+    assert module.should_scan("src/features.py") is True
+
+
+def test_the_gate_and_its_own_tests_are_exempt():
+    """Both files carry example and fixture SHAs that exist to exercise the gate.
+
+    Without the exemption, scanning ".py" makes the gate report its own
+    docstring examples and this module's fixtures as dead citations - five
+    findings, every one of them the gate flagging itself.
+    """
+    module = _load_module()
+    assert module.should_scan("scripts/check_doc_commit_refs.py") is False
+    assert module.should_scan("tests/test_check_doc_commit_refs.py") is False
+    # The exemption is by BASENAME, so it must not leak to look-alike paths.
+    assert module.should_scan("scripts/check_doc_line_citations.py") is True
+
+
+def test_hugging_face_revision_pin_is_treated_as_third_party():
+    """src/features.py pins the ESM-2 weights by upstream repository revision.
+
+    That is a third-party SHA, but spelled as a keyword argument rather than the
+    org/repo@sha form, so it reached the gate once ".py" was scanned. The
+    suppression is anchored to the ASSIGNMENT: "revision" is itself a
+    COMMIT_CONTEXT_RE trigger, so suppressing the bare word would blind the gate
+    to any real citation written "revision abc1234".
+    """
+    module = _load_module()
+    pinned = '_esm_model = EsmModel.from_pretrained(name, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a")'
+    assert module.EXTERNAL_CONTEXT_RE.search(pinned)
+    # A prose citation using the same word must still be examined.
+    assert not module.EXTERNAL_CONTEXT_RE.search("see revision abc1234 for the fix")
