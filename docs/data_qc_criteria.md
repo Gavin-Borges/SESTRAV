@@ -84,15 +84,39 @@ absolute integer and contains no reference to the positive count, so the decoy c
 a ratio and cannot track the positive pool.
 
 **The bound therefore encodes the one property that is designed: v5 is deliberately
-negative-dominated at roughly one positive per five negatives.** `[0.18, 0.29]` is the widest
-window around the as-built 0.2051 that still rejects the loss, absence or duplication of any
-whole non-decoy stream. Each edge is rounded inward, to two decimals, from the nearest such
-failure: the panels failing to merge gives 0.1634 below, and an IEDB export returning only
-the out-of-panel block gives 0.2949 above.
+negative-dominated at roughly one positive per five negatives.**
 
-**Margin: 1,066 rows.** Breaching the floor requires losing 1,066 positives (12.2% of all
-positives) or adding 5,928 negatives; breaching the ceiling requires adding 3,606 positives
-or losing 12,432 negatives.
+**How the two edges are fixed.** The nearest modelled whole-stream failure on each side of
+the as-built 0.2051 is the panels failing to merge, at 0.1634 below, and an IEDB export
+returning only the out-of-panel block, at 0.2949 above. The window must exclude both.
+
+- **Ceiling 0.29.** 0.2949 rounded inward to two decimals. This edge is tight against its
+  failure by construction.
+- **Floor 0.18.** Inward rounding of 0.1634 would give 0.17, and `[0.17, 0.29]` would also
+  exclude both failures. **No modelled failure lands anywhere between 0.17 and 0.18**, so the
+  two floors are coverage-equivalent: each rejects the same eleven of the twenty modelled
+  modes. 0.18 is chosen as the tighter of two equivalents, because it gives an earlier signal
+  on drift nobody modelled while still leaving a four-figure margin. 0.17 would leave 1,491
+  rows, 0.18 leaves 1,066.
+
+**Do not read the floor as derived by rounding.** It is not, and an earlier revision of this
+section claimed both that the window was "the widest" available and that each edge was
+"rounded inward to two decimals". Those two statements cannot both hold of 0.18, and the
+inconsistency was caught by an independent re-derivation rather than by any gate.
+
+**Margin: 1,066 rows**, meaning 1,066 is the largest number of positives that can be lost with
+the bound still satisfied. The gate compares inclusively
+(`class_ratio_bounds[0] <= class_ratio <= class_ratio_bounds[1]`), so losing exactly 1,066
+gives 0.18002 and still PASSES; the first breach is at **1,067**. On the other three
+directions the figure quoted is the first breaching value, not the last passing one: adding
+5,928 negatives, adding 3,606 positives, or losing 12,432 negatives each breach. State which
+convention a number uses, because this sentence previously mixed them.
+
+**One population sits outside the ceiling, recorded so a future re-scope does not discover it
+by failing.** The active, non-quarantined pool is 35,597 rows at 8,055 / 27,542, a ratio of
+**0.2925** - above the 0.29 ceiling by 0.0025. The Scope paragraph below explains why the
+gate governs the whole file rather than that pool, so this is not a live failure; but any
+proposal to re-point the gate at the training pool must move the ceiling in the same change.
 
 **Rejected alternatives, recorded so they are not re-proposed.** A window tight enough to
 catch every modelled failure is `[0.198, 0.211]`, a margin of 249 rows or 0.49% of the
