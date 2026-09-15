@@ -460,3 +460,77 @@ def test_the_live_repository_passes_its_own_gate():
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# ---------------------------------------------------------------------------
+# Every RETRACTED_INSTITUTIONS exemption must carry its OWN note.
+#
+# Guards the shape of incident #10 in .claude/rules/third-party-claims-cases.md:
+# PR #448 added "STATE.md" to this allowlist under a comment reading "The two
+# entries below are exact paths into a dated, frozen packet" - with FOUR entries
+# following it. An unexplained allowlist entry silently widens a security gate.
+#
+# The rule is deliberately PER-ENTRY. An earlier draft let one comment cover two
+# consecutive entries, which accepted an unjustified entry inserted directly
+# beneath an annotated one - the exact insertion position incident #10 used.
+# ---------------------------------------------------------------------------
+
+import ast as _ast
+import pathlib as _pathlib
+import re as _re
+
+_GATE_SOURCE = _pathlib.Path(__file__).resolve().parents[1] / "scripts" / "check_affiliation_claims.py"
+
+
+def _retracted_allowlist_entries(tree):
+    assignment = next(
+        node
+        for node in tree.body
+        if isinstance(node, _ast.AnnAssign)
+        and isinstance(node.target, _ast.Name)
+        and node.target.id == "RETRACTED_INSTITUTIONS"
+    )
+    entries = []
+    for paths in assignment.value.values:
+        for path in paths.elts:
+            entries.append((path.value, path.lineno))
+    return entries
+
+
+def _has_own_note(lines, lineno):
+    """A note on the entry's own line, or on the line directly above it.
+
+    Requires a word character after the '#', so a bare '#' does not qualify, and
+    splits on the closing quote so a '#' inside the path string does not either.
+    """
+    same_line_tail = lines[lineno - 1].split('",')[-1]
+    if _re.search(r"#\s*\w", same_line_tail):
+        return True
+    previous = lines[lineno - 2] if lineno >= 2 else ""
+    return bool(_re.match(r"\s*#\s*\w", previous))
+
+
+def test_every_retracted_allowlist_entry_carries_its_own_note():
+    source = _GATE_SOURCE.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    entries = _retracted_allowlist_entries(_ast.parse(source, filename=str(_GATE_SOURCE)))
+    assert entries, "RETRACTED_INSTITUTIONS parsed to zero entries; the test is vacuous"
+
+    missing = [
+        f"{path} (line {lineno})" for path, lineno in entries if not _has_own_note(lines, lineno)
+    ]
+    assert not missing, (
+        "Allowlist entries with no note of their own:\n"
+        + "\n".join(missing)
+        + "\n\nEvery exemption must say why it is exempt. A comment above a "
+        "NEIGHBOURING entry does not carry over."
+    )
+
+
+def test_a_bare_hash_is_not_a_note():
+    assert not _has_own_note(['    "docs/x.md",  #'], 1)
+    assert _has_own_note(['    "docs/x.md",  # frozen packet'], 1)
+
+
+def test_a_hash_inside_the_path_is_not_a_note():
+    assert not _has_own_note(['    "docs/a#b.md",'], 1)
