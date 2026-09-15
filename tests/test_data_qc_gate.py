@@ -667,6 +667,29 @@ def test_shipped_bounds_keep_a_four_figure_row_margin():
     positives_at_floor = math.ceil(low * V5_NEGATIVES)
     margin_rows = V5_POSITIVES - positives_at_floor
     assert margin_rows >= 1000, (
-        f"only {margin_rows} positives would have to vanish to breach the floor; "
+        f"only {margin_rows} positives can be lost before the floor is breached; "
         "the derivation requires a four-figure margin."
     )
+
+
+def test_the_margin_is_last_passing_not_first_breaching():
+    """The gate compares INCLUSIVELY, so the margin is the last PASSING value.
+
+    docs/data_qc_criteria.md quotes 1,066 as the margin and 1,067 as the first
+    breach. An earlier revision of that section said losing 1,066 positives
+    breached the floor, which is off by one in the unsafe direction for a reader
+    reasoning about headroom. This pins the distinction so the two cannot drift
+    apart again.
+    """
+    low, high = _shipped_class_ratio_bounds()
+
+    def passes(positives):
+        return low <= positives / V5_NEGATIVES <= high
+
+    losable = 0
+    while passes(V5_POSITIVES - (losable + 1)):
+        losable += 1
+
+    assert passes(V5_POSITIVES - losable), "the quoted margin must still PASS"
+    assert not passes(V5_POSITIVES - (losable + 1)), "one more must BREACH"
+    assert losable >= 1000, f"margin collapsed to {losable} rows"
