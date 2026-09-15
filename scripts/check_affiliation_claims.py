@@ -271,7 +271,7 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # listed because the rules tree is gitignored: which file carries the
         # name is a per-workstation fact no gate can resolve for itself.
         ".claude/rules/third-party-claims-cases.md",
-        ".agents/rules/third-party-claims-cases.md",
+        ".agents/rules/third-party-claims-cases.md",  # generated mirror of the entry above
         # The note that first spotted the contradiction, five days before the
         # fix. Kept as the record of how long detection took.
         "_local/notes/authorship_analysis_2026-08-21.md",
@@ -314,7 +314,7 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # dated directory and will correctly trip this gate again, forcing a
         # fresh review.
         "_local/drafts/mountain_view_packet_2026-09-06/07_claims_register.md",
-        "_local/drafts/mountain_view_packet_2026-09-06/11_PRIVATE_brain_map.md",
+        "_local/drafts/mountain_view_packet_2026-09-06/11_PRIVATE_brain_map.md",  # same frozen 09-06 packet
         # The 2026-09-09 regeneration of that packet, reviewed 2026-09-13 -
         # the mechanism stated just above the 2026-09-06 entries working
         # exactly as described, not an exception to it. All 8 occurrences
@@ -334,7 +334,7 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # directory - never a blanket "_local/drafts/" entry, for the reason
         # stated above.
         "_local/drafts/mountain_view_packet_2026-09-09/07_claims_register.md",
-        "_local/drafts/mountain_view_packet_2026-09-09/11_PRIVATE_brain_map.md",
+        "_local/drafts/mountain_view_packet_2026-09-09/11_PRIVATE_brain_map.md",  # same frozen 09-09 packet
     ),
 }
 
