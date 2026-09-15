@@ -746,6 +746,11 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
             outputs = _esm_model(**inputs)
             cls_repr = outputs.last_hidden_state[0, 0].numpy()
         return cls_repr
+    # ESM boundary. No noqa: ruff BLE001 does not flag a handler that re-raises, and the
+    # default path below does. Two paths, and the second is why this catch is broad:
+    # without SESTRAV_ALLOW_ESM_FALLBACK the failure becomes an explicit RuntimeError,
+    # but WITH it set this returns a deterministic mock vector, so an ordinary NameError
+    # or AttributeError inside the try becomes a FABRICATED feature rather than an error.
     except Exception as e:
         if os.environ.get("SESTRAV_ALLOW_ESM_FALLBACK") != "1":
             raise RuntimeError(

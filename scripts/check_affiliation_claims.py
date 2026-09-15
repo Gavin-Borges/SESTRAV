@@ -201,7 +201,13 @@ EXCLUDED_PATH_PREFIXES = ("_local/tools/",)
 # Source of record: CITATION.cff (all six author entries), the MAINTAINERS.md
 # maintainer table, the LICENSE copyright line, SECURITY.md's opening
 # paragraph, and docs/zenodo_deposition.md's creators list.
-# Corroborated independently by 12 commits authored from @uri.edu addresses.
+# Corroborated independently by the commit record: every commit authored from an
+# institutional address is @uri.edu and none is from any other institution's
+# domain. State that invariant rather than a count. `git log --all` returns 12
+# such commits, but they are 3 mirrored copies of 4 logical commits - the archive
+# and release refs carry main's early history under rewritten SHAs - so 12 is a
+# triple-count. It was struck once already as D35 in docs/claims_register.md and
+# is recorded as instance #7 in .claude/rules/third-party-claims-cases.md.
 OWN_INSTITUTIONS = {
     "university of rhode island",
 }

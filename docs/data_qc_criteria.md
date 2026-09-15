@@ -47,6 +47,7 @@ Enforced by `scripts/data_qc_gate.py` against the single file named by `--datase
 | Null allele fraction | `<= max_null_allele_fraction` | Fails closed when no allele column resolves, since an unmeasurable fraction is not a passing one |
 | Class ratio | within `class_ratio_bounds` | Corpus-specific; derived below |
 | Peptide yield | `>= min_peptide_yield` (500) | Guards against a build that filtered away its own corpus |
+| Per-stream row counts | hard equality against `dataset_governance.provenance.source_counts` | Enforced by `tools/check_dataset_provenance.py`, not by the QC gate. Catches the composition failures a ratio cannot see |
 
 ### Derivation of `class_ratio_bounds` for the v5 corpus
 
@@ -83,15 +84,39 @@ absolute integer and contains no reference to the positive count, so the decoy c
 a ratio and cannot track the positive pool.
 
 **The bound therefore encodes the one property that is designed: v5 is deliberately
-negative-dominated at roughly one positive per five negatives.** `[0.18, 0.29]` is the widest
-window around the as-built 0.2051 that still rejects the loss, absence or duplication of any
-whole non-decoy stream. Each edge is rounded inward, to two decimals, from the nearest such
-failure: the panels failing to merge gives 0.1634 below, and an IEDB export returning only
-the out-of-panel block gives 0.2949 above.
+negative-dominated at roughly one positive per five negatives.**
 
-**Margin: 1,066 rows.** Breaching the floor requires losing 1,066 positives (12.2% of all
-positives) or adding 5,928 negatives; breaching the ceiling requires adding 3,606 positives
-or losing 12,432 negatives.
+**How the two edges are fixed.** The nearest modelled whole-stream failure on each side of
+the as-built 0.2051 is the panels failing to merge, at 0.1634 below, and an IEDB export
+returning only the out-of-panel block, at 0.2949 above. The window must exclude both.
+
+- **Ceiling 0.29.** 0.2949 rounded inward to two decimals. This edge is tight against its
+  failure by construction.
+- **Floor 0.18.** Inward rounding of 0.1634 would give 0.17, and `[0.17, 0.29]` would also
+  exclude both failures. **No modelled failure lands anywhere between 0.17 and 0.18**, so the
+  two floors are coverage-equivalent: each rejects the same eleven of the twenty modelled
+  modes. 0.18 is chosen as the tighter of two equivalents, because it gives an earlier signal
+  on drift nobody modelled while still leaving a four-figure margin. 0.17 would leave 1,491
+  rows, 0.18 leaves 1,066.
+
+**Do not read the floor as derived by rounding.** It is not, and an earlier revision of this
+section claimed both that the window was "the widest" available and that each edge was
+"rounded inward to two decimals". Those two statements cannot both hold of 0.18, and the
+inconsistency was caught by an independent re-derivation rather than by any gate.
+
+**Margin: 1,066 rows**, meaning 1,066 is the largest number of positives that can be lost with
+the bound still satisfied. The gate compares inclusively
+(`class_ratio_bounds[0] <= class_ratio <= class_ratio_bounds[1]`), so losing exactly 1,066
+gives 0.18002 and still PASSES; the first breach is at **1,067**. On the other three
+directions the figure quoted is the first breaching value, not the last passing one: adding
+5,928 negatives, adding 3,606 positives, or losing 12,432 negatives each breach. State which
+convention a number uses, because this sentence previously mixed them.
+
+**One population sits outside the ceiling, recorded so a future re-scope does not discover it
+by failing.** The active, non-quarantined pool is 35,597 rows at 8,055 / 27,542, a ratio of
+**0.2925** - above the 0.29 ceiling by 0.0025. The Scope paragraph below explains why the
+gate governs the whole file rather than that pool, so this is not a live failure; but any
+proposal to re-point the gate at the training pool must move the ceiling in the same change.
 
 **Rejected alternatives, recorded so they are not re-proposed.** A window tight enough to
 catch every modelled failure is `[0.198, 0.211]`, a margin of 249 rows or 0.49% of the
@@ -107,11 +132,16 @@ entirely quarantined, and every perturbation of either decoy stream up to 2x mov
 full-file ratio by at most 13%, landing inside the window. It also does not catch a
 regression in the dedup key, nor selection of the wrong IEDB input file - `data/` carries
 both `iedb_negatives_v5.csv` (32,506 rows) and `iedb_negatives_v5_merged.csv` (36,689), and
-substituting one for the other moves the ratio only 0.2051 to 0.2180. Those failures need
-per-stream row-count assertions over the fields already recorded in
-`data/immunogenicity_dataset_v5_provenance.json` (`v4_positives`, `v4_hard_decoys`,
-`published_panels`, `iedb_negatives`, `dedup_dropped`), which is a separate and currently
-unbuilt check.
+substituting one for the other moves the ratio only 0.2051 to 0.2180.
+
+**Those failures are caught by a separate instrument, `tools/check_dataset_provenance.py`.**
+It asserts per-stream row counts by hard equality against the fields
+`data/immunogenicity_dataset_v5_provenance.json` already records, pinned in
+`config.yaml` under `dataset_governance.provenance.source_counts`. It also checks the
+sidecar's internal arithmetic, that the sidecar describes the shipped file by row count and
+digest, and that its digest agrees with the checksum `freeze_mode` enforces. Read the two
+gates together: the class ratio governs SHAPE and this one governs COMPOSITION, and neither
+sees what the other does.
 
 **Scope.** The bound governs the dataset file as a whole. `scripts/data_qc_gate.py` has no
 concept of `is_quarantined`, `virus` or any sub-population, takes a single `--dataset` path,
