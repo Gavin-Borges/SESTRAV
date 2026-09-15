@@ -10,7 +10,9 @@ Checks datasets for strict adherence to biological and dataset governance polici
 5. Null Allele Fraction: Checks that the fraction of missing allele data is within
    dataset_governance.qc_thresholds.max_null_allele_fraction. Fails closed when no
    allele column can be resolved, since an unmeasurable fraction is not a passing one.
-6. Class Ratio Governance: Checks that Positive:Negative ratio is within [1.5, 4.0].
+6. Class Ratio Governance: Checks that the Positive:Negative ratio is within
+   dataset_governance.qc_thresholds.class_ratio_bounds. The bound is corpus-specific
+   and is derived in docs/data_qc_criteria.md; do not hardcode a window here.
 7. Minimum Yield: Post-curation unique peptide count must be >= min_peptide_yield (default 500).
 
 Usage:
@@ -63,7 +65,7 @@ def load_config(config_path: str) -> dict:
         "min_peptide_yield": 500,
         "max_conflict_ratio": 0.15,
         "max_null_allele_fraction": 0.50,
-        "class_ratio_bounds": [1.5, 4.0],
+        "class_ratio_bounds": [0.18, 0.29],
         "freeze_mode": False,
     }
     if not os.path.exists(config_path):
