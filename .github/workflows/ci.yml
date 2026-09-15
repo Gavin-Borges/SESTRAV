@@ -187,13 +187,23 @@ jobs:
           --cov-report=term-missing --cov-report=xml
 
       - name: Run Dataset Curation QC Gate
-        # Dataset is gitignored (researcher-local artefact); skip in CI when absent.
-        # Run locally before every push: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv
+        # Points at the TRACKED v5 corpus, which is present in every checkout, so
+        # this gate actually executes. It guarded data/immunogenicity_dataset_v4.csv
+        # until 2026-09-13; that file has never been tracked, so the else branch ran
+        # on every CI run since the step was added and the gate had never once
+        # executed. Verified in run 34789977419 on main, which logs
+        # "QC gate skipped in CI." while the real corpus sat beside it, tracked.
+        # The guard is kept but now FAILS CLOSED. The corpus is tracked, so the
+        # else branch should be unreachable; if it is ever reached the corpus has
+        # gone missing, which is itself worth failing on. A silently-skipping
+        # guard is what hid this for the life of the step.
+        # Run locally before every push: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v5.csv
         run: |
-          if [ -f data/immunogenicity_dataset_v4.csv ]; then
-            python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv --config config.yaml
+          if [ -f data/immunogenicity_dataset_v5.csv ]; then
+            python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v5.csv --config config.yaml
           else
-            echo "data/immunogenicity_dataset_v4.csv not present (gitignored); QC gate skipped in CI."
+            echo "FAIL: data/immunogenicity_dataset_v5.csv is tracked but not present in this checkout; the QC gate cannot run."
+            exit 1
           fi
 
       - name: Run Benchmark Evaluation (contamination comparison skipped in CI)
