@@ -259,3 +259,84 @@ def test_stratum_dominance_silent_when_evenly_spread():
     dom = _stratum_dominance(strata, total_pairs=500)
     assert dom["dominance_warning"] is False
     assert dom["top_allele_pair_share"] == pytest.approx(0.2)
+
+
+# ---------------------------------------------------------------------------
+# Section 3 of the generated report must be DERIVED from the run. It was once
+# hardcoded, so the report asserted "Statistical Power Restored ... completely
+# surpassing" and "Directly resolves" the confound on every run - including runs
+# whose own adjudication fell through to the neither-hypothesis branch, which is
+# what the shipped cohort actually produces. These pin the derivation.
+# ---------------------------------------------------------------------------
+
+
+def _report_for(adjudication: str) -> str:
+    from scripts.evaluate_allele_stratified import _generate_markdown_report
+
+    def partition(pairs, model_c, raw_c):
+        return {
+            "n_samples": 442,
+            "n_pos": 221,
+            "n_neg": 221,
+            "total_same_allele_pairs": pairs,
+            "unstratified_model_auc": 0.3787,
+            "model_mh_concordance": model_c,
+            "model_mh_ci": (0.4181, 0.6759),
+            "raw_mh_concordance": raw_c,
+            "raw_mh_ci": (0.5783, 0.7923),
+            "paired_delta_model_minus_raw": model_c - raw_c,
+            "paired_delta_ci": (-0.2687, -0.0089),
+            "paired_delta_excludes_zero": True,
+            "strata_detail": [
+                {"allele": "HLA-A*02:01", "n_pos": 17, "n_neg": 98,
+                 "pairs": 1666, "concordance": 0.5744},
+            ],
+            "stratum_dominance": {
+                "dominance_warning": False,
+                "top_allele": "HLA-A*02:01",
+                "top_allele_pairs": 1666,
+                "top_allele_pair_share": 0.87,
+                "n_strata_contributing": 17,
+            },
+        }
+
+    res = {
+        "adjudication": adjudication,
+        "verdict_summary": "summary",
+        "dataset": "fixture.csv",
+        "bootstrap_resamples": 1000,
+        "bootstrap_seed": 42,
+        "partitions": {
+            "all_same_allele": partition(2621, 0.5616, 0.6608),
+            "human_hla_only": partition(1916, 0.5475, 0.6863),
+        },
+    }
+    return _generate_markdown_report(res)
+
+
+def test_section_three_never_claims_statistical_power():
+    """Pair counts are a product of n_pos and n_neg, not a sample size."""
+    for adjudication in (
+        "HYPOTHESIS_1_SUPPORTED",
+        "HYPOTHESIS_2_SUPPORTED",
+        "NEITHER_HYPOTHESIS_MATCHED",
+    ):
+        report = _report_for(adjudication)
+        assert "Statistical Power Restored" not in report
+        assert "completely surpassing" not in report
+        assert "not a sample size" in report
+
+
+def test_a_fallthrough_adjudication_does_not_claim_the_confound_is_resolved():
+    report = _report_for("NEITHER_HYPOTHESIS_MATCHED")
+    assert "Confound NOT resolved" in report
+    assert "fallthrough, not a" in report
+    assert "Directly resolves" not in report
+
+
+def test_a_matched_hypothesis_does_report_a_resolution():
+    for adjudication in ("HYPOTHESIS_1_SUPPORTED", "HYPOTHESIS_2_SUPPORTED"):
+        report = _report_for(adjudication)
+        assert "Confound resolution" in report
+        assert "Confound NOT resolved" not in report
+        assert adjudication in report
