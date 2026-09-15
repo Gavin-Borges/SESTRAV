@@ -47,6 +47,7 @@ Enforced by `scripts/data_qc_gate.py` against the single file named by `--datase
 | Null allele fraction | `<= max_null_allele_fraction` | Fails closed when no allele column resolves, since an unmeasurable fraction is not a passing one |
 | Class ratio | within `class_ratio_bounds` | Corpus-specific; derived below |
 | Peptide yield | `>= min_peptide_yield` (500) | Guards against a build that filtered away its own corpus |
+| Per-stream row counts | hard equality against `dataset_governance.provenance.source_counts` | Enforced by `tools/check_dataset_provenance.py`, not by the QC gate. Catches the composition failures a ratio cannot see |
 
 ### Derivation of `class_ratio_bounds` for the v5 corpus
 
@@ -107,11 +108,16 @@ entirely quarantined, and every perturbation of either decoy stream up to 2x mov
 full-file ratio by at most 13%, landing inside the window. It also does not catch a
 regression in the dedup key, nor selection of the wrong IEDB input file - `data/` carries
 both `iedb_negatives_v5.csv` (32,506 rows) and `iedb_negatives_v5_merged.csv` (36,689), and
-substituting one for the other moves the ratio only 0.2051 to 0.2180. Those failures need
-per-stream row-count assertions over the fields already recorded in
-`data/immunogenicity_dataset_v5_provenance.json` (`v4_positives`, `v4_hard_decoys`,
-`published_panels`, `iedb_negatives`, `dedup_dropped`), which is a separate and currently
-unbuilt check.
+substituting one for the other moves the ratio only 0.2051 to 0.2180.
+
+**Those failures are caught by a separate instrument, `tools/check_dataset_provenance.py`.**
+It asserts per-stream row counts by hard equality against the fields
+`data/immunogenicity_dataset_v5_provenance.json` already records, pinned in
+`config.yaml` under `dataset_governance.provenance.source_counts`. It also checks the
+sidecar's internal arithmetic, that the sidecar describes the shipped file by row count and
+digest, and that its digest agrees with the checksum `freeze_mode` enforces. Read the two
+gates together: the class ratio governs SHAPE and this one governs COMPOSITION, and neither
+sees what the other does.
 
 **Scope.** The bound governs the dataset file as a whole. `scripts/data_qc_gate.py` has no
 concept of `is_quarantined`, `virus` or any sub-population, takes a single `--dataset` path,

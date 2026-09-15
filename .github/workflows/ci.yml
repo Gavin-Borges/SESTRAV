@@ -46,6 +46,18 @@ jobs:
         # tools/update_dependencies.py.
         run: python tools/check_hash_pins.py
 
+      - name: Verify the corpus provenance sidecar
+        # Companion to the dataset QC gate, which governs the corpus with a class
+        # RATIO and is therefore structurally blind to a family of build failures: a
+        # ratio cannot see a change that moves numerator and denominator together,
+        # and it cannot see a stream that is entirely quarantined. Measured for v5,
+        # every perturbation of either decoy stream up to 2x lands inside the derived
+        # bound. This asserts per-stream row counts by hard equality instead. Placed
+        # in this job rather than beside the QC gate because it needs only the tracked
+        # sidecar, the tracked corpus and config.yaml, all present after checkout.
+        # See docs/data_qc_criteria.md, "What this bound does NOT catch".
+        run: python tools/check_dataset_provenance.py --check
+
       - name: Install Ruff
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
         #   pip-compile --generate-hashes environments/requirements-ci-ruff.in \
