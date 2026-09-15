@@ -144,3 +144,28 @@ def test_load_torch_normalizes_numpy_internal_rename(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="Failed to load torch model") as excinfo:
         registry.load("model.pt")
     assert isinstance(excinfo.value.__cause__, AttributeError)
+
+
+def test_validate_signature_lets_an_unexpected_error_propagate(tmp_path, monkeypatch):
+    """A bug must surface, not be reported as an invalid signature.
+
+    validate_signature's contract is that a VERIFICATION failure returns False.
+    Under the previous bare `except Exception` any error at all became False, so
+    a coding error in the load path was indistinguishable from a tampered or
+    corrupt artifact: both produced a quiet "invalid model" with no traceback.
+
+    The narrowed tuple keeps every genuine artifact-failure mode returning False
+    (the tests above pin those) while letting anything outside it propagate.
+    RecursionError stands in for "a class of failure nobody anticipated"; it is
+    not in the tuple and is not a subclass of anything in it.
+    """
+    model_path = tmp_path / "model.joblib"
+    joblib.dump(_FakeEstimator(30), model_path)
+
+    def _boom(*_args, **_kwargs):
+        raise RecursionError("unanticipated failure inside the load path")
+
+    monkeypatch.setattr("src.core.model_registry.load_verified_joblib", _boom)
+
+    with pytest.raises(RecursionError):
+        _registry(tmp_path).validate_signature(model_path, expected_features=30)

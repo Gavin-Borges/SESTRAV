@@ -128,11 +128,32 @@ dataset_governance:
     source_databases: ["IEDB", "VDJdb", "self_proteome_decoys"]
     negative_sampling_strategy: "high-binding_decoy_proteome"
     checksum: "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4"
+    # Per-stream row counts, pinned by hard equality against
+    # data/immunogenicity_dataset_v5_provenance.json and enforced by
+    # tools/check_dataset_provenance.py. These exist because the class-ratio gate
+    # is structurally blind to a whole family of build failures: see
+    # docs/data_qc_criteria.md, "What this bound does NOT catch".
+    #
+    # v4_other_negatives (3012 in the sidecar) is deliberately NOT pinned here.
+    # scripts/build_dataset_v5.py counts it into provenance but never appends it
+    # to `parts`, so it does not reach the corpus and a change in it would fail
+    # this gate without any shipped row having moved.
+    source_counts:
+      v4_positives: 6687
+      published_panels: 9206
+      v4_hard_decoys: 5000
+      iedb_negatives: 36689
+      dedup_dropped: 6397
+      merged_total: 51185
+      label_conflicts: 1331
+      panel_iedb_conflicts: 475
   qc_thresholds:
     min_peptide_yield: 500
     max_conflict_ratio: 0.15
     max_null_allele_fraction: 1.00
-    class_ratio_bounds: [1.5, 4.0]
+    # Derived for the v5 corpus; see docs/data_qc_criteria.md, Dataset Governance.
+    # v5 is deliberately negative-dominated at about 1 positive per 5 negatives.
+    class_ratio_bounds: [0.18, 0.29]
   require_checksum_match_in_freeze_mode: true
 
 # Interpretation metadata for summary artifact naming
