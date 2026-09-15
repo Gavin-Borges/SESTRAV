@@ -187,13 +187,23 @@ jobs:
           --cov-report=term-missing --cov-report=xml
 
       - name: Run Dataset Curation QC Gate
-        # Dataset is gitignored (researcher-local artefact); skip in CI when absent.
-        # Run locally before every push: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv
+        # Points at the TRACKED v5 corpus, which is present in every checkout, so
+        # this gate actually executes. It guarded data/immunogenicity_dataset_v4.csv
+        # until 2026-09-13; that file has never been tracked, so the else branch ran
+        # on every CI run since the step was added and the gate had never once
+        # executed. Verified in run 34789977419 on main, which logs
+        # "QC gate skipped in CI." while the real corpus sat beside it, tracked.
+        # The guard is kept but now FAILS CLOSED. The corpus is tracked, so the
+        # else branch should be unreachable; if it is ever reached the corpus has
+        # gone missing, which is itself worth failing on. A silently-skipping
+        # guard is what hid this for the life of the step.
+        # Run locally before every push: python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v5.csv
         run: |
-          if [ -f data/immunogenicity_dataset_v4.csv ]; then
-            python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v4.csv --config config.yaml
+          if [ -f data/immunogenicity_dataset_v5.csv ]; then
+            python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v5.csv --config config.yaml
           else
-            echo "data/immunogenicity_dataset_v4.csv not present (gitignored); QC gate skipped in CI."
+            echo "FAIL: data/immunogenicity_dataset_v5.csv is tracked but not present in this checkout; the QC gate cannot run."
+            exit 1
           fi
 
       - name: Run Benchmark Evaluation (contamination comparison skipped in CI)
@@ -207,6 +217,21 @@ jobs:
         # Do not echo a fixed note here asserting the same thing - it would print
         # even on a runner where the corpus existed and the comparison had run.
         run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
+
+      - name: Verify the corpus provenance sidecar
+        # Companion to the QC gate above, which governs the corpus with a class RATIO
+        # and is therefore structurally blind to a family of build failures: a ratio
+        # cannot see a change that moves numerator and denominator together, and it
+        # cannot see a stream that is entirely quarantined. Measured for v5, every
+        # perturbation of either decoy stream up to 2x lands inside the derived bound.
+        # This asserts per-stream row counts by hard equality instead.
+        #
+        # In THIS job rather than `lint`, deliberately: it reads config.yaml and so
+        # needs PyYAML, while the lint job pins only ruff and mypy and its other
+        # tools/check_* scripts are stdlib-only by design. Placed clear of the QC-gate
+        # step so it does not collide with edits to that block.
+        # See docs/data_qc_criteria.md, "What this bound does NOT catch".
+        run: python tools/check_dataset_provenance.py --check
 
       - name: Validate Snakemake pipeline wiring (DAG dry-run)
         # Runs UNCONDITIONALLY against a committed synthetic fixture so a renamed

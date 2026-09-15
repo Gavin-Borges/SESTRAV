@@ -28,11 +28,60 @@ updates:
       - dependency-name: "mhcflurry"
       - dependency-name: "shap"
       # Pinned transitive of the frozen xgboost==3.2.0, not a direct dep:
-      # requirements.in:56 carries it only so `--require-hashes` can resolve on
-      # the Linux CI runners. Bumping it independently of xgboost moves part of
+      # requirements.in carries the `nvidia-nccl-cu12==2.30.7; platform_system ==
+      # "Linux"` pin only so `--require-hashes` can resolve on the Linux CI
+      # runners. Bumping it independently of xgboost moves part of
       # the CUDA stack out from under a package this list already freezes, so it
       # belongs here with its parent. Bump it WITH xgboost, never on its own.
       - dependency-name: "nvidia-nccl-cu12"
+      # Transitives of the frozen scientific core above, reached THROUGH a frozen
+      # parent instead of declared in requirements.in, which is how they evade the
+      # freeze while still changing what the pipeline produces. Same evasion the
+      # platformdirs/pyzmq entries below record for the render closure, one tier
+      # in: each is pinned only in the compiled requirements.txt and carries a
+      # "# via <frozen parent>" annotation, with no .in line for a reviewer to
+      # catch. Line numbers are deliberately omitted - compiled lockfile lines
+      # move on every recompile.
+      #
+      # mhcgnomes is the HLA nomenclature parser, sole parent mhcflurry. Four
+      # ingest scripts (ingest_iedb_negatives, download_lanl_hcv, ingest_lanl_hiv,
+      # ingest_published_panels) DROP every row whose allele it refuses, so a bump
+      # changes the corpus row set, not merely a spelling. test_download_lanl_hcv
+      # already carries an assertion written against that exact hazard. It rode in
+      # unnoticed once in 470334e (3.33.4 to 3.41.0, inside the weekly group)
+      # before PR #472 proposed 3.41.0 to 3.64.2, a 23-minor jump. Note
+      # pyproject.toml declares it >=3.33.0 in the dev and scripts extras - a
+      # floor with no ceiling, so that declaration does not restrain it. Bump it
+      # WITH mhcflurry: recompile, re-run the ingest scripts, and diff the
+      # surviving row counts before accepting the corpus that falls out.
+      - dependency-name: "mhcgnomes"
+      # numba, llvmlite and slicer are shap's own closure. Measured from the
+      # compiled "# via" annotations: numba and slicer name shap as their sole
+      # parent; llvmlite names both numba and shap. numba and llvmlite are a JIT
+      # compiler pair, so bumping either recompiles kernels beneath
+      # src/shap_analysis.py; slicer is the container type shap Explanation
+      # objects are built on, so it governs how those objects serialise. Bump them
+      # WITH shap, then regenerate the SHAP figures and compare VALUES, not merely
+      # that the run completed. Scope limit, stated because it was checked: no
+      # tracked source imports these three directly, and whether TreeExplainer's
+      # numeric path is numba-compiled in the pinned shap is UNMEASURED. They are
+      # listed on compiler-toolchain grounds, which is precaution, not evidence.
+      - dependency-name: "numba"
+      - dependency-name: "llvmlite"
+      - dependency-name: "slicer"
+      # cuda-bindings is annotated "# via torch" in the compiled requirements,
+      # so it is a transitive of the frozen torch and falls under the same
+      # argument as nvidia-nccl-cu12 above: bump it WITH torch, not on its own.
+      # Deliberately NOT adding entries for the rest of the CUDA stack
+      # (nvidia-cudnn-cu13, nvidia-cusparselt-cu13, nvidia-nccl-cu13,
+      # nvidia-nvshmem-cu13, cuda-toolkit, triton). Those are reported upstream as
+      # exact-pinned by torch and therefore immobile while torch is frozen, which
+      # would make entries dead weight - but that reading comes from torch's
+      # published metadata and could NOT be reproduced locally, because the
+      # installed wheel is a +cu130 variant whose metadata omits them. Treat it as
+      # UNMEASURED here: if one of those ever appears in a Dependabot PR, the
+      # premise was wrong and it needs its own entry.
+      - dependency-name: "cuda-bindings"
       # Direct deps of the hand-maintained, single-platform hash closure
       # environments/requirements-ci-render.txt. Dependabot cannot regenerate
       # its platform-specific wheel hashes, so it corrupts the file; these are
@@ -90,11 +139,60 @@ updates:
       - dependency-name: "mhcflurry"
       - dependency-name: "shap"
       # Pinned transitive of the frozen xgboost==3.2.0, not a direct dep:
-      # requirements.in:56 carries it only so `--require-hashes` can resolve on
-      # the Linux CI runners. Bumping it independently of xgboost moves part of
+      # requirements.in carries the `nvidia-nccl-cu12==2.30.7; platform_system ==
+      # "Linux"` pin only so `--require-hashes` can resolve on the Linux CI
+      # runners. Bumping it independently of xgboost moves part of
       # the CUDA stack out from under a package this list already freezes, so it
       # belongs here with its parent. Bump it WITH xgboost, never on its own.
       - dependency-name: "nvidia-nccl-cu12"
+      # Transitives of the frozen scientific core above, reached THROUGH a frozen
+      # parent instead of declared in requirements.in, which is how they evade the
+      # freeze while still changing what the pipeline produces. Same evasion the
+      # platformdirs/pyzmq entries below record for the render closure, one tier
+      # in: each is pinned only in the compiled requirements.txt and carries a
+      # "# via <frozen parent>" annotation, with no .in line for a reviewer to
+      # catch. Line numbers are deliberately omitted - compiled lockfile lines
+      # move on every recompile.
+      #
+      # mhcgnomes is the HLA nomenclature parser, sole parent mhcflurry. Four
+      # ingest scripts (ingest_iedb_negatives, download_lanl_hcv, ingest_lanl_hiv,
+      # ingest_published_panels) DROP every row whose allele it refuses, so a bump
+      # changes the corpus row set, not merely a spelling. test_download_lanl_hcv
+      # already carries an assertion written against that exact hazard. It rode in
+      # unnoticed once in 470334e (3.33.4 to 3.41.0, inside the weekly group)
+      # before PR #472 proposed 3.41.0 to 3.64.2, a 23-minor jump. Note
+      # pyproject.toml declares it >=3.33.0 in the dev and scripts extras - a
+      # floor with no ceiling, so that declaration does not restrain it. Bump it
+      # WITH mhcflurry: recompile, re-run the ingest scripts, and diff the
+      # surviving row counts before accepting the corpus that falls out.
+      - dependency-name: "mhcgnomes"
+      # numba, llvmlite and slicer are shap's own closure. Measured from the
+      # compiled "# via" annotations: numba and slicer name shap as their sole
+      # parent; llvmlite names both numba and shap. numba and llvmlite are a JIT
+      # compiler pair, so bumping either recompiles kernels beneath
+      # src/shap_analysis.py; slicer is the container type shap Explanation
+      # objects are built on, so it governs how those objects serialise. Bump them
+      # WITH shap, then regenerate the SHAP figures and compare VALUES, not merely
+      # that the run completed. Scope limit, stated because it was checked: no
+      # tracked source imports these three directly, and whether TreeExplainer's
+      # numeric path is numba-compiled in the pinned shap is UNMEASURED. They are
+      # listed on compiler-toolchain grounds, which is precaution, not evidence.
+      - dependency-name: "numba"
+      - dependency-name: "llvmlite"
+      - dependency-name: "slicer"
+      # cuda-bindings is annotated "# via torch" in the compiled requirements,
+      # so it is a transitive of the frozen torch and falls under the same
+      # argument as nvidia-nccl-cu12 above: bump it WITH torch, not on its own.
+      # Deliberately NOT adding entries for the rest of the CUDA stack
+      # (nvidia-cudnn-cu13, nvidia-cusparselt-cu13, nvidia-nccl-cu13,
+      # nvidia-nvshmem-cu13, cuda-toolkit, triton). Those are reported upstream as
+      # exact-pinned by torch and therefore immobile while torch is frozen, which
+      # would make entries dead weight - but that reading comes from torch's
+      # published metadata and could NOT be reproduced locally, because the
+      # installed wheel is a +cu130 variant whose metadata omits them. Treat it as
+      # UNMEASURED here: if one of those ever appears in a Dependabot PR, the
+      # premise was wrong and it needs its own entry.
+      - dependency-name: "cuda-bindings"
       # Direct deps of the hand-maintained, single-platform hash closure
       # environments/requirements-ci-render.txt. Dependabot cannot regenerate
       # its platform-specific wheel hashes, so it corrupts the file; these are
