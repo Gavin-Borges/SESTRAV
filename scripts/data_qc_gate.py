@@ -7,7 +7,9 @@ Checks datasets for strict adherence to biological and dataset governance polici
 2. Canonical Amino Acids: Peptide sequences must consist of the 20 standard residues.
 3. Peptide Lengths: Peptide lengths must be strictly within the 8-11mer range.
 4. Duplicate Label Conflicts: Groups by peptide (+ allele if present) to ensure conflict ratio is <= 15%.
-5. Null Allele Fraction: Checks that the fraction of missing allele data is <= 50%.
+5. Null Allele Fraction: Checks that the fraction of missing allele data is within
+   dataset_governance.qc_thresholds.max_null_allele_fraction. Fails closed when no
+   allele column can be resolved, since an unmeasurable fraction is not a passing one.
 6. Class Ratio Governance: Checks that Positive:Negative ratio is within [1.5, 4.0].
 7. Minimum Yield: Post-curation unique peptide count must be >= min_peptide_yield (default 500).
 
@@ -35,6 +37,24 @@ logging.basicConfig(
 logger = logging.getLogger("data_qc_gate")
 
 STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
+
+# Canonical allele column names, most specific first. "hla_allele" is the
+# repo-wide convention (scripts/_dataset_utils.py, scripts/check_panel_duplicates.py,
+# scripts/build_dataset_v5.py); this gate previously recognised only a bare
+# "allele", which no shipped corpus uses, so the null-allele check had never
+# measured anything on a real dataset.
+ALLELE_COL_PRIORITY = ("hla_allele", "allele", "mhc_allele")
+
+# Values that mean "no allele recorded" but are not NaN. Builders write string
+# sentinels rather than nulls, so an isna() count alone under-reports.
+NULL_ALLELE_TOKENS = {"", "nan", "none", "null", "na", "n/a", "unknown", "-"}
+
+
+def _is_null_allele(value) -> bool:
+    """True when an allele cell carries no usable allele, NaN or sentinel."""
+    if pd.isna(value):
+        return True
+    return str(value).strip().lower() in NULL_ALLELE_TOKENS
 
 
 def load_config(config_path: str) -> dict:
@@ -134,6 +154,14 @@ def check_dataset_qc(
         elif cl == "allele" or "mhc present" in cl:
             col_map.setdefault("allele", col)
 
+    # An exact canonical name wins over whatever column order happened to reach
+    # setdefault() first above. The "mhc present" heuristic stays as a fallback.
+    lower_to_orig = {str(c).lower().strip(): c for c in df.columns}
+    for _canonical in ALLELE_COL_PRIORITY:
+        if _canonical in lower_to_orig:
+            col_map["allele"] = lower_to_orig[_canonical]
+            break
+
     if "peptide" not in col_map or "label" not in col_map:
         logger.error(
             f"Required columns (Peptide and Label/Qualitative Measure) not found. Columns: {list(df.columns)}"
@@ -218,7 +246,16 @@ def check_dataset_qc(
     # 4. Duplicate conflicts check
     # We check duplicate conflicts on the cleaned dataset.
     # Group by peptide (+ allele if present) and count unique labels
-    group_cols = ["peptide", "allele"] if "allele" in df_clean.columns else ["peptide"]
+    # Normalise the allele into an explicit key: pandas groupby drops NaN keys by
+    # default, which would silently exclude every null-allele row from the
+    # conflict check entirely.
+    if "allele" in df_clean.columns:
+        df_clean["_allele_key"] = df_clean["allele"].map(
+            lambda v: "<MISSING>" if _is_null_allele(v) else str(v).strip()
+        )
+        group_cols = ["peptide", "_allele_key"]
+    else:
+        group_cols = ["peptide"]
     label_counts = df_clean.groupby(group_cols)["label"].nunique()
     conflicting_mask = label_counts > 1
 
@@ -237,11 +274,11 @@ def check_dataset_qc(
     if conflicting_groups > 0:
         # Get the keys of conflicting groups
         conflicting_keys = label_counts[conflicting_mask].index
-        if "allele" in df_clean.columns:
+        if "_allele_key" in df_clean.columns:
             conflict_set = set(conflicting_keys)
 
             def is_conflict(r):
-                return (r["peptide"], r["allele"]) in conflict_set
+                return (r["peptide"], r["_allele_key"]) in conflict_set
         else:
             conflict_set = set(conflicting_keys)
 
@@ -255,14 +292,25 @@ def check_dataset_qc(
             df_clean = df_clean.drop(index=idx)
 
     # 5. Null allele fraction check
+    if "_allele_key" in df_clean.columns:
+        df_clean = df_clean.drop(columns=["_allele_key"])
     total_records = len(df_clean)
-    if "allele" in df_clean.columns:
-        null_allele_count = df_clean["allele"].isna().sum()
+    allele_column_resolved = "allele" in df_clean.columns
+    if allele_column_resolved:
+        nan_only_count = int(df_clean["allele"].isna().sum())
+        null_allele_count = int(df_clean["allele"].map(_is_null_allele).sum())
+        logger.info(
+            f"Null allele rows: {null_allele_count} "
+            f"(NaN-only would report {nan_only_count})"
+        )
         null_allele_fraction = null_allele_count / total_records if total_records > 0 else 1.0
     else:
         null_allele_count = total_records
         null_allele_fraction = 1.0
-        logger.warning("No 'allele' column present in clean dataset. Null allele fraction is 100%.")
+        logger.error(
+            f"No allele column resolved (looked for {ALLELE_COL_PRIORITY}). "
+            "The null-allele fraction is UNMEASURABLE, not 0; this check fails closed."
+        )
 
     logger.info(
         f"Null Allele Fraction: {null_allele_fraction:.4f} (Max threshold: {cfg['max_null_allele_fraction']})"
@@ -293,7 +341,9 @@ def check_dataset_qc(
     checks = {
         "length_and_composition_valid": len(indices_to_drop) == 0,
         "conflict_ratio_passed": conflict_ratio <= cfg["max_conflict_ratio"],
-        "null_allele_fraction_passed": null_allele_fraction <= cfg["max_null_allele_fraction"],
+        "allele_column_resolved": allele_column_resolved,
+        "null_allele_fraction_passed": allele_column_resolved
+        and null_allele_fraction <= cfg["max_null_allele_fraction"],
         "class_ratio_passed": cfg["class_ratio_bounds"][0]
         <= class_ratio
         <= cfg["class_ratio_bounds"][1],
