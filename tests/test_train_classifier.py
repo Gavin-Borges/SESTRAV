@@ -2,6 +2,8 @@
 Unit tests for parent protein mapping and LOPO (Leave-One-Protein-Out) cross validation.
 """
 
+import ast
+import pathlib
 import sys
 import os
 import json
@@ -826,3 +828,91 @@ def test_filter_quarantined_handles_nan():
     # True row dropped; False and NaN rows kept
     assert len(result) == 2
     assert True not in result["is_quarantined"].tolist()
+
+
+# ---------------------------------------------------------------------------
+# Every advertised --feature-mode must reach a real dispatch branch.
+#
+# Added 2026-09-13. Mode 51 was fully implemented on 2026-07-01 by fb10bd4 -
+# FEATURE_COLUMNS_51, prepare_features_51, an `elif feature_mode == 51:` branch
+# and eight tests - but that commit never added "51" to the argparse `choices`
+# list, so `--feature-mode 51` exited 2 before anything ran. Its own message
+# says "prepare_features_51() wired into train_classifier", so the author
+# believed it was reachable. It was unreachable from the CLI for ten weeks.
+#
+# The converse failure is worse and is what makes this a gate rather than a
+# one-line fix: the dispatch chain in train_models ends in a bare `else` that
+# falls through to the 21-feature sequence-only path. A mode advertised in
+# `choices` but missing from the chain would NOT raise - it would silently
+# train mode 21 and label the run with the wrong feature set.
+#
+# Static check only: it reads the source, runs no training and needs no data.
+# ---------------------------------------------------------------------------
+
+_ELSE_FALLTHROUGH_MODE = "21"  # handled by the terminal `else`, not an `==` branch
+
+
+def _advertised_feature_modes() -> list[str]:
+    """The `choices` list on train_classifier.py's --feature-mode argument."""
+    source = pathlib.Path(__file__).resolve().parent.parent / "src" / "train_classifier.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        if name != "add_argument":
+            continue
+        if not any(
+            isinstance(a, ast.Constant) and a.value == "--feature-mode" for a in node.args
+        ):
+            continue
+        for kw in node.keywords:
+            if kw.arg == "choices" and isinstance(kw.value, (ast.List, ast.Tuple)):
+                return [
+                    e.value
+                    for e in kw.value.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)
+                ]
+    raise AssertionError("could not locate the --feature-mode choices list")
+
+
+def _dispatched_feature_modes() -> set[str]:
+    """Modes with an explicit `feature_mode == <x>` comparison in the source."""
+    source = pathlib.Path(__file__).resolve().parent.parent / "src" / "train_classifier.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare) or not isinstance(node.left, ast.Name):
+            continue
+        if node.left.id != "feature_mode":
+            continue
+        for comparator in node.comparators:
+            if isinstance(comparator, ast.Constant):
+                found.add(str(comparator.value))
+    return found
+
+
+def test_every_advertised_feature_mode_has_a_dispatch_branch():
+    advertised = _advertised_feature_modes()
+    dispatched = _dispatched_feature_modes()
+    missing = [
+        mode
+        for mode in advertised
+        if mode != _ELSE_FALLTHROUGH_MODE and mode not in dispatched
+    ]
+    assert not missing, (
+        "--feature-mode advertises these in `choices` with no `feature_mode == <x>` "
+        "dispatch branch, so selecting one silently falls through to the "
+        f"{_ELSE_FALLTHROUGH_MODE}-feature path instead of raising: {missing}"
+    )
+
+
+def test_mode_51_is_selectable_and_the_scan_is_not_vacuous():
+    # Anti-vacuity guard plus the specific regression. If the choices parser ever
+    # stopped finding the list it would return [] and the test above would pass
+    # while checking nothing, which is exactly how mode 51 stayed broken.
+    advertised = _advertised_feature_modes()
+    assert len(advertised) >= 8, f"choices parse looks vacuous: {advertised}"
+    assert "51" in advertised, "mode 51 is implemented and tested but not CLI-selectable"
+    assert "51" in _dispatched_feature_modes()
