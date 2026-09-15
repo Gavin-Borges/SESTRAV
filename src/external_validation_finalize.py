@@ -650,7 +650,19 @@ def run_finalize(
                 "models/peptide_binding_matrix_v4.csv",
                 os.path.join(results_dir, "external_validation_cross_virus.csv"),
             )
-        except Exception as exc:
+        except (
+            # The cross-virus step is optional and best-effort, so an ABSENT or
+            # unusable input must not fail the finalize run. A coding error must,
+            # though: under a bare `except Exception` an AttributeError typo in
+            # run_cross_virus presented identically to "the optional step did not
+            # run" - one stderr line, the artifact silently missing, and finalize
+            # still returning success. AttributeError and TypeError are therefore
+            # deliberately NOT caught here.
+            ImportError,  # src.external_validation_cross_virus unavailable
+            OSError,  # missing or unreadable corpus / binding matrix
+            KeyError,  # expected column absent from the input frame
+            ValueError,  # sklearn refusing a degenerate fit, bad dtype
+        ) as exc:
             print(f"[finalize] cross-virus skipped: {exc}", file=sys.stderr)
 
     virus_df = per_virus_metrics(merged.loc[inter], tool_cols)
