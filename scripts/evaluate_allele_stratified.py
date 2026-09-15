@@ -491,7 +491,12 @@ def run_stratified_evaluation(
             "Stratified model concordance remains below chance (<0.50) while raw presentation score remains above chance."
         )
     else:
-        adjudication = "EMPIRICAL_DISCRIMINATION"
+        # Neither pre-registered branch matched. This is a FALLTHROUGH, not a
+        # finding, and the label must not read as one: the old value,
+        # EMPIRICAL_DISCRIMINATION, was rendered under a "Pre-Registered
+        # Verdict" heading and read as "the model empirically discriminates",
+        # the opposite of what reaching this branch means.
+        adjudication = "NEITHER_HYPOTHESIS_MATCHED"
         verdict_text = (
             f"Within-allele model concordance is {model_c:.4f} [95% CI {human_eval['model_mh_ci'][0]:.4f}, {human_eval['model_mh_ci'][1]:.4f}] "
             f"vs raw presentation concordance {raw_c:.4f} [95% CI {human_eval['raw_mh_ci'][0]:.4f}, {human_eval['raw_mh_ci'][1]:.4f}]."
@@ -598,14 +603,39 @@ def _generate_markdown_report(res: dict[str, Any]) -> str:
         c_str = f"{s['concordance']:.4f}" if not np.isnan(s["concordance"]) else "N/A (single-class)"
         lines.append(f"| `{s['allele']}` | {s['n_pos']} | {s['n_neg']} | {s['pairs']:,} | {c_str} |")
 
+    # Section 3 is DERIVED from the run, never asserted. Every line below was once a
+    # hardcoded string emitted regardless of the numbers, so the report claimed the
+    # confound was resolved even on runs whose own adjudication fell through to the
+    # neither-hypothesis branch - which is what the shipped cohort actually does.
+    adjudication = res.get("adjudication", "")
+    same_allele_pairs = res["partitions"]["all_same_allele"]["total_same_allele_pairs"]
+
+    if adjudication == "HYPOTHESIS_1_SUPPORTED":
+        resolution = (
+            "- **Confound resolution**: this run adjudicated HYPOTHESIS_1_SUPPORTED, so the "
+            "below-chance pooled AUC is attributed to between-allele composition."
+        )
+    elif adjudication == "HYPOTHESIS_2_SUPPORTED":
+        resolution = (
+            "- **Confound resolution**: this run adjudicated HYPOTHESIS_2_SUPPORTED, so the "
+            "below-chance pooled AUC is NOT explained by composition alone."
+        )
+    else:
+        resolution = (
+            "- **Confound NOT resolved**: neither pre-registered hypothesis matched, so this "
+            "run adjudicated NEITHER_HYPOTHESIS_MATCHED. That is a fallthrough, not a "
+            "finding. Read the concordances and their intervals in section 2 directly."
+        )
+
     lines.extend(
         [
             "",
             "## 3. Scientific Adjudication",
             "",
-            "- **Statistical Power Restored**: Expanded same-allele pairs from baseline 308 to "
-            f"**{res['partitions']['all_same_allele']['total_same_allele_pairs']:,}** pairs, completely surpassing the >= 1,000 threshold.",
-            "- **Confound Resolution**: Directly resolves whether the below-chance pooled AUC (0.3787) is an in-vivo inversion or an artifact of cross-allele Simpson compounding.",
+            f"- **Same-allele pair count**: {same_allele_pairs:,}. Pairs are a PRODUCT "
+            "(n_pos * n_neg within each stratum), not independent observations, so this "
+            "count is not a sample size and must not be read as statistical power.",
+            resolution,
             "",
         ]
     )
