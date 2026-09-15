@@ -31,6 +31,8 @@ rule generate_peptides:
         lengths = config["peptide_lengths"]
     log:
         "logs/generate_peptides/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/generate_peptides/{proteome_id}.tsv"
     conda:
         "environment.yml"
     script:
@@ -46,6 +48,8 @@ rule predict_binding:
         alleles = config["alleles"]
     log:
         "logs/predict_binding/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/predict_binding/{proteome_id}.tsv"
     conda:
         "environment.yml"
     script:
@@ -59,6 +63,8 @@ rule extract_features:
         "results/{proteome_id}_features.csv"
     log:
         "logs/extract_features/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/extract_features/{proteome_id}.tsv"
     conda:
         "environment.yml"
     script:
@@ -77,6 +83,8 @@ rule score_immunogenicity:
         freeze_mode = config.get("freeze_mode", False)
     log:
         "logs/score_immunogenicity/{proteome_id}.log"
+    benchmark:
+        "results/benchmarks/score_immunogenicity/{proteome_id}.tsv"
     conda:
         "environment.yml"
     script:
@@ -93,6 +101,8 @@ rule generate_hard_decoys:
         num_decoys = config.get("num_decoys", 10000)
     log:
         "logs/generate_hard_decoys.log"
+    benchmark:
+        "results/benchmarks/generate_hard_decoys.tsv"
     conda:
         "environment.yml"
     shell:
@@ -106,6 +116,8 @@ rule qc_dataset:
         "results/qc/dataset_qc.json"
     log:
         "logs/qc_dataset.log"
+    benchmark:
+        "results/benchmarks/qc_dataset.tsv"
     conda:
         "environment.yml"
     shell:
@@ -123,6 +135,8 @@ rule train_ann:
         feature_mode = config.get("feature_mode", 31)
     log:
         "logs/train_ann.log"
+    benchmark:
+        "results/benchmarks/train_ann.tsv"
     conda:
         "environment.yml"
     shell:
@@ -147,6 +161,8 @@ rule train_gnn:
         feature_mode = config.get("feature_mode", 31)
     log:
         "logs/train_gnn.log"
+    benchmark:
+        "results/benchmarks/train_gnn.tsv"
     conda:
         "environment.yml"
     shell:
@@ -185,6 +201,8 @@ rule full_validation_report:
         freeze_flag = "--freeze-mode" if config.get("freeze_mode", False) else ""
     log:
         "logs/full_validation_report.log"
+    benchmark:
+        "results/benchmarks/full_validation_report.tsv"
     conda:
         "environment.yml"
     shell:
@@ -219,6 +237,8 @@ rule extract_verify_data:
         mock_flag = "--mock" if config.get("mock_ingestion", False) else ""
     log:
         "logs/extract_verify_data.log"
+    benchmark:
+        "results/benchmarks/extract_verify_data.tsv"
     conda:
         "environment.yml"
     shell:
@@ -240,6 +260,8 @@ rule evaluate_verify_gnn:
         mock_flag = "--mock" if config.get("mock_evaluation", False) else ""
     log:
         "logs/evaluate_verify_gnn.log"
+    benchmark:
+        "results/benchmarks/evaluate_verify_gnn.tsv"
     run:
         cmd = f"python src/verify/sestrav_evaluator.py {input.targets}"
         if params.checkpoint:
