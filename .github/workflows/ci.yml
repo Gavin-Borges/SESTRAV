@@ -46,18 +46,6 @@ jobs:
         # tools/update_dependencies.py.
         run: python tools/check_hash_pins.py
 
-      - name: Verify the corpus provenance sidecar
-        # Companion to the dataset QC gate, which governs the corpus with a class
-        # RATIO and is therefore structurally blind to a family of build failures: a
-        # ratio cannot see a change that moves numerator and denominator together,
-        # and it cannot see a stream that is entirely quarantined. Measured for v5,
-        # every perturbation of either decoy stream up to 2x lands inside the derived
-        # bound. This asserts per-stream row counts by hard equality instead. Placed
-        # in this job rather than beside the QC gate because it needs only the tracked
-        # sidecar, the tracked corpus and config.yaml, all present after checkout.
-        # See docs/data_qc_criteria.md, "What this bound does NOT catch".
-        run: python tools/check_dataset_provenance.py --check
-
       - name: Install Ruff
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
         #   pip-compile --generate-hashes environments/requirements-ci-ruff.in \
@@ -219,6 +207,21 @@ jobs:
         # Do not echo a fixed note here asserting the same thing - it would print
         # even on a runner where the corpus existed and the comparison had run.
         run: python scripts/benchmark_runner.py --tier A --run-id ci_dryrun --skip-freeze-check
+
+      - name: Verify the corpus provenance sidecar
+        # Companion to the QC gate above, which governs the corpus with a class RATIO
+        # and is therefore structurally blind to a family of build failures: a ratio
+        # cannot see a change that moves numerator and denominator together, and it
+        # cannot see a stream that is entirely quarantined. Measured for v5, every
+        # perturbation of either decoy stream up to 2x lands inside the derived bound.
+        # This asserts per-stream row counts by hard equality instead.
+        #
+        # In THIS job rather than `lint`, deliberately: it reads config.yaml and so
+        # needs PyYAML, while the lint job pins only ruff and mypy and its other
+        # tools/check_* scripts are stdlib-only by design. Placed clear of the QC-gate
+        # step so it does not collide with edits to that block.
+        # See docs/data_qc_criteria.md, "What this bound does NOT catch".
+        run: python tools/check_dataset_provenance.py --check
 
       - name: Validate Snakemake pipeline wiring (DAG dry-run)
         # Runs UNCONDITIONALLY against a committed synthetic fixture so a renamed
