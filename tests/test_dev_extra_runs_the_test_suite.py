@@ -213,6 +213,110 @@ def test_dev_extra_declares_every_module_scope_import_in_the_test_suite():
     )
 
 
+def _first_party_import_targets(path: pathlib.Path) -> set[str]:
+    """FULL dotted module names imported at module scope that are first-party.
+
+    `_module_scope_imports` deliberately keeps only the TOP-level name, because
+    that is what has to resolve to a distribution. Here the full path is what
+    matters: `from src.optimizer import ...` has to lead to `src/optimizer.py`,
+    and the top-level name alone (`src`) leads nowhere.
+
+    The same three guard forms are excluded as in `_module_scope_imports`, for
+    the same reason: none of them aborts collection.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    skipped = _importorskip_modules(tree)
+    out: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.Try, ast.If)):
+            continue
+        if isinstance(node, ast.Import):
+            candidates = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:  # relative import - always intra-repo
+                continue
+            candidates = [node.module] if node.module else []
+        else:
+            continue
+        for full in candidates:
+            top = full.split(".")[0]
+            if top in skipped:
+                continue
+            if _is_first_party(top, path):
+                out.add(full)
+    return out
+
+
+def _resolve_repo_module(dotted: str) -> pathlib.Path | None:
+    """A dotted first-party name -> the tracked file it imports, or None."""
+    parts = dotted.split(".")
+    for candidate in (
+        REPO_ROOT.joinpath(*parts).with_suffix(".py"),
+        REPO_ROOT.joinpath(*parts, "__init__.py"),
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def test_dev_extra_covers_imports_reached_through_a_first_party_module():
+    """One level deeper than the scan above, which is where three slipped through.
+
+    The companion test scans what `tests/` imports DIRECTLY. A test that imports
+    a first-party module is importing everything that module imports at module
+    scope, and `src`/`scripts` are first-party, so the direct scan classifies
+    `from src.optimizer import ...` as intra-repo and stops. `src/optimizer.py`
+    then does `import pulp` at module scope.
+
+    Measured 2026-09-13, before the companion fix: pulp (declared in no extra at
+    all), pyahocorasick and mhcgnomes (declared only in `scripts`, which a `dev`
+    install does not pull) were all reachable this way, and the direct scan was
+    green throughout. A collection error means ZERO tests run, so this is the
+    same severity as the failure the direct scan was written for.
+
+    Scope is deliberately ONE level. A full transitive closure would drag in the
+    whole import graph and start reporting optional research dependencies that
+    `dev` has never promised, which is the opposite of what this gate is for.
+    """
+    declared = _dev_environment_distributions()
+    missing = []
+    for path in _tracked_test_files():
+        for dotted in sorted(_first_party_import_targets(path)):
+            target = _resolve_repo_module(dotted)
+            if target is None:
+                continue
+            for name in sorted(_module_scope_imports(target)):
+                if _is_first_party(name, target):
+                    continue
+                dist = DIST_NAME_OVERRIDES.get(name.lower(), name)
+                if _normalize(dist) not in declared:
+                    relative = path.relative_to(REPO_ROOT).as_posix()
+                    missing.append(f"{relative} -> {dotted}: {name} (-> {dist})")
+    assert not missing, (
+        "third-party import(s) reached at module scope through a first-party module "
+        'that `pip install -e ".[dev]"` does not provide, so collection aborts '
+        "before any test runs:\n" + "\n".join(missing)
+    )
+
+
+def test_the_deeper_scan_actually_resolves_first_party_targets():
+    # Anti-vacuity guard for the test above, in the same spirit as the one below.
+    # If `_resolve_repo_module` stopped resolving anything - a path-shape change,
+    # a wrong cwd - the deeper scan would silently check NOTHING while staying
+    # green, which is the failure mode that let these three through in the first
+    # place.
+    resolved = 0
+    for path in _tracked_test_files():
+        for dotted in _first_party_import_targets(path):
+            if _resolve_repo_module(dotted) is not None:
+                resolved += 1
+    assert resolved >= MINIMUM_SCANNED_FILES, (
+        f"expected the deeper scan to resolve at least {MINIMUM_SCANNED_FILES} "
+        f"first-party import targets, resolved {resolved}; it is reaching nothing "
+        "and the test above is therefore vacuous"
+    )
+
+
 def test_the_scan_actually_reaches_the_test_suite():
     # Anti-vacuity guard. Every mechanism above can fail OPEN: `git ls-files` could
     # return nothing from an unexpected cwd, and a pathspec typo would silently scan

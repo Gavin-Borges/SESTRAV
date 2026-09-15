@@ -117,6 +117,21 @@ dev = [
     # deliberately, so the three extras cannot drift into a resolver conflict.
     "fastapi>=0.100.0",
     "pydantic>=2.0.0",
+    # pulp, pyahocorasick and mhcgnomes added 2026-09-13. Same class as the
+    # fastapi/pydantic move above, one level further out: no test imports any of
+    # them directly, so the companion scan in
+    # tests/test_dev_extra_runs_the_test_suite.py could not see them. Each is
+    # imported at module scope by a first-party module that a tracked test
+    # imports at module scope, which is enough to abort COLLECTION:
+    #   pulp           tests/test_optimizer.py -> src/optimizer.py
+    #   pyahocorasick  tests/test_contamination_gate.py -> scripts/benchmark_runner.py
+    #   mhcgnomes      tests/test_ingest_iedb_negatives.py -> scripts/ingest_iedb_negatives.py
+    # pulp was declared in NO extra at all; the other two sit in `scripts`,
+    # which a `dev` install does not pull. Versions match the `scripts` extra
+    # below deliberately, so the two cannot drift into a resolver conflict.
+    "pulp>=3.0.0",
+    "pyahocorasick>=2.3.0",
+    "mhcgnomes>=3.33.0",
 ]
 api = [
     "fastapi>=0.100.0",

@@ -389,3 +389,284 @@ def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
     assert "ParserError" in combined, (
         "expected the YAML parse failure to surface uncaught:\n" + combined[-2000:]
     )
+
+
+# ---------------------------------------------------------------------------
+# Allele column resolution and the null-allele fraction check.
+#
+# The gate recognised only a bare "allele" column. Every shipped corpus names it
+# "hla_allele", so col_map.get("allele") returned None, the check took its else
+# branch and hardcoded a fraction of 1.0 - which the configured threshold of
+# 1.00 then accepted as a PASS. The check had never measured a real dataset.
+# ---------------------------------------------------------------------------
+
+PEPTIDES_12 = [
+    "ACDEFGHIK",
+    "LMNPQRSTV",
+    "WYACDEFGH",
+    "ACDEFGHIKL",
+    "LMNPQRSTVY",
+    "CDEFGHIKLM",
+    "DEFGHIKLMN",
+    "EFGHIKLMNP",
+    "FGHIKLMNPQ",
+    "GHIKLMNPQR",
+    "HIKLMNPQRS",
+    "IKLMNPQRST",
+]
+# 8 positive / 4 negative = ratio 2.0, inside class_ratio_bounds [1.5, 4.0],
+# so these fixtures isolate the allele checks from every other verdict.
+LABELS_12 = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
+
+
+@pytest.fixture
+def permissive_null_config(tmp_path):
+    """Config identical to temp_config but with the shipped 1.00 null threshold.
+
+    1.00 cannot fail, since a fraction is bounded on [0, 1] by construction.
+    Tests using this fixture prove a property that does not depend on the
+    threshold value, which is the point: the threshold itself is a separate
+    open ruling and is deliberately not touched here.
+    """
+    config_content = """
+dataset_governance:
+  qc_thresholds:
+    min_peptide_yield: 5
+    max_conflict_ratio: 0.15
+    max_null_allele_fraction: 1.00
+    class_ratio_bounds: [1.5, 4.0]
+freeze_mode: false
+"""
+    path = tmp_path / "config_permissive.yaml"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(config_content)
+    return path
+
+
+def _run_gate(dataset_path, config_path):
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return result, result.stdout + result.stderr
+
+
+def test_qc_gate_resolves_hla_allele_column(tmp_path, temp_config):
+    """The production column name must map, not fall through to the else branch."""
+    df = pd.DataFrame(
+        {
+            "peptide": PEPTIDES_12,
+            "label": LABELS_12,
+            "hla_allele": ["HLA-A*02:01"] * 11 + [None],
+        }
+    )
+    dataset_path = tmp_path / "hla.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_gate(dataset_path, temp_config)
+
+    assert "allele->'hla_allele'" in output, (
+        "the gate did not resolve the canonical hla_allele column:\n" + output[-2000:]
+    )
+    assert "allele->'None'" not in output, (
+        "the allele column fell through to the unresolved branch:\n" + output[-2000:]
+    )
+    # 1 null of 12 = 0.0833, comfortably inside the 0.50 threshold.
+    assert "Null Allele Fraction: 0.0833" in output, (
+        "expected a measured fraction, not the 1.0 sentinel:\n" + output[-2000:]
+    )
+    assert result.returncode == 0, output[-2000:]
+
+
+def test_qc_gate_fails_on_high_null_hla_allele_fraction(tmp_path, temp_config):
+    """A genuinely allele-poor corpus must fail, and for the stated reason.
+
+    The exit code alone does not discriminate: before the column-resolution fix
+    this same input also exited 1, via the hardcoded 1.0 sentinel. Assert the
+    measured fraction.
+    """
+    df = pd.DataFrame(
+        {
+            "peptide": PEPTIDES_12,
+            "label": LABELS_12,
+            "hla_allele": ["HLA-A*02:01"] * 5 + [None] * 7,
+        }
+    )
+    dataset_path = tmp_path / "sparse.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_gate(dataset_path, temp_config)
+
+    assert result.returncode != 0, output[-2000:]
+    assert "Null Allele Fraction: 0.5833" in output, (
+        "expected the measured 7/12 fraction rather than the 1.0 sentinel:\n"
+        + output[-2000:]
+    )
+    assert "null_allele_fraction_passed" in output
+
+
+def test_qc_gate_cannot_pass_when_allele_column_is_unresolvable(
+    tmp_path, permissive_null_config
+):
+    """An unmeasurable fraction must never report PASS, whatever the threshold.
+
+    Runs at the shipped max_null_allele_fraction of 1.00, which cannot fail on
+    its own. The gate must still fail closed, so this property is independent of
+    the open threshold ruling.
+    """
+    df = pd.DataFrame({"peptide": PEPTIDES_12, "label": LABELS_12})
+    dataset_path = tmp_path / "no_allele.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_gate(dataset_path, permissive_null_config)
+
+    assert result.returncode != 0, (
+        "the gate passed a dataset whose allele fraction it could not measure:\n"
+        + output[-2000:]
+    )
+    assert "UNMEASURABLE" in output, output[-2000:]
+    assert "allele_column_resolved" in output, output[-2000:]
+
+
+def test_qc_gate_counts_string_sentinels_as_null_alleles(
+    tmp_path, permissive_null_config
+):
+    """"Unknown" is how the builders write a missing allele; isna() cannot see it."""
+    df = pd.DataFrame(
+        {
+            "peptide": PEPTIDES_12,
+            "label": LABELS_12,
+            "hla_allele": ["Unknown"] * 12,
+        }
+    )
+    dataset_path = tmp_path / "sentinel.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_gate(dataset_path, permissive_null_config)
+
+    assert "Null Allele Fraction: 1.0000" in output, (
+        "string sentinels were counted as real alleles:\n" + output[-2000:]
+    )
+    assert "NaN-only would report 0" in output, (
+        "expected the diagnostic contrasting the sentinel count with isna():\n"
+        + output[-2000:]
+    )
+
+
+def test_qc_gate_conflict_groups_include_null_allele_rows(tmp_path, temp_config):
+    """Conflict grouping must use peptide AND allele, with nulls kept as a key.
+
+    Two failure modes are pinned at once, and the asserted count discriminates
+    against both:
+
+    * Unresolved allele column -> grouping collapses to peptide alone, so the
+      allele-distinct pair below is falsely flagged as a conflict (2, not 1).
+    * Resolved column but a raw groupby -> pandas drops NaN keys by default, so
+      the genuine null-allele conflict never reaches label_counts (0, not 1).
+
+    Exactly one of the two appended pairs is a real conflict.
+    """
+    df = pd.DataFrame(
+        {
+            # ACDEFGHIK twice with no allele and disagreeing labels: a conflict.
+            # LMNPQRSTV twice with DIFFERENT alleles and different labels: not a
+            # conflict, because immunogenicity is allele-specific.
+            "peptide": PEPTIDES_12 + ["ACDEFGHIK", "LMNPQRSTV"],
+            "label": LABELS_12 + [0, 0],
+            "hla_allele": (
+                [None] + ["HLA-A*02:01"] * 11 + [None, "HLA-B*07:02"]
+            ),
+        }
+    )
+    dataset_path = tmp_path / "null_conflict.csv"
+    df.to_csv(dataset_path, index=False)
+
+    _result, output = _run_gate(dataset_path, temp_config)
+
+    assert "Conflicting Groups: 1" in output, (
+        "expected exactly one conflicting group: the null-allele pair. Two means "
+        "the allele column was not resolved and grouping collapsed to peptide "
+        "alone; zero means the null-allele rows were dropped by groupby: "
+        + output[-2000:]
+    )
+
+
+# ---------------------------------------------------------------------------
+# The shipped class_ratio_bounds are DERIVED for the v5 corpus. The derivation
+# lives in docs/data_qc_criteria.md under "Derivation of class_ratio_bounds for
+# the v5 corpus". These tests read the SHIPPED config rather than a fixture, so
+# a future edit that silently re-widens or re-narrows the window has to come
+# through here and state why. The previous bound [1.5, 4.0] was fitted to the v3
+# corpus (ratio 3.3463) and was never re-derived; it fails v4 (0.8346) and v5
+# (0.2051) alike.
+# ---------------------------------------------------------------------------
+
+# Shipped v5 composition, reconciled exactly against dedup_dropped in
+# data/immunogenicity_dataset_v5_provenance.json. Stated as constants so these
+# tests do not read the corpus and stay fast.
+V5_POSITIVES = 8712
+V5_NEGATIVES = 42473
+
+
+def _shipped_class_ratio_bounds():
+    import pathlib
+
+    import yaml
+
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    cfg = yaml.safe_load((repo_root / "config.yaml").read_text(encoding="utf-8"))
+    bounds = cfg["dataset_governance"]["qc_thresholds"]["class_ratio_bounds"]
+    assert len(bounds) == 2, f"class_ratio_bounds must be a [low, high] pair: {bounds}"
+    return float(bounds[0]), float(bounds[1])
+
+
+def test_shipped_bounds_admit_the_v5_corpus_as_built():
+    low, high = _shipped_class_ratio_bounds()
+    ratio = V5_POSITIVES / V5_NEGATIVES
+    assert low <= ratio <= high, (
+        f"the shipped bound [{low}, {high}] rejects the corpus it governs "
+        f"(ratio {ratio:.4f}). Either the corpus was rebuilt or the bound was "
+        "edited without re-deriving it; see docs/data_qc_criteria.md."
+    )
+
+
+def test_shipped_bounds_reject_a_whole_stream_failure_on_either_side():
+    """The bound exists to catch the loss or duplication of a whole input stream.
+
+    0.1634 is the ratio when the published panels fail to merge; 0.2949 is the
+    ratio when the IEDB export returns only the out-of-panel block. Both are
+    modelled in the derivation and both must fall outside the window.
+    """
+    low, high = _shipped_class_ratio_bounds()
+    assert low > 0.1634, (
+        f"floor {low} would admit a build whose published panels failed to merge"
+    )
+    assert high < 0.2949, (
+        f"ceiling {high} would admit a build whose IEDB export returned only "
+        "the out-of-panel block"
+    )
+
+
+def test_shipped_bounds_keep_a_four_figure_row_margin():
+    """A bound whose margin is a few dozen rows is a checksum, not a gate.
+
+    The corpus already carries an exact SHA-256 pin, so a ratio window that
+    tight adds nothing and breaks on ordinary input churn.
+    """
+    import math
+
+    low, _high = _shipped_class_ratio_bounds()
+    positives_at_floor = math.ceil(low * V5_NEGATIVES)
+    margin_rows = V5_POSITIVES - positives_at_floor
+    assert margin_rows >= 1000, (
+        f"only {margin_rows} positives would have to vanish to breach the floor; "
+        "the derivation requires a four-figure margin."
+    )

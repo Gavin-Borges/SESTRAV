@@ -2,7 +2,11 @@ import pickle
 from pathlib import Path
 from typing import Any
 from src.core.config import SestravConfig
-from src.artifact_integrity import load_verified_joblib, sha256_file
+from src.artifact_integrity import (
+    ArtifactIntegrityError,
+    load_verified_joblib,
+    sha256_file,
+)
 
 # Anchored to the installed package, NOT to the current working directory.
 # `Path("models")` resolves against os.getcwd(), so every model lookup silently
@@ -50,7 +54,21 @@ class ModelRegistry:
         if model_path.suffix == ".joblib":
             try:
                 model = load_verified_joblib(model_path, required_checksum=True)
-            except Exception:  # unverifiable or unreadable artifact -> invalid
+            except (
+                # load_verified_joblib is verify_artifact_checksum followed by
+                # joblib.load, so its raise surface is determinable. Same annotated
+                # form as the torch.load tuple below. A programming error is NOT in
+                # this set on purpose: the docstring's contract is that a
+                # VERIFICATION failure returns False, so a bug should surface as a
+                # traceback rather than be reported as an invalid signature.
+                ArtifactIntegrityError,  # missing or mismatched checksum manifest
+                OSError,  # unreadable path: FileNotFoundError, PermissionError
+                EOFError,  # truncated or empty pickle stream (not an OSError)
+                pickle.UnpicklingError,  # corrupt or non-pickle payload
+                ValueError,  # malformed buffer or unsupported protocol
+                ImportError,  # pickled class whose module no longer exists
+                AttributeError,  # pickled class gone from a module that still exists
+            ):  # unverifiable or unreadable artifact -> invalid
                 return False
             n_features = getattr(model, "n_features_in_", None)
             if n_features is not None and n_features != expected_features:

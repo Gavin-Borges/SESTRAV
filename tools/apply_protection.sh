@@ -210,8 +210,13 @@
 # 2026-08-22: this block, SECURITY.md, docs/SCORECARD_REMEDIATION.md,
 # docs/security_compliance.md, .github/workflows/security.yml and one
 # CHANGELOG line all still said four. Corrected together 2026-08-24.
-# Six sites is what "keep in agreement" actually costs - if a seventh
-# is ever added, add it here too rather than to one document.
+# SEVEN sites is what "keep in agreement" actually costs: this block,
+# SECURITY.md, CONTRIBUTING.md, docs/SCORECARD_REMEDIATION.md,
+# docs/security_compliance.md, .github/workflows/security.yml and CHANGELOG.md.
+# Re-derive the list rather than trusting this one, and enumerate by the
+# context STRING, never by a count word - a count-word grep finds only the
+# carriers that already state a number:
+#   git grep -lF "check_dco" -- '*.md' '*.sh' '*.yml'
 # ===================================================================
 
 set -uo pipefail
