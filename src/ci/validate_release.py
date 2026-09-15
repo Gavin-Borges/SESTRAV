@@ -36,7 +36,11 @@ def main():
         print(f"  Alleles: {len(config.alleles)} alleles")
         print("  MHCflurry loaded OK")
 
-    except Exception as e:
+    # Suppression justified: this is a pre-flight dependency gate whose entire job is
+    # to turn ANY import, model-load or validation failure into one clean non-zero
+    # exit. Do not open this comment with the noqa token itself - ruff reads a
+    # leading one as a BLANKET directive and then reports it as unused.
+    except Exception as e:  # noqa: BLE001 - pre-flight gate; must normalize every failure to exit 1
         logging.error(f"FATAL: Dependency verification failed: {e}")
         sys.exit(1)
 

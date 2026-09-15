@@ -235,6 +235,8 @@ def run_final_validation(
             if not os.path.isfile(src):
                 raise RuntimeError(f"Expected validation artifact was not produced: {src}")
             os.replace(src, dst)
+    # Publication boundary: record any build or atomic-publish failure, then re-raise.
+    # No noqa: ruff BLE001 does not flag a handler that re-raises, so one would be inert.
     except Exception as exc:
         with open(os.path.join(results_dir, "freeze_status.json"), "w", encoding="utf-8") as f:
             json.dump(
