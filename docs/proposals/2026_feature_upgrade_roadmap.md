@@ -316,7 +316,7 @@ flagged as such - do not cite them as certified numbers.
 | N/C-terminal flanking + ERAAP trimming (**proxy**, replacing the mode-33 mock) | Measured since, on the mode-33 MOCK block: `models/v5/training_results_ablation.csv` puts RF mode 33 above mode 31 by less than mode 33's own fold standard deviation | Requires source-protein flank sequence at inference time; one extra PSSM evaluation per peptide, cacheable | Zero new dependencies - but **CORRECTED 2026-08-11: this cell previously read "`src/antigen_processing.py` already implements the real PSSMs (Keller 2020, Doytchinova 2004); the change is wiring, not a new library". That is false**, and the retraction block in Section 4.2 below already said so without this row being updated. By its own docstring the module emits *proxy* scores, "not tool-call wrappers to NetChop or NetCTL", and says those matrix weights "should be replaced by" the published log-odds matrices - i.e. they are not them. It also emits `erap_score` (ERAP N-terminal trimming), a different biological quantity from `netchop_score` (proteasomal C-terminal cleavage). | **NOT ADOPTED - withdrawn** (see Section 4.2) |
 | Agretope/epitope (P2/P9 vs P4-P8) disconnect ratio | Estimated; genuinely novel signal, not measured on this dataset | ~3x MHCflurry calls per peptide (alanine-scan mutants), cacheable in the existing binding-matrix pattern | Zero new dependencies | **Prototype** |
 | pMHC stability (t1/2, NetMHCstabpan) | Estimated from literature; orthogonal to affinity | External predictor call per peptide-allele pair; cacheable | DTU academic-license binary, non-redistributable; repo's one existing DTU integration (NetChop) is currently a silent mock (Section 4) - repeat risk is high without a hard-fail contract | **Gate** on a real (non-mock) integration |
-| ESM-2 embeddings + PCA for RF/XGB | Estimated; existing `30_esm` mode suggests limited RF headroom at this dataset size | Model forward pass per peptide (cacheable), PCA fit must be inside the fold | `transformers` not installed locally; `src/features.py` ESM loader currently falls back to a SHA256-seeded **random** vector on load failure - a silent-garbage pattern that must be fixed before this is trustworthy | **Research only** |
+| ESM-2 embeddings + PCA for RF/XGB | Estimated; existing `30_esm` mode suggests limited RF headroom at this dataset size | Model forward pass per peptide (cacheable), PCA fit must be inside the fold | `transformers` not installed locally. **CORRECTED 2026-09-16 - this cell previously read "`src/features.py` ESM loader currently falls back to a SHA256-seeded random vector on load failure - a silent-garbage pattern that must be fixed before this is trustworthy". That fallback is no longer the default**, as of `d772884` (PR #445): the loader raises `RuntimeError` on any failure, and the deterministic mock vector is opt-in behind `SESTRAV_ALLOW_ESM_FALLBACK=1`. The remaining blocker for this row is the absent dependency, not silent garbage | **Research only** |
 | Self-proteome tolerance (RSAT / foreignness) | **-0.0037 (measured, existing mode 35)** | None - already implemented, binary exact-match only | Zero new dependencies | **Reject on this dataset** (Section 4 explains the structural confound) |
 | AlphaFold3/Boltz-1 pLDDT + ESM-3/ESM-C in GINEConv | Not estimated - GNN promotion Gate 1 was re-anchored 2026-08-10 from AUC-PR >= 0.85 (unreachable against the honest baseline) to >= 0.65 under a peptide-grouped splitter; the gate is now reachable in principle but this work remains unscoped | Structure prediction per peptide-MHC complex; GPU-bound | AlphaFold3 weights are gated/non-commercial - direct OpenSSF/redistribution conflict; Boltz-1 is licence-viable; `src/verify/structural_gnn.py` currently fabricates idealised coordinates rather than using real structures | **Defer** |
 
@@ -444,12 +444,18 @@ already exists in `src/features.py` (350 features: 30 baseline + ESM CLS token),
 a from-scratch proposal - it is an unmeasured extension of existing code. Two concerns: at
 16,360 unique peptides, adding 25-50 dense, correlated PCA components to a Random Forest is
 unlikely to move the needle much past the mode-50 result (+0.0096), since RF importance already
-concentrates on positional physico features per the mode-31 model card. More urgently: `src/
-features.py`'s ESM loader currently falls back to a SHA256-seeded **random** 320-dimensional
-vector when the model fails to load - the same silent-garbage failure mode as the NetChop mock
-in Section 4.2. That fallback must be converted to a hard failure before any ESM-2 feature work
-is trustworthy enough to measure, let alone ship. PCA components must be fit inside the CV fold,
-not on the pooled embedding matrix.
+concentrates on positional physico features per the mode-31 model card. **CORRECTED 2026-09-16
+- this paragraph previously read "More urgently: `src/features.py`'s ESM loader currently falls
+back to a SHA256-seeded random 320-dimensional vector when the model fails to load - the same
+silent-garbage failure mode as the NetChop mock in Section 4.2. That fallback must be converted
+to a hard failure before any ESM-2 feature work is trustworthy enough to measure, let alone
+ship." That conversion LANDED in `d772884` (PR #445)**: `get_esm_cls_token` now raises
+`RuntimeError` on any failure to load or run the model, and the SHA256-seeded mock vector is
+opt-in behind `SESTRAV_ALLOW_ESM_FALLBACK=1` for a known-degraded environment, with
+`get_esm_fallback_count()` still recording how many calls used it. The silent-garbage failure
+mode is therefore closed and is no longer a blocker for this section; the absent `transformers`
+dependency still is. PCA components must be fit inside the CV fold, not on the pooled embedding
+matrix.
 
 ### 4.6 Reject on this dataset: self-proteome tolerance (RSAT / foreignness)
 
@@ -584,9 +590,13 @@ of the additions below ship.
 ### Phase 3 - Gated or deferred (Section 4.4-4.7)
 
 10. NetMHCstabpan (4.4) behind a real-integration, hard-fail-on-unavailable contract. ESM-2 PCA
-    (4.5) as a research branch once `transformers` is installed and the random-vector fallback
-    in `src/features.py` is converted to a hard failure. AlphaFold3/Boltz-1 (4.7) only after the
-    GNN promotion gates are re-baselined against the honest RF number from Phase 0.
+    (4.5) as a research branch once `transformers` is installed. **CORRECTED 2026-09-16 - this
+    step also required "the random-vector fallback in `src/features.py` [to be] converted to a
+    hard failure"; that precondition was MET by `d772884` (PR #445)**, which made
+    `get_esm_cls_token` raise `RuntimeError` by default and put the mock vector behind
+    `SESTRAV_ALLOW_ESM_FALLBACK=1`, so the installed dependency is the only precondition left.
+    AlphaFold3/Boltz-1 (4.7) only after the GNN promotion gates are re-baselined against the
+    honest RF number from Phase 0.
 
 ---
 
