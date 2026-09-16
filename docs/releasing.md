@@ -26,11 +26,27 @@ GitHub will then show your tags/commits as **Verified**.
 
 ## Cutting a release
 
-1. **Bump the version** in `pyproject.toml` (`[project] version`) to match the tag
-   you are about to create (e.g. `2.0.2`). The build names artifacts from this
-   field, so it must match the tag. The release workflow **enforces** this with a
-   fail-fast "Verify tag matches package version" step, so a mismatch aborts the
-   release before any artifact is built. Commit it:
+1. **Bump the version in BOTH gated files.** The release workflow's fail-fast
+   "Verify tag matches package version" step runs before anything is built, so a
+   mismatch aborts the release with no artifact produced. Its name mentions only the
+   package version; it actually reads two files and enforces three conditions:
+
+   | File | Field | What the step requires |
+   |---|---|---|
+   | `pyproject.toml` | `[project] version` | Exactly the tag with its leading `v` stripped (tag `v2.0.2` -> `2.0.2`). The build also names the artifacts from this field. |
+   | `CITATION.cff` | top-level `version:` | Present, and the same value. A missing field fails just as hard as a wrong one. |
+   | `CITATION.cff` | top-level `date-released:` | Present, parseable as an ISO calendar date (`YYYY-MM-DD`), and not later than the UTC date of the workflow run. |
+
+   `CITATION.cff` is the one that gets forgotten, which is why it is gated: the check
+   was added after that file advertised a version and a release date for which no tag
+   had ever been pushed.
+
+   A later step in the same job installs the built wheel and asserts that
+   `sestrav.__version__` matches the tag. That is not a third file to edit -
+   `sestrav/__init__.py` resolves the version from installed package metadata, so it
+   reports whatever `pyproject.toml` declared.
+
+   Commit both files together:
 
    ```bash
    git commit -am "release: v2.0.2"
@@ -100,10 +116,28 @@ Trusted Publishers** - no API token or GitHub secret is required.
    attempt pauses for manual approval before proceeding. So a tag QUEUES a publish for
    approval; it does not publish silently. Note that the sole configured reviewer is the
    maintainer, so this is a deliberate-action prompt rather than independent approval.
-4. Repository variable `PYPI_PUBLISH` gates the publish job. **It is currently `true`**
-   (restored 2026-08-17 after the publisher was confirmed; it had been set `false`
-   earlier the same day purely as a precaution while the registration was unverified).
-   Set it to `false` to disable publishing without touching the workflow.
+4. Repository variable `PYPI_PUBLISH` gates the publish job, via
+   `if: ${{ vars.PYPI_PUBLISH == 'true' }}` on that job in `release.yml`.
+   **This document deliberately does not record the variable's value.** It is an
+   owner-operated switch that gets flipped in both directions, so any value written
+   here is a status claim that rots between readings. Read the live one yourself,
+   every time, before you push a tag:
+
+   ```bash
+   gh variable list          # the PYPI_PUBLISH row
+   ```
+
+   - Set to `true`: a version tag schedules the publish job, which then waits on the
+     step 3 reviewer approval. Treat this as the irreversible setting, because PyPI
+     permanently refuses a re-upload of a version number that has already been
+     published, so a bad upload cannot be replaced under the same number.
+   - Set to anything that is not `true` (`false` included), or absent from the
+     repository altogether: the publish job is never scheduled, and the tag produces
+     the GitHub Release with its attestation and checksums and nothing else.
+
+   Change it at Settings -> Secrets and variables -> Actions -> Variables, or with
+   `gh variable set PYPI_PUBLISH --body false`. The workflow itself never needs
+   editing.
 
 > **ORDERING CONSTRAINT - read before cutting a tag that publishes.** The pending
 > trusted publisher above is bound to **Owner: `Gavin-Borges`**, a personal account.
