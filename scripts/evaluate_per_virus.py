@@ -147,8 +147,16 @@ def expected_calibration_error(
     bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
     ece = 0.0
     n = len(y_true)
-    for lo, hi in zip(bin_edges[:-1], bin_edges[1:]):
-        mask = (y_prob >= lo) & (y_prob < hi)
+    for i in range(n_bins):
+        lo, hi = bin_edges[i], bin_edges[i + 1]
+        # Include the right edge only in the last bin so a score of exactly 1.0
+        # lands somewhere. A half-open final bin drops those rows from every bin
+        # while n still counts them, which silently understates ECE. Matches
+        # compute_ece in scripts/fit_calibrator.py, which already does this.
+        if i == n_bins - 1:
+            mask = (y_prob >= lo) & (y_prob <= hi)
+        else:
+            mask = (y_prob >= lo) & (y_prob < hi)
         if not mask.any():
             continue
         ece += mask.sum() / n * abs(float(y_true[mask].mean()) - float(y_prob[mask].mean()))

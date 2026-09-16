@@ -663,3 +663,30 @@ def test_evaluate_all_viruses_missing_virus_returns_no_entry() -> None:
     results = evaluate_all_viruses(df, "score", n_bootstrap=10)
     assert "EBV" in results
     assert "HPV" not in results
+
+
+def test_ece_counts_a_score_of_exactly_one():
+    """A perfectly confident, perfectly wrong set must score ECE 1.0, not 0.0.
+
+    Equal-width bins are half-open, so a final bin of [lo, 1.0) excludes a score
+    of exactly 1.0 from every bin while n still counts it. The buggy form
+    returned 0.0 here - perfect calibration - for the worst possible input.
+    Random forests produce exactly 1.0 whenever every tree agrees, so this is a
+    real input: 779 of 35,555 rows in the tracked v4 out-of-fold frame.
+    """
+    y_true = np.zeros(100)
+    y_prob = np.ones(100)
+
+    ece = expected_calibration_error(y_true, y_prob)
+    assert ece is not None
+    assert math.isclose(ece, 1.0, rel_tol=1e-9)
+
+
+def test_ece_matches_a_hand_computed_two_bin_case():
+    """Guards the fix against over-correction: ordinary scores bin as before."""
+    y_true = np.array([0.0, 1.0])
+    y_prob = np.array([0.0, 0.5])
+    # Bin [0.0,0.1): one row, |0 - 0.0| = 0.  Bin [0.5,0.6): one row, |1 - 0.5| = 0.5.
+    ece = expected_calibration_error(y_true, y_prob)
+    assert ece is not None
+    assert math.isclose(ece, 0.25, rel_tol=1e-9)
