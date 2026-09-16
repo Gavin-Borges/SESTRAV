@@ -150,9 +150,12 @@ _Last updated: 2026-09._
   held, because the uncertainty layer landed first. Both prerequisites this bullet
   listed are now met: `data/population/afnd_frequencies.json` is tracked with a
   provenance sidecar, and `pulp` is a direct pin in `requirements.in` and the compiled
-  lockfiles. What remains is declaring `pulp` in `pyproject.toml`, where it is absent,
-  and giving the module a caller - nothing in `src/cli.py` or `pipeline.smk` reaches
-  it, so today it is exercised only by `tests/test_optimizer.py`. **The population-coverage ceiling will be reported inline as an equity
+  lockfiles. `pulp` is now declared in `pyproject.toml` as well, added 2026-09-13 in
+  commit c176c5b, and it landed in the `dev` extra rather than in core
+  `dependencies` - the right home while the module has no caller, since the only
+  importer of `src/optimizer.py` is `tests/test_optimizer.py` and no shipped command
+  reaches it. What remains is giving the module that caller - nothing in `src/cli.py`
+  or `pipeline.smk` reaches it, so today it is exercised only by the test suite. **The population-coverage ceiling will be reported inline as an equity
   constraint rather than a footnote:** the current 10-allele panel's modelled coverage
   is highest in EUR and materially lower in AFR, so a "population coverage" figure
   quoted without its per-population spread overstates the result for exactly the
