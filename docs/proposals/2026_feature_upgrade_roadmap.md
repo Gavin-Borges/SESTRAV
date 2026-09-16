@@ -21,7 +21,7 @@ proteasomal flanking, ESM-2 PCA, and AlphaFold/ESM-3 GNN features) for SESTRAV's
 immunogenicity model.
 
 The audit that produced this document found a defect that has to be stated before any ranking is
-meaningful: **the production cross-validation splitter does not group by peptide, and 71.0% of
+meaningful: **the production cross-validation splitter does not group by peptide, and 71.1% of
 every held-out test row has its exact peptide sitting in the training fold** (`results/
 cv_leakage_audit.csv`, `production_splitter` / `overall_peptide_overlap_pct`). Every `feature_
 mode=31` feature - the 20 physicochemical descriptors, the 10 fixed-panel MHCflurry binding
@@ -155,7 +155,7 @@ constraint on which proposals are admissible (Section 3).
 
 Reproducible via `python scripts/audit_cv_leakage.py`, output `results/cv_leakage_audit.csv`
 (provenance sidecar: `results/cv_leakage_audit.csv.provenance.json`, dataset SHA-256
-`1c596ab7f80f33fb01d7d302f37db2cb5e824166c0dbaec41720d45414426ea7`, seed 42, RF n_estimators=200 -
+`6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4`, seed 42, RF n_estimators=200 -
 matched to `src/train_classifier.py`'s exact production config).
 
 **Dataset shape.** v5 active set: 35,597 rows, 16,360 unique peptides. 26,086 rows (73.3%) share
@@ -167,11 +167,15 @@ viruses - contributes 21,432 active rows, all label=0, 77.8% of all active negat
 | Fold | Test rows | Test rows whose exact peptide is also in train | Overlap |
 |---|---|---|---|
 | 0 | 7,120 | 5,056 | 71.0% |
-| 1 | 7,120 | 5,076 | 71.3% |
-| 2 | 7,119 | 5,054 | 71.0% |
-| 3 | 7,119 | 5,053 | 71.0% |
-| 4 | 7,119 | 5,041 | 70.8% |
-| **Overall** | **35,597** | **25,280** | **71.0%** |
+| 1 | 7,120 | 5,056 | 71.0% |
+| 2 | 7,119 | 5,057 | 71.0% |
+| 3 | 7,119 | 5,061 | 71.1% |
+| 4 | 7,119 | 5,062 | 71.1% |
+| **Overall** | **35,597** | **25,292** | **71.1%** |
+
+These are the current `results/cv_leakage_audit.csv` cells. The `_bin_origin` fix of
+2026-08-10 shifted `_fold_overlap`'s per-fold percentages, moving the overall figure
+71.02% -> 71.05% (25,280 -> 25,292 rows); this table was not re-emitted at the time.
 
 **Direct A/B, identical RF (200 trees, seed 42, class_weight=balanced - matched to
 `src/train_classifier.py`'s production config), identical data, only the splitter changed:**
