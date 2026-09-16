@@ -156,3 +156,43 @@ def test_cli_predict_parser_conformal_flags(capsys: pytest.CaptureFixture[str]) 
     captured = capsys.readouterr()
     assert "--conformal" in captured.out
     assert "--conformal-calibrator" in captured.out
+
+
+# --- unresolvable calibrator must not fail silently -----------------------------------
+
+
+def _apply(tmp_path, freeze_mode):
+    """Call _apply_conformal with no calibrator resolvable from anywhere."""
+    from functions.stage4_immunogenicity_scoring import _apply_conformal
+
+    df = _sample_feature_frame(n=3)
+    df["immunogenicity_score"] = [0.1, 0.2, 0.3]
+    return _apply_conformal(df, str(tmp_path), conformal_path=None, freeze_mode=freeze_mode)
+
+
+def test_unresolvable_calibrator_warns_instead_of_silently_skipping(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The default path used to return False with no output at all.
+
+    The calibrator is gitignored, so default resolution failing is the normal
+    case in a fresh clone. Producing no interval columns and saying nothing is
+    what made the headline feature look absent rather than unavailable.
+    """
+    monkeypatch.chdir(tmp_path)
+    applied = _apply(tmp_path, freeze_mode=False)
+    assert applied is False
+    out = capsys.readouterr().out
+    assert "Conformal calibrator artifact not found" in out
+    assert "WARNING" in out
+
+
+def test_unresolvable_calibrator_raises_under_freeze_mode(tmp_path, monkeypatch) -> None:
+    """freeze_mode previously guarded only the explicit-path branch.
+
+    That left the default-resolution case, the one a clone actually takes,
+    unprotected by the guardrail README says forbids silent degradation.
+    """
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError, match="Conformal calibrator artifact not found"):
+        _apply(tmp_path, freeze_mode=True)
