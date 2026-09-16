@@ -592,9 +592,37 @@ def load_schmidt_2021(filepath, gold_standard_peptides=None):
     for col in ["peptide", "hla", "label"]:
         if col not in df.columns:
             if col == "label":
+                # label=0 is the documented polarity of a hard-negative benchmark, so the
+                # default is defensible. It is still an assumption rather than a
+                # measurement, so it is announced instead of applied silently.
+                print(
+                    "[Schmidt Loader] WARNING: no label column found. Defaulting every row "
+                    "to label=0, the expected polarity for this hard-negative benchmark. "
+                    "This is an assumption, not a measurement."
+                )
                 df["label"] = 0
             elif col == "hla":
-                df["hla"] = "HLA-A*02:01"  # default fallback
+                # Allele boundary. A fabricated allele is NOT analogous to the label
+                # default above: the allele drives the allele-stratified binding features,
+                # so substituting one value for every row manufactures feature data that is
+                # indistinguishable from measured data downstream. Fail loud by default and
+                # make the old behaviour opt-in, matching the ESM-2 fallback contract in
+                # src/features.py.
+                if os.environ.get("SESTRAV_ALLOW_SCHMIDT_ALLELE_FALLBACK") != "1":
+                    raise ValueError(
+                        "Schmidt dataset has no HLA/allele column. Refusing to substitute "
+                        "HLA-A*02:01 for every row, since a fabricated allele silently "
+                        "drives the allele-stratified binding features and cannot be "
+                        "distinguished from measured data downstream. Set "
+                        "SESTRAV_ALLOW_SCHMIDT_ALLELE_FALLBACK=1 to opt into the historical "
+                        "HLA-A*02:01 default for a known-degraded input."
+                    )
+                print(
+                    "[Schmidt Loader] WARNING: no HLA column found. "
+                    "SESTRAV_ALLOW_SCHMIDT_ALLELE_FALLBACK=1 is set, so every row is being "
+                    "assigned the FABRICATED default HLA-A*02:01."
+                )
+                df["hla"] = "HLA-A*02:01"
             else:
                 raise ValueError(f"Schmidt dataset missing required column: {col}")
 
