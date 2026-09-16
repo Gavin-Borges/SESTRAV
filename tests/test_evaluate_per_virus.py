@@ -6,7 +6,9 @@ Covers:
   precision_at_recall    basic case, unreachable threshold, single-class
   evaluate_virus    all 6 Amendment 6 metrics present, real-neg subset
   evaluate_all_viruses    min_virus_size filter, per-virus grouping
-  check_exit_criterion    pass/fail combos for EBV and HPV
+  check_exit_criterion    pass/fail combos for EBV and HPV, on the HONEST column
+  chance_ceiling    the derived validity floor, against a permutation null
+  adjudicate_viruses    both AUC scales plus population labels
   main    CSV output, JSON output, missing file, exit codes
 """
 
@@ -21,13 +23,20 @@ import pandas as pd
 
 from scripts.evaluate_per_virus import (
     EXIT_CRITERION,
+    FLOOR_Z,
+    HEADLINE_AUC_COL,
+    HONEST_AUC_COL,
     MIN_SAMPLES_DEFAULT,
+    TARGET_PANEL,
+    adjudicate_viruses,
     bootstrap_metric,
+    chance_ceiling,
     check_exit_criterion,
     compare_predictions,
     evaluate_all_viruses,
     evaluate_virus,
     expected_calibration_error,
+    format_adjudication_table,
     format_table,
     main,
     precision_at_recall,
@@ -332,17 +341,40 @@ def test_evaluate_all_viruses_empty_input_returns_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_results(ebv_roc: float, ebv_lo: float, hpv_roc: float) -> dict:
+def _make_results(
+    ebv_roc: float,
+    ebv_lo: float,
+    hpv_roc: float,
+    ebv_honest: float | None = None,
+    hpv_honest: float | None = None,
+    n_pos: int = 300,
+    n_neg_real: int = 300,
+) -> dict:
+    """Two gated viruses.
+
+    The honest column defaults to the contaminated one, so a call that sets neither
+    describes a decoy-free virus where the two scales agree. n_pos/n_neg_real default
+    to 300/300, which puts chance_ceiling at 0.5388, below both Amendment 6 levels,
+    so the validity check does not fire unless a test asks it to.
+    """
     return {
         "EBV": {
-            "auc_roc": ebv_roc,
+            HEADLINE_AUC_COL: ebv_roc,
             "auc_roc_lower": ebv_lo,
             "auc_roc_upper": ebv_roc + 0.05,
+            HONEST_AUC_COL: ebv_roc if ebv_honest is None else ebv_honest,
+            "n_pos": n_pos,
+            "n_neg_real": n_neg_real,
+            "n_neg_decoy": 100,
         },
         "HPV": {
-            "auc_roc": hpv_roc,
+            HEADLINE_AUC_COL: hpv_roc,
             "auc_roc_lower": hpv_roc - 0.05,
             "auc_roc_upper": hpv_roc + 0.05,
+            HONEST_AUC_COL: hpv_roc if hpv_honest is None else hpv_honest,
+            "n_pos": n_pos,
+            "n_neg_real": n_neg_real,
+            "n_neg_decoy": 0,
         },
     }
 
@@ -653,8 +685,14 @@ def test_check_exit_criterion_ebv_at_exact_boundary() -> None:
 
 def test_exit_criterion_dict_matches_check_function() -> None:
     # Catches drift if a threshold is updated in one place but not the other.
-    assert EXIT_CRITERION["HPV"]["auc_roc"] == 0.58
-    assert EXIT_CRITERION["EBV"]["auc_roc"] == 0.57
+    assert EXIT_CRITERION["HPV"][HONEST_AUC_COL] == 0.58
+    assert EXIT_CRITERION["EBV"][HONEST_AUC_COL] == 0.57
+    # MUTATION GUARD. The levels are keyed on the honest column and on nothing else,
+    # so re-pointing the gate at the contaminated column cannot be done silently.
+    assert HONEST_AUC_COL == "auc_roc_real_neg_only"
+    assert HEADLINE_AUC_COL == "auc_roc"
+    assert HEADLINE_AUC_COL not in EXIT_CRITERION["HPV"]
+    assert HEADLINE_AUC_COL not in EXIT_CRITERION["EBV"]
 
 
 def test_evaluate_all_viruses_missing_virus_returns_no_entry() -> None:
@@ -690,3 +728,234 @@ def test_ece_matches_a_hand_computed_two_bin_case():
     ece = expected_calibration_error(y_true, y_prob)
     assert ece is not None
     assert math.isclose(ece, 0.25, rel_tol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# The exit criterion is decided on the HONEST column (mutation guards)
+# ---------------------------------------------------------------------------
+
+
+def test_exit_criterion_reads_the_honest_column_not_the_contaminated_one() -> None:
+    """MUTATION GUARD, and the decisive one for this change.
+
+    Both viruses look excellent on the contaminated scale (0.99) and fail badly on
+    the honest one (0.40). Swap HONEST_AUC_COL back for HEADLINE_AUC_COL anywhere in
+    check_exit_criterion and this gate certifies PASS on a model that cannot rank
+    real assay-confirmed negatives, which is exactly the defect being fixed.
+    """
+    results = _make_results(
+        ebv_roc=0.99, ebv_lo=0.95, hpv_roc=0.99, ebv_honest=0.40, hpv_honest=0.40
+    )
+    passed, msg = check_exit_criterion(results)
+    assert not passed
+    assert "0.400" in msg
+    assert msg.count("FAIL") == 2
+    # The contaminated number is still reported, labelled as not gated.
+    assert "not gated" in msg
+    assert "0.990" in msg
+
+
+def test_exit_criterion_passes_when_only_the_honest_column_is_strong() -> None:
+    """The converse mutation direction: a contaminated column at 0.10 must not veto."""
+    results = _make_results(
+        ebv_roc=0.10, ebv_lo=0.05, hpv_roc=0.10, ebv_honest=0.90, hpv_honest=0.90
+    )
+    passed, msg = check_exit_criterion(results)
+    assert passed
+    assert "PASS" in msg
+
+
+def test_exit_criterion_fails_closed_when_the_honest_column_is_absent() -> None:
+    """A missing honest value must fail, never fall back to the contaminated one."""
+    results = _make_results(ebv_roc=0.99, ebv_lo=0.95, hpv_roc=0.99)
+    for virus in ("EBV", "HPV"):
+        del results[virus][HONEST_AUC_COL]
+    passed, msg = check_exit_criterion(results)
+    assert not passed
+    assert "undefined" in msg
+
+
+def test_exit_criterion_fails_when_the_level_sits_below_its_validity_floor() -> None:
+    """A level a chance-level model could clear cannot certify anything.
+
+    40 positives against 30 real negatives puts chance_ceiling at 0.6155, above both
+    Amendment 6 levels, so neither 0.57 nor 0.58 separates a working model from a
+    coin flip at that n. The gate must refuse rather than report PASS.
+    """
+    results = _make_results(
+        ebv_roc=0.99, ebv_lo=0.95, hpv_roc=0.99, n_pos=40, n_neg_real=30
+    )
+    passed, msg = check_exit_criterion(results)
+    assert not passed
+    assert "validity floor" in msg
+    assert "PASS" not in msg
+
+
+# ---------------------------------------------------------------------------
+# chance_ceiling: the derived validity floor
+# ---------------------------------------------------------------------------
+
+
+def test_chance_ceiling_matches_its_documented_closed_form() -> None:
+    """The docstring derivation and the implementation must be the same expression."""
+    for n_pos, n_neg in ((181, 137), (287, 72), (2473, 980), (1, 228)):
+        expected = 0.5 + FLOOR_Z * math.sqrt((n_pos + n_neg + 1) / (12 * n_pos * n_neg))
+        got = chance_ceiling(n_pos, n_neg)
+        assert got is not None
+        assert math.isclose(got, expected, rel_tol=1e-12)
+
+
+def test_chance_ceiling_is_undefined_for_an_empty_arm() -> None:
+    assert chance_ceiling(0, 100) is None
+    assert chance_ceiling(100, 0) is None
+
+
+def test_chance_ceiling_matches_a_permutation_null() -> None:
+    """SECOND INSTRUMENT for the derivation, independent of the closed form.
+
+    Permuting the labels destroys any association while leaving the score
+    distribution intact, so the 95th percentile of the permuted AUCs estimates the
+    same quantity chance_ceiling computes analytically.
+
+    The tolerance is two-sided on purpose. Monte Carlo error on a 95th percentile at
+    2,000 permutations is roughly 0.002 here, so a strict one-sided assertion is not
+    something this test can support; the docstring records a draft of exactly that
+    assertion failing. The exact claim is the variance one, tested below.
+    """
+    from sklearn.metrics import roc_auc_score
+
+    rng = np.random.default_rng(20260916)
+    n_pos, n_neg = 120, 100
+    y_true = np.array([1] * n_pos + [0] * n_neg)
+    y_score = rng.uniform(0.0, 1.0, size=n_pos + n_neg)
+    null = np.array([roc_auc_score(rng.permutation(y_true), y_score) for _ in range(2000)])
+
+    closed = chance_ceiling(n_pos, n_neg)
+    assert closed is not None
+    assert abs(closed - float(np.quantile(null, 0.95))) < 0.01
+
+
+def test_chance_ceiling_null_spread_is_never_understated_under_ties() -> None:
+    """The EXACT half of the conservatism claim, with no Monte Carlo in it.
+
+    chance_ceiling uses the tie-free null variance (N + 1) / (12 * n_pos * n_neg).
+    The tie-corrected variance subtracts sum(t**3 - t) / (N * (N - 1)), a
+    non-negative quantity, so the tie-free form can only be the larger of the two.
+    That is what makes the returned value safe to treat as a lower bound on any
+    defensible threshold. Checked here on a heavily tied score vector and on a
+    tie-free one, where the two expressions must coincide exactly.
+    """
+    n_pos, n_neg = 120, 100
+    n = n_pos + n_neg
+
+    def _tie_corrected(scores: np.ndarray) -> float:
+        _, counts = np.unique(scores, return_counts=True)
+        correction = float(np.sum(counts**3 - counts)) / (n * (n - 1.0))
+        return 0.5 + FLOOR_Z * math.sqrt(((n + 1.0) - correction) / (12.0 * n_pos * n_neg))
+
+    closed = chance_ceiling(n_pos, n_neg)
+    assert closed is not None
+
+    rng = np.random.default_rng(4)
+    tied = np.round(rng.uniform(0.0, 1.0, size=n), 1)  # 11 distinct values, heavy ties
+    assert len(np.unique(tied)) < n
+    assert closed > _tie_corrected(tied)
+
+    untied = np.arange(n, dtype=float)  # all distinct
+    assert math.isclose(closed, _tie_corrected(untied), rel_tol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# adjudicate_viruses: both scales, and every count names its population
+# ---------------------------------------------------------------------------
+
+
+def _adj_metrics(
+    n_pos: int, n_neg_real: int, n_neg_decoy: int, headline: float, honest: float | None
+) -> dict:
+    return {
+        "n_pos": n_pos,
+        "n_neg_real": n_neg_real,
+        "n_neg_decoy": n_neg_decoy,
+        HEADLINE_AUC_COL: headline,
+        HONEST_AUC_COL: honest,
+    }
+
+
+def _adj_fixture() -> dict:
+    return {
+        # In the target panel, decoy-free: the two scales must agree exactly.
+        "HPV": _adj_metrics(181, 137, 0, 0.4820, 0.4820),
+        # In the target panel, decoy-bearing: contaminated well above honest.
+        "EBV": _adj_metrics(287, 72, 300, 0.7113, 0.5557),
+        # NOT in the target panel, decoy-free.
+        "RSV": _adj_metrics(15, 105, 0, 0.4946, 0.4946),
+        # Single-class: no headline AUC, so not a two-class virus at all.
+        "ZIKV": _adj_metrics(0, 54, 0, float("nan"), None),
+    }
+
+
+def test_adjudicate_viruses_excludes_single_class_viruses() -> None:
+    adj = adjudicate_viruses(_adj_fixture())
+    assert [r["virus"] for r in adj] == ["EBV", "HPV", "RSV"]
+
+
+def test_adjudicate_viruses_labels_both_populations() -> None:
+    """Requirement: a count from this list must be able to name its population.
+
+    "Decoy-free" is 2 across all two-class viruses here and 1 across the target
+    panel. Both are correct, they describe the same data, and an unlabelled count is
+    ambiguous between them. The shipped artifact shows the same shape at 6 and 3.
+    """
+    adj = adjudicate_viruses(_adj_fixture())
+    assert sum(1 for r in adj if r["decoy_free"]) == 2
+    panel = [r for r in adj if r["in_target_panel"]]
+    assert sorted(r["virus"] for r in panel) == ["EBV", "HPV"]
+    assert sum(1 for r in panel if r["decoy_free"]) == 1
+    assert "RSV" not in TARGET_PANEL
+
+
+def test_adjudicate_viruses_reports_both_scales_and_the_gap() -> None:
+    adj = {r["virus"]: r for r in adjudicate_viruses(_adj_fixture())}
+    # Decoy-free virus: the honest column IS the headline, so inflation is zero.
+    assert adj["HPV"]["auc_roc_contaminated"] == adj["HPV"]["auc_roc_honest"]
+    assert math.isclose(adj["HPV"]["decoy_inflation"], 0.0, abs_tol=1e-12)
+    # Decoy-bearing virus: the contaminated column is the higher of the two.
+    assert adj["EBV"]["auc_roc_contaminated"] > adj["EBV"]["auc_roc_honest"]
+    assert math.isclose(adj["EBV"]["decoy_inflation"], 0.7113 - 0.5557, abs_tol=1e-9)
+
+
+def test_adjudicate_viruses_scores_the_floor_against_the_honest_column() -> None:
+    """The floor uses the HONEST arms (positives + real negatives), not all rows.
+
+    EBV's 300 decoys must not enter its floor: counting them would shrink the null
+    variance and hand the virus an easier bar on the strength of the very rows the
+    honest column exists to exclude.
+    """
+    adj = {r["virus"]: r for r in adjudicate_viruses(_adj_fixture())}
+    assert adj["EBV"]["chance_floor"] == chance_ceiling(287, 72)
+    assert adj["EBV"]["chance_floor"] != chance_ceiling(287, 72 + 300)
+    # Both gated viruses sit below their own floors on these shipped-shape numbers.
+    assert adj["EBV"]["beats_chance_floor"] is False
+    assert adj["HPV"]["beats_chance_floor"] is False
+
+
+def test_adjudicate_viruses_sets_exit_status_only_for_gated_viruses() -> None:
+    adj = {r["virus"]: r for r in adjudicate_viruses(_adj_fixture())}
+    assert adj["EBV"]["exit_status"] == "FAIL"
+    assert adj["HPV"]["exit_status"] == "FAIL"
+    # RSV is two-class but EXIT_CRITERION names no level for it, so there is no
+    # verdict to report. Inventing one would be an exit criterion this repo never set.
+    assert adj["RSV"]["exit_status"] is None
+    assert adj["RSV"]["exit_threshold"] is None
+
+
+def test_adjudication_table_reports_both_scales_side_by_side() -> None:
+    table = format_adjudication_table(_adj_fixture())
+    assert "ROC_all" in table
+    assert "ROC_real" in table
+    assert "CONTAMINATED" in table
+    assert "HONEST" in table
+    # Every population count in the footer is labelled.
+    assert "all two-class (n=3)" in table
+    assert "target panel (n=2)" in table
