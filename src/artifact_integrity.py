@@ -191,10 +191,23 @@ def load_verified_joblib(
     manifest_path: str | Path | None = None,
     required_checksum: bool = False,
 ):
-    """Verify a joblib artifact when possible, then load it."""
+    """Verify a joblib artifact when possible, then load it.
+
+    Two independent properties are checked before the load, and they answer
+    different questions. The checksum answers "are these the bytes we recorded";
+    the library versions answer "can these bytes still be deserialized into the
+    object that was pickled". A verified checksum on a pickle written by another
+    scikit-learn is a file that is provably intact and may still load wrong, so
+    a green checksum is not evidence about the second question.
+
+    Both are governed by `required_checksum`: under it the version check raises
+    on measured drift instead of warning. See `verify_artifact_library_versions`
+    for why drift is only fatal there, and why an ABSENT record never is.
+    """
     from joblib import load as joblib_load
 
     verify_artifact_checksum(path, manifest_path=manifest_path, required=required_checksum)
+    verify_artifact_library_versions(path, required=required_checksum)
     return joblib_load(path)
 
 
@@ -241,6 +254,112 @@ def library_versions(
         except importlib_metadata.PackageNotFoundError:
             resolved[name] = None
     return resolved
+
+
+def library_version_drift(
+    recorded: object,
+    running: dict[str, str | None] | None = None,
+) -> list[str]:
+    """Return one line per package whose recorded version differs from the
+    running environment's, and an empty list when they agree.
+
+    Only packages the sidecar recorded an actual VERSION for are compared. A
+    package recorded as `None` was not installed when the artifact was written,
+    so the artifact cannot depend on it and its presence now is not drift; a
+    recorded version that is missing here IS drift, because the artifact was
+    built against something this environment cannot supply.
+    """
+    if not isinstance(recorded, dict):
+        return []
+    claimed = {
+        name: value for name, value in recorded.items() if isinstance(value, str)
+    }
+    if running is None:
+        running = library_versions(sorted(claimed))
+    drift: list[str] = []
+    for name in sorted(claimed):
+        current = running.get(name)
+        if current is None:
+            drift.append(f"{name}: artifact written under {claimed[name]}, not installed here")
+        elif current != claimed[name]:
+            drift.append(
+                f"{name}: artifact written under {claimed[name]}, running {current}"
+            )
+    return drift
+
+
+def verify_artifact_library_versions(
+    path: str | Path,
+    required: bool = False,
+) -> bool:
+    """Compare an artifact's provenance sidecar library versions against this
+    environment, the companion to `verify_artifact_checksum`.
+
+    Returns True when the comparison ran and every recorded version matched.
+    Returns False when no comparison was possible, or when drift was found and
+    reporting it was optional.
+    Raises ArtifactIntegrityError on drift when `required` is True.
+
+    WHY DRIFT WARNS BY DEFAULT AND ONLY RAISES UNDER `required`. A checksum
+    mismatch is unconditionally wrong: the bytes are not the bytes. A version
+    difference is weaker evidence - the bytes may still deserialize into an
+    equivalent object, and scikit-learn itself only WARNS about it
+    (`InconsistentVersionWarning`), so raising on every difference would be
+    stricter than the library that owns the format and would break a load in an
+    environment that merely patched numpy. `required=True` is how a caller
+    declares a load sensitive (production scoring, the promotion gate, the API
+    scoring path all pass `required_checksum=True`), and a measured mismatch on
+    a sensitive load is an error.
+
+    WHY AN ABSENT RECORD NEVER RAISES, even under `required`. No artifact
+    written before this field existed carries one, so raising there would make
+    `required_checksum=True` unusable against every model on disk today.
+    Absence is UNMEASURED, not clean, so it is logged rather than swallowed:
+    that silence is exactly the defect the two fallbacks fixed on this branch
+    had. An unreadable or malformed sidecar is treated the same way, because a
+    corrupt sidecar is not evidence of drift.
+    """
+    artifact = Path(path)
+    sidecar = provenance_sidecar_path_for(artifact)
+
+    recorded: object = None
+    if sidecar.is_file():
+        try:
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            payload = None
+        if isinstance(payload, dict):
+            recorded = payload.get(LIBRARY_VERSIONS_FIELD)
+
+    if not isinstance(recorded, dict) or not recorded:
+        logger.warning(
+            "Library version verification SKIPPED for '%s': sidecar '%s' is missing, "
+            "unreadable, or records no '%s'.",
+            artifact,
+            sidecar,
+            LIBRARY_VERSIONS_FIELD,
+        )
+        return False
+
+    drift = library_version_drift(recorded)
+    if not drift:
+        return True
+
+    detail = "; ".join(drift)
+    if required:
+        raise ArtifactIntegrityError(
+            f"Library version drift for '{artifact}' against sidecar '{sidecar}': "
+            f"{detail}. The artifact's checksum was required, so this load is "
+            f"treated as unsafe rather than allowed to deserialize under a "
+            f"different library than wrote it."
+        )
+    logger.warning(
+        "Library version DRIFT for '%s' against sidecar '%s': %s.",
+        artifact,
+        sidecar,
+        detail,
+    )
+    return False
 
 
 def write_provenance_sidecar(

@@ -14,6 +14,7 @@ from src.artifact_integrity import (
     LIBRARY_VERSIONS_FIELD,
     MODEL_CHECKSUM_MANIFEST,
     default_manifest_path_for,
+    library_version_drift,
     library_versions,
     load_checksum_manifest,
     load_verified_joblib,
@@ -21,6 +22,7 @@ from src.artifact_integrity import (
     sha256_file,
     update_checksum_manifest,
     verify_artifact_checksum,
+    verify_artifact_library_versions,
     write_provenance_sidecar,
 )
 
@@ -399,3 +401,170 @@ def test_provenance_sidecar_keeps_its_lf_newlines(tmp_path):
     artifact = _write(tmp_path / "m.joblib")
     sidecar = write_provenance_sidecar(artifact, script="s.py")
     assert b"\r\n" not in sidecar.read_bytes()
+
+
+# ---------------------------------------------------------------------------
+# The load-time version gate
+# ---------------------------------------------------------------------------
+
+_ABSENT_PACKAGE = "sestrav-package-that-is-not-installed"
+
+
+def _sidecar_with_versions(artifact: Path, versions: dict) -> Path:
+    """Write a provenance sidecar by hand so the recorded versions can be made
+    to differ from this environment without touching the artifact bytes."""
+    sidecar = provenance_sidecar_path_for(artifact)
+    sidecar.write_text(
+        json.dumps(
+            {
+                "generated_utc": "2026-01-01T00:00:00+00:00",
+                "script": "src/train_classifier.py",
+                "artifact": artifact.name,
+                "sha256": sha256_file(artifact),
+                LIBRARY_VERSIONS_FIELD: versions,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return sidecar
+
+
+def _verified_joblib_fixture(tmp_path: Path, versions: dict | None):
+    """A joblib artifact whose CHECKSUM is valid, so only the version check can
+    fail. Returns (artifact, manifest_path)."""
+    joblib = pytest.importorskip("joblib")
+    artifact = tmp_path / "rf_31feature_integrated.joblib"
+    joblib.dump({"weights": [1, 2, 3]}, artifact)
+    manifest_path = tmp_path / MODEL_CHECKSUM_MANIFEST
+    update_checksum_manifest(manifest_path, [artifact])
+    if versions is not None:
+        _sidecar_with_versions(artifact, versions)
+    return artifact, manifest_path
+
+
+def test_library_version_drift_reports_a_changed_version():
+    drift = library_version_drift(
+        {"scikit-learn": "1.3.0"}, running={"scikit-learn": "1.8.0"}
+    )
+    assert drift == ["scikit-learn: artifact written under 1.3.0, running 1.8.0"]
+
+
+def test_library_version_drift_reports_a_package_absent_here():
+    drift = library_version_drift({"xgboost": "3.2.0"}, running={"xgboost": None})
+    assert drift == ["xgboost: artifact written under 3.2.0, not installed here"]
+
+
+def test_library_version_drift_is_empty_when_versions_match():
+    assert library_version_drift({"numpy": "2.4.6"}, running={"numpy": "2.4.6"}) == []
+
+
+def test_recorded_null_version_is_not_drift():
+    """A package that was absent when the artifact was written cannot be a
+    dependency of it, so installing it later is not drift."""
+    assert library_version_drift({"torch": None}, running={"torch": "2.13.0"}) == []
+
+
+def test_library_version_drift_ignores_a_malformed_record():
+    assert library_version_drift("not-a-mapping") == []
+    assert library_version_drift(None) == []
+
+
+def test_verify_library_versions_passes_against_a_sidecar_it_just_wrote(tmp_path, caplog):
+    artifact = _write(tmp_path / "m.joblib")
+    write_provenance_sidecar(artifact, script="s.py")
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is True
+    assert caplog.text == ""
+
+
+def test_verify_library_versions_warns_when_nothing_was_recorded(tmp_path, caplog):
+    """A sidecar that records no versions is UNMEASURED, not clean, and must
+    leave a trace rather than reading as a pass."""
+    artifact = _write(tmp_path / "m.joblib")
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is False
+    assert "SKIPPED" in caplog.text
+    assert LIBRARY_VERSIONS_FIELD in caplog.text
+
+
+def test_verify_library_versions_warns_on_an_unreadable_sidecar(tmp_path, caplog):
+    artifact = _write(tmp_path / "m.joblib")
+    provenance_sidecar_path_for(artifact).write_text("{not json", encoding="utf-8")
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is False
+    assert "SKIPPED" in caplog.text
+
+
+def test_verify_library_versions_warns_on_drift_when_not_required(tmp_path, caplog):
+    artifact = _write(tmp_path / "m.joblib")
+    _sidecar_with_versions(artifact, {"scikit-learn": "0.0.1-not-this-one"})
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=False) is False
+    assert "DRIFT" in caplog.text
+    assert "scikit-learn" in caplog.text
+
+
+def test_verify_library_versions_raises_on_drift_when_required(tmp_path):
+    artifact = _write(tmp_path / "m.joblib")
+    _sidecar_with_versions(artifact, {"scikit-learn": "0.0.1-not-this-one"})
+
+    with pytest.raises(ArtifactIntegrityError, match="Library version drift"):
+        verify_artifact_library_versions(artifact, required=True)
+
+
+def test_load_verified_joblib_raises_on_library_drift_when_checksum_required(tmp_path):
+    """The gate that fires on the sensitive load path. The checksum here is
+    VALID: an intact pickle written by a different scikit-learn is exactly the
+    case a digest cannot see."""
+    artifact, manifest_path = _verified_joblib_fixture(
+        tmp_path, {"scikit-learn": "0.0.1-not-this-one"}
+    )
+    assert verify_artifact_checksum(artifact, manifest_path, required=True) is True
+
+    with pytest.raises(ArtifactIntegrityError, match="Library version drift"):
+        load_verified_joblib(artifact, manifest_path, required_checksum=True)
+
+
+def test_load_verified_joblib_warns_but_loads_on_drift_when_not_required(tmp_path, caplog):
+    artifact, manifest_path = _verified_joblib_fixture(
+        tmp_path, {"scikit-learn": "0.0.1-not-this-one"}
+    )
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert load_verified_joblib(artifact, manifest_path) == {"weights": [1, 2, 3]}
+    assert "DRIFT" in caplog.text
+
+
+def test_load_verified_joblib_still_loads_when_no_versions_were_recorded(tmp_path, caplog):
+    """Every artifact on disk predates this field. Raising on an absent record
+    would make required_checksum=True unusable, so absence warns and loads."""
+    artifact, manifest_path = _verified_joblib_fixture(tmp_path, None)
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert load_verified_joblib(artifact, manifest_path, required_checksum=True) == {
+            "weights": [1, 2, 3]
+        }
+    assert "SKIPPED" in caplog.text
+
+
+def test_load_verified_joblib_passes_with_the_running_versions_recorded(tmp_path, caplog):
+    artifact, manifest_path = _verified_joblib_fixture(tmp_path, library_versions())
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert load_verified_joblib(artifact, manifest_path, required_checksum=True) == {
+            "weights": [1, 2, 3]
+        }
+    assert caplog.text == ""
+
+
+def test_recorded_version_of_an_uninstalled_package_is_drift(tmp_path):
+    artifact = _write(tmp_path / "m.joblib")
+    _sidecar_with_versions(artifact, {_ABSENT_PACKAGE: "1.0.0"})
+
+    with pytest.raises(ArtifactIntegrityError, match="not installed here"):
+        verify_artifact_library_versions(artifact, required=True)
