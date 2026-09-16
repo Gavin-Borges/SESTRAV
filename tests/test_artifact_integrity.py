@@ -272,3 +272,35 @@ def test_nested_key_does_not_leak_to_sibling_basename(tmp_path):
     assert verify_artifact_checksum(sibling, manifest_path) is False
     with pytest.raises(ArtifactIntegrityError, match="No checksum entry"):
         verify_artifact_checksum(sibling, manifest_path, required=True)
+
+
+def test_optional_verification_warns_when_the_manifest_is_missing(tmp_path, caplog):
+    """A skipped verification must leave a trace.
+
+    No caller in the repository inspects this return value, so a bare False was
+    a sensitive load proceeding completely unverified with nothing in the log to
+    say so. src/baseline_comparison.py loads a model this way.
+    """
+    artifact = _write(tmp_path / "model.joblib")
+    manifest = tmp_path / MODEL_CHECKSUM_MANIFEST
+    manifest.write_text(json.dumps({"artifacts": {}}), encoding="utf-8")
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_checksum(artifact, manifest, required=False) is False
+
+    assert "SKIPPED" in caplog.text
+    assert "model.joblib" in caplog.text
+
+
+def test_optional_verification_warns_when_the_entry_is_absent(tmp_path, caplog):
+    artifact = _write(tmp_path / "model.joblib")
+    manifest = tmp_path / MODEL_CHECKSUM_MANIFEST
+    manifest.write_text(
+        json.dumps({"artifacts": {"unrelated.joblib": {"sha256": "00"}}}), encoding="utf-8"
+    )
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_checksum(artifact, manifest, required=False) is False
+
+    assert "SKIPPED" in caplog.text
+    assert "no entry in manifest" in caplog.text

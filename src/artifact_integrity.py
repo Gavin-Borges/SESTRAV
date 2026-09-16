@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_CHECKSUM_MANIFEST = "model_artifact_checksums.json"
@@ -107,6 +110,14 @@ def verify_artifact_checksum(
             raise ArtifactIntegrityError(
                 f"Checksum manifest required for '{artifact}', but '{manifest}' was not found or is empty."
             )
+        # Optional verification did NOT happen. Say so: no caller in this
+        # repository inspects the return value, so without this line a sensitive
+        # load proceeds completely unverified and leaves no trace that it did.
+        logger.warning(
+            "Checksum verification SKIPPED for '%s': manifest '%s' is missing or empty.",
+            artifact,
+            manifest,
+        )
         return False
 
     # An artifact is only ever matched against its canonical manifest-relative key.
@@ -132,6 +143,14 @@ def verify_artifact_checksum(
                 f"No checksum entry found for '{artifact}' in manifest '{manifest}' "
                 f"(expected key '{key}')."
             )
+        # Same reasoning as above: this is a skip, not a pass.
+        logger.warning(
+            "Checksum verification SKIPPED for '%s': no entry in manifest '%s' "
+            "(expected key '%s').",
+            artifact,
+            manifest,
+            key,
+        )
         return False
 
     expected = entry.get("sha256")
