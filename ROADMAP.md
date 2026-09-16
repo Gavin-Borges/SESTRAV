@@ -58,9 +58,15 @@ _Last updated: 2026-09._
 - **Packaging.** Publish `sestrav` to PyPI as a pip-installable package.
   **Installation is from source today - nothing has been published yet** and the
   package name is still unclaimed. The publish job in
-  `.github/workflows/release.yml` is enabled (`PYPI_PUBLISH` is `true`) and is
-  scheduled by any `v*` tag; it then pauses for approval under the `pypi`
-  environment's required-reviewer rule. The pending Trusted Publisher was confirmed
+  `.github/workflows/release.yml` is gated on the repository variable
+  `PYPI_PUBLISH` (`if: vars.PYPI_PUBLISH == 'true'` on that job), so a `v*` tag
+  schedules it only while that variable reads `true`; it then pauses for approval
+  under the `pypi` environment's required-reviewer rule. **This roadmap deliberately
+  does not record the variable's value.** It is an owner-operated switch that gets
+  flipped in both directions, so any value written here is a status claim that rots
+  between readings; read the live one with `gh variable list` before cutting a tag,
+  and see `docs/releasing.md` for what each setting does and why `true` is the
+  irreversible one. The pending Trusted Publisher was confirmed
   registered on 2026-08-17. Two caveats before the first publishing tag: the publish
   path has **never run end to end** (PR CI cannot exercise `release.yml`, which is
   tag-triggered only), and the publisher is bound to the `Gavin-Borges` personal
