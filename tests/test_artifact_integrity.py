@@ -274,12 +274,23 @@ def test_nested_key_does_not_leak_to_sibling_basename(tmp_path):
         verify_artifact_checksum(sibling, manifest_path, required=True)
 
 
-def test_optional_verification_warns_when_the_manifest_is_missing(tmp_path, caplog):
+def test_optional_verification_warns_when_the_manifest_has_no_entries(tmp_path, caplog):
     """A skipped verification must leave a trace.
 
-    No caller in the repository inspects this return value, so a bare False was
-    a sensitive load proceeding completely unverified with nothing in the log to
-    say so. src/baseline_comparison.py loads a model this way.
+    No PRODUCTION caller inspects this return value. All three discard it:
+    load_verified_joblib in src/artifact_integrity.py, and _load_torch_checkpoint
+    in both src/baseline_comparison.py and functions/stage4_immunogenicity_scoring.py.
+    So a bare False was a sensitive load proceeding completely unverified with
+    nothing in the log to say so, and baseline_comparison loads a model that way.
+
+    Scoped to production deliberately: tests DO read it, including the
+    assertion two lines below and tests/test_stage4_conformal.py, which uses
+    the call directly as a condition. An earlier draft of this docstring said
+    "no caller in the repository", which this file refutes on its own face.
+
+    Cited by symbol, never by line. Line citations here must carry a baseline
+    entry in docs/line_citations.json, whose exempt ledger sits at its ceiling,
+    so an unpinned path:NNN reddens a required check. A symbol does not move.
     """
     artifact = _write(tmp_path / "model.joblib")
     manifest = tmp_path / MODEL_CHECKSUM_MANIFEST
