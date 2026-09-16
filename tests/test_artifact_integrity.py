@@ -5,17 +5,23 @@ import json
 import pytest
 
 import hashlib
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 
 from src.artifact_integrity import (
+    ARTIFACT_LIBRARY_PACKAGES,
     ArtifactIntegrityError,
+    LIBRARY_VERSIONS_FIELD,
     MODEL_CHECKSUM_MANIFEST,
     default_manifest_path_for,
+    library_versions,
     load_checksum_manifest,
     load_verified_joblib,
+    provenance_sidecar_path_for,
     sha256_file,
     update_checksum_manifest,
     verify_artifact_checksum,
+    write_provenance_sidecar,
 )
 
 
@@ -315,3 +321,81 @@ def test_optional_verification_warns_when_the_entry_is_absent(tmp_path, caplog):
 
     assert "SKIPPED" in caplog.text
     assert "no entry in manifest" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# library_versions: what an artifact was written under
+# ---------------------------------------------------------------------------
+
+
+def test_provenance_sidecar_records_library_versions(tmp_path):
+    """The sidecar must carry the versions the artifact was written under.
+
+    An existence assertion alone would survive the field being written as an
+    empty dict, so this reads a real version back out of it and compares it to
+    what the running interpreter reports.
+    """
+    artifact = _write(tmp_path / "rf_31feature_integrated.joblib", b"model-bytes")
+    sidecar = write_provenance_sidecar(artifact, script="src/train_classifier.py")
+
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    recorded = payload[LIBRARY_VERSIONS_FIELD]
+    assert recorded["scikit-learn"] == importlib_metadata.version("scikit-learn")
+    assert recorded["numpy"] == importlib_metadata.version("numpy")
+    assert recorded["joblib"] == importlib_metadata.version("joblib")
+
+
+def test_library_versions_covers_every_package_the_artifacts_pickle(tmp_path):
+    """The recorded set must not silently shrink.
+
+    These five are what a pickle opcode walk over models/ resolves: sklearn,
+    numpy and joblib in every .joblib, xgboost in the booster dumps, torch in
+    every .pth and .pt. Dropping one would make an artifact that no longer
+    loads look fully provenanced.
+    """
+    artifact = _write(tmp_path / "m.joblib")
+    sidecar = write_provenance_sidecar(artifact, script="src/train_classifier.py")
+
+    recorded = json.loads(sidecar.read_text(encoding="utf-8"))[LIBRARY_VERSIONS_FIELD]
+    assert set(recorded) == set(ARTIFACT_LIBRARY_PACKAGES)
+    assert {"scikit-learn", "joblib", "numpy", "xgboost", "torch"} <= set(recorded)
+
+
+def test_library_versions_records_absent_package_as_null():
+    """An uninstalled package is a null, not an exception and not an omission."""
+    resolved = library_versions(["numpy", "sestrav-package-that-is-not-installed"])
+    assert resolved["numpy"] == importlib_metadata.version("numpy")
+    assert resolved["sestrav-package-that-is-not-installed"] is None
+
+
+def test_library_versions_is_json_serializable(tmp_path):
+    """The field is written straight into JSON, so every value must survive it."""
+    assert json.loads(json.dumps(library_versions())) == library_versions()
+
+
+def test_provenance_sidecar_extra_still_wins_over_library_versions(tmp_path):
+    """`extra` is applied after the standard fields, and stays that way."""
+    artifact = _write(tmp_path / "m.joblib")
+    sidecar = write_provenance_sidecar(
+        artifact, script="s.py", extra={LIBRARY_VERSIONS_FIELD: {"numpy": "0.0.0"}}
+    )
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert payload[LIBRARY_VERSIONS_FIELD] == {"numpy": "0.0.0"}
+
+
+def test_provenance_sidecar_path_appends_rather_than_replaces(tmp_path):
+    """Two artifacts differing only by extension must not share one sidecar."""
+    joblib_artifact = tmp_path / "model.joblib"
+    torch_artifact = tmp_path / "model.pth"
+    assert provenance_sidecar_path_for(joblib_artifact) != provenance_sidecar_path_for(
+        torch_artifact
+    )
+    assert provenance_sidecar_path_for(joblib_artifact).name == "model.joblib.provenance.json"
+
+
+def test_provenance_sidecar_keeps_its_lf_newlines(tmp_path):
+    """The added field must not reintroduce CRLF on Windows: the recorded sha256
+    has to match what git stores under the results/*.provenance.json eol=lf pin."""
+    artifact = _write(tmp_path / "m.joblib")
+    sidecar = write_provenance_sidecar(artifact, script="s.py")
+    assert b"\r\n" not in sidecar.read_bytes()

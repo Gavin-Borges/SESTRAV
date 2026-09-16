@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Iterable
 
@@ -20,6 +21,29 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_CHECKSUM_MANIFEST = "model_artifact_checksums.json"
+PROVENANCE_SIDECAR_SUFFIX = ".provenance.json"
+LIBRARY_VERSIONS_FIELD = "library_versions"
+
+# The packages whose version can decide whether a shipped artifact still LOADS.
+# Derived by reading what this repo actually pickles, not by assumption: a
+# pickle GLOBAL/STACK_GLOBAL opcode walk over every artifact under models/
+# (190 .joblib, 62 .pth, 1 .pt) resolves exactly these five distribution roots.
+# sklearn, numpy and joblib appear in every .joblib; xgboost in the booster
+# dumps; torch in every .pth and .pt. scipy, pandas and torch_geometric appear
+# in NONE of them, which is why they are absent here rather than included as a
+# hedge. A cheaper byte-substring scan of the same corpus additionally reported
+# "shap" in 160 files; that is numpy's own "shape" key, and it is recorded here
+# as the reason the opcode walk, not a substring search, settled this list.
+#
+# These are DISTRIBUTION names ("scikit-learn"), not import names ("sklearn"),
+# because that is what importlib.metadata resolves.
+ARTIFACT_LIBRARY_PACKAGES = (
+    "scikit-learn",
+    "joblib",
+    "numpy",
+    "xgboost",
+    "torch",
+)
 
 
 class ArtifactIntegrityError(RuntimeError):
@@ -181,6 +205,44 @@ def _relative_to_project_root(path: Path) -> str:
         return path.name
 
 
+def provenance_sidecar_path_for(path: str | Path) -> Path:
+    """Return the sidecar path `write_provenance_sidecar` writes for an artifact.
+
+    The suffix is APPENDED rather than replacing the artifact's own, so
+    `rf_31feature_integrated.joblib` pairs with
+    `rf_31feature_integrated.joblib.provenance.json` and two artifacts whose
+    names differ only by extension cannot share one sidecar.
+    """
+    artifact = Path(path)
+    return artifact.with_suffix(artifact.suffix + PROVENANCE_SIDECAR_SUFFIX)
+
+
+def library_versions(
+    packages: Iterable[str] = ARTIFACT_LIBRARY_PACKAGES,
+) -> dict[str, str | None]:
+    """Return `{distribution: installed version}` for the packages an artifact's
+    loadability depends on, for embedding in a provenance sidecar.
+
+    A digest alone does not make an artifact reproducible: a pickled
+    RandomForest is a graph of `sklearn` and `numpy` objects, so the version
+    that wrote it is part of its provenance and nothing in this repository
+    recorded it before this function existed.
+
+    A package that is not installed records `None` rather than raising or being
+    omitted, matching `model_provenance_fields`, which records a `None` sha256
+    for an absent input instead of failing. The field then has the same shape on
+    every artifact, and a reader can distinguish "not installed when this was
+    written" from "this writer never asked about it".
+    """
+    resolved: dict[str, str | None] = {}
+    for name in packages:
+        try:
+            resolved[name] = importlib_metadata.version(name)
+        except importlib_metadata.PackageNotFoundError:
+            resolved[name] = None
+    return resolved
+
+
 def write_provenance_sidecar(
     output_path: str | Path,
     *,
@@ -205,6 +267,14 @@ def write_provenance_sidecar(
     incident, D-series, 2026-08-12: the model that produced it was overwritten
     with no checksum captured, making the figure permanently unreproducible).
     Pass `{"model_path": ..., "model_sha256": ...}` for that case.
+
+    `library_versions` records the environment the artifact was written in, for
+    the same reason: the bytes of a pickled estimator are only loadable by a
+    compatible `scikit-learn`, and `pyproject.toml` declares a floor
+    (`scikit-learn>=1.3.0`) rather than the exact version any given artifact was
+    produced under. It is written here, in the one function every sidecar
+    passes through, so that all callers gain the field together instead of each
+    remembering to pass it through `extra`.
     """
     output_path = Path(output_path)
     payload: dict[str, object] = {
@@ -212,10 +282,11 @@ def write_provenance_sidecar(
         "script": script,
         "artifact": _relative_to_project_root(output_path),
         "sha256": sha256_file(output_path),
+        LIBRARY_VERSIONS_FIELD: library_versions(),
     }
     if extra:
         payload.update(extra)
-    sidecar_path = output_path.with_suffix(output_path.suffix + ".provenance.json")
+    sidecar_path = provenance_sidecar_path_for(output_path)
     with sidecar_path.open("w", encoding="utf-8", newline="") as fh:
         fh.write(json.dumps(payload, indent=2) + "\n")
     return sidecar_path
