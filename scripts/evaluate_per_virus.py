@@ -152,7 +152,8 @@ def expected_calibration_error(
         # Include the right edge only in the last bin so a score of exactly 1.0
         # lands somewhere. A half-open final bin drops those rows from every bin
         # while n still counts them, which silently understates ECE. Matches
-        # compute_ece in scripts/fit_calibrator.py, which already does this.
+        # expected_calibration_error in scripts/fit_calibrator.py, which
+        # already does this.
         if i == n_bins - 1:
             mask = (y_prob >= lo) & (y_prob <= hi)
         else:
