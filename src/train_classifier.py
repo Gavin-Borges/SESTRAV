@@ -96,7 +96,55 @@ def prepare_features(df, include_binding=False, binding_col="binding_score"):
     return pd.DataFrame(feature_records)[cols]
 
 
-def _report_binding_coverage(peptides, binding_lookup, binding_matrix_path):
+BINDING_COVERAGE_FLOOR_ENV = "SESTRAV_MIN_BINDING_COVERAGE"
+
+
+class BindingCoverageBelowFloor(RuntimeError):
+    """A binding matrix reached less of the corpus than this run was willing to accept."""
+
+
+def _resolve_binding_coverage_floor(explicit=None):
+    """Return the coverage floor for this run as a fraction, or None to only report.
+
+    Precedence is the explicit argument, then SESTRAV_MIN_BINDING_COVERAGE, then
+    None. None is the DEFAULT and it preserves the report-only contract exactly:
+    unset the variable and this module behaves as it did before the floor existed.
+
+    That default is deliberate rather than timid. The comment on mode 166's
+    all-zero path records that whether a coverage shortfall should raise "is an
+    owner policy call", and this does not overrule it - it supplies the mechanism
+    and leaves the policy switch off until somebody sets it.
+
+    Accepts a fraction in [0, 1]. A malformed or out-of-range value raises rather
+    than silently disabling the floor, because a typo that turns a gate off while
+    looking like it is on is the failure mode this whole contract exists to stop.
+    """
+    if explicit is not None:
+        floor = float(explicit)
+        source = "min_coverage argument"
+    else:
+        raw = os.environ.get(BINDING_COVERAGE_FLOOR_ENV)
+        if raw is None or not raw.strip():
+            return None
+        try:
+            floor = float(raw)
+        except ValueError:
+            raise ValueError(
+                f"{BINDING_COVERAGE_FLOOR_ENV}={raw!r} is not a number. Give a "
+                "fraction in [0, 1], for example 0.80, or unset it to report "
+                "coverage without enforcing a floor."
+            ) from None
+        source = BINDING_COVERAGE_FLOOR_ENV
+
+    if not 0.0 <= floor <= 1.0:
+        raise ValueError(
+            f"{source} is {floor!r}, outside [0, 1]. The floor is a FRACTION of "
+            "rows the binding matrix must reach, not a percentage: 0.80, not 80."
+        )
+    return floor
+
+
+def _report_binding_coverage(peptides, binding_lookup, binding_matrix_path, min_coverage=None):
     """Report how much of the joined corpus the binding matrix actually reaches.
 
     A peptide absent from the matrix is zero-filled rather than dropped or raised
@@ -115,6 +163,20 @@ def _report_binding_coverage(peptides, binding_lookup, binding_matrix_path):
     because silence was the defect: a run recorded the binding matrix it was
     GIVEN but nothing recorded how much of the corpus that matrix reached, so an
     artifact could name a matrix while its features told a different story.
+
+    Reporting alone does not stop the run. Pass ``min_coverage``, or set
+    SESTRAV_MIN_BINDING_COVERAGE, to turn the shortfall into a
+    BindingCoverageBelowFloor instead of a line of output. Unset, the behaviour
+    is unchanged.
+
+    Measured 2026-09-18 against the tracked corpus's 35,597 ACTIVE rows, which is
+    the population these figures belong to and is not interchangeable with the
+    35,555-row OOF scoring pool the module docstring above quotes:
+    peptide_binding_matrix_v5 covers 31,079 rows (87.31%) and
+    peptide_binding_matrix_v4 covers 8,767 (24.63%). Any floor between those two
+    separates the shipped matrix from the stale one; 0.80 leaves the shipped
+    matrix about seven points of headroom. The floor VALUE is a policy choice and
+    is deliberately not hardcoded here.
     """
     total = len(peptides)
     if total == 0:
@@ -127,6 +189,19 @@ def _report_binding_coverage(peptides, binding_lookup, binding_matrix_path):
         f"{binding_matrix_path}; {missing} zero-filled across "
         f"{len(BINDING_ALLELE_COLUMNS)} allele columns"
     )
+    floor = _resolve_binding_coverage_floor(min_coverage)
+    fraction = covered / total
+    if floor is not None and fraction < floor:
+        raise BindingCoverageBelowFloor(
+            f"Binding coverage {covered}/{total} ({fraction:.2%}) from "
+            f"{binding_matrix_path} is below the required floor of {floor:.2%}. "
+            f"{missing} rows would train on an all-zero binding vector, which is "
+            "indistinguishable from a peptide that genuinely scored zero against "
+            "every allele, so a shortfall this large makes matrix membership a "
+            "label proxy rather than a feature. Point --binding-matrix at a matrix "
+            "built from this corpus, or lower "
+            f"{BINDING_COVERAGE_FLOOR_ENV} deliberately and record why."
+        )
     return missing
 
 

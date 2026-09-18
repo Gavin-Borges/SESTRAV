@@ -109,9 +109,16 @@ def test_both_builders_are_wired_to_the_reporter():
     # that existed and was half-wired read as a complete fix. Asserted exactly
     # rather than with >=, so a NEW join site added later fails here instead of
     # inheriting the same silence. Counting call sites at any indentation, since
-    # mode 166's sits inside a conditional; the `def` line is excluded by the
-    # separate count below rather than by leading whitespace.
-    assert source.count(call) - source.count("def " + call.split("(")[0] + "(") == 4
+    # mode 166's sits inside a conditional.
+    #
+    # The `def` line used to be counted and subtracted, because the signature was
+    # exactly `(peptides, binding_lookup, binding_matrix_path)` and so contained
+    # this call string verbatim. It no longer does: the reporter takes an optional
+    # `min_coverage`, so the signature ends `binding_matrix_path, min_coverage=None)`
+    # and matches no call site. Counting call sites directly is what the test meant
+    # all along; the subtraction was an artifact of the two strings coinciding. The
+    # `def` count below is kept as its own assertion rather than folded in here.
+    assert source.count(call) == 4
     assert source.count("def _report_binding_coverage(") == 1
     # The delegating builders must stay delegating, or they need their own call.
     for delegator in ("prepare_features_30_esm", "prepare_features_30_graph"):
