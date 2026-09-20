@@ -109,7 +109,7 @@ updates:
       - dependency-name: "jupyter-client"
       - dependency-name: "wcwidth"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
-      # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
+      # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
       # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
@@ -220,7 +220,7 @@ updates:
       - dependency-name: "jupyter-client"
       - dependency-name: "wcwidth"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
-      # The weekly group bump keeps trying jsonschema 4.26.0 and fails pip-compile
+      # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
       # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
