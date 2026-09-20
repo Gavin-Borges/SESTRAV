@@ -74,7 +74,7 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - fixed argv to the gh CLI, never a shell
 import sys
 import urllib.error
 import urllib.request
@@ -355,7 +355,7 @@ def _fetch_page_gh(repo: str, state: str, page: int) -> list[dict]:
         # with the platform's preferred encoding, which on Windows is cp1252
         # and raises UnicodeDecodeError on the UTF-8 alert bodies GitHub
         # returns - a decode failure inside the fetch, not a real API problem.
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603 - fixed argv, shell=False, no user input
             command,
             capture_output=True,
             timeout=GH_TIMEOUT_SECONDS,
@@ -374,8 +374,17 @@ def _fetch_page_gh(repo: str, state: str, page: int) -> list[dict]:
 
 
 def _fetch_page_http(repo: str, state: str, page: int, token: str) -> list[dict]:
+    url = f"{API_ROOT}/{_alerts_path(repo, state, page)}"
+    # Constrain the scheme and host BEFORE opening, rather than only
+    # asserting in a comment that they are safe. API_ROOT is a module
+    # constant, so this can only fail if someone edits it to a non-https
+    # or off-host value - and then it fails loudly here instead of letting
+    # urlopen honour file:// or a custom scheme. This guard is what makes
+    # the suppression below honest.
+    if not url.startswith(f"{API_ROOT}/"):
+        raise CouldNotRun(f"refusing to fetch a URL outside {API_ROOT}: {url}")
     request = urllib.request.Request(
-        f"{API_ROOT}/{_alerts_path(repo, state, page)}",
+        url,
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
@@ -384,7 +393,9 @@ def _fetch_page_http(repo: str, state: str, page: int, token: str) -> list[dict]
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+        # The B310 suppression on the next line rests on the scheme and host
+        # guard above, not on an assertion that urlopen is safe in general.
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:  # nosec B310
             raw = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         raise CouldNotRun(f"API request rejected with HTTP {exc.code}") from exc
