@@ -309,7 +309,7 @@ flagged as such - do not cite them as certified numbers.
 | Feature | Honest AUC-PR delta | Compute / latency overhead | Dependency footprint & OpenSSF risk | Verdict |
 |---|---|---|---|---|
 | 5D Z-scale / 8D VHSE descriptors | **+0.0096 (measured, mode 50 proxy)** | None - lookup-table swap, no inference-time cost change | Zero new dependencies. No supply-chain surface. | **Adopt** |
-| N/C-terminal flanking + ERAAP trimming (**proxy**, replacing the mode-33 mock) | Estimated, not yet measured (replacement, not repair) | Requires source-protein flank sequence at inference time; one extra PSSM evaluation per peptide, cacheable | Zero new dependencies - but **CORRECTED 2026-08-11: this cell previously read "`src/antigen_processing.py` already implements the real PSSMs (Keller 2020, Doytchinova 2004); the change is wiring, not a new library". That is false**, and the retraction block in Section 4.2 below already said so without this row being updated. By its own docstring the module emits *proxy* scores, "not tool-call wrappers to NetChop or NetCTL", and says those matrix weights "should be replaced by" the published log-odds matrices - i.e. they are not them. It also emits `erap_score` (ERAP N-terminal trimming), a different biological quantity from `netchop_score` (proteasomal C-terminal cleavage). | **Adopt as replacement** (see Section 4.2 retraction) |
+| N/C-terminal flanking + ERAAP trimming (**proxy**, replacing the mode-33 mock) | Measured since, on the mode-33 MOCK block: `models/v5/training_results_ablation.csv` puts RF mode 33 above mode 31 by less than mode 33's own fold standard deviation | Requires source-protein flank sequence at inference time; one extra PSSM evaluation per peptide, cacheable | Zero new dependencies - but **CORRECTED 2026-08-11: this cell previously read "`src/antigen_processing.py` already implements the real PSSMs (Keller 2020, Doytchinova 2004); the change is wiring, not a new library". That is false**, and the retraction block in Section 4.2 below already said so without this row being updated. By its own docstring the module emits *proxy* scores, "not tool-call wrappers to NetChop or NetCTL", and says those matrix weights "should be replaced by" the published log-odds matrices - i.e. they are not them. It also emits `erap_score` (ERAP N-terminal trimming), a different biological quantity from `netchop_score` (proteasomal C-terminal cleavage). | **NOT ADOPTED - withdrawn** (see Section 4.2) |
 | Agretope/epitope (P2/P9 vs P4-P8) disconnect ratio | Estimated; genuinely novel signal, not measured on this dataset | ~3x MHCflurry calls per peptide (alanine-scan mutants), cacheable in the existing binding-matrix pattern | Zero new dependencies | **Prototype** |
 | pMHC stability (t1/2, NetMHCstabpan) | Estimated from literature; orthogonal to affinity | External predictor call per peptide-allele pair; cacheable | DTU academic-license binary, non-redistributable; repo's one existing DTU integration (NetChop) is currently a silent mock (Section 4) - repeat risk is high without a hard-fail contract | **Gate** on a real (non-mock) integration |
 | ESM-2 embeddings + PCA for RF/XGB | Estimated; existing `30_esm` mode suggests limited RF headroom at this dataset size | Model forward pass per peptide (cacheable), PCA fit must be inside the fold | `transformers` not installed locally; `src/features.py` ESM loader currently falls back to a SHA256-seeded **random** vector on load failure - a silent-garbage pattern that must be fixed before this is trustworthy | **Research only** |
@@ -333,7 +333,39 @@ step-change. Implementation is a pure lookup-table addition with no new dependen
 inference-time cost change, which makes it the highest expected-value-per-engineering-hour item
 on this list.
 
-### 4.2 Adopt as replacement: N/C-terminal flanking and ERAAP trimming
+### 4.2 MEASURED AND NOT ADOPTED: N/C-terminal flanking and ERAAP trimming
+
+> **WITHDRAWN 2026-09-19 - MEASURED AND NOT ADOPTED.** This section's heading previously
+> read "Adopt as replacement: N/C-terminal flanking and ERAAP trimming", and its Section 3
+> verdict cell read "Adopt as replacement". That promised a future gain. What has since been
+> measured is the feature slot the replacement would fill, which carries no weight this
+> harness can resolve, and both routes to filling it are worse than they look - so the
+> promise is withdrawn rather than restated. The replacement is declined, not deferred and
+> not scheduled.
+>
+> 1. **The slot carries no measurable weight.** In `models/v5/training_results_ablation.csv`
+>    the RF mode-33 row sits above the mode-31 row by less than mode 33's own fold standard
+>    deviation, and neither `models/feature_importances.csv` nor
+>    `models/v5/feature_importances.csv` carries a `netchop`, `tap` or `erap` entry at all -
+>    both are 31 rows of mode-31 features. State what that does and does not measure: it is
+>    the MOCK block that was measured, so it bounds the slot and not the replacement. What it
+>    removes is the premise that mode 33 currently carries antigen-processing signal worth
+>    repairing.
+> 2. **The proxy is a substitution, not a repair.** `src/antigen_processing.py` emits
+>    `erap_score` (ERAP N-terminal trimming) while the cache holds `netchop_score`
+>    (proteasomal C-terminal cleavage), a different biological quantity - the module table in
+>    `ARCHITECTURE.md` already says so. Adopting it properly means renaming the column,
+>    redefining what `feature_mode=33` means, and re-running the ablation: a retrain and a
+>    number resync bought against an unmeasured gain.
+> 3. **A real integration is net negative for reproducibility.** A licensed NetChop
+>    deployment is non-redistributable, so `data/antigen_processing_cache.csv` could no
+>    longer be a tracked file. That trades a tracked, disclosed artifact for an untracked,
+>    licence-encumbered one.
+>
+> **Disclosure is not withdrawn; only the replacement is.** D18's obligation stands:
+> wherever the mode-33 antigen-processing scores are named, in code, model cards or prose,
+> they must continue to be labelled MOCK and non-reproducible. Phase 1 step 8 is withdrawn
+> on the same grounds and is retained there only as the record of what was once proposed.
 
 This is not really a new-feature proposal once the codebase is read closely. `feature_mode=33`
 already ships `netchop_score`/`tap_score`, but `scripts/precompute_antigen_processing.py`
@@ -348,11 +380,12 @@ step 8) that `src/train_classifier.py` never
 imports - dead code sitting next to a mock that WAS documented as real in `docs/model_cards/
 rf_33feature_integrated.md` (corrected 2026-08-11: that card now documents the values as MOCK
 in eleven places, from D18's 2026-08-10 pass; this sentence's present tense was left standing
-when the three neighbouring 'real PSSM' claims were corrected). The correct 2026 upgrade path is to retire the mock, wire the proxy
+when the three neighbouring 'real PSSM' claims were corrected). The upgrade path this section once proposed - WITHDRAWN, see the block above - was to retire the mock, wire the proxy
 PSSM code into the mode-33 build, add genuine N/C-terminal flanking probability using source-
 protein context already available via `docs/antigen_accessions.md`, and correct the model card.
-This converts a scientific-integrity liability into whatever real signal the PSSM approach
-actually carries - which should be measured honestly (peptide-grouped) rather than assumed.
+That would have converted a scientific-integrity liability into whatever real signal the PSSM
+approach actually carries. The liability was instead closed by disclosure (D18), and the
+conversion is withdrawn: see the block at the head of this section.
 
 > **Partly actioned 2026-08-10 (`docs/claims_register.md` D18).** The documentation half is done:
 > the mock is now disclosed at every tracked **documentation** surface that presented it as real,
@@ -507,13 +540,15 @@ of the additions below ship.
    to numbers already published in `docs/paper.md` and OpenSSF evidence, and is called out as a
    standing decision for the repository owner below, not something this document resolves.
 
-### Phase 1 - Cheap, dependency-free feature work (Section 4.1, 4.2)
+### Phase 1 - Cheap, dependency-free feature work (Section 4.1; 4.2 is WITHDRAWN)
 
 7. Add `Z_SCALES`/`VHSE` tables to `src/features.py` alongside the existing `KD_HYDRO` etc.,
    define a new additive `FEATURE_COLUMNS_36` (5D x 5 positions + 10 binding + length), dispatch
    it in `train_classifier.py`'s mode selection, and register it in `VALID_FEATURE_MODES`
    (`scripts/batch_experiment_runner.py`). A/B against modes 31 and 50 under grouped CV.
-8. **CORRECTED 2026-08-11 - this step rested on a false premise as previously written.** It read "Wire
+8. **WITHDRAWN 2026-09-19 - declined, not scheduled. See Section 4.2.** The text of this step
+   is retained as the record of what was once proposed and must not be read as a live plan.
+   **CORRECTED 2026-08-11 - this step rested on a false premise as previously written.** It read "Wire
    `src/antigen_processing.py`'s **real PSSMs** into the `feature_mode=33` build". There are no real
    PSSMs in that module: it emits *proxy* scores by its own docstring, which says those weights
    "should be replaced by" the published log-odds matrices - i.e. they are not them - and it
