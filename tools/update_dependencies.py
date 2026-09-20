@@ -130,7 +130,7 @@ Notes:
     locally but fails --require-hashes on CI (missing or extra marker-gated
     wheels). Override only if you know why.
   * --generate-hashes and the pinned --python-version reproduce the
-    pip-compile invocations recorded in each lockfile header.
+    uv pip compile invocations recorded in each lockfile header.
   * --no-emit-index-url matches the repo convention and keeps a local
     [tool.uv.pip] emit-index-url setting from leaking an index into the file.
   * Files without a `.in` source (requirements-ci-render.txt,
