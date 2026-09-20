@@ -59,9 +59,13 @@ on:
 # entry from pyproject.toml uncovers a package without touching the lock at
 # all. A paths: filter would also make this workflow unsafe to promote to a
 # required status check, because a required context that never runs leaves a
-# pull request pending rather than passing. The two gates already required on
-# this repository (doc_commit_refs.yml, doc_line_citations.yml) carry no paths:
-# filter for that reason.
+# pull request pending rather than passing. The doc-citation gates already
+# required on this repository (doc_commit_refs.yml, doc_line_citations.yml)
+# carry no paths: filter for that reason. Nor does any other workflow backing a
+# required context: the only paths: filter in the tree is at
+# dependency-lockfile-check.yml:27, on a workflow that is not required.
+# Deliberately not stating how many required contexts there are - that count has
+# already moved from five to seven, so quoting it would stale this comment.
 
 permissions:
   contents: read
