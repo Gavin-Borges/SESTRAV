@@ -130,6 +130,24 @@ here means one specific, verifiable thing: gating the merge button via the
 that is not on either of those two lists cannot block a merge, even if it fails its
 own CI job red.
 
+**One of those seven is satisfied automatically for the maintainer, and this list
+alone would not tell you.** `Require human review` is a genuine required context, but
+`.github/workflows/pr-review-check.yml` returns success without any review when the
+pull request author is the repository owner, and the ruleset's
+`required_approving_review_count` is **0**, so nothing else supplies one.
+`require_code_owner_review` does not either: `.github/CODEOWNERS` is `* @Gavin-Borges`
+and GitHub does not let an author approve their own pull request.
+
+This is a **declared accommodation, not a hole**, and the workflow says so in its own
+header: it enforces review for EXTERNAL contributors only, and records that it "does
+NOT establish independent review for owner-authored changes, which are the large
+majority of merges. SESTRAV is solo-maintained; the required CI checks, not a second
+reviewer, are the real gate on those changes." `BUS_FACTOR.md` and
+`docs/security_compliance.md` record the same position - OpenSSF Silver and Gold are
+formally declined on `bus_factor` / `two_person_review` grounds as of 2026-08-17.
+Noted here because a reader of the enumeration above, without this paragraph, would
+conclude owner merges are human-reviewed. They are CI-reviewed.
+
 **Corrected 2026-09-13.** This paragraph read "its five required status checks" and
 enumerated five, omitting `Bandit Security Scan` and `CodeQL Static Analysis`. That
 understated enforcement, and it contradicted this document's own CI gate map below,
@@ -172,6 +190,7 @@ mechanically enforced today, and the two are not yet the same for every row.
 | Semgrep `p/python` (`security.yml`) | Registry SAST ruleset -> Security > Code scanning | Advisory |
 | pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` -> run summary | Advisory - fails closed (non-`continue-on-error`) on any lockfile advisory absent from `environments/accepted_advisories.toml`, but is not a required status check |
 | Dependabot alerts | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged) |
+| PII & path-leak scan (`pii_scan.yml`) | Workstation absolute paths and AI-tooling filenames, over the tracked tree and over published refs | Advisory, and **split**: pushes to `main`/`release/**` and pull requests are ENFORCED (hard `exit 1`), while **tags are REPORTED only** - the ref loop passes `report`, which downgrades a finding to a `::warning`. That exemption is deliberate and commented in the workflow: a tag is immutable published provenance, so wiring it to `exit 1` would wedge the job red on history no push can change. Note the workflow has **no tag trigger at all**, so a tag is first examined on the next `main` push, pull request or weekly sweep. Neither of its jobs is a required status check, so even the enforced half cannot hold the merge button |
 
 Advisory findings never block a merge on their own - none of them is a required
 status check or a code-scanning rule on `Protect Main Branch`. Three of them
