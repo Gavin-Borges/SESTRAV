@@ -465,3 +465,76 @@ def test_unquoted_rhs_in_json_and_toml_is_not_flagged(tmp_path: Path) -> None:
     control = tmp_path / "case.yaml"
     _bare(control, rhs)
     assert mod.scan_file(str(control)) == [1]
+
+
+# --- a file the scanner cannot decode or open must not read as clean ------------
+#
+# scan_file opened with encoding="utf-8" and the default errors="strict", and
+# caught UnicodeDecodeError by returning the lines found SO FAR, printing nothing.
+# One byte that is not valid UTF-8 therefore truncated the scan of that file and
+# the run still reported success.
+#
+# Measured 2026-09-20 on two fixtures identical except for a single byte:
+#   valid UTF-8                        -> [2]   credential on line 2 FLAGGED
+#   same content, one 0xff on line 1   -> []    nothing reported
+#
+# Anti-vacuity: test_valid_encoding_control_is_flagged is load-bearing. If the
+# payload ever stopped clearing the length or entropy floor, the undecodable case
+# would return [] for the innocent reason and would pass against the BROKEN
+# scanner. An earlier version of this probe used a repeated three-character motif,
+# whose Shannon entropy is about 1.58, and the control came back empty - proving
+# nothing at all.
+
+
+def _undecodable(path: Path, token: str) -> None:
+    """Line 1 carries a byte that is not valid UTF-8; line 2 carries the payload."""
+    payload = "api" + "_key = " + '"' + token + '"\n'
+    path.write_bytes(b"# ordinary comment \xff\n" + payload.encode("utf-8"))
+
+
+def _decodable(path: Path, token: str) -> None:
+    """Byte-for-byte the same, minus the one bad byte."""
+    payload = "api" + "_key = " + '"' + token + '"\n'
+    path.write_bytes(b"# ordinary comment\n" + payload.encode("utf-8"))
+
+
+def test_valid_encoding_control_is_flagged(tmp_path: Path) -> None:
+    """Anti-vacuity anchor: the payload really does trip the scanner."""
+    mod = _load()
+    target = tmp_path / "control.py"
+    _decodable(target, _token())
+    assert mod.scan_file(str(target)) == [2]
+
+
+def test_undecodable_byte_does_not_hide_a_later_secret(tmp_path: Path) -> None:
+    """The regression. Before the fix this returned [] and printed nothing."""
+    mod = _load()
+    target = tmp_path / "dirty.py"
+    _undecodable(target, _token())
+    assert mod.scan_file(str(target)) == [2]
+
+
+def test_unreadable_path_is_recorded_rather_than_passing_quietly(
+    tmp_path: Path,
+) -> None:
+    """An OSError means the file was never examined, so it must not read as clean.
+
+    A directory named like a scannable file is the portable way to force an
+    OSError from open(): POSIX raises IsADirectoryError, Windows PermissionError,
+    and both are OSError subclasses.
+    """
+    mod = _load()
+    target = tmp_path / "looks_like_a_file.py"
+    target.mkdir()
+    assert mod.scan_file(str(target)) == []
+    assert str(target) in mod.UNREADABLE_PATHS
+
+
+def test_unreadable_paths_does_not_leak_between_runs(tmp_path: Path) -> None:
+    """scan_tree clears the record, so one run cannot fail because of an earlier one."""
+    mod = _load()
+    mod.UNREADABLE_PATHS.append("stale/entry/from/a/previous/run.py")
+    # Far below the floor, so this returns 1 for the vacuity reason, not the
+    # unreadable one - the point is only that the stale entry is gone.
+    mod.scan_tree(str(tmp_path), min_files=10)
+    assert mod.UNREADABLE_PATHS == []
