@@ -42,17 +42,35 @@ jobs:
           # src/continuous_validation.py so the logic is unit-tested
           # (tests/test_continuous_validation.py). Model + binding-matrix paths
           # resolve from config.yaml; baseline from data/validation_baselines.json.
+          #
+          # --require-measurement makes "could not score" exit 2 instead of 0.
+          # Without it this job was GREEN WITHOUT MEASURING ANYTHING: config.yaml
+          # points model_path at models/rf_31feature_integrated.joblib, .gitignore
+          # excludes models/*.joblib, and nothing in this workflow supplies one, so
+          # the run took the "Model not found ... Skipping AUC-PR computation"
+          # branch every time. Observed on run 33512393850 (2026-09-01), conclusion
+          # "success", which scored nothing, uploaded no artifact and opened no
+          # issue. A red monthly run saying "could not measure" is the honest
+          # result; turning it green again needs a model in CI, which is an owner
+          # decision and is deliberately not made here.
           python -m src.continuous_validation \
             --inputs data_tmp/iedb/ebv_tcell.csv data_tmp/iedb/hpv16_tcell.csv \
             --baseline data/validation_baselines.json \
-            --results-dir results/continuous_validation
+            --results-dir results/continuous_validation \
+            --require-measurement
 
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: iedb-benchmark-${{ github.run_id }}
           path: results/continuous_validation/benchmark_latest.json
-          if-no-files-found: warn
+          # error, not warn. The scoring step above now fails when it could not
+          # measure, so if control reaches here the benchmark DID run and the
+          # artifact must exist; a missing file is then a real defect rather than
+          # the expected skip. Under `warn` this step printed "No files were found"
+          # and the job still went green, which is the second of the two fail-opens
+          # this change closes.
+          if-no-files-found: error
 
       - name: Open GitHub Issue on regression
         if: hashFiles('REGRESSION_DETECTED') != ''
