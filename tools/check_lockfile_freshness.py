@@ -350,10 +350,10 @@ def main() -> int:
         for problem in problems:
             print(_annotate(problem))
         print(
-            "\nRegenerate the affected lockfile(s) locally (pip-compile --allow-unsafe "
-            "--generate-hashes ...; see the header comment of each .txt/.lock file for "
-            "its exact command) and push the result yourself. This check never writes "
-            "or pushes anything."
+            "\nRegenerate the affected lockfile(s) locally with "
+            "`python tools/update_dependencies.py` (--ci-env <name> for one CI tool env, "
+            "--all for a full re-lock; each .txt/.lock header records its exact command) "
+            "and push the result yourself. This check never writes or pushes anything."
         )
         return 1
 

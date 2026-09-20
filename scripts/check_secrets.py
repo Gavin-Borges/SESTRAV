@@ -105,6 +105,13 @@ _SCAN_SUFFIXES = (
 )
 
 
+# Paths this run could not READ at all. A file that cannot be opened has not been
+# cleared, so scan_tree turns this into a failure rather than letting it pass
+# quietly. It is module-level because scan_file returns line numbers and must keep
+# that signature; scan_tree resets it at the start of every run.
+UNREADABLE_PATHS: List[str] = []
+
+
 def scan_file(path: str) -> List[int]:
     # Returns only the line NUMBERS of credential-like assignments. The matched
     # text is deliberately never stored or returned, so a flagged value cannot be
@@ -116,7 +123,22 @@ def scan_file(path: str) -> List[int]:
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        # errors="surrogateescape", NOT the default "strict", and this is the whole
+        # point of the change. Under "strict" a single byte that is not valid UTF-8
+        # raised UnicodeDecodeError, the except clause below returned the lines
+        # found SO FAR, and nothing was printed - so the rest of that file was never
+        # examined and the run still reported success.
+        #
+        # Measured 2026-09-20 on two fixtures identical except for one byte:
+        #   valid UTF-8                      -> [2]   credential on line 2 FLAGGED
+        #   same file, one 0xff byte line 1  -> []    nothing reported
+        # One unreadable byte anywhere above a secret hid the secret.
+        #
+        # surrogateescape maps undecodable bytes to lone surrogates instead of
+        # raising, so the scan runs to the end of the file. Credential values are
+        # ASCII by construction (the patterns below match quoted or bare tokens
+        # with no whitespace), so the smuggled bytes cannot mask a match.
+        with open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
             for line_no, line in enumerate(f, 1):
                 flagged = False
                 for pattern in patterns:
@@ -140,7 +162,15 @@ def scan_file(path: str) -> List[int]:
                         break
                 if flagged:
                     flagged_line_numbers.append(line_no)
-    except (OSError, UnicodeDecodeError):
+    except OSError:
+        # The file could not be opened or read at all (permissions, a vanished
+        # path, a device error). That is NOT a clean result: nothing about this
+        # file has been cleared. Record it so scan_tree can fail closed.
+        #
+        # UnicodeDecodeError is deliberately no longer caught here. With
+        # errors="surrogateescape" above it can no longer be raised by the read,
+        # and catching it was what made an undecodable byte look like a clean file.
+        UNREADABLE_PATHS.append(path)
         return flagged_line_numbers
     return flagged_line_numbers
 
@@ -267,6 +297,7 @@ def iter_scanned_files(root: str) -> List[str]:
 
 
 def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
+    UNREADABLE_PATHS.clear()
     paths = iter_scanned_files(root)
     if len(paths) < min_files:
         print(
@@ -281,6 +312,18 @@ def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
                 f"[FLAGGED] {path}:{line_no} (credential-like assignment; value not shown)"
             )
             has_error = True
+    # A file that could not be READ has not been cleared. Reported as its own
+    # failure rather than folded into [FLAGGED], because the two mean opposite
+    # things: FLAGGED is "we looked and found something", this is "we could not
+    # look". Silently treating the second as a pass is the defect this gate had.
+    if UNREADABLE_PATHS:
+        for path in UNREADABLE_PATHS:
+            print(f"[UNREADABLE] {path} (could not be opened; NOT cleared)")
+        print(
+            f"\n[ERROR] {len(UNREADABLE_PATHS)} file(s) could not be read, so this "
+            "run cannot certify them. Action blocked."
+        )
+        return 1
     if has_error:
         print("\n[ERROR] Potential secrets detected. Action blocked.")
         return 1
