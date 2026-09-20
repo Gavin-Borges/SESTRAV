@@ -125,8 +125,8 @@ jobs:
         # setuptools build backend (see pyproject.toml [build-system]); building the
         # source/wheel distribution does not import the heavy ML runtime deps.
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-ci-build.in \
-        #     --output-file environments/requirements-ci-build.txt --no-emit-index-url
+        #   python tools/update_dependencies.py --ci-env build
+        #   (wraps `uv pip compile`; the .txt header records the exact argv)
         run: |
           pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/

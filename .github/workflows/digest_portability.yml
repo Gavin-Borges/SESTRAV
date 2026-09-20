@@ -1,0 +1,110 @@
+name: Digest Portability
+
+# WHY THIS GATE EXISTS
+#
+# Tracked provenance sidecars record a SHA256 for each artifact they attest to.
+# A digest computed from a CRLF worktree does not reproduce from that file's
+# committed blob, so the pin silently stops pinning anything a clone can
+# verify. scripts/check_digest_portability.py recomputes every recorded digest
+# from the committed blob and reports the ones that do not reproduce.
+#
+# It has had a passing test suite since it landed and, until this workflow, was
+# invoked by NOTHING: no workflow, no hook, no Makefile target. Measured
+# 2026-09-20 with `git grep -l check_digest_portability` over the whole tracked
+# tree, which returns only tests/test_check_digest_portability.py. A gate that
+# nothing invokes is documentation, not a gate.
+#
+# WHY THE STEP DOES NOT CALL THE SCRIPT BARE
+#
+# The tool has two fail-open properties, both measured 2026-09-20:
+#
+#   1. main() ends `return int(args.strict and any(...))`
+#      (scripts/check_digest_portability.py:233). WITHOUT --strict the exit
+#      code is 0 whatever it found. A bare call can never fail.
+#   2. WITH --strict and zero matching manifests, rows is empty, any([]) is
+#      False, and the exit code is STILL 0. So renaming or deleting every
+#      sidecar reads as a pass rather than as a broken gate.
+#
+# The step below therefore consumes --json and fails on an empty row set as
+# well as on a non-portable verdict, which makes "could not find its inputs" a
+# FAILURE rather than a pass. There is deliberately no `|| true`, no
+# `continue-on-error:` and no `if: always()`.
+#
+# WHY MISSING IS REPORTED RATHER THAN FAILED
+#
+# 28 of the 65 digests on main pin UNTRACKED binaries under models/ and
+# data/. A blob comparison cannot decide those either way, so failing on them
+# would make this gate permanently red for a reason no contributor could fix.
+# They are printed in the summary so the blind spot stays visible.
+
+on:
+  # Pull requests are the primary surface: a wrong digest is cheapest to fix
+  # before it lands.
+  pull_request:
+    branches:
+      - main
+  # Push to main is deliberate and NOT redundant. Ruleset 16846770 grants the
+  # repository-admin role always-bypass and the sole maintainer holds it, so a
+  # merge can land on main without the pull_request run ever having reported.
+  push:
+    branches:
+      - main
+
+# No paths: filter, on purpose. Portability is a RELATION between a sidecar and
+# its subject file: editing the subject breaks the pin without touching the
+# sidecar, so a path-scoped trigger would miss the common case. A paths: filter
+# would also make this workflow unsafe to promote to a required status check,
+# because a required context that never runs leaves a pull request pending
+# rather than passing.
+
+permissions:
+  contents: read
+
+jobs:
+  check_digest_portability:
+    name: Recorded digests reproduce from Git
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No fetch-depth: 0. The tool reads HEAD blobs and `git ls-files`,
+          # both complete at the default depth of 1. It never walks history.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          # The declared project floor: pyproject.toml requires-python ">=3.11".
+          # Matches the other stdlib-only check gates in this repository.
+          python-version: '3.11'
+
+      - name: Verify every recorded SHA256 reproduces from its Git blob
+        run: |
+          python scripts/check_digest_portability.py --json > digest_report.json
+          python - <<'PY'
+          import json
+          import sys
+
+          with open("digest_report.json", encoding="utf-8") as fh:
+              report = json.load(fh)
+
+          counts = report["counts"]
+          total = sum(counts.values())
+          print("SUMMARY " + " ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+
+          # An empty row set means the tool found no digest records at all,
+          # which is a broken gate, not a clean tree. The tool itself would
+          # exit 0 here even under --strict; see the header comment.
+          if total == 0:
+              sys.exit("FAIL: no digest records found at all; the gate could not run.")
+
+          bad = [r for r in report["rows"] if r["verdict"] in ("WINDOWS_ONLY", "MISMATCH")]
+          for row in bad:
+              print(f"  {row['verdict']} {row['manifest']} -> {row['path']}")
+          if bad:
+              sys.exit(f"FAIL: {len(bad)} recorded digest(s) do not reproduce from Git.")
+
+          print("OK: every recorded digest that can be checked reproduces from its blob.")
+          PY
