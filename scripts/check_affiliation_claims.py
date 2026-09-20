@@ -126,7 +126,7 @@ blocker, not a reading.
 So a directory that carries its own ``.git`` entry is treated as a nested
 checkout, and the files GIT TRACKS THERE are not scanned again. Detection is
 structural, never a name glob: a ``wt_*`` pattern would match a name rather
-than the property (``.claude/rules/git-instruments-diffs.md`` rule 14).
+than the property (``.claude/rules/git-instruments-delivery.md`` rule 14).
 
 **What that suppresses, stated rather than hidden.** Exactly one class: a
 fabricated institution in git-tracked content on a branch checked out in a

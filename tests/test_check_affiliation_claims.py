@@ -339,7 +339,7 @@ def test_nested_checkout_detection_is_structural_not_a_name_glob():
     """A worktree is detected by carrying .git, never by being called wt_*.
 
     Keying on a name prefix would match a NAME rather than the property
-    (.claude/rules/git-instruments-diffs.md rule 14), so a checkout parked
+    (.claude/rules/git-instruments-delivery.md rule 14), so a checkout parked
     under any other name would keep flooding the report while a plain
     directory that happened to be named wt_something would go unscanned.
 
