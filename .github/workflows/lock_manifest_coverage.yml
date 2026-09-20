@@ -1,0 +1,116 @@
+name: Lock Manifest Coverage
+
+# WHY THIS GATE EXISTS
+#
+# environments/requirements.lock is what the container image and several CI
+# jobs actually install from, but GitHub's dependency graph does not parse a
+# bare .lock filename for the pip ecosystem. Measured 2026-09-19 against this
+# repository: that file has raised 0 of the 108 Dependabot alerts this repo has
+# ever received, while its compile input, environments/requirements-lock.in, IS
+# parsed and has raised 2. A distribution pinned ONLY in the lock is therefore
+# invisible to Dependabot permanently. No advisory against it can ever raise an
+# alert here, and nothing in the repository would notice that it had not.
+#
+# Today every distribution pinned in the lock also appears in at least one
+# parsed manifest, so nothing is unmonitored. That is a property of today's
+# content, not an enforced invariant, and a lock-only package would be silent
+# forever. This workflow converts the coincidence into an invariant.
+#
+# EXIT CODES, AND WHY 2 IS A FAILURE
+#
+# The tool exits 0 when every locked distribution is covered, 1 when one or
+# more are covered by nothing, and 2 when it COULD NOT RUN: lock file missing,
+# lock file empty, a line it cannot classify, or no parsed manifest found to
+# compare against. Exit 2 certifies NOTHING and must never be read as a pass.
+# There is deliberately no `|| true`, no `continue-on-error:` and no
+# `if: always()` below, so GitHub's default non-zero handling fails the job on
+# 1 and on 2 alike. If this job is ever given a shell wrapper, preserve that.
+#
+# OFFLINE, TOKEN-FREE, INSTALL-FREE
+#
+# The tool derives the parsed-manifest set from repository content on disk
+# rather than from the GitHub API, precisely so it cannot silently skip where a
+# token or network is unavailable. It imports only the standard library, so
+# there is no install step here, no third-party pin to maintain and no supply
+# chain reached at gate time. `contents: read` is the whole requirement.
+
+on:
+  # Pull requests are the primary surface: this is where a lock-only package
+  # would be introduced, and where it can still be fixed cheaply.
+  pull_request:
+    branches:
+      - main
+  # Push to main is included deliberately, and it is not redundant with the
+  # pull_request trigger. Ruleset 16846770 grants the repository-admin role
+  # always-bypass and the sole maintainer holds it, as
+  # dependency-lockfile-check.yml's own header records, so a merge or a direct
+  # push can land on main without this gate having reported against it. The
+  # push run is the backstop that makes main itself measured rather than only
+  # the proposals aimed at it. Same shape as doc_line_citations.yml, which
+  # carries both triggers for the same reason. The cost is one stdlib-only
+  # ubuntu-latest job of a few seconds per push.
+  push:
+    branches:
+      - main
+
+# No paths: filter, on purpose. A path-scoped trigger is tempting here because
+# the gate reads only the lock and the requirements manifests, but coverage is
+# a RELATION between two sides: deleting a requirements*.txt or removing an
+# entry from pyproject.toml uncovers a package without touching the lock at
+# all. A paths: filter would also make this workflow unsafe to promote to a
+# required status check, because a required context that never runs leaves a
+# pull request pending rather than passing. The two gates already required on
+# this repository (doc_commit_refs.yml, doc_line_citations.yml) carry no paths:
+# filter for that reason.
+
+permissions:
+  contents: read
+
+jobs:
+  check_lock_manifest_coverage:
+    name: Locked packages are Dependabot-visible
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No fetch-depth: 0 here, unlike doc_commit_refs.yml. That gate
+          # resolves commit SHAs and genuinely needs history; this one reads
+          # the WORKING TREE only - the lock file and the requirements
+          # manifests beside it - and never looks at a commit. The tool
+          # enumerates tracked files with `git ls-files`, which reads the
+          # index and is complete at the default depth of 1.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          # The project floor: pyproject.toml declares
+          # requires-python = ">=3.11", and the tool's only version-sensitive
+          # import is tomllib, which landed in 3.11. Running the gate at the
+          # floor exercises the oldest interpreter this project supports, so a
+          # green run here implies a green run on every newer one. This also
+          # matches the other stdlib-only check gates in this directory
+          # (affiliation_claims.yml, doc_commit_refs.yml,
+          # doc_line_citations.yml), all of which pin '3.11'.
+          python-version: '3.11'
+
+      - name: Verify every locked distribution is declared in a parsed manifest
+        # --repo-root is passed explicitly rather than left to the tool's
+        # __file__-derived default. The default resolves correctly in a
+        # single-checkout runner, but naming the tree under test is the habit
+        # this repository keeps after an integrity harness that resolved its
+        # own root from __file__ certified a different checkout than the one it
+        # appeared to be measuring. --lock is passed for the same reason: it
+        # names the gated file at the call site, so a later change to the
+        # tool's default cannot silently retarget this workflow.
+        #
+        # --follow-includes is deliberately NOT passed. Whether GitHub's
+        # dependency graph resolves -r/-c includes is unmeasured, and crediting
+        # them unmeasured would risk a false pass, which is the one failure
+        # mode this gate exists to prevent. Unfollowed includes are reported as
+        # notes in the job log.
+        run: |
+          python tools/check_lock_manifest_coverage.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --lock environments/requirements.lock
