@@ -221,9 +221,17 @@ jobs:
         #      free; it silently costs a Scorecard point for 30 commits.
         #
         # Scope note: this inherits semgrep's DEFAULT ignore list, which excludes
-        # `tests/`. CI's own verdict at 529c5bc (2026-09-13, run 34735879724) was
-        # "Ran 154 rules on 166 files: 0 findings" - a specific run's count, not a
-        # formula to re-derive (it is NOT simply "tracked non-test .py files";
+        # `tests/`. CORRECTED 2026-09-20: this cited "Ran 154 rules on 166 files"
+        # as THIS job's verdict at 529c5bc. That is the ADVISORY job's figure.
+        # 154 is the p/python registry ruleset plus this repo's own, and the
+        # advisory step is the only one that passes `--config p/python`. THIS
+        # step runs `--config semgrep-rules/` alone, and semgrep-rules/ holds a
+        # single file with exactly THREE rule ids - at 529c5bc as well as today,
+        # so the figure was never right for this job. The bad number entered via
+        # PR #440 and is corrected here because the re-measurement two paragraphs
+        # down is the instrument that disproves it. The FILE count is a specific
+        # run's count, not a formula to re-derive (it is NOT simply
+        # "tracked non-test .py files";
         # that equality holds today by coincidence, not by mechanism, since this
         # job's real target set is git-tracked files minus semgrep's own default
         # ignores, language-filtered - a different filter shape entirely). That is
