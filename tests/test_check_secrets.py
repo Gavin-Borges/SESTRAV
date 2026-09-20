@@ -538,3 +538,69 @@ def test_unreadable_paths_does_not_leak_between_runs(tmp_path: Path) -> None:
     # unreadable one - the point is only that the stale entry is gone.
     mod.scan_tree(str(tmp_path), min_files=10)
     assert mod.UNREADABLE_PATHS == []
+
+
+# ---------------------------------------------------------------------------
+# EXCLUDE_PATHS is keyed to the repo-relative PATH, not to a basename
+# ---------------------------------------------------------------------------
+#
+# The exclusion set used to be basenames tested with `name in EXCLUDE_FILES`,
+# so a file called check_secrets.py ANYWHERE in the tree was skipped by a gate
+# nobody had asked to skip it there. That is a widening of a security gate's
+# blind spot, and it widens on its own as the tree grows.
+#
+# It is the file-name analogue of a defect this same function already had for
+# DIRECTORY names, recorded in iter_scanned_files: EXCLUDE_DIRS prunes by
+# directory name, which measurably hid 26 tracked files under results/.
+#
+# Measured before narrowing, because an exclusion that is load-bearing cannot
+# simply be tightened: scan_file returns zero findings for all three excluded
+# paths, and iter_scanned_files(".") returns the SAME 526 files before and
+# after, with nothing gained and nothing lost. No collision exists today; these
+# tests are what keep one from being introduced silently.
+
+
+def test_intended_exclusions_are_still_excluded_at_their_real_paths() -> None:
+    mod = _load()
+    for rel in (
+        "scripts/check_secrets.py",
+        "tools/apply_protection.sh",
+        "scripts/apply-branch-ruleset.ps1",
+    ):
+        assert mod._is_scannable(rel) is False, f"{rel} should remain excluded"
+
+
+def test_a_colliding_basename_elsewhere_is_now_scanned() -> None:
+    """The actual fix. Under the old basename set both of these were skipped."""
+    mod = _load()
+    assert mod._is_scannable("tests/fixtures/check_secrets.py") is True
+    assert mod._is_scannable("vendor/tools/apply_protection.sh") is True
+
+
+def test_exclusions_are_paths_not_basenames() -> None:
+    """Anti-vacuity anchor: proves the two tests above differ for the right reason.
+
+    If EXCLUDE_PATHS ever regressed to holding bare basenames, the collision
+    test would fail; if it regressed to matching nothing, the exclusion test
+    would fail. This asserts the stored shape directly so neither regression can
+    be mistaken for the other.
+    """
+    mod = _load()
+    assert all("/" in entry for entry in mod.EXCLUDE_PATHS), (
+        f"EXCLUDE_PATHS must hold repo-relative paths, got {sorted(mod.EXCLUDE_PATHS)}"
+    )
+
+
+def test_windows_separators_match_the_same_exclusions() -> None:
+    """os.walk yields backslashes on Windows; git ls-files yields forward slashes."""
+    mod = _load()
+    assert mod._is_scannable("scripts\check_secrets.py") is False
+    assert mod._is_scannable("./scripts/check_secrets.py") is False
+
+
+def test_ordinary_files_are_unaffected() -> None:
+    mod = _load()
+    assert mod._is_scannable("src/train_classifier.py") is True
+    assert mod._is_scannable("README.md") is True
+    assert mod._is_scannable("Dockerfile.api") is True
+    assert mod._is_scannable("models/weights.bin") is False
