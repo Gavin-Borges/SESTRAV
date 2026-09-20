@@ -194,7 +194,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Semgrep
-        # Same hash-pinned set the advisory job installs (semgrep==1.175.0).
+        # Same hash-pinned set the advisory job installs (semgrep==1.177.0).
         run: pip install --require-hashes -r environments/requirements-semgrep.txt
 
       - name: Run SESTRAV custom rules
@@ -227,10 +227,17 @@ jobs:
         # that equality holds today by coincidence, not by mechanism, since this
         # job's real target set is git-tracked files minus semgrep's own default
         # ignores, language-filtered - a different filter shape entirely). That is
-        # why `tests/test_train_classifier.py:608,611` calling `joblib.load` does
+        # why `tests/test_train_classifier.py:611,614` calling `joblib.load` does
         # not trip this gate. If the pinned semgrep version is ever bumped,
         # re-check that default, because those two call sites would start
         # failing here.
+        # Re-checked 2026-09-20 for the 1.176.1 -> 1.177.0 bump, in an isolated
+        # venv running this step's exact argv: "Ran 3 rules on 169 files: 0
+        # findings", exit 0, identical to the 1.176.1 baseline, and a --json run
+        # reports 0 files under tests/ in the scanned set. The default still
+        # excludes them. Note the anchors above were `:608,611` until that
+        # re-check: the call sites had drifted two lines and nothing pins them,
+        # so re-derive with `grep -n 'joblib.load'` rather than trusting them.
         # Local rules only - no registry fetch - so this gate has no network
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off
