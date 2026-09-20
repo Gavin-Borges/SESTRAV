@@ -261,5 +261,51 @@ else
     printf '%s\n' "  checkout: python scripts/check_affiliation_claims.py --all"
 fi
 
+# ---- Check 6: Entropy credential scan -----------------------------------
+# Fails if any scannable file holds a high-entropy credential-like assignment.
+#
+# WHY THIS IS HERE AT ALL. scripts/check_secrets.py is this repo's ONLY
+# entropy-based credential detector, and until this check it was invoked by
+# no hook. Its CI job (`Custom Secret Pattern Scan`, security.yml) runs on
+# pull requests but is NOT among ruleset 16846770's required contexts, so it
+# reports and does not block. The only credential gate that blocked anything
+# was pre-commit Gate 2, a narrower detector: twelve vendor-PREFIX regexes
+# (sk-ant-, ghp_, AKIA, a PEM header and so on) and no entropy rule at all.
+#
+# So a high-entropy value in a format with no known vendor prefix - a
+# self-hosted database password, an internal service token - was invisible to
+# every blocking gate in this repository and committed and pushed clean.
+#
+# WHY PRE-PUSH RATHER THAN PRE-COMMIT. This scanner walks the TREE, not the
+# staged diff. On pre-commit that means an unrelated pre-existing file could
+# block a commit touching something else, and the cost is paid per commit.
+# Here the cost is already sunk: Check 2 above runs the full pytest suite, so
+# this scan's ~0.6s is noise. Pushing is also the boundary that matters - it
+# is the point at which content reaches a public remote.
+#
+# DELIBERATELY UNGUARDED. Checks 4 and 5 skip when _local/ is absent, which
+# is the common case in a worktree. scripts/check_secrets.py is TRACKED, so
+# it exists in every worktree and every clone, and there is no condition
+# under which this check should announce a skip instead of running.
+printf '[pre-push] Scanning for high-entropy credential assignments...\n'
+
+cd "${REPO_ROOT}" && python scripts/check_secrets.py
+
+if [[ $? -ne 0 ]]; then
+    printf '\n' >&2
+    block "Entropy credential scan failed."
+    printf '\n' >&2
+    printf '%s\n' "  A [FLAGGED] line holds a credential-like assignment whose value" >&2
+    printf '%s\n' "  clears both the length and Shannon-entropy floors. The value is" >&2
+    printf '%s\n' "  never printed, by design - open the reported file:line yourself." >&2
+    printf '%s\n' "  Remove the secret and rotate it; a push is not the first place it" >&2
+    printf '%s\n' "  leaked if it is already committed." >&2
+    printf '%s\n' "  An [UNREADABLE] line is NOT a false positive either: that file" >&2
+    printf '%s\n' "  could not be opened, so nothing about it has been cleared." >&2
+    printf '%s\n' "  A genuine false positive is allowlisted in scripts/check_secrets.py" >&2
+    printf '%s\n' "  with a note naming why that exact value is safe." >&2
+    exit 1
+fi
+
 printf '[pre-push] All checks passed -- push allowed.\n'
 exit 0
