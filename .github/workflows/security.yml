@@ -123,7 +123,7 @@ jobs:
 
       - name: Install Semgrep
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-semgrep.in
+        #   python tools/update_dependencies.py --ci-env semgrep
         run: pip install --require-hashes -r environments/requirements-semgrep.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). `semgrep scan` exits non-zero
@@ -267,7 +267,7 @@ jobs:
 
       - name: Install pip-audit
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-pip-audit.in
+        #   python tools/update_dependencies.py --ci-env pip-audit
         run: pip install --require-hashes -r environments/requirements-pip-audit.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). Audits the INSTALLED,

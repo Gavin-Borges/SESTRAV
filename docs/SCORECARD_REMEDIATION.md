@@ -33,7 +33,7 @@ parenthetical, for current state.
 
 ### Step 1: Regenerate requirements.txt (dependency CVEs) - ✅ Complete
 
-We have successfully regenerated `requirements.txt` from `requirements.in` using `pip-compile`.
+We have successfully regenerated `requirements.txt` from `requirements.in` using `pip-compile`, this repo's compiler until it moved to `uv pip compile` (via `tools/update_dependencies.py`) on 2026-07-28.
 At the time of that remediation the compiled file resolved `keras==3.14.1` (secure against
 the then-known Keras CVEs) and `protobuf==7.35.0` (secure against the protobuf DoS CVE).
 Both have since moved forward with routine dependency updates; **the authoritative pinned

@@ -49,7 +49,28 @@ if grep -qi "co-authored-by" "$commit_msg_file"; then
 fi
 
 # 3. Em-dash ban: commit messages must use ASCII hyphens, not U+2014.
-if LC_ALL=C grep -qP "\xe2\x80\x94" "$commit_msg_file" 2>/dev/null; then
+#
+# The pattern is built with printf OCTAL escapes and matched as a literal byte
+# string, deliberately NOT with 'grep -qP "\xe2\x80\x94"'. Two reasons, and the
+# first one is a fail-open:
+#
+#   1. '-P' (PCRE) is a GNU extension. BSD grep - which is what /usr/bin/grep is
+#      on macOS - does not support it and exits 2. This test used to discard
+#      stderr, so 'if' read that 2 as "no match found" and the hook fell through
+#      to 'exit 0', ACCEPTING the commit. The gate did not merely mis-report; it
+#      stopped gating. This is the identical failure the credential gate in
+#      scripts/hooks/pre-commit documents for its missing '--' ("exit 2, and
+#      (with stderr suppressed) silently never match"). That one was fixed and
+#      this one was not.
+#   2. The escape form matters. Per .claude/rules/encoding.md rule 4, the Bash
+#      $'\uXXXX' form does not reliably expand here and degrades to literal text.
+#      printf octal is POSIX-guaranteed, and it keeps the banned character out of
+#      this file: a detector that embeds the glyph it hunts becomes a source of it.
+#
+# Verified both directions under a grep shim that exits 2 on -P: an em-dash
+# message is still DETECTED and a clean message still passes.
+em_dash=$(printf '\342\200\224')
+if LC_ALL=C grep -q -- "$em_dash" "$commit_msg_file"; then
     echo "Commit rejected: em-dash (U+2014) found in commit message." >&2
     echo "  Replace '-' with a plain ASCII '-' or ' - ' (spaced)." >&2
     exit 1
