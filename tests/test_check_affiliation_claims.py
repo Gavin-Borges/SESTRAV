@@ -534,3 +534,227 @@ def test_a_bare_hash_is_not_a_note():
 
 def test_a_hash_inside_the_path_is_not_a_note():
     assert not _has_own_note(['    "docs/a#b.md",'], 1)
+
+
+# ---------------------------------------------------------------------------
+# Verbatim copies of tracked files.
+#
+# A `git worktree` checkout carries .git and the tests above pin its handling.
+# A plain directory COPY of this repository carries none. Measured 2026-09-20:
+# a 737-file copy sat under `_local/tmp/`, all 663 tracked files byte-identical
+# once line endings are normalised, and its copy of `docs/claims_register.md` -
+# the D35 retraction row, which has to QUOTE the fabricated institution in
+# order to retract it - was reported and BLOCKED A PUSH. The tracked original
+# is allowlisted by exact path; the copy sits at a different path.
+#
+# The predicate is CONTENT IDENTITY per file, never a directory test, because
+# treating a directory as a checkout means its files are not scanned at all and
+# that is a blind spot in a security gate. The fixture below therefore gives
+# the copy a pyproject.toml and a src/ tree: anything keying on "this looks
+# like a checkout" would exempt it, and must not.
+#
+# `test_a_copy_edited_into_a_fabrication_is_still_reported` is the
+# load-bearing one. Without it this fix is indistinguishable from simply
+# widening the blind spot.
+# ---------------------------------------------------------------------------
+
+# Shaped like the D35 row: it quotes the fabricated name in order to retract
+# it, which is why the tracked path carries an allowlist entry.
+RETRACTION_ROW = (
+    '| D35 | README.md read "coursework at NC State" | RETRACTED: this '
+    "project's affiliation is the University of Rhode Island |"
+)
+
+# The same row edited into an ASSERTION of the fabrication. The gate cannot
+# tell a record from a claim - that distinction is carried by the PATH - which
+# is exactly why an inherited allowance has to stop at the first changed byte.
+FABRICATION_ROW = (
+    "| D35 | SESTRAV grew out of coursework at NC State, which provided the "
+    "foundational grounding for this project |"
+)
+
+
+def _run_default(cwd: Path) -> subprocess.CompletedProcess[str]:
+    """The gate's DEFAULT mode, the one CI and pre-push Check 3 run."""
+    env = dict(os.environ)
+    env.pop("GITHUB_ACTIONS", None)
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT)],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def _repo_with_a_plain_directory_copy(tmp_path, copied_row, newline="\n"):
+    """A tracked, allowlisted claims register plus a plain COPY of it.
+
+    The copy carries no .git - that is the whole gap - and carries the markers
+    a looser predicate might key on.
+    """
+    _git("init", "-q", cwd=tmp_path)
+    tracked = tmp_path / "docs" / "claims_register.md"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_bytes((RETRACTION_ROW + "\n").encode("utf-8"))
+    _git("add", "docs/claims_register.md", cwd=tmp_path)
+
+    copy_root = tmp_path / "_local" / "tmp" / "sestrav_x2_d064dbc"
+    (copy_root / "docs").mkdir(parents=True)
+    (copy_root / "src").mkdir()
+    (copy_root / "pyproject.toml").write_bytes(b'[project]\nname = "sestrav"\n')
+    (copy_root / "docs" / "claims_register.md").write_bytes(
+        (copied_row + "\n").replace("\n", newline).encode("utf-8")
+    )
+    return copy_root
+
+
+def test_a_verbatim_directory_copy_of_a_tracked_file_is_suppressed(tmp_path):
+    """The reported class: a .git-less copy of an allowlisted tracked file."""
+    copy_root = _repo_with_a_plain_directory_copy(tmp_path, RETRACTION_ROW)
+
+    # Pinned so the fix cannot quietly become "widen nested-checkout detection".
+    assert (
+        mod.is_nested_checkout(str(copy_root), ["docs", "src"], ["pyproject.toml"])
+        is False
+    )
+
+    result = _run_all(tmp_path)
+    out = result.stdout.replace("\\", "/")
+    assert result.returncode == 0, out + result.stderr
+    assert "sestrav_x2_d064dbc" not in out
+
+
+def test_a_copy_edited_into_a_fabrication_is_still_reported(tmp_path):
+    """THE load-bearing test. A copy is not a licence to fabricate.
+
+    The directory is indistinguishable from the suppressed one above by every
+    structural signal - same name, same pyproject.toml, same src/ tree, same
+    path beneath _local/ - and differs only in the CONTENT of the flagged
+    file, which now asserts the fabrication instead of retracting it. A
+    directory-shaped predicate, or a marker-file heuristic, would report
+    nothing here. That is the blind spot this test exists to refuse.
+    """
+    _repo_with_a_plain_directory_copy(tmp_path, FABRICATION_ROW)
+
+    result = _run_all(tmp_path)
+    out = result.stdout.replace("\\", "/")
+    errors = [ln for ln in out.splitlines() if ln.startswith("ERROR ")]
+
+    assert result.returncode == 1, out + result.stderr
+    assert "_local/tmp/sestrav_x2_d064dbc/docs/claims_register.md" in out
+    assert "'NC State'" in out
+    # The tracked original stays clean: exactly the copy is reported.
+    assert len(errors) == 1, errors
+
+
+def test_one_trailing_space_revokes_the_inherited_allowance(tmp_path):
+    """Identity is byte-for-byte, so the smallest possible edit revokes it.
+
+    A predicate that tolerated whitespace, or compared only the flagged LINE,
+    would let an edited copy keep its original's allowance.
+    """
+    _repo_with_a_plain_directory_copy(tmp_path, RETRACTION_ROW + " ")
+
+    result = _run_all(tmp_path)
+    out = result.stdout.replace("\\", "/")
+    assert result.returncode == 1, out + result.stderr
+    assert "_local/tmp/sestrav_x2_d064dbc/docs/claims_register.md" in out
+
+
+def test_line_endings_are_the_only_difference_a_copy_may_carry(tmp_path):
+    """A CRLF copy of an LF original is still the same content.
+
+    This is not cosmetic: the measured 737-file copy differed from its
+    originals in line endings alone, so a raw byte comparison would have
+    suppressed nothing and left the gate blocking pushes.
+    """
+    _repo_with_a_plain_directory_copy(tmp_path, RETRACTION_ROW, newline="\r\n")
+
+    result = _run_all(tmp_path)
+    out = result.stdout.replace("\\", "/")
+    assert result.returncode == 0, out + result.stderr
+    assert "sestrav_x2_d064dbc" not in out
+
+
+def test_a_tracked_duplicate_is_reported_in_BOTH_modes(tmp_path):
+    """--all must stay a superset of the default mode over the tracked set.
+
+    `docs/register_copy.md` is tracked and byte-identical to the allowlisted
+    `docs/claims_register.md`, but nothing allows IT to carry the retracted
+    name, so the default mode - the CI gate and pre-push Check 3 - reports it.
+    An "any twin is allowed" predicate would silence it under --all while the
+    default mode stayed red, which is why the predicate requires EVERY twin:
+    a tracked file is always a twin of itself.
+    """
+    _git("init", "-q", cwd=tmp_path)
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "claims_register.md").write_bytes((RETRACTION_ROW + "\n").encode("utf-8"))
+    (docs / "register_copy.md").write_bytes((RETRACTION_ROW + "\n").encode("utf-8"))
+    _git("add", "docs/claims_register.md", "docs/register_copy.md", cwd=tmp_path)
+
+    default = _run_default(tmp_path)
+    assert default.returncode == 1, default.stdout + default.stderr
+    assert "register_copy.md" in default.stdout.replace("\\", "/")
+
+    every = _run_all(tmp_path)
+    assert every.returncode == 1, every.stdout + every.stderr
+    assert "register_copy.md" in every.stdout.replace("\\", "/")
+
+
+def test_content_fingerprint_folds_line_endings_and_nothing_else(tmp_path):
+    lf = tmp_path / "lf.md"
+    lf.write_bytes(b"a\nb\n")
+    crlf = tmp_path / "crlf.md"
+    crlf.write_bytes(b"a\r\nb\r\n")
+    cr = tmp_path / "cr.md"
+    cr.write_bytes(b"a\rb\r")
+    changed = tmp_path / "changed.md"
+    changed.write_bytes(b"a\nB\n")
+
+    assert mod.content_fingerprint(str(lf)) == mod.content_fingerprint(str(crlf))
+    assert mod.content_fingerprint(str(lf)) == mod.content_fingerprint(str(cr))
+    assert mod.content_fingerprint(str(lf)) != mod.content_fingerprint(str(changed))
+    # Unreadable suppresses nothing.
+    assert mod.content_fingerprint(str(tmp_path / "absent.md")) is None
+
+
+def test_an_empty_index_suppresses_nothing():
+    """The default mode passes {}, and a git failure produces {}.
+
+    Both must read as "no twin known", never as "already reviewed" - the same
+    fail-toward-MORE-scanning direction as the broken-gitdir fallback.
+    """
+    assert mod.verbatim_tracked_twins("_local/copy/x.md", {}, {}) == ()
+    assert mod.is_reviewed_verbatim_copy("NC State", "_local/copy/x.md", {}, {}) is False
+
+
+def test_every_tracked_twin_must_allow_the_name_not_merely_one():
+    """Pins the `all`, not `any`, directly on the predicate.
+
+    The cache is pre-seeded so the twins are fixtures rather than files; the
+    index only has to be non-empty for the lookup to be enabled.
+    """
+    index = {"f" * 64: ("docs/claims_register.md",)}
+
+    allowed_only = {"_local/copy/x.md": ("docs/claims_register.md",)}
+    assert (
+        mod.is_reviewed_verbatim_copy("NC State", "_local/copy/x.md", index, allowed_only)
+        is True
+    )
+
+    # One unreviewed carrier of the same content is enough to report the copy.
+    mixed = {"_local/copy/x.md": ("docs/claims_register.md", "docs/paper.md")}
+    assert (
+        mod.is_reviewed_verbatim_copy("NC State", "_local/copy/x.md", index, mixed)
+        is False
+    )
+
+    # A name no twin is allowed to carry is never inherited.
+    assert (
+        mod.is_reviewed_verbatim_copy(
+            "Ohio State", "_local/copy/x.md", index, allowed_only
+        )
+        is False
+    )
