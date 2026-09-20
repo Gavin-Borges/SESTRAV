@@ -153,7 +153,7 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           python -m venv /tmp/relcheck
-          /tmp/relcheck/bin/python -m pip install --quiet --upgrade pip
+          /tmp/relcheck/bin/python -m pip install --quiet --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt
           /tmp/relcheck/bin/python -m pip install --quiet dist/*.whl
           /tmp/relcheck/bin/python - <<'PY'
           import os
