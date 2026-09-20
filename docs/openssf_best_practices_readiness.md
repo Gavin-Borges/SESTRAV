@@ -78,7 +78,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 *   **SESTRAV Status:** ✅ **PASSING**
 *   **Evidence:** Build and dependency configuration is handled via:
     *   [environment.yml](../environment.yml) (Conda environment)
-    *   [requirements.txt](../requirements.txt) (pip compiled hashes)
+    *   [requirements.txt](../requirements.txt) (hash-pinned; compiled by `tools/update_dependencies.py` via `uv pip compile`)
     *   [pyproject.toml](../pyproject.toml) (standard Python project package layout)
     *   [Dockerfile](../Dockerfile) and [singularity.def](../singularity.def) (container isolation)
 
@@ -125,7 +125,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 *   **Requirement:** Third-party dependencies MUST be pinned and audited for known vulnerabilities.
 *   **SESTRAV Status:** ✅ **PASSING**
 *   **Evidence:**
-    *   **Lockfiles with Hashes:** Dependency lists are compiled and locked with SHA-256 verification hashes using `pip-compile` inside [requirements.txt](../requirements.txt) to prevent dependency hijacking.
+    *   **Lockfiles with Hashes:** Dependency lists are compiled and locked with SHA-256 verification hashes inside [requirements.txt](../requirements.txt) to prevent dependency hijacking. The compiler is `tools/update_dependencies.py`, a wrapper around `uv pip compile --generate-hashes`; the exact argv for each manifest is recorded in that manifest's own line-2 header. (Corrected 2026-09-20: this named `pip-compile`, accurate when written on 2026-06-13 and superseded by uv on 2026-07-28.)
     *   **Dependency scanning:** [dependency-review.yml](../.github/workflows/dependency-review.yml) runs on every pull request and flags vulnerable imports at `fail-on-severity: moderate`. It is advisory - it fails its own CI job but is not a required status check. The **weekly** scan is a different workflow: `security.yml`'s `pip-audit` job on a `'0 6 * * 1'` cron, plus Dependabot's weekly interval. (Corrected 2026-08-24: this bullet previously described `dependency-review.yml` itself as a weekly scan that blocks. Its trigger is `on: [pull_request]` with no schedule at all, and it blocks nothing.)
 
 ---

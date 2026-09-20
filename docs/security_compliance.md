@@ -47,7 +47,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
   - Avoidance of `eval()`/`exec()` and unsafe `shell=True` subprocesses.
   - Transitioned from unsafe file loading (`json.loads(open(path).read())`) to context-managed explicit IO logic.
   - Safe model unpickling via `ModelRegistry` validating expected features.
-- **Dependency Management:** Dependencies are rigorously pinned with `--require-hashes` using `pip-compile` to prevent supply chain injection.
+- **Dependency Management:** Dependencies are rigorously pinned with `--require-hashes` to prevent supply chain injection. The hash-pinned manifests are compiled by `tools/update_dependencies.py`, which wraps `uv pip compile --generate-hashes`; each generated file records its exact argv in its own line-2 header. (Corrected 2026-09-20: this read "using `pip-compile`", accurate when written on 2026-06-13 and superseded when the repo moved to uv on 2026-07-28.)
 - **Static Analysis (SAST):** CodeQL, Bandit, and Semgrep are integrated into GitHub actions.
 
 ## 6. Analysis
