@@ -112,6 +112,14 @@ updates:
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
       # semgrep first, then remove this ignore, to let jsonschema move again.
+      # And again on 2026-09-20, one name further on: PRs #515 and #517 both
+      # reached pure_eval and edited the render closure, and both had to be
+      # closed exactly as #312, #396 and #397 were. It is pinned in exactly one
+      # tracked file - the closure itself - so it cannot have been reached
+      # directly. Note the spelling, as with jupyter-client above: the closure
+      # emits "pure_eval" with an underscore, but Dependabot matches PEP 503
+      # normalized names, so the hyphenated form is the one that binds.
+      - dependency-name: "pure-eval"
       - dependency-name: "jsonschema"
 
   - package-ecosystem: "pip"
@@ -223,6 +231,14 @@ updates:
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
       # semgrep first, then remove this ignore, to let jsonschema move again.
+      # And again on 2026-09-20, one name further on: PRs #515 and #517 both
+      # reached pure_eval and edited the render closure, and both had to be
+      # closed exactly as #312, #396 and #397 were. It is pinned in exactly one
+      # tracked file - the closure itself - so it cannot have been reached
+      # directly. Note the spelling, as with jupyter-client above: the closure
+      # emits "pure_eval" with an underscore, but Dependabot matches PEP 503
+      # normalized names, so the hyphenated form is the one that binds.
+      - dependency-name: "pure-eval"
       - dependency-name: "jsonschema"
 
   # Keep the root Dockerfiles' base image current. Dockerfile, Dockerfile.api
