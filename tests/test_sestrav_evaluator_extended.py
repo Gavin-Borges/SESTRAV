@@ -29,7 +29,7 @@ from src.verify.sestrav_evaluator import (
 
 
 # ---------------------------------------------------------------------------
-# calculate_average_precision - n_pos=0 early return (line 76)
+# calculate_average_precision - n_pos=0 early return
 # ---------------------------------------------------------------------------
 
 
@@ -48,7 +48,7 @@ def test_calculate_roc_auc_all_same_class():
 
 
 # ---------------------------------------------------------------------------
-# run_mock_predictions - mutation type variants (lines 138-143)
+# run_mock_predictions - mutation type variants
 # ---------------------------------------------------------------------------
 
 
@@ -87,7 +87,7 @@ class TestRunMockPredictions:
 
 
 # ---------------------------------------------------------------------------
-# evaluate_single_virus - empty DataFrame (lines 174-175)
+# evaluate_single_virus - empty DataFrame
 # ---------------------------------------------------------------------------
 
 
@@ -124,7 +124,7 @@ def test_evaluate_single_virus_no_positives():
 
 # ---------------------------------------------------------------------------
 # run_evaluation_pipeline - val_csv absent → auto-mock extraction
-# (lines 333-335)
+# of the validation set
 # ---------------------------------------------------------------------------
 
 
@@ -168,7 +168,7 @@ def test_run_evaluation_pipeline_empty_viruses(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# _load_torch_checkpoint - success path (lines 268-281)
+# _load_torch_checkpoint - success path
 # ---------------------------------------------------------------------------
 
 

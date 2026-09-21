@@ -604,7 +604,7 @@ def test_time_model_ms_v2_times_every_rep_and_reports_milliseconds():
 
 
 # ---------------------------------------------------------------------------
-# check_promotion_gates - gate3_latency exception handler (lines 350-352)
+# check_promotion_gates - gate3_latency exception handler
 # ---------------------------------------------------------------------------
 
 
@@ -628,7 +628,7 @@ def test_check_gates_treats_gate3_exception_as_failure():
 
 
 # ---------------------------------------------------------------------------
-# promote_model - update_checksum_manifest raises → re-raised (lines 407-409)
+# promote_model - update_checksum_manifest raises → re-raised
 # ---------------------------------------------------------------------------
 
 

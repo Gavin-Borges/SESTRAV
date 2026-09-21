@@ -415,7 +415,7 @@ def test_process_target_empty_records_falls_back_to_mock(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# main() entry point (lines 305-323, 326)
+# main() entry point
 # ---------------------------------------------------------------------------
 
 

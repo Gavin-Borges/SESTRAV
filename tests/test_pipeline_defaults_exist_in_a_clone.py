@@ -49,8 +49,8 @@ CONFIG = REPO_ROOT / "config.yaml"
 # being correct, and the right fix then is to document the download, not to widen this list.
 KNOWN_UNTRACKED_DEFAULTS = {
     "reference_proteome",
-    # model_path: .gitignore lines 347-352 exclude every model binary
-    # (models/**/*.joblib, .pkl, .pt, .pth and the models/* forms), and
+    # model_path: .gitignore's model-binary block excludes every model
+    # binary (models/**/*.joblib, .pkl, .pt, .pth and the models/* forms), and
     # `git ls-tree -r origin/main models/` returns ZERO .joblib. Trained
     # artifacts are deliberately not distributed in the repository. USAGE.md
     # already documents the consequence: training writes
