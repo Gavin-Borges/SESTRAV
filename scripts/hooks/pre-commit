@@ -86,7 +86,11 @@ gate1_failed=0
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
   for pat in "${BLOCKED_PATTERNS[@]}"; do
-    if printf '%s' "$file" | grep -qE -- "$pat" 2>/dev/null; then
+    # Here-string, never 'printf ... | grep -q'. See the SIGPIPE note above
+    # Gate 2. This gate's producer is a single path and is too short to fill a
+    # pipe buffer, so it was not reachable here; it is written the safe way so
+    # the file has one form and no reader has to re-derive which sites are safe.
+    if grep -qE -- "$pat" <<<"$file" 2>/dev/null; then
       block "Staged file '$file' matches blocked pattern: $pat"
       block "  Correct action: move to _local/ then: git reset HEAD '$file'"
       gate1_failed=1
@@ -137,7 +141,21 @@ while IFS= read -r file; do
     # '--' is REQUIRED: the PEM pattern begins with '-----', which grep would
     # otherwise parse as an option bundle, exit 2, and (with stderr suppressed)
     # silently never match - letting private keys through this gate entirely.
-    if printf '%s' "$staged_content" | grep -qE -- "$pat" 2>/dev/null; then
+    #
+    # A HERE-STRING, not 'printf ... | grep -q'. This is the third fail-open
+    # found in this file and the mechanism is new: 'grep -q' exits 0 at the
+    # FIRST match and closes the pipe, 'printf' is then killed by SIGPIPE and
+    # exits 141, and 'set -o pipefail' (line 15) makes the PIPELINE report 141.
+    # A non-zero status sends the 'if' down the FALSE branch, so a SUCCESSFUL
+    # match was read as "no match" and the gate fell through to exit 0.
+    # Measured 2026-09-20 with the real hook: an AWS key id in a 6 KB staged
+    # file exits 1 and blocks; the SAME key in a 180 KB file exits 0 and is
+    # ACCEPTED. It needs roughly one pipe buffer (~64 KiB) of content after the
+    # match point, so it fires on large files and on any commit that also
+    # stages one, and the threshold is LOWER on macOS.
+    # A here-string is not a pipe: there is no producer to signal, and the
+    # status is grep's own. Do NOT "fix" this by removing pipefail.
+    if grep -qE -- "$pat" <<<"$staged_content" 2>/dev/null; then
       block "Credential pattern '$pat' detected in staged '$file'"
       block "  Remove the secret, then re-stage: git add '$file'"
       gate2_failed=1
@@ -180,12 +198,21 @@ fi
 gate3_failed=0
 em_dash=$(printf '\342\200\224')
 if [[ -n "$STAGED" ]]; then
-  if git diff --cached 2>/dev/null | LC_ALL=C grep '^+' | LC_ALL=C grep -q -- "$em_dash"; then
+  # Staged in two steps rather than as one pipeline, for the SIGPIPE reason
+  # documented in Gate 2. This detector was the WORST-placed instance of it:
+  # it reads the WHOLE staged diff, so a tiny file carrying an em-dash failed
+  # open whenever it was staged alongside one large clean file - a regenerated
+  # lockfile is enough. Measured 2026-09-20: a 60-byte doc with two em-dashes
+  # exits 1 alone, and exits 0 when staged with a 267 KB clean lockfile.
+  # '|| true' is required because grep exits 1 on no match and line 15 sets -e.
+  staged_diff=$(git diff --cached 2>/dev/null || true)
+  added_lines=$(LC_ALL=C grep '^+' <<<"$staged_diff" || true)
+  if LC_ALL=C grep -q -- "$em_dash" <<<"$added_lines"; then
     # Identify which files contain the hit for a useful error message.
     while IFS= read -r file; do
       [[ -z "$file" ]] && continue
       staged_content=$(git show ":${file}" 2>/dev/null) || continue
-      if printf '%s' "$staged_content" | LC_ALL=C grep -q -- "$em_dash"; then
+      if LC_ALL=C grep -q -- "$em_dash" <<<"$staged_content"; then
         block "Em-dash (U+2014) detected in staged '${file}'"
         block "  Replace the U+2014 character with a plain ASCII '-' or ' - ' (spaced)"
         block "  Quick fix: python -c \"import pathlib; p=pathlib.Path('${file}'); p.write_text(p.read_text(encoding='utf-8').replace('\\u2014','-'), encoding='utf-8')\""
@@ -255,7 +282,7 @@ while IFS= read -r file; do
   staged_content=$(git show ":${file}" 2>/dev/null) || continue
 
   for pat in "${WORKSTATION_PATTERNS[@]}"; do
-    if printf '%s' "$staged_content" | grep -qE -- "$pat" 2>/dev/null; then
+    if grep -qE -- "$pat" <<<"$staged_content" 2>/dev/null; then
       block "Hardcoded workstation path detected in staged '$file'"
       block "  Matched pattern: $pat"
       gate4_failed=1
@@ -264,8 +291,12 @@ while IFS= read -r file; do
   done
 
   # Linux home paths: flag any /home/<user> that is not a known CI/container account.
-  if printf '%s' "$staged_content" | grep -E -- "$HOME_PATTERN" 2>/dev/null \
-      | grep -qvE -- "$HOME_ALLOWLIST" 2>/dev/null; then
+  # Two steps, same SIGPIPE reason as Gate 2. The '-n' guard is REQUIRED and is
+  # not cosmetic: a here-string fed an empty variable still presents ONE EMPTY
+  # LINE, which does not match the allowlist, so 'grep -qv' would succeed and
+  # report a home path on every file that contains none.
+  home_hits=$(grep -E -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null || true)
+  if [[ -n "$home_hits" ]] && grep -qvE -- "$HOME_ALLOWLIST" <<<"$home_hits" 2>/dev/null; then
     block "Hardcoded Linux home path detected in staged '$file'"
     gate4_failed=1
   fi
