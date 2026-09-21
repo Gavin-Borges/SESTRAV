@@ -162,7 +162,12 @@ def test_uncovered_rows_come_from_exactly_the_known_provenances(
     active = _active(corpus)
 
     uncovered = active[~active["peptide"].isin(matrix_peptides)]
-    origins = set(uncovered["negative_origin"].dropna().unique())
+    # NOT .dropna(): a null negative_origin on an uncovered active row is itself
+    # an unrecognised provenance, and dropping it would make exactly the row this
+    # test exists to catch invisible. Measured on the shipped corpus: 0 of the
+    # 4,518 uncovered active rows carry a null here, so this is behaviour-neutral
+    # today and closes the gap for the row that does not exist yet.
+    origins = set(uncovered["negative_origin"].unique())
 
     unexpected = origins - EXPECTED_UNCOVERED_ORIGINS
     assert not unexpected, (
