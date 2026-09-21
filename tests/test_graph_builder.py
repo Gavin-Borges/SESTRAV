@@ -118,7 +118,7 @@ def test_build_spatial_adj_is_allele_specific(tmp_path):
 
 
 def test_sequence_to_node_features_unknown_aa_leaves_row_zero():
-    # 'X' is not in AA_VOCAB - the row should stay all-zero (branch 80->79).
+    # 'X' is not in AA_VOCAB - the row should stay all-zero (the unknown-AA branch).
     seq = "GILXFVFTL"
     features = GraphBuilder.sequence_to_node_features(seq, max_len=9)
     assert features.shape == (9, 20)

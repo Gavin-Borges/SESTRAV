@@ -43,7 +43,7 @@ def _df(n_pos: int = 30, n_neg: int = 30, seed: int = 0) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# _bootstrap_iter - direct (covers lines 23-34)
+# _bootstrap_iter - direct
 # ---------------------------------------------------------------------------
 
 
@@ -136,7 +136,7 @@ def test_bootstrap_resample_indices_within_call_are_not_all_identical():
 
 
 # ---------------------------------------------------------------------------
-# paired_bootstrap_comparison - early-return path (line 55)
+# paired_bootstrap_comparison - early-return path
 # ---------------------------------------------------------------------------
 
 
@@ -154,7 +154,7 @@ def test_paired_bootstrap_too_few_clean_samples():
 
 
 # ---------------------------------------------------------------------------
-# paired_bootstrap_comparison - None accumulator branch (line 82->81)
+# paired_bootstrap_comparison - None accumulator branch
 # Inject a None into results_parallel via mock so the `if res is not None`
 # branch is explicitly exercised in the same process as coverage.
 # ---------------------------------------------------------------------------
@@ -236,7 +236,7 @@ def test_paired_bootstrap_different_seeds_produce_different_output():
 
 
 # ---------------------------------------------------------------------------
-# main() CLI entry point (lines 117-148, 151)
+# main() CLI entry point
 # ---------------------------------------------------------------------------
 
 

@@ -3,10 +3,9 @@
 Each test targets a specific uncovered range in a module that was otherwise
 at 0% or near-0% coverage, pushing whole-repo coverage over the 35% gate.
 Modules targeted:
-  - src/iedb_data_loader.py  private filename helpers  (lines 43-60)
-  - src/train_classifier.py  feature-matrix builders   (lines 60-71, 99,
-                                                         150-156, 161-184)
-  - src/train_classifier.py  _cross_validate paths     (lines 280, 308-309, 321)
+  - src/iedb_data_loader.py  private filename helpers
+  - src/train_classifier.py  feature-matrix builders
+  - src/train_classifier.py  _cross_validate paths
 """
 
 import numpy as np
@@ -44,7 +43,7 @@ def _mock_binding_csv(tmp_path, peptides=None):
 
 
 # ---------------------------------------------------------------------------
-# iedb_data_loader - _label_from_filename (lines 43-48)
+# iedb_data_loader - _label_from_filename
 # ---------------------------------------------------------------------------
 
 
@@ -61,7 +60,7 @@ def test_label_from_filename_unknown():
 
 
 # ---------------------------------------------------------------------------
-# iedb_data_loader - _virus_from_filename (lines 53-60)
+# iedb_data_loader - _virus_from_filename
 # ---------------------------------------------------------------------------
 
 
@@ -86,7 +85,7 @@ def test_virus_from_filename_unknown():
 
 
 # ---------------------------------------------------------------------------
-# train_classifier - prepare_features (lines 60-71)
+# train_classifier - prepare_features
 # ---------------------------------------------------------------------------
 
 
@@ -116,7 +115,7 @@ def test_prepare_features_nan_binding_replaced():
 
 
 # ---------------------------------------------------------------------------
-# train_classifier - prepare_features_30 missing-peptide branch (line 99)
+# train_classifier - prepare_features_30 missing-peptide branch
 # ---------------------------------------------------------------------------
 
 
@@ -131,7 +130,7 @@ def test_prepare_features_30_missing_peptide_zeros(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# train_classifier - prepare_features_30_graph (lines 150-156)
+# train_classifier - prepare_features_30_graph
 # ---------------------------------------------------------------------------
 
 
@@ -151,7 +150,7 @@ def test_prepare_features_30_graph_no_nan(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# train_classifier - prepare_features_50 (lines 161-184)
+# train_classifier - prepare_features_50
 # ---------------------------------------------------------------------------
 
 
@@ -178,7 +177,7 @@ def test_prepare_features_50_raises_insufficient_alleles(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# train_classifier - _get_protein_name_from_header empty case (line 280)
+# train_classifier - _get_protein_name_from_header empty case
 # ---------------------------------------------------------------------------
 
 
@@ -187,8 +186,8 @@ def test_get_protein_name_from_header_empty_string():
 
 
 # ---------------------------------------------------------------------------
-# train_classifier - _cross_validate StratifiedKFold path (lines 308-309)
-# and sample_weights branch (line 321)
+# train_classifier - _cross_validate StratifiedKFold path
+# and sample_weights branch
 # ---------------------------------------------------------------------------
 
 

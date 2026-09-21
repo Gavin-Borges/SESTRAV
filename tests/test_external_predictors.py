@@ -287,11 +287,11 @@ def test_parse_tapreg_html_no_match_returns_empty():
 
 # ---------------------------------------------------------------------------
 # Targeted branch / statement coverage - issue #77 remainder
-# Each test is annotated with the line(s) it covers in external_predictors.py
+# Each test is annotated with the symbol and branch it covers in external_predictors.py
 # ---------------------------------------------------------------------------
 
 
-# line 66 - _generate_mock_netchop_scores proline (P) branch
+# _generate_mock_netchop_scores - proline (P) branch
 def test_mock_netchop_scores_proline_branch():
     from src.external_predictors import _generate_mock_netchop_scores
 
@@ -345,7 +345,7 @@ def test_mock_tapreg_score_sparse_model_skips_blosum_adjustment():
     assert abs(blosum_score - sparse_score) == pytest.approx(0.05, abs=1e-9)
 
 
-# branch 145→132 (False) - parse_netchop_html idx out-of-range skipped silently
+# parse_netchop_html - idx out-of-range (False branch) skipped silently
 def test_parse_netchop_html_out_of_range_idx():
     # pep_5 does not exist in a 2-peptide list; row must be silently skipped
     html = "  1 G .  0.12000  pep_5\n"
@@ -354,7 +354,7 @@ def test_parse_netchop_html_out_of_range_idx():
     assert result["AAY"]["scores"] == []
 
 
-# lines 149-150 - parse_netchop_html ValueError/IndexError on malformed ident
+# parse_netchop_html - ValueError/IndexError on malformed ident
 def test_parse_netchop_html_invalid_ident_skipped():
     # "pep_abc" cannot be int-cast → ValueError caught → row skipped
     html = "  1 G .  0.12000  pep_abc\n"
@@ -362,7 +362,7 @@ def test_parse_netchop_html_invalid_ident_skipped():
     assert result["GLF"]["scores"] == []
 
 
-# line 255 - query_netchop successful poll returns parsed scores (not mock)
+# query_netchop - successful poll returns parsed scores (not mock)
 def test_query_netchop_polling_success_returns_parsed_scores():
     peptides = ["GLF"]
     submit_resp = MagicMock()
@@ -385,7 +385,7 @@ def test_query_netchop_polling_success_returns_parsed_scores():
     assert results["GLF"]["cleavages"] == [".", ".", "S"]
 
 
-# line 298 - parse_tapreg_html HTML-<td> fallback (text-regex misses, HTML regex hits)
+# parse_tapreg_html - HTML-<td> fallback (text-regex misses, HTML regex hits)
 def test_parse_tapreg_html_html_table_fallback():
     import re as real_re
     from src.external_predictors import parse_tapreg_html
@@ -407,7 +407,7 @@ def test_parse_tapreg_html_html_table_fallback():
     assert result == {"GLFYTRTGL": 1.2345}
 
 
-# lines 346-347 - query_tapreg threshold is not None → payload populated
+# query_tapreg - threshold is not None → payload populated
 def test_query_tapreg_threshold_populates_payload():
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
@@ -422,7 +422,7 @@ def test_query_tapreg_threshold_populates_payload():
     assert sent_data["thresh"] == "0.5"
 
 
-# lines 244-247 - query_netchop polling detects "Job is running" → wait path exercised
+# query_netchop - polling detects "Job is running" → wait path exercised
 def test_query_netchop_polling_job_running_falls_back_after_exhaustion():
     """Every poll returns 'Job is running' → polling exhausts → mock fallback."""
     peptides = ["GLF"]
@@ -443,7 +443,7 @@ def test_query_netchop_polling_job_running_falls_back_after_exhaustion():
     assert "GLF" in results  # mock fallback fires after polling exhausted
 
 
-# line 364 - query_tapreg server responds but parse finds no scores → warning logged
+# query_tapreg - server responds but parse finds no scores → warning logged
 def test_query_tapreg_empty_parse_logs_warning_and_falls_back():
     """Response contains no parseable peptide scores → warning; mock fallback fires."""
     peptides = ["GLFYTRTGL"]
@@ -458,7 +458,7 @@ def test_query_tapreg_empty_parse_logs_warning_and_falls_back():
     assert isinstance(results["GLFYTRTGL"], float)
 
 
-# lines 362-366 - query_tapreg successful parse returns real scores (no mock fallback)
+# query_tapreg - successful parse returns real scores (no mock fallback)
 def test_query_tapreg_successful_parse_returns_scores():
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
