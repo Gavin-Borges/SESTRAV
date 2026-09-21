@@ -90,7 +90,23 @@ MIN_SAMPLES_DEFAULT: int = 20
 # auc_roc measures is decoy provenance rather than immunogenicity.
 #
 # HONEST_AUC_COL restricts the negative set to REAL_NEG_ORIGINS, both of which are
-# 100% covered, so the coverage indicator is constant there and carries no signal.
+# 100% covered, so the decoy-provenance shortcut described above is unavailable on
+# that slice. Measured per virus on the honest slice, which is the unit this module
+# computes in, the coverage indicator is genuinely CONSTANT on eleven of the twelve
+# viruses carrying both classes, so for those eleven "carries no signal" holds.
+#
+# HIV-1 is the exception and it is not a marginal one: only 35.45% of its positives
+# are covered, against 79.75% overall, and the indicator ALONE scores AUC-ROC 0.1773
+# over 2,576 honest rows, which is strongly ANTI-predictive rather than
+# uninformative. So what is retired here is the UNIVERSAL, not the observation:
+# constancy on the negative arm does not carry to a virus whose POSITIVE arm varies,
+# and an earlier draft of this comment generalised from the one to the other.
+#
+# Do not read the other eleven as measurements. Their 0.5000 is sklearn's degenerate
+# return for a constant score, not a near-chance discrimination. Pooling all twelve
+# gives 0.3988, which is an artifact of the HIV-1 stratum alone and is why no pooled
+# figure is quoted here. The exit-criterion viruses EBV and HPV are both inside the
+# constant eleven, so the gate itself is unaffected.
 HEADLINE_AUC_COL: str = "auc_roc"
 HONEST_AUC_COL: str = "auc_roc_real_neg_only"
 
