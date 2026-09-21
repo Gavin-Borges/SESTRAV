@@ -1,8 +1,27 @@
 """Provenance sidecars for `src/train_classifier.py`'s artifacts.
 
 The trainer produces the production model artifacts and, until this file
-existed, was the only writer in the repository that emitted no
-`.provenance.json` sidecar while eight other modules did. Its checksum manifest
+existed, emitted no `.provenance.json` sidecar while eight other modules did.
+
+It was NOT the only such writer, and an earlier draft of this docstring said it
+was. `src/ann_benchmark.py` writes a `.pt` model through `torch.save` plus two
+result CSVs and never mentions provenance at all, and it is not an obscure
+corner: it carries its own `planned_ann_artifact_paths()`, architecturally
+parallel to the trainer's `planned_artifact_paths()`. Of the 28 `src/` modules
+that write an artifact via `torch.save`, `joblib.dump` or `.to_csv(`, 18 never
+mention provenance and 10 do, so this file closes the most important gap rather
+than the last one.
+
+Those 10 are NOT the "eight other modules" named above, and the two must not be
+read as one population. The eight are the other modules that CALL
+`write_provenance_sidecar`: nine do, one of them being the trainer itself, and
+five of the nine live in `scripts/` and so fall outside this `src/`-scoped
+census altogether. The two sets overlap in only three modules.
+
+Symbols rather than line numbers here deliberately, because the line an earlier
+audit cited for `planned_artifact_paths` had already drifted.
+
+The trainer's checksum manifest
 records what each artifact HASHES TO and nothing about what produced it, so a
 manifest entry cannot distinguish a mode-31 model fitted on the v5 corpus from
 one fitted on v4 under the same filename.
