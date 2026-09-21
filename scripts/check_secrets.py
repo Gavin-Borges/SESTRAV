@@ -87,7 +87,30 @@ EXCLUDE_DIRS = {
     "build",
 }
 
-EXCLUDE_FILES = {"apply-branch-ruleset.ps1", "apply_protection.sh", "check_secrets.py"}
+# Repo-relative POSIX paths, NOT basenames. Keyed to the path deliberately: a
+# basename set excludes a file of that name ANYWHERE in the tree, so a future
+# tests/fixtures/check_secrets.py, or any vendored copy, would be skipped by a
+# gate nobody had asked to skip it. That is a WIDENING of a security gate's
+# blind spot, and it widens silently as the tree grows.
+#
+# This is the FILE-name analogue of a defect this same function already had and
+# already fixed for DIRECTORY names: EXCLUDE_DIRS prunes the walk by directory
+# name, which measurably hid 26 tracked files under results/ until tracked files
+# were pulled back in below. Same mechanism, same direction, one level down.
+#
+# Verified 2026-09-20 before narrowing, because an exclusion that is load-bearing
+# cannot simply be tightened: scan_file returns ZERO findings for all three of
+# these paths, so the gate is green with or without them. They are kept, rather
+# than deleted, as a deliberate guard for the day one of them gains an example
+# credential pattern - check_secrets.py is exactly the file where that would
+# happen.
+EXCLUDE_PATHS = frozenset(
+    {
+        "scripts/apply-branch-ruleset.ps1",
+        "tools/apply_protection.sh",
+        "scripts/check_secrets.py",
+    }
+)
 
 _SCAN_SUFFIXES = (
     ".py",
@@ -175,9 +198,19 @@ def scan_file(path: str) -> List[int]:
     return flagged_line_numbers
 
 
-def _is_scannable_name(name: str) -> bool:
-    if name in EXCLUDE_FILES:
+def _is_scannable(rel_path: str) -> bool:
+    """Decide scannability from a REPO-RELATIVE path, not from a basename.
+
+    Both callers pass a path relative to the scan root. Separators are
+    normalised to '/' so the same EXCLUDE_PATHS entries work on Windows, where
+    os.walk yields backslashes while `git ls-files` yields forward slashes.
+    """
+    rel = rel_path.replace(os.sep, "/").replace("\\", "/")
+    if rel.startswith("./"):
+        rel = rel[2:]
+    if rel in EXCLUDE_PATHS:
         return False
+    name = rel.rsplit("/", 1)[-1]
     return name.endswith(_SCAN_SUFFIXES) or name.startswith("Dockerfile")
 
 
@@ -245,8 +278,11 @@ def iter_scanned_files(root: str) -> List[str]:
     for dirpath, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
         for name in files:
-            if _is_scannable_name(name):
-                found.append(os.path.join(dirpath, name))
+            absolute = os.path.join(dirpath, name)
+            # Relative to the scan root, so EXCLUDE_PATHS is matched against the
+            # same shape `git ls-files` produces for the tracked pass below.
+            if _is_scannable(os.path.relpath(absolute, root)):
+                found.append(absolute)
 
     # EXCLUDE_DIRS prunes by directory NAME, so a gitignored file sitting at the
     # REPO ROOT has no directory to prune and the walk opens it anyway. STATE.md
@@ -286,7 +322,7 @@ def iter_scanned_files(root: str) -> List[str]:
     # unchanged. Only tracked files are pulled back in.
     seen = {os.path.normcase(os.path.abspath(p)) for p in found}
     for rel in _tracked_paths(root):
-        if not _is_scannable_name(os.path.basename(rel)):
+        if not _is_scannable(rel):
             continue
         absolute = os.path.abspath(os.path.join(root, rel))
         key = os.path.normcase(absolute)
