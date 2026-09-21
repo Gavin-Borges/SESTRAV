@@ -707,7 +707,7 @@
   {
     "License": "BSD-3-Clause",
     "Name": "uvicorn",
-    "Version": "0.52.4"
+    "Version": "0.53.0"
   },
   {
     "License": "BSD-2-Clause",

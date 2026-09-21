@@ -342,7 +342,7 @@
 | typing-inspection                     | 0.4.2       | MIT                                                                                                 |
 | typing_extensions                     | 4.16.0      | PSF-2.0                                                                                             |
 | urllib3                               | 2.7.0       | MIT                                                                                                 |
-| uvicorn                               | 0.52.4      | BSD-3-Clause                                                                                        |
+| uvicorn                               | 0.53.0      | BSD-3-Clause                                                                                        |
 | wrapt                                 | 2.3.0       | BSD-2-Clause                                                                                        |
 | xgboost                               | 3.2.0       | Apache Software License                                                                             |
 | xxhash                                | 3.8.1       | BSD-2-Clause                                                                                        |

@@ -318,7 +318,7 @@ cryptography==50.0.1 \
     --hash=sha256:fd3718b960d0b5dd213cdf03f3bcb7000e69dda0de8b956061947ff6bcff5558 \
     --hash=sha256:ff838d62ec1bfce4f9ba7fa16f4a7b554cd8d0c299e6be37502161a660c84eef
     # via
-    #   -r environments/requirements-semgrep.in
+    #   -r requirements-semgrep.in
     #   pyjwt
 exceptiongroup==1.2.2 \
     --hash=sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b \
@@ -607,7 +607,7 @@ pygments==2.20.0 \
     --hash=sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f \
     --hash=sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176
     # via rich
-pyjwt==2.13.0 \
+pyjwt[crypto]==2.13.0 \
     --hash=sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423 \
     --hash=sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728
     # via
@@ -851,7 +851,7 @@ semgrep==1.177.0 \
     --hash=sha256:a79f212544da540b5e758da6d1979ef8eedd0b8e15a8c5019601d6da0d73538d \
     --hash=sha256:f27725632d468fb1a0d740ce5a98e406376a88de91fc6f902fb9fb3b1d6ed4d9 \
     --hash=sha256:fa6121384b4027925c2d03d7020908c4ebbb15de05d8555b2e67852a3568e67c
-    # via -r environments/requirements-semgrep.in
+    # via -r requirements-semgrep.in
 sse-starlette==3.4.4 \
     --hash=sha256:07e0fa0460138baf25cdd5fb28683472c3995dc1642225191b3832d62526bcb0 \
     --hash=sha256:3f4dd50d8aed2771a091f3a83000323fc3844541c16b4fe585ae2420cc6df973
@@ -915,7 +915,6 @@ typing-extensions==4.15.0 \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
     --hash=sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548
     # via
-    #   anyio
     #   mcp
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-http
@@ -923,9 +922,7 @@ typing-extensions==4.15.0 \
     #   opentelemetry-semantic-conventions
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   semgrep
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2 \
     --hash=sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7 \
@@ -940,9 +937,9 @@ urllib3==2.7.0 \
     # via
     #   requests
     #   semgrep
-uvicorn==0.52.1 \
-    --hash=sha256:112ec661814189acbccd3f7b86460147cc065fc92c0821afa78918780e4354dd \
-    --hash=sha256:e4403f9d93188cf9d1088e9f40e3acd12630e2df8675316704379a7fc20fff6a
+uvicorn==0.53.0 \
+    --hash=sha256:a9356f0cb89b3b8621529c5d5eebd69bfe154f4c3f68b4cf2de47e45fa855c2e \
+    --hash=sha256:e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e
     # via mcp
 wcmatch==8.5.2 \
     --hash=sha256:17d3ad3758f9d0b5b4dedc770b65420d4dac62e680229c287bf24c9db856a478 \
