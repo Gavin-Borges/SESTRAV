@@ -65,8 +65,9 @@ gh attestation verify sestrav-2.0.2-py3-none-any.whl --repo Gavin-Borges/SESTRAV
 # Verify the checksum manifest:
 sha256sum -c SHA256SUMS.txt
 
-# Verify the tag signature (only for tags cut with `git tag -s`;
-# tags through v2.0.3 are annotated but unsigned):
+# Verify the tag signature. v2.0.3 IS signed; v2.0.2 and earlier are not.
+# Note that `git tag -v` checks your local allowed_signers file, which is a
+# different question from whether GitHub shows the tag as Verified:
 git tag -v vX.Y.Z
 ```
 
@@ -128,9 +129,20 @@ build-provenance attestation, so on the badge form
 **Met** (cryptographic provenance over the release artifacts, verifiable with
 `gh attestation verify`).
 
-`version_tags_signed` remains **Unmet**: every tag through v2.0.3 is annotated but
-unsigned, because no personal signing key was configured at the time those
-releases were cut. It is a SUGGESTED (not MUST) criterion, so it does not affect
-the tier. A maintainer SSH signing key is now configured locally (`gpg.format=ssh`
-with `commit.gpgsign` and `tag.gpgsign` enabled), so the criterion is met on the
-next release simply by tagging with `git tag -s` and verifying with `git tag -v`.
+`version_tags_signed` remains **Unmet**, and the reason is not the one this
+paragraph used to give. **Corrected 2026-09-15: v2.0.3 IS signed.** Its tag object
+carries an SSH signature block, and the local tag is byte-identical to the one on
+origin, so the pushed tag carries it too. v2.0.2 and earlier are genuinely
+unsigned. It is a SUGGESTED (not MUST) criterion, so it does not affect the tier.
+
+**Signing the next tag is necessary but NOT sufficient, which is the part that was
+missing here.** GitHub reports v2.0.3 as `verified: false, reason: unknown_key`,
+meaning no SSH signing key is registered on the account under Settings, SSH and
+GPG keys, with key type **Signing Key**. Until that registration happens, a tag
+cut with `git tag -s` will still display as Unverified on GitHub and the criterion
+stays Unmet no matter how it was signed. Local verification is a separate
+question: `git tag -v v2.0.3` reports a good signature but `No principal matched`,
+because it was signed with a different key than the one `user.signingkey` now
+names, so a tag cut with the current key will verify locally while still showing
+Unverified on GitHub until the key is registered. Register the key first, then
+tag. No CI step verifies tag signatures, so nothing else will catch this.
