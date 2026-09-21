@@ -16,7 +16,8 @@ name: Digest Portability
 #
 # WHY THE STEP DOES NOT CALL THE SCRIPT BARE
 #
-# The tool has two fail-open properties, both measured 2026-09-20:
+# The tool has THREE fail-open properties, all measured 2026-09-20. This said
+# "two" until the third was found, in the wrapper written to close the first two:
 #
 #   1. main() ends `return int(args.strict and any(...))`
 #      (scripts/check_digest_portability.py:233). WITHOUT --strict the exit
@@ -24,6 +25,12 @@ name: Digest Portability
 #   2. WITH --strict and zero matching manifests, rows is empty, any([]) is
 #      False, and the exit code is STILL 0. So renaming or deleting every
 #      sidecar reads as a pass rather than as a broken gate.
+#   3. Both the tool's --strict filter and this step's first version treated
+#      only WINDOWS_ONLY and MISMATCH as failing, while scan_repository also
+#      assigns UNRESOLVED (manifest absent from HEAD, invalid JSON, or an
+#      unresolvable subject path). An UNRESOLVED row is neither verified nor
+#      reported, and because it still counts toward the row total it cannot
+#      trip an emptiness guard either.
 #
 # The step below therefore consumes --json and fails on an empty row set as
 # well as on a non-portable verdict, which makes "could not find its inputs" a
@@ -100,11 +107,37 @@ jobs:
           if total == 0:
               sys.exit("FAIL: no digest records found at all; the gate could not run.")
 
-          bad = [r for r in report["rows"] if r["verdict"] in ("WINDOWS_ONLY", "MISMATCH")]
-          for row in bad:
-              print(f"  {row['verdict']} {row['manifest']} -> {row['path']}")
-          if bad:
-              sys.exit(f"FAIL: {len(bad)} recorded digest(s) do not reproduce from Git.")
+          # total != 0 is NOT sufficient. `total` sums ALL six
+          # verdicts, so a change that makes rows unresolvable instead of absent
+          # keeps it at its old value while the CHECKED fraction falls to zero:
+          # every PORTABLE row could become UNRESOLVED or MISSING and this step
+          # would still print OK. Measured on this tree: PORTABLE=36, MISSING=28,
+          # EXEMPT=1, UNRESOLVED=0, MISMATCH=0, WINDOWS_ONLY=0, total=65 - so 36
+          # is the number actually verifying anything, and it is the number that
+          # must not reach zero. MISSING is legitimately large here (digests
+          # pinning untracked binaries under models/ and data/), which is exactly
+          # why counting it toward "the gate ran" is wrong.
+          if counts.get("PORTABLE", 0) == 0:
+              sys.exit(
+                  f"FAIL: {total} digest record(s) found but NONE is PORTABLE, so nothing "
+                  "was actually verified. This is a broken gate, not a clean tree."
+              )
 
-          print("OK: every recorded digest that can be checked reproduces from its blob.")
+          # UNRESOLVED is a failing verdict, not a tolerated one. scan_repository
+          # assigns it in exactly three cases - a manifest absent from HEAD,
+          # a manifest that is invalid JSON, and a record whose subject path does
+          # not resolve - and each is a defect in the pinning, not a legitimate
+          # steady state the way MISSING is. It is 0 on this tree, so adding it
+          # here is born green rather than wired red.
+          FAILING = ("WINDOWS_ONLY", "MISMATCH", "UNRESOLVED")
+          bad = [r for r in report["rows"] if r["verdict"] in FAILING]
+          for row in bad:
+              print(f"  {row['verdict']} {row['manifest']} -> {row['path']} ({row.get('reason')})")
+          if bad:
+              sys.exit(f"FAIL: {len(bad)} recorded digest(s) did not verify against Git.")
+
+          print(
+              f"OK: {counts.get('PORTABLE', 0)} recorded digest(s) reproduce from their blobs; "
+              "no unresolved or mismatched records."
+          )
           PY
