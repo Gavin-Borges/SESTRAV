@@ -40,7 +40,7 @@ def _cohort(n=8):
 
 
 # ---------------------------------------------------------------------------
-# mutate_* - short-peptide (no-op) branches (110->113, 120->123)
+# mutate_* - short-peptide (no-op) branches
 # ---------------------------------------------------------------------------
 
 
@@ -137,7 +137,7 @@ def test_evaluate_single_virus_reports_breakout_only_fallback(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# run_evaluation_pipeline - instantiate + load a real checkpoint (303-311)
+# run_evaluation_pipeline - instantiate + load a real checkpoint
 # ---------------------------------------------------------------------------
 
 

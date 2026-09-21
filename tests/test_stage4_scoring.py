@@ -618,7 +618,7 @@ def test_plot_immunogenicity_scores(monkeypatch, tmp_path):
 
 
 def test_pytorch_branch_50feat(monkeypatch, tmp_path):
-    """Covers lines 186-187: PyTorch checkpoint with 50-feature count."""
+    """Covers score_immunogenicity's PyTorch branch with a 50-feature checkpoint."""
     _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann50.pt"
@@ -630,7 +630,7 @@ def test_pytorch_branch_50feat(monkeypatch, tmp_path):
 
 
 def test_pytorch_branch_train_feat(monkeypatch, tmp_path):
-    """Covers lines 191-196: PyTorch checkpoint with TRAIN_FEATURE_COLUMNS count."""
+    """Covers score_immunogenicity's PyTorch branch with a TRAIN_FEATURE_COLUMNS checkpoint."""
     _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann_train.pt"
@@ -641,7 +641,7 @@ def test_pytorch_branch_train_feat(monkeypatch, tmp_path):
 
 
 def test_pytorch_missing_features_warns_non_freeze(monkeypatch, tmp_path, capsys):
-    """Covers line 204: missing-features WARNING path when freeze_mode=False."""
+    """Covers the missing-features WARNING path in score_immunogenicity when freeze_mode=False."""
     _safe_import_torch()
     _run_in_results_dir(monkeypatch, tmp_path)
     pt_path = tmp_path / "ann30.pt"
@@ -662,7 +662,7 @@ def test_pytorch_missing_features_warns_non_freeze(monkeypatch, tmp_path, capsys
 
 
 def test_score_immunogenicity_no_calibrate(monkeypatch, tmp_path):
-    """Covers branch 282->289: calibrate=False skips _apply_calibration."""
+    """Covers score_immunogenicity's calibrate=False branch: _apply_calibration is skipped."""
     _run_in_results_dir(monkeypatch, tmp_path)
     model_path = tmp_path / "model.joblib"
     model_path.write_bytes(b"stub")
