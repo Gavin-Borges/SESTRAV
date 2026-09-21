@@ -594,7 +594,7 @@ def test_exclusions_are_paths_not_basenames() -> None:
 def test_windows_separators_match_the_same_exclusions() -> None:
     """os.walk yields backslashes on Windows; git ls-files yields forward slashes."""
     mod = _load()
-    assert mod._is_scannable("scripts\check_secrets.py") is False
+    assert mod._is_scannable(r"scripts\check_secrets.py") is False
     assert mod._is_scannable("./scripts/check_secrets.py") is False
 
 
