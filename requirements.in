@@ -40,7 +40,7 @@ torch-geometric==2.7.0
 
 # API scaffolding
 fastapi==0.141.1
-uvicorn==0.52.4
+uvicorn==0.53.0
 pydantic==2.13.5
 
 # Security: minimum version pins to close known CVEs
