@@ -237,7 +237,7 @@
   {
     "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.167.1"
+    "Version": "6.168.0"
   },
   {
     "License": "BSD-3-Clause",
@@ -297,7 +297,7 @@
   {
     "License": "Python Software Foundation License",
     "Name": "matplotlib",
-    "Version": "3.11.1"
+    "Version": "3.11.2"
   },
   {
     "License": "MIT License",
@@ -592,7 +592,7 @@
   {
     "License": "MIT",
     "Name": "snakemake",
-    "Version": "9.26.1"
+    "Version": "9.27.0"
   },
   {
     "License": "UNKNOWN",
