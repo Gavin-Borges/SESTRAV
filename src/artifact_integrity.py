@@ -28,10 +28,12 @@ LIBRARY_VERSIONS_FIELD = "library_versions"
 # Derived by reading what this repo actually pickles, not by assumption: a
 # pickle GLOBAL/STACK_GLOBAL opcode walk over every artifact under models/
 # (190 .joblib, 62 .pth, 1 .pt) resolves exactly these five distribution roots.
-# sklearn, numpy and joblib appear in every .joblib; xgboost in the booster
-# dumps; torch in every .pth and .pt. scipy, pandas and torch_geometric appear
-# in NONE of them, which is why they are absent here rather than included as a
-# hedge. A cheaper byte-substring scan of the same corpus additionally reported
+# sklearn, numpy and joblib appear in the ESTIMATOR .joblib dumps; xgboost in
+# the BOOSTER dumps; torch in every .pth and .pt. NOT "every .joblib": a
+# re-walk resolves xgboost ALONE, and none of the other three, in 30 files
+# spanning 9 distinct xgb_*.joblib names, so the two .joblib groups are
+# disjoint rather than nested. scipy, pandas and torch_geometric appear in NONE
+# of them, which is why they are absent here rather than included as a hedge. A cheaper byte-substring scan of the same corpus additionally reported
 # "shap" in 160 files; that is numpy's own "shape" key, and it is recorded here
 # as the reason the opcode walk, not a substring search, settled this list.
 #
@@ -256,6 +258,31 @@ def library_versions(
     return resolved
 
 
+def comparable_library_versions(recorded: object) -> dict[str, str]:
+    """Return the entries of a sidecar's `library_versions` that can actually be
+    compared: those recording a version STRING.
+
+    This is ONE function because the fail-open it closes came from having two.
+    `verify_artifact_library_versions` guarded on the raw mapping being a
+    non-empty dict, while `library_version_drift` compared only the
+    string-valued entries. A sidecar recording a null for every package is
+    non-empty, so it passed the guard, contributed nothing to compare, produced
+    an empty drift list, and was reported as "every recorded version matched"
+    with no log line at all.
+
+    That is the normal shape of an uninformative record rather than a corrupt
+    one: `library_versions` deliberately writes null for a package that was not
+    installed. The sidecar is not itself checksummed, so the same shape is also
+    what a tampered record would have.
+
+    Anything deciding "is there something to compare here?" must ask this
+    function rather than the raw mapping, or the two notions drift apart again.
+    """
+    if not isinstance(recorded, dict):
+        return {}
+    return {name: value for name, value in recorded.items() if isinstance(value, str)}
+
+
 def library_version_drift(
     recorded: object,
     running: dict[str, str | None] | None = None,
@@ -269,11 +296,7 @@ def library_version_drift(
     recorded version that is missing here IS drift, because the artifact was
     built against something this environment cannot supply.
     """
-    if not isinstance(recorded, dict):
-        return []
-    claimed = {
-        name: value for name, value in recorded.items() if isinstance(value, str)
-    }
+    claimed = comparable_library_versions(recorded)
     if running is None:
         running = library_versions(sorted(claimed))
     drift: list[str] = []
@@ -331,17 +354,19 @@ def verify_artifact_library_versions(
         if isinstance(payload, dict):
             recorded = payload.get(LIBRARY_VERSIONS_FIELD)
 
-    if not isinstance(recorded, dict) or not recorded:
+    comparable = comparable_library_versions(recorded)
+    if not comparable:
         logger.warning(
             "Library version verification SKIPPED for '%s': sidecar '%s' is missing, "
-            "unreadable, or records no '%s'.",
+            "unreadable, or records no comparable '%s' entry. A record whose values "
+            "are all null or non-string is UNMEASURED, not clean.",
             artifact,
             sidecar,
             LIBRARY_VERSIONS_FIELD,
         )
         return False
 
-    drift = library_version_drift(recorded)
+    drift = library_version_drift(comparable)
     if not drift:
         return True
 

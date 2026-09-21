@@ -14,6 +14,7 @@ from src.artifact_integrity import (
     LIBRARY_VERSIONS_FIELD,
     MODEL_CHECKSUM_MANIFEST,
     default_manifest_path_for,
+    comparable_library_versions,
     library_version_drift,
     library_versions,
     load_checksum_manifest,
@@ -488,6 +489,52 @@ def test_verify_library_versions_warns_when_nothing_was_recorded(tmp_path, caplo
         assert verify_artifact_library_versions(artifact, required=True) is False
     assert "SKIPPED" in caplog.text
     assert LIBRARY_VERSIONS_FIELD in caplog.text
+
+
+@pytest.mark.parametrize(
+    "recorded",
+    [
+        pytest.param({}, id="empty-mapping"),
+        pytest.param({"numpy": None, "joblib": None}, id="every-value-null"),
+        pytest.param({"numpy": 2, "joblib": ["a"]}, id="every-value-non-string"),
+    ],
+)
+def test_verify_library_versions_treats_every_uncomparable_record_alike(
+    tmp_path, caplog, recorded
+):
+    """Three sidecars with identical information content, namely nothing that
+    can be compared, must produce identical verdicts.
+
+    This is the regression anchor for a fail-open. The guard used to reject only
+    an EMPTY mapping while the comparison ignored every non-string value, so a
+    record of all nulls passed the guard, compared nothing, found no drift, and
+    returned True, documented as "every recorded version matched", with no log
+    line at all. It is not an exotic input: `library_versions` writes exactly
+    that shape for a package that was not installed, and the sidecar carries no
+    checksum of its own, so it is both the normal shape of an uninformative
+    record and the shape a tampered one would have.
+
+    Asserting the three are EQUIVALENT is what makes this test bite. Asserting
+    only that the empty mapping warns would have passed against the defect.
+    """
+    artifact = _write(tmp_path / "m.joblib")
+    _sidecar_with_versions(artifact, recorded)
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is False
+    assert "SKIPPED" in caplog.text
+    assert LIBRARY_VERSIONS_FIELD in caplog.text
+
+
+def test_comparable_library_versions_keeps_only_string_values():
+    """The single definition the guard and the comparison must share, so they
+    cannot drift back apart into two notions of "has something to compare"."""
+    assert comparable_library_versions(
+        {"numpy": "2.4.6", "torch": None, "joblib": 3}
+    ) == {"numpy": "2.4.6"}
+    assert comparable_library_versions({}) == {}
+    assert comparable_library_versions("not-a-mapping") == {}
+    assert comparable_library_versions(None) == {}
 
 
 def test_verify_library_versions_warns_on_an_unreadable_sidecar(tmp_path, caplog):
