@@ -134,6 +134,64 @@ jobs:
         continue-on-error: true
         run: semgrep scan --config p/python --config semgrep-rules/ --sarif --output semgrep.sarif
 
+      - name: Assert Semgrep tooling actually ran (fail on TOOLING error only)
+        # Same shape as the pip-audit job's tooling assertion below: the scan
+        # above is continue-on-error so real FINDINGS stay advisory, and this
+        # step masks only a TOOLING failure. Without it the job had a genuine
+        # fail-open, and the consequence was not merely a missed scan.
+        #
+        # MEASURED 2026-09-20 with the PINNED semgrep (1.177.0, from
+        # environments/requirements-semgrep.txt) in an isolated venv, using a
+        # config path that does not exist to stand in for a registry or config
+        # failure of `--config p/python`:
+        #
+        #   exit code                7   (MISSING_CONFIG)
+        #   semgrep.sarif written?   YES
+        #   tool.driver.rules        0
+        #   results                  0
+        #   executionSuccessful      True
+        #
+        # So a failed scan DOES leave a syntactically valid, zero-result SARIF.
+        # continue-on-error swallowed the 7, and the upload step published that
+        # file under `category: semgrep`. GitHub code scanning reads a
+        # zero-result analysis for a category as "every previously open alert in
+        # it is fixed", so a registry outage would silently CLOSE real alerts
+        # and leave a clean Security tab behind a scan that never ran.
+        #
+        # Note which signal is load-bearing. `executionSuccessful` is True even
+        # in the failing case, so it cannot be used. The rule count can: a scan
+        # that loaded no rules examined nothing. Exit codes at 1.177.0, read
+        # from semgrep/error.py: 0 OK, 1 FINDINGS, 2 FATAL, 3 TARGET_PARSE,
+        # 4 RULE_PARSE, 5 UNPARSEABLE_YAML, 7 MISSING_CONFIG, 8 INVALID_LANGUAGE,
+        # 13 INVALID_API_KEY. Only 0 and 1 mean the scan ran.
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          path = pathlib.Path("semgrep.sarif")
+          if not path.exists():
+              sys.exit("::error::semgrep wrote no SARIF at all - the scan did not run.")
+          try:
+              doc = json.loads(path.read_text(encoding="utf-8"))
+          except ValueError as exc:
+              sys.exit(f"::error::semgrep SARIF is not parseable ({exc}) - tooling failure.")
+
+          rules = sum(
+              len(run.get("tool", {}).get("driver", {}).get("rules", []))
+              for run in doc.get("runs", [])
+          )
+          if rules == 0:
+              sys.exit(
+                  "::error::semgrep SARIF carries 0 rules, so no rule was loaded and "
+                  "nothing was scanned. This is a tooling failure, not a clean scan. "
+                  "Uploading it would publish a zero-result analysis for "
+                  "category 'semgrep' and close every open alert in that category."
+              )
+          print(f"semgrep tooling OK: {rules} rule(s) loaded")
+          PY
+
       # GitHub code scanning ignores SARIF `suppressions`. Semgrep honours an inline
       # `# nosemgrep` in its own verdict but still writes the finding into the SARIF
       # tagged {"state": "accepted"} with no `kind`, and the ingester stores it as an
@@ -145,7 +203,11 @@ jobs:
       # aa5825c). Dropping suppressed results makes the upload agree with the scan.
       # Only explicitly suppressed findings are removed; anything new still surfaces.
       - name: Drop nosemgrep-suppressed results from the SARIF
-        if: always()
+        # No `if: always()`. It was redundant before - the scan above is
+        # continue-on-error, so it never reports failure and `success()` always
+        # held - and it is actively harmful now: it would run this step and the
+        # upload below even when the tooling assertion has just failed, which is
+        # precisely the zero-result publish that assertion exists to prevent.
         run: |
           python - <<'PY'
           import json
@@ -168,8 +230,13 @@ jobs:
           print(f"Dropped {dropped} suppressed result(s) from semgrep.sarif")
           PY
 
+      # No `if: always()`, for the same reason as the step above. This upload is
+      # what turns a failed scan into a published "all clear": a zero-result
+      # analysis for `category: semgrep` closes every open alert in that
+      # category. It must run only when the tooling assertion has passed.
+      # Findings themselves are unaffected - semgrep exit 1 is a successful scan
+      # and still reaches this step.
       - name: Upload Semgrep SARIF
-        if: always()
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: semgrep.sarif

@@ -283,8 +283,8 @@ def test_expanded_negative_binding_path_none_returns_empty(monkeypatch, tmp_path
 
 
 def test_expanded_negative_discrimination_pushed_down_none(tmp_path):
-    """Covers lines 440->443 (expanded): negative peptide absent from ranked
-    gives pushed_down=None."""
+    """Covers validate_expanded_negative_discrimination: a negative peptide
+    absent from ranked leaves pushed_down=None."""
     for virus, prefix in gs.VIRUS_FILE_MAP.items():
         _csv(tmp_path / f"{prefix}_ranked.csv", pd.DataFrame({"peptide": ["FILLER"], "rank": [1]}))
         _csv(
