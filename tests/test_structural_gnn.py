@@ -85,17 +85,17 @@ def _minimal_df():
     )
 
 
-@pytest.mark.skipif(
-    HAS_PYG,
-    reason=(
-        "StructuralPeptideMHCDataset inherits from Dataset when PyG is installed; "
-        "PyG's Dataset.__setattr__ requires super().__init__(), so the HAS_PYG=False "
-        "branch can only be exercised in a PyG-absent environment."
-    ),
-)
 def test_dataset_haspyg_false_init(monkeypatch):
     """Covers the HAS_PYG=False branch: the super().__init__ call
-    inside StructuralPeptideMHCDataset.__init__ is skipped (PyG-absent env only)."""
+    inside StructuralPeptideMHCDataset.__init__ is skipped.
+
+    No longer skipif(HAS_PYG)-gated. The gate's premise was that PyG's
+    Dataset.__setattr__ requires super().__init__(), so this branch could
+    only be exercised PyG-absent. Measured against PyG 2.7.0:
+    "__setattr__" not in torch_geometric.data.Dataset.__dict__, and object
+    is the sole owner in its MRO, so the constraint does not hold and the
+    branch runs safely with PyG present via the monkeypatch below either way.
+    """
     import src.verify.structural_gnn as sgnn
 
     monkeypatch.setattr(sgnn, "HAS_PYG", False)
@@ -103,12 +103,12 @@ def test_dataset_haspyg_false_init(monkeypatch):
     assert len(ds.peptides) == 2
 
 
-@pytest.mark.skipif(
-    HAS_PYG, reason=("Same Dataset.__setattr__ constraint as test_dataset_haspyg_false_init.")
-)
 def test_dataset_haspyg_false_get(monkeypatch):
     """Covers get()'s HAS_PYG=False branch: it returns a SimpleData
-    object instead of a torch_geometric Data object (PyG-absent env only)."""
+    object instead of a torch_geometric Data object.
+
+    No longer skipif(HAS_PYG)-gated; see test_dataset_haspyg_false_init.
+    """
     import src.verify.structural_gnn as sgnn
 
     monkeypatch.setattr(sgnn, "HAS_PYG", False)
