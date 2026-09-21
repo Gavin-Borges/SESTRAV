@@ -47,7 +47,7 @@
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.167.1     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.168.0     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
@@ -59,7 +59,7 @@
 | kiwisolver                            | 1.5.0       | BSD License                                                                                         |
 | llvmlite                              | 0.48.0      | BSD-2-Clause AND Apache-2.0 WITH LLVM-exception                                                     |
 | markdown-it-py                        | 4.2.0       | MIT License                                                                                         |
-| matplotlib                            | 3.11.1      | Python Software Foundation License                                                                  |
+| matplotlib                            | 3.11.2      | Python Software Foundation License                                                                  |
 | mdurl                                 | 0.1.2       | MIT License                                                                                         |
 | mhcflurry                             | 2.2.1       | Apache-2.0                                                                                          |
 | mhcgnomes                             | 3.33.4      | Apache License                                                                                      |
@@ -319,7 +319,7 @@
 | slicer                                | 0.0.8       | MIT License                                                                                         |
 | smart_open                            | 7.7.1       | MIT License                                                                                         |
 | smmap                                 | 5.0.3       | BSD License                                                                                         |
-| snakemake                             | 9.26.1      | MIT                                                                                                 |
+| snakemake                             | 9.27.0      | MIT                                                                                                 |
 | snakemake-interface-common            | 1.23.0      | UNKNOWN                                                                                             |
 | snakemake-interface-executor-plugins  | 9.4.0       | MIT License                                                                                         |
 | snakemake-interface-logger-plugins    | 2.1.0       | UNKNOWN                                                                                             |
