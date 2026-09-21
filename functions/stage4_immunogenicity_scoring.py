@@ -400,10 +400,30 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
     """
     resolved_path = _resolve_conformal_path(model_dir, conformal_path)
     if resolved_path is None:
-        if conformal_path and freeze_mode:
-            raise FileNotFoundError(
-                f"[Stage 4] Conformal calibrator artifact not found: {conformal_path!r}"
+        # Conformal boundary. The caller only reaches here when intervals were asked
+        # for, so an unresolvable calibrator is a failed request, not a no-op. This
+        # used to `return False` in total silence whenever no explicit path was given,
+        # which is the default: the calibrator is gitignored and therefore absent from
+        # every clone, so the shipped default produced no lower_bound, upper_bound or
+        # interval_width column and said nothing about why.
+        if conformal_path:
+            message = f"[Stage 4] Conformal calibrator artifact not found: {conformal_path!r}"
+        else:
+            message = (
+                "[Stage 4] Conformal calibrator artifact not found: no calibrator path "
+                "was given and none is present in the model directory or at "
+                "models/v5/conformal_calibrator.joblib. That artifact is gitignored, so "
+                "it is absent from a fresh clone."
             )
+        # freeze_mode previously only guarded the explicit-path branch, so the guardrail
+        # did not cover the default-resolution case it most needed to cover.
+        if freeze_mode:
+            raise FileNotFoundError(message)
+        print(
+            f"WARNING: {message} Continuing WITHOUT intervals: no lower_bound, "
+            "upper_bound or interval_width column will be produced. Pass --no-conformal "
+            "to request that explicitly, or --conformal-calibrator to supply one."
+        )
         return False
 
     try:
