@@ -1113,7 +1113,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **Scoped precisely:** its `h2.status` already reads `"NOT SUPPORTED"`, which matches the
     corrected decision, so the recorded *conclusion* is not wrong - only the two ratios and the
     hash. Its `"valid": true` is **not** a scientific certification either:
-    `src/final_validation_report.py:217` hardcodes it on the success path (`false` only in the
+    `src/final_validation_report.py` hardcodes `"valid": True` on the success path (`"valid": False` only in the
     exception handler), so it means "the generator run completed". An earlier draft of this entry
     called it "certifying a void result as valid"; that over-read the field and is retracted.
   - It is written by the same `src/final_validation_report.py` as
@@ -2300,7 +2300,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `FileExistsError` listing every colliding file before any work starts. All three writes
   (`h2_tier_a_fold_metrics.csv`, `h2_tier_a_summary.csv`, `h2_tier_a_summary.md`) are direct, with
   no derived filenames and no delegate writes - `evaluate_subgroups` was checked and returns
-  DataFrames without touching disk. `src/final_validation_report.py:137` already calls
+  DataFrames without touching disk. `src/final_validation_report.py` already calls
   `run_h2_tier_a` with these same three filenames guarded a second time, and stays compatible only
   because it passes a `tempfile.mkdtemp()` directory rather than `results/` itself, so this new
   guard finds nothing there; a test locks that property down since it is load-bearing and
