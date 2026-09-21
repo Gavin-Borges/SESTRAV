@@ -290,9 +290,11 @@ Building twice from the same commit should yield byte-identical artifacts.
 
 Release **artifacts** carry a keyless Sigstore provenance attestation so consumers
 can verify authenticity (not just integrity); the verification procedure is
-documented in `SECURITY.md`. Version **tags** are annotated but not yet signed
-(`version_tags_signed`, an OpenSSF SUGGESTED criterion, is currently Unmet - see
-`docs/releasing.md`); sign new tags with `git tag -s vX.Y.Z` going forward.
+documented in `SECURITY.md`. Version **tags**: v2.0.3 is signed, earlier tags are not.
+`version_tags_signed` is still Unmet because GitHub reports that signature as
+`unknown_key`, no signing key being registered on the account, so signing alone
+does not clear it - see `docs/releasing.md`. Sign new tags with
+`git tag -s vX.Y.Z` regardless, and keep the tag message ASCII.
 
 ---
 
