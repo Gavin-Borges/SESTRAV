@@ -224,8 +224,8 @@ def test_full_report_s4df_empty_skips_append(tmp_path):
 
 
 def test_full_report_n_v_zero_skips_virus(monkeypatch, tmp_path):
-    """Covers line 288: when a virus has zero gold-standard entries, the inner
-    `if n_v == 0: continue` guard fires and we skip printing that virus block."""
+    """Covers full_validation_report: when a virus has zero gold-standard entries, the
+    inner `if n_v == 0: continue` guard fires and we skip printing that virus block."""
     # Patch GOLD_STANDARD to hold only HPV entries so EBV iteration hits n_v==0.
     hpv_only = [g for g in gs.GOLD_STANDARD if g["virus"] == "HPV"]
     monkeypatch.setattr(gs, "GOLD_STANDARD", hpv_only)
@@ -269,7 +269,7 @@ def test_negative_discrimination_pushed_down_none(tmp_path):
 
 
 def test_expanded_negative_binding_path_none_returns_empty(monkeypatch, tmp_path):
-    """Covers lines 413-414 + 459-460 (expanded variant): binding=None makes
+    """Covers validate_expanded_negative_discrimination: binding=None makes
     the loop continue for all viruses → empty report → empty-guard fires."""
     orig = gs._resolve_stage_paths
 
