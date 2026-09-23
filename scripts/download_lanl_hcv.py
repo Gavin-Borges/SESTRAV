@@ -55,6 +55,7 @@ from scripts.ingest_iedb_negatives import (
     get_git_sha,
     is_valid_peptide,
     normalize_hla_allele,
+    normalize_reference_pmids,
 )
 
 # ---------------------------------------------------------------------------
@@ -336,9 +337,7 @@ def build_output(
         out["assay_quality_weight"] = 0.7
 
     out["reference_pmid"] = (
-        df[pmid_col].fillna("").astype(str).str.strip().replace("", None)
-        if pmid_col is not None
-        else None
+        normalize_reference_pmids(df[pmid_col]) if pmid_col is not None else None
     )
     out["iedb_assay_id"] = None
     out["infection_phase"] = None
