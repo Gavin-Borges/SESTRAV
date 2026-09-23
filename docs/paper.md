@@ -654,8 +654,8 @@ configuration. This is documented in full as `docs/claims_register.md` **D18**; 
 remedy - replacing the mock cache rather than repairing it - is tracked as Phase 1 step 8
 of `docs/proposals/2026_feature_upgrade_roadmap.md` and has not been carried out.
 
-Per-virus within-CV AUC-ROC values, computed by training and evaluating exclusively on
-each individual virus under peptide-grouped 5-fold cross-validation, are more variable,
+Per-virus within-CV AUC-ROC values, obtained by partitioning a single pooled
+peptide-grouped 5-fold out-of-fold prediction set by virus, are more variable,
 ranging from 0.482 (HPV) to 0.805 (DENV) (Table 2; results/per_virus_eval_v5_mode31.csv).
 This spread reflects differences in cohort size, negative-class composition,
 and the inherent difficulty of within-virus immunogenicity discrimination for each
@@ -689,8 +689,10 @@ remains. HPV and HCV remain the lowest-performing viruses in within-CV evaluatio
 have comparatively sparse confirmed-negative records, which limits negative-class
 separation.
 
-Table 2. Per-virus within-CV AUC-ROC (peptide-grouped 5-fold, per-virus-only training,
-mode-31 RF, v5 dataset, re-baselined 2026-08-10; results/per_virus_eval_v5_mode31.csv).
+Table 2. Per-virus within-CV AUC-ROC (peptide-grouped 5-fold, one pooled mode-31 RF
+partitioned by virus rather than trained per virus, v5 dataset, re-baselined 2026-08-10;
+results/per_virus_eval_v5_mode31.csv). Each virus's model saw the other eight during
+training, so these values are not cross-virus generalization estimates; see Table 3.
 
 | Virus      | Within-CV AUC-ROC |
 |------------|-------------------|
