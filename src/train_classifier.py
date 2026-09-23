@@ -816,11 +816,19 @@ def training_provenance_fields(
     mode, and omitted from the payload rather than recorded as null, so a
     mode-31 sidecar does not carry fields that mode cannot have.
 
-    No library versions are recorded, because none of the eight other modules
-    that call `write_provenance_sidecar` records any; adding a field type here
-    alone would make the trainer's sidecars incomparable with every sidecar
-    already written. Recording them is worth proposing for the family as a
-    whole, not for one caller.
+    No library versions are passed through `extra`. Whether this sidecar family
+    records them is a property of `write_provenance_sidecar`, which every caller
+    shares, and not of this one caller: adding a field type here alone would
+    make the trainer's sidecars incomparable with every sidecar already written.
+    If the family records them, the trainer's gain them with everyone else's.
+
+    Stated that way on purpose. An earlier draft asserted that NO library
+    versions are recorded "because none of the eight other modules that call
+    `write_provenance_sidecar` records any", which is a claim about the shared
+    writer dressed up as a claim about this function, and PR #539 makes it false
+    by adding the field to that writer for every caller at once. The two touch
+    different files, so nothing in git or CI can see the collision; the fix is
+    to say only what this function decides, which is true in either merge order.
     """
     fields: dict[str, object] = {"feature_mode": feature_mode}
     fields.update(_input_provenance_pair("training_data", data_path))
