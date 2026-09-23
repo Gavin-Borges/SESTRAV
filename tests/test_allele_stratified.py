@@ -10,6 +10,8 @@ import pandas as pd
 import pytest
 
 from scripts.evaluate_allele_stratified import (
+    _adjudicate_across_partitions,
+    _adjudicate_partition,
     _stratum_dominance,
     compute_stratum_concordance,
     compute_stratified_metrics,
@@ -270,7 +272,7 @@ def test_stratum_dominance_silent_when_evenly_spread():
 # ---------------------------------------------------------------------------
 
 
-def _report_for(adjudication: str) -> str:
+def _report_for(adjudication: str, per_partition: dict | None = None) -> str:
     from scripts.evaluate_allele_stratified import _generate_markdown_report
 
     def partition(pairs, model_c, raw_c):
@@ -311,6 +313,8 @@ def _report_for(adjudication: str) -> str:
             "human_hla_only": partition(1916, 0.5475, 0.6863),
         },
     }
+    if per_partition is not None:
+        res["per_partition_adjudication"] = per_partition
     return _generate_markdown_report(res)
 
 
@@ -340,3 +344,178 @@ def test_a_matched_hypothesis_does_report_a_resolution():
         assert "Confound resolution" in report
         assert "Confound NOT resolved" not in report
         assert adjudication in report
+
+
+# ---------------------------------------------------------------------------
+# Cross-partition adjudication.
+#
+# The run-level verdict used to be read off partition_results["human_hla_only"]
+# alone, while the comment above it said the primary test was on two partitions.
+# A run could therefore print "Hypothesis 1 ... STRONGLY SUPPORTED" off one
+# partition while another partition computed in the SAME run contradicted it.
+# The dissenting partition never reached the verdict at all.
+#
+# The fixture below is the SESTRAV influenza-original 179-row external cohort,
+# Mantel-Haenszel within-allele concordance, as recorded in
+# results/influenza_original_stratified_metrics.json. Values are named by COHORT
+# and STATISTIC, never matched by their first four decimals: this repo carries
+# unrelated quantities that agree to four places.
+# ---------------------------------------------------------------------------
+
+INFLUENZA_ORIGINAL_179_MH = {
+    # partition: (model MH concordance, raw presentation MH concordance)
+    "all_same_allele": (0.5616883116883117, 0.5097402597402597),
+    "human_hla_only": (0.515625, 0.4895833333333333),
+    "models_ten_only": (0.45528455284552843, 0.4878048780487805),
+}
+
+
+def _partitions(spec: dict) -> dict:
+    """Minimal partition records carrying only what the adjudicator reads."""
+    return {
+        name: {"model_mh_concordance": model_c, "raw_mh_concordance": raw_c}
+        for name, (model_c, raw_c) in spec.items()
+    }
+
+
+def test_adjudicate_partition_pins_each_preregistered_branch():
+    """Per-partition thresholds are unchanged; only the non-finite case is new."""
+    assert _adjudicate_partition(0.56, 0.51) == "HYPOTHESIS_1_SUPPORTED"
+    assert _adjudicate_partition(0.50, 0.45) == "HYPOTHESIS_1_SUPPORTED"
+    assert _adjudicate_partition(0.42, 0.62) == "HYPOTHESIS_2_SUPPORTED"
+    assert _adjudicate_partition(0.42, 0.49) == "NEITHER_HYPOTHESIS_MATCHED"
+    assert _adjudicate_partition(0.62, 0.62) == "NEITHER_HYPOTHESIS_MATCHED"
+    # A partition with no two-class stratum has a NaN concordance. Every
+    # comparison against NaN is False, so the un-guarded form silently reported
+    # an absence of measurement as a fallthrough VERDICT.
+    assert _adjudicate_partition(float("nan"), 0.51) == "NOT_ADJUDICABLE"
+    assert _adjudicate_partition(0.56, float("nan")) == "NOT_ADJUDICABLE"
+
+
+def test_a_dissenting_partition_blocks_a_supported_verdict():
+    """MUTATION GUARD for the single-partition read.
+
+    These are the measured influenza-original 179-row MH concordances. Two
+    partitions adjudicate HYPOTHESIS_1_SUPPORTED and models_ten_only, the
+    partition restricted to the ten alleles the model actually has features for,
+    adjudicates neither. Restore the old read of human_hla_only alone and this
+    test fails: it recovers HYPOTHESIS_1_SUPPORTED and the STRONGLY SUPPORTED
+    sentence.
+    """
+    adjudication, verdict, per_partition = _adjudicate_across_partitions(
+        _partitions(INFLUENZA_ORIGINAL_179_MH)
+    )
+    assert adjudication == "PARTITIONS_DISAGREE"
+    assert "STRONGLY SUPPORTED" not in verdict
+    assert per_partition["human_hla_only"]["adjudication"] == "HYPOTHESIS_1_SUPPORTED"
+    assert per_partition["models_ten_only"]["adjudication"] == "NEITHER_HYPOTHESIS_MATCHED"
+
+
+def test_disagreement_does_not_flip_to_the_opposite_verdict():
+    """Promoting the dissenting partition is the same defect with the sign flipped."""
+    adjudication, verdict, _ = _adjudicate_across_partitions(
+        _partitions(INFLUENZA_ORIGINAL_179_MH)
+    )
+    assert adjudication not in (
+        "HYPOTHESIS_1_SUPPORTED",
+        "HYPOTHESIS_2_SUPPORTED",
+        "NEITHER_HYPOTHESIS_MATCHED",
+    )
+    assert "majority" in verdict
+
+
+def test_the_verdict_names_every_partition_it_adjudicated():
+    """A verdict a reader cannot audit against its own population is not auditable."""
+    spec = INFLUENZA_ORIGINAL_179_MH
+    _, verdict, per_partition = _adjudicate_across_partitions(_partitions(spec))
+    assert set(per_partition) == set(spec)
+    for name in spec:
+        assert name in verdict, f"{name} is adjudicated but absent from the verdict text"
+
+
+def test_unanimous_partitions_still_reach_the_preregistered_verdict():
+    """The fix must not make a supported verdict unreachable, only unanimous."""
+    adjudication, verdict, _ = _adjudicate_across_partitions(
+        _partitions(
+            {
+                "all_same_allele": (0.5617, 0.5097),
+                "human_hla_only": (0.5156, 0.5100),
+                "models_ten_only": (0.5300, 0.4900),
+            }
+        )
+    )
+    assert adjudication == "HYPOTHESIS_1_SUPPORTED"
+    assert "STRONGLY SUPPORTED" in verdict
+    assert "every adjudicable partition" in verdict
+    assert "3 of 3" in verdict
+
+
+def test_unanimous_hypothesis_two_is_reachable_the_same_way():
+    adjudication, verdict, _ = _adjudicate_across_partitions(
+        _partitions({"all_same_allele": (0.42, 0.62), "human_hla_only": (0.47, 0.58)})
+    )
+    assert adjudication == "HYPOTHESIS_2_SUPPORTED"
+    assert "2 of 2" in verdict
+
+
+def test_unanimous_fallthrough_is_labelled_a_fallthrough_not_a_finding():
+    adjudication, verdict, _ = _adjudicate_across_partitions(
+        _partitions({"all_same_allele": (0.42, 0.49), "human_hla_only": (0.62, 0.62)})
+    )
+    assert adjudication == "NEITHER_HYPOTHESIS_MATCHED"
+    assert "FALLTHROUGH, not a finding" in verdict
+
+
+def test_a_non_adjudicable_partition_is_named_but_does_not_vote():
+    """A NaN partition must not be counted as agreeing, or as dissenting."""
+    spec = _partitions({"all_same_allele": (0.5617, 0.5097), "human_hla_only": (0.5156, 0.5100)})
+    spec["models_ten_only"] = {
+        "model_mh_concordance": float("nan"),
+        "raw_mh_concordance": float("nan"),
+    }
+    adjudication, verdict, per_partition = _adjudicate_across_partitions(spec)
+    assert adjudication == "HYPOTHESIS_1_SUPPORTED"
+    assert per_partition["models_ten_only"]["adjudication"] == "NOT_ADJUDICABLE"
+    assert "2 of 3" in verdict, "the un-votable partition must still be counted in the roster"
+    assert "models_ten_only -> NOT_ADJUDICABLE" in verdict
+
+
+def test_no_adjudicable_partition_reports_absence_of_measurement():
+    nan = float("nan")
+    adjudication, verdict, _ = _adjudicate_across_partitions(
+        _partitions({"all_same_allele": (nan, nan), "human_hla_only": (nan, nan)})
+    )
+    assert adjudication == "NOT_ADJUDICABLE"
+    assert "absence of measurement, not a result" in verdict
+
+
+def test_report_names_the_disagreement_and_every_partition_verdict():
+    """Section 3 must carry the disagreement, not only the run-level label."""
+    roster = {
+        "all_same_allele": {
+            "adjudication": "HYPOTHESIS_1_SUPPORTED",
+            "model_mh_concordance": 0.5616883116883117,
+            "raw_mh_concordance": 0.5097402597402597,
+        },
+        "models_ten_only": {
+            "adjudication": "NEITHER_HYPOTHESIS_MATCHED",
+            "model_mh_concordance": 0.45528455284552843,
+            "raw_mh_concordance": 0.4878048780487805,
+        },
+    }
+    report = _report_for("PARTITIONS_DISAGREE", per_partition=roster)
+    assert "Confound NOT resolved" in report
+    assert "Confound resolution" not in report
+    assert "PARTITIONS_DISAGREE" in report
+    assert "Per-partition verdicts" in report
+    for name in roster:
+        assert f"`{name}`: {roster[name]['adjudication']}" in report
+
+
+def test_report_never_hardcodes_a_verdict_name_the_run_did_not_produce():
+    """The fallthrough branch used to assert NEITHER_HYPOTHESIS_MATCHED for any
+    unrecognised label, which is a false statement about the run."""
+    report = _report_for("PARTITIONS_DISAGREE")
+    assert "NEITHER_HYPOTHESIS_MATCHED" not in report
+    assert "NOT_ADJUDICABLE" not in _report_for("PARTITIONS_DISAGREE")
+    assert "adjudicated NOT_ADJUDICABLE" in _report_for("NOT_ADJUDICABLE")
