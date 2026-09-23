@@ -13,9 +13,15 @@ Model comparison uses paired bootstrap (src.statistical_bootstrap) rather than
 DeLong's test: paired bootstrap gives empirical CIs for correlated AUC estimates
 without assuming a Gaussian AUC distribution, which is preferable for small n.
 
-Amendment 6 exit criterion (checked automatically):
-  EBV: AUC-ROC point estimate >= 0.57
-  HPV: AUC-ROC point estimate >= 0.58
+Amendment 6 exit criterion (checked automatically). It is adjudicated on the
+DECOY-FREE column auc_roc_real_neg_only, not on the full-negative-set auc_roc,
+which is contaminated by binding-matrix coverage:
+  EBV: real-negative-only AUC-ROC point estimate >= 0.57
+  HPV: real-negative-only AUC-ROC point estimate >= 0.58
+Both columns are reported side by side, and every adjudicated virus also carries a
+derived per-virus validity floor. See the "Exit criterion" constants block and
+chance_ceiling() for the contamination evidence, the derivation, and what is
+deliberately NOT re-derived here.
 
 Usage:
   python scripts/evaluate_per_virus.py \\
@@ -65,10 +71,75 @@ CI_LEVEL: float = 0.95
 REAL_NEG_ORIGINS: frozenset[str] = frozenset({"tested_negative", "iedb_api"})
 MIN_SAMPLES_DEFAULT: int = 20
 
-# Amendment 6 exit criterion thresholds.
+# ---------------------------------------------------------------------------
+# Exit criterion: which column, which level, and what a level has to clear
+# ---------------------------------------------------------------------------
+# The two AUC-ROC columns this script emits are not interchangeable, and the exit
+# criterion is adjudicated on the second one.
+#
+# HEADLINE_AUC_COL scores positives against EVERY negative, decoys included, and is
+# contaminated by binding-matrix coverage. Measured on the tracked mode-31 OOF frame
+# (models/v5/rf_oof_predictions_mode31.csv, 35,555 rows) against
+# models/peptide_binding_matrix_v5.csv: row coverage is 100.00% for tested_negative
+# (22,466 rows) and 100.00% for iedb_api (1,956 rows) but 7.01% for the synthetic
+# allele_matched_nonbinder decoys (3,112 rows). src/train_classifier.py zero-fills an
+# uncovered peptide with no guard (:159, :189, :293, :400), so "all ten binding
+# features are zero" is very nearly the indicator "this row is a synthetic decoy". On
+# DENV that indicator ALONE scores AUC-ROC 0.9837, ABOVE the 0.9769 reached by the
+# max binding feature it stands in for. Wherever decoys are present, part of what
+# auc_roc measures is decoy provenance rather than immunogenicity.
+#
+# HONEST_AUC_COL restricts the negative set to REAL_NEG_ORIGINS, both of which are
+# 100% covered, so the decoy-provenance shortcut described above is unavailable on
+# that slice. Measured per virus on the honest slice, which is the unit this module
+# computes in, the coverage indicator is genuinely CONSTANT on eleven of the twelve
+# viruses carrying both classes, so for those eleven "carries no signal" holds.
+#
+# HIV-1 is the exception and it is not a marginal one: only 35.45% of its positives
+# are covered, against 79.75% overall, and the indicator ALONE scores AUC-ROC 0.1773
+# over 2,576 honest rows, which is strongly ANTI-predictive rather than
+# uninformative. So what is retired here is the UNIVERSAL, not the observation:
+# constancy on the negative arm does not carry to a virus whose POSITIVE arm varies,
+# and an earlier draft of this comment generalised from the one to the other.
+#
+# Do not read the other eleven as measurements. Their 0.5000 is sklearn's degenerate
+# return for a constant score, not a near-chance discrimination. Pooling all twelve
+# gives 0.3988, which is an artifact of the HIV-1 stratum alone and is why no pooled
+# figure is quoted here. The exit-criterion viruses EBV and HPV are both inside the
+# constant eleven, so the gate itself is unaffected.
+HEADLINE_AUC_COL: str = "auc_roc"
+HONEST_AUC_COL: str = "auc_roc_real_neg_only"
+
+# Amendment 6 target panel: the same nine viruses as CANON in
+# scripts/compute_loo_binding_confound.py. On the shipped artifact
+# results/per_virus_eval_v5_mode31.csv the filter n_pos >= 100 reproduces this panel
+# exactly, but the panel is the definition and the filter is only a coincidence of
+# that artifact.
+TARGET_PANEL: frozenset[str] = frozenset(
+    {"CMV", "DENV", "EBV", "HBV", "HCV", "HIV-1", "HPV", "IAV", "SARS-CoV-2"}
+)
+
+# One-sided 95% normal deviate. Used only by chance_ceiling.
+FLOOR_Z: float = 1.6448536269514722
+
+# Amendment 6 levels. CARRIED OVER UNCHANGED FROM THE CONTAMINATED SCALE; THEY ARE
+# NOT RE-DERIVED HERE, DELIBERATELY. They entered the repo in 317b5d4 (2026-06-25)
+# citing Amendment 6 of the owner's planning record, which is not tracked: a grep
+# finds carriers and no derivation anywhere in the tree. CHANGELOG.md records
+# "HPV >= 0.58 (achieved 0.598)", so the level originally tracked a then-measured
+# value. Re-deriving a level from today's results would repeat exactly that mistake
+# on a new scale, so this module does not do it. The LEVEL is an owner policy
+# quantity and an input to an open venue decision; the COLUMN it is compared against
+# is a technical defect, and that is what is fixed here. What IS derived is the
+# validity floor below (chance_ceiling), the minimum level that can mean anything.
+#
+# Applying an unchanged level to the honest column is strictly STRICTER, never
+# looser. On the shipped artifact EBV moves from PASS (auc_roc 0.711) to FAIL
+# (honest 0.556) and HPV stays FAIL (0.482 on both, since it has no decoys). No
+# virus is made to pass by this change.
 EXIT_CRITERION: dict[str, dict[str, float]] = {
-    "EBV": {"auc_roc": 0.57},
-    "HPV": {"auc_roc": 0.58},
+    "EBV": {HONEST_AUC_COL: 0.57},
+    "HPV": {HONEST_AUC_COL: 0.58},
 }
 
 
@@ -147,8 +218,17 @@ def expected_calibration_error(
     bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
     ece = 0.0
     n = len(y_true)
-    for lo, hi in zip(bin_edges[:-1], bin_edges[1:]):
-        mask = (y_prob >= lo) & (y_prob < hi)
+    for i in range(n_bins):
+        lo, hi = bin_edges[i], bin_edges[i + 1]
+        # Include the right edge only in the last bin so a score of exactly 1.0
+        # lands somewhere. A half-open final bin drops those rows from every bin
+        # while n still counts them, which silently understates ECE. Matches
+        # expected_calibration_error in scripts/fit_calibrator.py, which
+        # already does this.
+        if i == n_bins - 1:
+            mask = (y_prob >= lo) & (y_prob <= hi)
+        else:
+            mask = (y_prob >= lo) & (y_prob < hi)
         if not mask.any():
             continue
         ece += mask.sum() / n * abs(float(y_true[mask].mean()) - float(y_prob[mask].mean()))
@@ -297,51 +377,206 @@ def evaluate_all_viruses(
 # ---------------------------------------------------------------------------
 
 
+def chance_ceiling(n_pos: int, n_neg: int, z: float = FLOOR_Z) -> float | None:
+    """Derived per-virus validity floor: the highest AUC-ROC chance alone reaches.
+
+    DERIVATION, reproducible from tracked inputs alone. Under the null "the scores
+    carry no information about the label", AUC-ROC is the normalised Mann-Whitney U
+    statistic. Its exact null mean is 0.5 and its exact null variance with no ties is
+
+        Var_0 = (n_pos + n_neg + 1) / (12 * n_pos * n_neg)
+
+    so the one-sided 95% upper bound on what a chance-level model scores at that
+    sample size is
+
+        floor = 0.5 + 1.6449 * sqrt(Var_0)
+
+    A threshold BELOW this number cannot separate a working model from a coin flip
+    at that virus's n, so no defensible level sits below it.
+
+    SECOND INSTRUMENT, and the exact limits of its agreement. With no ties, Var_0 is
+    the EXACT null variance rather than an approximation; only the normal
+    95th-percentile step approximates anything. Ties make the exact null variance
+    strictly smaller,
+
+        Var_tied = ((N + 1) - sum(t**3 - t) / (N * (N - 1))) / (12 * n_pos * n_neg)
+
+    with N = n_pos + n_neg and t running over tie-group sizes, so the tie-free form
+    never UNDERSTATES the null spread. A label-permutation null agrees with the
+    returned value to within Monte Carlo error: at 4,000 permutations on the shipped
+    honest-scale slices the closed form was the larger in all four cases, by 0.0003
+    to 0.0013 (EBV 0.5627 vs 0.5624, HPV 0.5539 vs 0.5528, SARS-CoV-2 0.5179 vs
+    0.5176, HBV 0.5410 vs 0.5397).
+
+    Do NOT read that as a guarantee on the PERCENTILE. An earlier draft of this
+    docstring claimed the closed form is always the larger, and a test written to
+    that claim failed: at 2,000 permutations on a heavily tied synthetic slice the
+    permutation value came out 0.0018 higher, which is about one Monte Carlo
+    standard error for a 95th percentile at that many reps. Raising the same case to
+    40,000 permutations restores the ordering (0.564438 against 0.564167). The
+    variance inequality is exact; the percentile ordering is not.
+    tests/test_evaluate_per_virus.py checks the variance inequality deterministically
+    and the percentile agreement only to a stated tolerance.
+
+    WHY THIS IS NOT CIRCULAR. The expression reads n_pos and n_neg and nothing else.
+    It never touches a score, a label ordering or an observed AUC, so it cannot be
+    moved by making the model better or worse and it cannot be tuned to let a named
+    virus pass. On the shipped artifact it lets NEITHER gated virus pass: HPV honest
+    0.4820 against floor 0.5539, EBV honest 0.5557 against floor 0.5627.
+
+    WHAT IT IS NOT, stated rather than implied. This is a validity FLOOR, not an exit
+    target. Clearing it means only "distinguishable from chance", which for
+    SARS-CoV-2 (floor 0.5179 on 2,473 positives and 980 real negatives) is a far
+    weaker claim than the exit criterion makes; reporting a virus as having PASSED
+    because it cleared its floor would overstate the result, and this module does not
+    do that. It also carries no multiplicity correction across the adjudicated
+    viruses, because the criterion is decided per virus and not as a family, and it
+    says nothing about whether the honest column is free of any other confound.
+
+    Returns None when either arm is empty, where the quantity is undefined.
+    """
+    if n_pos < 1 or n_neg < 1:
+        return None
+    var_null = (n_pos + n_neg + 1.0) / (12.0 * n_pos * n_neg)
+    return float(0.5 + z * np.sqrt(var_null))
+
+
+def _virus_floor(metrics: dict) -> float | None:
+    """chance_ceiling on the HONEST-scale arms: positives and REAL negatives."""
+    try:
+        n_pos = int(metrics.get("n_pos") or 0)
+        n_neg = int(metrics.get("n_neg_real") or 0)
+    except (TypeError, ValueError):
+        return None
+    return chance_ceiling(n_pos, n_neg)
+
+
+def _honest_value(metrics: dict) -> float | None:
+    """HONEST_AUC_COL as a real float, or None when it is absent or NaN."""
+    val = metrics.get(HONEST_AUC_COL)
+    if val is None:
+        return None
+    val = float(val)
+    return None if val != val else val  # nan != nan
+
+
 def check_exit_criterion(
     results: dict[str, dict],
 ) -> tuple[bool, str]:
-    """Check Amendment 6 exit criterion using thresholds from EXIT_CRITERION.
+    """Check the Amendment 6 exit criterion on the HONEST (decoy-free) scale.
 
-    Both EBV and HPV use point estimate (not CI-lower): with only 14 IEDB-sourced
-    tested negatives for EBV, CI-lower is dominated by bootstrap sampling noise and
-    is unachievable at any realistic AUC. Point estimate is the correct instrument
-    for sparse-negative viruses.
+    Reads HONEST_AUC_COL, never HEADLINE_AUC_COL. The contaminated value is printed
+    beside it, labelled, so the contrast stays visible; it is not gated on. See the
+    constants block for the coverage measurements that make auc_roc unusable as a
+    gate wherever decoys are present.
+
+    Both viruses use the point estimate rather than the CI lower bound: with only 72
+    real negatives for EBV, CI-lower is dominated by bootstrap sampling noise and is
+    unachievable at any realistic AUC. Point estimate is the correct instrument for
+    sparse-negative viruses.
+
+    Fails closed three ways. A missing virus fails; an undefined honest value fails
+    rather than falling back to the contaminated column; and a level sitting below
+    its own derived validity floor fails, because a pass against such a level would
+    not be distinguishable from chance.
 
     Returns (passed, detail_message).
     """
     msgs: list[str] = []
     passed = True
 
-    ebv_threshold = EXIT_CRITERION["EBV"]["auc_roc"]
-    hpv_threshold = EXIT_CRITERION["HPV"]["auc_roc"]
+    for virus in ("EBV", "HPV"):
+        level = EXIT_CRITERION[virus][HONEST_AUC_COL]
+        metrics = results.get(virus, {})
+        if not metrics:
+            msgs.append(f"{virus}: no results (too few rows or missing)")
+            passed = False
+            continue
 
-    ebv = results.get("EBV", {})
-    if ebv:
-        val = ebv.get("auc_roc", float("nan"))
-        ok = val == val and val >= ebv_threshold  # nan == nan is False
-        msgs.append(
-            f"EBV AUC-ROC={val:.3f} ({'PASS' if ok else 'FAIL'}, threshold>={ebv_threshold})"
-        )
+        floor = _virus_floor(metrics)
+        if floor is not None and level < floor:
+            msgs.append(
+                f"{virus}: threshold {level} is BELOW its derived validity floor "
+                f"{floor:.4f}, so a pass would not be distinguishable from chance"
+            )
+            passed = False
+            continue
+
+        honest = _honest_value(metrics)
+        if honest is None:
+            msgs.append(
+                f"{virus}: {HONEST_AUC_COL} undefined (too few real negatives); the "
+                f"criterion cannot be evaluated on the honest scale"
+            )
+            passed = False
+            continue
+
+        ok = honest >= level
         if not ok:
             passed = False
-    else:
-        msgs.append("EBV: no results (too few rows or missing)")
-        passed = False
-
-    hpv = results.get("HPV", {})
-    if hpv:
-        val = hpv.get("auc_roc", float("nan"))
-        ok = val == val and val >= hpv_threshold
         msgs.append(
-            f"HPV AUC-ROC={val:.3f} ({'PASS' if ok else 'FAIL'}, threshold>={hpv_threshold})"
+            f"{virus} honest AUC-ROC={honest:.3f} ({'PASS' if ok else 'FAIL'},"
+            f" threshold>={level}, chance floor {_fmt(floor, 4)})"
+            f" [contaminated auc_roc={_fmt(metrics.get(HEADLINE_AUC_COL))}, not gated]"
         )
-        if not ok:
-            passed = False
-    else:
-        msgs.append("HPV: no results (too few rows or missing)")
-        passed = False
 
     return passed, "; ".join(msgs)
+
+
+def adjudicate_viruses(results: dict[str, dict]) -> list[dict]:
+    """Adjudicate every two-class virus on BOTH scales plus the derived floor.
+
+    "Two-class" means HEADLINE_AUC_COL is defined, i.e. the slice carries both
+    labels. Each row names its own populations (in_target_panel, decoy_free) so any
+    count drawn from this list can state the population it came from. On the shipped
+    artifact "three decoy-free viruses" is correct for the nine-virus target panel
+    and "six" is correct for all twelve two-class viruses; both describe the same
+    data, and an unlabelled count is ambiguous between them.
+
+    exit_status is populated only for the viruses EXIT_CRITERION names. For every
+    other virus the only derived verdict available is beats_chance_floor, which is a
+    validity check and NOT an exit criterion (see chance_ceiling).
+    """
+    rows: list[dict] = []
+    for virus, metrics in sorted(results.items()):
+        raw = metrics.get(HEADLINE_AUC_COL)
+        if raw is None or float(raw) != float(raw):
+            continue
+        headline = float(raw)
+        honest = _honest_value(metrics)
+        floor = _virus_floor(metrics)
+        level = EXIT_CRITERION.get(virus, {}).get(HONEST_AUC_COL)
+        n_decoy = int(metrics.get("n_neg_decoy") or 0)
+
+        exit_status: str | None = None
+        if level is not None:
+            if floor is not None and level < floor:
+                exit_status = "INVALID"
+            elif honest is None:
+                exit_status = "UNDEFINED"
+            else:
+                exit_status = "PASS" if honest >= level else "FAIL"
+
+        rows.append(
+            {
+                "virus": virus,
+                "n_pos": int(metrics.get("n_pos") or 0),
+                "n_neg_real": int(metrics.get("n_neg_real") or 0),
+                "n_neg_decoy": n_decoy,
+                "in_target_panel": virus in TARGET_PANEL,
+                "decoy_free": n_decoy == 0,
+                "auc_roc_contaminated": headline,
+                "auc_roc_honest": honest,
+                "decoy_inflation": None if honest is None else headline - honest,
+                "chance_floor": floor,
+                "beats_chance_floor": (
+                    None if (honest is None or floor is None) else bool(honest >= floor)
+                ),
+                "exit_threshold": level,
+                "exit_status": exit_status,
+            }
+        )
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +619,66 @@ def format_table(results: dict[str, dict]) -> str:
             f" {_fmt(m.get('ece')):>6}"
             f" {_fmt(m.get('auc_roc_9mer')):>7}"
             f" {_fmt(m.get('auc_roc_real_neg_only')):>6}"
+        )
+    return "\n".join(rows)
+
+
+def format_adjudication_table(results: dict[str, dict]) -> str:
+    """Both AUC-ROC scales side by side, with the derived floor and the verdict.
+
+    Every count in the footer names its population, because the two natural
+    populations here give different right answers to the same question.
+    """
+    adj = adjudicate_viruses(results)
+    header = (
+        f"{'Virus':<16} {'panel':>5} {'n_pos':>6} {'n_negR':>7} {'n_negD':>7}"
+        f" {'ROC_all':>8} {'ROC_real':>9} {'inflation':>10}"
+        f" {'floor':>7} {'>floor':>7} {'thresh':>7} {'exit':>8}"
+    )
+    sep = "-" * len(header)
+    rows = [
+        "Per-virus adjudication. ROC_all is the CONTAMINATED column (all negatives,",
+        "decoys included); ROC_real is the HONEST column (real assay-confirmed",
+        "negatives only) and is the one the exit criterion is decided on. floor is the",
+        "derived validity floor (chance_ceiling); clearing it means only that the virus",
+        "is distinguishable from chance, which is NOT the exit criterion.",
+        "",
+        header,
+        sep,
+    ]
+    for r in adj:
+        beats = r["beats_chance_floor"]
+        rows.append(
+            f"{r['virus']:<16}"
+            f" {('T' if r['in_target_panel'] else '-'):>5}"
+            f" {r['n_pos']:>6} {r['n_neg_real']:>7} {r['n_neg_decoy']:>7}"
+            f" {_fmt(r['auc_roc_contaminated'], 4):>8}"
+            f" {_fmt(r['auc_roc_honest'], 4):>9}"
+            f" {_fmt(r['decoy_inflation'], 4):>10}"
+            f" {_fmt(r['chance_floor'], 4):>7}"
+            f" {('N/A' if beats is None else ('yes' if beats else 'no')):>7}"
+            f" {('-' if r['exit_threshold'] is None else _fmt(r['exit_threshold'], 2)):>7}"
+            f" {(r['exit_status'] or '-'):>8}"
+        )
+
+    panel = [r for r in adj if r["in_target_panel"]]
+    rows.append(sep)
+    rows.append(
+        f"Populations: {len(adj)} two-class viruses, of which {len(panel)} are in the"
+        f" Amendment 6 target panel."
+    )
+    for label, pop in (("all two-class", adj), ("target panel", panel)):
+        if not pop:
+            continue
+        honest = [r["auc_roc_honest"] for r in pop if r["auc_roc_honest"] is not None]
+        cont = [r["auc_roc_contaminated"] for r in pop]
+        beats = sum(1 for r in pop if r["beats_chance_floor"])
+        free = sum(1 for r in pop if r["decoy_free"])
+        rows.append(
+            f"  {label} (n={len(pop)}): mean ROC_all={np.mean(cont):.4f},"
+            f" mean ROC_real={np.mean(honest) if honest else float('nan'):.4f},"
+            f" {beats}/{len(pop)} above their own chance floor,"
+            f" {free}/{len(pop)} decoy-free."
         )
     return "\n".join(rows)
 
@@ -559,6 +854,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print("\n" + format_table(results))
+    print("\n" + format_adjudication_table(results))
 
     passed, criterion_msg = check_exit_criterion(results)
     print(f"\nAmendment 6 exit criterion: {'PASS' if passed else 'FAIL'}")
@@ -593,6 +889,7 @@ def main(argv: list[str] | None = None) -> int:
         "n_bootstrap": args.n_bootstrap,
         "min_virus_size": args.min_virus_size,
         "per_virus": results,
+        "adjudication": adjudicate_viruses(results),
         "exit_criterion_passed": passed,
         "exit_criterion_detail": criterion_msg,
         "comparisons": comparisons,

@@ -171,8 +171,10 @@ alongside the Dependency-review Action and OSSF Scorecard. Signed releases now
 ship via the `release.yml` workflow, which attaches a Sigstore build-provenance
 attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 `signed_releases` criterion (verify with `gh attestation verify`). Remaining
-planned work: publish the package to PyPI, and cryptographically sign the git tags
-themselves (`version_tags_signed`, a SUGGESTED criterion). A maintainer SSH signing
-key is configured locally with `tag.gpgsign` enabled, so this is met on the next
-release by tagging with `git tag -s`. See `ROADMAP.md` for the declined-tier position
+planned work: publish the package to PyPI, and clear `version_tags_signed`
+(a SUGGESTED criterion). Note what that now requires: the tags are already being
+signed - v2.0.3 carries an SSH signature - but GitHub reports it `unknown_key`
+because no signing key is registered on the account, so the criterion is Unmet
+despite the signing. Registering the key is the outstanding step, not tagging
+with `git tag -s`. See `ROADMAP.md` for the declined-tier position
 on the multi-person Silver/Gold criteria, and the coverage ratchet.
