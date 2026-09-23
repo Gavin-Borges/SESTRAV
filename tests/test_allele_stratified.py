@@ -241,6 +241,72 @@ def test_paired_mode_with_no_two_class_stratum_returns_nan_dict():
     assert res["delta_excludes_zero"] is False
 
 
+def _hand_computed_pair() -> pd.DataFrame:
+    """Two strata whose paired MH delta is exactly 1/6, derivable by hand.
+
+    Stratum A (2 pos x 2 neg = 4 pairs): model concordant 4, raw concordant 2.
+    Stratum B (1 pos x 2 neg = 2 pairs): model concordant 1, raw concordant 2.
+    Model MH = 5/6, raw MH = 4/6, so the observed paired delta is (5 - 4) / 6.
+    """
+    rows = [
+        ("A", 1, 0.9, 0.9),
+        ("A", 1, 0.8, 0.1),
+        ("A", 0, 0.2, 0.5),
+        ("A", 0, 0.1, 0.2),
+        ("B", 1, 0.3, 0.7),
+        ("B", 0, 0.6, 0.6),
+        ("B", 0, 0.2, 0.2),
+    ]
+    return pd.DataFrame(rows, columns=["allele", "label", "model", "raw"])
+
+
+@pytest.mark.parametrize("seed,n_resamples", [(20260909, 200), (1, 50), (2, 2000)])
+def test_paired_delta_point_is_the_observed_difference_not_the_bootstrap_mean(
+    seed, n_resamples
+):
+    """delta_point is the plug-in MH difference; the bootstrap only sets the CI.
+
+    The mean of the bootstrap deltas is the observed difference plus Monte Carlo
+    noise, so it moves with the seed and the resample count. On this fixture it
+    was 0.159167 at seed 20260909 with 200 resamples against an observed 1/6. A
+    point estimate that depends on the resampling seed is not a point estimate.
+    """
+    df = _hand_computed_pair()
+    res = stratified_bootstrap_ci(
+        df, score_col="model", compare_col="raw", n_resamples=n_resamples, seed=seed
+    )
+    observed = (
+        compute_stratified_metrics(df, score_col="model")["mh_concordance"]
+        - compute_stratified_metrics(df, score_col="raw")["mh_concordance"]
+    )
+    assert observed == pytest.approx(1 / 6, abs=1e-12), "fixture no longer computes by hand"
+    assert res["delta_point"] == pytest.approx(observed, abs=1e-12)
+    assert res["paired_pairs"] == 6
+
+
+def test_paired_delta_point_is_measured_on_the_shared_row_mask():
+    """The point estimate must use the same rows as its CI: the paired mask.
+
+    One extra positive carries a model score but no raw score. Differencing the
+    two per-column MH concordances would use that row in the model arm only and
+    give -1/24; the paired delta drops it from both arms and stays at 1/6.
+    """
+    df = _hand_computed_pair()
+    extra = pd.DataFrame([("A", 1, 0.05, np.nan)], columns=df.columns)
+    df = pd.concat([df, extra], ignore_index=True)
+    per_column = (
+        compute_stratified_metrics(df, score_col="model")["mh_concordance"]
+        - compute_stratified_metrics(df, score_col="raw")["mh_concordance"]
+    )
+    assert per_column == pytest.approx(-1 / 24, abs=1e-12), "fixture must separate the two"
+
+    res = stratified_bootstrap_ci(
+        df, score_col="model", compare_col="raw", n_resamples=200, seed=20260909
+    )
+    assert res["delta_point"] == pytest.approx(1 / 6, abs=1e-12)
+    assert res["paired_pairs"] == 6
+
+
 def test_stratum_dominance_flags_a_single_dominant_allele():
     strata = [
         {"allele": "HLA-A*02:01", "pairs": 1666},
