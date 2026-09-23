@@ -706,8 +706,17 @@ def gate4_calibration(df: pd.DataFrame) -> GateResult:
     bins = np.linspace(0.0, 1.0, n_bins + 1)
     ece = 0.0
     n = len(probs)
-    for lo, hi in zip(bins[:-1], bins[1:]):
-        mask = (probs >= lo) & (probs < hi)
+    for i in range(n_bins):
+        lo, hi = bins[i], bins[i + 1]
+        # Include the right edge only in the last bin so a score of exactly 1.0
+        # lands somewhere; a half-open final bin drops it from every bin while n
+        # still counts it, understating ECE and therefore biasing this gate
+        # toward a pass. Matches expected_calibration_error in
+        # scripts/fit_calibrator.py.
+        if i == n_bins - 1:
+            mask = (probs >= lo) & (probs <= hi)
+        else:
+            mask = (probs >= lo) & (probs < hi)
         if mask.sum() == 0:
             continue
         acc = labels[mask].mean()
