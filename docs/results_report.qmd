@@ -100,6 +100,7 @@ We performed a paired bootstrapping analysis ($N = 1,000$ resamples) on the out-
 ```{python}
 #| echo: false
 #| warning: false
+import os
 import numpy as np
 import pandas as pd
 from src.statistical_bootstrap import paired_bootstrap_comparison
