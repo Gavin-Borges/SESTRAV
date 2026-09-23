@@ -47,6 +47,47 @@ ARTIFACT_LIBRARY_PACKAGES = (
     "torch",
 )
 
+# Which of those five can decide whether a GIVEN artifact loads, keyed by the
+# artifact's own extension. The tuple above is the UNION over every artifact
+# family, so recording it is right and COMPARING all of it is not: an
+# `rf_*.joblib` is a graph of sklearn, numpy and joblib objects and holds no
+# torch reference at all, so a torch upgrade cannot change how it deserializes.
+# Before this mapping existed, `verify_artifact_library_versions(required=True)`
+# raised on that upgrade and blocked the RF load anyway - measured, not
+# theorised: bump the recorded torch version alone in an RF sidecar and the load
+# raises ArtifactIntegrityError with sklearn, numpy and joblib all unchanged.
+#
+# The split is DELIBERATELY COARSER than the opcode walk above. That walk found
+# the two .joblib groups disjoint (estimator dumps resolve sklearn/numpy/joblib,
+# the 30 xgb_*.joblib resolve xgboost ALONE), but distinguishing them at load
+# time means reading the pickle, and a reader that silently fails returns an
+# empty set, records nothing and makes verification VACUOUS - reintroducing by
+# the back door the fail-open that `comparable_library_versions` exists to
+# close. An extension is total and cannot fail. So .joblib keeps all four
+# pickle-based distributions: over-strict by one comparison for an xgboost
+# booster, never fail-open, and never wrong about torch.
+#
+# An extension absent from this mapping has NO entry rather than a default,
+# because the two cases are different: a `.csv` under results/ is a real
+# artifact that genuinely depends on no library at write time, and treating it
+# as unmeasured would warn on every results sidecar this repo writes.
+ARTIFACT_FORMAT_LIBRARIES: dict[str, tuple[str, ...]] = {
+    ".joblib": ("scikit-learn", "joblib", "numpy", "xgboost"),
+    ".pkl": ("scikit-learn", "joblib", "numpy", "xgboost"),
+    ".pth": ("torch",),
+    ".pt": ("torch",),
+}
+
+
+def artifact_library_dependencies(path: str | Path) -> tuple[str, ...]:
+    """Return the distributions whose version can decide whether `path` loads.
+
+    Empty for a format that deserializes through no third-party library at all
+    (`.csv`, `.json`, `.md`). Empty is a MEASURED answer here, not an absent
+    one, and `verify_artifact_library_versions` treats it as such.
+    """
+    return ARTIFACT_FORMAT_LIBRARIES.get(Path(path).suffix.lower(), ())
+
 
 class ArtifactIntegrityError(RuntimeError):
     """Raised when a checksum manifest is missing or an artifact mismatches it."""
@@ -318,10 +359,19 @@ def verify_artifact_library_versions(
     """Compare an artifact's provenance sidecar library versions against this
     environment, the companion to `verify_artifact_checksum`.
 
-    Returns True when the comparison ran and every recorded version matched.
+    Returns True when nothing in the record blocks this load: either the
+    comparison ran and every version that could matter matched, or the
+    artifact's format deserializes through no third-party library at all.
     Returns False when no comparison was possible, or when drift was found and
     reporting it was optional.
     Raises ArtifactIntegrityError on drift when `required` is True.
+
+    ONLY the distributions `artifact_library_dependencies` names for this
+    artifact's format are compared. The sidecar records the whole environment,
+    which is the right thing to RECORD and the wrong thing to enforce: the
+    recorded set is the union over every artifact family, so enforcing it made
+    a torch upgrade raise on an sklearn RandomForest that holds no torch
+    reference. Recording stays wide, adjudication is narrow.
 
     WHY DRIFT WARNS BY DEFAULT AND ONLY RAISES UNDER `required`. A checksum
     mismatch is unconditionally wrong: the bytes are not the bytes. A version
@@ -345,6 +395,18 @@ def verify_artifact_library_versions(
     artifact = Path(path)
     sidecar = provenance_sidecar_path_for(artifact)
 
+    relevant = artifact_library_dependencies(artifact)
+    if not relevant:
+        # A measured empty set, not an unmeasured one. Returning False here
+        # would report every results CSV as unverifiable and train the reader
+        # to ignore the warning that matters.
+        logger.debug(
+            "Library version verification not applicable to '%s': its format "
+            "deserializes through no third-party library.",
+            artifact,
+        )
+        return True
+
     recorded: object = None
     if sidecar.is_file():
         try:
@@ -354,15 +416,20 @@ def verify_artifact_library_versions(
         if isinstance(payload, dict):
             recorded = payload.get(LIBRARY_VERSIONS_FIELD)
 
-    comparable = comparable_library_versions(recorded)
+    comparable = {
+        name: version
+        for name, version in comparable_library_versions(recorded).items()
+        if name in relevant
+    }
     if not comparable:
         logger.warning(
             "Library version verification SKIPPED for '%s': sidecar '%s' is missing, "
-            "unreadable, or records no comparable '%s' entry. A record whose values "
-            "are all null or non-string is UNMEASURED, not clean.",
+            "unreadable, or records no comparable '%s' entry for any of %s. A record "
+            "whose values are all null or non-string is UNMEASURED, not clean.",
             artifact,
             sidecar,
             LIBRARY_VERSIONS_FIELD,
+            ", ".join(relevant),
         )
         return False
 

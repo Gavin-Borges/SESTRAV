@@ -9,10 +9,12 @@ from importlib import metadata as importlib_metadata
 from pathlib import Path
 
 from src.artifact_integrity import (
+    ARTIFACT_FORMAT_LIBRARIES,
     ARTIFACT_LIBRARY_PACKAGES,
     ArtifactIntegrityError,
     LIBRARY_VERSIONS_FIELD,
     MODEL_CHECKSUM_MANIFEST,
+    artifact_library_dependencies,
     default_manifest_path_for,
     comparable_library_versions,
     library_version_drift,
@@ -609,9 +611,131 @@ def test_load_verified_joblib_passes_with_the_running_versions_recorded(tmp_path
     assert caplog.text == ""
 
 
-def test_recorded_version_of_an_uninstalled_package_is_drift(tmp_path):
+def test_recorded_version_of_an_uninstalled_package_is_drift(tmp_path, monkeypatch):
+    """A recorded version this environment cannot supply is drift end to end.
+
+    The absent package has to be made RELEVANT to the format first. Only the
+    distributions `artifact_library_dependencies` names are adjudicated, and by
+    construction every name in the real mapping is installed here, so recording
+    `_ABSENT_PACKAGE` alone against an unpatched `.joblib` would be filtered out
+    and reported as UNMEASURED - which is the correct verdict for an irrelevant
+    package and the wrong fixture for this property.
+    """
+    monkeypatch.setitem(
+        ARTIFACT_FORMAT_LIBRARIES,
+        ".joblib",
+        ARTIFACT_FORMAT_LIBRARIES[".joblib"] + (_ABSENT_PACKAGE,),
+    )
     artifact = _write(tmp_path / "m.joblib")
     _sidecar_with_versions(artifact, {_ABSENT_PACKAGE: "1.0.0"})
 
     with pytest.raises(ArtifactIntegrityError, match="not installed here"):
         verify_artifact_library_versions(artifact, required=True)
+
+
+# ---------------------------------------------------------------------------
+# Scoping the comparison to the format that actually depends on the library
+# ---------------------------------------------------------------------------
+
+
+def test_artifact_library_dependencies_scopes_each_shipped_format():
+    """`.joblib` must not name torch and `.pth` must not name the pickle stack.
+
+    Asserting the exact sets, rather than that each is non-empty, is what makes
+    this bite: the defect being anchored here was a single UNION applied to
+    every format.
+    """
+    assert artifact_library_dependencies("models/rf_mode31.joblib") == (
+        "scikit-learn",
+        "joblib",
+        "numpy",
+        "xgboost",
+    )
+    assert artifact_library_dependencies("models/gnn_best.pth") == ("torch",)
+    assert artifact_library_dependencies("models/gnn_best.pt") == ("torch",)
+    assert artifact_library_dependencies("results/h2_tier_a_summary.csv") == ()
+    assert "torch" not in artifact_library_dependencies("m.joblib")
+
+
+def test_every_scoped_package_is_one_the_writer_records():
+    """The mapping may only narrow `ARTIFACT_LIBRARY_PACKAGES`, never extend it.
+
+    A format scoped to a distribution the writer never records would compare
+    nothing and report UNMEASURED forever, which is a fail-open wearing the
+    costume of a stricter rule.
+    """
+    for suffix, packages in ARTIFACT_FORMAT_LIBRARIES.items():
+        assert set(packages) <= set(ARTIFACT_LIBRARY_PACKAGES), suffix
+        assert packages, suffix
+
+
+def test_torch_drift_does_not_block_an_sklearn_artifact(tmp_path, caplog):
+    """THE REGRESSION ANCHOR. A torch upgrade must not break loading an RF.
+
+    An `rf_*.joblib` is a graph of sklearn, numpy and joblib objects and holds
+    no torch reference, so torch's version cannot change how it deserializes.
+    The writer records the whole environment, which is right; adjudicating the
+    whole environment made `required=True` raise here, which was not.
+    """
+    artifact = _write(tmp_path / "rf_31feature_integrated.joblib")
+    recorded = dict(library_versions())
+    recorded["torch"] = "0.0.1-a-torch-this-environment-does-not-have"
+    _sidecar_with_versions(artifact, recorded)
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is True
+    assert caplog.text == ""
+
+
+def test_torch_drift_DOES_block_a_torch_checkpoint(tmp_path):
+    """The non-vacuity partner of the test above, on the same bumped package.
+
+    Without this, scoping could be implemented as "never compare torch" and the
+    anchor above would still pass.
+    """
+    artifact = _write(tmp_path / "gnn_best.pth")
+    recorded = dict(library_versions())
+    recorded["torch"] = "0.0.1-a-torch-this-environment-does-not-have"
+    _sidecar_with_versions(artifact, recorded)
+
+    with pytest.raises(ArtifactIntegrityError, match="Library version drift"):
+        verify_artifact_library_versions(artifact, required=True)
+
+
+def test_sklearn_drift_still_blocks_a_joblib_artifact(tmp_path):
+    """The second non-vacuity partner: scoping must not disarm the gate it
+    narrows. Same artifact as the anchor, a package that IS its dependency."""
+    artifact = _write(tmp_path / "rf_31feature_integrated.joblib")
+    recorded = dict(library_versions())
+    recorded["scikit-learn"] = "0.0.1-not-this-one"
+    _sidecar_with_versions(artifact, recorded)
+
+    with pytest.raises(ArtifactIntegrityError, match="Library version drift"):
+        verify_artifact_library_versions(artifact, required=True)
+
+
+def test_an_artifact_that_loads_through_no_library_verifies_silently(tmp_path, caplog):
+    """A results CSV depends on no library, so drift in any of them is not
+    evidence about it. Reporting every CSV as UNMEASURED would train the reader
+    to ignore the warning that matters."""
+    artifact = _write(tmp_path / "h2_tier_a_summary.csv", b"peptide,label\nSIINFEKL,1\n")
+    recorded = dict(library_versions())
+    recorded["torch"] = "0.0.1-a-torch-this-environment-does-not-have"
+    recorded["scikit-learn"] = "0.0.1-not-this-one"
+    _sidecar_with_versions(artifact, recorded)
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is True
+    assert caplog.text == ""
+
+
+def test_a_joblib_recording_only_irrelevant_packages_is_unmeasured(tmp_path, caplog):
+    """Scoping must not turn an uninformative record into a pass. A `.joblib`
+    whose sidecar names torch ALONE has nothing comparable, which is the
+    UNMEASURED verdict, not the clean one."""
+    artifact = _write(tmp_path / "m.joblib")
+    _sidecar_with_versions(artifact, {"torch": library_versions(["torch"])["torch"]})
+
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert verify_artifact_library_versions(artifact, required=True) is False
+    assert "SKIPPED" in caplog.text
