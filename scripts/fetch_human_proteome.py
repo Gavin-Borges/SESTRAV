@@ -43,6 +43,10 @@ _UNIPROT_URL = (
 
 DEFAULT_OUTPUT = "data/proteomes/human_uniprot_UP000005640.fasta"
 
+# Socket timeout in seconds. It bounds each connect and each read, not the whole
+# ~100 MB transfer, so a stalled connection fails instead of hanging forever.
+_TIMEOUT_SECONDS = 60
+
 
 def _download(url: str, dest: Path, chunk_size: int = 1 << 20) -> None:
     """Stream-download url to dest, printing progress."""
@@ -51,13 +55,18 @@ def _download(url: str, dest: Path, chunk_size: int = 1 << 20) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(".fasta.tmp")
     downloaded = 0
-    with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:  # nosec B310  # noqa: S310
+    with (
+        urllib.request.urlopen(url, timeout=_TIMEOUT_SECONDS) as resp,  # nosec B310  # noqa: S310
+        open(tmp, "wb") as out,
+    ):
         while chunk := resp.read(chunk_size):
             out.write(chunk)
             downloaded += len(chunk)
             print(f"\r  {downloaded / 1e6:.1f} MB downloaded...", end="", flush=True)
     print()
-    tmp.rename(dest)
+    # replace(), not rename(): rename raises FileExistsError on Windows when
+    # dest already exists, which is exactly the --force case.
+    tmp.replace(dest)
     print(f"Saved: {dest} ({downloaded / 1e6:.1f} MB)")
 
 
