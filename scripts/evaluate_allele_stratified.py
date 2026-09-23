@@ -317,6 +317,128 @@ def stratified_bootstrap_ci(
     }
 
 
+def _adjudicate_partition(model_c: float, raw_c: float) -> str:
+    """Return the pre-registered label for ONE partition.
+
+    The two thresholds are carried over UNCHANGED from the single-partition form
+    this replaced, so no partition's own verdict moves. Only the non-finite case
+    is new: a partition with no two-class stratum has a NaN concordance, every
+    comparison against NaN is False, and the old code therefore rendered "could
+    not be measured" as NEITHER_HYPOTHESIS_MATCHED - an absence of measurement
+    reported with the label of a test that ran.
+    """
+    if not np.isfinite(model_c) or not np.isfinite(raw_c):
+        return "NOT_ADJUDICABLE"
+    if model_c >= 0.50 and (0.45 <= raw_c <= 0.55):
+        return "HYPOTHESIS_1_SUPPORTED"
+    if model_c < 0.50 and raw_c > 0.50:
+        return "HYPOTHESIS_2_SUPPORTED"
+    # Neither pre-registered branch matched. This is a FALLTHROUGH, not a
+    # finding, and the label must not read as one: the old value,
+    # EMPIRICAL_DISCRIMINATION, was rendered under a "Pre-Registered
+    # Verdict" heading and read as "the model empirically discriminates",
+    # the opposite of what reaching this branch means.
+    return "NEITHER_HYPOTHESIS_MATCHED"
+
+
+def _adjudicate_across_partitions(
+    partition_results: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]]:
+    """Adjudicate over EVERY partition the run computed, never over one of them.
+
+    Until 2026-09-16 the caller read ``partition_results["human_hla_only"]`` and
+    nothing else, while the comment directly above it said the primary test was
+    on two partitions. A run could therefore print "Hypothesis 1
+    (Cohort-Composition Confound) is STRONGLY SUPPORTED" off one partition while
+    another partition computed in the SAME run contradicted it, and the
+    contradicting partition never reached the verdict at all.
+
+    The rule here is deliberately asymmetric, because the failure mode is
+    overstatement in one direction: a pre-registered hypothesis may be declared
+    supported ONLY when every adjudicable partition agrees on it. Disagreement
+    does not promote a minority partition to the verdict either - that would be
+    the same defect with the sign flipped. It returns PARTITIONS_DISAGREE and
+    names what each partition found, so the reader adjudicates instead of the
+    script.
+
+    Returns ``(adjudication, verdict_text, per_partition)``.
+    """
+    per_partition: dict[str, Any] = {}
+    for name, part in partition_results.items():
+        model_c = float(part["model_mh_concordance"])
+        raw_c = float(part["raw_mh_concordance"])
+        per_partition[name] = {
+            "adjudication": _adjudicate_partition(model_c, raw_c),
+            "model_mh_concordance": model_c,
+            "raw_mh_concordance": raw_c,
+        }
+
+    def _describe(name: str) -> str:
+        entry = per_partition[name]
+        if entry["adjudication"] == "NOT_ADJUDICABLE":
+            return f"{name} -> NOT_ADJUDICABLE (no two-class stratum)"
+        return (
+            f"{name} -> {entry['adjudication']} "
+            f"(model MH {entry['model_mh_concordance']:.4f}, "
+            f"raw MH {entry['raw_mh_concordance']:.4f})"
+        )
+
+    roster = "; ".join(_describe(name) for name in per_partition)
+    decided = [
+        entry["adjudication"]
+        for entry in per_partition.values()
+        if entry["adjudication"] != "NOT_ADJUDICABLE"
+    ]
+    n_total = len(per_partition)
+    n_decided = len(decided)
+    distinct = set(decided)
+
+    if not distinct:
+        verdict_text = (
+            f"NOT ADJUDICABLE. None of the {n_total} partitions in this run has a "
+            "finite stratified concordance, so no pre-registered branch was "
+            f"evaluated at all. Partitions: {roster}. This is an absence of "
+            "measurement, not a result, and must not be reported as one."
+        )
+        return "NOT_ADJUDICABLE", verdict_text, per_partition
+
+    if len(distinct) > 1:
+        verdict_text = (
+            "PARTITIONS DISAGREE, so no pre-registered hypothesis is adjudicated "
+            f"for this run as a whole. Of the {n_total} partitions evaluated, "
+            f"{n_decided} could be adjudicated and they did not reach the same "
+            f"verdict: {roster}. Quoting any one of these as the run's verdict "
+            "would overstate what the run found, and so would reducing them to a "
+            "majority. The disagreement is the result; read the partitions side "
+            "by side."
+        )
+        return "PARTITIONS_DISAGREE", verdict_text, per_partition
+
+    label = distinct.pop()
+    unanimity = (
+        f" This holds in every adjudicable partition of this run "
+        f"({n_decided} of {n_total}): {roster}."
+    )
+    if label == "HYPOTHESIS_1_SUPPORTED":
+        verdict_text = (
+            "Hypothesis 1 (Cohort-Composition Confound) is STRONGLY SUPPORTED. "
+            "Within same-allele pairs, model concordance is >= 0.50 and raw presentation concordance is ~0.50. "
+            "The below-chance pooled AUC was a between-allele Simpson composition artifact."
+        ) + unanimity
+    elif label == "HYPOTHESIS_2_SUPPORTED":
+        verdict_text = (
+            "Hypothesis 2 (Non-Transferable Learned Mapping) is SUPPORTED. "
+            "Stratified model concordance remains below chance (<0.50) while raw presentation score remains above chance."
+        ) + unanimity
+    else:
+        verdict_text = (
+            "Neither pre-registered hypothesis matched in any adjudicable partition "
+            "of this run. That is a FALLTHROUGH, not a finding: read the "
+            f"concordances and their intervals directly. Partitions: {roster}."
+        )
+    return label, verdict_text, per_partition
+
+
 def _guard_output_path(path: str, force: bool, label: str) -> None:
     """Refuse to clobber an existing output, and create its parent directory.
 
@@ -471,45 +593,34 @@ def run_stratified_evaluation(
             "strata_detail": model_res["strata"],
         }
 
-    # Adjudicate Pre-registered Hypotheses
-    # Primary test is on human_hla_only and all_same_allele
-    human_eval = partition_results["human_hla_only"]
-    model_c = human_eval["model_mh_concordance"]
-    raw_c = human_eval["raw_mh_concordance"]
+    # Adjudicate Pre-registered Hypotheses over EVERY partition computed above.
+    # This used to read partition_results["human_hla_only"] alone while the
+    # comment claimed two partitions, so the run could declare a hypothesis
+    # STRONGLY SUPPORTED off one partition while another partition in the same
+    # run contradicted it. See _adjudicate_across_partitions.
+    adjudication, verdict_text, per_partition_adjudication = _adjudicate_across_partitions(
+        partition_results
+    )
 
-    if model_c >= 0.50 and (0.45 <= raw_c <= 0.55):
-        adjudication = "HYPOTHESIS_1_SUPPORTED"
-        verdict_text = (
-            "Hypothesis 1 (Cohort-Composition Confound) is STRONGLY SUPPORTED. "
-            "Within same-allele pairs, model concordance is >= 0.50 and raw presentation concordance is ~0.50. "
-            "The below-chance pooled AUC was a between-allele Simpson composition artifact."
+    # The paired delta is reported per partition for the same reason: a single
+    # partition's delta appended to a run-level verdict reads as the run's delta.
+    delta_parts = []
+    for _name, _p in partition_results.items():
+        _delta = _p["paired_delta_model_minus_raw"]
+        _ci = _p["paired_delta_ci"]
+        if _delta is None or not np.isfinite(float(_delta)):
+            delta_parts.append(f"{_name}: not estimable")
+            continue
+        _sign = "excludes" if _p["paired_delta_excludes_zero"] else "includes"
+        delta_parts.append(
+            f"{_name}: {float(_delta):+.4f} "
+            f"[95% CI {float(_ci[0]):+.4f}, {float(_ci[1]):+.4f}], which {_sign} zero"
         )
-    elif model_c < 0.50 and raw_c > 0.50:
-        adjudication = "HYPOTHESIS_2_SUPPORTED"
-        verdict_text = (
-            "Hypothesis 2 (Non-Transferable Learned Mapping) is SUPPORTED. "
-            "Stratified model concordance remains below chance (<0.50) while raw presentation score remains above chance."
-        )
-    else:
-        # Neither pre-registered branch matched. This is a FALLTHROUGH, not a
-        # finding, and the label must not read as one: the old value,
-        # EMPIRICAL_DISCRIMINATION, was rendered under a "Pre-Registered
-        # Verdict" heading and read as "the model empirically discriminates",
-        # the opposite of what reaching this branch means.
-        adjudication = "NEITHER_HYPOTHESIS_MATCHED"
-        verdict_text = (
-            f"Within-allele model concordance is {model_c:.4f} [95% CI {human_eval['model_mh_ci'][0]:.4f}, {human_eval['model_mh_ci'][1]:.4f}] "
-            f"vs raw presentation concordance {raw_c:.4f} [95% CI {human_eval['raw_mh_ci'][0]:.4f}, {human_eval['raw_mh_ci'][1]:.4f}]."
-        )
-
-    _d = human_eval
-    _sign = "excludes" if _d["paired_delta_excludes_zero"] else "includes"
     verdict_text += (
-        f" Paired within-allele delta (model - raw) is "
-        f"{_d['paired_delta_model_minus_raw']:+.4f} "
-        f"[95% CI {_d['paired_delta_ci'][0]:+.4f}, {_d['paired_delta_ci'][1]:+.4f}], "
-        f"which {_sign} zero. The two marginal intervals above are NOT a test of "
-        "their difference; this delta is."
+        " Paired within-allele delta (model - raw), per partition - "
+        + "; ".join(delta_parts)
+        + ". A partition's two marginal intervals are NOT a test of their "
+        "difference; its delta is."
     )
 
     print("\n" + "=" * 70)
@@ -523,6 +634,9 @@ def run_stratified_evaluation(
         "bootstrap_seed": bootstrap_seed,
         "adjudication": adjudication,
         "verdict_summary": verdict_text,
+        # Every partition's own verdict, so a reader can see the population the
+        # run-level adjudication was drawn from instead of taking it on trust.
+        "per_partition_adjudication": per_partition_adjudication,
         "partitions": partition_results,
     }
 
@@ -620,12 +734,48 @@ def _generate_markdown_report(res: dict[str, Any]) -> str:
             "- **Confound resolution**: this run adjudicated HYPOTHESIS_2_SUPPORTED, so the "
             "below-chance pooled AUC is NOT explained by composition alone."
         )
-    else:
+    elif adjudication == "PARTITIONS_DISAGREE":
         resolution = (
-            "- **Confound NOT resolved**: neither pre-registered hypothesis matched, so this "
-            "run adjudicated NEITHER_HYPOTHESIS_MATCHED. That is a fallthrough, not a "
-            "finding. Read the concordances and their intervals in section 2 directly."
+            "- **Confound NOT resolved**: the partitions of this run adjudicated "
+            "DIFFERENTLY, so this run adjudicated PARTITIONS_DISAGREE. No single "
+            "partition's verdict may be quoted as the run's verdict, and a majority "
+            "of partitions is not a verdict either. Read the per-partition verdicts "
+            "below against the table in section 1."
         )
+    elif adjudication == "NOT_ADJUDICABLE":
+        resolution = (
+            "- **Confound NOT resolved**: no partition in this run had a finite "
+            "stratified concordance, so this run adjudicated NOT_ADJUDICABLE. That is "
+            "an absence of measurement, not a finding."
+        )
+    else:
+        # The name is DERIVED, never hardcoded: this branch used to assert the run
+        # "adjudicated NEITHER_HYPOTHESIS_MATCHED" for any value that was not one of
+        # the two supported labels, which would be a false statement about the run
+        # the moment a third non-supported label existed.
+        resolution = (
+            f"- **Confound NOT resolved**: no pre-registered hypothesis held across the "
+            f"partitions of this run, which adjudicated {adjudication or 'UNKNOWN'}. "
+            "That is a fallthrough, not a finding. Read the concordances and their "
+            "intervals in section 2 directly."
+        )
+
+    # The run-level verdict is adjudicated over every partition, so the report has
+    # to show that population. Without it a reader cannot tell a unanimous verdict
+    # from one partition speaking for the run.
+    per_partition_lines = []
+    per_partition = res.get("per_partition_adjudication") or {}
+    if per_partition:
+        per_partition_lines.append(
+            "- **Per-partition verdicts** (the run-level verdict above is adjudicated "
+            "over ALL of these, never over one of them):"
+        )
+        for name, entry in per_partition.items():
+            per_partition_lines.append(
+                f"  - `{name}`: {entry['adjudication']} "
+                f"(model MH {entry['model_mh_concordance']:.4f}, "
+                f"raw MH {entry['raw_mh_concordance']:.4f})"
+            )
 
     lines.extend(
         [
@@ -636,6 +786,7 @@ def _generate_markdown_report(res: dict[str, Any]) -> str:
             "(n_pos * n_neg within each stratum), not independent observations, so this "
             "count is not a sample size and must not be read as statistical power.",
             resolution,
+            *per_partition_lines,
             "",
         ]
     )

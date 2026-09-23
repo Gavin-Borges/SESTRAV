@@ -1252,9 +1252,24 @@ also failed the corresponding gate, though calibration, latency, and escape-sens
 gates passed. AUC-PR was nonetheless significantly higher than the RF mode-31
 baseline (a paired-bootstrap delta with a 95% CI of [0.0286, 0.0520], excluding
 zero), indicating that the
-per-residue ESM-2 t12 embeddings [19] and the functionally motivated graph edges
-connecting the p4-p8 contact subgraph do provide discriminative lift, which did
-not clear the stricter pre-registered promotion bar. Consistent with this project's
+graph track as a whole, and principally the per-residue ESM-2 t12 embeddings [19]
+carried as node features, does provide discriminative lift, which did
+not clear the stricter pre-registered promotion bar. That lift is not
+attributable to the graph edges. A pre-registered edge ablation at eight seeds
+(2026-09-04), holding every node feature fixed and removing the neighbour edges so
+that message passing carries no topology, found that removal did not hurt and
+consistently helped: mean paired AUC-PR delta +0.017531 (paired sd 0.008213), 8 of
+8 seeds positive, exact sign test and Wilcoxon signed-rank both p = 0.0078125. Both
+ablation arms were trained under a shared 18-epoch budget, which is not the
+budget under which the gated v5 run was trained; their levels, and the delta
+between them, are therefore interpretable only within the ablation and must not
+be read against or added to the 0.6458 Gate 1 figure reported above. The
+95% CI [0.0107, 0.0244] straddles the pre-registered 0.0160 band, so the threshold
+is not cleared robustly, and an earlier three-seed reading of "no measurable
+contribution" is superseded on the sign rather than on the magnitude. Because the
+node features are ESM-2 embeddings that already encode whole-peptide context, the
+supported reading is that chain-edge message passing adds nothing on top of those
+embeddings, not that graph topology is uninformative in general. Consistent with this project's
 leakage-avoidance policy, this result is reported as-is rather than re-run with
 different hyperparameters against the same held-out set; the GNN remains a
 research track, not a promoted scorer.

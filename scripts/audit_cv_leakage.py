@@ -16,6 +16,13 @@ CSV so the claims register and the integrity harness can reconcile any number
 drawn from it, instead of the finding living only as a one-off audit
 measurement (docs/proposals/2026_feature_upgrade_roadmap.md cites this file).
 
+A second, independent channel is measured by the same harness: NEAR-HOMOLOG
+overlap (substring containment, Hamming-1, single-indel). Peptide grouping
+closes the exact-duplicate channel by construction and leaves that one open,
+so the two arms answer different questions and neither substitutes for the
+other. See the near-homolog arm's header comment for the relation and its
+grounds.
+
 Reproduce:  python scripts/audit_cv_leakage.py
 Output:     results/cv_leakage_audit.csv (+ .provenance.json sidecar)
 """
@@ -24,6 +31,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -417,6 +427,281 @@ def _vaccinia_ablation(active: pd.DataFrame) -> list[dict]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# Near-homolog leakage arm
+# ---------------------------------------------------------------------------
+# The relation is declared here, ahead of any model fit, and this arm reports
+# EXPOSURE only: how much of the corpus is related, and how much of that
+# relation survives the peptide-grouped splitter. It fits nothing and tunes
+# nothing, so no threshold can be chosen after seeing the AUC it would produce.
+#
+# Two peptides are near-homologs when any of three edge types holds:
+#
+#   containment  one is a contiguous sub-window of the other
+#   hamming1     equal length, differing at exactly one position
+#   indel1       one is the other with exactly one residue deleted
+#
+# Grounds, from docs/claims_register.md D22: a pool-internal substring scan of
+# the 704-peptide Tier A pool found 185 overlapping pairs over 226 distinct
+# peptides (32.1%), at length differences of 1 to 3 residues and 77.8%
+# same-label concordance - the signature of sliding-window / registration
+# boundary variants of one underlying epitope rather than spurious short-string
+# matches. D22 measured that inside the 704-peptide Tier A pool; it states no
+# figure for v5, which is the corpus this arm measures. It is the CONSERVATIVE
+# end of D22's evidence: D22 saw length differences up to 3 residues and only
+# the 1-residue edge types are admitted here, so what this arm reports is a
+# floor, not an estimate.
+#
+# Cost. The active v5 corpus is 8mers to 11mers (measured, not assumed - the
+# sub-window scan reads its widths off the data), so all three edge types are
+# bounded rather than all-pairs. Containment is a sub-window lookup against the
+# distinct-peptide set, capped at the lengths that actually occur in it; indel1
+# is the same lookup over each peptide's single-residue deletions; hamming1 is
+# positional-wildcard bucketing, where two equal-length peptides share a bucket
+# key exactly when they differ at that one position, so no candidate pair needs
+# re-verification. n^2/2 never appears.
+
+
+def _near_homolog_adjacency(peptides: Iterable[str]) -> dict[str, frozenset[str]]:
+    """Map each distinct peptide to the distinct peptides it is a near-homolog of.
+
+    Self-edges are never emitted and the relation is symmetric by
+    construction. An exact repeat of a peptide is not a near-homolog of
+    itself; that is the exact-duplicate channel `_fold_overlap` already
+    measures. A peptide with no near-homolog is ABSENT from the mapping
+    rather than carrying an empty set, so len() of the result is directly the
+    "has at least one near-homolog" count.
+    """
+    distinct = sorted({str(p) for p in peptides})
+    members = set(distinct)
+    lengths = sorted({len(p) for p in distinct})
+    adjacency: dict[str, set[str]] = defaultdict(set)
+
+    def _link(a: str, b: str) -> None:
+        if a != b:
+            adjacency[a].add(b)
+            adjacency[b].add(a)
+
+    for peptide in distinct:
+        n = len(peptide)
+        # containment: contiguous sub-windows, only at lengths the corpus uses
+        for width in lengths:
+            if width >= n:
+                break
+            for start in range(n - width + 1):
+                window = peptide[start : start + width]
+                if window in members:
+                    _link(peptide, window)
+        # indel1: delete exactly one residue. Deleting a terminal residue is
+        # also a containment edge; the union makes that overlap harmless.
+        for i in range(n):
+            shortened = peptide[:i] + peptide[i + 1 :]
+            if shortened in members:
+                _link(peptide, shortened)
+
+    # hamming1: positional wildcard buckets. Two DISTINCT peptides share the
+    # key (i, prefix, suffix) exactly when they are the same length and differ
+    # at position i alone.
+    buckets: dict[tuple[int, str, str], list[str]] = defaultdict(list)
+    for peptide in distinct:
+        for i in range(len(peptide)):
+            buckets[(i, peptide[:i], peptide[i + 1 :])].append(peptide)
+    for bucket in buckets.values():
+        if len(bucket) < 2:
+            continue
+        for a_i in range(len(bucket)):
+            for b_i in range(a_i + 1, len(bucket)):
+                _link(bucket[a_i], bucket[b_i])
+
+    return {p: frozenset(n) for p, n in adjacency.items() if n}
+
+
+def _homology_clusters(
+    distinct: Sequence[str], adjacency: dict[str, frozenset[str]]
+) -> dict[str, str]:
+    """Union-find the near-homolog graph; return peptide -> cluster representative.
+
+    Reported because the audit's operative question is whether a
+    homology-grouped splitter would remain CONSTRUCTIBLE: a relation that
+    collapses the corpus into one giant component cannot serve as a fold
+    group, however well it describes the biology.
+    """
+    parent = {peptide: peptide for peptide in distinct}
+
+    def _find(x: str) -> str:
+        root = x
+        while parent[root] != root:
+            root = parent[root]
+        while parent[x] != root:
+            parent[x], x = root, parent[x]
+        return root
+
+    for peptide, neighbours in adjacency.items():
+        for neighbour in neighbours:
+            a, b = _find(peptide), _find(neighbour)
+            if a != b:
+                parent[a] = b
+
+    return {peptide: _find(peptide) for peptide in distinct}
+
+
+def _near_homolog_fold_rows(
+    config: str,
+    peptides: np.ndarray,
+    splits: Sequence[tuple[np.ndarray, np.ndarray]],
+    adjacency: dict[str, frozenset[str]],
+) -> list[dict]:
+    """Per-fold and overall share of held-out ROWS with a near-homolog in their own train fold.
+
+    Rows, not peptides: a peptide held out in fold k contributes once per row
+    carrying it, because the row is the unit every fold metric in this file is
+    computed over. `overall_exact_peptide_overlap_pct` is emitted alongside as
+    a control - it must be 0.0 for any genuinely peptide-grouped splitter, so a
+    non-zero value there means the split was not grouped and the near-homolog
+    figure beside it is answering a different question than its name claims.
+    """
+    rows: list[dict] = []
+    total_test = 0
+    total_leak = 0
+    total_exact = 0
+    for fold_id, (train_idx, test_idx) in enumerate(splits):
+        train_peptides = set(peptides[train_idx])
+        leaked = 0
+        exact = 0
+        for i in test_idx:
+            peptide = peptides[i]
+            if peptide in train_peptides:
+                exact += 1
+            neighbours = adjacency.get(peptide)
+            if neighbours is not None and not train_peptides.isdisjoint(neighbours):
+                leaked += 1
+        rows.append(
+            {
+                "config": config,
+                "metric": f"fold{fold_id}_near_homolog_row_pct",
+                "value": 100.0 * leaked / len(test_idx) if len(test_idx) else np.nan,
+                "std": np.nan,
+                "n_test": len(test_idx),
+                "n_leaked": leaked,
+            }
+        )
+        total_test += len(test_idx)
+        total_leak += leaked
+        total_exact += exact
+    rows.append(
+        {
+            "config": config,
+            "metric": "overall_near_homolog_row_pct",
+            "value": 100.0 * total_leak / total_test if total_test else np.nan,
+            "std": np.nan,
+            "n_test": total_test,
+            "n_leaked": total_leak,
+        }
+    )
+    rows.append(
+        {
+            "config": config,
+            "metric": "overall_exact_peptide_overlap_pct",
+            "value": 100.0 * total_exact / total_test if total_test else np.nan,
+            "std": np.nan,
+            "n_test": total_test,
+            "n_leaked": total_exact,
+        }
+    )
+    return rows
+
+
+def _homology_ab(active: pd.DataFrame) -> list[dict]:
+    """Near-homolog exposure of the active corpus, and what survives peptide-grouped CV.
+
+    TWO grouped splitters are reported, because this file already carries two
+    and they are not interchangeable:
+
+      peptide_grouped_splitter     bare StratifiedGroupKFold stratified on the
+                                   label alone, as `_cv_auc` constructs it
+      production_grouped_splitter  src.ml_utils.PeptideGroupedKFold with the
+                                   full negative_origin / hla_allele / peptide
+                                   composite key, as src/train_classifier.py's
+                                   _cross_validate constructs it
+
+    Both keep every row carrying a given peptide in one fold, so both drive the
+    exact-peptide control to zero; they differ in stratification, so fold
+    membership - and with it the near-homolog figure - can differ between them.
+    Name the arm when citing a number from here, never "the" grouped splitter.
+    """
+    peptides = active["peptide"].astype(str).to_numpy()
+    y = active["label"].astype(int)
+    distinct = sorted(set(peptides))
+
+    started = time.perf_counter()
+    adjacency = _near_homolog_adjacency(distinct)
+    clusters = _homology_clusters(distinct, adjacency)
+    elapsed = time.perf_counter() - started
+
+    sizes = Counter(clusters.values())
+    largest_root, largest_size = (
+        sizes.most_common(1)[0] if sizes else ("", 0)
+    )
+    largest_rows = int(sum(1 for p in peptides if clusters.get(p) == largest_root))
+    # Wall-clock is deliberately printed and NOT written to the CSV: the CSV is
+    # hash-bound by the provenance sidecar and consumed as a reproducible
+    # artifact, and a timing would change on every run and every machine.
+    print(
+        f"near-homolog relation: {len(distinct)} distinct peptides, "
+        f"{len(adjacency)} with >=1 near-homolog, {len(sizes)} clusters, "
+        f"built in {elapsed:.2f}s"
+    )
+
+    n_edges = sum(len(v) for v in adjacency.values()) // 2
+    rows: list[dict] = [
+        {"config": "homology_relation", "metric": "distinct_peptides", "value": float(len(distinct))},
+        {"config": "homology_relation", "metric": "peptides_with_near_homolog", "value": float(len(adjacency))},
+        {
+            "config": "homology_relation",
+            "metric": "peptides_with_near_homolog_pct",
+            "value": 100.0 * len(adjacency) / len(distinct) if distinct else np.nan,
+        },
+        {"config": "homology_relation", "metric": "near_homolog_edges", "value": float(n_edges)},
+        {"config": "homology_relation", "metric": "n_clusters", "value": float(len(sizes))},
+        {
+            "config": "homology_relation",
+            "metric": "singleton_clusters",
+            "value": float(sum(1 for s in sizes.values() if s == 1)),
+        },
+        {"config": "homology_relation", "metric": "largest_cluster_peptides", "value": float(largest_size)},
+        {
+            "config": "homology_relation",
+            "metric": "largest_cluster_active_rows_pct",
+            "value": 100.0 * largest_rows / len(peptides) if len(peptides) else np.nan,
+            "n_rows": largest_rows,
+        },
+    ]
+
+    bare = StratifiedGroupKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
+    rows += _near_homolog_fold_rows(
+        "peptide_grouped_splitter",
+        peptides,
+        list(bare.split(np.zeros((len(active), 1)), y.to_numpy(), groups=peptides)),
+        adjacency,
+    )
+    production = PeptideGroupedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
+    rows += _near_homolog_fold_rows(
+        "production_grouped_splitter",
+        peptides,
+        list(
+            production.split(
+                np.zeros((len(active), 1)),
+                y,
+                negative_origin=active.get("negative_origin"),
+                hla_alleles=active.get("hla_allele"),
+                peptides=active["peptide"],
+            )
+        ),
+        adjacency,
+    )
+    return rows
+
+
 def _dataset_shape(active: pd.DataFrame, dataset_path: Path) -> list[dict]:
     full = pd.read_csv(dataset_path, low_memory=False)
     dup_counts = active["peptide"].value_counts()
@@ -443,6 +728,7 @@ def run(dataset_path: Path) -> pd.DataFrame:
     rows += _tier_a_ab(active)
     rows += _feature_mode_ab(active)
     rows += _vaccinia_ablation(active)
+    rows += _homology_ab(active)
     return pd.DataFrame(rows)
 
 
@@ -576,6 +862,21 @@ def main(argv: list[str] | None = None) -> int:
             f"overall peptide overlap: {overall.iloc[0]:.1f}% | "
             f"production AUC-PR {prod.iloc[0]:.4f} vs peptide-grouped AUC-PR {grp.iloc[0]:.4f} "
             f"(delta {prod.iloc[0] - grp.iloc[0]:+.4f})"
+        )
+
+    hom_pep = result[
+        (result["config"] == "homology_relation")
+        & (result["metric"] == "peptides_with_near_homolog_pct")
+    ]["value"]
+    hom_rows = result[
+        (result["config"] == "production_grouped_splitter")
+        & (result["metric"] == "overall_near_homolog_row_pct")
+    ]["value"]
+    if len(hom_pep) and len(hom_rows):
+        print(
+            f"near-homolog peptides: {hom_pep.iloc[0]:.1f}% | held-out rows with a "
+            f"near-homolog in their own train fold (production_grouped_splitter): "
+            f"{hom_rows.iloc[0]:.2f}%"
         )
     return 0
 
