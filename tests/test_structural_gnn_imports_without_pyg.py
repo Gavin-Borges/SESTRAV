@@ -22,11 +22,16 @@ Two things made it expensive rather than merely wrong:
 2. Nothing caught it. ruff passes (F821 cannot fire - `Data` IS bound), mypy passes, and
    `tests/test_dev_extra_runs_the_test_suite.py` skips `ast.Try` nodes by its own stated
    premise that such a guard "degrades on failure rather than raising", which is false
-   here. It reached `pip install sestrav`, `pipeline.smk`, and `pip install -e ".[dev]"` -
-   the documented developer install - where four test modules failed at COLLECTION, so
-   none of their tests ran at all.
+   here. It reached the core install from source (`pip install .`), `pipeline.smk`, and
+   `pip install -e ".[dev]"` - the documented developer install - where four test modules
+   failed at COLLECTION, so none of their tests ran at all.
 
-Why a subprocess and not monkeypatch: the two existing `HAS_PYG=False` tests in
+   Deliberately NOT described as reaching a PyPI install. SESTRAV is not published to
+   PyPI, as README.md and USAGE.md both state, so that surface does not exist and the
+   defect cannot have reached it. The dead install command is also not spelled here, so
+   this file adds no tracked occurrence of it.
+
+Why a subprocess and not monkeypatch: the FOUR existing `HAS_PYG=False` tests in
 tests/test_structural_gnn.py patch the flag on an ALREADY-IMPORTED module, so they
 cannot see an import-time failure by construction. This defect lives in the import
 itself, so it has to be exercised in a fresh interpreter with the package genuinely
