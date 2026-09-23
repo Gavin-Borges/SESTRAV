@@ -91,9 +91,12 @@ tag builds the distribution and produces a **keyless SLSA build-provenance
 attestation** (Sigstore, via GitHub OIDC - no maintainer-managed keys). From the
 release at which signing is introduced onward:
 
-- **Tags** are annotated but **not yet signed** (`version_tags_signed`, an OpenSSF
-  SUGGESTED criterion, is currently Unmet - see `docs/releasing.md`). Once tag
-  signing is introduced they will be verifiable with `git tag -v vX.Y.Z`.
+- **Tags**: v2.0.3 IS signed with an SSH key and carries a signature block;
+  v2.0.2 and earlier are annotated but unsigned. `version_tags_signed` is
+  nevertheless still Unmet, for a different reason than "no signed tag exists":
+  GitHub reports v2.0.3 as unverified with reason `unknown_key`, because no SSH
+  signing key is registered on the account. Signing a future tag does not on its
+  own clear the criterion. See `docs/releasing.md`.
 - **Artifacts** carry a Sigstore provenance attestation, verifiable with:
 
   ```bash

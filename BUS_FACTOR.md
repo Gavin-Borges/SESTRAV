@@ -24,7 +24,8 @@ It supports the OpenSSF criteria `access_continuity` (Silver) and `bus_factor`
   signing is keyless (Sigstore via GitHub OIDC), so no artifact-signing key changes
   hands; the continuity requirement there is workflow access, not key custody.
   Commit signing is separate and does use a maintainer-held SSH key; tag signing
-  is configured to use that same key, but no signed tag has been cut yet
+  is configured to use that same key, and v2.0.3 was cut signed. GitHub still
+  reports it unverified because no signing key is registered on the account
   (see `docs/releasing.md`).
 - **Honest current bus factor:** **1**, and expected to stay 1. Do not claim a bus
   factor of 2 on the OpenSSF questionnaire unless it becomes genuinely true.
