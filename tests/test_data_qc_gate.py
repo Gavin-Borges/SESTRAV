@@ -694,3 +694,101 @@ def test_the_margin_is_last_passing_not_first_breaching():
     assert passes(V5_POSITIVES - losable), "the quoted margin must still PASS"
     assert not passes(V5_POSITIVES - (losable + 1)), "one more must BREACH"
     assert losable >= 1000, f"margin collapsed to {losable} rows"
+
+
+# --- Duplicate canonical columns -------------------------------------------
+# The mapper renames whichever column it selected onto the canonical name
+# ("peptide", "label", "allele"). When the corpus ALSO carries a column already
+# holding that name, the rename used to leave two columns with it, and the next
+# single-column access raised several steps away from the cause. Each case below
+# crashed with a DIFFERENT exception before the fix, which is why all three are
+# pinned rather than just the allele one:
+#   hla_allele + allele        -> "Cannot set a DataFrame with multiple columns"
+#   description + peptide      -> "Grouper for 'peptide' not 1-dimensional"
+#   qualitative measure + label -> "The truth value of a Series is ambiguous"
+# In every case the column order below is the one that crashed: the fuzzy match
+# sits FIRST, so setdefault() reached it before the exact canonical name.
+
+
+def _run_qc_gate(dataset_path, config_path):
+    result = subprocess.run(
+        [
+            "python",
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return result, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "columns, extra",
+    [
+        pytest.param(
+            ["peptide", "label", "hla_allele", "allele"],
+            {"hla_allele": "allele"},
+            id="hla_allele_and_allele",
+        ),
+        pytest.param(
+            ["description", "label", "allele", "peptide"],
+            {"description": "peptide"},
+            id="description_and_peptide",
+        ),
+        pytest.param(
+            ["peptide", "qualitative measure", "allele", "label"],
+            {"qualitative measure": "label"},
+            id="qualitative_and_label",
+        ),
+    ],
+)
+def test_qc_gate_duplicate_canonical_columns_yield_a_verdict(
+    tmp_path, temp_config, valid_df, columns, extra
+):
+    """A corpus carrying two spellings of one field must be ADJUDICATED.
+
+    Before the fix each of these raised out of check_dataset_qc, so the gate
+    produced no verdict at all - neither pass nor fail. The requirement is a
+    verdict: the duplicate is dropped, the run completes, and this otherwise
+    valid dataset passes.
+    """
+    df = valid_df.copy()
+    for new_col, source_col in extra.items():
+        df[new_col] = df[source_col]
+    df = df[columns]
+
+    dataset_path = tmp_path / "duplicate_canonical.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_qc_gate(dataset_path, temp_config)
+
+    assert "Traceback" not in output, f"gate crashed instead of adjudicating:\n{output}"
+    assert result.returncode == 0, f"valid dataset did not pass the gate:\n{output}"
+    assert "All dataset QC gates passed successfully." in output
+
+
+def test_qc_gate_reports_which_duplicate_column_it_dropped(tmp_path, temp_config, valid_df):
+    """Dropping a column must not be silent.
+
+    ALLELE_COL_PRIORITY deliberately prefers "hla_allele" over a bare "allele",
+    so with both present one of them is discarded. A reader of the QC log has to
+    be able to see which column the null-allele fraction was actually measured
+    on.
+    """
+    df = valid_df.copy()
+    df["hla_allele"] = df["allele"]
+    df = df[["peptide", "label", "hla_allele", "allele"]]
+
+    dataset_path = tmp_path / "duplicate_allele.csv"
+    df.to_csv(dataset_path, index=False)
+
+    _result, output = _run_qc_gate(dataset_path, temp_config)
+
+    assert "dropping the duplicate 'allele'" in output, (
+        f"the dropped column was not reported:\n{output}"
+    )
+    assert "'hla_allele'" in output
