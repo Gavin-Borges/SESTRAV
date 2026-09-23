@@ -640,6 +640,19 @@ def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
             node_dim = _cfg.get("node_dim", 320)
             num_features = _cfg.get("num_continuous_features", num_features)
             pooling = _cfg.get("pooling", "mean")
+    else:
+        # Say so. These three values must agree with the saved state dict or the
+        # gate scores the wrong architecture, and a silent fall-through to the
+        # defaults surfaces only as a shape-mismatch traceback from
+        # load_state_dict, which does not name the missing file.
+        logger.warning(
+            "%s not found; assuming node_dim=%d, num_continuous_features=%d, pooling=%s. "
+            "If the checkpoint disagrees, load_state_dict will fail on shapes.",
+            config_source,
+            node_dim,
+            num_features,
+            pooling,
+        )
 
     gnn_model = GraphPredictorV2(
         num_continuous_features=num_features, node_dim=node_dim, pooling=pooling
