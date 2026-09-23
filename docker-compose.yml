@@ -41,8 +41,13 @@ services:
       - PYTHONUNBUFFERED=1
     networks:
       - sestrav_net
+    # /ready, not /health: /health is a liveness probe that answers 200 even
+    # when no model is loaded, so Compose reported this service healthy while
+    # its /score answered 503, and the demo's start is gated on that signal
+    # (depends_on: service_healthy). /ready answers 503 until the model is
+    # loaded, and curl -f fails on it.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
