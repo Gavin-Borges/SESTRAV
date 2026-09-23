@@ -44,6 +44,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file as compute_file_sha256  # noqa: E402
+from scripts._dataset_utils import normalize_reference_pmids  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -584,9 +585,7 @@ def build_output(
         logger.warning("Assay Group column not found; defaulting quality tier 2 (0.7)")
 
     if cols.pmid is not None:
-        out["reference_pmid"] = (
-            df[cols.pmid].fillna("").astype(str).str.strip().replace("", None).replace("nan", None)
-        )
+        out["reference_pmid"] = normalize_reference_pmids(df[cols.pmid])
     else:
         out["reference_pmid"] = None
         logger.warning("Reference PubMed ID column not found; setting to null")
