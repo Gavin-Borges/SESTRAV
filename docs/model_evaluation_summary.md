@@ -45,17 +45,81 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 
 **Per-virus within-CV results (Amendment 6 thresholds; regenerated 2026-08-10 under the peptide-grouped splitter, on the 35,597-row v5 dataset):**
 
-| Virus | AUC-ROC | Threshold | Status |
-|---|---|---|---|
-| HPV | 0.482 | >= 0.58 | FAIL |
-| EBV | 0.711 | >= 0.57 | PASS (post B*27 conflict quarantine) |
+> **DISCLOSURE, added 2026-09-16: the EBV PASS in the table below is carried by synthetic
+> decoys, and until this edit only the contaminated figure was ever shown here.** Both columns
+> come from `results/per_virus_eval_v5_mode31.csv`, which has shipped them side by side all
+> along. `auc_roc` scores positives against ALL negatives, synthetic allele-matched non-binders
+> included. `auc_roc_real_neg_only` scores positives against assay-confirmed negatives only
+> (the `tested_negative` and `iedb_api` origins, per `REAL_NEG_ORIGINS` in
+> `scripts/evaluate_per_virus.py`). The contaminated figure is retained rather than replaced:
+> the defect was publishing it alone, not computing it.
+
+| Virus | `auc_roc` (all negatives) | `auc_roc_real_neg_only` (decoy-free) | Negatives: real / decoy | Threshold | Status as the gate reads it | Status on the decoy-free column |
+|---|---|---|---|---|---|---|
+| HPV | 0.482 | 0.482 | 137 / 0 | >= 0.58 | FAIL | FAIL |
+| EBV | 0.711 | 0.556 | 72 / 300 | >= 0.57 | PASS (post B*27 conflict quarantine) | FAIL |
+
+> **What is true TODAY, stated exactly, with no claim that anything has been changed.** The
+> Amendment 6 exit criterion has NOT been amended, and this edit does not amend it.
+> `check_exit_criterion` in `scripts/evaluate_per_virus.py` reads the `auc_roc` key, so the
+> gate AS CURRENTLY IMPLEMENTED compares the contaminated figure against its threshold and
+> returns PASS for EBV at 0.711 against >= 0.57. What is disclosed here is narrower and purely
+> factual: the reported EBV figure is decoy-carried, and the decoy-free figure from the same
+> file, 0.5557, is materially lower and does not clear 0.57. The "Status as the gate reads it"
+> column describes what the gate does; it is not an endorsement of what it measures.
+>
+> **At EBV's sample size the decoy-free figure is not separable from chance.** With 287
+> positives and 72 real negatives, the Mann-Whitney null puts the one-sided 95% AUC-ROC
+> threshold at `0.5 + 1.6449*sqrt((n_pos + n_neg + 1) / (12*n_pos*n_neg))` = 0.5627, which
+> 0.5557 does not clear, and a label permutation over the same 359 scores gives p = 0.072
+> (one-sided, 200,000 draws). The honest EBV reading is therefore "no demonstrated within-virus
+> discrimination", not "a smaller pass".
+>
+> **Mechanism: binding-matrix coverage is label-correlated and absences are zero-filled.**
+> Measured over the 35,555 rows of `models/v5/rf_oof_predictions_mode31.csv` against the
+> peptides of `models/peptide_binding_matrix_v5.csv`, row coverage is 100% for both
+> real-negative origins (`tested_negative` 22,466 of 22,466; `iedb_api` 1,956 of 1,956) and
+> 7.01% for `allele_matched_nonbinder` (218 of 3,112). `_report_binding_coverage` in
+> `src/train_classifier.py` states the consequence in its own docstring: an absent peptide is
+> zero-filled across the ten allele columns rather than dropped or raised on, the run prints a
+> coverage warning and proceeds, and where matrix membership correlates with the label those
+> zeros become a label proxy the model reads directly. Among NEGATIVE rows the correlation is
+> not approximate but exact: all 2,894 negative rows absent from the matrix are
+> `allele_matched_nonbinder`, and inside the EBV slice all 290 absent rows are decoys while all
+> 287 positives and all 72 real negatives are covered. **It is NOT exact over all rows**,
+> because the `iedb_positive` origin is itself only 24.88% covered (538 of 2,162), leaving
+> 1,624 absent rows that are positives; EBV carries no `iedb_positive` rows, which is why its
+> slice is the clean case and why the statement is scoped rather than global.
+>
+> **HPV is NOT rescued by this, and must not be read as rescued.** HPV carries ZERO decoys, so
+> its headline already IS its decoy-free number: 0.482 on both columns, failing its 0.58
+> threshold on both scales. Among the nine target viruses of the canonical per-virus mean
+> (CMV, DENV, EBV, HBV, HCV, HIV-1, HPV, IAV, SARS-CoV-2) exactly THREE carry no decoys, and
+> HPV is the lowest of the three: HBV 0.6556, HCV 0.5482, HPV 0.4820. **Name the population
+> with the count**, because two different correct counts are in circulation: THREE is the
+> decoy-free count among those nine target viruses; SIX is the decoy-free count among all
+> twelve two-class viruses in `results/per_virus_eval_v5_mode31.csv`, the other three being
+> CoxsackievirusB, RSV and YFV, which carry 2, 15 and 1 positives and are reported for
+> completeness rather than as evaluable.
+>
+> **Fleet effect, population named each time.** Across all TWELVE two-class viruses in that
+> file the mean AUC-ROC falls from 0.6494 on `auc_roc` to 0.5692 on `auc_roc_real_neg_only`,
+> and the number clearing a 0.58 bar falls from eight of twelve to four of twelve (CMV, HBV,
+> SARS-CoV-2 and YFV survive; DENV, EBV, HIV-1 and IAV do not). Across the NINE target viruses
+> the decoy-free mean is 0.551. That nine-virus pair is already published outside this
+> document: `results/loo_binding_confound_decomposition.csv` carries it per virus as
+> `within_all_neg` against `within_real_neg`, and `docs/paper.md` Table 3b reports it. The
+> defect closed here is scoped to THIS document's exit table, which showed the contaminated
+> column alone. The per-virus mean quoted at the head of this section is the `auc_roc` reading
+> over those nine and is unchanged: this edit adds a column, it does not re-baseline one.
 
 > **Note:** HPV within-CV fell from 0.598 (e6aafe2 snapshot) to 0.561 on the ungrouped
 > 35,597-row build, and to **0.482** under the peptide-grouped splitter (2026-08-10) - further
 > below the 0.58 Amendment-6 threshold, and consistent with the manuscript's characterization
 > of HPV as an active generalization failure. EBV rose from 0.667 to 0.790 ungrouped, and sits
-> at **0.711** peptide-grouped, still clearing its 0.57 threshold. Prior ungrouped values
-> (HPV 0.561, EBV 0.790) are retracted per `docs/claims_register.md` D15.
+> at **0.711** peptide-grouped. It clears its 0.57 threshold on the contaminated `auc_roc`
+> column, which is the column the gate reads, and fails it on the decoy-free column. Prior
+> ungrouped values (HPV 0.561, EBV 0.790) are retracted per `docs/claims_register.md` D15.
 
 > **Note:** v3/v4 sections below are historical. The v5 31-feature RF is the canonical
 > production scorer. All public-facing comparisons should use v5 figures.
