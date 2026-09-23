@@ -7,6 +7,8 @@ import re
 import sys
 import types
 
+import pytest
+
 
 REPORT = Path(__file__).parents[1] / "docs" / "results_report.qmd"
 
@@ -66,8 +68,54 @@ def _borrowed_names(source: str) -> set[str]:
     for that, but it covers only the branches each chunk actually takes.
     """
     tree = ast.parse(source)
-    loaded = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
-    defined = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)}
+
+    # A bare annotation binds NOTHING at runtime: `total: int` leaves `total`
+    # undefined, so `total: int` followed by `print(total)` raises NameError.
+    # Its target still carries Store ctx, so counting it as bound would hide a
+    # borrowed name. Matched by node identity, not by name, so a name that is
+    # annotated here and genuinely assigned elsewhere still counts as bound.
+    annotation_only = {
+        id(node.target)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AnnAssign)
+        and node.value is None
+        and isinstance(node.target, ast.Name)
+    }
+
+    # An augmented assignment does not ESTABLISH its target either: it requires
+    # the name to exist already. Its target node is therefore excluded from the
+    # bound set below and added to the loaded set instead. Both are matched by
+    # node identity, so `total = 0` followed by `total += 1` still counts the
+    # plain assignment as the binding.
+    augmented = {
+        id(node.target)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name)
+    }
+
+    loaded = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    defined = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name)
+        and isinstance(node.ctx, ast.Store)
+        and id(node) not in annotation_only
+        and id(node) not in augmented
+    }
+
+    # An augmented assignment READS its target before writing it: `total += 1`
+    # raises NameError when `total` is unbound. The target carries Store ctx, so
+    # without both halves of this it counted as bound and never as loaded, which
+    # hid a borrowed name behind the very statement that borrows it.
+    loaded.update(
+        node.target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name)
+    )
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             defined.update(alias.asname or alias.name.split(".")[0] for alias in node.names)
@@ -111,3 +159,40 @@ def test_every_python_chunk_executes_in_a_fresh_namespace(monkeypatch, tmp_path)
         exec(  # noqa: S102
             compile(source, f"results_report.qmd chunk {index}", "exec"), namespace
         )
+
+
+# ---------------------------------------------------------------------------
+# _borrowed_names: two forms whose target carries Store ctx but binds nothing
+# ---------------------------------------------------------------------------
+# Both were counted as BOUND, so a chunk borrowing a name through either one
+# reported no cross-chunk dependency at all. Both raise NameError at runtime on
+# an unbound name, which is the property this analysis exists to predict:
+#
+#     exec("total += 1", {})        -> NameError: name 'total' is not defined
+#     exec("total: int\nprint(total)", {}) -> NameError: name 'total' is not defined
+#
+# The last four cases are false-positive controls: each binds the name for real,
+# so widening the rule must not start reporting them.
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("print(total)\n", ["total"], id="plain_load"),
+        pytest.param("total += 1\n", ["total"], id="augmented_assign"),
+        pytest.param("total: int\nprint(total)\n", ["total"], id="bare_annotation"),
+        pytest.param("total: int = 1\nprint(total)\n", [], id="annotation_with_value"),
+        pytest.param("total: int\ntotal = 1\nprint(total)\n", [], id="annotated_and_assigned"),
+        pytest.param("total = 0\ntotal += 1\n", [], id="augmented_after_local_bind"),
+        pytest.param("for i in range(3):\n    i += 1\n", [], id="augmented_loop_variable"),
+    ],
+)
+def test_borrowed_names_counts_a_name_as_bound_only_when_it_is(source, expected):
+    """A Store ctx is not the same thing as a binding.
+
+    `total += 1` READS its target before writing it, and a bare `total: int`
+    records an annotation without creating the variable. Both targets carry
+    Store ctx, so treating Store as "bound" hid a borrowed name behind the very
+    statement that borrows it.
+    """
+    assert sorted(_borrowed_names(source)) == expected
