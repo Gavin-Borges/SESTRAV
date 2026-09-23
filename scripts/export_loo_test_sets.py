@@ -48,7 +48,10 @@ def load_dataset(path: str) -> pd.DataFrame:
     if not os.path.exists(path):
         print(f"[error] Dataset file not found: {path}", file=sys.stderr)
         sys.exit(1)
-    df = pd.read_csv(path, low_memory=False)
+    # Read PMIDs as text: dtype inference turns a column with blanks into
+    # float64, which re-emits 38923358 as "38923358.0" in the exported TSV
+    # and breaks every join against a real PubMed identifier.
+    df = pd.read_csv(path, low_memory=False, dtype={"reference_pmid": "string"})
     print(f"[export] Loaded {len(df):,} rows from {path}")
     return df
 
