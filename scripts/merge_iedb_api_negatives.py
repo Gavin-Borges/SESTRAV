@@ -54,7 +54,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
-from _dataset_utils import git_sha, write_provenance
+from _dataset_utils import git_sha, normalize_reference_pmids, write_provenance
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -184,7 +184,9 @@ def _normalize_to_schema(raw: pd.DataFrame) -> pd.DataFrame:
     out["assay_type"] = raw.get("assay_type", pd.Series("", index=raw.index)).fillna("").astype(str)
     out["assay_quality_tier"] = weights.map(_quality_tier).astype(int)
     out["assay_quality_weight"] = weights
-    pmid = raw.get("reference_pmid", pd.Series("", index=raw.index)).fillna("").astype(str)
+    pmid = normalize_reference_pmids(
+        raw.get("reference_pmid", pd.Series("", index=raw.index))
+    )
     out["reference_pmid"] = pmid
     out["iedb_assay_id"] = np.nan
     out["infection_phase"] = np.nan

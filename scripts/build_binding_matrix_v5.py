@@ -27,6 +27,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.artifact_integrity import sha256_file  # noqa: E402  (needs PROJECT_ROOT on sys.path)
+
 ALLELE_MAP: dict[str, str] = {
     "bind_A0101": "HLA-A*01:01",
     "bind_A0201": "HLA-A*02:01",
@@ -61,6 +63,9 @@ def _write_provenance(
     existing_matrix_path: Path,
     new_peptide_count: int,
     total_peptide_count: int,
+    *,
+    active_peptide_count: int,
+    already_covered_count: int,
 ) -> None:
     git_sha = ""
     try:
@@ -73,13 +78,56 @@ def _write_provenance(
     except Exception:
         pass
 
+    # source_dataset_sha256 narrows a gap that git_sha above only PARTLY covers. Be
+    # precise about this, because the loose version ("the sidecar did not record which
+    # VERSION of the dataset was used") is false: git_sha plus a tracked corpus does
+    # pin it, and that pair is how the drift behind this matrix was found in the first
+    # place. What git_sha cannot do is see an uncommitted local edit to the dataset, it
+    # is a 7-character abbreviation that can go ambiguous as history grows, and this
+    # function sets it to "" whenever `git rev-parse` fails. A content digest closes all
+    # three, and it also works for a --dataset that is untracked or gitignored, where
+    # git_sha carries no information about the input at all.
+    #
+    # already_covered_count is the coverage numerator the build already computes, prints
+    # and then discards.
+    coverage_fraction: float | None = None
+    if active_peptide_count:
+        coverage_fraction = round(already_covered_count / active_peptide_count, 6)
+
+    # source_dataset carries a repo-relative POSIX path rather than a bare filename,
+    # and the reason is mechanical, not stylistic. scripts/check_digest_portability.py
+    # pairs a "<x>_sha256" value with a sibling key via _paired_path, whose candidate
+    # order is [stem, stem_path, stem_file] resolved with next() - so it reads
+    # "source_dataset" FIRST and never looks further. A bare filename there resolves
+    # against no tracked path, and the digest lands permanently in that gate's MISSING
+    # bucket, which --strict does not fail on, so it would fail SILENTLY.
+    #
+    # An earlier version of this code added a separate "source_dataset_path" key and
+    # left the bare name in "source_dataset". That defeats its own purpose for exactly
+    # the reason above, and is why the value moved here instead of into a new key.
+    # tests/test_build_binding_matrix_v5.py runs the gate's own _paired_path against
+    # this payload rather than trusting this comment.
+    try:
+        source_dataset = dataset_path.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        # A --dataset outside the repo has no repo-relative form; record the name alone.
+        source_dataset = dataset_path.name
+
     provenance = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "git_sha": git_sha,
-        "source_dataset": str(dataset_path.name),
+        "source_dataset": source_dataset,
+        "source_dataset_sha256": sha256_file(dataset_path),
         "existing_matrix": str(existing_matrix_path.name),
         "new_peptide_count": new_peptide_count,
         "total_peptide_count": total_peptide_count,
+        "active_peptide_count": active_peptide_count,
+        "already_covered_count": already_covered_count,
+        # Fraction of the source corpus's ACTIVE peptides that the PRE-EXISTING matrix
+        # already carried, i.e. coverage measured BEFORE this build merged new rows in.
+        # It is deliberately not "coverage of the output matrix", which is 1.0 by
+        # construction on any successful build and would therefore verify nothing.
+        "existing_matrix_coverage_of_active": coverage_fraction,
         "alleles": list(ALLELE_MAP.values()),
     }
     prov_path = output_path.with_suffix(".provenance.json")
@@ -160,7 +208,15 @@ def main(argv: list[str] | None = None) -> int:
     if not new_peptides:
         print("No new peptides - copying existing matrix to output.")
         existing_df.to_csv(output_path, index=False)
-        _write_provenance(output_path, dataset_path, existing_matrix_path, 0, len(existing_df))
+        _write_provenance(
+            output_path,
+            dataset_path,
+            existing_matrix_path,
+            0,
+            len(existing_df),
+            active_peptide_count=len(active_peps),
+            already_covered_count=already_covered,
+        )
         return 0
 
     from mhcflurry import Class1PresentationPredictor
@@ -191,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
         existing_matrix_path,
         len(new_peptides),
         len(merged),
+        active_peptide_count=len(active_peps),
+        already_covered_count=already_covered,
     )
     return 0
 
