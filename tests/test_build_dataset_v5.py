@@ -27,6 +27,7 @@ from scripts.build_dataset_v5 import (
     ensure_v5_columns,
     main,
     normalize_hpv,
+    validate_output_schema,
     warn_low_pmid_depth,
 )
 
@@ -270,6 +271,7 @@ def _write_iedb_negatives(path: Path) -> None:
             "virus": ["CMV", "HCV"],
             "hla_allele": ["HLA-A*02:01", "HLA-A*02:01"],
             "source_type": ["Virus", "Virus"],
+            "database_source": ["IEDB", "IEDB"],
             "negative_origin": ["tested_negative", "tested_negative"],
             "reference_pmid": ["555", "666"],
         }
@@ -411,6 +413,7 @@ def _write_iedb_with_overlap(path: Path) -> None:
             "virus": ["CMV", "HCV", "Self"],
             "hla_allele": ["HLA-A*02:01", "HLA-A*02:01", "HLA-A*02:01"],
             "source_type": ["Virus", "Virus", "Self"],
+            "database_source": ["IEDB", "IEDB", "IEDB"],
             "negative_origin": ["tested_negative", "tested_negative", "tested_negative"],
             "reference_pmid": ["555", "666", "777"],
         }
@@ -464,6 +467,8 @@ def _write_panel_positive_iedb_overlap(path: Path) -> None:
             "label": [1],
             "hla_allele": ["HLA-A*02:01"],
             "virus": ["CMV"],
+            "source_type": ["Virus"],
+            "database_source": ["PublishedPanel"],
         }
     ).to_csv(path, index=False)
 
@@ -505,3 +510,86 @@ def test_main_warns_on_panel_iedb_label_conflict(
     klgg = v5[v5["peptide"] == "KLGGALQAK"]
     assert len(klgg) == 1
     assert klgg.iloc[0]["label"] == 1
+
+
+# ---------------------------------------------------------------------------
+# validate_output_schema: values, not only column names
+# ---------------------------------------------------------------------------
+#
+# This function had no test coverage at all until 2026-09-17, and it checked only
+# that the schema's four `required` COLUMN NAMES were present while logging
+# "Schema validation passed". The cases below pin the value half: a conforming
+# frame passes, a bad value is rejected, and every violation class is reported
+# rather than only the first one encountered.
+
+
+def _conforming_frame() -> pd.DataFrame:
+    """Minimal frame satisfying every constraint the v5 schema declares."""
+    return pd.DataFrame(
+        {
+            "peptide": ["SIINFEKLA", "GILGFVFTL"],
+            "label": [1, 0],
+            "source_type": ["Virus", "Virus"],
+            "is_quarantined": [False, False],
+            "virus_family": ["Herpesviridae", "Orthomyxoviridae"],
+        }
+    )
+
+
+def test_validate_output_schema_accepts_a_conforming_frame() -> None:
+    validate_output_schema(_conforming_frame(), SCHEMA_PATH, LOGGER)
+
+
+def test_validate_output_schema_accepts_pandas_native_dtypes() -> None:
+    """numpy.bool_ and numpy.int64 must survive the records conversion.
+
+    jsonschema tests `boolean` with isinstance against Python bool, which numpy's
+    scalar is not, so this would be the natural way for the new check to reject
+    every real build. Asserted rather than assumed.
+    """
+    frame = _conforming_frame()
+    assert str(frame["is_quarantined"].dtype) == "bool"
+    assert str(frame["label"].dtype).startswith("int")
+    validate_output_schema(frame, SCHEMA_PATH, LOGGER)
+
+
+def test_validate_output_schema_rejects_an_undeclared_enum_value() -> None:
+    frame = _conforming_frame()
+    frame.loc[0, "virus_family"] = "Nonexistentviridae"
+    with pytest.raises(ValueError) as excinfo:
+        validate_output_schema(frame, SCHEMA_PATH, LOGGER)
+    message = str(excinfo.value)
+    assert "virus_family/enum" in message
+    assert "1 of 2 row(s)" in message
+
+
+def test_validate_output_schema_reports_every_violation_class() -> None:
+    """One message must carry the shape of the problem, not just its first cell.
+
+    Three separate drifts sat in the shipped corpus simultaneously; a gate that
+    stops at the first offender would have surfaced one of them per build.
+    """
+    frame = _conforming_frame()
+    frame.loc[0, "virus_family"] = "Nonexistentviridae"
+    frame.loc[1, "source_type"] = "NotAnOrigin"
+    frame.loc[1, "peptide"] = "XZ"  # fails pattern, minLength
+    with pytest.raises(ValueError) as excinfo:
+        validate_output_schema(frame, SCHEMA_PATH, LOGGER)
+    message = str(excinfo.value)
+    assert "virus_family/enum" in message
+    assert "source_type/enum" in message
+    assert "peptide/" in message
+    assert "2 of 2 row(s)" in message
+
+
+def test_validate_output_schema_still_rejects_a_missing_required_column() -> None:
+    frame = _conforming_frame().drop(columns=["is_quarantined"])
+    with pytest.raises(ValueError, match="missing required schema columns"):
+        validate_output_schema(frame, SCHEMA_PATH, LOGGER)
+
+
+def test_validate_output_schema_skips_when_the_schema_is_absent(tmp_path: Path) -> None:
+    """The absent-schema escape hatch is a silent skip; pinned so it stays deliberate."""
+    frame = _conforming_frame()
+    frame.loc[0, "virus_family"] = "Nonexistentviridae"
+    validate_output_schema(frame, tmp_path / "no_such_schema.json", LOGGER)

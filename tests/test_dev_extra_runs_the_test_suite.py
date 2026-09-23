@@ -163,6 +163,21 @@ def _module_scope_imports(path: pathlib.Path) -> set[str]:
         is absent, so every later top-level import of `mod` is reached only when
         it is importable.
 
+    Scope caveat, measured 2026-09-21 against src/verify/structural_gnn.py: the
+    "try/except ImportError degrades on failure rather than raising" claim above
+    is true of the GUARDED IMPORT ITSELF, and only within that. It says nothing
+    about a name the try block binds being referenced somewhere else that Python
+    evaluates eagerly - a class-body function ANNOTATION is exactly that case,
+    and without `from __future__ import annotations` such a reference raises
+    NameError at import time, which `except ImportError` cannot catch. This
+    walker could not have seen that defect even in principle: `tree.body` here
+    is MODULE scope only, and a class body's own statements (including its
+    methods' annotations) are never visited by this loop regardless of whether
+    the surrounding import is Try-guarded. This function verifies that every
+    module-scope third-party IMPORT STATEMENT resolves to a distribution the
+    `dev` extra declares; it does not and cannot verify that everything a
+    try-guarded name later touches is equally safe to import without it.
+
     The importorskip form is the established idiom in this repo for optional
     heavy dependencies. Measured at 877850d by an AST walk of module-scope
     statements, not by grep: 14 test modules carry a module-scope
