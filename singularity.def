@@ -21,6 +21,7 @@ From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083
     README.md /app/README.md
     config.yaml /app/config.yaml
     pipeline.py /app/pipeline.py
+    scripts/fetch_verified_mhcflurry.py /app/scripts/fetch_verified_mhcflurry.py
     src /app/src
     functions /app/functions
     environments /app/environments
@@ -32,7 +33,18 @@ From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
     pip install --no-cache-dir --require-hashes -r /app/environments/requirements.lock
-    mhcflurry-downloads fetch models_class1_presentation
+    MHCFLURRY_MODEL_URL="$(python -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))['mhcflurry_model_archive_url'])")"
+    MHCFLURRY_MODEL_SHA256="$(python -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))['mhcflurry_model_archive_sha256'])")"
+    MHCFLURRY_ARCHIVE_DIR=/tmp/mhcflurry-models
+    mkdir -p "${MHCFLURRY_ARCHIVE_DIR}"
+    python /app/scripts/fetch_verified_mhcflurry.py \
+        --url "${MHCFLURRY_MODEL_URL}" \
+        --sha256 "${MHCFLURRY_MODEL_SHA256}" \
+        --output-dir "${MHCFLURRY_ARCHIVE_DIR}"
+    mhcflurry-downloads fetch models_class1_presentation \
+        --already-downloaded-dir "${MHCFLURRY_ARCHIVE_DIR}"
+    rm -f "${MHCFLURRY_ARCHIVE_DIR}/models_class1_presentation.20200611.tar.bz2"
+    rmdir "${MHCFLURRY_ARCHIVE_DIR}"
 
 %environment
     export LC_ALL=C.UTF-8
