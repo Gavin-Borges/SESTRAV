@@ -224,8 +224,12 @@ if __name__ == "__main__":
             if config.get("freeze_mode", False) and gov.get(
                 "require_checksum_match_in_freeze_mode", False
             ):
-                expected = gov.get("provenance", {}).get("checksum", "pending")
-                if expected != "pending" and expected != checksum:
+                expected = gov.get("provenance", {}).get("checksum")
+                if not expected:
+                    raise RuntimeError(
+                        "Freeze mode violation! Required dataset checksum pin is absent from config."
+                    )
+                if expected != checksum:
                     raise RuntimeError(
                         f"Freeze mode violation! Dataset checksum {checksum} does not match {expected}."
                     )

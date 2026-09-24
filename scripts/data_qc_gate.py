@@ -114,7 +114,7 @@ def load_config(config_path: str) -> dict:
                     "class_ratio_bounds", defaults["class_ratio_bounds"]
                 ),
                 "freeze_mode": config.get("freeze_mode", defaults["freeze_mode"]),
-                "expected_checksum": gov.get("provenance", {}).get("checksum", "pending"),
+                "expected_checksum": gov.get("provenance", {}).get("checksum"),
                 "require_checksum": gov.get("require_checksum_match_in_freeze_mode", False),
             }
     except Exception as e:
@@ -151,8 +151,13 @@ def check_dataset_qc(
 
     # Verify checksum matches if freeze mode is active
     if cfg["freeze_mode"] and cfg.get("require_checksum", False):
-        expected = cfg.get("expected_checksum", "pending")
-        if expected != "pending" and expected != checksum:
+        expected = cfg.get("expected_checksum")
+        if not expected:
+            logger.error(
+                "Freeze mode violation! Required dataset checksum pin is absent from config."
+            )
+            return False
+        if expected != checksum:
             logger.error(
                 f"Freeze mode violation! Dataset checksum {checksum} does not match expected {expected}."
             )
