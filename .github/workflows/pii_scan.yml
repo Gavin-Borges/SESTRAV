@@ -239,6 +239,16 @@ jobs:
           fi
           echo "Positive control PASSED: 4/4 canary forms detected."
 
+          # A second control exercises the Git tree path round-trip itself. Build
+          # the UTF-8 filename from bytes so this workflow remains ASCII-only.
+          NON_ASCII_NAME=$(printf 'canary-\303\251.txt')
+          printf '%s\n' "x /$U/someone/y" > "$WORK/$NON_ASCII_NAME"
+          NON_ASCII_BLOB=$(git hash-object -w "$WORK/$NON_ASCII_NAME")
+          NON_ASCII_TREE=$(
+            printf '100644 blob %s\t%s\0' "$NON_ASCII_BLOB" "$NON_ASCII_NAME" \
+              | git mktree -z
+          )
+
           FAILED=0
 
           scan_ref() {
@@ -247,16 +257,21 @@ jobs:
             SHORT=$(git rev-parse --short "$REF")
             echo "------------------------------------------------------------"
             echo "$REF ($SHORT) [$MODE]"
-            git ls-tree -r --name-only "$REF" > "$WORK/files.txt"
+            git -c core.quotePath=false ls-tree -r -z --name-only "$REF" > "$WORK/files.bin"
+            tr '\0' '\n' < "$WORK/files.bin" > "$WORK/files.txt"
 
             AI_HITS=$(grep -E -f "$WORK/pat_ai.txt" "$WORK/files.txt" || true)
+            TRACKED=$(tr -cd '\0' < "$WORK/files.bin" | wc -c)
 
             SCANNED=0
             : > "$WORK/leaks.txt"
-            while IFS= read -r f; do
+            while IFS= read -r -d '' f; do
               [ -z "$f" ] && continue
               is_exempt "$f" && continue
-              git show "$REF:$f" > "$WORK/blob" 2>/dev/null || continue
+              if ! git show "$REF:$f" > "$WORK/blob" 2>/dev/null; then
+                echo "::error::Could not read tracked blob '$f' from $REF; refusing a partial scan."
+                exit 1
+              fi
               SCANNED=$((SCANNED + 1))
               HITS=$(scan_blob "$WORK/blob")
               if [ -n "$HITS" ]; then
@@ -265,9 +280,9 @@ jobs:
                   printf '%s\n' "$HITS" | head -5
                 } >> "$WORK/leaks.txt"
               fi
-            done < "$WORK/files.txt"
+            done < "$WORK/files.bin"
 
-            echo "  tracked=$(wc -l < "$WORK/files.txt") scanned=$SCANNED"
+            echo "  tracked=$TRACKED scanned=$SCANNED"
 
             # A sweep that examined nothing is vacuous, not clean.
             if [ "$SCANNED" -eq 0 ]; then
@@ -292,6 +307,16 @@ jobs:
             [ "$MODE" = "enforce" ] && [ "$BAD" -ne 0 ] && FAILED=1
             return 0
           }
+
+          NON_ASCII_OUTPUT=$(scan_ref "$NON_ASCII_TREE" report)
+          printf '%s\n' "$NON_ASCII_OUTPUT"
+          if ! printf '%s\n' "$NON_ASCII_OUTPUT" | grep -Fq 'tracked=1 scanned=1' \
+            || ! printf '%s\n' "$NON_ASCII_OUTPUT" \
+              | grep -Fq 'Workstation absolute paths in published content'; then
+            echo "::error::Non-ASCII path control FAILED: enumeration or blob scanning lost the UTF-8 filename."
+            exit 1
+          fi
+          echo "Non-ASCII path control PASSED: tracked=1 scanned=1 and the planted leak was detected."
 
           echo "===== BRANCHES (enforced) ====="
           for REF in $(git for-each-ref --format='%(refname)' refs/scan/ | sort); do
