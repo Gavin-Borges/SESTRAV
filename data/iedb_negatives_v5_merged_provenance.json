@@ -1,9 +1,9 @@
 {
   "output": "iedb_negatives_v5_merged.csv",
   "sources": [
-    "data\\iedb",
-    "data\\iedb_negatives_v5_merged.csv"
+    "data/iedb_negatives_v5_merged.csv"
   ],
+  "sources_note": "The untracked API input directory data/iedb is omitted because it cannot be resolved from a clone; this run added no API rows. sources[0] is this artifact's own prior output because the run was an idempotent re-merge over the already-merged file: existing_rows equals row_count and net_new_api_rows is 0, so the --existing input was the 36,689-row merged file, not the smaller 32,506-row iedb_negatives_v5.csv. See scripts/merge_iedb_api_negatives.py's write_provenance call in merge() for the field mapping, and tools/check_dataset_provenance.py's per-stream-pin docstring for why the two files must never be substituted for each other.",
   "row_count": 36689,
   "generated_utc": "2026-07-04T21:27:24.177728+00:00",
   "git_sha": "cb11000b2556f04b61170efb58c2040d1d5fc7bb",

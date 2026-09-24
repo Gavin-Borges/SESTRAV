@@ -39,7 +39,7 @@ name: Digest Portability
 #
 # WHY MISSING IS REPORTED RATHER THAN FAILED
 #
-# 28 of the 65 digests on main pin UNTRACKED binaries under models/ and
+# 27 of the 64 digests on main pin UNTRACKED artifacts under models/ and
 # data/. A blob comparison cannot decide those either way, so failing on them
 # would make this gate permanently red for a reason no contributor could fix.
 # They are printed in the summary so the blind spot stays visible.
@@ -111,8 +111,8 @@ jobs:
           # verdicts, so a change that makes rows unresolvable instead of absent
           # keeps it at its old value while the CHECKED fraction falls to zero:
           # every PORTABLE row could become UNRESOLVED or MISSING and this step
-          # would still print OK. Measured on this tree: PORTABLE=36, MISSING=28,
-          # EXEMPT=1, UNRESOLVED=0, MISMATCH=0, WINDOWS_ONLY=0, total=65 - so 36
+          # would still print OK. Measured on this tree: PORTABLE=36, MISSING=27,
+          # EXEMPT=1, UNRESOLVED=0, MISMATCH=0, WINDOWS_ONLY=0, total=64 - so 36
           # is the number actually verifying anything, and it is the number that
           # must not reach zero. MISSING is legitimately large here (digests
           # pinning untracked binaries under models/ and data/), which is exactly
