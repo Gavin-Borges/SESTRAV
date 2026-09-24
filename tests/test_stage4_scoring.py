@@ -617,6 +617,23 @@ def test_plot_immunogenicity_scores(monkeypatch, tmp_path):
     assert os.path.isfile("results/HPV16_score_distribution.png")
 
 
+def test_plot_immunogenicity_scores_honors_output_dir(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    ranked = pd.DataFrame(
+        {
+            "peptide": [f"PEP{i}" for i in range(5)],
+            "immunogenicity_score": np.linspace(0.0, 1.0, 5),
+        }
+    )
+    explicit = tmp_path / "explicit"
+
+    s4.plot_immunogenicity_scores(ranked, "EBV", output_dir=explicit)
+
+    assert (explicit / "EBV_top20_immunogenicity.png").is_file()
+    assert (explicit / "EBV_score_distribution.png").is_file()
+    assert not (tmp_path / "results").exists()
+
+
 def test_pytorch_branch_50feat(monkeypatch, tmp_path):
     """Covers score_immunogenicity's PyTorch branch with a 50-feature checkpoint."""
     _safe_import_torch()
