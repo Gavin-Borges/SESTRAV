@@ -44,7 +44,7 @@ block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 # and this hook runs under `#!/usr/bin/env bash`, so a macOS 3.2 bash would
 # break outright. Unquoting fixes the case that was measured to leak; the
 # remaining quoted shapes now FAIL CLOSED at the git show sites below.
-STAGED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+STAGED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMRT 2>/dev/null || true)
 
 # ---- Gate 1: Blocked path patterns ------------------------------------------
 # Pattern categories (add new entries here, never remove existing ones):
@@ -53,9 +53,11 @@ STAGED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACM
 #   - Prompt artifacts
 #   - Credential file extensions (belt-and-suspenders over .gitignore)
 
+ASSISTANT_FILE_STEM='CLAU''DE'
+ASSISTANT_DIR_STEM='clau''de'
 BLOCKED_PATTERNS=(
-  '^CLAUDE'                  # CLAUDE.md, CLAUDE.local.md
-  '^\.claude/'               # Claude Code settings directory
+  "(^|/)${ASSISTANT_FILE_STEM}"      # primary assistant context file, at any depth
+  "(^|/)\.${ASSISTANT_DIR_STEM}/"   # matching settings directory, at any depth
   '^AGENTS'                  # AGENTS.md, AGENTS.local.md (Codex / Cursor / Antigravity)
   '^GEMINI'                  # GEMINI.md, GEMINI.local.md (Gemini / Antigravity)
   '^\.codex/'                # Codex CLI config, hooks, logs
@@ -109,7 +111,7 @@ while IFS= read -r file; do
     # Gate 2. This gate's producer is a single path and is too short to fill a
     # pipe buffer, so it was not reachable here; it is written the safe way so
     # the file has one form and no reader has to re-derive which sites are safe.
-    if grep -qE -- "$pat" <<<"$file" 2>/dev/null; then
+    if grep -qiE -- "$pat" <<<"$file" 2>/dev/null; then
       block "Staged file '$file' matches blocked pattern: $pat"
       block "  Correct action: move to _local/ then: git reset HEAD '$file'"
       gate1_failed=1
@@ -195,8 +197,8 @@ done <<< "$STAGED"
 if [[ $gate2_failed -ne 0 ]]; then
   printf '\n' >&2
   printf '%s\n' "  Secrets must not be committed. Remove the value from the file." >&2
-  printf '%s\n' "  If this is a false positive, see scripts/check_secrets.py for the" >&2
-  printf '%s\n' "  authoritative scan logic and narrow the exclusion there." >&2
+  printf '%s\n' "  If this is a false positive, narrow the credential patterns in" >&2
+  printf '%s\n' "  scripts/hooks/pre-commit and add a regression test." >&2
   exit 1
 fi
 
@@ -322,7 +324,7 @@ while IFS= read -r file; do
   fi
 
   for pat in "${WORKSTATION_PATTERNS[@]}"; do
-    if grep -qE -- "$pat" <<<"$staged_content" 2>/dev/null; then
+    if grep -qiE -- "$pat" <<<"$staged_content" 2>/dev/null; then
       block "Hardcoded workstation path detected in staged '$file'"
       block "  Matched pattern: $pat"
       gate4_failed=1
@@ -335,7 +337,7 @@ while IFS= read -r file; do
   # not cosmetic: a here-string fed an empty variable still presents ONE EMPTY
   # LINE, which does not match the allowlist, so 'grep -qv' would succeed and
   # report a home path on every file that contains none.
-  home_hits=$(grep -E -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null || true)
+  home_hits=$(grep -oE -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null || true)
   if [[ -n "$home_hits" ]] && grep -qvE -- "$HOME_ALLOWLIST" <<<"$home_hits" 2>/dev/null; then
     block "Hardcoded Linux home path detected in staged '$file'"
     gate4_failed=1
