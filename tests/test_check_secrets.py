@@ -16,6 +16,7 @@ a credential-keyword assignment that the repo-wide scan would flag.
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
 from pathlib import Path
 
@@ -528,6 +529,28 @@ def test_unreadable_path_is_recorded_rather_than_passing_quietly(
     target.mkdir()
     assert mod.scan_file(str(target)) == []
     assert str(target) in mod.UNREADABLE_PATHS
+
+
+def test_scan_tree_fails_closed_when_a_candidate_cannot_be_read(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """Exercise the scan_tree verdict, including privileged Linux runners."""
+    mod = _load()
+    target = tmp_path / "candidate.py"
+    target.write_text("ordinary = True\n", encoding="utf-8")
+    real_open = builtins.open
+
+    def guarded_open(path, *args, **kwargs):
+        if Path(path) == target:
+            raise PermissionError("injected unreadable candidate")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", guarded_open)
+
+    assert mod.scan_tree(str(tmp_path), min_files=0) == 1
+    output = capsys.readouterr().out
+    assert "[UNREADABLE]" in output
+    assert str(target) in output
 
 
 def test_unreadable_paths_does_not_leak_between_runs(tmp_path: Path) -> None:

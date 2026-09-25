@@ -119,7 +119,7 @@ under stays pending forever, which blocks merges rather than protecting them.
 
 The PR review workflow (`pr-review-check.yml`) is active and has been added as a required status check (`Require human review`) in the branch ruleset. This ensures:
 - If you (the repository owner) open the PR, the workflow automatically passes (bypassing approval requirements) for frictionless self-merging.
-- If an external contributor opens a PR, the workflow requires at least 1 approving review before it passes. It counts any review whose state is `APPROVED`, from any account, with no code-owner, author-association or write-permission test. The code-owner requirement is enforced separately, by ruleset `16846770`'s `require_code_owner_review: true`, which applies independently of that ruleset's `required_approving_review_count: 0`.
+- If an external contributor opens a PR, the workflow requires at least 1 approving review before it passes. It counts reviews whose state is `APPROVED` only when the reviewer's author association is listed by `TRUSTED_ASSOCIATIONS`; it does not itself test code ownership. The code-owner requirement is enforced separately, by ruleset `16846770`'s `require_code_owner_review: true`, which applies independently of that ruleset's `required_approving_review_count: 0`.
 
 **Scorecard does NOT read this as a review constraint, and the earlier claim that it
 "successfully detects" one is retracted.** Measured 2026-08-23 at commit 36e3d8d
