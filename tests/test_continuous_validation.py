@@ -310,3 +310,46 @@ def test_the_configured_model_is_not_tracked_so_ci_can_never_score():
         "was added because no CI checkout can obtain a model; re-check that "
         "reasoning before relying on these tests."
     )
+
+
+# ---------------------------------------------------------------------------
+# _resolve_paths - the config-absent fallbacks
+# ---------------------------------------------------------------------------
+
+
+def test_binding_matrix_fallback_matches_config(monkeypatch):
+    """The config-absent binding-matrix default must equal config.yaml's value.
+
+    Both fallbacks in ``_resolve_paths`` exist for the case where ``config.yaml``
+    cannot be read - it is absent, or ``yaml`` is not importable and the
+    ``except ImportError`` swallows it. The model fallback already matched the
+    config. The binding-matrix fallback named the v4 corpus while the config
+    declares v5, so a run with an unreadable config scored against a different
+    matrix than the configured one, then compared that score to a baseline
+    established on the configured one. Both matrices are tracked, so the wrong
+    one resolves silently instead of failing.
+
+    This binds the assertion to the config's own value rather than to a literal,
+    so it stays true if the configured matrix is rolled forward again.
+    """
+    import os
+    import pathlib
+
+    import yaml
+
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    with open(repo_root / "config.yaml", encoding="utf-8") as fh:
+        declared = (yaml.safe_load(fh) or {})["binding_matrix_path"]
+
+    real_isfile = os.path.isfile
+    monkeypatch.setattr(
+        os.path,
+        "isfile",
+        lambda p: False if str(p).endswith("config.yaml") else real_isfile(p),
+    )
+
+    _, binding_matrix = cv._resolve_paths(None, None)
+    assert binding_matrix == declared, (
+        f"config-absent fallback resolved {binding_matrix!r} but config.yaml "
+        f"declares {declared!r}; the two defaults must not diverge"
+    )
