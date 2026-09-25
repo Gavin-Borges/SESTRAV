@@ -77,14 +77,14 @@ jobs:
           # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
           # Removing a pre-existing leak must not fail the gate.
           USER_LEAKS=$(grep -E "^\+[^+]" diff.txt \
-            | grep -E "(/Users/|Users\\\|/mnt/c/Users/)" || true)
+            | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
           # /Users/ forms above so an allowlisted /home/ token on the same line
           # cannot mask a real /Users/ leak.
           HOME_LEAKS=$(grep -E "^\+[^+]" diff.txt \
-            | grep -E "/home/[A-Za-z0-9_.-]+" \
+            | grep -oE "/home/[A-Za-z0-9_.-]+" \
             | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
           LEAKS=$(printf '%s\n%s' "$USER_LEAKS" "$HOME_LEAKS" | grep -E '.' || true)
@@ -154,7 +154,7 @@ jobs:
           # Windows backslash form (3 of 3 sample forms matched, then 2 of 3)
           # while the job still runs and still reports clean.
           cat > "$WORK/pat_paths.txt" <<'PATEOF'
-          (/Users/|Users\\|/mnt/c/Users/)
+          ([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+)
           PATEOF
           cat > "$WORK/pat_home.txt" <<'PATEOF'
           /home/[A-Za-z0-9_.-]+
@@ -172,8 +172,8 @@ jobs:
           #                          `.claudeignore`
           #   `AI_REPOSITORY_MANIFEST` has no counterpart in the hook at all
           cat > "$WORK/pat_ai.txt" <<'PATEOF'
-          ^CLAUDE
-          ^\.claude
+          (^|/)[Cc][Ll][Aa][Uu][Dd][Ee]
+          (^|/)\.[Cc][Ll][Aa][Uu][Dd][Ee]/
           ^\.cursor/
           ^\.gemini/
           ^\.windsurf/
@@ -212,8 +212,8 @@ jobs:
           # The single code path that decides "does this blob leak?". The
           # positive control below drives THIS function, not a copy of it.
           scan_blob() {
-            { grep -n -I -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
-            { grep -n -I -E -f "$WORK/pat_home.txt" "$1" \
+            { grep -n -I -i -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
+            { grep -o -I -E -f "$WORK/pat_home.txt" "$1" \
                 | grep -v -E -f "$WORK/pat_home_ok.txt" || true; } > "$WORK/h2"
             cat "$WORK/h1" "$WORK/h2" | grep -E '.' || true
           }
