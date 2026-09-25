@@ -145,9 +145,10 @@ def test_exempt_pair_names_a_source_the_extractor_actually_emits():
 # --strict: the cases where it could not fail
 # ---------------------------------------------------------------------------
 #
-# The consuming workflow documents three ways this tool's exit code could not
-# fail (.github/workflows/digest_portability.yml:20-38) and closed all three on
-# its own side by consuming --json and re-implementing the verdict. Two of the
+# .github/workflows/digest_portability.yml documents three ways this tool's exit
+# code could not fail, under its own "WHY MISSING IS REPORTED RATHER THAN
+# FAILED" banner and the numbered notes above it, and closed all three on its
+# own side by consuming --json and re-implementing the verdict. Two of the
 # three were left live in the tool itself, so a developer running it by hand got
 # an exit 0 that did not mean what it looked like. These pin both.
 

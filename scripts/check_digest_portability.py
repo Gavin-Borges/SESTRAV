@@ -17,10 +17,12 @@ PATTERNS = ("*provenance*.json", "*.provenance.json", "*model_artifact_checksums
 DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 CATEGORIES = ("PORTABLE", "WINDOWS_ONLY", "MISMATCH", "MISSING", "UNRESOLVED", "EXEMPT")
 
-# Verdicts that make --strict fail. MUST equal the FAILING tuple the consuming
-# workflow re-implements at .github/workflows/digest_portability.yml:132; that
-# workflow's own comment records that the two diverged, with UNRESOLVED missing
+# Verdicts that make --strict fail. MUST equal the FAILING tuple that
+# .github/workflows/digest_portability.yml re-implements in its own inline gate;
+# that workflow's comment records that the two diverged, with UNRESOLVED missing
 # here, so tests/test_check_digest_portability.py pins them against each other.
+# Cited by NAME, not by line: the workflow is edited often and a line number
+# here would rot into a wrong pointer.
 # MISSING is deliberately absent: 27 digests pin untracked artifacts a blob
 # comparison cannot decide, and failing on them would make the gate permanently
 # red for a reason no contributor could fix.
