@@ -1,4 +1,5 @@
 import os
+import sys
 
 configfile: "config.yaml"
 
@@ -106,7 +107,7 @@ rule generate_hard_decoys:
     conda:
         "environment.yml"
     shell:
-        "python scripts/generate_hard_decoys.py --fasta {input.fasta} --allele {params.allele} --num_decoys {params.num_decoys} --output {output} > {log} 2>&1"
+        "\"{sys.executable}\" scripts/generate_hard_decoys.py --fasta {input.fasta} --allele {params.allele} --num_decoys {params.num_decoys} --output {output} > {log} 2>&1"
 
 
 rule qc_dataset:
@@ -121,7 +122,7 @@ rule qc_dataset:
     conda:
         "environment.yml"
     shell:
-        "python src/data_curation_qc.py --check-dataset {input.dataset} --config config.yaml > {log} 2>&1"
+        "\"{sys.executable}\" src/data_curation_qc.py --check-dataset {input.dataset} --config config.yaml > {log} 2>&1"
 
 
 rule train_ann:
@@ -140,7 +141,7 @@ rule train_ann:
     conda:
         "environment.yml"
     shell:
-        "python -m src.train_ann --data {input.data} --model-dir models/ann --feature-mode {params.feature_mode} --binding-matrix {input.binding_matrix} > {log} 2>&1"
+        "\"{sys.executable}\" -m src.train_ann --data {input.data} --model-dir models/ann --feature-mode {params.feature_mode} --binding-matrix {input.binding_matrix} > {log} 2>&1"
 
 
 rule train_gnn:
@@ -170,7 +171,7 @@ rule train_gnn:
         # published models/gnn artifacts (and the OOF predictions in models/), so regenerating
         # them is the intent rather than an accident. src/train_gnn.py otherwise aborts on the
         # tracked gnn_config.json. A one-off experiment should use a scratch --model-dir instead.
-        "python -m src.train_gnn --data {input.data} --model-dir models/gnn --allow-overwrite --feature-mode {params.feature_mode} --binding-matrix {input.binding_matrix} > {log} 2>&1"
+        "\"{sys.executable}\" -m src.train_gnn --data {input.data} --model-dir models/gnn --allow-overwrite --feature-mode {params.feature_mode} --binding-matrix {input.binding_matrix} > {log} 2>&1"
 
 
 rule full_validation_report:
@@ -211,7 +212,7 @@ rule full_validation_report:
         # path for them - a re-run (e.g. `snakemake -f`) is the intent, not an
         # accident. src/final_validation_report.py otherwise aborts on the tracked
         # h2_tier_a_summary.md. A one-off experiment should use a scratch --results-dir.
-        "python -m src.final_validation_report "
+        "\"{sys.executable}\" -m src.final_validation_report "
         "--results-dir {params.results_dir} "
         "--model-dir {params.model_dir} "
         "--data {input.data} "
@@ -242,7 +243,7 @@ rule extract_verify_data:
     conda:
         "environment.yml"
     shell:
-        "python src/verify/iedb_multi_virus_extractor.py {input.config} {params.mock_flag} > {log} 2>&1"
+        "\"{sys.executable}\" src/verify/iedb_multi_virus_extractor.py {input.config} {params.mock_flag} > {log} 2>&1"
 
 
 rule evaluate_verify_gnn:
@@ -263,7 +264,7 @@ rule evaluate_verify_gnn:
     benchmark:
         "results/benchmarks/evaluate_verify_gnn.tsv"
     run:
-        cmd = f"python src/verify/sestrav_evaluator.py {input.targets}"
+        cmd = f'"{sys.executable}" src/verify/sestrav_evaluator.py {input.targets}'
         if params.checkpoint:
             cmd += f" {params.checkpoint}"
         if params.mock_flag:

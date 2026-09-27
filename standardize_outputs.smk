@@ -1,6 +1,8 @@
 # standardize_outputs.smk
 # Rules to run PRIME, PredIG, and standardize output schemas
 
+import sys
+
 rule run_prime:
     input:
         binding = "results/{proteome_id}_binding.csv"
@@ -15,7 +17,7 @@ rule run_prime:
     conda:
         "environments/prime.yaml"
     shell:
-        "python scripts/run_prime_wrapper.py --binding-csv {input.binding} --output {output.prime_out} --alleles '{params.alleles}' > {log} 2>&1"
+        "\"{sys.executable}\" scripts/run_prime_wrapper.py --binding-csv {input.binding} --output {output.prime_out} --alleles '{params.alleles}' > {log} 2>&1"
 
 rule run_predig:
     input:
@@ -31,7 +33,7 @@ rule run_predig:
     conda:
         "environments/predig.yaml"
     shell:
-        "python scripts/run_predig_wrapper.py --binding-csv {input.binding} --output {output.predig_out} --alleles '{params.alleles}' > {log} 2>&1"
+        "\"{sys.executable}\" scripts/run_predig_wrapper.py --binding-csv {input.binding} --output {output.predig_out} --alleles '{params.alleles}' > {log} 2>&1"
 
 rule standardize_predictor_outputs:
     input:
@@ -48,7 +50,7 @@ rule standardize_predictor_outputs:
     conda:
         "environment.yml"
     shell:
-        "python scripts/standardize_outputs.py "
+        "\"{sys.executable}\" scripts/standardize_outputs.py "
         "--binding {input.binding} "
         "--prime {input.prime} "
         "--predig {input.predig} "
