@@ -8,6 +8,16 @@ import sys
 import zipfile
 from pathlib import Path
 
+import pytest
+
+# The build runs with --no-build-isolation, so setuptools must be importable
+# here. A normal install has it: CI pins it in requirements.txt, and torch, a
+# core dependency, declares setuptools>=77.0.3. An environment assembled without
+# dependency resolution can lack it (a bare venv holding only the test tools, or
+# a --no-deps install), and a failure there would be an environment error, not a
+# packaging defect. Same idiom as the optional-extra skips elsewhere in this suite.
+pytest.importorskip("setuptools", reason="building the wheel needs setuptools importable")
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_MEMBERS = {
