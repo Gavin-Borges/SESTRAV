@@ -47,8 +47,9 @@ REGRESSION_REL_THRESHOLD = 0.03
 BASELINE_KEY = "iedb_ebv_hpv16_tcell"
 
 # Distinct from 0 (measured, no regression) and 1 (measured, regression). Returned
-# only under --require-measurement, when this run could not score anything at all:
-# the model is absent, or the IEDB fetch came back empty. Those two cases used to
+# under --require-measurement when this run could not score anything at all (the
+# model is absent, or the IEDB fetch came back empty), and, with or without that
+# flag, when a run that did score finds no baseline AUC-PR stored. The first two used to
 # return 0 unconditionally, which made "I could not look" indistinguishable from
 # "I looked and it is fine" to every caller, including the monthly workflow.
 # Same shape and the same wording as tools/check_dismissal_justifications.py's
@@ -97,8 +98,9 @@ def compute_regression(
     """Classify a fresh AUC-PR against a stored baseline.
 
     A regression is a *relative* drop greater than ``rel_threshold`` (Part 11
-    specifies >3%). When no baseline exists yet (first run), this is not a
-    regression - the current value seeds the baseline instead.
+    specifies >3%). With no baseline this helper returns an unmeasured result;
+    the orchestration layer refuses to publish a verdict until a reviewed,
+    tracked baseline exists.
 
     Returns a dict with ``is_regression`` (bool), ``delta`` (absolute), and
     ``rel_delta`` (signed fraction of baseline), plus the inputs for logging.
@@ -319,7 +321,16 @@ def run(
         metrics.update(matrix_fields)
 
     baselines = load_baseline(baseline_path)
-    result = compute_regression(metrics["auc_pr"], baseline_auc_pr(baselines))
+    baseline = baseline_auc_pr(baselines)
+    if baseline is None:
+        print(
+            f"Stored baseline {BASELINE_KEY}.auc_pr is absent; refusing to report "
+            "a regression verdict that cannot be computed. Seed the tracked baseline "
+            "through review before running this gate.",
+            file=sys.stderr,
+        )
+        return EXIT_COULD_NOT_RUN
+    result = compute_regression(metrics["auc_pr"], baseline)
     metrics["regression"] = result
 
     # Part 11 step 6: persist results to results/continuous_validation/.
@@ -343,17 +354,14 @@ def run(
             latest_path, script="src/continuous_validation.py", extra=model_fields
         )
 
-    if result["baseline_auc_pr"] is None:
-        print("No stored baseline - recording current value as the seed baseline.")
-    else:
-        print(
-            f"Delta vs baseline: {result['delta']:+.4f} "
-            f"({result['rel_delta']:+.2%}); threshold = -{REGRESSION_REL_THRESHOLD:.0%}"
-        )
-        if result["is_regression"]:
-            msg = regression_message(result)
-            print(f"::warning::AUC-PR regression detected - {msg}")
-            pathlib.Path(marker_path).write_text(msg, encoding="utf-8")
+    print(
+        f"Delta vs baseline: {result['delta']:+.4f} "
+        f"({result['rel_delta']:+.2%}); threshold = -{REGRESSION_REL_THRESHOLD:.0%}"
+    )
+    if result["is_regression"]:
+        msg = regression_message(result)
+        print(f"::warning::AUC-PR regression detected - {msg}")
+        pathlib.Path(marker_path).write_text(msg, encoding="utf-8")
 
     return 0
 
