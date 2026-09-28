@@ -516,8 +516,20 @@ def run_evaluation_pipeline(
             )
         print("-" * 60)
 
-    print(f"GLOBAL MEAN ROC-AUC: {report['global_summary']['mean_roc_auc']:.4f}")
-    print(f"GLOBAL MEAN PRC-AUC: {report['global_summary']['mean_prc_auc']:.4f}")
+    gs = report["global_summary"]
+    # Print the scored/undefined split beside each mean. Without it the reader
+    # sees a bare average and cannot tell it is taken over a subset, which is
+    # the whole point of excluding undefined cohorts rather than zeroing them.
+    print(
+        f"GLOBAL MEAN ROC-AUC: {gs['mean_roc_auc']:.4f}"
+        f"  (over {gs['cohorts_scored_roc_auc']} scored cohort(s);"
+        f" {gs['cohorts_undefined_roc_auc']} undefined and excluded)"
+    )
+    print(
+        f"GLOBAL MEAN PRC-AUC: {gs['mean_prc_auc']:.4f}"
+        f"  (over {gs['cohorts_scored_prc_auc']} scored cohort(s);"
+        f" {gs['cohorts_undefined_prc_auc']} undefined and excluded)"
+    )
     print("=" * 60 + "\n")
 
     return report
