@@ -8,6 +8,7 @@
     "src/bias_skew_finalization.py",
     "src/build_predig_recombinant_input.py",
     "src/conformal.py",
+    "src/consensus_ensemble.py",
     "src/core/feature_store.py",
     "src/core/model_registry.py",
     "src/gnn/__init__.py",

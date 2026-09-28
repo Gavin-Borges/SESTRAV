@@ -24,7 +24,7 @@ def min_max_scale(series: pd.Series) -> pd.Series:
 
 
 def compute_borda_scores(
-    df: pd.DataFrame, score_cols: list, weights: "dict | None" = None
+    df: pd.DataFrame, score_cols: list[str], weights: "dict[str, float] | None" = None
 ) -> pd.Series:
     """
     Compute Borda count score across given columns.
@@ -63,8 +63,8 @@ def compute_borda_scores(
 def run_consensus(
     merged_csv: str,
     output_csv: str,
-    score_cols: list,
-    weights: "dict | None" = None,
+    score_cols: list[str],
+    weights: "dict[str, float] | None" = None,
 ) -> pd.DataFrame:
     """Accepts a merged CSV, aggregates scores, and appends TCR_Recognition_Propensity_Score."""
     if not os.path.isfile(merged_csv):
@@ -101,7 +101,7 @@ def run_consensus(
     return df
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Compute Borda count consensus immunogenicity score"
     )
