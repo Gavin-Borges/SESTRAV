@@ -3,6 +3,8 @@ Unit tests for the SESTRAV-VERIFY automated benchmarking and cross-validation su
 """
 
 import json
+import math
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -162,19 +164,40 @@ def test_json_safe_makes_non_finite_values_serialisable():
     assert json.loads(encoded) == {"a": None, "b": [1.0, None], "c": {"d": 0.5}}
 
 
-def test_global_mean_excludes_undefined_cohorts(tmp_path):
-    """An undefined cohort must not be averaged in as a zero."""
-    import src.verify.sestrav_evaluator as ev
+def test_global_mean_excludes_undefined_cohorts():
+    """An undefined cohort must be dropped from the mean, not folded in as 0.0.
 
-    report = {
-        "viral_families": {
+    Calls the production aggregator. An earlier version of this test rebuilt
+    the isfinite filter inline and asserted against its own reimplementation,
+    so it passed against the unfixed code and covered nothing.
+    """
+    from src.verify.sestrav_evaluator import global_summary
+
+    summary = global_summary(
+        {
             "Good": {"roc_auc": 0.8, "prc_auc": 0.8},
             "SingleClass": {"roc_auc": float("nan"), "prc_auc": float("nan")},
         }
-    }
-    all_aucs = [v["roc_auc"] for v in report["viral_families"].values()]
-    scored = [x for x in all_aucs if ev.np.isfinite(x)]
-    assert len(scored) == 1
-    assert float(ev.np.mean(scored)) == pytest.approx(0.8)
-    # Folding the undefined cohort in as 0.0 would have given 0.4.
-    assert float(ev.np.mean([0.8, 0.0])) == pytest.approx(0.4)
+    )
+
+    # Folding the undefined cohort in as 0.0 would give 0.4, so this assertion
+    # fails if the exclusion is removed.
+    assert summary["mean_roc_auc"] == pytest.approx(0.8)
+    assert summary["mean_prc_auc"] == pytest.approx(0.8)
+    assert summary["total_cohorts"] == 2
+    assert summary["cohorts_scored_roc_auc"] == 1
+    assert summary["cohorts_undefined_roc_auc"] == 1
+    assert summary["cohorts_scored_prc_auc"] == 1
+    assert summary["cohorts_undefined_prc_auc"] == 1
+
+
+def test_global_mean_is_nan_when_every_cohort_is_undefined():
+    """No scored cohort means no mean. NaN, never 0.0."""
+    from src.verify.sestrav_evaluator import global_summary
+
+    summary = global_summary({"OnlyBad": {"roc_auc": float("nan"), "prc_auc": float("nan")}})
+
+    assert math.isnan(summary["mean_roc_auc"])
+    assert math.isnan(summary["mean_prc_auc"])
+    assert summary["cohorts_scored_roc_auc"] == 0
+    assert summary["cohorts_undefined_roc_auc"] == 1

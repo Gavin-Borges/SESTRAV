@@ -370,6 +370,40 @@ def _load_torch_checkpoint(model_path, device):
         ) from e
 
 
+def global_summary(viral_families: Dict[str, Any]) -> Dict[str, Any]:
+    """Aggregate per-cohort metrics, EXCLUDING cohorts whose metric is undefined.
+
+    A single-class cohort has no ROC-AUC and a cohort with no positives has no
+    average precision. Both arrive here as NaN. Folding either in as 0.0 would
+    be wrong in a specific and damaging way: 0.0 is not a neutral sentinel, it
+    is the value meaning a perfectly inverted ranker, so one undefined cohort
+    drags the mean down as hard as a maximally wrong model would.
+
+    The scored and undefined counts are returned alongside the means so a
+    reader can see that the mean is over a subset rather than over every
+    cohort in the report.
+
+    Lifted out of run_evaluation_pipeline so the aggregation can be tested
+    without constructing a model, a dataset and a results directory. A test
+    that reimplements this filter inline rather than calling it passes against
+    the unfixed code and proves nothing.
+    """
+    all_aucs = [v["roc_auc"] for v in viral_families.values() if "roc_auc" in v]
+    all_prcs = [v["prc_auc"] for v in viral_families.values() if "prc_auc" in v]
+    scored_aucs = [x for x in all_aucs if np.isfinite(x)]
+    scored_prcs = [x for x in all_prcs if np.isfinite(x)]
+
+    return {
+        "mean_roc_auc": float(np.mean(scored_aucs)) if scored_aucs else float("nan"),
+        "mean_prc_auc": float(np.mean(scored_prcs)) if scored_prcs else float("nan"),
+        "total_cohorts": len(viral_families),
+        "cohorts_scored_roc_auc": len(scored_aucs),
+        "cohorts_undefined_roc_auc": len(all_aucs) - len(scored_aucs),
+        "cohorts_scored_prc_auc": len(scored_prcs),
+        "cohorts_undefined_prc_auc": len(all_prcs) - len(scored_prcs),
+    }
+
+
 def run_evaluation_pipeline(
     targets_json_path: Path,
     model_checkpoint_path: Optional[Path] = None,
@@ -448,21 +482,9 @@ def run_evaluation_pipeline(
     # Compile global summary statistics. Cohorts whose metric is undefined (a
     # single-class cohort has no ROC-AUC) are EXCLUDED from the mean rather than
     # folded in as zeros, and the counts are reported so a reader can see that
-    # the mean is over a subset.
-    all_aucs = [v["roc_auc"] for v in report["viral_families"].values() if "roc_auc" in v]
-    all_prcs = [v["prc_auc"] for v in report["viral_families"].values() if "prc_auc" in v]
-    scored_aucs = [x for x in all_aucs if np.isfinite(x)]
-    scored_prcs = [x for x in all_prcs if np.isfinite(x)]
-
-    report["global_summary"] = {
-        "mean_roc_auc": float(np.mean(scored_aucs)) if scored_aucs else float("nan"),
-        "mean_prc_auc": float(np.mean(scored_prcs)) if scored_prcs else float("nan"),
-        "total_cohorts": len(report["viral_families"]),
-        "cohorts_scored_roc_auc": len(scored_aucs),
-        "cohorts_undefined_roc_auc": len(all_aucs) - len(scored_aucs),
-        "cohorts_scored_prc_auc": len(scored_prcs),
-        "cohorts_undefined_prc_auc": len(all_prcs) - len(scored_prcs),
-    }
+    # the mean is over a subset. See global_summary for why 0.0 is not a safe
+    # sentinel here.
+    report["global_summary"] = global_summary(report["viral_families"])
 
     report_json_path = results_dir / "validation_report.json"
     with open(report_json_path, "w") as f:
