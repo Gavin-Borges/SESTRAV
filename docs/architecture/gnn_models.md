@@ -67,7 +67,9 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
   `models/gnn_oof_predictions.csv` (and a `_<pooling>`-tagged sibling - note the one
   tagged sibling that is tracked today is a byte-identical duplicate, not a second
   measurement; see the `_mean` note below the promotion gates):
-  `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. Previously
+  `peptide,hla_allele,label,gnn_oof_score,fold,splitter`, followed by
+  `virus,strain,protein,negative_origin` when the corpus supplies them (the v5
+  corpus supplies all four). Previously
   `peptide,label,gnn_oof_score` - any three-column frame is a pre-repair artifact.
   `hla_allele` appears when the corpus supplies it, `(peptide, hla_allele)` being the
   v5 dedup key that joins this frame to the RF OOF frame one-to-one; `fold` and
