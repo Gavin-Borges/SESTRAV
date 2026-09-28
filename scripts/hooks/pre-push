@@ -5,6 +5,21 @@
 #   Every change to main goes through a typed feature branch -> PR -> CI -> merge.
 #   Authorized admin/hotfix override: git push --no-verify
 #
+# Check 1b -- pre-flight for a version-tag push, the most irreversible action
+#   in this repo and the least protected one. Ruleset 16846770 targets
+#   refs/heads/main only, so nothing on the server gates refs/tags/*, and
+#   Check 1 above tests refs/heads. A pushed v* tag starts release.yml, which
+#   creates a public GitHub Release, and a vX.Y.Z tag also starts docker.yml,
+#   which pushes to GHCR. If the PYPI_PUBLISH repository variable is true it
+#   also queues an upload that PyPI will never let you replace for that
+#   version number.
+#   This re-runs release.yml's version assertions LOCALLY, on the files in the
+#   commit the tag points at (the commit release.yml checks out), so a mismatch
+#   costs a corrected commit instead of a public tag that fails its own
+#   release. It is a copy, not the workflow: it can block a few forms
+#   release.yml accepts, and it takes pyproject.toml's first 'version = "..."'
+#   line instead of parsing TOML.
+#
 # Check 2 -- runs the fast test gate before pushing any branch.
 #   Heavy/slow tests (GNN checkpoint loads, network calls) are excluded here;
 #   they are covered by CI. The gate catches regressions before they reach
@@ -29,6 +44,38 @@ RED='\033[0;31m'
 NC='\033[0m'
 block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 
+# Read top-level CITATION.cff scalar $1 out of the file text in $2 the way
+# release.yml's scalar() does: only spaces or tabs after the colon, an optional
+# quote, then everything up to a quote, whitespace or '#'. Reading it any other way
+# lets this pre-flight and the Release workflow disagree about one file. The caller
+# turns every CR into a line break, as Python's universal newlines do, so CRLF and
+# CR-only files yield the lines the workflow sees. The here-string avoids piping
+# into `grep -m1`, whose early exit can SIGPIPE a producer and fail the pipeline.
+cff_scalar() {
+    local line re ws=$' \t'
+    line="$(grep -m1 -- "^$1:" <<<"$2")" || return 0
+    re="^$1:[${ws}]*[\"']?([^\"'[:space:]#]+)"
+    if [[ "$line" =~ $re ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+    fi
+    return 0
+}
+
+# True only for a real calendar date in YYYY-MM-DD form, which is the part of what
+# release.yml's datetime.date.fromisoformat accepts that this hook allows. A shape
+# check alone would pass 2026-02-30, which the Release workflow rejects.
+is_calendar_date() {
+    [[ "$1" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})$ ]] || return 1
+    local y=$((10#${BASH_REMATCH[1]})) m=$((10#${BASH_REMATCH[2]})) d=$((10#${BASH_REMATCH[3]})) last
+    (( y >= 1 && m >= 1 && m <= 12 && d >= 1 )) || return 1
+    case "$m" in
+        2) if (( (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 )); then last=29; else last=28; fi ;;
+        4|6|9|11) last=30 ;;
+        *) last=31 ;;
+    esac
+    (( d <= last ))
+}
+
 # ---- Check 1: Direct-push guard ----------------------------------------
 protected_branch="main"
 
@@ -43,6 +90,61 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         printf '\n' >&2
         printf '%s\n' "  Authorized admin override: git push --no-verify" >&2
         exit 1
+    fi
+    # ---- Check 1b: release-tag pre-flight ------------------------------
+    # A deletion (all-zero local sha) pushes no commit, so there is nothing to read.
+    if [[ "$remote_ref" == refs/tags/v* && ! "$local_sha" =~ ^0+$ ]]; then
+        tag_name="${remote_ref#refs/tags/}"
+        tag_version="${tag_name#v}"
+        today="$(date -u +%Y-%m-%d)"
+        tag_fail=0
+
+        # Read the carriers from the commit the tag points at, as release.yml's
+        # checkout does, never from the working tree, which can hold other content.
+        # An annotated tag's sha is peeled to its commit. tr drops a CRLF file's CRs
+        # from pyproject.toml and turns every CR in CITATION.cff into a line break.
+        py_text=""
+        cff_text=""
+        if tag_commit="$(git rev-parse --verify --quiet "${local_sha}^{commit}")"; then
+            py_text="$(git cat-file blob "${tag_commit}:pyproject.toml" 2>/dev/null | tr -d '\r')"
+            cff_text="$(git cat-file blob "${tag_commit}:CITATION.cff" 2>/dev/null | tr '\r' '\n')"
+        else
+            block "Tag '${tag_name}' does not point at a commit in this repository (${local_sha})."
+            tag_fail=1
+        fi
+        py_version="$(grep -m1 '^version = ' <<<"$py_text" | sed 's/^version = "\(.*\)"/\1/')"
+        cff_version="$(cff_scalar version "$cff_text")"
+        cff_date="$(cff_scalar date-released "$cff_text")"
+
+        if [[ "$py_version" != "$tag_version" ]]; then
+            block "pyproject.toml version '${py_version}' does not match tag '${tag_name}'."
+            tag_fail=1
+        fi
+        if [[ "$cff_version" != "$tag_version" ]]; then
+            block "CITATION.cff version '${cff_version}' does not match tag '${tag_name}'."
+            tag_fail=1
+        fi
+        if ! is_calendar_date "$cff_date"; then
+            block "CITATION.cff date-released '${cff_date}' is not an ISO date."
+            tag_fail=1
+        elif [[ "$cff_date" > "$today" ]]; then
+            block "CITATION.cff date-released '${cff_date}' is in the future (today is ${today})."
+            tag_fail=1
+        fi
+
+        if [[ "$tag_fail" -ne 0 ]]; then
+            printf '\n' >&2
+            printf '%s\n' "  release.yml asserts these only AFTER the tag is public, and the" >&2
+            printf '%s\n' "  same push starts docker.yml's container build for a vX.Y.Z tag." >&2
+            printf '%s\n' "  Fix the carriers on a branch, merge, then tag the merged commit." >&2
+            printf '%s\n' "  Authorized override: git push --no-verify" >&2
+            exit 1
+        fi
+
+        printf '[pre-push] Release tag %s: version carriers agree, date-released is not future.\n' "$tag_name"
+        printf '[pre-push] This push is IRREVERSIBLE: it starts release.yml, and docker.yml for vX.Y.Z.\n'
+        printf '[pre-push] If the PYPI_PUBLISH repo variable is true it queues a PyPI upload\n'
+        printf '[pre-push] that PyPI will never allow you to replace for this version.\n'
     fi
 done
 
