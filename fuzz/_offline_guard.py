@@ -34,7 +34,10 @@ from typing import Callable, NoReturn
 PROXY_SINK = "http://127.0.0.1:1"
 # TEST-NET-1 (RFC 5737): documentation-only, never routed on the public internet.
 CONTROL_ADDRESS = ("192.0.2.1", 80)
-CONTROL_URL = "http://192.0.2.1/"
+# https, not http: the guard refuses the socket before any byte is sent, so the scheme
+# changes nothing the control proves, and an http literal in a requests call is a
+# semgrep p/python finding (request-with-http) that CI would publish as an alert.
+CONTROL_URL = "https://192.0.2.1/"
 ABORT_STATUS = 97
 
 
