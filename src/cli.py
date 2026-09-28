@@ -151,21 +151,35 @@ def cmd_predict(args: argparse.Namespace) -> int:
     print("[Stage 1] Generating peptides...")
     from functions.stage1_peptide_generation import generate_peptides
 
-    peptides_df = generate_peptides(args.fasta, proteome_id, peptide_lengths=lengths)
+    peptides_df = generate_peptides(
+        args.fasta,
+        proteome_id,
+        peptide_lengths=lengths,
+        output_dir=args.output,
+    )
     print(f"          {len(peptides_df)} peptides generated")
 
     # Stage 2 - MHC binding prediction
     print("[Stage 2] Predicting MHC binding...")
     from functions.stage2_mhc_binding_prediction import predict_binding
 
-    binding_df = predict_binding(peptides_df, proteome_id, alleles=alleles)
+    binding_df = predict_binding(
+        peptides_df,
+        proteome_id,
+        alleles=alleles,
+        output_dir=args.output,
+    )
     print(f"          {len(binding_df)} binding predictions")
 
     # Stage 3 - TCR feature extraction
     print("[Stage 3] Extracting TCR features...")
     from functions.stage3_tcr_feature_extraction import extract_tcr_features
 
-    features_df = extract_tcr_features(binding_df, proteome_id)
+    features_df = extract_tcr_features(
+        binding_df,
+        proteome_id,
+        output_dir=args.output,
+    )
     print(f"          {features_df.shape[1]} features per peptide")
 
     # Stage 4 - immunogenicity scoring
