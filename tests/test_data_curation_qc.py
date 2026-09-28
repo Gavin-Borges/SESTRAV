@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import pandas as pd
 import pytest
 
@@ -32,7 +33,7 @@ def test_qc_script_valid(temp_dataset, temp_config):
     # Run the QC script as a subprocess
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(temp_dataset),
@@ -61,7 +62,7 @@ def test_qc_script_invalid_amino_acids(tmp_path, temp_config):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(path),
@@ -82,7 +83,7 @@ def test_qc_script_duplicates(tmp_path, temp_config):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(path),
@@ -103,7 +104,7 @@ def test_qc_script_conflicting_labels(tmp_path, temp_config):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(path),

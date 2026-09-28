@@ -2,6 +2,7 @@ import hashlib
 import io
 import os
 import subprocess
+import sys
 import pandas as pd
 import pytest
 
@@ -40,7 +41,7 @@ def test_qc_gate_valid(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -66,7 +67,7 @@ def test_qc_gate_length_outlier(tmp_path, temp_config, valid_df):
     quarantine_path = tmp_path / "quarantine.csv"
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -104,7 +105,7 @@ def test_qc_gate_non_canonical_aa(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -126,7 +127,7 @@ def test_qc_gate_missing_metadata(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -161,7 +162,7 @@ def test_qc_gate_duplicate_conflict(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -190,7 +191,7 @@ def test_qc_gate_null_allele_fraction(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -214,7 +215,7 @@ def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -236,7 +237,7 @@ def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -293,7 +294,7 @@ freeze_mode: true
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -335,7 +336,7 @@ freeze_mode: true
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -358,7 +359,7 @@ def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -446,7 +447,7 @@ freeze_mode: false
 def _run_gate(dataset_path, config_path):
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
