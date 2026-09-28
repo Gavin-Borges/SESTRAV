@@ -13,6 +13,7 @@
     "src/core/model_registry.py",
     "src/external_predictors.py",
     "src/gnn/__init__.py",
+    "src/gold_standard_sensitivity.py",
     "src/hla_supertypes.py",
     "src/ml_utils.py",
     "src/naming.py",
