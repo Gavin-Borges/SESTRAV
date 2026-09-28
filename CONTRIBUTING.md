@@ -99,9 +99,13 @@ them, find the tier it belongs to.
 
 ### The setuptools floor (and the override that used to be needed)
 
-`requirements.in` pins `setuptools==83.0.0` and
-`environments/requirements-lock.in` floors it at `>=83.0.0`, both to close
-GHSA-h35f-9h28-mq5c. **That floor is still in force - do not remove it.**
+`requirements.in` pins `setuptools==84.0.0` and
+`environments/requirements-lock.in` floors it at `>=84.0.0`. The advisory they
+close, GHSA-h35f-9h28-mq5c, is patched at 83.0.0, so both sit one release above
+the advisory minimum; that extra release is a dependabot bump, not a security
+requirement. `pyproject.toml` deliberately states the 83.0.0 minimum instead of
+tracking the pin, and says so in its own `[build-system]` comment.
+**That floor is still in force - do not remove it.**
 
 Until 2026-08-05 it collided with torch 2.12.0's declared `setuptools<82`
 build-metadata cap, which made `uv pip compile` return `ResolutionImpossible`

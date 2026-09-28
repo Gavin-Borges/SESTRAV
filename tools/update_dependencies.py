@@ -138,8 +138,9 @@ Notes:
     requirements-pip-bootstrap.txt) are curated by hand
     with `pip download` + `pip hash` and are deliberately not managed here.
 
-The 'runtime' and 'lock' specs constrain setuptools to 83.0.0 for
-GHSA-h35f-9h28-mq5c. That floor used to collide with torch 2.12.0's declared
+The 'runtime' and 'lock' specs constrain setuptools to 84.0.0. The advisory,
+GHSA-h35f-9h28-mq5c, is patched at 83.0.0, so both specs sit one release above
+the advisory minimum. That floor used to collide with torch 2.12.0's declared
 `setuptools<82` build-metadata cap, making both specs unsatisfiable for any
 resolver, so each compiled through a `--overrides overrides.txt` file. torch
 2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was retired and
