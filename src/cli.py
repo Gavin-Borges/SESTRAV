@@ -50,10 +50,21 @@ def _mhcflurry_downloads():
 
     mhcflurry is a core dependency, so this should never fire; when it does, the
     fetch command the model-data message recommends would not exist either.
+
+    OSError is caught alongside ImportError because importing mhcflurry.downloads
+    imports torch, and torch raises OSError, not ImportError, when a shared library
+    fails to load (WinError 126 on Windows). cmd_info's own `import mhcflurry` and
+    `import torch` both already catch the pair for that reason; catching only
+    ImportError here let that case escape as a raw traceback and cut `sestrav info`
+    off part way through its report.
+
+    An OSError from the RESOLUTION of the model directory means something else -
+    absent data - and is handled separately by the caller below, so the two stay
+    distinct.
     """
     try:
         import mhcflurry.downloads as downloads
-    except ImportError as exc:
+    except (ImportError, OSError) as exc:
         raise CliPreconditionError(
             f"mhcflurry is not installed or cannot be imported ({exc}). It is a core "
             "dependency of SESTRAV, so reinstall SESTRAV with its dependencies, then retry."

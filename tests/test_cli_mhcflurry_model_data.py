@@ -365,3 +365,67 @@ def test_main_does_not_swallow_other_errors(monkeypatch, mhcflurry_downloads, tm
     with pytest.raises(ValueError, match="a genuine bug"):
         cli.main(_predict_argv(tmp_path, "--no-freeze-mode", "--no-conformal"))
     capsys.readouterr()
+
+
+# ---------------------------------------------------------------------------
+# An import that fails with OSError rather than ImportError
+# ---------------------------------------------------------------------------
+# Importing mhcflurry.downloads imports torch, and torch raises OSError, not
+# ImportError, when a shared library fails to load (WinError 126 on Windows).
+# cmd_info's own `import mhcflurry` and `import torch` have caught the pair for
+# exactly that reason since before this module existed, so the case is one the
+# surrounding code already expects. The helper caught ImportError alone, so the
+# OSError escaped as a raw traceback and cut the info report off part way.
+
+
+@pytest.fixture
+def mhcflurry_import_raises_oserror(monkeypatch):
+    """Make any ``import mhcflurry...`` raise OSError, as a torch DLL failure does."""
+    import builtins
+    import sys
+
+    for name in [m for m in sys.modules if m == "mhcflurry" or m.startswith("mhcflurry.")]:
+        monkeypatch.delitem(sys.modules, name, raising=False)
+
+    real_import = builtins.__import__
+
+    def _import(name, *args, **kwargs):
+        if name == "mhcflurry" or name.startswith("mhcflurry."):
+            raise OSError("[WinError 126] The specified module could not be found")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _import)
+
+
+def test_info_survives_an_oserror_from_the_mhcflurry_import(
+    mhcflurry_import_raises_oserror, capsys
+):
+    """info must complete its whole report, not abort at the data line.
+
+    Before the fix this printed "mhcflurry : not installed" and then raised
+    OSError, so every line after it - torch, CUDA, the active config - never
+    appeared and the command exited on a traceback.
+    """
+    assert cli.main(["info"]) == 0
+
+    out = capsys.readouterr().out
+    assert "  mhcflurry data  : unknown (mhcflurry not importable)\n" in out
+    assert "Traceback" not in out
+    # Lines that come AFTER the data line: their absence is how the abort showed.
+    assert "  torch           : " in out, f"the report stopped at the data line:\n{out}"
+
+
+def test_predict_survives_an_oserror_from_the_mhcflurry_import(
+    mhcflurry_import_raises_oserror, stage_calls, tmp_path, capsys
+):
+    """predict must refuse with the precondition message, not a traceback."""
+    rc = cli.main(_predict_argv(tmp_path, "--no-freeze-mode"))
+    err = capsys.readouterr().err
+
+    assert stage_calls == [], f"stages ran despite an unimportable mhcflurry: {stage_calls}"
+    assert rc == 1
+    assert err.startswith(
+        "sestrav predict: error: mhcflurry is not installed or cannot be imported ("
+    )
+    assert "Traceback" not in err
+    assert "mhcflurry-downloads fetch" not in err
