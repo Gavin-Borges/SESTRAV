@@ -44,22 +44,6 @@
       ]
     },
     {
-      "citing": "docs/security_compliance.md",
-      "target": "tests/test_sestrav_evaluator_extended.py",
-      "lines": "178",
-      "pinned": [
-        "torch.save(state, chk) # nosec B614 - test fixture, trusted tensor"
-      ]
-    },
-    {
-      "citing": "docs/security_compliance.md",
-      "target": "tests/test_sestrav_evaluator_extended.py",
-      "lines": "189",
-      "pinned": [
-        "torch.save(state, chk) # nosec B614 - test fixture, trusted tensor"
-      ]
-    },
-    {
       "citing": "scripts/audit_cv_leakage.py",
       "target": "src/prepare_external_validation_inputs.py",
       "lines": "122",
