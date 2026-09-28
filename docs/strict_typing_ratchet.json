@@ -1,0 +1,20 @@
+{
+  "_comment": "Files that must stay clean under `mypy --strict` (pyproject [tool.mypy] still applies). Enforced by `python tools/check_strict_typing.py --check`. The ratchet turns one way: add a file once it is strict-clean both with and without third-party packages visible (`--list-clean` prints candidates); removing one is a deliberate, reviewed edit. Keep the list sorted; the gate fails on unsorted, duplicate or missing entries.",
+  "files": [
+    "functions/__init__.py",
+    "src/__init__.py",
+    "src/antigen_processing.py",
+    "src/artifact_guard.py",
+    "src/build_predig_recombinant_input.py",
+    "src/conformal.py",
+    "src/core/feature_store.py",
+    "src/core/model_registry.py",
+    "src/gnn/__init__.py",
+    "src/hla_supertypes.py",
+    "src/ml_utils.py",
+    "src/naming.py",
+    "src/prepare_data.py",
+    "src/prepare_external_validation_inputs.py",
+    "src/release_bundle.py"
+  ]
+}
