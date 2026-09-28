@@ -372,7 +372,7 @@ freeze_mode: true
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),

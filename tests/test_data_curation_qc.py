@@ -131,7 +131,7 @@ dataset_governance:
     )
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(temp_dataset),
