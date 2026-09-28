@@ -11,6 +11,7 @@
     "src/consensus_ensemble.py",
     "src/core/feature_store.py",
     "src/core/model_registry.py",
+    "src/external_predictors.py",
     "src/gnn/__init__.py",
     "src/hla_supertypes.py",
     "src/ml_utils.py",
