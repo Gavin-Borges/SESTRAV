@@ -11,6 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import json
+import math
 import logging
 import pickle
 from typing import Dict, Any, Optional
@@ -37,6 +38,22 @@ except ImportError:
     HAS_PYG = False
 
 
+def _json_safe(obj: object) -> object:
+    """Replace non-finite floats with None so the report stays valid JSON.
+
+    An undefined metric is carried as NaN in memory, which is the honest value
+    to compute with, but `json.dump` writes a bare `NaN` token that is not legal
+    JSON and that a strict parser rejects. `null` says the same thing portably.
+    """
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    return obj
+
+
 def calculate_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     """
     Calculate Area Under the Receiver Operating Characteristic curve (ROC-AUC)
@@ -47,7 +64,11 @@ def calculate_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     n_pos = np.sum(y_true == 1)
     n_neg = np.sum(y_true == 0)
     if n_pos == 0 or n_neg == 0:
-        return 0.0
+        # NaN, not 0.0. ROC-AUC is undefined without both classes, and 0.0 is a
+        # real value here meaning a perfectly inverted ranker, so returning it
+        # makes "could not be computed" indistinguishable from the worst
+        # possible result - and averages that fiction into the global mean.
+        return float("nan")
 
     # Sort samples by score ascending
     sorted_idx = np.argsort(y_scores)
@@ -80,7 +101,9 @@ def calculate_average_precision(y_true: np.ndarray, y_scores: np.ndarray) -> flo
     y_scores = np.asarray(y_scores)
     n_pos = np.sum(y_true == 1)
     if n_pos == 0:
-        return 0.0
+        # NaN for the same reason as calculate_roc_auc: average precision is
+        # undefined with no positives, and 0.0 is a reportable value.
+        return float("nan")
 
     # Sort by scores descending
     desc_idx = np.argsort(y_scores)[::-1]
@@ -415,19 +438,28 @@ def run_evaluation_pipeline(
     )
     report["metadata"]["use_mock_fallback"] = use_mock or (model is None) or any_virus_fallback
 
-    # Compile global summary statistics
+    # Compile global summary statistics. Cohorts whose metric is undefined (a
+    # single-class cohort has no ROC-AUC) are EXCLUDED from the mean rather than
+    # folded in as zeros, and the counts are reported so a reader can see that
+    # the mean is over a subset.
     all_aucs = [v["roc_auc"] for v in report["viral_families"].values() if "roc_auc" in v]
     all_prcs = [v["prc_auc"] for v in report["viral_families"].values() if "prc_auc" in v]
+    scored_aucs = [x for x in all_aucs if np.isfinite(x)]
+    scored_prcs = [x for x in all_prcs if np.isfinite(x)]
 
     report["global_summary"] = {
-        "mean_roc_auc": float(np.mean(all_aucs)) if all_aucs else 0.0,
-        "mean_prc_auc": float(np.mean(all_prcs)) if all_prcs else 0.0,
+        "mean_roc_auc": float(np.mean(scored_aucs)) if scored_aucs else float("nan"),
+        "mean_prc_auc": float(np.mean(scored_prcs)) if scored_prcs else float("nan"),
         "total_cohorts": len(report["viral_families"]),
+        "cohorts_scored_roc_auc": len(scored_aucs),
+        "cohorts_undefined_roc_auc": len(all_aucs) - len(scored_aucs),
+        "cohorts_scored_prc_auc": len(scored_prcs),
+        "cohorts_undefined_prc_auc": len(all_prcs) - len(scored_prcs),
     }
 
     report_json_path = results_dir / "validation_report.json"
     with open(report_json_path, "w") as f:
-        json.dump(report, f, indent=2)
+        json.dump(_json_safe(report), f, indent=2)
 
     logger.info(f"Validation report saved successfully to: {report_json_path}")
 

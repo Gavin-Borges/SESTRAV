@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from src.verify.sestrav_evaluator import (
+    _json_safe,
     calculate_roc_auc,
     calculate_average_precision,
     mutate_anchors,
@@ -135,3 +136,45 @@ def test_run_evaluation_pipeline_mocked(tmp_path):
     assert "TestVirus" in report["viral_families"]
     assert report["global_summary"]["total_cohorts"] == 1
     assert (results_dir / "validation_report.json").exists()
+
+
+def test_calculate_roc_auc_single_class_is_undefined_not_zero():
+    """A cohort with one class has no ROC-AUC; 0.0 would be a reportable value."""
+    assert np.isnan(calculate_roc_auc(np.array([1, 1, 1]), np.array([0.9, 0.5, 0.1])))
+    assert np.isnan(calculate_roc_auc(np.array([0, 0, 0]), np.array([0.9, 0.5, 0.1])))
+
+
+def test_reversed_classifier_still_scores_a_real_zero():
+    """The regression guard: 0.0 must keep meaning "perfectly inverted"."""
+    auc = calculate_roc_auc(np.array([1, 1, 0, 0]), np.array([0.1, 0.2, 0.8, 0.9]))
+    assert auc == pytest.approx(0.0)
+    assert not np.isnan(auc)
+
+
+def test_calculate_average_precision_without_positives_is_undefined():
+    assert np.isnan(calculate_average_precision(np.array([0, 0, 0]), np.array([0.9, 0.5, 0.1])))
+
+
+def test_json_safe_makes_non_finite_values_serialisable():
+    """NaN must reach the report as null, which is legal JSON."""
+    doc = {"a": float("nan"), "b": [1.0, float("inf")], "c": {"d": 0.5}}
+    encoded = json.dumps(_json_safe(doc))
+    assert json.loads(encoded) == {"a": None, "b": [1.0, None], "c": {"d": 0.5}}
+
+
+def test_global_mean_excludes_undefined_cohorts(tmp_path):
+    """An undefined cohort must not be averaged in as a zero."""
+    import src.verify.sestrav_evaluator as ev
+
+    report = {
+        "viral_families": {
+            "Good": {"roc_auc": 0.8, "prc_auc": 0.8},
+            "SingleClass": {"roc_auc": float("nan"), "prc_auc": float("nan")},
+        }
+    }
+    all_aucs = [v["roc_auc"] for v in report["viral_families"].values()]
+    scored = [x for x in all_aucs if ev.np.isfinite(x)]
+    assert len(scored) == 1
+    assert float(ev.np.mean(scored)) == pytest.approx(0.8)
+    # Folding the undefined cohort in as 0.0 would have given 0.4.
+    assert float(ev.np.mean([0.8, 0.0])) == pytest.approx(0.4)
