@@ -95,7 +95,14 @@ def calculate_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
 def calculate_average_precision(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     """
     Calculate Area Under the Precision-Recall Curve (PRC-AUC / Average Precision)
-    via trapezoidal integration over unique score thresholds.
+    as a step-wise sum over unique score thresholds, sum((r_n - r_n-1) * p_n).
+
+    NOT trapezoidal, which this docstring claimed until 2026-09-15. The
+    distinction is not pedantic: trapezoidal interpolation between PR points is
+    optimistically biased, which is why sklearn's average_precision_score uses
+    the step-wise form and documents that it does. This implementation matches
+    that function to within 1e-12, so a reader taking the old wording at face
+    value might have "fixed" a correct function into a biased one.
     """
     y_true = np.asarray(y_true)
     y_scores = np.asarray(y_scores)
