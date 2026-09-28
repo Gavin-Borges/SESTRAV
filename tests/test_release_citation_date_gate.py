@@ -36,8 +36,12 @@ VERSION = "9.9.9"
 
 def _gate_script() -> str:
     workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text(encoding="utf-8"))
-    steps = workflow["jobs"]["release"]["steps"]
-    matches = [step for step in steps if step.get("name") == STEP_NAME]
+    matches = [
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == STEP_NAME
+    ]
     assert len(matches) == 1, f"expected one {STEP_NAME!r} step, found {len(matches)}"
     lines = matches[0]["run"].splitlines()
     # The heredoc delimiter is quoted, so the shell passes the body through
