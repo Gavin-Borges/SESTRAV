@@ -713,7 +713,7 @@ def test_the_margin_is_last_passing_not_first_breaching():
 def _run_qc_gate(dataset_path, config_path):
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
