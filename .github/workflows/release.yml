@@ -22,6 +22,7 @@ jobs:
   release:
     name: Build, attest, and publish signed release
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write       # create the GitHub Release and upload assets
       id-token: write        # OIDC token for keyless Sigstore signing
@@ -266,6 +267,7 @@ jobs:
     name: Publish to PyPI
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Gate: set repository variable PYPI_PUBLISH=true (Settings -> Variables -> Actions).
     # Keeping the toggle in a non-secret variable makes the condition evaluable at
     # job-scheduling time (secrets context is unavailable in job-level `if` expressions).
