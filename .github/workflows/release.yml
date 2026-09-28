@@ -199,6 +199,12 @@ jobs:
     name: Attest and publish signed release
     needs: build
     runs-on: ubuntu-latest
+    # 15 is the bound ci.yml's compat job and security.yml's pip-audit and
+    # python-sbom jobs already carry. This job downloads one artifact and then
+    # makes authenticated network calls (Sigstore signing, gh release create). It
+    # neither builds nor resolves dependencies, so it is bounded by network
+    # round-trips rather than by compute.
+    timeout-minutes: 15
     permissions:
       contents: write       # create the GitHub Release and upload assets
       id-token: write       # OIDC token for keyless Sigstore signing
@@ -315,6 +321,14 @@ jobs:
     name: Smoke-test the published package
     needs: publish
     runs-on: ubuntu-latest
+    # 20, the bound security.yml's codeql job already carries, rather than the 10
+    # the single-purpose gates use: the install step below tries five times and
+    # sleeps 30 seconds after each failed attempt (two and a half minutes of
+    # sleeps on its own), and every attempt resolves the full dependency closure.
+    # A kill here does not un-publish anything, and only this job needs
+    # re-running; the bound is generous because a spurious failure marks an
+    # already-published release red.
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
