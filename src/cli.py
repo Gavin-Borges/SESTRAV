@@ -13,6 +13,17 @@ import argparse
 import os
 import sys
 
+_MHCFLURRY_MODEL_DOWNLOAD = "models_class1_presentation"
+
+
+class CliPreconditionError(Exception):
+    """A precondition a subcommand checked before doing any work, and found unmet.
+
+    main() catches this type, and only this type, and reports it as one line on
+    stderr with exit code 1. Anything else still propagates with its traceback,
+    so a genuine bug is not hidden behind a tidy message.
+    """
+
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -32,6 +43,121 @@ def _package_version() -> str:
 def _require_file(path: str, parser: argparse.ArgumentParser, label: str) -> None:
     if not os.path.isfile(path):
         parser.error(f"{label} not found: '{path}'")
+
+
+def _mhcflurry_downloads():
+    """Import mhcflurry.downloads, refusing with an accurate message if it cannot import.
+
+    mhcflurry is a core dependency, so this should never fire; when it does, the
+    fetch command the model-data message recommends would not exist either.
+    """
+    try:
+        import mhcflurry.downloads as downloads
+    except ImportError as exc:
+        raise CliPreconditionError(
+            f"mhcflurry is not installed or cannot be imported ({exc}). It is a core "
+            "dependency of SESTRAV, so reinstall SESTRAV with its dependencies, then retry."
+        ) from None
+    return downloads
+
+
+def _mhcflurry_model_data_path() -> str | None:
+    """Return the presentation-model directory Stage 2 loads, or None when absent.
+
+    Resolved with the function Class1PresentationPredictor.load() itself uses by
+    default, so this answers the same question Stage 2 will ask, environment
+    overrides included. Raises CliPreconditionError when mhcflurry cannot be
+    imported at all, since "absent data" would then be the wrong diagnosis.
+    """
+    downloads = _mhcflurry_downloads()
+    try:
+        return downloads.get_default_class1_presentation_models_dir(test_exists=True)
+    except (OSError, RuntimeError):
+        return None
+
+
+# Every mhcflurry release from 2.1.0 (the floor pyproject.toml declares) to 2.2.1
+# (the lockfile pin and, on 2026-09-23, the latest release) does
+# `from pipes import quote` in downloads_command.py, and the pipes module is gone
+# from Python 3.13, so `mhcflurry-downloads fetch` cannot run there - including on
+# the python:3.13-slim base the Dockerfiles build on. 2.3.0, published 2026-09-28,
+# imports quote from shlex instead (read from its source, not run here), so the
+# note below is gated on the installed version as well as the interpreter.
+_MHCFLURRY_LAST_PIPES_RELEASE = (2, 2, 1)
+
+
+def _mhcflurry_version_tuple() -> tuple[int, ...] | None:
+    """Return the installed mhcflurry release as integers, or None if unreadable."""
+    import importlib.metadata
+    import re
+
+    try:
+        version = importlib.metadata.version("mhcflurry")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+    match = re.match(r"(\d+)(?:\.(\d+))?(?:\.(\d+))?", version)
+    if match is None:
+        return None
+    return tuple(int(part or 0) for part in match.groups())
+
+
+def _mhcflurry_model_data_message(downloads_dir: str | None) -> str:
+    message = (
+        "MHCflurry model data is absent, and Stage 2 cannot run without it. "
+        f"Run `mhcflurry-downloads fetch {_MHCFLURRY_MODEL_DOWNLOAD}`, then retry."
+    )
+    installed = _mhcflurry_version_tuple()
+    if (
+        sys.version_info >= (3, 13)
+        and installed is not None
+        and installed <= _MHCFLURRY_LAST_PIPES_RELEASE
+    ):
+        # The fetch writes into mhcflurry's downloads directory, which is
+        # MHCFLURRY_DOWNLOADS_DIR when that is set and otherwise MHCFLURRY_DATA_DIR
+        # (or a per-user default) joined with the release name. Naming the resolved
+        # directory and handing it over as MHCFLURRY_DOWNLOADS_DIR is exact whichever
+        # of those this environment used.
+        version = ".".join(str(part) for part in installed)
+        message += (
+            f" On Python 3.13 and later the mhcflurry {version} downloader cannot run, "
+            "because it imports the 'pipes' module that Python 3.13 removed; run the "
+            "fetch from a Python 3.11 or 3.12 environment that has the same mhcflurry "
+            f"version, with MHCFLURRY_DOWNLOADS_DIR set to {downloads_dir}, the "
+            "directory this one reads, then retry."
+        )
+    return message
+
+
+def _require_conformal_calibrator(args: argparse.Namespace, freeze_mode: bool) -> None:
+    """Refuse, before Stage 1, a conformal request that Stage 4 would refuse.
+
+    Stage 4 resolves the calibrator only after Stages 1 to 3 (a full MHCflurry
+    pass), so its two refusals used to arrive late and as a traceback: an explicit
+    --conformal-calibrator that does not exist, and freeze mode with no calibrator
+    found at all. This asks Stage 4's own resolver, with the model directory Stage 4
+    derives from --model, so the two answers cannot drift apart. Without freeze mode
+    a missing default calibrator is only a warning in Stage 4, and stays one here.
+    """
+    if not args.conformal:
+        return
+
+    from functions.stage4_immunogenicity_scoring import _resolve_conformal_path
+
+    try:
+        resolved = _resolve_conformal_path(os.path.dirname(args.model), args.conformal_calibrator)
+    except FileNotFoundError:
+        raise CliPreconditionError(
+            f"conformal calibrator not found: {args.conformal_calibrator!r}. Pass an "
+            "existing --conformal-calibrator path, or --no-conformal to run without intervals."
+        ) from None
+    if resolved is None and freeze_mode:
+        raise CliPreconditionError(
+            "freeze mode requires a conformal calibrator and none was found: no "
+            "--conformal-calibrator was given, and there is no conformal_calibrator.joblib "
+            "beside the model or at models/v5/conformal_calibrator.joblib under the working "
+            "directory. Pass --conformal-calibrator PATH, --no-conformal to run without "
+            "intervals, or --no-freeze-mode to let Stage 4 continue without them."
+        )
 
 
 def _read_config() -> dict:
@@ -68,6 +194,14 @@ def cmd_info(args: argparse.Namespace) -> int:
         print(f"  mhcflurry       : {mhcflurry.__version__}")
     except (ImportError, OSError):
         print("  mhcflurry       : not installed")
+
+    # The library importing says nothing about its model data, which is a separate
+    # download that a fresh install does not include.
+    try:
+        model_data = "present" if _mhcflurry_model_data_path() is not None else "absent"
+    except CliPreconditionError:
+        model_data = "unknown (mhcflurry not importable)"
+    print(f"  mhcflurry data  : {model_data}")
 
     # PyTorch version
     try:
@@ -125,8 +259,10 @@ def cmd_predict(args: argparse.Namespace) -> int:
 
     _require_file(args.fasta, _build_predict_parser(), "--fasta")
     _require_file(args.model, _build_predict_parser(), "--model")
-
-    os.makedirs(args.output, exist_ok=True)
+    if _mhcflurry_model_data_path() is None:
+        raise CliPreconditionError(
+            _mhcflurry_model_data_message(_mhcflurry_downloads().get_downloads_dir())
+        )
 
     # Derive a proteome_id from the FASTA filename
     proteome_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", os.path.splitext(os.path.basename(args.fasta))[0])
@@ -146,6 +282,11 @@ def cmd_predict(args: argparse.Namespace) -> int:
     if freeze_mode is None:
         freeze_mode = bool(_read_config().get("freeze_mode", False))
     print(f"[sestrav predict] Freeze mode: {freeze_mode}")
+    _require_conformal_calibrator(args, freeze_mode)
+
+    # Created only once every precondition has passed, so a refused run leaves
+    # nothing behind.
+    os.makedirs(args.output, exist_ok=True)
 
     # Stage 1 - peptide generation
     print("[Stage 1] Generating peptides...")
@@ -607,7 +748,11 @@ Examples:
         "benchmark": cmd_benchmark,
         "info": cmd_info,
     }
-    return dispatch[args.subcommand](args)
+    try:
+        return dispatch[args.subcommand](args)
+    except CliPreconditionError as exc:
+        print(f"sestrav {args.subcommand}: error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
