@@ -11,6 +11,10 @@ torch = pytest.importorskip("torch")
 from src.gnn.models import GCNLayer, GraphEncoder, GraphPredictor, GraphEncoderV2, GraphPredictorV2
 from src.gnn.graph_builder import GraphBuilder
 
+# GraphEncoderV2 imports torch_geometric inside its own __init__, so these tests
+# collect without it and would FAIL rather than skip; see the gnn extra.
+_NEEDS_PYG = "GraphEncoderV2 imports torch_geometric (gnn extra, not dev)"
+
 
 MAX_LEN = 11
 
@@ -146,6 +150,7 @@ def test_pyg_chain_graph_full_topology_is_byte_stable():
 
 
 def test_graph_encoder_v2_output_shape():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     enc = GraphEncoderV2(node_dim=32, hidden_dim=16, out_dim=8, edge_dim=3)
     batch = _make_pyg_batch(batch_size=4, num_features=10, node_dim=32)
     out = enc(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
@@ -153,6 +158,7 @@ def test_graph_encoder_v2_output_shape():
 
 
 def test_graph_predictor_v2_forward_shape():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     model = GraphPredictorV2(num_continuous_features=30, node_dim=32)
     # Rebuild with small node_dim to avoid 320-dim overhead in tests
     model.encoder = GraphEncoderV2(node_dim=32, hidden_dim=16, out_dim=128, edge_dim=3)
@@ -195,6 +201,7 @@ def test_graph_predictor_gradient_reaches_encoder():
 
 def test_graph_predictor_v2_gradient_reaches_encoder():
     """v2 production path: backward must reach GINEConv 1's first Linear weight."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     torch.manual_seed(0)
     model = GraphPredictorV2(num_continuous_features=30, node_dim=32)
     model.encoder = GraphEncoderV2(node_dim=32, hidden_dim=16, out_dim=128, edge_dim=3)
@@ -211,6 +218,7 @@ def test_graph_predictor_v2_gradient_reaches_encoder():
 
 
 def test_graph_predictor_v2_eval_single_sample():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     model = GraphPredictorV2(num_continuous_features=12, node_dim=32)
     model.encoder = GraphEncoderV2(node_dim=32, hidden_dim=16, out_dim=128, edge_dim=3)
     model.eval()

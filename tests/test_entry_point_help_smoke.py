@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 
 import pytest
@@ -162,7 +163,21 @@ ALLOW_OVERWRITE_ENTRY_POINTS = list(dict.fromkeys(m for m, _ in REQUIRED_OUTPUT_
 REQUIRED_ARGS_MARKER = "the following arguments are required:"
 
 
+# Entry points whose module scope imports a distribution the `dev` extra does not
+# install. Without it the subprocess dies on ImportError, which says nothing about
+# argparse, so the case is skipped instead. Checked by distribution metadata,
+# never by importing: `import shap` in THIS process is the native crash the
+# machine note above keeps contained in the subprocess.
+NEEDS_OPTIONAL_DISTRIBUTION = {"src.shap_analysis": "shap"}
+
+
 def _run_module(*args: str) -> subprocess.CompletedProcess[str]:
+    needed = NEEDS_OPTIONAL_DISTRIBUTION.get(args[0])
+    if needed is not None:
+        try:
+            distribution(needed)
+        except PackageNotFoundError:
+            pytest.skip(f"{args[0]} imports {needed}, which the dev extra does not install")
     return subprocess.run(
         [sys.executable, "-m", *args],
         capture_output=True,

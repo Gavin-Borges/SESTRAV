@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import src.verify.promote_gnn as pgnn
 from src.verify.promote_gnn import (
@@ -23,6 +24,8 @@ from src.verify.promote_gnn import (
     check_promotion_gates,
     promote_model,
 )
+
+_NEEDS_PYG = "gate3_latency imports torch_geometric (gnn extra, not dev)"
 
 
 # ---------------------------------------------------------------------------
@@ -665,6 +668,7 @@ def test_gate3_latency_passes_pyg_batch_to_forward():
     Uses GraphPredictorV2 (GINEConv + ESM-2) which accepts a batched Data object
     rather than the (node_x, feat_x, adj) signature of the v1 GraphPredictor.
     """
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.verify.promote_gnn import gate3_latency
@@ -698,6 +702,7 @@ def test_gate3_latency_passes_pyg_batch_to_forward():
 
 
 def test_gate3_latency_fails_when_rf_missing():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.verify.promote_gnn import gate3_latency
 
     with (
@@ -716,6 +721,7 @@ def test_gate3_latency_fails_when_rf_missing():
 
 
 def test_gate3_latency_fails_when_gnn_missing():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import numpy as np
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.verify.promote_gnn import gate3_latency
