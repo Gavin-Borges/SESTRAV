@@ -197,14 +197,14 @@ jobs:
           AI_REPOSITORY_MANIFEST
           PATEOF
 
-          # Mirrors PATH_SCAN_EXEMPT in scripts/hooks/pre-commit: exact
-          # repo-relative paths where an example workstation path is
-          # legitimately quoted. Compared with string equality, never as a
-          # substring, so `docs/notes_CHANGELOG.md` cannot inherit it. This
-          # workflow is exempt because it quotes the patterns itself.
+          # Counterpart of PATH_SCAN_EXEMPT in scripts/hooks/pre-commit, whose
+          # list is now empty. The one path left is this workflow itself, kept
+          # as a precaution because it carries the patterns, although none of
+          # them matches its own text today. Compared with string equality,
+          # never as a substring; tracked prose has no exemption.
           is_exempt() {
             case "$1" in
-              CHANGELOG.md|.github/workflows/pii_scan.yml) return 0 ;;
+              .github/workflows/pii_scan.yml) return 0 ;;
               *) return 1 ;;
             esac
           }
