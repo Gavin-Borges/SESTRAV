@@ -79,8 +79,17 @@ def test_cmd_predict_threads_output_to_all_writing_stages(monkeypatch, tmp_path)
     output_dir = tmp_path / "requested"
     seen = []
     frame = pd.DataFrame({"peptide": ["ACDEFGHI"], "immunogenicity_score": [0.8]})
-    if hasattr(cli, "_require_mhcflurry_model_data"):
-        monkeypatch.setattr(cli, "_require_mhcflurry_model_data", lambda: None)
+    # If cmd_predict carries a model-data precondition, stub it so this test
+    # exercises output threading rather than that precondition, returning a path
+    # because the check refuses on None.
+    #
+    # The name is READ OFF src/cli.py, not guessed. This guard previously named
+    # _require_mhcflurry_model_data, which exists nowhere, so hasattr() was always
+    # False and the stub never applied. That is invisible while cmd_predict has no
+    # precondition, and fails this test wherever model data is absent - which
+    # includes CI - once it has one.
+    if hasattr(cli, "_mhcflurry_model_data_path"):
+        monkeypatch.setattr(cli, "_mhcflurry_model_data_path", lambda: "stubbed-models-dir")
 
     def fake_stage1(*args, output_dir, **kwargs):
         seen.append(("stage1", Path(output_dir)))
