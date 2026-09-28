@@ -416,9 +416,12 @@ def test_info_survives_an_oserror_from_the_mhcflurry_import(
 
 
 def test_predict_survives_an_oserror_from_the_mhcflurry_import(
-    mhcflurry_import_raises_oserror, stage_calls, tmp_path, capsys
+    stage_calls, mhcflurry_import_raises_oserror, tmp_path, capsys
 ):
     """predict must refuse with the precondition message, not a traceback."""
+    # stage_calls is listed first so the stage modules are imported, and stubbed, before
+    # the import patch goes in: stage 2 imports mhcflurry at module level, so the other
+    # order fails at setup whenever no earlier test in the process imported stage 2.
     rc = cli.main(_predict_argv(tmp_path, "--no-freeze-mode"))
     err = capsys.readouterr().err
 
