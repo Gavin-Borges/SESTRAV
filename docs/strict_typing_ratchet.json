@@ -19,6 +19,7 @@
     "src/naming.py",
     "src/prepare_data.py",
     "src/prepare_external_validation_inputs.py",
+    "src/prepare_external_validation_tier_b_inputs.py",
     "src/release_bundle.py"
   ]
 }

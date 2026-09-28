@@ -15,7 +15,7 @@ import argparse
 import json
 import os
 from datetime import datetime, timezone
-from typing import Dict, List, Set
+from typing import Any, Dict, List, Set
 
 import pandas as pd
 import yaml
@@ -115,7 +115,7 @@ def main() -> None:
         if cfg.get("alleles"):
             alleles = [a for a in cfg["alleles"] if "B*44:02" not in a and "B4402" not in a]
 
-    manifest: Dict = {
+    manifest: Dict[str, Any] = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "scope": "tierB",
         "top_n_per_virus": args.top_n,
