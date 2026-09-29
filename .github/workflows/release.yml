@@ -169,16 +169,34 @@ jobs:
               sys.exit(1)
           print("import sestrav OK", sestrav.__version__)
           PY
-          /tmp/relcheck/bin/python -c "
-          import functions.stage1_peptide_generation
-          import functions.stage2_mhc_binding_prediction
-          import functions.stage3_tcr_feature_extraction
-          import functions.stage4_immunogenicity_scoring
-          print('import functions.stage1-4 OK')
-          "
-          /tmp/relcheck/bin/python -c "import src.cli; print('import src.cli OK')"
+          # The import list is DERIVED, not hardcoded. The hardcoded form has
+          # already failed once in exactly the way a hardcoded list fails: until
+          # 2026-08-16 it named stage 1 only, so matplotlib - reached through
+          # stage 4 - cleared this gate while declared nowhere.
+          # scripts/check_consumer_install.py walks src/cli.py's module-scope
+          # imports plus the lazy imports inside every cmd_* function and follows
+          # them transitively, so a new command or a new module is covered without
+          # anyone remembering to edit this file. It also fails when a subparser
+          # has no cmd_ function or a cmd_ function no parser advertises, which is
+          # how this coverage would otherwise go quietly stale again.
+          #
+          # It is scoped to reachability from a shipped command, not to every
+          # module in the wheel: src/optimizer.py imports pulp from the dev extra
+          # and no command reaches it, so importing everything would fail here and
+          # push pulp into every consumer's install for nothing.
+          #
+          # Run from outside the checkout with --require-installed so the imports
+          # resolve to the wheel just installed and not to the source tree in
+          # $GITHUB_WORKSPACE. Without that flag the whole check is vacuous, and
+          # the flag makes that failure loud instead of silent.
+          ( cd /tmp && /tmp/relcheck/bin/python               "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"               --root "${GITHUB_WORKSPACE}" --require-installed )
+
           /tmp/relcheck/bin/sestrav --help > /dev/null
           echo "sestrav --help OK"
+          for command in $(/tmp/relcheck/bin/python                 "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"                 --root "${GITHUB_WORKSPACE}" --list-commands); do
+            /tmp/relcheck/bin/sestrav "$command" --help > /dev/null
+            echo "sestrav $command --help OK"
+          done
 
       - name: Build canonical results bundle (checksummed zip of tracked results/ artifacts)
         # Stdlib-only (hashlib/json/zipfile) - no ML runtime deps needed. Lets a reader
