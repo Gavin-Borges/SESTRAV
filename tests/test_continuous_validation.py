@@ -353,3 +353,76 @@ def test_binding_matrix_fallback_matches_config(monkeypatch):
         f"config-absent fallback resolved {binding_matrix!r} but config.yaml "
         f"declares {declared!r}; the two defaults must not diverge"
     )
+
+
+# ---------------------------------------------------------------------------
+# --preflight: the model gate, applied before anything is fetched
+# ---------------------------------------------------------------------------
+
+
+def test_preflight_needs_no_inputs_and_is_not_a_pass_without_a_model(tmp_path):
+    """The whole point is to run BEFORE the fetch, so it cannot demand inputs.
+
+    Passing --inputs here would defeat the reorder: those paths do not exist
+    until the fetch step has already run.
+    """
+    code = cv.main(
+        [
+            "--model-path",
+            str(tmp_path / "definitely_absent.joblib"),
+            "--preflight",
+            "--require-measurement",
+        ]
+    )
+    assert code == cv.EXIT_COULD_NOT_RUN
+
+
+def test_preflight_with_a_present_model_exits_zero_and_scores_nothing(tmp_path):
+    model = tmp_path / "present.joblib"
+    model.write_bytes(b"not a real model, only its presence is gated on")
+    results = tmp_path / "out"
+
+    code = cv.main(
+        [
+            "--model-path",
+            str(model),
+            "--results-dir",
+            str(results),
+            "--preflight",
+            "--require-measurement",
+        ]
+    )
+    assert code == 0
+    assert not results.exists(), "a preflight must not write results; it scores nothing"
+
+
+def test_the_model_gate_runs_before_the_fetch_in_the_monthly_workflow():
+    """Ordering is the defect this guards, and ordering is not visible to unit tests.
+
+    The job fetches two live IEDB exports. With the gate after the fetch, a run
+    that can never score still queried a third-party academic service twice and
+    discarded both results. Pin the order so a later edit cannot quietly restore
+    it: the value is entirely in WHERE the step sits, so nothing but position
+    can be asserted here.
+    """
+    import pathlib
+
+    import yaml
+
+    wf = yaml.safe_load(
+        pathlib.Path(".github/workflows/iedb_benchmark.yml").read_text(encoding="utf-8")
+    )
+    steps = wf["jobs"]["benchmark"]["steps"]
+    runs = [str(s.get("run", "")) for s in steps]
+
+    preflight = [i for i, r in enumerate(runs) if "--preflight" in r]
+    fetch = [i for i, r in enumerate(runs) if "fetch_iedb_tcell.py" in r]
+    score = [i for i, r in enumerate(runs) if "src.continuous_validation" in r and "--preflight" not in r]
+
+    assert len(preflight) == 1, f"expected exactly one preflight step, found {len(preflight)}"
+    assert len(fetch) == 1, f"expected exactly one IEDB fetch step, found {len(fetch)}"
+    assert len(score) == 1, f"expected exactly one scoring step, found {len(score)}"
+    assert preflight[0] < fetch[0] < score[0], (
+        f"step order is preflight={preflight[0]}, fetch={fetch[0]}, score={score[0]}; "
+        "the model gate must precede the fetch or the job queries IEDB for nothing"
+    )
