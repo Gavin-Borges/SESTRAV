@@ -58,6 +58,20 @@ jobs:
         # `git cat-file blob HEAD:<path>`, which works at the default fetch-depth 1.
         # The verdict is platform-stable: every PORTABLE row records the blob digest,
         # so a CRLF worktree cannot turn one into a MISMATCH on a Linux runner.
+        #
+        # Read this step as certifying the 36 PORTABLE rows and nothing else. The 28
+        # MISSING are 21 distinct subjects: 19 gitignored model artifacts under models/
+        # and 2 gitignored inputs under data/. Re-measured 2026-09-16 at d064dbc, all
+        # 28 record recorded == worktree, so on a maintainer box those digests do match
+        # real files; they are MISSING only because the subject is untracked and
+        # classify() has no blob to compare against.
+        #
+        # On this runner those files do not exist at all, so the worktree digest is
+        # None and classify() returns MISSING from the same blob-is-None branch. The
+        # SUMMARY line is therefore identical in both places while meaning two
+        # different things: "matches a file Git does not track" on a maintainer box,
+        # "nothing was compared" here. Neither fails --strict, and per the
+        # apply_exemption docstring that is deliberate rather than an oversight.
         run: python scripts/check_digest_portability.py --strict
 
       - name: Install Ruff
