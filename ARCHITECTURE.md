@@ -345,7 +345,13 @@ was called against it: Gate 1 FAIL at 0.6458 against the >= 0.65 threshold, Gate
 0.0234 against <= 0.02, Gates 3, 4 and 5 PASS. Promotion stays blocked, but on a measured
 result rather than for want of a scoreable frame - and the same run beat the RF mode-31
 baseline by a paired-bootstrap AUC-PR delta of +0.0402, 95% CI [0.0286, 0.0520], which
-excludes zero. Both are the outcome and neither cancels the other. The run wrote only to
+excludes zero. Both are the outcome and neither cancels the other. **Both figures are the
+best of EIGHT runs, not one run** (`docs/gnn_gate_retry_preregistration.md` section 1.1):
+the 2026-08-13 archive run quoted here is the maximum of an n=8 series on both reported
+quantities. Across the series Gate 1 spans 0.6298 to 0.6458 and passes **0 of 8**, so the
+null is better supported than a single run implies; but the 0.0042 deficit is the series
+SMALLEST against a mean of 0.0122, and +0.0402 is the series MAXIMUM against a worst seed of
++0.0243 (which still excludes zero). The run wrote only to
 gitignored `models/scratch/`, so the tracked artifact is unchanged and the v4 statuses in the
 table above still describe it.
 

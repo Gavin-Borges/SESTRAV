@@ -1249,7 +1249,7 @@ splitter, was completed and evaluated against a pre-registered promotion bar
 zero versus the RF mode-31 baseline). The result is a null on that bar: pooled
 AUC-PR reached 0.6458, missing the threshold by 0.0042, and cross-fold stability
 also failed the corresponding gate, though calibration, latency, and escape-sensitivity
-gates passed. AUC-PR was nonetheless significantly higher than the RF mode-31
+gates passed. Both quoted figures are the most favourable of eight independent evaluations against this scoring frame, not a single run: pooled AUC-PR spans 0.6298 to 0.6458 across the series and no run reaches the threshold, so the null is more strongly supported than the quoted run implies, while the 0.0042 shortfall is the smallest observed against a series mean of 0.0122 and the reported delta is the series maximum against a worst-seed delta that still excludes zero. AUC-PR was nonetheless significantly higher than the RF mode-31
 baseline (a paired-bootstrap delta with a 95% CI of [0.0286, 0.0520], excluding
 zero), indicating that the
 graph track as a whole, and principally the per-residue ESM-2 t12 embeddings [19]
