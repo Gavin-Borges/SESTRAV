@@ -16,6 +16,8 @@ than a stand-in for it. The stage functions are stubbed to record calls, which i
 
 from __future__ import annotations
 
+import os
+
 import pandas as pd
 import pytest
 
@@ -27,13 +29,23 @@ FETCH_MESSAGE = (
 )
 
 
-def _py313_note(version, downloads_dir):
-    return (
+def _py313_note(version, downloads_dir, custom_downloads_dir=False):
+    head = (
         f" On Python 3.13 and later the mhcflurry {version} downloader cannot run, "
         "because it imports the 'pipes' module that Python 3.13 removed; run the "
         "fetch from a Python 3.11 or 3.12 environment that has the same mhcflurry "
-        f"version, with MHCFLURRY_DOWNLOADS_DIR set to {downloads_dir}, the "
-        "directory this one reads, then retry."
+        "version, "
+    )
+    if custom_downloads_dir:
+        return head + (
+            "then copy the models_class1_presentation directory it downloads into "
+            f"{downloads_dir}, the directory this one reads, and retry."
+        )
+    data_dir, release = os.path.split(os.path.normpath(downloads_dir))
+    return head + (
+        f"with MHCFLURRY_DATA_DIR set to {data_dir} and "
+        f"MHCFLURRY_DOWNLOADS_CURRENT_RELEASE set to {release}, which together "
+        f"name {downloads_dir}, the directory this one reads, then retry."
     )
 
 
@@ -208,6 +220,7 @@ def test_predict_without_model_data_fails_before_stage_one(
     2.2.1, and names the installed version and the directory to fetch into.
     """
     monkeypatch.setattr(cli, "sys", _SysWithVersion(version_info))
+    monkeypatch.delenv("MHCFLURRY_DOWNLOADS_DIR", raising=False)
     _fake_mhcflurry_version(monkeypatch, mhcflurry_version)
 
     rc = cli.main(_predict_argv(tmp_path, "--no-freeze-mode"))
@@ -220,6 +233,56 @@ def test_predict_without_model_data_fails_before_stage_one(
     assert err == f"sestrav predict: error: {expected}\n"
     assert "Traceback" not in err
     assert not (tmp_path / "out").exists(), "a refused run created its output directory"
+
+
+def test_predict_py313_note_with_a_custom_downloads_dir_says_copy(
+    monkeypatch, mhcflurry_downloads, stage_calls, tmp_path, capsys
+):
+    """With MHCFLURRY_DOWNLOADS_DIR set, mhcflurry 2.2.1 refuses to fetch at all.
+
+    Its fetch raises "No release defined" when that variable is set, and --release
+    then fails looking up a None release, so re-exporting the variable elsewhere is no
+    route. The note must say to copy the downloaded directory in instead.
+    """
+    monkeypatch.setattr(cli, "sys", _SysWithVersion((3, 13, 0)))
+    monkeypatch.setenv("MHCFLURRY_DOWNLOADS_DIR", mhcflurry_downloads.downloads_dir)
+    _fake_mhcflurry_version(monkeypatch, "2.2.1")
+
+    rc = cli.main(_predict_argv(tmp_path, "--no-freeze-mode"))
+    err = capsys.readouterr().err
+
+    assert rc == 1
+    note = _py313_note("2.2.1", mhcflurry_downloads.downloads_dir, custom_downloads_dir=True)
+    assert err == f"sestrav predict: error: {FETCH_MESSAGE}{note}\n"
+    assert "MHCFLURRY_DOWNLOADS_DIR set to" not in err
+
+
+def test_py313_note_variables_resolve_to_the_named_directory(monkeypatch, tmp_path):
+    """The two variables the note prints must bring mhcflurry to the directory it names.
+
+    Checked against mhcflurry's own configure(), not against this module's reading of
+    it: the note is built for a directory laid out as <data dir>/<current release>,
+    then those two values are exported and configure() must resolve exactly there.
+    """
+    import mhcflurry.downloads as downloads
+
+    release = downloads.get_downloads_metadata()["current-release"]
+    downloads_dir = str(tmp_path / "mhcflurry-data" / release)
+    monkeypatch.setattr(cli, "sys", _SysWithVersion((3, 13, 0)))
+    monkeypatch.delenv("MHCFLURRY_DOWNLOADS_DIR", raising=False)
+    _fake_mhcflurry_version(monkeypatch, "2.2.1")
+    note = cli._mhcflurry_model_data_message(downloads_dir)
+
+    data_dir, printed_release = os.path.split(os.path.normpath(downloads_dir))
+    assert f"MHCFLURRY_DATA_DIR set to {data_dir} and " in note
+    assert f"MHCFLURRY_DOWNLOADS_CURRENT_RELEASE set to {printed_release}," in note
+
+    monkeypatch.setattr(downloads, "_DOWNLOADS_DIR", downloads._DOWNLOADS_DIR)
+    monkeypatch.setattr(downloads, "_CURRENT_RELEASE", downloads._CURRENT_RELEASE)
+    monkeypatch.setenv("MHCFLURRY_DATA_DIR", data_dir)
+    monkeypatch.setenv("MHCFLURRY_DOWNLOADS_CURRENT_RELEASE", printed_release)
+    downloads.configure()
+    assert os.path.normpath(downloads.get_downloads_dir()) == os.path.normpath(downloads_dir)
 
 
 def test_predict_without_mhcflurry_says_so_not_fetch(

@@ -123,19 +123,37 @@ def _mhcflurry_model_data_message(downloads_dir: str | None) -> str:
         and installed is not None
         and installed <= _MHCFLURRY_LAST_PIPES_RELEASE
     ):
-        # The fetch writes into mhcflurry's downloads directory, which is
-        # MHCFLURRY_DOWNLOADS_DIR when that is set and otherwise MHCFLURRY_DATA_DIR
-        # (or a per-user default) joined with the release name. Naming the resolved
-        # directory and handing it over as MHCFLURRY_DOWNLOADS_DIR is exact whichever
-        # of those this environment used.
         version = ".".join(str(part) for part in installed)
         message += (
             f" On Python 3.13 and later the mhcflurry {version} downloader cannot run, "
             "because it imports the 'pipes' module that Python 3.13 removed; run the "
             "fetch from a Python 3.11 or 3.12 environment that has the same mhcflurry "
-            f"version, with MHCFLURRY_DOWNLOADS_DIR set to {downloads_dir}, the "
-            "directory this one reads, then retry."
+            "version, "
         )
+        # mhcflurry's downloads directory is MHCFLURRY_DOWNLOADS_DIR when that is set,
+        # and otherwise MHCFLURRY_DATA_DIR (or a per-user default) joined with the
+        # release name. The second form can be reproduced in the other environment,
+        # which then downloads straight into this directory. The first cannot: with
+        # MHCFLURRY_DOWNLOADS_DIR set, this downloader leaves the release undefined and
+        # refuses to fetch ("No release defined"), and --release then fails looking up
+        # a None release. So a custom directory has to be filled by copying.
+        if downloads_dir and not os.environ.get("MHCFLURRY_DOWNLOADS_DIR"):
+            data_dir, release = os.path.split(os.path.normpath(downloads_dir))
+            message += (
+                f"with MHCFLURRY_DATA_DIR set to {data_dir} and "
+                f"MHCFLURRY_DOWNLOADS_CURRENT_RELEASE set to {release}, which together "
+                f"name {downloads_dir}, the directory this one reads, then retry."
+            )
+        else:
+            target = (
+                f"{downloads_dir}, the directory this one reads"
+                if downloads_dir
+                else "the downloads directory this environment reads"
+            )
+            message += (
+                f"then copy the {_MHCFLURRY_MODEL_DOWNLOAD} directory it downloads into "
+                f"{target}, and retry."
+            )
     return message
 
 
