@@ -171,7 +171,7 @@ def test_run_no_marker_when_within_threshold(tmp_path):
     assert (results / "benchmark_latest.json").exists()
 
 
-def test_run_seeds_when_no_baseline(tmp_path):
+def test_run_refuses_a_measurement_when_no_baseline_exists(tmp_path):
     marker = tmp_path / "REGRESSION_DETECTED"
     results = tmp_path / "out"
 
@@ -183,10 +183,9 @@ def test_run_seeds_when_no_baseline(tmp_path):
         marker_path=str(marker),
         today="2026-06-22",
     )
-    assert code == 0
-    assert not marker.exists()  # no baseline yet → seed, never a regression
-    payload = json.loads((results / "benchmark_latest.json").read_text())
-    assert payload["regression"]["baseline_auc_pr"] is None
+    assert code == cv.EXIT_COULD_NOT_RUN
+    assert not marker.exists()
+    assert not results.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -265,9 +264,11 @@ def test_a_real_measurement_still_exits_zero_under_the_flag(tmp_path):
     EXIT_COULD_NOT_RUN unconditionally.
     """
     results = tmp_path / "out"
+    baseline = tmp_path / "baselines.json"
+    baseline.write_text(json.dumps({cv.BASELINE_KEY: {"auc_pr": 0.50}}))
     code = cv.run(
         _write_inputs(tmp_path),
-        baseline_path=str(tmp_path / "absent.json"),
+        baseline_path=str(baseline),
         results_dir=str(results),
         score_fn=lambda df, m, b: {"auc_pr": 0.50, "n_peptides": len(df), "n_positive": 2},
         marker_path=str(tmp_path / "REGRESSION_DETECTED"),
