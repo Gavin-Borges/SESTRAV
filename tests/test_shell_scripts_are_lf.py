@@ -62,7 +62,19 @@ def _tracked_shell_files() -> list[str]:
     `scripts/hooks/` is matched as a directory rather than by extension because
     four of its five members carry no extension at all.
     """
-    listed = _git("ls-files").splitlines()
+    try:
+        listed = _git("ls-files").splitlines()
+    except (subprocess.CalledProcessError, OSError):
+        # Deliberately swallowed HERE and nowhere else. This function runs at
+        # COLLECTION time, inside the parametrize decorators below, so an
+        # exception escaping it takes the whole module down as a collection
+        # error - and a collection error means ZERO tests ran while reporting as
+        # a single red line. Returning empty instead routes the failure through
+        # test_discovery_is_not_vacuous, which fails loudly and names the cause.
+        # Measured: `git ls-files` exits non-zero inside a worktree created by
+        # Windows git and read from WSL, because the worktree's `.git` file
+        # points at a `C:/...` gitdir that Linux git cannot resolve.
+        return []
     return sorted(
         p for p in listed if p.endswith(".sh") or p.startswith("scripts/hooks/")
     )
@@ -89,7 +101,9 @@ def test_discovery_is_not_vacuous() -> None:
     assert not missing, (
         "shell-file discovery did not return known tracked hooks "
         f"{missing}; every other test in this file would pass vacuously. "
-        f"Discovery returned {len(found)} path(s)."
+        f"Discovery returned {len(found)} path(s). If it returned 0, `git "
+        "ls-files` failed outright - check that this is a readable checkout "
+        "and not a Windows-created worktree being read from WSL."
     )
 
 
