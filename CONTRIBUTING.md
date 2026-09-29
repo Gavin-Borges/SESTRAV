@@ -32,9 +32,12 @@ We recommend using Conda to manage environment dependencies.
    ```bash
    mhcflurry-downloads fetch models_class1_presentation
    ```
-   On Python 3.13 this command fails before downloading because MHCflurry 2.2.1
-   imports the removed standard-library `pipes` module. Run only the fetch step
-   under Python 3.11 or 3.12 when model data is needed. The canonical mode-31
+   The step 3 environment (Python 3.11.15) runs it as written. With MHCflurry
+   2.2.1, the version `requirements.txt` pins, it fails on Python 3.13 before
+   downloading, because 2.2.1 imports the standard-library `pipes` module that
+   Python 3.13 removed; MHCflurry 2.3.0 and later do not import it. In a 3.13
+   environment with 2.2.1, run only the fetch under Python 3.11 or 3.12 with the
+   same MHCflurry version, so the data release matches. The canonical mode-31
    training command in step 5 does not need this download: it reads the tracked
    dataset and tracked pre-built binding matrix named there.
 
