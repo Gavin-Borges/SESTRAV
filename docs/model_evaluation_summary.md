@@ -174,6 +174,12 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 | **ISSR@10** | 0.8105 ± 0.079 | 0.8105 ± 0.042 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
 | **ISSR@25** | 0.8367 ± 0.022 | 0.8408 ± 0.015 | Fraction of the top-25% ranked peptides that are true positives (precision within the top quartile) |
 
+> **Source:** `models/training_results.csv` at `1e2dbe21`, the v3 weighted 31-feature run. All
+> eight cells reproduce exactly, re-derived 2026-09-29. Anchored to the COMMIT rather than to the
+> bare path, the same way the mode-33 table above is anchored to `6a51995`, because the live
+> tracked file is now a v5 mode-31 run and binds none of these figures. The table was correct but
+> carried no pointer, so nothing tied it to an artifact.
+
 > **Note on ablation estimate:** An early unweighted ablation projected `full_31` AUC-PR 0.864.
 > The actual result with sample weights is 0.8276.
 > **Correction (2026-08-09):** this note previously called 0.8276 "consistent with the frozen
@@ -345,6 +351,11 @@ This document should be interpreted as the legacy baseline comparison, not the c
 | **RF (SESTRAV)** | **4/15** | **7/15** | **34.7%** |
 | XGBoost | 1/15 | 3/15 | 52.4% |
 | ANN (MLP) | 4/15 | 6/15 | 47.3% |
+
+> **Source:** `results/baseline_comparison.csv`, the four rows with `virus == Combined`. All
+> twelve cells reproduce exactly, re-derived 2026-09-29: `gs_found` is 15 for every method, and
+> `mean_rank_pct` is 2.2232994 / 34.6548402 / 52.4301783 / 47.2972486 for binding-only, RF,
+> XGBoost and ANN respectively. The table was correct but carried no pointer.
 
 ### Interpreting the Baseline Result
 
