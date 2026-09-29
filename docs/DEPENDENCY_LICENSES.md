@@ -332,7 +332,7 @@
 | sympy                                 | 1.14.0      | BSD License                                                                                         |
 | tabulate                              | 0.10.0      | MIT                                                                                                 |
 | tenacity                              | 9.1.4       | Apache Software License                                                                             |
-| threadpoolctl                         | 3.6.0       | BSD License                                                                                         |
+| threadpoolctl                         | 3.7.0       | BSD-3-Clause                                                                                        |
 | throttler                             | 1.2.3       | MIT License                                                                                         |
 | torch                                 | 2.13.0      | Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT |
 | torch-geometric                       | 2.7.0       | MIT                                                                                                 |
