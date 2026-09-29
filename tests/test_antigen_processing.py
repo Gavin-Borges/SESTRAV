@@ -255,7 +255,7 @@ class TestScoringConsistency:
 
 
 class TestLookupHelper:
-    """Covers the early-return branch in _lookup (line 155-156)."""
+    """Covers the early-return branch in _lookup."""
 
     def setup_method(self):
         from src.antigen_processing import _lookup

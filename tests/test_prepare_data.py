@@ -41,7 +41,7 @@ def test_prepare_allele_features():
 
 
 def test_prepare_allele_features_no_encoding():
-    """Covers line 85->89: encode_mode != 'one_hot' skips one-hot expansion."""
+    """Covers prepare_allele_features: encode_mode != 'one_hot' skips one-hot expansion."""
     df = pd.DataFrame(
         {
             "peptide": ["AAAA", "BBBB"],

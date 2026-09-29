@@ -55,7 +55,7 @@ def test_config_fails_missing_required(tmp_path):
 
 
 def test_config_optional_path_null_accepted(tmp_path):
-    """Covers line 52: validate_paths returns None early for explicit null values."""
+    """Covers validate_paths: returns None early for explicit null values."""
     valid_yaml = """
     antigens: ["HPV16"]
     proteome_files: {"HPV16": "data.fasta"}

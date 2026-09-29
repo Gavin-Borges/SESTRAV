@@ -6,8 +6,9 @@ against its compiled ``requirements*.txt`` / ``.lock`` output and fails if:
 
 1. A package the ``.in`` file pins with ``==`` is missing from the compiled
    output, or is present at a different version (the classic staleness bug:
-   someone bumped a version in the ``.in`` file and forgot to rerun
-   pip-compile). Pins guarded by an environment marker, e.g.
+   someone bumped a version in the ``.in`` file and forgot to regenerate the
+   lockfile with ``python tools/update_dependencies.py``). Pins guarded by an
+   environment marker, e.g.
    ``nvidia-nccl-cu12==X ; platform_system == "Linux"``, are only checked
    when present, since their resolution is legitimately platform-dependent.
 2. A package the ``.in`` file floors with ``>=`` (the CVE-override pattern
@@ -80,7 +81,7 @@ _HASH_RE = re.compile(r"--hash=sha256:[0-9a-fA-F]{64}")
 
 
 def normalize(name: str) -> str:
-    """PEP 503 style normalization so pip-compile's casing never matters."""
+    """PEP 503 style normalization so the compiler's casing never matters."""
     return _NAME_NORMALIZE_RE.sub("-", name).lower()
 
 
@@ -349,10 +350,10 @@ def main() -> int:
         for problem in problems:
             print(_annotate(problem))
         print(
-            "\nRegenerate the affected lockfile(s) locally (pip-compile --allow-unsafe "
-            "--generate-hashes ...; see the header comment of each .txt/.lock file for "
-            "its exact command) and push the result yourself. This check never writes "
-            "or pushes anything."
+            "\nRegenerate the affected lockfile(s) locally with "
+            "`python tools/update_dependencies.py` (--ci-env <name> for one CI tool env, "
+            "--all for a full re-lock; each .txt/.lock header records its exact command) "
+            "and push the result yourself. This check never writes or pushes anything."
         )
         return 1
 

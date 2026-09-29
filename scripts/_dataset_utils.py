@@ -8,12 +8,14 @@ Underscore-prefixed so it is not itself treated as an ingest script.
 
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import jsonschema
+import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -226,6 +228,50 @@ def normalize_virus_names(df, virus_col: str = "virus"):
         changed = original[df[virus_col] != original].value_counts()
         print(f"  Normalized {n_resolved} virus name aliases: {changed.to_dict()}")
     return df, n_resolved
+
+
+# A PMID column that carries blanks is inferred as float64 by pandas, so any
+# plain .astype(str) round trip renders 38923358 as "38923358.0". This pattern
+# also matches that text when it is read back from a CSV written that way.
+_PMID_FLOAT_TEXT = re.compile(r"^(\d+)\.0+$")
+
+# Stringified nulls that pandas produces; none is a real reference.
+_PMID_NULL_TOKENS = frozenset({"", "nan", "none", "<na>"})
+
+
+def _normalize_reference_pmid(value):
+    """Scalar half of `normalize_reference_pmids`; see that function."""
+    if value is None:
+        return None
+    if isinstance(value, float):
+        if value != value:  # NaN
+            return None
+        if value.is_integer():
+            return str(int(value))
+    text = str(value).strip()
+    if text.lower() in _PMID_NULL_TOKENS:
+        return None
+    match = _PMID_FLOAT_TEXT.match(text)
+    return match.group(1) if match else text
+
+
+def normalize_reference_pmids(values):
+    """Render PubMed IDs as bare integer strings, missing values as None.
+
+    Written so that a join against a real PubMed identifier matches: a float
+    suffix makes every such join miss silently, returning an empty result that
+    reads like a confident "no matching rows". Free-text references (LANL
+    exports carry strings such as "Plana2004 PMID:15213562") pass through
+    unchanged, and blanks stay null rather than becoming "nan" or "".
+
+    Takes and returns a pandas Series of object dtype, so that a missing PMID
+    is None rather than a NaN that later stringifies back to "nan".
+    """
+    return pd.Series(
+        [_normalize_reference_pmid(v) for v in values],
+        index=values.index,
+        dtype=object,
+    )
 
 
 def validate_against_schema(df, schema_path):

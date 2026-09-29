@@ -32,6 +32,7 @@ Usage:
 import os
 import argparse
 import json
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -40,7 +41,14 @@ from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold, pin_serial_s
 from xgboost import XGBClassifier
 from joblib import dump
 
-from src.artifact_integrity import MODEL_CHECKSUM_MANIFEST, update_checksum_manifest
+from src.artifact_integrity import (
+    MODEL_CHECKSUM_MANIFEST,
+    _relative_to_project_root,
+    binding_matrix_provenance_fields,
+    sha256_file,
+    update_checksum_manifest,
+    write_provenance_sidecar,
+)
 from src.features import (
     compute_features,
     FEATURE_COLUMNS,
@@ -759,6 +767,86 @@ def _artifact_stems(feature_mode: int | str) -> tuple[str, str]:
     return f"rf_{feature_mode}feature_integrated", f"xgb_{feature_mode}feature_integrated"
 
 
+def _input_provenance_pair(name: str, path: str | Path) -> dict[str, object]:
+    """`{<name>_path, <name>_sha256}` for one input a training run reads.
+
+    The shape is copied from `src.artifact_integrity.model_provenance_fields`
+    and `binding_matrix_provenance_fields`: a project-root-relative path plus
+    the file's own sha256, and `None` rather than an exception when the file is
+    not present locally, matching how `check_provenance` treats a missing
+    referenced artifact as a benign SKIP. Parameterized by `name` here only
+    because a training run reads four inputs of this shape and the pair-shaped
+    family in `src.artifact_integrity` names just one of them
+    (`binding_matrix_provenance_fields`); its other member,
+    `model_provenance_fields`, describes a model as a scorer's INPUT, which is
+    the opposite end from a training run.
+    """
+    resolved = Path(path)
+    return {
+        f"{name}_path": _relative_to_project_root(resolved),
+        f"{name}_sha256": sha256_file(resolved) if resolved.is_file() else None,
+    }
+
+
+def training_provenance_fields(
+    data_path: str | Path,
+    feature_mode: int | str,
+    binding_matrix_path: str | Path | None = None,
+    antigen_processing_cache_path: str | Path | None = None,
+    self_similarity_cache_path: str | Path | None = None,
+) -> dict[str, object]:
+    """The inputs a `train_models` run's artifacts are a function of.
+
+    Shaped for `write_provenance_sidecar`'s `extra` argument. Every artifact a
+    run writes is a function of the SAME inputs, so one payload is recorded
+    against all of them, the way `src/h2_tier_a_evaluation.py` records one
+    `model_prov` against its three CSVs.
+
+    Why the inputs and not only the artifact: `write_provenance_sidecar` already
+    records the output's own sha256, which detects an artifact being overwritten
+    but says nothing about what produced it. A model file is reproducible only
+    from the corpus and the binding matrix it was fitted on, and the binding
+    matrix is not a lesser input than the corpus - `prepare_features_30`
+    substitutes `np.zeros(10)` for every peptide the matrix omits without
+    raising, so a model is a function of the matrix's COVERAGE as much as of
+    its values (see `binding_matrix_provenance_fields`).
+
+    The two cache paths are recorded on the same footing because feature modes
+    33 and 35 read them into the feature matrix; both are `None` for every other
+    mode, and omitted from the payload rather than recorded as null, so a
+    mode-31 sidecar does not carry fields that mode cannot have.
+
+    No library versions are passed through `extra`. Whether this sidecar family
+    records them is a property of `write_provenance_sidecar`, which every caller
+    shares, and not of this one caller: adding a field type here alone would
+    make the trainer's sidecars incomparable with every sidecar already written.
+    If the family records them, the trainer's gain them with everyone else's.
+
+    Stated that way on purpose. An earlier draft asserted that NO library
+    versions are recorded "because none of the eight other modules that call
+    `write_provenance_sidecar` records any", which is a claim about the shared
+    writer dressed up as a claim about this function, and PR #539 makes it false
+    by adding the field to that writer for every caller at once. The two touch
+    different files, so nothing in git or CI can see the collision; the fix is
+    to say only what this function decides, which is true in either merge order.
+    """
+    fields: dict[str, object] = {"feature_mode": feature_mode}
+    fields.update(_input_provenance_pair("training_data", data_path))
+    if binding_matrix_path:
+        # The existing helper, not a local re-implementation: these two keys are
+        # already read by other consumers of this sidecar family.
+        fields.update(binding_matrix_provenance_fields(binding_matrix_path))
+    if antigen_processing_cache_path:
+        fields.update(
+            _input_provenance_pair("antigen_processing_cache", antigen_processing_cache_path)
+        )
+    if self_similarity_cache_path:
+        fields.update(
+            _input_provenance_pair("self_similarity_cache", self_similarity_cache_path)
+        )
+    return fields
+
+
 def planned_artifact_paths(model_dir: str, feature_mode: int | str) -> list[str]:
     """Every path a train_models run writes wholesale into model_dir.
 
@@ -1151,10 +1239,12 @@ def train_models(
         rf_oof_path = os.path.join(model_dir, "rf_oof_predictions.csv")
         rf_oof_out.to_csv(rf_oof_path, index=False)
         # Per-mode copy (see note above) so the canonical mode-31 OOF is not
-        # overwritten by later mode-33/35 runs.
-        rf_oof_out.to_csv(
-            os.path.join(model_dir, f"rf_oof_predictions_mode{feature_mode}.csv"), index=False
-        )
+        # overwritten by later mode-33/35 runs. Bound to a name rather than
+        # written inline so the provenance loop below can reach it: the per-mode
+        # copies are the durable ones (the generic filenames always hold the last
+        # run, whatever its mode), and they are what the model card cites.
+        rf_oof_mode_path = os.path.join(model_dir, f"rf_oof_predictions_mode{feature_mode}.csv")
+        rf_oof_out.to_csv(rf_oof_mode_path, index=False)
         threshold_payload: dict = pick_operating_threshold(
             rf_oof_out,
             score_col="score",
@@ -1186,6 +1276,41 @@ def train_models(
         ],
     )
     print(f"Artifact checksums updated in {checksum_manifest}")
+
+    # Provenance sidecars. The checksum manifest above records what each artifact
+    # HASHES TO; it records nothing about what produced it, so a manifest entry
+    # cannot distinguish a mode-31 model fitted on the v5 corpus from one fitted
+    # on v4 with the same filename. That is the gap the sidecar closes: it pins
+    # the corpus, the binding matrix and the feature mode this run actually read,
+    # alongside the artifact's own sha256.
+    #
+    # Written after every artifact is on disk, because write_provenance_sidecar
+    # hashes the file it is given. The same payload goes on every artifact, as in
+    # src/h2_tier_a_evaluation.py, since one run's outputs share one input set.
+    #
+    # Deliberately NOT added to planned_artifact_paths(): the overwrite guard
+    # protects published results, and a sidecar is derived from the artifact it
+    # sits beside, so guarding the artifact already guards the sidecar. Listing
+    # both would double every collision listing the guard prints.
+    run_provenance = training_provenance_fields(
+        data_path,
+        feature_mode,
+        binding_matrix_path=binding_matrix_path,
+        antigen_processing_cache_path=antigen_processing_cache_path,
+        self_similarity_cache_path=self_similarity_cache_path,
+    )
+    provenanced_artifacts = [
+        rf_path,
+        xgb_path,
+        results_path,
+        results_mode_path,
+        subgroup_path,
+        imp_path,
+        *([rf_oof_path, rf_oof_mode_path, threshold_path] if not rf_oof.empty else []),
+    ]
+    for artifact in provenanced_artifacts:
+        write_provenance_sidecar(artifact, script="src/train_classifier.py", extra=run_provenance)
+    print(f"Provenance sidecars written for {len(provenanced_artifacts)} artifacts")
 
     return rf_final, xgb_final, rf_avg, xgb_avg
 

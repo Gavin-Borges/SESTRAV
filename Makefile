@@ -47,7 +47,7 @@ help:
 	@echo "  semgrep             semgrep scan --config p/python --config semgrep-rules/  (security.yml:semgrep, advisory)"
 	@echo "  dco                 verify Signed-off-by on this branch's commits (dco.yml)"
 	@echo ""
-	@echo "  test                pre-push's fast pytest argv, Windows-safe    (scripts/hooks/pre-push:148-154)"
+	@echo "  test                pre-push's fast pytest argv, Windows-safe    (pre-push Check 2)"
 	@echo "  test-full           CI's exact coverage-gated pytest invocation  (ci.yml:test) [may crash on Windows]"
 	@echo "  fuzz                Hypothesis property tests                   (fuzzing.yml)"
 	@echo ""
@@ -150,16 +150,20 @@ dco:
 
 # --- tests --------------------------------------------------------------------
 
-# Transcribed from scripts/hooks/pre-push (220 lines; argv at :148-154), NOT
-# from a CI workflow directly. This is deliberate: a bare
+# Transcribed from scripts/hooks/pre-push, the block under its
+# `# ---- Check 2: Fast test gate` banner, NOT from a CI workflow directly.
+# This is deliberate: a bare
 # `python -m pytest tests/ -q` exits 127 on Windows workstations from a
 # native crash during collection (shap/scipy and a Bio.Align DLL blocked by
 # an OS Application Control policy - both confirmed environment-specific and
 # unrelated to any branch's content). CI (ubuntu-latest) is authoritative for
 # the two ignored files and four deselected cases; this target is the
 # Windows-safe stand-in the project's own pre-push hook already uses.
-# Re-derive the argv from the hook rather than trusting these line numbers -
-# they have moved before.
+# Re-derive the argv from the hook by grepping for that banner, never by line
+# number. This comment carried "(220 lines; argv at :148-154)" until 2026-09-20,
+# by which point that range held an unrelated comment block. No replacement
+# figure is recorded here on purpose: the hook's length changed twice on the day
+# this was written, so any number would already be stale.
 test:
 	python -m pytest tests/ -q \
 		--ignore=tests/test_run_analysis_results_guard.py \

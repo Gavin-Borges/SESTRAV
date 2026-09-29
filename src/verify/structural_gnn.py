@@ -200,7 +200,14 @@ class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):  # type: igno
     def len(self) -> int:
         return len(self.peptides)
 
-    def get(self, idx: int) -> Data:
+    # The return annotation MUST stay quoted. `Data` is bound only inside the guarded
+    # try at the top of this module, and this file has no `from __future__ import
+    # annotations`, so an unquoted annotation is evaluated at `def` time - inside a class
+    # body, which runs at import. With torch_geometric absent that raised NameError, which
+    # `except ImportError` cannot catch, so it also broke the PyG-absent fallback in
+    # src/verify/sestrav_evaluator.py. tests/test_structural_gnn_imports_without_pyg.py
+    # is the mechanical guard; do not unquote this without running it.
+    def get(self, idx: int) -> "Data":
         peptide = self.peptides[idx]
         allele = self.alleles[idx]
         label = self.labels[idx]

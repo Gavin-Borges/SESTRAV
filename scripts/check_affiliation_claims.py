@@ -126,7 +126,7 @@ blocker, not a reading.
 So a directory that carries its own ``.git`` entry is treated as a nested
 checkout, and the files GIT TRACKS THERE are not scanned again. Detection is
 structural, never a name glob: a ``wt_*`` pattern would match a name rather
-than the property (``.claude/rules/git-instruments-diffs.md`` rule 14).
+than the property (``.claude/rules/git-instruments-delivery.md`` rule 14).
 
 **What that suppresses, stated rather than hidden.** Exactly one class: a
 fabricated institution in git-tracked content on a branch checked out in a
@@ -147,6 +147,46 @@ to read. That would blind the gate to its own reason for existing while
 making it look healthier. If ``git ls-files`` fails for a nested checkout the
 whole directory is scanned, which fails toward MORE scanning.
 
+Why ``--all`` skips VERBATIM COPIES of tracked files
+----------------------------------------------------
+A ``git worktree`` checkout carries a ``.git`` entry, so the paragraphs
+above see it. A plain directory COPY of this repository carries none, so
+every file in it was scanned as ordinary content. Measured 2026-09-20: a
+737-file copy of this repo sat under ``_local/tmp/``, and its copy of
+``docs/claims_register.md`` - the D35 retraction row, which has to QUOTE the
+fabricated institution in order to retract it - was reported and blocked a
+push. The tracked original is allowlisted by exact path; the copy sits at a
+different path, so it was not.
+
+The fix is per-FILE and content-addressed, deliberately not a directory
+test. A finding is dropped only when the file carrying it is BYTE-IDENTICAL,
+after folding CRLF and CR to LF, to a file this repository TRACKS, and EVERY
+tracked file carrying that exact content is itself allowed to carry that
+same name. The copy inherits the review its original already passed, and
+nothing else. EVERY rather than any, so that a tracked file the default
+mode reports can never be silenced by an allowlisted duplicate of it: a
+tracked file is always a twin of itself, which keeps ``--all`` a strict
+superset of the default mode over the tracked set.
+
+**What this predicate cannot hide, which is why it was chosen over one that
+recognises a directory.** Edit a single byte of the copy and it matches no
+tracked file any more, so it is scanned in full and a fabrication written
+into it is reported - including one written into a line that was previously
+a legitimate quotation of the retracted name. A copy of a file that is NOT
+allowlisted for the name it carries is still reported, because the tracked
+original would fail the default mode too. And nothing is exempted for
+LOOKING like a checkout: a ``pyproject.toml``, a ``src/`` tree or a
+plausible directory name buys nothing, because each file is judged on its
+own bytes. A marker-file heuristic was considered and rejected for exactly
+that reason - it would let a directory win exemption by a property its own
+author controls, which is how an allowlist becomes a blind spot.
+
+The index is built from ``git ls-files`` plus the working tree. If git
+fails, the index is empty and nothing is suppressed, the same
+fail-toward-MORE-scanning direction as the nested-checkout fallback. The
+suppression is reachable from ``--all`` ONLY: the default tracked-file scan
+that CI and pre-push Check 3 run is untouched.
+
 Findings are reported one line per ``(file, name)`` pair rather than one per
 occurrence. That changes presentation only and blinds nothing; the occurrence
 count is still printed.
@@ -157,6 +197,7 @@ Exit codes: 0 clean, 1 findings, 2 invocation/environment error.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import subprocess
@@ -335,7 +376,50 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # stated above.
         "_local/drafts/mountain_view_packet_2026-09-09/07_claims_register.md",
         "_local/drafts/mountain_view_packet_2026-09-09/11_PRIVATE_brain_map.md",  # same frozen 09-09 packet
+        # The 2026-09-23 audit sweep's own record. What cites it: 5 occurrences
+        # on 2 lines, every one a CONTROL STRING for this gate rather than a
+        # claim of affiliation. One line records that two planted names return
+        # rc=1, another records an rc=0 case for a different university, and the
+        # push-blocker section names which spellings the allowlist keys on.
+        # Read individually before this entry was added, not taken on the label.
+        # Exempting the file that records a gate's test results is the same
+        # shape as exempting the retraction row that has to quote the claim.
+        "_local/notes/audit_swarm_2026-09-23.md",
+        # The machine-readable half of that same sweep, written by the same run.
+        # What cites it: 13 occurrences on 4 lines, the JSON serialisation of
+        # the findings summarised in the .md above, so the identical control
+        # strings arrive quoted as data. Listed separately and by exact path
+        # because a "_local/notes/" prefix would exempt every future note in
+        # that tree, which is the blanket entry this gate exists to refuse.
+        "_local/notes/audit_swarm_2026-09-23.raw.json",
     ),
+}
+
+
+# Other spellings of a name in RETRACTED_INSTITUTIONS, folded onto its
+# canonical key before the carrier lookup in is_allowed().
+#
+# WHY AN ALIAS MAP RATHER THAN MORE KEYS. The retraction is one fact, so its
+# permitted carriers are one list. Keying each spelling separately would put
+# three copies of that list in this file, and three copies of one fact is
+# three chances to drift - the defect class this whole gate exists to catch.
+#
+# WHAT THIS DOES NOT DO: it does not widen anything. An alias resolves to the
+# SAME carrier tuple, so a spelling listed here is permitted in exactly the
+# files the canonical key was already permitted in, and is reported everywhere
+# else. Before this map the longer spellings never reached the carrier check at
+# all: they fell through to the generic unreviewed-institution path, which has
+# no concept of a permitted carrier, so the retraction row could not quote the
+# full name of the thing it retracts without turning this gate red.
+#
+# Do NOT add a spelling here that names a DIFFERENT institution. The test
+# suite pins that every alias resolves to a key that exists.
+RETRACTED_ALIASES: dict[str, str] = {
+    # full legal name; the short form below is its common abbreviation
+    "north carolina state university": "nc state",
+    # the tail of the full name, which the line-based scan reports separately
+    # when the leading word falls on the other side of a wrap or a quote
+    "carolina state university": "nc state",
 }
 
 # Patterns that name an institution. Deliberately shaped to catch the FORM a
@@ -568,7 +652,7 @@ def is_allowed(name: str, path: str) -> bool:
     ):
         return True
 
-    permitted_in = RETRACTED_INSTITUTIONS.get(key)
+    permitted_in = RETRACTED_INSTITUTIONS.get(RETRACTED_ALIASES.get(key, key))
     if permitted_in is None:
         return False
     # An entry ending in "/" permits everything beneath it; every other entry
@@ -579,6 +663,108 @@ def is_allowed(name: str, path: str) -> bool:
         here.startswith(entry) if entry.endswith("/") else here == entry
         for entry in permitted_in
     )
+
+
+# ---------------------------------------------------------------------------
+# Verbatim copies of tracked files, resolved by CONTENT and never by
+# directory shape. The module docstring carries the incident and the full
+# argument; the short form is that a directory COPY of this repo has no
+# .git entry, so the nested-checkout suppression above cannot see it, and
+# its copy of an allowlisted file (the D35 retraction row, which quotes the
+# fabricated institution) is reported at a path no allowlist entry names.
+#
+# SUPPRESSES: a name in a file whose bytes, with CRLF and CR folded to LF,
+# are identical to a file git tracks here, when EVERY tracked file carrying
+# that exact content is itself allowed to carry that name.
+#
+# DOES NOT SUPPRESS: anything in a file that differs from every tracked
+# file by so much as one byte; any name that any one of its tracked twins
+# is not allowed to carry; and anything at all on the strength of a
+# directory LOOKING like a checkout. A marker-file test such as "contains
+# a pyproject.toml" was considered and rejected: it exempts a directory by
+# a property its own author controls, and would hide a fabrication edited
+# into a copy.
+# ---------------------------------------------------------------------------
+
+
+def content_fingerprint(path: str) -> str | None:
+    """SHA-256 of ``path``'s bytes, with CRLF and CR folded to LF.
+
+    Line endings are the ONLY normalisation. A copy taken on this Windows
+    workstation can differ from its tracked original in line endings alone;
+    nothing else about the content is permitted to differ. Returns None when
+    the file cannot be read, which suppresses nothing.
+    """
+    try:
+        data = Path(path).read_bytes()
+    except OSError:
+        return None
+    folded = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(folded).hexdigest()
+
+
+def tracked_content_index() -> dict[str, tuple[str, ...]]:
+    """Fingerprint -> the tracked paths whose content hashes to it.
+
+    Built from the WORKING TREE rather than from blobs: a directory copy is
+    taken from the working tree, and reading the tree also sidesteps
+    ``core.autocrlf`` storing a different form in the index. On any git
+    failure the index is empty and nothing is suppressed, the same direction
+    as nested_tracked_paths - the safe direction here is always MORE
+    scanning.
+    """
+    code, out = run_git(["ls-files"])
+    if code != 0:
+        return {}
+    index: dict[str, list[str]] = {}
+    for rel in out.splitlines():
+        if not rel or Path(rel).suffix.lower() not in SCAN_SUFFIXES:
+            continue
+        digest = content_fingerprint(rel)
+        if digest is not None:
+            index.setdefault(digest, []).append(rel)
+    return {digest: tuple(sorted(paths)) for digest, paths in index.items()}
+
+
+def verbatim_tracked_twins(
+    path: str,
+    index: dict[str, tuple[str, ...]],
+    cache: dict[str, tuple[str, ...]],
+) -> tuple[str, ...]:
+    """Tracked paths that ``path`` is a byte-for-byte copy of, else ().
+
+    An empty index means the caller did not enable the lookup (default mode)
+    or git could not answer, and returns () without reading the file.
+    """
+    if not index:
+        return ()
+    key = normalise_path(path)
+    if key not in cache:
+        digest = content_fingerprint(path)
+        cache[key] = index.get(digest, ()) if digest is not None else ()
+    return cache[key]
+
+
+def is_reviewed_verbatim_copy(
+    name: str,
+    path: str,
+    index: dict[str, tuple[str, ...]],
+    cache: dict[str, tuple[str, ...]],
+) -> bool:
+    """True when ``name`` in ``path`` is already reviewed at EVERY tracked twin.
+
+    Identical content carries identical names, so a tracked twin permitted to
+    carry this name means the copy introduces nothing unreviewed there.
+
+    EVERY twin, not any: one unreviewed carrier of this exact content means
+    the content is not fully reviewed, and the copy is reported. That also
+    keeps ``--all`` a strict superset of the default mode over the tracked
+    set, because a tracked file is always a twin of ITSELF - so a tracked
+    file the default mode reports can never be silenced here by a duplicate
+    that happens to be allowlisted.
+    """
+    twins = verbatim_tracked_twins(path, index, cache)
+    return bool(twins) and all(is_allowed(name, twin) for twin in twins)
 
 
 def find_institutions(line: str) -> list[str]:
@@ -613,6 +799,13 @@ def main() -> int:
 
     paths = working_tree_files() if args.all else tracked_files()
 
+    # Verbatim copies are resolved in --all mode ONLY. The default mode is
+    # the CI gate and pre-push Check 3; it scans exactly the tracked set,
+    # where every path is already judged against its own allowlist entry.
+    # Leaving the index empty there keeps that mode's verdict unchanged.
+    copy_index = tracked_content_index() if args.all else {}
+    twin_cache: dict[str, tuple[str, ...]] = {}
+
     # Keyed by (file, name), never by (file, line, name). A repeated name in
     # one file is one thing to review, and the D35 retraction row alone put the
     # same name on one line five times, in 23 checkouts. Grouping is
@@ -637,8 +830,11 @@ def main() -> int:
             for name in find_institutions(line):
                 normalised_name = " ".join(name.split())
                 seen_names.add(normalised_name)
-                if not is_allowed(name, path):
-                    findings.setdefault((path, normalised_name), []).append(lineno)
+                if is_allowed(name, path):
+                    continue
+                if is_reviewed_verbatim_copy(name, path, copy_index, twin_cache):
+                    continue
+                findings.setdefault((path, normalised_name), []).append(lineno)
 
     print(
         f"Scanned {scanned} file(s); saw {len(seen_names)} distinct "

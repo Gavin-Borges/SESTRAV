@@ -10,7 +10,7 @@ This directory contains all input datasets, reference sequences, and archives fo
 data/
 ├── immunogenicity_dataset_v3.csv      [tracked] canonical training dataset
 ├── immunogenicity_dataset_v4_schema.json [tracked] v4 schema spec
-├── antigen_processing_cache.csv       [tracked] MHCflurry/antigen proc. features
+├── antigen_processing_cache.csv       [tracked] MOCK cleavage/transport scores, not real NetChop/TAPreg (D18)
 ├── README.md                          [tracked] this file
 │
 ├── allele_aware/                      [tracked] pan-allele training subsets

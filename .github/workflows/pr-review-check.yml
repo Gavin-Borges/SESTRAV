@@ -61,10 +61,18 @@ jobs:
               return;
             }
 
-            const { data: reviews } = await github.rest.pulls.listReviews({
+            // github.paginate, NOT a bare listReviews. Octokit pages at 30 by
+            // default and returns the FIRST page oldest-first, so a bare call
+            // silently truncates. Until 2026-09-20 the filter below was documented
+            // as operating on "the full history" while being handed at most 30
+            // reviews - true of the endpoint, false of the call - and that filter
+            // is what decides a REQUIRED status check.
+            // paginate returns the array itself, so there is no `data` to destructure.
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner: repoOwner,
               repo:  context.repo.repo,
               pull_number: prNumber,
+              per_page: 100,
             });
 
             // Two filters, both added 2026-09-13. Before them this counted ANY
@@ -72,11 +80,14 @@ jobs:
             // any account that can see a public PR, and counted superseded
             // approvals that the reviewer had already replaced.
 
-            // 1. Collapse to each reviewer's LATEST review. listReviews returns the
-            //    full history, so an APPROVED that was later replaced by
-            //    CHANGES_REQUESTED still appears in the raw list. The ruleset's
-            //    dismiss_stale_reviews_on_push covers a new push; it does not cover
-            //    a reviewer changing their own mind.
+            // 1. Collapse to each reviewer's LATEST review. The PAGINATED list is
+            //    the full history, so an APPROVED that was later replaced by
+            //    CHANGES_REQUESTED still appears in it and must be superseded here.
+            //    This only holds because of github.paginate above: the superseding
+            //    review is the LATER one, so truncation drops exactly the review
+            //    that withdraws an approval and keeps the stale APPROVED. The
+            //    ruleset's dismiss_stale_reviews_on_push covers a new push; it does
+            //    not cover a reviewer changing their own mind.
             const latestByReviewer = new Map();
             for (const review of reviews) {
               const login = review.user && review.user.login;

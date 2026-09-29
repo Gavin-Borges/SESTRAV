@@ -1,9 +1,9 @@
 """Tests for features.py graph, ERAP, and weight-computation gaps.
 
 Targets:
-  - get_cb_cb_edges: 10-mer (614-615) and 11-mer (616-619) bulge contacts
-  - compute_erap_trimming_score: short flanking_seq padding path (line 497)
-  - compute_sample_weights: DataFrame without 'peptide' col (line 206->219 False branch)
+  - get_cb_cb_edges: 10-mer and 11-mer bulge contacts
+  - compute_erap_trimming_score: short flanking_seq padding path
+  - compute_sample_weights: DataFrame without 'peptide' col (False branch)
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class TestGetCbCbEdges:
 
 
 # ---------------------------------------------------------------------------
-# compute_erap_trimming_score - short flanking_seq triggers padding (line 497)
+# compute_erap_trimming_score - short flanking_seq triggers padding
 # ---------------------------------------------------------------------------
 
 
@@ -91,7 +91,7 @@ class TestComputeErapTrimmingScore:
 
 
 # ---------------------------------------------------------------------------
-# compute_sample_weights - DataFrame without 'peptide' col (line 206->219 False)
+# compute_sample_weights - DataFrame without 'peptide' col (False branch)
 # ---------------------------------------------------------------------------
 
 

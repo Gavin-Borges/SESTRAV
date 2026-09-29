@@ -1,6 +1,6 @@
 Bootstrap: docker
 # Pinned to Python 3.11 to match environments/requirements.lock, which is
-# pip-compiled under 3.11 and installed below with --require-hashes. Keep this image
+# compiled under 3.11 by tools/update_dependencies.py and installed below with --require-hashes. Keep this image
 # in lockstep with that lock: bumping it (e.g. to 3.13, which the Dockerfile uses)
 # requires regenerating requirements.lock under the same Python version first. The
 # Dockerfile can target 3.13 independently because it installs from pyproject, not

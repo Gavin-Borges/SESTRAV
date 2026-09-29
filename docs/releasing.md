@@ -26,11 +26,27 @@ GitHub will then show your tags/commits as **Verified**.
 
 ## Cutting a release
 
-1. **Bump the version** in `pyproject.toml` (`[project] version`) to match the tag
-   you are about to create (e.g. `2.0.2`). The build names artifacts from this
-   field, so it must match the tag. The release workflow **enforces** this with a
-   fail-fast "Verify tag matches package version" step, so a mismatch aborts the
-   release before any artifact is built. Commit it:
+1. **Bump the version in BOTH gated files.** The release workflow's fail-fast
+   "Verify tag matches package version" step runs before anything is built, so a
+   mismatch aborts the release with no artifact produced. Its name mentions only the
+   package version; it actually reads two files and enforces three conditions:
+
+   | File | Field | What the step requires |
+   |---|---|---|
+   | `pyproject.toml` | `[project] version` | Exactly the tag with its leading `v` stripped (tag `v2.0.2` -> `2.0.2`). The build also names the artifacts from this field. |
+   | `CITATION.cff` | top-level `version:` | Present, and the same value. A missing field fails just as hard as a wrong one. |
+   | `CITATION.cff` | top-level `date-released:` | Present, parseable as an ISO calendar date (`YYYY-MM-DD`), and not later than the UTC date of the workflow run. |
+
+   `CITATION.cff` is the one that gets forgotten, which is why it is gated: the check
+   was added after that file advertised a version and a release date for which no tag
+   had ever been pushed.
+
+   A later step in the same job installs the built wheel and asserts that
+   `sestrav.__version__` matches the tag. That is not a third file to edit -
+   `sestrav/__init__.py` resolves the version from installed package metadata, so it
+   reports whatever `pyproject.toml` declared.
+
+   Commit both files together:
 
    ```bash
    git commit -am "release: v2.0.2"
@@ -65,8 +81,9 @@ gh attestation verify sestrav-2.0.2-py3-none-any.whl --repo Gavin-Borges/SESTRAV
 # Verify the checksum manifest:
 sha256sum -c SHA256SUMS.txt
 
-# Verify the tag signature (only for tags cut with `git tag -s`;
-# tags through v2.0.3 are annotated but unsigned):
+# Verify the tag signature. v2.0.3 IS signed; v2.0.2 and earlier are not.
+# Note that `git tag -v` checks your local allowed_signers file, which is a
+# different question from whether GitHub shows the tag as Verified:
 git tag -v vX.Y.Z
 ```
 
@@ -100,10 +117,28 @@ Trusted Publishers** - no API token or GitHub secret is required.
    attempt pauses for manual approval before proceeding. So a tag QUEUES a publish for
    approval; it does not publish silently. Note that the sole configured reviewer is the
    maintainer, so this is a deliberate-action prompt rather than independent approval.
-4. Repository variable `PYPI_PUBLISH` gates the publish job. **It is currently `true`**
-   (restored 2026-08-17 after the publisher was confirmed; it had been set `false`
-   earlier the same day purely as a precaution while the registration was unverified).
-   Set it to `false` to disable publishing without touching the workflow.
+4. Repository variable `PYPI_PUBLISH` gates the publish job, via
+   `if: ${{ vars.PYPI_PUBLISH == 'true' }}` on that job in `release.yml`.
+   **This document deliberately does not record the variable's value.** It is an
+   owner-operated switch that gets flipped in both directions, so any value written
+   here is a status claim that rots between readings. Read the live one yourself,
+   every time, before you push a tag:
+
+   ```bash
+   gh variable list          # the PYPI_PUBLISH row
+   ```
+
+   - Set to `true`: a version tag schedules the publish job, which then waits on the
+     step 3 reviewer approval. Treat this as the irreversible setting, because PyPI
+     permanently refuses a re-upload of a version number that has already been
+     published, so a bad upload cannot be replaced under the same number.
+   - Set to anything that is not `true` (`false` included), or absent from the
+     repository altogether: the publish job is never scheduled, and the tag produces
+     the GitHub Release with its attestation and checksums and nothing else.
+
+   Change it at Settings -> Secrets and variables -> Actions -> Variables, or with
+   `gh variable set PYPI_PUBLISH --body false`. The workflow itself never needs
+   editing.
 
 > **ORDERING CONSTRAINT - read before cutting a tag that publishes.** The pending
 > trusted publisher above is bound to **Owner: `Gavin-Borges`**, a personal account.
@@ -128,9 +163,20 @@ build-provenance attestation, so on the badge form
 **Met** (cryptographic provenance over the release artifacts, verifiable with
 `gh attestation verify`).
 
-`version_tags_signed` remains **Unmet**: every tag through v2.0.3 is annotated but
-unsigned, because no personal signing key was configured at the time those
-releases were cut. It is a SUGGESTED (not MUST) criterion, so it does not affect
-the tier. A maintainer SSH signing key is now configured locally (`gpg.format=ssh`
-with `commit.gpgsign` and `tag.gpgsign` enabled), so the criterion is met on the
-next release simply by tagging with `git tag -s` and verifying with `git tag -v`.
+`version_tags_signed` remains **Unmet**, and the reason is not the one this
+paragraph used to give. **Corrected 2026-09-15: v2.0.3 IS signed.** Its tag object
+carries an SSH signature block, and the local tag is byte-identical to the one on
+origin, so the pushed tag carries it too. v2.0.2 and earlier are genuinely
+unsigned. It is a SUGGESTED (not MUST) criterion, so it does not affect the tier.
+
+**Signing the next tag is necessary but NOT sufficient, which is the part that was
+missing here.** GitHub reports v2.0.3 as `verified: false, reason: unknown_key`,
+meaning no SSH signing key is registered on the account under Settings, SSH and
+GPG keys, with key type **Signing Key**. Until that registration happens, a tag
+cut with `git tag -s` will still display as Unverified on GitHub and the criterion
+stays Unmet no matter how it was signed. Local verification is a separate
+question: `git tag -v v2.0.3` reports a good signature but `No principal matched`,
+because it was signed with a different key than the one `user.signingkey` now
+names, so a tag cut with the current key will verify locally while still showing
+Unverified on GitHub until the key is registered. Register the key first, then
+tag. No CI step verifies tag signatures, so nothing else will catch this.

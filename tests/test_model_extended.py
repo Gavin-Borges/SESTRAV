@@ -2,12 +2,12 @@
 
 Targets the 7 uncovered statements and 8 branch misses remaining after
 test_model.py:
-  - get_device: CUDA path (line 70)
-  - set_seeds: CUDA seed paths (lines 79-81)
-  - train_one_fold: device=None auto-detect (177), exhaust-all-epochs branch
-    (202->232), best_state-is-None branch (232->235)
-  - run_cv: device=None auto-detect (259)
-  - train_final_model: device=None auto-detect (291)
+  - get_device: CUDA path
+  - set_seeds: CUDA seed paths
+  - train_one_fold: device=None auto-detect, exhaust-all-epochs branch,
+    best_state-is-None branch
+  - run_cv: device=None auto-detect
+  - train_final_model: device=None auto-detect
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def toy():
 
 
 # ---------------------------------------------------------------------------
-# get_device - CUDA path (line 70)
+# get_device - CUDA path
 # ---------------------------------------------------------------------------
 
 
@@ -50,7 +50,7 @@ class TestGetDeviceCuda:
 
 
 # ---------------------------------------------------------------------------
-# set_seeds - CUDA seed paths (lines 79-81)
+# set_seeds - CUDA seed paths
 # ---------------------------------------------------------------------------
 
 
@@ -73,7 +73,7 @@ class TestSetSeedsCuda:
 
 
 # ---------------------------------------------------------------------------
-# train_one_fold - device auto-detect (line 177)
+# train_one_fold - device auto-detect
 # ---------------------------------------------------------------------------
 
 
@@ -97,7 +97,7 @@ class TestTrainOneFoldDeviceNone:
 
 
 # ---------------------------------------------------------------------------
-# train_one_fold - exhaust all epochs without early stopping (line 202->232)
+# train_one_fold - exhaust all epochs without early stopping
 # ---------------------------------------------------------------------------
 
 
@@ -121,7 +121,7 @@ class TestTrainOneFoldExhaustsEpochs:
 
 
 # ---------------------------------------------------------------------------
-# train_one_fold - best_state is None when max_epochs=0 (line 232->235)
+# train_one_fold - best_state is None when max_epochs=0
 # ---------------------------------------------------------------------------
 
 
@@ -145,7 +145,7 @@ class TestTrainOneFoldBestStateNone:
 
 
 # ---------------------------------------------------------------------------
-# run_cv - device auto-detect (line 259)
+# run_cv - device auto-detect
 # ---------------------------------------------------------------------------
 
 
@@ -166,7 +166,7 @@ class TestRunCvDeviceNone:
 
 
 # ---------------------------------------------------------------------------
-# train_final_model - device auto-detect (line 291)
+# train_final_model - device auto-detect
 # ---------------------------------------------------------------------------
 
 

@@ -47,8 +47,10 @@ _Last updated: 2026-09._
 - **Signed release artifacts - shipped.** Release artifacts carry a keyless
   Sigstore/SLSA build-provenance attestation (`.github/workflows/release.yml`),
   with verification documented in `SECURITY.md`'s "Release Integrity &
-  Verification" section. Version tags remain annotated but **unsigned**
-  (`version_tags_signed`, SUGGESTED, currently Unmet - see `docs/releasing.md`).
+  Verification" section. `version_tags_signed` (SUGGESTED) is currently **Unmet**,
+  but not because tags are unsigned: v2.0.3 IS signed, and GitHub reports it
+  `unknown_key` because no SSH signing key is registered on the account. Signing
+  the next tag does not on its own clear this - see `docs/releasing.md`.
 - **Container image.** A publish-to-`ghcr.io` workflow with provenance and SBOM
   is in place (`.github/workflows/docker.yml`); it fires on the next version tag.
   It has not run yet - the workflow was added after `v2.0.3`, so no image is
@@ -56,9 +58,15 @@ _Last updated: 2026-09._
 - **Packaging.** Publish `sestrav` to PyPI as a pip-installable package.
   **Installation is from source today - nothing has been published yet** and the
   package name is still unclaimed. The publish job in
-  `.github/workflows/release.yml` is enabled (`PYPI_PUBLISH` is `true`) and is
-  scheduled by any `v*` tag; it then pauses for approval under the `pypi`
-  environment's required-reviewer rule. The pending Trusted Publisher was confirmed
+  `.github/workflows/release.yml` is gated on the repository variable
+  `PYPI_PUBLISH` (`if: vars.PYPI_PUBLISH == 'true'` on that job), so a `v*` tag
+  schedules it only while that variable reads `true`; it then pauses for approval
+  under the `pypi` environment's required-reviewer rule. **This roadmap deliberately
+  does not record the variable's value.** It is an owner-operated switch that gets
+  flipped in both directions, so any value written here is a status claim that rots
+  between readings; read the live one with `gh variable list` before cutting a tag,
+  and see `docs/releasing.md` for what each setting does and why `true` is the
+  irreversible one. The pending Trusted Publisher was confirmed
   registered on 2026-08-17. Two caveats before the first publishing tag: the publish
   path has **never run end to end** (PR CI cannot exercise `release.yml`, which is
   tag-triggered only), and the publisher is bound to the `Gavin-Borges` personal
@@ -142,9 +150,12 @@ _Last updated: 2026-09._
   held, because the uncertainty layer landed first. Both prerequisites this bullet
   listed are now met: `data/population/afnd_frequencies.json` is tracked with a
   provenance sidecar, and `pulp` is a direct pin in `requirements.in` and the compiled
-  lockfiles. What remains is declaring `pulp` in `pyproject.toml`, where it is absent,
-  and giving the module a caller - nothing in `src/cli.py` or `pipeline.smk` reaches
-  it, so today it is exercised only by `tests/test_optimizer.py`. **The population-coverage ceiling will be reported inline as an equity
+  lockfiles. `pulp` is now declared in `pyproject.toml` as well, added 2026-09-13 in
+  commit c176c5b, and it landed in the `dev` extra rather than in core
+  `dependencies` - the right home while the module has no caller, since the only
+  importer of `src/optimizer.py` is `tests/test_optimizer.py` and no shipped command
+  reaches it. What remains is giving the module that caller - nothing in `src/cli.py`
+  or `pipeline.smk` reaches it, so today it is exercised only by the test suite. **The population-coverage ceiling will be reported inline as an equity
   constraint rather than a footnote:** the current 10-allele panel's modelled coverage
   is highest in EUR and materially lower in AFR, so a "population coverage" figure
   quoted without its per-population spread overstates the result for exactly the

@@ -19,6 +19,7 @@ Usage:
 import argparse
 import json
 import logging
+import math
 import random
 import subprocess  # nosec B404
 import sys
@@ -26,6 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
+import jsonschema
 import numpy as np
 import pandas as pd
 
@@ -35,6 +37,7 @@ if str(PROJECT_ROOT) not in sys.path:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _dataset_utils import (  # noqa: E402
     normalize_hla_alleles,
+    normalize_reference_pmids,
     normalize_virus_names,
     _HLA_AMBIGUOUS,
 )
@@ -421,8 +424,51 @@ def warn_low_pmid_depth(df: pd.DataFrame, logger: logging.Logger) -> dict[str, i
 # ---------------------------------------------------------------------------
 
 
+def _schema_violation_classes(
+    records: list[dict], item_schema: dict
+) -> tuple[dict[tuple[str, str], int], dict[tuple[str, str], str], int]:
+    """Group every schema violation by (field, constraint) with counts and one example.
+
+    Reported as classes rather than raised on the first offender on purpose: a single
+    jsonschema message against a 50k-row frame names one cell and hides the shape of
+    the problem, which is what let three separate drifts sit unnoticed at once.
+    """
+    validator_cls = jsonschema.validators.validator_for(item_schema)
+    validator = validator_cls(item_schema)
+
+    classes: dict[tuple[str, str], int] = {}
+    examples: dict[tuple[str, str], str] = {}
+    failing_rows = 0
+    for row_index, record in enumerate(records):
+        row_failed = False
+        for error in validator.iter_errors(record):
+            field = str(error.absolute_path[0]) if error.absolute_path else "<row>"
+            key = (field, str(error.validator))
+            classes[key] = classes.get(key, 0) + 1
+            examples.setdefault(key, f"row {row_index}: {error.message}")
+            row_failed = True
+        if row_failed:
+            failing_rows += 1
+    return classes, examples, failing_rows
+
+
 def validate_output_schema(df: pd.DataFrame, schema_path: Path, logger: logging.Logger) -> None:
-    """Validate required columns against the v5 JSON Schema before write."""
+    """Validate the output against the v5 JSON Schema: required columns AND values.
+
+    Until 2026-09-17 this checked only that the schema's `required` COLUMN NAMES were
+    present, while logging "Schema validation passed". No type or enum constraint was
+    ever evaluated on the v5 path, so the schema and the corpus drifted apart with no
+    gate able to see it: measured at d064dbc, 26,329 of 51,185 rows in the shipped
+    artifact violated three of the schema's own declarations (virus_family and
+    negative_origin enums, and a non-nullable protein). The v4 path never had the gap,
+    because build_dataset_v4.py calls _dataset_utils.validate_against_schema, which
+    runs jsonschema over every record.
+
+    Note what is still NOT covered: the schema constrains the in-memory frame here,
+    before the CSV round trip, so a defect introduced by serialization itself (the
+    float64 upcast that renders a PMID as "38923358.0", for instance) is invisible to
+    this check. tests/test_dataset_schema_contract.py validates the written artifact.
+    """
     if not schema_path.exists():
         logger.warning("Schema file not found: %s - skipping validation", schema_path)
         return
@@ -439,7 +485,31 @@ def validate_output_schema(df: pd.DataFrame, schema_path: Path, logger: logging.
             f"Output dataset missing required schema columns: {missing}. "
             f"Check V5_COLUMNS and transformation pipeline."
         )
-    logger.info("Schema validation passed: all %d required columns present", len(required_cols))
+
+    records = df.to_dict(orient="records")
+    for record in records:
+        for key, value in record.items():
+            if isinstance(value, float) and math.isnan(value):
+                record[key] = None
+
+    item_schema = schema.get("items", schema)
+    classes, examples, failing_rows = _schema_violation_classes(records, item_schema)
+    if classes:
+        summary = "; ".join(
+            f"{field}/{constraint} on {count} row(s), e.g. {examples[(field, constraint)]}"
+            for (field, constraint), count in sorted(classes.items(), key=lambda kv: -kv[1])
+        )
+        raise ValueError(
+            f"Output dataset violates {schema_path} on {failing_rows} of "
+            f"{len(records)} row(s): {summary}"
+        )
+
+    logger.info(
+        "Schema validation passed: %d required column(s) present, and all %d row(s) "
+        "satisfy every declared type and enum constraint",
+        len(required_cols),
+        len(records),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -746,6 +816,13 @@ def main(argv: list[str] | None = None) -> int:
 
     merged = pd.concat(parts, ignore_index=True, sort=False)
     logger.info("Merged pre-dedup: %d rows", len(merged))
+
+    # Each component CSV is read with dtype inference, so a PMID column that
+    # carries blanks arrives as float64 and would be written back as
+    # "38923358.0". Any downstream join on a real PubMed identifier then
+    # misses every row, silently. Render the column back to bare integer
+    # strings, leaving free-text references and nulls alone.
+    merged["reference_pmid"] = normalize_reference_pmids(merged["reference_pmid"])
 
     # Normalize virus names before dedup: IEDB negatives use full taxonomy names
     # ("Influenza A virus") while IEDB positives use short codes ("IAV"). Without

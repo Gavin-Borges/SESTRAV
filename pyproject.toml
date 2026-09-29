@@ -132,6 +132,17 @@ dev = [
     "pulp>=3.0.0",
     "pyahocorasick>=2.3.0",
     "mhcgnomes>=3.33.0",
+    # packaging added 2026-09-17, same class as the fastapi/pydantic move above.
+    # tests/test_dependency_floors_match_pins.py imports it at module scope to
+    # compare a requirements.in pin against its floor here, so without it that
+    # file aborts COLLECTION rather than failing. It arrives transitively today
+    # (via pytest and setuptools), which is exactly why it went unnoticed: an
+    # undeclared import that happens to be installed is invisible until someone
+    # builds the documented `pip install -e ".[dev]"` environment from scratch.
+    # A PEP 440 comparator is not something to hand-roll; check_lockfile_freshness
+    # already carries a digit-tuple approximation that its own comment flags as
+    # "not a full PEP 440 comparator".
+    "packaging>=23.0",
 ]
 api = [
     "fastapi>=0.100.0",
