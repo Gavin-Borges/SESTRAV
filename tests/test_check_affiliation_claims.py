@@ -241,6 +241,7 @@ def test_self_exemption_covers_the_gate_and_its_suite_and_nothing_else():
 
     # Everything else stays scanned - especially other test files.
     assert mod.should_scan("tests/test_something_else.py") is True
+    assert mod.should_scan("nested/test_check_affiliation_claims.py") is True
     assert mod.should_scan("README.md") is True
     assert mod.should_scan("docs/claims_register.md") is True
 
@@ -305,10 +306,62 @@ def test_name_is_not_matched_across_a_sentence_boundary():
 
 
 def test_quoted_and_line_wrapped_names_still_resolve():
-    assert _unreviewed("Confirm README still carries 'University of Rhode Island'") == []
-    # A line-based scan sees a wrapped name truncated; a prefix of an allowed
-    # name is not an unreviewed institution.
-    assert _unreviewed("OpenSSF Passing; MIT; University of Rhode") == []
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    rendered = " ".join(word if word == "of" else word.title() for word in own.split())
+    assert _unreviewed(f"Confirm README still carries '{rendered}'") == []
+    # Truncated prefixes no longer inherit an allowlist entry.
+    prefix = rendered.rsplit(" ", maxsplit=1)[0]
+    assert _unreviewed(f"Wrapped entry: {prefix}") == [prefix]
+
+
+def test_new_document_forms_and_extensionless_files_are_scanned():
+    for path in (
+        "LICENSE",
+        "CODEOWNERS",
+        "notes.qmd",
+        "notes.ipynb",
+        "notes.tex",
+        "notes.bib",
+        "notes.html",
+    ):
+        assert mod.should_scan(path) is True, path
+
+
+def test_retracted_names_are_case_independent_and_accept_dotted_initials():
+    name = next(iter(mod.RETRACTED_INSTITUTIONS))
+    initialism, remainder = name.split(maxsplit=1)
+    dotted = ".".join(initialism) + ". " + remainder
+    variants = (name.lower(), name.upper(), name.title(), dotted)
+
+    for variant in variants:
+        hits = mod.find_institutions(f"Affiliation: {variant}")
+        assert any(mod.normalise_institution_name(hit) == name for hit in hits)
+        assert mod.is_allowed(hits[0], "README.md") is False
+
+
+def test_third_party_names_are_refused_on_project_identity_surfaces():
+    name = next(iter(mod.THIRD_PARTY_INSTITUTIONS))
+    for path in (
+        "README.md",
+        "CITATION.cff",
+        "LICENSE",
+        "SECURITY.md",
+        "MAINTAINERS.md",
+    ):
+        assert mod.is_allowed(name, path) is False, path
+    assert mod.is_allowed(name, "docs/reference.md") is True
+
+
+def test_allowlist_prefixes_and_line_suppression_are_not_accepted():
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    prefix = own.rsplit(" ", maxsplit=1)[0]
+    retracted = next(iter(mod.RETRACTED_INSTITUTIONS))
+
+    assert mod.is_allowed(prefix, "docs/reference.md") is False
+    assert not hasattr(mod, "SUPPRESS_MARKER")
+    assert _unreviewed(
+        f"Affiliation: {retracted} affiliation-check:ignore", "README.md"
+    )
 
 
 def _git(*args: str, cwd: Path) -> None:

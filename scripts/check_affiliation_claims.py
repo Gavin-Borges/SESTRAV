@@ -204,7 +204,22 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCAN_SUFFIXES = {".md", ".json", ".toml", ".cff", ".txt", ".yaml", ".yml", ".py", ".rst"}
+SCAN_SUFFIXES = {
+    ".bib",
+    ".cff",
+    ".html",
+    ".ipynb",
+    ".json",
+    ".md",
+    ".py",
+    ".qmd",
+    ".rst",
+    ".tex",
+    ".toml",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
 
 # Directories that are never this project's prose. Vendored dependencies carry
 # thousands of unrelated institutional names in their own licence headers.
@@ -444,6 +459,29 @@ INSTITUTION_PATTERNS = [
     re.compile(rf"\b(?:[A-Z]{{2,4}}|{_WORD})\s+State\b(?:\s+University)?"),
 ]
 
+
+def _exact_name_pattern(name: str) -> re.Pattern[str]:
+    """Build a case-independent pattern, accepting dotted initialisms."""
+    words: list[str] = []
+    for word in name.split():
+        if 1 < len(word) <= 4 and word.isalpha():
+            words.append(r"\.?".join(re.escape(char) for char in word) + r"\.?")
+        else:
+            words.append(re.escape(word))
+    return re.compile(r"\b" + r"\s+".join(words) + r"\b", re.IGNORECASE)
+
+
+def normalise_institution_name(name: str) -> str:
+    key = " ".join(name.split()).lower().strip(".,;:'\"")
+    return re.sub(
+        r"\b(?:[a-z]\.){2,4}", lambda match: match.group(0).replace(".", ""), key
+    )
+
+
+RETRACTED_NAME_PATTERNS = tuple(
+    _exact_name_pattern(name) for name in RETRACTED_INSTITUTIONS
+)
+
 # Abbreviations that can name an institution but far more often mean something
 # else here: MIT is this project's LICENCE and the licence of most of its
 # dependencies; NIH, CDC and EMBL are data sources cited throughout. Flagging
@@ -494,10 +532,6 @@ NOT_INSTITUTIONS = re.compile(
     )""",
     re.IGNORECASE | re.VERBOSE,
 )
-
-# Per-line opt-out for anything the heuristics cannot classify. Requires a
-# reason on the same line so the suppression is self-documenting.
-SUPPRESS_MARKER = "affiliation-check:ignore"
 
 # How many distinct line numbers a grouped finding lists before it says
 # "+N more". A cap on DISPLAY only - every occurrence is still counted, and
@@ -594,10 +628,10 @@ def working_tree_files() -> list[str]:
 #: these two files would not be caught. That is accepted because neither is
 #: reader-facing, and it is the same trade already made for the gate's own
 #: source. Do NOT widen this to other test files.
-SELF_EXEMPT_FILENAMES = frozenset(
+SELF_EXEMPT_PATHS = frozenset(
     {
-        Path(__file__).name,
-        "test_check_affiliation_claims.py",
+        "scripts/check_affiliation_claims.py",
+        "tests/test_check_affiliation_claims.py",
     }
 )
 
@@ -608,9 +642,11 @@ def should_scan(path: str) -> bool:
     parts = set(Path(path).parts)
     if parts & EXCLUDED_DIR_PARTS:
         return False
-    if Path(path).name in SELF_EXEMPT_FILENAMES:
+    normalised = normalise_path(path)
+    if normalised in SELF_EXEMPT_PATHS:
         return False
-    return Path(path).suffix.lower() in SCAN_SUFFIXES
+    candidate = Path(path)
+    return candidate.suffix.lower() in SCAN_SUFFIXES or candidate.suffix == ""
 
 
 def normalise_path(path: str) -> str:
@@ -639,18 +675,14 @@ def is_allowed(name: str, path: str) -> bool:
     # Trailing quote characters matter: prose like "'University of Rhode
     # Island' at post time" otherwise yields the key "university of rhode
     # island'", which matches nothing.
-    key = " ".join(name.split()).lower().strip(".,;:'\"")
-    if key in OWN_INSTITUTIONS or key in THIRD_PARTY_INSTITUTIONS:
+    key = normalise_institution_name(name)
+    if key in OWN_INSTITUTIONS:
         return True
-    # An allowlisted name split across a line break arrives here truncated
-    # ("...; MIT; University of Rhode" / "Island; ..."). This scan is
-    # line-based, so accept a word-boundary prefix of an allowed name rather
-    # than reporting a wrapped line as an unreviewed institution.
-    if any(
-        allowed.startswith(key + " ")
-        for allowed in (*OWN_INSTITUTIONS, *THIRD_PARTY_INSTITUTIONS)
-    ):
-        return True
+    if key in THIRD_PARTY_INSTITUTIONS:
+        basename = Path(normalise_path(path)).name.upper()
+        return not basename.startswith(
+            ("README", "CITATION", "LICENSE", "SECURITY", "MAINTAINERS")
+        )
 
     permitted_in = RETRACTED_INSTITUTIONS.get(RETRACTED_ALIASES.get(key, key))
     if permitted_in is None:
@@ -769,12 +801,16 @@ def is_reviewed_verbatim_copy(
 
 def find_institutions(line: str) -> list[str]:
     hits: list[str] = []
-    for pattern in INSTITUTION_PATTERNS:
+    spans: set[tuple[int, int]] = set()
+    for pattern in (*RETRACTED_NAME_PATTERNS, *INSTITUTION_PATTERNS):
         for match in pattern.finditer(line):
+            if match.span() in spans:
+                continue
             text = match.group(0)
             if NOT_INSTITUTIONS.search(text):
                 continue
             hits.append(text)
+            spans.add(match.span())
 
     for match in ABBREVIATION_PATTERN.finditer(line):
         start = max(0, match.start() - CONTEXT_WINDOW)
@@ -825,8 +861,6 @@ def main() -> int:
         scanned += 1
 
         for lineno, line in enumerate(text.splitlines(), start=1):
-            if SUPPRESS_MARKER in line:
-                continue
             for name in find_institutions(line):
                 normalised_name = " ".join(name.split())
                 seen_names.add(normalised_name)
