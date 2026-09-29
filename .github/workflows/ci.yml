@@ -46,6 +46,20 @@ jobs:
         # tools/update_dependencies.py.
         run: python tools/check_hash_pins.py
 
+      - name: Verify tracked SHA256 records reproduce from Git blobs
+        # scripts/check_digest_portability.py shipped with tests but was wired into
+        # nothing, so it had never run against tracked data. --strict fails only on
+        # WINDOWS_ONLY or MISMATCH verdicts; MISSING and EXEMPT do not fail it.
+        # Measured on the tree at d064dbc before wiring: PORTABLE=36, MISSING=28,
+        # EXEMPT=1, MISMATCH=0, WINDOWS_ONLY=0, so --strict exits 0.
+        # It belongs in this job because it is stdlib-only (argparse, fnmatch,
+        # hashlib, json, re, subprocess, textwrap, collections, pathlib) and runs
+        # ahead of this job's Ruff and mypy installs, and because it resolves blobs with
+        # `git cat-file blob HEAD:<path>`, which works at the default fetch-depth 1.
+        # The verdict is platform-stable: every PORTABLE row records the blob digest,
+        # so a CRLF worktree cannot turn one into a MISMATCH on a Linux runner.
+        run: python scripts/check_digest_portability.py --strict
+
       - name: Install Ruff
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
         #   pip-compile --generate-hashes environments/requirements-ci-ruff.in \
