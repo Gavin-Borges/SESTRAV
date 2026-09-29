@@ -14,7 +14,7 @@ _guard_output_path() use the scope/remedy override on guard_planned_paths()
 message does not claim a directory-shaped destination that does not exist.
 
 The only other caller of run_cross_virus in the repo is
-src/external_validation_finalize.py (around line 611-623), which already
+src/external_validation_finalize.py, which already
 calls it with output_path passed explicitly as a positional argument, so
 removing the default does not break that caller - confirmed by grep before
 this change and locked down by test_finalize_calls_cross_virus_with_an_

@@ -99,9 +99,13 @@ them, find the tier it belongs to.
 
 ### The setuptools floor (and the override that used to be needed)
 
-`requirements.in` pins `setuptools==83.0.0` and
-`environments/requirements-lock.in` floors it at `>=83.0.0`, both to close
-GHSA-h35f-9h28-mq5c. **That floor is still in force - do not remove it.**
+`requirements.in` pins `setuptools==84.0.0` and
+`environments/requirements-lock.in` floors it at `>=84.0.0`. The advisory they
+close, GHSA-h35f-9h28-mq5c, is patched at 83.0.0, so both sit one release above
+the advisory minimum; that extra release is a dependabot bump, not a security
+requirement. `pyproject.toml` deliberately states the 83.0.0 minimum instead of
+tracking the pin, and says so in its own `[build-system]` comment.
+**That floor is still in force - do not remove it.**
 
 Until 2026-08-05 it collided with torch 2.12.0's declared `setuptools<82`
 build-metadata cap, which made `uv pip compile` return `ResolutionImpossible`
@@ -290,9 +294,11 @@ Building twice from the same commit should yield byte-identical artifacts.
 
 Release **artifacts** carry a keyless Sigstore provenance attestation so consumers
 can verify authenticity (not just integrity); the verification procedure is
-documented in `SECURITY.md`. Version **tags** are annotated but not yet signed
-(`version_tags_signed`, an OpenSSF SUGGESTED criterion, is currently Unmet - see
-`docs/releasing.md`); sign new tags with `git tag -s vX.Y.Z` going forward.
+documented in `SECURITY.md`. Version **tags**: v2.0.3 is signed, earlier tags are not.
+`version_tags_signed` is still Unmet because GitHub reports that signature as
+`unknown_key`, no signing key being registered on the account, so signing alone
+does not clear it - see `docs/releasing.md`. Sign new tags with
+`git tag -s vX.Y.Z` regardless, and keep the tag message ASCII.
 
 ---
 

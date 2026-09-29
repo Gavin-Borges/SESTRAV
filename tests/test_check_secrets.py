@@ -16,6 +16,7 @@ a credential-keyword assignment that the repo-wide scan would flag.
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
 from pathlib import Path
 
@@ -465,3 +466,164 @@ def test_unquoted_rhs_in_json_and_toml_is_not_flagged(tmp_path: Path) -> None:
     control = tmp_path / "case.yaml"
     _bare(control, rhs)
     assert mod.scan_file(str(control)) == [1]
+
+
+# --- a file the scanner cannot decode or open must not read as clean ------------
+#
+# scan_file opened with encoding="utf-8" and the default errors="strict", and
+# caught UnicodeDecodeError by returning the lines found SO FAR, printing nothing.
+# One byte that is not valid UTF-8 therefore truncated the scan of that file and
+# the run still reported success.
+#
+# Measured 2026-09-20 on two fixtures identical except for a single byte:
+#   valid UTF-8                        -> [2]   credential on line 2 FLAGGED
+#   same content, one 0xff on line 1   -> []    nothing reported
+#
+# Anti-vacuity: test_valid_encoding_control_is_flagged is load-bearing. If the
+# payload ever stopped clearing the length or entropy floor, the undecodable case
+# would return [] for the innocent reason and would pass against the BROKEN
+# scanner. An earlier version of this probe used a repeated three-character motif,
+# whose Shannon entropy is about 1.58, and the control came back empty - proving
+# nothing at all.
+
+
+def _undecodable(path: Path, token: str) -> None:
+    """Line 1 carries a byte that is not valid UTF-8; line 2 carries the payload."""
+    payload = "api" + "_key = " + '"' + token + '"\n'
+    path.write_bytes(b"# ordinary comment \xff\n" + payload.encode("utf-8"))
+
+
+def _decodable(path: Path, token: str) -> None:
+    """Byte-for-byte the same, minus the one bad byte."""
+    payload = "api" + "_key = " + '"' + token + '"\n'
+    path.write_bytes(b"# ordinary comment\n" + payload.encode("utf-8"))
+
+
+def test_valid_encoding_control_is_flagged(tmp_path: Path) -> None:
+    """Anti-vacuity anchor: the payload really does trip the scanner."""
+    mod = _load()
+    target = tmp_path / "control.py"
+    _decodable(target, _token())
+    assert mod.scan_file(str(target)) == [2]
+
+
+def test_undecodable_byte_does_not_hide_a_later_secret(tmp_path: Path) -> None:
+    """The regression. Before the fix this returned [] and printed nothing."""
+    mod = _load()
+    target = tmp_path / "dirty.py"
+    _undecodable(target, _token())
+    assert mod.scan_file(str(target)) == [2]
+
+
+def test_unreadable_path_is_recorded_rather_than_passing_quietly(
+    tmp_path: Path,
+) -> None:
+    """An OSError means the file was never examined, so it must not read as clean.
+
+    A directory named like a scannable file is the portable way to force an
+    OSError from open(): POSIX raises IsADirectoryError, Windows PermissionError,
+    and both are OSError subclasses.
+    """
+    mod = _load()
+    target = tmp_path / "looks_like_a_file.py"
+    target.mkdir()
+    assert mod.scan_file(str(target)) == []
+    assert str(target) in mod.UNREADABLE_PATHS
+
+
+def test_scan_tree_fails_closed_when_a_candidate_cannot_be_read(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """Exercise the scan_tree verdict, including privileged Linux runners."""
+    mod = _load()
+    target = tmp_path / "candidate.py"
+    target.write_text("ordinary = True\n", encoding="utf-8")
+    real_open = builtins.open
+
+    def guarded_open(path, *args, **kwargs):
+        if Path(path) == target:
+            raise PermissionError("injected unreadable candidate")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", guarded_open)
+
+    assert mod.scan_tree(str(tmp_path), min_files=0) == 1
+    output = capsys.readouterr().out
+    assert "[UNREADABLE]" in output
+    assert str(target) in output
+
+
+def test_unreadable_paths_does_not_leak_between_runs(tmp_path: Path) -> None:
+    """scan_tree clears the record, so one run cannot fail because of an earlier one."""
+    mod = _load()
+    mod.UNREADABLE_PATHS.append("stale/entry/from/a/previous/run.py")
+    # Far below the floor, so this returns 1 for the vacuity reason, not the
+    # unreadable one - the point is only that the stale entry is gone.
+    mod.scan_tree(str(tmp_path), min_files=10)
+    assert mod.UNREADABLE_PATHS == []
+
+
+# ---------------------------------------------------------------------------
+# EXCLUDE_PATHS is keyed to the repo-relative PATH, not to a basename
+# ---------------------------------------------------------------------------
+#
+# The exclusion set used to be basenames tested with `name in EXCLUDE_FILES`,
+# so a file called check_secrets.py ANYWHERE in the tree was skipped by a gate
+# nobody had asked to skip it there. That is a widening of a security gate's
+# blind spot, and it widens on its own as the tree grows.
+#
+# It is the file-name analogue of a defect this same function already had for
+# DIRECTORY names, recorded in iter_scanned_files: EXCLUDE_DIRS prunes by
+# directory name, which measurably hid 26 tracked files under results/.
+#
+# Measured before narrowing, because an exclusion that is load-bearing cannot
+# simply be tightened: scan_file returns zero findings for all three excluded
+# paths, and iter_scanned_files(".") returns the SAME 526 files before and
+# after, with nothing gained and nothing lost. No collision exists today; these
+# tests are what keep one from being introduced silently.
+
+
+def test_intended_exclusions_are_still_excluded_at_their_real_paths() -> None:
+    mod = _load()
+    for rel in (
+        "scripts/check_secrets.py",
+        "tools/apply_protection.sh",
+        "scripts/apply-branch-ruleset.ps1",
+    ):
+        assert mod._is_scannable(rel) is False, f"{rel} should remain excluded"
+
+
+def test_a_colliding_basename_elsewhere_is_now_scanned() -> None:
+    """The actual fix. Under the old basename set both of these were skipped."""
+    mod = _load()
+    assert mod._is_scannable("tests/fixtures/check_secrets.py") is True
+    assert mod._is_scannable("vendor/tools/apply_protection.sh") is True
+
+
+def test_exclusions_are_paths_not_basenames() -> None:
+    """Anti-vacuity anchor: proves the two tests above differ for the right reason.
+
+    If EXCLUDE_PATHS ever regressed to holding bare basenames, the collision
+    test would fail; if it regressed to matching nothing, the exclusion test
+    would fail. This asserts the stored shape directly so neither regression can
+    be mistaken for the other.
+    """
+    mod = _load()
+    assert all("/" in entry for entry in mod.EXCLUDE_PATHS), (
+        f"EXCLUDE_PATHS must hold repo-relative paths, got {sorted(mod.EXCLUDE_PATHS)}"
+    )
+
+
+def test_windows_separators_match_the_same_exclusions() -> None:
+    """os.walk yields backslashes on Windows; git ls-files yields forward slashes."""
+    mod = _load()
+    assert mod._is_scannable(r"scripts\check_secrets.py") is False
+    assert mod._is_scannable("./scripts/check_secrets.py") is False
+
+
+def test_ordinary_files_are_unaffected() -> None:
+    mod = _load()
+    assert mod._is_scannable("src/train_classifier.py") is True
+    assert mod._is_scannable("README.md") is True
+    assert mod._is_scannable("Dockerfile.api") is True
+    assert mod._is_scannable("models/weights.bin") is False

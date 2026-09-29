@@ -87,7 +87,30 @@ EXCLUDE_DIRS = {
     "build",
 }
 
-EXCLUDE_FILES = {"apply-branch-ruleset.ps1", "apply_protection.sh", "check_secrets.py"}
+# Repo-relative POSIX paths, NOT basenames. Keyed to the path deliberately: a
+# basename set excludes a file of that name ANYWHERE in the tree, so a future
+# tests/fixtures/check_secrets.py, or any vendored copy, would be skipped by a
+# gate nobody had asked to skip it. That is a WIDENING of a security gate's
+# blind spot, and it widens silently as the tree grows.
+#
+# This is the FILE-name analogue of a defect this same function already had and
+# already fixed for DIRECTORY names: EXCLUDE_DIRS prunes the walk by directory
+# name, which measurably hid 26 tracked files under results/ until tracked files
+# were pulled back in below. Same mechanism, same direction, one level down.
+#
+# Verified 2026-09-20 before narrowing, because an exclusion that is load-bearing
+# cannot simply be tightened: scan_file returns ZERO findings for all three of
+# these paths, so the gate is green with or without them. They are kept, rather
+# than deleted, as a deliberate guard for the day one of them gains an example
+# credential pattern - check_secrets.py is exactly the file where that would
+# happen.
+EXCLUDE_PATHS = frozenset(
+    {
+        "scripts/apply-branch-ruleset.ps1",
+        "tools/apply_protection.sh",
+        "scripts/check_secrets.py",
+    }
+)
 
 _SCAN_SUFFIXES = (
     ".py",
@@ -105,6 +128,13 @@ _SCAN_SUFFIXES = (
 )
 
 
+# Paths this run could not READ at all. A file that cannot be opened has not been
+# cleared, so scan_tree turns this into a failure rather than letting it pass
+# quietly. It is module-level because scan_file returns line numbers and must keep
+# that signature; scan_tree resets it at the start of every run.
+UNREADABLE_PATHS: List[str] = []
+
+
 def scan_file(path: str) -> List[int]:
     # Returns only the line NUMBERS of credential-like assignments. The matched
     # text is deliberately never stored or returned, so a flagged value cannot be
@@ -116,7 +146,22 @@ def scan_file(path: str) -> List[int]:
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        # errors="surrogateescape", NOT the default "strict", and this is the whole
+        # point of the change. Under "strict" a single byte that is not valid UTF-8
+        # raised UnicodeDecodeError, the except clause below returned the lines
+        # found SO FAR, and nothing was printed - so the rest of that file was never
+        # examined and the run still reported success.
+        #
+        # Measured 2026-09-20 on two fixtures identical except for one byte:
+        #   valid UTF-8                      -> [2]   credential on line 2 FLAGGED
+        #   same file, one 0xff byte line 1  -> []    nothing reported
+        # One unreadable byte anywhere above a secret hid the secret.
+        #
+        # surrogateescape maps undecodable bytes to lone surrogates instead of
+        # raising, so the scan runs to the end of the file. Credential values are
+        # ASCII by construction (the patterns below match quoted or bare tokens
+        # with no whitespace), so the smuggled bytes cannot mask a match.
+        with open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
             for line_no, line in enumerate(f, 1):
                 flagged = False
                 for pattern in patterns:
@@ -140,14 +185,32 @@ def scan_file(path: str) -> List[int]:
                         break
                 if flagged:
                     flagged_line_numbers.append(line_no)
-    except (OSError, UnicodeDecodeError):
+    except OSError:
+        # The file could not be opened or read at all (permissions, a vanished
+        # path, a device error). That is NOT a clean result: nothing about this
+        # file has been cleared. Record it so scan_tree can fail closed.
+        #
+        # UnicodeDecodeError is deliberately no longer caught here. With
+        # errors="surrogateescape" above it can no longer be raised by the read,
+        # and catching it was what made an undecodable byte look like a clean file.
+        UNREADABLE_PATHS.append(path)
         return flagged_line_numbers
     return flagged_line_numbers
 
 
-def _is_scannable_name(name: str) -> bool:
-    if name in EXCLUDE_FILES:
+def _is_scannable(rel_path: str) -> bool:
+    """Decide scannability from a REPO-RELATIVE path, not from a basename.
+
+    Both callers pass a path relative to the scan root. Separators are
+    normalised to '/' so the same EXCLUDE_PATHS entries work on Windows, where
+    os.walk yields backslashes while `git ls-files` yields forward slashes.
+    """
+    rel = rel_path.replace(os.sep, "/").replace("\\", "/")
+    if rel.startswith("./"):
+        rel = rel[2:]
+    if rel in EXCLUDE_PATHS:
         return False
+    name = rel.rsplit("/", 1)[-1]
     return name.endswith(_SCAN_SUFFIXES) or name.startswith("Dockerfile")
 
 
@@ -215,8 +278,11 @@ def iter_scanned_files(root: str) -> List[str]:
     for dirpath, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
         for name in files:
-            if _is_scannable_name(name):
-                found.append(os.path.join(dirpath, name))
+            absolute = os.path.join(dirpath, name)
+            # Relative to the scan root, so EXCLUDE_PATHS is matched against the
+            # same shape `git ls-files` produces for the tracked pass below.
+            if _is_scannable(os.path.relpath(absolute, root)):
+                found.append(absolute)
 
     # EXCLUDE_DIRS prunes by directory NAME, so a gitignored file sitting at the
     # REPO ROOT has no directory to prune and the walk opens it anyway. STATE.md
@@ -256,7 +322,7 @@ def iter_scanned_files(root: str) -> List[str]:
     # unchanged. Only tracked files are pulled back in.
     seen = {os.path.normcase(os.path.abspath(p)) for p in found}
     for rel in _tracked_paths(root):
-        if not _is_scannable_name(os.path.basename(rel)):
+        if not _is_scannable(rel):
             continue
         absolute = os.path.abspath(os.path.join(root, rel))
         key = os.path.normcase(absolute)
@@ -267,6 +333,7 @@ def iter_scanned_files(root: str) -> List[str]:
 
 
 def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
+    UNREADABLE_PATHS.clear()
     paths = iter_scanned_files(root)
     if len(paths) < min_files:
         print(
@@ -281,6 +348,18 @@ def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
                 f"[FLAGGED] {path}:{line_no} (credential-like assignment; value not shown)"
             )
             has_error = True
+    # A file that could not be READ has not been cleared. Reported as its own
+    # failure rather than folded into [FLAGGED], because the two mean opposite
+    # things: FLAGGED is "we looked and found something", this is "we could not
+    # look". Silently treating the second as a pass is the defect this gate had.
+    if UNREADABLE_PATHS:
+        for path in UNREADABLE_PATHS:
+            print(f"[UNREADABLE] {path} (could not be opened; NOT cleared)")
+        print(
+            f"\n[ERROR] {len(UNREADABLE_PATHS)} file(s) could not be read, so this "
+            "run cannot certify them. Action blocked."
+        )
+        return 1
     if has_error:
         print("\n[ERROR] Potential secrets detected. Action blocked.")
         return 1

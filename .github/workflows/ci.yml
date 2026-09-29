@@ -48,8 +48,8 @@ jobs:
 
       - name: Install Ruff
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-ci-ruff.in \
-        #     --output-file environments/requirements-ci-ruff.txt --no-emit-index-url
+        #   python tools/update_dependencies.py --ci-env ruff
+        #   (wraps `uv pip compile`; the .txt header records the exact argv)
         run: pip install --require-hashes -r environments/requirements-ci-ruff.txt
 
       - name: Ruff lint (coding standards)
@@ -57,8 +57,8 @@ jobs:
 
       - name: Install mypy
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-ci-mypy.in \
-        #     --output-file environments/requirements-ci-mypy.txt --no-emit-index-url
+        #   python tools/update_dependencies.py --ci-env mypy
+        #   (wraps `uv pip compile`; the .txt header records the exact argv)
         run: pip install --require-hashes -r environments/requirements-ci-mypy.txt
 
       - name: mypy type check
@@ -160,8 +160,8 @@ jobs:
         # pytest-cov is a test-only tool, layered on top of the hash-pinned
         # runtime deps installed above (OpenSSF Silver test_statement_coverage80).
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-ci-pytest-cov.in \
-        #     --output-file environments/requirements-ci-pytest-cov.txt --no-emit-index-url
+        #   python tools/update_dependencies.py --ci-env pytest-cov
+        #   (wraps `uv pip compile`; the .txt header records the exact argv)
         run: pip install --require-hashes -r environments/requirements-ci-pytest-cov.txt
 
       - name: Verify library-coverage scope is in sync

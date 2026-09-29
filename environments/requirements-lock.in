@@ -1,8 +1,8 @@
 # Source inputs for environments/requirements.lock
 # Regenerate with:
-#   pip-compile --allow-unsafe --generate-hashes \
-#     --output-file=environments/requirements.lock \
-#     environments/requirements-lock.in
+#   python tools/update_dependencies.py --all              (full re-lock)
+#   python tools/update_dependencies.py --target PACKAGE   (bump one package)
+#   Not reachable via --ci-env; requirements.lock line 2 records the exact argv.
 -r ../requirements.in
 -r requirements-ci.in
 

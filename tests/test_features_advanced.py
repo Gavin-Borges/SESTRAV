@@ -322,7 +322,7 @@ class TestGetEsmClsToken:
 
     def _mock_transformers(self, cls_vector=None):
         """Build a sys.modules['transformers'] mock that makes the ESM-2
-        success path (lines 524-535) run without a network call.
+        success path run without a network call.
 
         ``cls_vector`` defaults to the shared sentinel; pass one explicitly when a
         test needs the freshly loaded model to be distinguishable from a cached one.
@@ -357,7 +357,7 @@ class TestGetEsmClsToken:
         return mock_transformers
 
     def test_esm_cls_token_success_path(self, monkeypatch, capsys):
-        """Covers lines 524-535: ESM-2 transformers path runs when model not cached."""
+        """Covers get_esm_cls_token's ESM-2 transformers path: runs when model not cached."""
         import src.features as f
 
         # Reset the module-level cache so the load path runs.
@@ -376,7 +376,7 @@ class TestGetEsmClsToken:
         assert "Falling back" not in capsys.readouterr().out
 
     def test_esm_cls_token_reuses_cached_model(self, monkeypatch, capsys):
-        """When the model is already cached, the load block (524-527) is skipped."""
+        """When the model is already cached, the load block is skipped."""
         import src.features as f
 
         mock_transformers = self._mock_transformers()

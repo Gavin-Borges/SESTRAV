@@ -60,7 +60,7 @@ def iter_requirements(text: str) -> list[tuple[int, str]]:
     Skips blanks, comments, `-r`/`-c` includes and any other option-only line
     (`--index-url`, `--extra-index-url`, `--find-links`, ...). Backslash
     continuations are joined into a single logical requirement so that the
-    `--hash=` entries pip-compile puts on following lines still count.
+    `--hash=` entries the compiler puts on following lines still count.
     """
     requirements: list[tuple[int, str]] = []
     buffer = ""

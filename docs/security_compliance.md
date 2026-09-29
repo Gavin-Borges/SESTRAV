@@ -47,7 +47,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
   - Avoidance of `eval()`/`exec()` and unsafe `shell=True` subprocesses.
   - Transitioned from unsafe file loading (`json.loads(open(path).read())`) to context-managed explicit IO logic.
   - Safe model unpickling via `ModelRegistry` validating expected features.
-- **Dependency Management:** Dependencies are rigorously pinned with `--require-hashes` using `pip-compile` to prevent supply chain injection.
+- **Dependency Management:** Dependencies are rigorously pinned with `--require-hashes` to prevent supply chain injection. Manifests that have a `.in` source are compiled by `tools/update_dependencies.py`, which wraps `uv pip compile --generate-hashes`, and each of those records its exact argv in its own header. The hand-maintained hash locks in `CONTRIBUTING.md`'s tier 4 have no `.in` source, are curated with `pip download` + `pip hash`, and `tools/update_dependencies.py` states that they are deliberately not managed by it. (Corrected 2026-09-20: this read "using `pip-compile`", accurate when written on 2026-06-13. Re-corrected the same day: a first replacement claimed ALL hash-pinned manifests are tool-compiled with a recorded argv, which tier 4 refutes, and dated the move to uv to a single day. The move was staggered per manifest between 2026-07-28 and 2026-08-22.)
 - **Static Analysis (SAST):** CodeQL, Bandit, and Semgrep are integrated into GitHub actions.
 
 ## 6. Analysis
@@ -171,8 +171,10 @@ alongside the Dependency-review Action and OSSF Scorecard. Signed releases now
 ship via the `release.yml` workflow, which attaches a Sigstore build-provenance
 attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 `signed_releases` criterion (verify with `gh attestation verify`). Remaining
-planned work: publish the package to PyPI, and cryptographically sign the git tags
-themselves (`version_tags_signed`, a SUGGESTED criterion). A maintainer SSH signing
-key is configured locally with `tag.gpgsign` enabled, so this is met on the next
-release by tagging with `git tag -s`. See `ROADMAP.md` for the declined-tier position
+planned work: publish the package to PyPI, and clear `version_tags_signed`
+(a SUGGESTED criterion). Note what that now requires: the tags are already being
+signed - v2.0.3 carries an SSH signature - but GitHub reports it `unknown_key`
+because no signing key is registered on the account, so the criterion is Unmet
+despite the signing. Registering the key is the outstanding step, not tagging
+with `git tag -s`. See `ROADMAP.md` for the declined-tier position
 on the multi-person Silver/Gold criteria, and the coverage ratchet.

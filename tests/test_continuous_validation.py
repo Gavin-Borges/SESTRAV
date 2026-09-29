@@ -171,7 +171,7 @@ def test_run_no_marker_when_within_threshold(tmp_path):
     assert (results / "benchmark_latest.json").exists()
 
 
-def test_run_seeds_when_no_baseline(tmp_path):
+def test_run_refuses_a_measurement_when_no_baseline_exists(tmp_path):
     marker = tmp_path / "REGRESSION_DETECTED"
     results = tmp_path / "out"
 
@@ -183,7 +183,174 @@ def test_run_seeds_when_no_baseline(tmp_path):
         marker_path=str(marker),
         today="2026-06-22",
     )
+    assert code == cv.EXIT_COULD_NOT_RUN
+    assert not marker.exists()
+    assert not results.exists()
+
+
+# ---------------------------------------------------------------------------
+# --require-measurement: "could not score" must not read as "scored, all clean"
+# ---------------------------------------------------------------------------
+#
+# Why these exist. The monthly workflow reached ONE branch of main() on every
+# run: the model is absent, because config.yaml points model_path at
+# models/rf_31feature_integrated.joblib and .gitignore excludes models/*.joblib,
+# so no checkout has one. That branch returned 0, so the job went green having
+# scored nothing, uploaded no artifact and opened no issue. Observed on run
+# 33512393850 (2026-09-01), conclusion "success", whose log carries
+# "Model not found at models/rf_31feature_integrated.joblib. Skipping AUC-PR
+# computation." The flag makes that case exit EXIT_COULD_NOT_RUN instead.
+#
+# The default-off tests are not padding: they pin the OLD contract, which local
+# and ad-hoc callers still rely on, so a future change cannot quietly make a
+# bare run start failing.
+
+
+def test_missing_model_without_the_flag_still_exits_zero(tmp_path):
+    """The historical contract, pinned deliberately. A bare run still skips."""
+    code = cv.main(
+        [
+            "--inputs",
+            str(_write_inputs(tmp_path)[0]),
+            "--model-path",
+            str(tmp_path / "definitely_absent.joblib"),
+        ]
+    )
     assert code == 0
-    assert not marker.exists()  # no baseline yet → seed, never a regression
-    payload = json.loads((results / "benchmark_latest.json").read_text())
-    assert payload["regression"]["baseline_auc_pr"] is None
+
+
+def test_missing_model_with_the_flag_is_not_a_pass(tmp_path):
+    code = cv.main(
+        [
+            "--inputs",
+            str(_write_inputs(tmp_path)[0]),
+            "--model-path",
+            str(tmp_path / "definitely_absent.joblib"),
+            "--require-measurement",
+        ]
+    )
+    assert code == cv.EXIT_COULD_NOT_RUN
+    assert cv.EXIT_COULD_NOT_RUN not in (0, 1), (
+        "EXIT_COULD_NOT_RUN must be distinguishable from both 'measured, clean' "
+        "and 'measured, regression', or the caller cannot tell them apart"
+    )
+
+
+def test_empty_inputs_without_the_flag_still_exits_zero(tmp_path):
+    code = cv.run(
+        [str(tmp_path / "nonexistent.csv")],
+        baseline_path=str(tmp_path / "absent.json"),
+        results_dir=str(tmp_path / "out"),
+        marker_path=str(tmp_path / "REGRESSION_DETECTED"),
+    )
+    assert code == 0
+
+
+def test_empty_inputs_with_the_flag_is_not_a_pass(tmp_path):
+    code = cv.run(
+        [str(tmp_path / "nonexistent.csv")],
+        baseline_path=str(tmp_path / "absent.json"),
+        results_dir=str(tmp_path / "out"),
+        marker_path=str(tmp_path / "REGRESSION_DETECTED"),
+        require_measurement=True,
+    )
+    assert code == cv.EXIT_COULD_NOT_RUN
+
+
+def test_a_real_measurement_still_exits_zero_under_the_flag(tmp_path):
+    """Anti-vacuity: the flag must not turn every run into a failure.
+
+    Without this, the two tests above would pass against a build that returned
+    EXIT_COULD_NOT_RUN unconditionally.
+    """
+    results = tmp_path / "out"
+    baseline = tmp_path / "baselines.json"
+    baseline.write_text(json.dumps({cv.BASELINE_KEY: {"auc_pr": 0.50}}))
+    code = cv.run(
+        _write_inputs(tmp_path),
+        baseline_path=str(baseline),
+        results_dir=str(results),
+        score_fn=lambda df, m, b: {"auc_pr": 0.50, "n_peptides": len(df), "n_positive": 2},
+        marker_path=str(tmp_path / "REGRESSION_DETECTED"),
+        today="2026-09-20",
+        require_measurement=True,
+    )
+    assert code == 0
+    assert (results / "benchmark_latest.json").exists()
+
+
+def test_the_configured_model_is_not_tracked_so_ci_can_never_score():
+    """Anti-vacuity anchor for the premise the workflow change rests on.
+
+    Asserts TRACKEDNESS, not filesystem presence, and the distinction is the
+    whole point. A developer workstation routinely HAS the model - this one
+    carries a 128 MB models/rf_31feature_integrated.joblib - so an os.path.exists
+    assertion would pass in CI and fail locally, which is a machine-dependent
+    test rather than a statement about the repository. What CI actually gets is
+    the tracked tree, and models/*.joblib is gitignored, so a fresh checkout has
+    no model and the monthly job can never score.
+
+    If a model ever becomes tracked, the monthly job can measure for real and
+    --require-measurement stops being load-bearing; this fails loudly at that
+    point rather than letting the reasoning silently expire.
+    """
+    import pathlib
+    import subprocess
+
+    model_path, _ = cv._resolve_paths(None, None)
+    rel = pathlib.Path(model_path).as_posix()
+    result = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", rel],
+        cwd=pathlib.Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0, (
+        f"{rel} is now TRACKED. The monthly workflow's --require-measurement flag "
+        "was added because no CI checkout can obtain a model; re-check that "
+        "reasoning before relying on these tests."
+    )
+
+
+# ---------------------------------------------------------------------------
+# _resolve_paths - the config-absent fallbacks
+# ---------------------------------------------------------------------------
+
+
+def test_binding_matrix_fallback_matches_config(monkeypatch):
+    """The config-absent binding-matrix default must equal config.yaml's value.
+
+    Both fallbacks in ``_resolve_paths`` exist for the case where ``config.yaml``
+    cannot be read - it is absent, or ``yaml`` is not importable and the
+    ``except ImportError`` swallows it. The model fallback already matched the
+    config. The binding-matrix fallback named the v4 corpus while the config
+    declares v5, so a run with an unreadable config scored against a different
+    matrix than the configured one, then compared that score to a baseline
+    established on the configured one. Both matrices are tracked, so the wrong
+    one resolves silently instead of failing.
+
+    This binds the assertion to the config's own value rather than to a literal,
+    so it stays true if the configured matrix is rolled forward again.
+    """
+    import os
+    import pathlib
+
+    import yaml
+
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    with open(repo_root / "config.yaml", encoding="utf-8") as fh:
+        declared = (yaml.safe_load(fh) or {})["binding_matrix_path"]
+
+    real_isfile = os.path.isfile
+    monkeypatch.setattr(
+        os.path,
+        "isfile",
+        lambda p: False if str(p).endswith("config.yaml") else real_isfile(p),
+    )
+
+    _, binding_matrix = cv._resolve_paths(None, None)
+    assert binding_matrix == declared, (
+        f"config-absent fallback resolved {binding_matrix!r} but config.yaml "
+        f"declares {declared!r}; the two defaults must not diverge"
+    )

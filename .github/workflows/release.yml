@@ -22,6 +22,7 @@ jobs:
   release:
     name: Build, attest, and publish signed release
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write       # create the GitHub Release and upload assets
       id-token: write        # OIDC token for keyless Sigstore signing
@@ -125,8 +126,8 @@ jobs:
         # setuptools build backend (see pyproject.toml [build-system]); building the
         # source/wheel distribution does not import the heavy ML runtime deps.
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-ci-build.in \
-        #     --output-file environments/requirements-ci-build.txt --no-emit-index-url
+        #   python tools/update_dependencies.py --ci-env build
+        #   (wraps `uv pip compile`; the .txt header records the exact argv)
         run: |
           pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/
@@ -153,7 +154,7 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           python -m venv /tmp/relcheck
-          /tmp/relcheck/bin/python -m pip install --quiet --upgrade pip
+          /tmp/relcheck/bin/python -m pip install --quiet --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt
           /tmp/relcheck/bin/python -m pip install --quiet dist/*.whl
           /tmp/relcheck/bin/python - <<'PY'
           import os
@@ -266,6 +267,7 @@ jobs:
     name: Publish to PyPI
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Gate: set repository variable PYPI_PUBLISH=true (Settings -> Variables -> Actions).
     # Keeping the toggle in a non-secret variable makes the condition evaluable at
     # job-scheduling time (secrets context is unavailable in job-level `if` expressions).

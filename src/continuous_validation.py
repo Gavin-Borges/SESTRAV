@@ -23,6 +23,7 @@ import datetime as _dt
 import json
 import os
 import pathlib
+import sys
 from typing import Callable, Optional, Sequence
 
 from src.artifact_integrity import (
@@ -44,6 +45,16 @@ REGRESSION_REL_THRESHOLD = 0.03
 
 # Key under which the EBV+HPV16 IEDB T-cell benchmark is stored in the baselines file.
 BASELINE_KEY = "iedb_ebv_hpv16_tcell"
+
+# Distinct from 0 (measured, no regression) and 1 (measured, regression). Returned
+# under --require-measurement when this run could not score anything at all (the
+# model is absent, or the IEDB fetch came back empty), and, with or without that
+# flag, when a run that did score finds no baseline AUC-PR stored. The first two used to
+# return 0 unconditionally, which made "I could not look" indistinguishable from
+# "I looked and it is fine" to every caller, including the monthly workflow.
+# Same shape and the same wording as tools/check_dismissal_justifications.py's
+# EXIT_COULD_NOT_RUN, which already draws this distinction.
+EXIT_COULD_NOT_RUN = 2
 
 
 # ---------------------------------------------------------------------------
@@ -87,8 +98,9 @@ def compute_regression(
     """Classify a fresh AUC-PR against a stored baseline.
 
     A regression is a *relative* drop greater than ``rel_threshold`` (Part 11
-    specifies >3%). When no baseline exists yet (first run), this is not a
-    regression - the current value seeds the baseline instead.
+    specifies >3%). With no baseline this helper returns an unmeasured result;
+    the orchestration layer refuses to publish a verdict until a reviewed,
+    tracked baseline exists.
 
     Returns a dict with ``is_regression`` (bool), ``delta`` (absolute), and
     ``rel_delta`` (signed fraction of baseline), plus the inputs for logging.
@@ -221,7 +233,7 @@ def _resolve_paths(model_path: Optional[str], binding_matrix: Optional[str]) -> 
 
     model_path = model_path or cfg.get("model_path", "models/rf_31feature_integrated.joblib")
     binding_matrix = binding_matrix or cfg.get(
-        "binding_matrix_path", "models/peptide_binding_matrix_v4.csv"
+        "binding_matrix_path", "models/peptide_binding_matrix_v5.csv"
     )
 
     # Resolve canonical/legacy model aliases when the literal path is absent.
@@ -249,6 +261,7 @@ def run(
     score_fn: Optional[Callable] = None,
     marker_path: str = DEFAULT_MARKER_PATH,
     today: Optional[str] = None,
+    require_measurement: bool = False,
 ) -> int:
     """Score inputs, persist results, and emit a regression marker if warranted.
 
@@ -266,6 +279,18 @@ def run(
 
     df = load_inputs(inputs)
     if df is None or len(df) == 0:
+        # An empty fetch is "could not measure", not "measured and clean". Under
+        # --require-measurement the caller wants the second reading only, so this
+        # returns a distinct non-zero rather than the historical 0. The default
+        # stays 0 so local and ad-hoc runs behave exactly as they always have.
+        if require_measurement:
+            print(
+                "No IEDB records fetched - nothing to score.\n"
+                "  This is NOT a pass: the benchmark did not run. Either the IEDB\n"
+                "  fetch returned no rows or its export format changed.",
+                file=sys.stderr,
+            )
+            return EXIT_COULD_NOT_RUN
         print("No IEDB records fetched - nothing to score. Exiting.")
         return 0
 
@@ -296,7 +321,16 @@ def run(
         metrics.update(matrix_fields)
 
     baselines = load_baseline(baseline_path)
-    result = compute_regression(metrics["auc_pr"], baseline_auc_pr(baselines))
+    baseline = baseline_auc_pr(baselines)
+    if baseline is None:
+        print(
+            f"Stored baseline {BASELINE_KEY}.auc_pr is absent; refusing to report "
+            "a regression verdict that cannot be computed. Seed the tracked baseline "
+            "through review before running this gate.",
+            file=sys.stderr,
+        )
+        return EXIT_COULD_NOT_RUN
+    result = compute_regression(metrics["auc_pr"], baseline)
     metrics["regression"] = result
 
     # Part 11 step 6: persist results to results/continuous_validation/.
@@ -320,17 +354,14 @@ def run(
             latest_path, script="src/continuous_validation.py", extra=model_fields
         )
 
-    if result["baseline_auc_pr"] is None:
-        print("No stored baseline - recording current value as the seed baseline.")
-    else:
-        print(
-            f"Delta vs baseline: {result['delta']:+.4f} "
-            f"({result['rel_delta']:+.2%}); threshold = -{REGRESSION_REL_THRESHOLD:.0%}"
-        )
-        if result["is_regression"]:
-            msg = regression_message(result)
-            print(f"::warning::AUC-PR regression detected - {msg}")
-            pathlib.Path(marker_path).write_text(msg, encoding="utf-8")
+    print(
+        f"Delta vs baseline: {result['delta']:+.4f} "
+        f"({result['rel_delta']:+.2%}); threshold = -{REGRESSION_REL_THRESHOLD:.0%}"
+    )
+    if result["is_regression"]:
+        msg = regression_message(result)
+        print(f"::warning::AUC-PR regression detected - {msg}")
+        pathlib.Path(marker_path).write_text(msg, encoding="utf-8")
 
     return 0
 
@@ -348,10 +379,33 @@ def main(argv: Optional[list] = None) -> int:
     p.add_argument("--model-path", default=None, help="Model path (default: config.yaml)")
     p.add_argument("--binding-matrix", default=None, help="Binding matrix (default: config.yaml)")
     p.add_argument("--marker", default=DEFAULT_MARKER_PATH, help="Regression marker file path")
+    p.add_argument(
+        "--require-measurement",
+        action="store_true",
+        help=(
+            "Exit 2 instead of 0 when this run could not score anything (model "
+            "absent, or an empty IEDB fetch). Use in CI, where a green result must "
+            "mean a measurement actually happened."
+        ),
+    )
     a = p.parse_args(argv)
 
     model_path, binding_matrix = _resolve_paths(a.model_path, a.binding_matrix)
     if not os.path.exists(model_path):
+        # Unconditional in CI: models/*.joblib is gitignored, so no checkout has
+        # one and this branch is the ONLY one the monthly workflow ever reached.
+        # It returned 0, so the job went green having scored nothing, uploaded no
+        # artifact and opened no issue - observed on run 33512393850 (2026-09-01),
+        # conclusion "success", whose log carries this exact message.
+        if a.require_measurement:
+            print(
+                f"Model not found at {model_path}.\n"
+                "  This is NOT a pass: no AUC-PR was computed and no baseline was\n"
+                "  compared. Supply the model, or drop --require-measurement if a\n"
+                "  skip is genuinely acceptable for this caller.",
+                file=sys.stderr,
+            )
+            return EXIT_COULD_NOT_RUN
         print(f"Model not found at {model_path}. Skipping AUC-PR computation.")
         return 0
 
@@ -362,10 +416,9 @@ def main(argv: Optional[list] = None) -> int:
         model_path=model_path,
         binding_matrix_path=binding_matrix,
         marker_path=a.marker,
+        require_measurement=a.require_measurement,
     )
 
 
 if __name__ == "__main__":
-    import sys
-
     sys.exit(main())

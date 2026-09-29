@@ -1,5 +1,5 @@
 # Orchestrate Tier A external validation: prep, PredIG Docker, PRIME WSL, comparison.
-# Usage: .\scripts\run_external_tier_a.ps1 [-Initials gb] [-SkipDocker] [-SkipPrime]
+# Usage: .\scripts\run_external_tier_a.ps1 [-Initials gb] [-SkipDocker] [-SkipPrime] [-SmokeTestOnly]
 
 param(
     [string]$Initials = "gb",

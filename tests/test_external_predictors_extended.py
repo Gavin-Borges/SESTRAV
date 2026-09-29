@@ -2,13 +2,13 @@
 
 Targets the 17 uncovered statements and 11 branch misses that remain after
 the base test_external_predictors.py suite:
-  - _generate_mock_netchop_scores: proline residue path (line 66)
+  - _generate_mock_netchop_scores: proline residue path
   - _generate_mock_tapreg_score: empty pep (87), PDE c-terminus (93-96),
     RKYFW n-terminus (101), non-blosum model branch (104->107)
-  - parse_netchop_html: out-of-bounds pep index (145->132)
-  - query_netchop: successful poll returns results (255)
-  - query_tapreg: threshold kwarg (346-347), successful parse (362-364),
-    empty-parse fallback (365-366)
+  - parse_netchop_html: out-of-bounds pep index
+  - query_netchop: successful poll returns results
+  - query_tapreg: threshold kwarg, successful parse,
+    empty-parse fallback
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from src.external_predictors import (
 
 
 # ---------------------------------------------------------------------------
-# _generate_mock_netchop_scores - proline path (line 66: val -= 0.08 branch)
+# _generate_mock_netchop_scores - proline path (val -= 0.08 branch)
 # ---------------------------------------------------------------------------
 
 
@@ -82,7 +82,7 @@ class TestMockTapregScore:
 
 
 # ---------------------------------------------------------------------------
-# parse_netchop_html - out-of-bounds pep index (lines 145->132)
+# parse_netchop_html - out-of-bounds pep index
 # ---------------------------------------------------------------------------
 
 
@@ -102,7 +102,7 @@ class TestParseNetchopHtmlOOB:
 
 
 # ---------------------------------------------------------------------------
-# query_netchop - successful poll returns results (line 255)
+# query_netchop - successful poll returns results
 # ---------------------------------------------------------------------------
 
 VALID_NETCHOP_POLL_RESPONSE = (
@@ -142,8 +142,8 @@ class TestQueryNetchopSuccessfulPoll:
 
 
 # ---------------------------------------------------------------------------
-# query_tapreg - threshold kwarg (346-347), parse success (362-364),
-#   empty-parse fallback (365-366)
+# query_tapreg - threshold kwarg, parse success,
+#   empty-parse fallback
 # ---------------------------------------------------------------------------
 
 _TAPREG_RESP_WITH_SCORES = "GLFYTRTGL  result  1.2345\n"

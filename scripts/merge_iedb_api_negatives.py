@@ -54,7 +54,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
-from _dataset_utils import git_sha, write_provenance
+from _dataset_utils import git_sha, normalize_reference_pmids, write_provenance
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -184,7 +184,9 @@ def _normalize_to_schema(raw: pd.DataFrame) -> pd.DataFrame:
     out["assay_type"] = raw.get("assay_type", pd.Series("", index=raw.index)).fillna("").astype(str)
     out["assay_quality_tier"] = weights.map(_quality_tier).astype(int)
     out["assay_quality_weight"] = weights
-    pmid = raw.get("reference_pmid", pd.Series("", index=raw.index)).fillna("").astype(str)
+    pmid = normalize_reference_pmids(
+        raw.get("reference_pmid", pd.Series("", index=raw.index))
+    )
     out["reference_pmid"] = pmid
     out["iedb_assay_id"] = np.nan
     out["infection_phase"] = np.nan
@@ -263,6 +265,35 @@ def _summarize(df: pd.DataFrame, label: str) -> None:
     other = len(df) - target_counts.sum()
     if other > 0:
         logger.info("    %-15s %d", "(other viruses)", other)
+
+
+def provenance_sources(
+    api_dir: Path,
+    existing_path: Path,
+    net_new_api_rows: int,
+) -> list[str]:
+    """Return the `sources` list for the merged corpus's provenance sidecar.
+
+    `sources` is read by someone reproducing this artifact from a CLONE, so it
+    must name paths that resolve there, with separators that survive the trip.
+
+    TWO RULES, and each fixes a way the previous form misled a reader.
+
+    Separators are POSIX. `str(Path)` yields BACKSLASHES on Windows, which
+    resolve on no other platform, and the sidecar this writes is tracked. The
+    other path-style provenance sidecar in this tree records forward slashes.
+
+    `api_dir` is recorded ONLY when it actually contributed rows. It is
+    untracked, so it resolves for nobody but the operator who ran the merge.
+    When it supplied rows it is a real input whose absence a reader must know
+    about, and naming it is honest. On an idempotent re-merge it supplied
+    nothing, and naming it declares an unresolvable path as the source of rows
+    it never provided, which counts one absent input twice.
+    """
+    sources = [existing_path.as_posix()]
+    if net_new_api_rows:
+        sources.insert(0, api_dir.as_posix())
+    return sources
 
 
 # ---------------------------------------------------------------------------
@@ -344,13 +375,15 @@ def merge(
     merged.to_csv(output_path, index=False)
     logger.info("\nWritten: %s", output_path)
 
+    net_new_api_rows = len(merged) - len(existing)
+
     write_provenance(
         str(output_path),
-        sources=[str(api_dir), str(existing_path)],
+        sources=provenance_sources(api_dir, existing_path, net_new_api_rows),
         row_count=len(merged),
         extra={
             "existing_rows": len(existing),
-            "net_new_api_rows": len(merged) - len(existing),
+            "net_new_api_rows": net_new_api_rows,
             "git_sha": git_sha(),
             "per_virus_counts": {
                 v: int((merged["virus"] == v).sum()) for v in sorted(TARGET_VIRUSES)

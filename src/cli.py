@@ -137,6 +137,16 @@ def cmd_predict(args: argparse.Namespace) -> int:
     print(f"[sestrav predict] Lengths: {lengths}")
     print(f"[sestrav predict] Output: {args.output}")
 
+    # config.yaml ships freeze_mode: true, and README describes freeze mode as
+    # forbidding exactly the silent substitutions Stage 4 would otherwise make. This
+    # entry point hardcoded False, so the guardrail was off no matter how the repo was
+    # configured. pipeline.run_pipeline had the identical defect and already forwards
+    # the configured value; this keeps the two entry points honest about the same flag.
+    freeze_mode = args.freeze_mode
+    if freeze_mode is None:
+        freeze_mode = bool(_read_config().get("freeze_mode", False))
+    print(f"[sestrav predict] Freeze mode: {freeze_mode}")
+
     # Stage 1 - peptide generation
     print("[Stage 1] Generating peptides...")
     from functions.stage1_peptide_generation import generate_peptides
@@ -168,7 +178,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
         model_path=args.model,
         conformal=args.conformal,
         conformal_path=args.conformal_calibrator,
-        freeze_mode=False,
+        freeze_mode=freeze_mode,
         virus=args.virus,
         per_virus_calibration_dir=args.per_virus_calibration_dir,
         output_dir=args.output,
@@ -382,6 +392,28 @@ def _build_predict_parser() -> argparse.ArgumentParser:
         default=None,
         help="Directory of per-virus calibrators (default: models/calibration/per_virus)",
     )
+    # The conformal pair had drifted the same way --virus did: both shipped in main()
+    # and neither was mirrored here.
+    p.add_argument(
+        "--conformal",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Compute Cross Venn-Abers conformal prediction intervals (default: True)",
+    )
+    p.add_argument(
+        "--conformal-calibrator",
+        type=str,
+        default=None,
+        help="Path to conformal calibrator joblib (default: resolved from model directory or models/v5/)",
+    )
+    p.add_argument(
+        "--freeze-mode",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enforce release-grade guardrails: raise rather than silently substituting "
+        "a prototype classifier or skipping conformal intervals "
+        "(default: freeze_mode from config.yaml)",
+    )
     return p
 
 
@@ -511,6 +543,14 @@ Examples:
         type=str,
         default=None,
         help="Path to conformal calibrator joblib (default: resolved from model directory or models/v5/)",
+    )
+    p_predict.add_argument(
+        "--freeze-mode",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enforce release-grade guardrails: raise rather than silently substituting "
+        "a prototype classifier or skipping conformal intervals "
+        "(default: freeze_mode from config.yaml)",
     )
 
     # validate

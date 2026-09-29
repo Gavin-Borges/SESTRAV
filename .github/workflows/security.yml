@@ -77,7 +77,7 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           languages: python
           # SEC-3. Without this input CodeQL runs only the `default` query
@@ -99,7 +99,7 @@ jobs:
           queries: security-extended
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
 
   semgrep:
     name: Semgrep Security Scan (advisory)
@@ -123,7 +123,7 @@ jobs:
 
       - name: Install Semgrep
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-semgrep.in
+        #   python tools/update_dependencies.py --ci-env semgrep
         run: pip install --require-hashes -r environments/requirements-semgrep.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). `semgrep scan` exits non-zero
@@ -133,6 +133,64 @@ jobs:
       - name: Run Semgrep
         continue-on-error: true
         run: semgrep scan --config p/python --config semgrep-rules/ --sarif --output semgrep.sarif
+
+      - name: Assert Semgrep tooling actually ran (fail on TOOLING error only)
+        # Same shape as the pip-audit job's tooling assertion below: the scan
+        # above is continue-on-error so real FINDINGS stay advisory, and this
+        # step masks only a TOOLING failure. Without it the job had a genuine
+        # fail-open, and the consequence was not merely a missed scan.
+        #
+        # MEASURED 2026-09-20 with the PINNED semgrep (1.177.0, from
+        # environments/requirements-semgrep.txt) in an isolated venv, using a
+        # config path that does not exist to stand in for a registry or config
+        # failure of `--config p/python`:
+        #
+        #   exit code                7   (MISSING_CONFIG)
+        #   semgrep.sarif written?   YES
+        #   tool.driver.rules        0
+        #   results                  0
+        #   executionSuccessful      True
+        #
+        # So a failed scan DOES leave a syntactically valid, zero-result SARIF.
+        # continue-on-error swallowed the 7, and the upload step published that
+        # file under `category: semgrep`. GitHub code scanning reads a
+        # zero-result analysis for a category as "every previously open alert in
+        # it is fixed", so a registry outage would silently CLOSE real alerts
+        # and leave a clean Security tab behind a scan that never ran.
+        #
+        # Note which signal is load-bearing. `executionSuccessful` is True even
+        # in the failing case, so it cannot be used. The rule count can: a scan
+        # that loaded no rules examined nothing. Exit codes at 1.177.0, read
+        # from semgrep/error.py: 0 OK, 1 FINDINGS, 2 FATAL, 3 TARGET_PARSE,
+        # 4 RULE_PARSE, 5 UNPARSEABLE_YAML, 7 MISSING_CONFIG, 8 INVALID_LANGUAGE,
+        # 13 INVALID_API_KEY. Only 0 and 1 mean the scan ran.
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          path = pathlib.Path("semgrep.sarif")
+          if not path.exists():
+              sys.exit("::error::semgrep wrote no SARIF at all - the scan did not run.")
+          try:
+              doc = json.loads(path.read_text(encoding="utf-8"))
+          except ValueError as exc:
+              sys.exit(f"::error::semgrep SARIF is not parseable ({exc}) - tooling failure.")
+
+          rules = sum(
+              len(run.get("tool", {}).get("driver", {}).get("rules", []))
+              for run in doc.get("runs", [])
+          )
+          if rules == 0:
+              sys.exit(
+                  "::error::semgrep SARIF carries 0 rules, so no rule was loaded and "
+                  "nothing was scanned. This is a tooling failure, not a clean scan. "
+                  "Uploading it would publish a zero-result analysis for "
+                  "category 'semgrep' and close every open alert in that category."
+              )
+          print(f"semgrep tooling OK: {rules} rule(s) loaded")
+          PY
 
       # GitHub code scanning ignores SARIF `suppressions`. Semgrep honours an inline
       # `# nosemgrep` in its own verdict but still writes the finding into the SARIF
@@ -145,7 +203,11 @@ jobs:
       # aa5825c). Dropping suppressed results makes the upload agree with the scan.
       # Only explicitly suppressed findings are removed; anything new still surfaces.
       - name: Drop nosemgrep-suppressed results from the SARIF
-        if: always()
+        # No `if: always()`. It was redundant before - the scan above is
+        # continue-on-error, so it never reports failure and `success()` always
+        # held - and it is actively harmful now: it would run this step and the
+        # upload below even when the tooling assertion has just failed, which is
+        # precisely the zero-result publish that assertion exists to prevent.
         run: |
           python - <<'PY'
           import json
@@ -168,9 +230,14 @@ jobs:
           print(f"Dropped {dropped} suppressed result(s) from semgrep.sarif")
           PY
 
+      # No `if: always()`, for the same reason as the step above. This upload is
+      # what turns a failed scan into a published "all clear": a zero-result
+      # analysis for `category: semgrep` closes every open alert in that
+      # category. It must run only when the tooling assertion has passed.
+      # Findings themselves are unaffected - semgrep exit 1 is a successful scan
+      # and still reaches this step.
       - name: Upload Semgrep SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: semgrep.sarif
           category: semgrep
@@ -194,7 +261,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Semgrep
-        # Same hash-pinned set the advisory job installs (semgrep==1.175.0).
+        # Same hash-pinned set the advisory job installs (semgrep==1.177.0).
         run: pip install --require-hashes -r environments/requirements-semgrep.txt
 
       - name: Run SESTRAV custom rules
@@ -221,16 +288,31 @@ jobs:
         #      free; it silently costs a Scorecard point for 30 commits.
         #
         # Scope note: this inherits semgrep's DEFAULT ignore list, which excludes
-        # `tests/`. CI's own verdict at 529c5bc (2026-09-13, run 34735879724) was
-        # "Ran 154 rules on 166 files: 0 findings" - a specific run's count, not a
-        # formula to re-derive (it is NOT simply "tracked non-test .py files";
+        # `tests/`. CORRECTED 2026-09-20: this cited "Ran 154 rules on 166 files"
+        # as THIS job's verdict at 529c5bc. That is the ADVISORY job's figure.
+        # 154 is the p/python registry ruleset plus this repo's own, and the
+        # advisory step is the only one that passes `--config p/python`. THIS
+        # step runs `--config semgrep-rules/` alone, and semgrep-rules/ holds a
+        # single file with exactly THREE rule ids - at 529c5bc as well as today,
+        # so the figure was never right for this job. The bad number entered via
+        # PR #440 and is corrected here because the re-measurement two paragraphs
+        # down is the instrument that disproves it. The FILE count is a specific
+        # run's count, not a formula to re-derive (it is NOT simply
+        # "tracked non-test .py files";
         # that equality holds today by coincidence, not by mechanism, since this
         # job's real target set is git-tracked files minus semgrep's own default
         # ignores, language-filtered - a different filter shape entirely). That is
-        # why `tests/test_train_classifier.py:608,611` calling `joblib.load` does
+        # why `tests/test_train_classifier.py:611,614` calling `joblib.load` does
         # not trip this gate. If the pinned semgrep version is ever bumped,
         # re-check that default, because those two call sites would start
         # failing here.
+        # Re-checked 2026-09-20 for the 1.176.1 -> 1.177.0 bump, in an isolated
+        # venv running this step's exact argv: "Ran 3 rules on 169 files: 0
+        # findings", exit 0, identical to the 1.176.1 baseline, and a --json run
+        # reports 0 files under tests/ in the scanned set. The default still
+        # excludes them. Note the anchors above were `:608,611` until that
+        # re-check: the call sites had drifted two lines and nothing pins them,
+        # so re-derive with `grep -n 'joblib.load'` rather than trusting them.
         # Local rules only - no registry fetch - so this gate has no network
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off
@@ -252,7 +334,7 @@ jobs:
 
       - name: Install pip-audit
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
-        #   pip-compile --generate-hashes environments/requirements-pip-audit.in
+        #   python tools/update_dependencies.py --ci-env pip-audit
         run: pip install --require-hashes -r environments/requirements-pip-audit.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). Audits the INSTALLED,

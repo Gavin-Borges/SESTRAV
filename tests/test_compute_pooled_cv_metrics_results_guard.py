@@ -126,6 +126,9 @@ def test_bare_invocation_does_not_touch_the_tracked_default_path(
     caught the mutant. Compare the sibling guard in
     tests/test_compute_pooled_honest_metric_results_guard.py, whose identical-looking
     assertion DOES bite because that script resolves against cwd.
+
+    The byte comparisons verify only that the files are not clobbered; they do not validate
+    file contents or require either tracked file to exist.
     """
     tracked = REPO_ROOT / cpcm.TRACKED_OUTPUT
     sidecar = tracked.with_suffix(tracked.suffix + ".provenance.json")
