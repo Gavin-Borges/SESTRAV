@@ -406,6 +406,7 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
         # which is the default: the calibrator is gitignored and therefore absent from
         # every clone, so the shipped default produced no lower_bound, upper_bound or
         # interval_width column and said nothing about why.
+        # Unreachable: _resolve_conformal_path raises for an unresolved explicit path.
         if conformal_path:
             message = f"[Stage 4] Conformal calibrator artifact not found: {conformal_path!r}"
         else:

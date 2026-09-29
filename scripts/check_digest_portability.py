@@ -17,6 +17,17 @@ PATTERNS = ("*provenance*.json", "*.provenance.json", "*model_artifact_checksums
 DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 CATEGORIES = ("PORTABLE", "WINDOWS_ONLY", "MISMATCH", "MISSING", "UNRESOLVED", "EXEMPT")
 
+# Verdicts that make --strict fail. MUST equal the FAILING tuple that
+# .github/workflows/digest_portability.yml re-implements in its own inline gate;
+# that workflow's comment records that the two diverged, with UNRESOLVED missing
+# here, so tests/test_check_digest_portability.py pins them against each other.
+# Cited by NAME, not by line: the workflow is edited often and a line number
+# here would rot into a wrong pointer.
+# MISSING is deliberately absent: 27 digests pin untracked artifacts a blob
+# comparison cannot decide, and failing on them would make the gate permanently
+# red for a reason no contributor could fix.
+STRICT_FAILING = ("WINDOWS_ONLY", "MISMATCH", "UNRESOLVED")
+
 EXEMPT_REASON = "retained historical record, not a live pin; exempt by exact (manifest, source) pair"
 
 # (manifest, digest source) pairs whose recorded digest is a RETAINED HISTORICAL
@@ -230,7 +241,12 @@ def main(argv: list[str] | None = None) -> int:
                          indent=2, sort_keys=True))
     else:
         print_human(rows)
-    return int(args.strict and any(row["verdict"] in {"WINDOWS_ONLY", "MISMATCH"} for row in rows))
+    # An empty row set means the scan could not find its inputs, which is a
+    # broken gate and not a pass; any([]) would report it as one.
+    return int(
+        args.strict
+        and (not rows or any(row["verdict"] in STRICT_FAILING for row in rows))
+    )
 
 
 if __name__ == "__main__":

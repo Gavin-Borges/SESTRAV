@@ -277,6 +277,29 @@ def test_gate4_fails_on_overconfident_scores():
     assert r.value >= GATE4_ECE_MAX
 
 
+def test_gate4_counts_a_score_of_exactly_one():
+    """A score of exactly 1.0 must land in the last bin, not fall out of all.
+
+    With a half-open final bin the row matches no bin while n still counts it,
+    so the whole cohort contributes nothing and the gate reports ECE 0.0 - a
+    PASS - on scores that are maximally overconfident. The bias runs toward a
+    pass, which is the direction that matters for a promotion gate. A random
+    forest emits exactly 1.0 whenever every tree agrees, so this input is
+    reachable rather than contrived. Under the half-open form this test reads
+    ECE 0.0 and passes the gate; under the closed form it reads 0.5.
+    """
+    n = 100
+    df = pd.DataFrame(
+        {
+            "label": np.array([1] * 50 + [0] * 50),
+            "gnn_oof_score": np.full(n, 1.0),
+        }
+    )
+    r = gate4_calibration(df)
+    assert not r.passed
+    assert r.value == 0.5
+
+
 # ---------------------------------------------------------------------------
 # Gate 5 - Escape Sensitivity
 # ---------------------------------------------------------------------------

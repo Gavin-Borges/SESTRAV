@@ -31,8 +31,12 @@ block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 
 # ---- Check 1: Direct-push guard ----------------------------------------
 protected_branch="main"
+PUSH_UPDATES="$(mktemp)"
+trap 'rm -f "${PUSH_UPDATES}"' EXIT
 
 while read -r local_ref local_sha remote_ref remote_sha; do
+    printf '%s\t%s\t%s\t%s\n' \
+        "$local_ref" "$local_sha" "$remote_ref" "$remote_sha" >> "${PUSH_UPDATES}"
     if [[ "$remote_ref" == "refs/heads/${protected_branch}" ]]; then
         block "Direct push to '${protected_branch}' is not allowed."
         printf '\n' >&2
@@ -280,8 +284,8 @@ fi
 # staged diff. On pre-commit that means an unrelated pre-existing file could
 # block a commit touching something else, and the cost is paid per commit.
 # Here the cost is already sunk: Check 2 above runs the full pytest suite, so
-# this scan's ~0.6s is noise. Pushing is also the boundary that matters - it
-# is the point at which content reaches a public remote.
+# this scan's ~0.6s is noise. The pushed-object scan below covers the content
+# crossing the public-remote boundary, including blobs absent from the checkout.
 #
 # DELIBERATELY UNGUARDED. Checks 4 and 5 skip when _local/ is absent, which
 # is the common case in a worktree. scripts/check_secrets.py is TRACKED, so
@@ -302,8 +306,111 @@ if [[ $? -ne 0 ]]; then
     printf '%s\n' "  leaked if it is already committed." >&2
     printf '%s\n' "  An [UNREADABLE] line is NOT a false positive either: that file" >&2
     printf '%s\n' "  could not be opened, so nothing about it has been cleared." >&2
-    printf '%s\n' "  A genuine false positive is allowlisted in scripts/check_secrets.py" >&2
-    printf '%s\n' "  with a note naming why that exact value is safe." >&2
+    printf '%s\n' "  A genuine false positive requires a documented whole-file or" >&2
+    printf '%s\n' "  whole-directory exclusion in scripts/check_secrets.py." >&2
+    exit 1
+fi
+
+printf '[pre-push] Scanning blobs introduced by the pushed commit ranges...\n'
+
+cd "${REPO_ROOT}" && python - "${PUSH_UPDATES}" <<'PY'
+import os
+from pathlib import Path, PurePosixPath
+import subprocess
+import sys
+import tempfile
+
+from scripts.check_secrets import EXCLUDE_DIRS, _is_scannable, scan_file
+
+ZERO_SHA = "0" * 40
+
+
+def git(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args], capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+
+
+def commits_for(local_sha: str, remote_sha: str) -> list[str]:
+    if remote_sha != ZERO_SHA:
+        spec = f"{remote_sha}..{local_sha}"
+        result = git("rev-list", "--reverse", spec)
+    else:
+        result = git(
+            "rev-list",
+            "--reverse",
+            local_sha,
+            "--not",
+            "--remotes=upstream",
+            "--remotes=origin",
+        )
+    if result.returncode != 0:
+        print(f"[UNREADABLE-RANGE] cannot enumerate {local_sha}", file=sys.stderr)
+        raise SystemExit(1)
+    return result.stdout.splitlines()
+
+
+def changed_paths(commit: str) -> list[str]:
+    result = git(
+        "diff-tree",
+        "--root",
+        "--no-commit-id",
+        "--name-only",
+        "--diff-filter=AM",
+        "-r",
+        commit,
+    )
+    if result.returncode != 0:
+        print(f"[UNREADABLE-RANGE] cannot inspect commit {commit}", file=sys.stderr)
+        raise SystemExit(1)
+    return result.stdout.splitlines()
+
+
+def admitted(path: str) -> bool:
+    parts = PurePosixPath(path).parts
+    return not any(part in EXCLUDE_DIRS for part in parts) and _is_scannable(path)
+
+
+flagged = False
+updates = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+with tempfile.TemporaryDirectory(prefix="sestrav-push-scan-") as temp_dir:
+    for update in updates:
+        _local_ref, local_sha, _remote_ref, remote_sha = update.split("\t")
+        if local_sha == ZERO_SHA:
+            continue
+        for commit in commits_for(local_sha, remote_sha):
+            for rel_path in changed_paths(commit):
+                if not admitted(rel_path):
+                    continue
+                blob = subprocess.run(
+                    ["git", "show", f"{commit}:{rel_path}"], capture_output=True
+                )
+                if blob.returncode != 0:
+                    print(
+                        f"[UNREADABLE-RANGE] {rel_path} at {commit}", file=sys.stderr
+                    )
+                    flagged = True
+                    continue
+                temp_path = Path(temp_dir, commit, rel_path)
+                temp_path.parent.mkdir(parents=True, exist_ok=True)
+                temp_path.write_bytes(blob.stdout)
+                lines = scan_file(os.fspath(temp_path))
+                if lines:
+                    rendered = ",".join(str(line) for line in lines)
+                    print(
+                        f"[FLAGGED-RANGE] {rel_path} at {commit}: lines {rendered}",
+                        file=sys.stderr,
+                    )
+                    flagged = True
+
+if flagged:
+    raise SystemExit(1)
+print("[pre-push] Pushed commit ranges contain no credential assignments.")
+PY
+
+if [[ $? -ne 0 ]]; then
+    printf '\n' >&2
+    block "Pushed commit range credential scan failed."
     exit 1
 fi
 

@@ -23,8 +23,8 @@
                 "description": "Legacy field. Original source virus/pathogen if applicable (e.g., EBV, HPV). In v5, HPV16/HPV18 are normalized to HPV with strain set accordingly."
             },
             "protein": {
-                "type": "string",
-                "description": "Original protein name the peptide is derived from."
+                "type": ["string", "null"],
+                "description": "Original protein name the peptide is derived from. Nullable: 123 LANL-HIV rows reach the merged corpus with no protein annotation, so a non-nullable string is unsatisfiable against the shipped artifact."
             },
             "strain": {
                 "type": ["string", "null"],
@@ -55,13 +55,13 @@
             },
             "virus_family": {
                 "type": ["string", "null"],
-                "description": "Taxonomic family of the source virus (e.g., Herpesviridae, Coronaviridae, Papillomaviridae). Null for non-viral sources (Self decoys, tumor). Used for virus-family-aware modeling experiments.",
-                "enum": ["Coronaviridae", "Herpesviridae", "Papillomaviridae", "Hepadnaviridae", "Flaviviridae", "Orthomyxoviridae", "Retroviridae", "Pneumoviridae", "Polyomaviridae", null]
+                "description": "Taxonomic family of the source virus (e.g., Herpesviridae, Coronaviridae, Papillomaviridae). Null for non-viral sources (Self decoys, tumor). Used for virus-family-aware modeling experiments. The enum is the set of values VIRUS_FAMILY_MAP in scripts/build_dataset_v5.py can emit, not the set observed in any one build; tests/test_dataset_schema_contract.py binds the two.",
+                "enum": ["Coronaviridae", "Herpesviridae", "Papillomaviridae", "Hepadnaviridae", "Flaviviridae", "Orthomyxoviridae", "Retroviridae", "Pneumoviridae", "Polyomaviridae", "Poxviridae", "Togaviridae", "Arenaviridae", "Picornaviridae", null]
             },
             "negative_origin": {
                 "type": ["string", "null"],
-                "description": "Origin of negative-labeled rows. Null for positive rows. Critical for negative-set ablation experiments (Q4).",
-                "enum": ["tested_negative", "self_proteome_decoy", "allele_matched_nonbinder", "published_negative", null]
+                "description": "Provenance of the row, recorded on negatives and on the LANL-HIV positives. Null elsewhere. Critical for negative-set ablation experiments (Q4). Note that iedb_positive marks POSITIVE rows, so this column is row provenance rather than strictly negative provenance; that naming is inherited from scripts/ingest_lanl_hiv.py and is not changed here. Only tested_negative and iedb_api count as real assay-confirmed negatives (scripts/build_dataset_v5.py _real_neg_origins).",
+                "enum": ["tested_negative", "self_proteome_decoy", "allele_matched_nonbinder", "published_negative", "iedb_api", "iedb_positive", "immunecode_mira", null]
             },
             "assay_type": {
                 "type": ["string", "null"],
@@ -75,7 +75,7 @@
             },
             "reference_pmid": {
                 "type": ["string", "null"],
-                "description": "PubMed ID of the primary publication supporting this row. Required for all IEDB-sourced rows; null for synthetic decoys."
+                "description": "PubMed ID of the primary publication supporting this row. Nullable and NOT required, including for IEDB-sourced rows: 18671 of 40576 IEDB rows (46.0%) carry one, and 8193 of 30091 active IEDB rows (27.2%). The sparsity is inherited from the IEDB export rather than introduced by the build. Always null for the UniProt synthetic decoy panels and VDJdb. Re-measure against a rebuilt dataset."
             },
             "is_quarantined": {
                 "type": "boolean",

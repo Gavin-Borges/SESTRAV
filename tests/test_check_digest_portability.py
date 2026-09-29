@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import scripts.check_digest_portability as cdp
 from scripts.check_digest_portability import (
     EXEMPT_DIGESTS,
     EXEMPT_REASON,
@@ -138,3 +139,98 @@ def test_exempt_pair_names_a_source_the_extractor_actually_emits():
         "upstream_generator_run.output_checksum_sha256": "EXEMPT",
     }
     assert {record["path"] for record in records} == {"data/iedb_negatives_v5.csv"}
+
+
+# ---------------------------------------------------------------------------
+# --strict: the cases where it could not fail
+# ---------------------------------------------------------------------------
+#
+# .github/workflows/digest_portability.yml documents three ways this tool's exit
+# code could not fail, under its own "WHY MISSING IS REPORTED RATHER THAN
+# FAILED" banner and the numbered notes above it, and closed all three on its
+# own side by consuming --json and re-implementing the verdict. Two of the
+# three were left live in the tool itself, so a developer running it by hand got
+# an exit 0 that did not mean what it looked like. These pin both.
+
+
+def _unresolved_row(manifest: str = "sample.provenance.json") -> dict:
+    """A row shaped exactly as scan_repository builds an UNRESOLVED one."""
+    return {
+        "manifest": manifest,
+        "path": None,
+        "recorded": None,
+        "blob": None,
+        "worktree": None,
+        "eol": None,
+        "verdict": "UNRESOLVED",
+        "reason": "manifest is not present in HEAD",
+    }
+
+
+def _portable_row(manifest: str = "ok.provenance.json") -> dict:
+    return {
+        "manifest": manifest,
+        "path": "results/report.csv",
+        "recorded": DIGEST_A,
+        "blob": DIGEST_A,
+        "worktree": None,
+        "eol": None,
+        "verdict": "PORTABLE",
+        "reason": None,
+    }
+
+
+def test_strict_fails_on_an_unresolved_row(monkeypatch):
+    """UNRESOLVED is neither verified nor reported, so it must not exit 0.
+
+    Proves able to fail: before the fix the failing set was
+    {"WINDOWS_ONLY", "MISMATCH"} and this returned 0.
+    """
+    monkeypatch.setattr(cdp, "scan_repository", lambda root: [_unresolved_row()])
+    assert cdp.main(["--strict"]) == 1
+
+
+def test_strict_fails_on_an_empty_row_set(monkeypatch):
+    """Zero manifests means the gate could not find its inputs, not that it passed.
+
+    any([]) is False, so before the fix renaming or deleting every sidecar read
+    as a pass.
+    """
+    monkeypatch.setattr(cdp, "scan_repository", lambda root: [])
+    assert cdp.main(["--strict"]) == 1
+
+
+def test_strict_still_passes_a_portable_set(monkeypatch):
+    """The widening must not make the gate fail on a clean tree."""
+    monkeypatch.setattr(cdp, "scan_repository", lambda root: [_portable_row()])
+    assert cdp.main(["--strict"]) == 0
+
+
+def test_strict_failing_set_matches_the_consuming_workflow():
+    """The tool's failing set and the workflow's FAILING tuple must not diverge.
+
+    The workflow's comment at :28-33 records that they DID diverge, with the
+    tool's --strict filter omitting UNRESOLVED. Pinning them against each other
+    means a change to either side fails here rather than silently re-opening the
+    gap, and it is why this asserts equality rather than restating the literal.
+    """
+    import pathlib
+    import re
+
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    workflow = (
+        repo_root / ".github" / "workflows" / "digest_portability.yml"
+    ).read_text(encoding="utf-8")
+
+    match = re.search(r"^\s*FAILING = \(([^)]*)\)", workflow, re.MULTILINE)
+    assert match is not None, (
+        "no FAILING tuple found in digest_portability.yml; the workflow's inline "
+        "gate was restructured, so re-derive what this test should pin"
+    )
+    declared = {token.strip().strip("\"'") for token in match.group(1).split(",") if token.strip()}
+
+    assert declared == set(cdp.STRICT_FAILING), (
+        f"workflow FAILING={sorted(declared)} but tool STRICT_FAILING="
+        f"{sorted(cdp.STRICT_FAILING)}; the two must agree or a hand-run of the "
+        "tool means something different from the gate"
+    )

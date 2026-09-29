@@ -640,6 +640,19 @@ def gate3_latency(checkpoint_path: Path | None = None) -> GateResult:
             node_dim = _cfg.get("node_dim", 320)
             num_features = _cfg.get("num_continuous_features", num_features)
             pooling = _cfg.get("pooling", "mean")
+    else:
+        # Say so. These three values must agree with the saved state dict or the
+        # gate scores the wrong architecture, and a silent fall-through to the
+        # defaults surfaces only as a shape-mismatch traceback from
+        # load_state_dict, which does not name the missing file.
+        logger.warning(
+            "%s not found; assuming node_dim=%d, num_continuous_features=%d, pooling=%s. "
+            "If the checkpoint disagrees, load_state_dict will fail on shapes.",
+            config_source,
+            node_dim,
+            num_features,
+            pooling,
+        )
 
     gnn_model = GraphPredictorV2(
         num_continuous_features=num_features, node_dim=node_dim, pooling=pooling
@@ -693,8 +706,17 @@ def gate4_calibration(df: pd.DataFrame) -> GateResult:
     bins = np.linspace(0.0, 1.0, n_bins + 1)
     ece = 0.0
     n = len(probs)
-    for lo, hi in zip(bins[:-1], bins[1:]):
-        mask = (probs >= lo) & (probs < hi)
+    for i in range(n_bins):
+        lo, hi = bins[i], bins[i + 1]
+        # Include the right edge only in the last bin so a score of exactly 1.0
+        # lands somewhere; a half-open final bin drops it from every bin while n
+        # still counts it, understating ECE and therefore biasing this gate
+        # toward a pass. Matches expected_calibration_error in
+        # scripts/fit_calibrator.py.
+        if i == n_bins - 1:
+            mask = (probs >= lo) & (probs <= hi)
+        else:
+            mask = (probs >= lo) & (probs < hi)
         if mask.sum() == 0:
             continue
         acc = labels[mask].mean()
