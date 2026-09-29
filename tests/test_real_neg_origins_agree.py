@@ -17,10 +17,10 @@ WHY AST AND NOT IMPORT
 
 WHY THE NAME MATCH IS EXACT AND CASE-INSENSITIVE
     Carriers spell the name three ways: REAL_NEG_ORIGINS, the underscore-prefixed
-    _REAL_NEG_ORIGINS, and a function-local lowercase _real_neg_origins in
-    scripts/build_dataset_v5.py. A case-SENSITIVE search for REAL_NEG_ORIGINS finds
-    only six of the seven and reports the lowercase one as absent, so discovery here
-    normalizes case and strips leading underscores.
+    _REAL_NEG_ORIGINS, and a function-local lowercase _real_neg_origins, which
+    scripts/build_dataset_v5.py uses twice. A case-SENSITIVE search for
+    REAL_NEG_ORIGINS finds only six of the eight and reports both lowercase ones as
+    absent, so discovery here normalizes case and strips leading underscores.
 
     The match is on the WHOLE normalized identifier, never a substring. Two scripts,
     scripts/audit_cv_leakage.py and scripts/compute_pooled_honest_metric.py, define a
@@ -78,7 +78,14 @@ EXPECTED_VALUES = frozenset({"tested_negative", "iedb_api"})
 # the case this test exists to catch, which is coverage of the invariant being
 # deleted or the discovery quietly ceasing to find the carriers it used to find.
 # Measured at repository HEAD by walking SCAN_ROOTS with the discovery below.
-EXPECTED_CARRIER_FLOOR = 7
+#
+# Raised 7 -> 8 when scripts/build_dataset_v5.py's SECOND use of the invariant, in
+# build_virus_composition_table, stopped being an unnamed inline set literal and
+# became a named one. Raising it is the load-bearing half of that change: an
+# unnamed literal is invisible to discovery, so leaving the floor at 7 would let
+# that site be inlined again, drop the count back to 7, and pass - restoring
+# exactly the blind spot the change closed.
+EXPECTED_CARRIER_FLOOR = 8
 
 # Carriers holding the same invariant under a DIVERGENT name, which discovery cannot
 # find. Each entry carries the note that justifies it, because an allowlist entry
