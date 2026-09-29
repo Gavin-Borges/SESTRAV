@@ -376,7 +376,50 @@ RETRACTED_INSTITUTIONS: dict[str, tuple[str, ...]] = {
         # stated above.
         "_local/drafts/mountain_view_packet_2026-09-09/07_claims_register.md",
         "_local/drafts/mountain_view_packet_2026-09-09/11_PRIVATE_brain_map.md",  # same frozen 09-09 packet
+        # The 2026-09-23 audit sweep's own record. What cites it: 5 occurrences
+        # on 2 lines, every one a CONTROL STRING for this gate rather than a
+        # claim of affiliation. One line records that two planted names return
+        # rc=1, another records an rc=0 case for a different university, and the
+        # push-blocker section names which spellings the allowlist keys on.
+        # Read individually before this entry was added, not taken on the label.
+        # Exempting the file that records a gate's test results is the same
+        # shape as exempting the retraction row that has to quote the claim.
+        "_local/notes/audit_swarm_2026-09-23.md",
+        # The machine-readable half of that same sweep, written by the same run.
+        # What cites it: 13 occurrences on 4 lines, the JSON serialisation of
+        # the findings summarised in the .md above, so the identical control
+        # strings arrive quoted as data. Listed separately and by exact path
+        # because a "_local/notes/" prefix would exempt every future note in
+        # that tree, which is the blanket entry this gate exists to refuse.
+        "_local/notes/audit_swarm_2026-09-23.raw.json",
     ),
+}
+
+
+# Other spellings of a name in RETRACTED_INSTITUTIONS, folded onto its
+# canonical key before the carrier lookup in is_allowed().
+#
+# WHY AN ALIAS MAP RATHER THAN MORE KEYS. The retraction is one fact, so its
+# permitted carriers are one list. Keying each spelling separately would put
+# three copies of that list in this file, and three copies of one fact is
+# three chances to drift - the defect class this whole gate exists to catch.
+#
+# WHAT THIS DOES NOT DO: it does not widen anything. An alias resolves to the
+# SAME carrier tuple, so a spelling listed here is permitted in exactly the
+# files the canonical key was already permitted in, and is reported everywhere
+# else. Before this map the longer spellings never reached the carrier check at
+# all: they fell through to the generic unreviewed-institution path, which has
+# no concept of a permitted carrier, so the retraction row could not quote the
+# full name of the thing it retracts without turning this gate red.
+#
+# Do NOT add a spelling here that names a DIFFERENT institution. The test
+# suite pins that every alias resolves to a key that exists.
+RETRACTED_ALIASES: dict[str, str] = {
+    # full legal name; the short form below is its common abbreviation
+    "north carolina state university": "nc state",
+    # the tail of the full name, which the line-based scan reports separately
+    # when the leading word falls on the other side of a wrap or a quote
+    "carolina state university": "nc state",
 }
 
 # Patterns that name an institution. Deliberately shaped to catch the FORM a
@@ -609,7 +652,7 @@ def is_allowed(name: str, path: str) -> bool:
     ):
         return True
 
-    permitted_in = RETRACTED_INSTITUTIONS.get(key)
+    permitted_in = RETRACTED_INSTITUTIONS.get(RETRACTED_ALIASES.get(key, key))
     if permitted_in is None:
         return False
     # An entry ending in "/" permits everything beneath it; every other entry

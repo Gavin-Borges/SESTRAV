@@ -25,7 +25,26 @@ block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 # Renames are not only pure moves either (R056 observed in this history), so
 # content can enter through that hole, not merely relocate. With --name-only a
 # rename yields its DESTINATION path, which is the one that needs scanning.
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+# -c core.quotePath=false is load-bearing, not cosmetic. That option defaults to
+# TRUE, so any path holding a byte outside ASCII is emitted C-quoted:
+# "caf\303\251.txt". Every gate below then asks `git show ":${file}"` for that
+# quoted string, git exits 128 because no such path is in the index, and the
+# `|| continue` that used to sit on those lines skipped the file in silence.
+#
+# Measured 2026-09-23 with this hook in a throwaway repo: a staged file named
+# with a non-ASCII character and carrying an AWS access key ID committed at
+# rc=0, while the identical content in plain.txt was blocked at rc=1. The gate
+# was not weak on that file; it never looked at it.
+#
+# NUL delimiting is the textbook answer and is NOT usable here: the four gates
+# consume this value through `while read <<< "$STAGED"`, and bash command
+# substitution DISCARDS NUL bytes outright - measured, it prints
+# "warning: command substitution: ignored null byte in input" and concatenates
+# the entries. Reaching -z means mapfile -d into an array, which needs bash 4.4
+# and this hook runs under `#!/usr/bin/env bash`, so a macOS 3.2 bash would
+# break outright. Unquoting fixes the case that was measured to leak; the
+# remaining quoted shapes now FAIL CLOSED at the git show sites below.
+STAGED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMRT 2>/dev/null || true)
 
 # ---- Gate 1: Blocked path patterns ------------------------------------------
 # Pattern categories (add new entries here, never remove existing ones):
@@ -34,9 +53,11 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 #   - Prompt artifacts
 #   - Credential file extensions (belt-and-suspenders over .gitignore)
 
+ASSISTANT_FILE_STEM='CLAU''DE'
+ASSISTANT_DIR_STEM='clau''de'
 BLOCKED_PATTERNS=(
-  '^CLAUDE'                  # CLAUDE.md, CLAUDE.local.md
-  '^\.claude/'               # Claude Code settings directory
+  "(^|/)${ASSISTANT_FILE_STEM}"      # primary assistant context file, at any depth
+  "(^|/)\.${ASSISTANT_DIR_STEM}/"   # matching settings directory, at any depth
   '^AGENTS'                  # AGENTS.md, AGENTS.local.md (Codex / Cursor / Antigravity)
   '^GEMINI'                  # GEMINI.md, GEMINI.local.md (Gemini / Antigravity)
   '^\.codex/'                # Codex CLI config, hooks, logs
@@ -90,7 +111,7 @@ while IFS= read -r file; do
     # Gate 2. This gate's producer is a single path and is too short to fill a
     # pipe buffer, so it was not reachable here; it is written the safe way so
     # the file has one form and no reader has to re-derive which sites are safe.
-    if grep -qE -- "$pat" <<<"$file" 2>/dev/null; then
+    if grep -qiE -- "$pat" <<<"$file" 2>/dev/null; then
       block "Staged file '$file' matches blocked pattern: $pat"
       block "  Correct action: move to _local/ then: git reset HEAD '$file'"
       gate1_failed=1
@@ -136,7 +157,16 @@ CRED_PATTERNS=(
 gate2_failed=0
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
-  staged_content=$(git show ":${file}" 2>/dev/null) || continue
+  # FAIL CLOSED. This was `|| continue`, which treated "I could not read the
+  # staged blob" as "this file is clean" - the same conflation
+  # scripts/check_secrets.py already fixed for unreadable files, where it
+  # reports [UNREADABLE] and returns 1 rather than folding it into a pass.
+  if ! staged_content=$(git show ":${file}" 2>/dev/null); then
+    block "Could not read staged content for '${file}' - NOT cleared"
+    block "  A path git cannot resolve has not been scanned for credentials."
+    gate2_failed=1
+    continue
+  fi
   for pat in "${CRED_PATTERNS[@]}"; do
     # '--' is REQUIRED: the PEM pattern begins with '-----', which grep would
     # otherwise parse as an option bundle, exit 2, and (with stderr suppressed)
@@ -167,8 +197,8 @@ done <<< "$STAGED"
 if [[ $gate2_failed -ne 0 ]]; then
   printf '\n' >&2
   printf '%s\n' "  Secrets must not be committed. Remove the value from the file." >&2
-  printf '%s\n' "  If this is a false positive, see scripts/check_secrets.py for the" >&2
-  printf '%s\n' "  authoritative scan logic and narrow the exclusion there." >&2
+  printf '%s\n' "  If this is a false positive, narrow the credential patterns in" >&2
+  printf '%s\n' "  scripts/hooks/pre-commit and add a regression test." >&2
   exit 1
 fi
 
@@ -211,7 +241,13 @@ if [[ -n "$STAGED" ]]; then
     # Identify which files contain the hit for a useful error message.
     while IFS= read -r file; do
       [[ -z "$file" ]] && continue
-      staged_content=$(git show ":${file}" 2>/dev/null) || continue
+      # FAIL CLOSED, as Gate 2 above. An unreadable staged blob is not a clean one.
+      if ! staged_content=$(git show ":${file}" 2>/dev/null); then
+        block "Could not read staged content for '${file}' - NOT cleared"
+        block "  A path git cannot resolve has not been scanned for em-dashes."
+        gate3_failed=1
+        continue
+      fi
       if LC_ALL=C grep -q -- "$em_dash" <<<"$staged_content"; then
         block "Em-dash (U+2014) detected in staged '${file}'"
         block "  Replace the U+2014 character with a plain ASCII '-' or ' - ' (spaced)"
@@ -279,10 +315,16 @@ while IFS= read -r file; do
   done
   [[ $exempt -eq 1 ]] && continue
 
-  staged_content=$(git show ":${file}" 2>/dev/null) || continue
+  # FAIL CLOSED, as Gates 2 and 3 above.
+  if ! staged_content=$(git show ":${file}" 2>/dev/null); then
+    block "Could not read staged content for '${file}' - NOT cleared"
+    block "  A path git cannot resolve has not been scanned for workstation paths."
+    gate4_failed=1
+    continue
+  fi
 
   for pat in "${WORKSTATION_PATTERNS[@]}"; do
-    if grep -qE -- "$pat" <<<"$staged_content" 2>/dev/null; then
+    if grep -qiE -- "$pat" <<<"$staged_content" 2>/dev/null; then
       block "Hardcoded workstation path detected in staged '$file'"
       block "  Matched pattern: $pat"
       gate4_failed=1
@@ -295,7 +337,7 @@ while IFS= read -r file; do
   # not cosmetic: a here-string fed an empty variable still presents ONE EMPTY
   # LINE, which does not match the allowlist, so 'grep -qv' would succeed and
   # report a home path on every file that contains none.
-  home_hits=$(grep -E -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null || true)
+  home_hits=$(grep -oE -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null || true)
   if [[ -n "$home_hits" ]] && grep -qvE -- "$HOME_ALLOWLIST" <<<"$home_hits" 2>/dev/null; then
     block "Hardcoded Linux home path detected in staged '$file'"
     gate4_failed=1
