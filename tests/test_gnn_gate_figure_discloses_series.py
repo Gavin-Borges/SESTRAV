@@ -8,14 +8,20 @@ That qualifier changes what a reader concludes. Without it, "FAIL by 0.0042"
 reads as one tweak away from passing, when no run in the series passed and the
 mean deficit is nearly three times larger.
 
-This guard exists because the correction had to touch SEVEN carriers, and the
-repo has already shipped a correction that handled three of five and left two
+This guard exists because the correction had to touch SEVEN documents, and a
+review then found three more places: the D3 row of docs/claims_register.md, a
+notebook, and the src/verify/promote_gnn.py docstring. This file now guards the
+notebook. It cannot guard the D3 row, which carries the deficit and the delta but
+not 0.6458, in a file that carries the qualifier on another row; and it does not
+read Python, so the docstring is left to the change that qualifies it. The repo
+has already shipped a correction that handled three of five carriers and left two
 standing (incident #9 in .claude/rules/third-party-claims-cases.md). Enumerating
-them in a test is what stops the next edit from re-opening the gap.
+the carriers this file can see is what stops the next edit from re-opening them.
 """
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -66,17 +72,34 @@ def test_presenting_carrier_discloses_the_series(relative: str):
     )
 
 
+def _tracked_documents() -> list[str]:
+    """Tracked Markdown and notebook paths, from git rather than a filesystem walk.
+
+    A walk would also read untracked and gitignored files, such as a maintainer's
+    private notes, and fail the pre-push test run on content that is never published.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z", "--", "*.md", "*.ipynb"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("git cannot list tracked files here")
+    return [p for p in result.stdout.decode("utf-8").split("\0") if p]
+
+
 def test_no_undisclosed_carrier_appears_outside_the_known_set():
-    """A new doc quoting the figure must disclose, or be added to EXEMPT with a reason."""
+    """A new tracked doc or notebook quoting the figure must disclose, or be EXEMPT."""
     known = set(PRESENTING) | EXEMPT
     offenders = []
-    for path in ROOT.rglob("*.md"):
-        rel = path.relative_to(ROOT).as_posix()
-        if rel in known or rel.startswith((".git/", "_local/", ".claude/", ".agents/", ".cursor/")):
+    for rel in _tracked_documents():
+        if rel in known:
             continue
         try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:  # pragma: no cover - unreadable file
+            text = (ROOT / rel).read_text(encoding="utf-8")
+        except OSError:  # pragma: no cover - listed but unreadable (e.g. sparse checkout)
             continue
         if FIGURE in text and not _says_best_of_eight(text):
             offenders.append(rel)
