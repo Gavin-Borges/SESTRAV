@@ -671,6 +671,37 @@ def is_excluded_prefix(path: str) -> bool:
     )
 
 
+def is_wrapped_own_institution(name: str, next_line: str | None) -> bool:
+    """True when ``name`` is a line-broken OWN institution the next line completes.
+
+    This scan is line-based, so an allowlisted name split across a line break
+    arrives truncated: "...; MIT; University of Rhode" on one line, "Island
+    (README:517)." on the next. Reporting that as an unreviewed institution
+    means the gate flags THIS PROJECT'S OWN AFFILIATION, which is the most
+    sensitive false positive it can produce. Measured at
+    _local/state/session_88_plan.md:148.
+
+    Accepting any word-boundary PREFIX of an allowlisted name was the hole this
+    module's widening closes: B13 in the audit note records that a bare
+    "University of T-----." passed on the strength of prefixing an allowlisted
+    name. So the prefix is accepted ONLY when the following line actually
+    supplies the remaining words, which a fabricated name cannot arrange.
+
+    Scoped to OWN_INSTITUTIONS deliberately. A wrapped THIRD_PARTY name is
+    still reported, because a third-party name is exactly what wants reviewing.
+    """
+    if next_line is None:
+        return False
+    key = normalise_institution_name(name)
+    continuation = " ".join(next_line.split()).lower()
+    for own in OWN_INSTITUTIONS:
+        if not own.startswith(key + " "):
+            continue
+        if continuation.startswith(own[len(key) + 1 :]):
+            return True
+    return False
+
+
 def is_allowed(name: str, path: str) -> bool:
     # Trailing quote characters matter: prose like "'University of Rhode
     # Island' at post time" otherwise yields the key "university of rhode
@@ -860,11 +891,17 @@ def main() -> int:
             continue
         scanned += 1
 
-        for lineno, line in enumerate(text.splitlines(), start=1):
+        lines = text.splitlines()
+        for lineno, line in enumerate(lines, start=1):
             for name in find_institutions(line):
                 normalised_name = " ".join(name.split())
                 seen_names.add(normalised_name)
                 if is_allowed(name, path):
+                    continue
+                # Needs the NEXT line, so it cannot live in is_allowed().
+                if is_wrapped_own_institution(
+                    name, lines[lineno] if lineno < len(lines) else None
+                ):
                     continue
                 if is_reviewed_verbatim_copy(name, path, copy_index, twin_cache):
                     continue

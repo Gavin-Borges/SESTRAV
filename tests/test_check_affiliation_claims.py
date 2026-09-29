@@ -883,3 +883,92 @@ def test_the_audit_sweep_record_and_its_json_twin_are_carriers():
         "_local/notes/audit_swarm_2026-09-23.raw.json",
     ):
         assert expected in carriers, f"{expected} is no longer a permitted carrier"
+
+
+# ---------------------------------------------------------------------------
+# A line-broken OWN institution, and why the prefix rule could not simply be
+# restored.
+#
+# Dropping prefix acceptance closes a real hole: B13 in the audit note records
+# a bare third-party name passing purely because it prefixed an allowlisted
+# one. But it also made the gate report THIS PROJECT'S OWN AFFILIATION as
+# unreviewed wherever a line happened to wrap inside it, which is the most
+# sensitive false positive this gate can have.
+#
+# The two tests above (test_quoted_and_line_wrapped_names_still_resolve and
+# test_allowlist_prefixes_and_line_suppression_are_not_accepted) pin the hole
+# CLOSED, so the fix cannot be a prefix rule in is_allowed(). It is instead a
+# check that the NEXT line supplies the remaining words, which a fabricated
+# name cannot arrange and a genuine wrap always does.
+# ---------------------------------------------------------------------------
+
+
+def _titled(text: str) -> str:
+    """Render an allowlist key the way prose does, leaving "of" lowercase."""
+    return " ".join(word if word == "of" else word.title() for word in text.split())
+
+
+def test_a_genuinely_wrapped_own_institution_is_not_reported(tmp_path):
+    """The real shape from _local/state/session_88_plan.md:148.
+
+    Proves able to fail: without is_wrapped_own_institution this exits 1 and
+    names the truncated head as an unreviewed institution.
+    """
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    doc = tmp_path / "plan.md"
+    doc.write_text(
+        f"9 viruses; 31-feature; OpenSSF Passing; MIT; {_titled(head)}\n"
+        f"{_titled(tail)} (README:517). **Gates:** 0 non-ASCII\n",
+        encoding="utf-8",
+    )
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a_prefix_the_next_line_does_not_complete_is_still_reported(tmp_path):
+    """The hole stays shut: a truncated head with no continuation is reported.
+
+    This is the case B13 recorded as passing through the old prefix rule.
+    """
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head = own.rsplit(" ", maxsplit=1)[0]
+    doc = tmp_path / "plan.md"
+    doc.write_text(
+        f"Affiliation: {_titled(head)}\nand an unrelated following line\n",
+        encoding="utf-8",
+    )
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+
+def test_the_last_line_of_a_file_has_no_continuation(tmp_path):
+    """A truncated head on the final line must not read past the end."""
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head = own.rsplit(" ", maxsplit=1)[0]
+    doc = tmp_path / "plan.md"
+    doc.write_text(f"Affiliation: {_titled(head)}", encoding="utf-8")
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+
+
+def test_wrap_acceptance_is_scoped_to_own_institutions():
+    """A wrapped THIRD_PARTY name is still reviewed, which is the point of it.
+
+    Restoring prefix acceptance for both sets, as the pre-widening code did,
+    would have re-opened B13's hole on every third-party name.
+    """
+    third = next(iter(mod.THIRD_PARTY_INSTITUTIONS))
+    head, tail = third.rsplit(" ", maxsplit=1)
+    assert mod.is_wrapped_own_institution(head, f"{tail} and then some prose") is False
+
+
+def test_wrap_acceptance_needs_the_remaining_words_not_merely_a_next_line():
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    assert mod.is_wrapped_own_institution(head, f"{tail} (README:517).") is True
+    assert mod.is_wrapped_own_institution(head, "something else entirely") is False
+    assert mod.is_wrapped_own_institution(head, None) is False
