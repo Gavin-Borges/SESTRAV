@@ -678,8 +678,8 @@ def is_wrapped_own_institution(name: str, next_line: str | None) -> bool:
     arrives truncated: "...; MIT; University of Rhode" on one line, "Island
     (README:517)." on the next. Reporting that as an unreviewed institution
     means the gate flags THIS PROJECT'S OWN AFFILIATION, which is the most
-    sensitive false positive it can produce. Measured at
-    _local/state/session_88_plan.md:148.
+    sensitive false positive it can produce. Measured on a gitignored session
+    plan under _local/state/ whose metrics line wraps inside the name.
 
     Accepting any word-boundary PREFIX of an allowlisted name was the hole this
     module's widening closes: B13 in the audit note records that a bare

@@ -909,7 +909,7 @@ def _titled(text: str) -> str:
 
 
 def test_a_genuinely_wrapped_own_institution_is_not_reported(tmp_path):
-    """The real shape from _local/state/session_88_plan.md:148.
+    """The real shape: a metrics line that wraps inside the allowlisted name.
 
     Proves able to fail: without is_wrapped_own_institution this exits 1 and
     names the truncated head as an unreviewed institution.
