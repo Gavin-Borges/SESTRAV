@@ -20,7 +20,8 @@ from typing import List
 # are `or`, not a `_`-separated suffix, so the assignment part cannot match.
 CREDENTIAL_ASSIGNMENT = re.compile(
     r"(?i)"
-    r"(api[_-]?key|token|secret|password|passwd|auth|private[_-]?key)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth"
+    r"|private[_-]?key)"
     r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*['\"]([^'\"]+)['\"]"
 )
 
@@ -38,8 +39,90 @@ CREDENTIAL_ASSIGNMENT = re.compile(
 # could otherwise consume a keyword that a later quoted match needed.
 CREDENTIAL_ASSIGNMENT_BARE = re.compile(
     r"(?i)"
-    r"(api[_-]?key|token|secret|password|passwd|auth|private[_-]?key)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth"
+    r"|private[_-]?key)"
     r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*([^\s'\"#,;)\]}]+)"
+)
+
+# A credential embedded in a URL's userinfo. Keyword-independent for the same
+# reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
+# the patterns above recognise, so the assignment rules never saw it. The value
+# is group 2 so this pattern drops straight into the same length and entropy
+# gate as the others, which also keeps documentation placeholders quiet: a
+# literal `://user:password@host` has an 8-character value and does not clear
+# the `len > 8` floor.
+#
+# Measured over all 547 scanned files at b080b7ef: zero hits with the floors
+# applied AND zero with no filter at all, so this adds no false positive to the
+# tree it is being introduced on.
+URL_EMBEDDED_CREDENTIAL = re.compile(
+    r"([a-z][a-z0-9+.\-]*://[^\s:@/]+):([^\s@/]+)@"
+)
+
+# NOT added, and the measurement is recorded so it is not re-proposed blindly.
+# An audit recommended widening the keyword group to cover `*_KEY` names such as
+# ENCRYPTION_KEY, which the alternation above cannot reach: it carries
+# `api_key` and `private_key` but no bare `key`, and the group matches SUFFIXES
+# after the keyword, never prefixes before it.
+#
+# The obvious form, `[a-z0-9]+[_-]key`, was measured against every scanned file
+# at b080b7ef, 547 of them, and produces SIX hits on tracked code, every one a
+# false positive. Re-measured after PRs #540, #541 and #543 landed: 549 files
+# scanned, the SAME six hits at the same lines. The count of files moves; the
+# finding does not, which is why the six are named individually below, by
+# SYMBOL rather than line number so the reference cannot rot:
+# RATCHET_KEY = "exempt_ledger_citation_ceiling"
+# (in scripts/check_doc_line_citations.py), BASELINE_KEY =
+# "iedb_ebv_hpv16_tcell" (in src/continuous_validation.py), and four
+# `score_key` lines in src/external_benchmark_comparison.py - the one that
+# assigns it a string literal, and the three that pass it as a dict-rename key
+# to a literal column name.
+# Those are column names and lookup keys: long, mixed-alphabet, and well over
+# the entropy floor. Adding the pattern would turn this gate red on legitimate
+# code, which is the failure the bare-value pattern above already documents for
+# a different rule. `credentials?` and `pwd` were measured the same way and
+# produce zero hits, which is why they ARE in the alternation.
+
+# Vendor-issued credential FORMATS, matched without a keyword and without an
+# entropy floor. Both patterns above need an ASSIGNMENT: a credential-class name,
+# then `=` or `:`, then the value. That is the right shape for a home-made secret
+# and the wrong one for a vendor token, which is self-identifying - it is a
+# credential wherever it appears, assigned to an innocuous name, embedded in a
+# URL, or sitting in a file on its own.
+#
+# Ported 2026-09-23 from scripts/hooks/pre-commit's Gate 2 CRED_PATTERNS, which is
+# a LOCAL hook and runs on no CI machine. Measured before porting: this scanner -
+# the only content gate CI runs, at .github/workflows/security.yml - flagged NONE
+# of them. A bare token assigned to `default_cred`, the same token inside a clone
+# URL, and a PEM private-key header all passed. So the two gates disagreed about
+# what a secret is, and the weaker one was the one guarding the public remote.
+#
+# Written as Python re rather than the hook's POSIX ERE, but deliberately not
+# "improved": a pattern that differs between the two gates is a pattern whose
+# behaviour has to be reasoned about twice.
+VENDOR_CREDENTIAL_FORMATS = tuple(
+    re.compile(p)
+    for p in (
+        r"sk-ant-api[0-9A-Za-z_-]{20,}",
+        r"sk-[a-zA-Z0-9]{48}",
+        r"AIza[0-9A-Za-z_-]{35}",
+        # Boundary-anchored, and the anchoring is load-bearing rather than tidy.
+        # Protein FASTA uses the 20-letter amino-acid alphabet, a subset of
+        # [A-Z], so an unanchored `(AKIA|ASIA)[0-9A-Z]{16}` collides with
+        # sequence data - the hook records a real false positive on
+        # DENV2_NGC_panel1.fasta:31 ("...FTDPASIAARGYISTRVEMGEAAGIF..."). This
+        # scanner does not open .fasta today, but it opens .txt and .md, and the
+        # anchored form costs nothing.
+        r"(^|[^0-9A-Za-z])(AKIA|ASIA)[0-9A-Z]{16}([^0-9A-Za-z]|$)",
+        r"ghp_[a-zA-Z0-9]{36}",
+        r"ghs_[a-zA-Z0-9]{36}",
+        r"xox[baprs]-[0-9A-Za-z-]{10,}",
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+        r"github_pat_[A-Za-z0-9_]{20,}",
+        r"gh[oupsr]_[A-Za-z0-9]{20,}",
+        r"sk-(proj|svcacct)-[A-Za-z0-9_-]{20,}",
+        r"sk-ant-[A-Za-z0-9_-]{20,}",
+    )
 )
 
 # Formats in which an unquoted scalar IS the string literal.
@@ -125,7 +208,39 @@ _SCAN_SUFFIXES = (
     ".cff",
     ".in",
     ".def",
+    # Added 2026-09-23. Each was measured to be a live hole, not a precaution:
+    # scan_file finds a planted assignment in every one of these formats, so the
+    # detection layer was never the problem - _is_scannable simply never handed
+    # the file over. See the block below for the measurement.
+    ".smk",
+    ".qmd",
+    ".ipynb",
+    ".lock",
+    # .cfg, .ini and .env were already listed in _BARE_VALUE_SUFFIXES above,
+    # which decides how a value is parsed ONCE A FILE IS OPEN. They were absent
+    # here, so no file of those types was ever opened and that branch was
+    # unreachable. Adding them makes an existing, declared capability live.
+    ".cfg",
+    ".ini",
+    ".env",
 )
+
+# Text files whose NAME carries no extension. Extensionless files cannot be
+# selected by suffix at all, which is how all four git hooks - the very scripts
+# that enforce this repo's credential policy - went unscanned.
+_SCAN_NAMES = frozenset(
+    {
+        "Makefile",
+        "Snakefile",
+        "LICENSE",
+        "CODEOWNERS",
+    }
+)
+
+# Directories whose tracked contents are executable text whatever they are named.
+# A name list would go stale the day a fifth hook is added; a directory rule
+# covers it without an edit.
+_SCAN_DIRS = ("scripts/hooks/",)
 
 
 # Paths this run could not READ at all. A file that cannot be opened has not been
@@ -142,7 +257,7 @@ def scan_file(path: str) -> List[int]:
     flagged_line_numbers: List[int] = []
     # The bare pattern is ADDITIVE, never a replacement: the quoted pattern runs on
     # every format, so no line that is caught today can stop being caught.
-    patterns = [CREDENTIAL_ASSIGNMENT]
+    patterns = [CREDENTIAL_ASSIGNMENT, URL_EMBEDDED_CREDENTIAL]
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     try:
@@ -183,6 +298,14 @@ def scan_file(path: str) -> List[int]:
                             break
                     if flagged:
                         break
+                # Keyword-independent pass. Runs only when the assignment
+                # patterns found nothing, purely to save work: it is ADDITIVE, so
+                # no line that is caught today can stop being caught.
+                if not flagged:
+                    for vendor in VENDOR_CREDENTIAL_FORMATS:
+                        if vendor.search(line):
+                            flagged = True
+                            break
                 if flagged:
                     flagged_line_numbers.append(line_no)
     except OSError:
@@ -211,7 +334,13 @@ def _is_scannable(rel_path: str) -> bool:
     if rel in EXCLUDE_PATHS:
         return False
     name = rel.rsplit("/", 1)[-1]
-    return name.endswith(_SCAN_SUFFIXES) or name.startswith("Dockerfile")
+    if rel.startswith(_SCAN_DIRS):
+        return True
+    return (
+        name.endswith(_SCAN_SUFFIXES)
+        or name in _SCAN_NAMES
+        or name.startswith("Dockerfile")
+    )
 
 
 def _tracked_paths(root: str) -> List[str]:
@@ -221,17 +350,44 @@ def _tracked_paths(root: str) -> List[str]:
     checkout scans exactly what the walk found, as before, rather than erroring.
     """
     try:
+        # -z, and the sibling _ignored_paths below already uses it on both its
+        # input and its output. Without it git applies core.quotePath, which
+        # defaults to true: a path holding a byte outside ASCII comes back
+        # wrapped in double quotes with octal escapes, as
+        # `"caf\303\251_config.py"`. That string names no file on disk, so the
+        # os.path.isfile() guard in iter_scanned_files drops it silently.
+        #
+        # Measured 2026-09-23, and the blast radius is narrower than it looks:
+        # the os.walk finds such a file anywhere it is not pruned, so the defect
+        # bites only where this function is load-bearing - a tracked file under
+        # an EXCLUDE_DIRS name. In a throwaway repo with two credential-bearing
+        # tracked files under results/, the ASCII-named one was scanned and the
+        # non-ASCII-named one was not.
+        #
+        # -z also makes the split unambiguous for the other quoting case, a path
+        # containing a literal newline, which splitlines() turned into two
+        # entries that each named nothing.
+        # encoding="utf-8" is NOT decoration, and -z alone does not fix this.
+        # git writes path bytes as UTF-8; text=True decodes with
+        # locale.getpreferredencoding(), which is cp1252 on this Windows box. The
+        # bytes caf\xc3\xa9 came back decoded as two characters and re-encoded to
+        # caf\xc3\x83\xc2\xa9, a double-encoded name that matches nothing on
+        # disk, so os.path.isfile() in iter_scanned_files dropped it exactly as
+        # the quoted form did. Fixing the quoting without fixing the decoding
+        # moves the failure rather than removing it.
         out = subprocess.run(
-            ["git", "-C", root, "ls-files"],
+            ["git", "-C", root, "ls-files", "-z"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             check=False,
         )
     except OSError:
         return []
     if out.returncode != 0:
         return []
-    return [line for line in out.stdout.splitlines() if line]
+    return [entry for entry in out.stdout.split("\0") if entry]
 
 
 def _ignored_paths(root: str, candidates: List[str]) -> set:
@@ -260,6 +416,10 @@ def _ignored_paths(root: str, candidates: List[str]) -> set:
             input="\0".join(rels),
             capture_output=True,
             text=True,
+            # Same reason as _tracked_paths above, on both directions: the
+            # candidate paths written in and the ignored paths read back.
+            encoding="utf-8",
+            errors="surrogateescape",
             check=False,
         )
     except OSError:
