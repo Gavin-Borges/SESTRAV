@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "_comment": "Config-driven bindings between published values and the nearby qualifiers that bound their meaning. Run python scripts/check_qualifier_bindings.py --update after a reviewed repoint. A ceiling may shrink but must not grow without explicit review.",
+  "bindings": [
+    {
+      "id": "gnn-gate1-best-of-eight",
+      "value": "0.6458",
+      "decimals": 4,
+      "qualifier_patterns": [
+        "(?:best|most\\s+favourable)\\s+of\\s+eight"
+      ],
+      "window_lines": 8,
+      "scan_globs": [
+        "*.md",
+        "docs/**/*.md"
+      ],
+      "violation_ceiling": 7,
+      "carriers": [
+        {
+          "path": "ARCHITECTURE.md",
+          "anchor_pattern": "called against it: Gate 1 FAIL at 0\\.6458"
+        },
+        {
+          "path": "README.md",
+          "anchor_pattern": "GNN Structural Benchmark.*0\\.6458"
+        },
+        {
+          "path": "ROADMAP.md",
+          "anchor_pattern": "Gate 1 alone settles it:.*0\\.6458"
+        },
+        {
+          "path": "docs/Wet_Lab_Protocol_v1.md",
+          "anchor_pattern": "PeptideGroupedKFold.*0\\.6458"
+        },
+        {
+          "path": "docs/architecture/gnn_models.md",
+          "anchor_pattern": "returned Gate 1 FAIL at 0\\.6458"
+        },
+        {
+          "path": "docs/claims_register.md",
+          "anchor_pattern": "GNN structural scorer.*0\\.6458"
+        },
+        {
+          "path": "docs/paper.md",
+          "anchor_pattern": "AUC-PR reached 0\\.6458"
+        }
+      ],
+      "exemptions": [
+        {
+          "path": "CHANGELOG.md",
+          "note": "Dated release history records what was reported at the time; rewriting it would alter the historical record."
+        },
+        {
+          "path": "docs/gnn_gate_retry_preregistration.md",
+          "note": "This preregistration is the primary disclosure and positive control, so requiring it to cite itself would be circular."
+        }
+      ]
+    },
+    {
+      "id": "per-virus-mean-nine-virus-scope",
+      "value": "0.658",
+      "decimals": 3,
+      "qualifier_patterns": [
+        "per-virus\\s+within-CV\\s+mean\\s+AUC-ROC[\\s\\S]*0\\.658[\\s\\S]*over\\s+(?:nine|9)\\s+viruses",
+        "peptide-grouped\\s+per-virus\\s+within-CV\\s+table[\\s\\S]*mean\\s+AUC-ROC[\\s\\S]*0\\.658"
+      ],
+      "window_lines": 3,
+      "scan_globs": [
+        "ARCHITECTURE.md",
+        "docs/model_evaluation_summary.md"
+      ],
+      "violation_ceiling": 0,
+      "carriers": [
+        {
+          "path": "ARCHITECTURE.md",
+          "anchor_pattern": "0\\.658.*over nine viruses"
+        },
+        {
+          "path": "docs/model_evaluation_summary.md",
+          "anchor_pattern": "\\(mean AUC-ROC \\*\\*0\\.658\\*\\*;"
+        }
+      ],
+      "exemptions": []
+    }
+  ]
+}

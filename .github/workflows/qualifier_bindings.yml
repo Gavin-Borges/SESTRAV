@@ -1,0 +1,80 @@
+name: Qualifier Bindings
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check_qualifier_bindings:
+    name: Published values keep their qualifiers
+    runs-on: ubuntu-latest
+    # Shape copied from doc_commit_refs.yml and doc_line_citations.yml, the two
+    # nearest siblings: a single-purpose, stdlib-only gate over tracked docs,
+    # so there is no install step. Three deliberate departures from
+    # doc_commit_refs.yml, each stated rather than inherited by accident:
+    #
+    #  - No fetch-depth: 0. That file needs full history because it resolves
+    #    abbreviated SHAs cited in docs. This gate reads only the TRACKED files
+    #    of the checkout (git ls-files, filtered by each binding's scan_globs),
+    #    never history, so the default shallow clone is sufficient - same
+    #    choice doc_line_citations.yml makes.
+    #  - Both pull_request and push-to-main triggers, as doc_line_citations.yml
+    #    has. pre-push Check 1 blocks direct pushes to main, but it is
+    #    overridable with --no-verify, so a PR-only trigger leaves the admin
+    #    path unwatched for a content gate.
+    #  - timeout-minutes, which doc_commit_refs.yml did not set at 26a36521.
+    #    Eight of the nineteen workflows on main at that commit set one,
+    #    including digest_portability.yml, the closest comparable
+    #    tracked-artifact gate.
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Verify every published value still carries its bounding qualifier
+        # RATCHET FORM, NOT --strict, and the difference is the whole design.
+        #
+        # --strict sets every ceiling to 0. Measured on this tree it exits 1 on
+        # 7 seed violations - carriers that state 0.6458 without recording that
+        # it is the best of eight seeds - so a --strict step would red main from
+        # the first merge and stay red until the last carrier is repaired. A
+        # permanently failing gate cannot be cleared by the PR that adds it, and
+        # it trains reviewers to ignore the job.
+        #
+        # The default form honours docs/qualifier_bindings.json's per-binding
+        # violation_ceiling and exits 0 at or below it. Each of the following
+        # ADDS a violation, so it exits 1 while that binding's count sits at its
+        # ceiling, as both do against main at 26a36521 (7 of 7, and 0 of 0):
+        #  - a new bare occurrence of a bound value in a scanned file that is
+        #    not already a registered carrier, including one ending a sentence;
+        #  - a QUALIFIED registered carrier that loses its qualifier, is
+        #    deleted, stops being tracked, or whose anchor_pattern stops
+        #    matching exactly one occurrence.
+        # Not caught: inside a registered carrier only the anchored occurrence
+        # is checked, so a second bare occurrence there passes; and a carrier
+        # that is ALREADY a violation (all seven best-of-eight carriers there)
+        # swaps one violation for another when it is deleted or its anchor
+        # breaks, so the count does not move. Nor is a value counted at all
+        # inside an inline code span, joined to a slash (as in 0.6458/0.7012),
+        # in an exempted path, or outside the binding's scan_globs. A repair
+        # lowers the count and still passes, so this gate and the separate
+        # qualifier-repair work can land in either order.
+        #
+        # A ceiling may only be lowered, by a reviewed edit plus --update in the
+        # same commit; tests/test_check_qualifier_bindings.py pins the declared
+        # ceilings exactly so raising one cannot pass unnoticed.
+        run: python scripts/check_qualifier_bindings.py
