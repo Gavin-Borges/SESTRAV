@@ -132,3 +132,27 @@ src/**/*.json text eol=lf
 tests/**/*.csv text eol=lf
 .github/**/*.json text eol=lf
 
+
+# Added 2026-09-23: shell scripts and git hooks must stay LF, or a Windows
+# checkout produces files that Linux bash cannot even PARSE. This block is
+# distinct in PURPOSE from every one above it: those pin eol=lf so a RECORDED
+# sha256 stays portable, this one pins it so the file remains EXECUTABLE on the
+# platform it targets.
+# Measured on this workstation (core.autocrlf=true), with `bash -n`, which parses
+# without executing: under WSL2 Ubuntu (GNU bash, grep 3.12) 12 of the 18 tracked
+# shell files FAIL to parse, each reporting a syntax error, while all 18 parse
+# cleanly once CR bytes are stripped. The cause is therefore the line ending and
+# not the script. The 12 include all five files under scripts/hooks/ (the four
+# hooks and their installer) and three of the four *_wsl.sh scripts, which exist
+# precisely to be run from WSL against this checkout. The remaining 6 parse only
+# because they carry no multi-line construct for a stray CR to break, so they are
+# latently exposed rather than sound.
+# Verified content-neutral before adding, per the D24-resid precedent above:
+# `git show HEAD:<p>` over all 18 paths finds ZERO CR bytes, so every blob is
+# already LF and this pin changes no blob. scripts/hooks/* is used rather than an
+# enumeration because that directory holds only the four hooks and their
+# installer, and the four hooks carry no extension. As the 2026-09-01 block
+# notes, a pin is NOT retroactive: re-materialize an existing checkout with
+# `git checkout HEAD -- <path>`.
+*.sh text eol=lf
+scripts/hooks/* text eol=lf
