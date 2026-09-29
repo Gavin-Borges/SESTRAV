@@ -77,6 +77,19 @@ def install() -> None:
     _installed = True
 
 
+def _control_tls_context() -> ssl.SSLContext:
+    """The context the wrap_socket control uses, with its TLS 1.2 floor stated explicitly.
+
+    ``create_default_context`` already sets that floor (its ``minimum_version`` is TLSv1_2,
+    measured on Python 3.11 and 3.14), but CodeQL's insecure-protocol query does not model
+    the default and reports TLSv1 and TLSv1_1 as allowed. Setting ``minimum_version`` states
+    the same policy where the analyzer can see it.
+    """
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 def _control_attempts() -> list[tuple[str, Callable[[], object]]]:
     attempts: list[tuple[str, Callable[[], object]]] = [
         (
@@ -87,7 +100,7 @@ def _control_attempts() -> list[tuple[str, Callable[[], object]]]:
         ("socket.getaddrinfo", lambda: socket.getaddrinfo("example.org", 443)),
         (
             "ssl.SSLContext.wrap_socket",
-            lambda: ssl.create_default_context().wrap_socket(
+            lambda: _control_tls_context().wrap_socket(
                 None,  # type: ignore[arg-type]
                 server_hostname="example.org",
             ),
