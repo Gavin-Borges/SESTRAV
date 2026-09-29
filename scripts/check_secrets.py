@@ -44,6 +44,18 @@ CREDENTIAL_ASSIGNMENT_BARE = re.compile(
     r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*([^\s'\"#,;)\]}]+)"
 )
 
+# Makefiles get their own bare form. A lone `:` there separates a rule's target
+# from its prerequisites (`auth-check: scripts/check.py`), so only Make's assignment
+# operators count: `=`, `:=`, `::=`, `?=`, `+=` and `!=`. The shared form above
+# would also mis-read `API_TOKEN := value` as the operator ":" and the value "=",
+# which the length floor then drops.
+CREDENTIAL_ASSIGNMENT_MAKE = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth"
+    r"|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*(?:::=|[:?+!]?=)\s*([^\s'\"#,;)\]}]+)"
+)
+
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
 # reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
 # the patterns above recognise, so the assignment rules never saw it. The value
@@ -132,9 +144,32 @@ _BARE_VALUE_SUFFIXES = (".yml", ".yaml", ".sh", ".env", ".md", ".txt", ".cfg", "
 MIN_SCANNED_FILES = 10
 
 
+_MAKEFILE_NAMES = ("Makefile", "GNUmakefile", "makefile")
+
+
+def _normalised(path: str) -> str:
+    normalised = path.replace(os.sep, "/").replace("\\", "/")
+    return normalised[2:] if normalised.startswith("./") else normalised
+
+
 def allows_bare_value(path: str) -> bool:
-    name = os.path.basename(path)
-    return name.endswith(_BARE_VALUE_SUFFIXES) or name.startswith("Dockerfile")
+    normalised = _normalised(path)
+    name = normalised.rsplit("/", 1)[-1]
+    # An extensionless file under _SCAN_DIRS is a shell hook, where an unquoted
+    # right-hand side IS the string, as in `.sh`. Matched as a path substring rather
+    # than a prefix because pre-push scans pushed blobs under a temporary root, and
+    # limited to extensionless names so a helper module placed there (a `.py`) keeps
+    # its own format's rules.
+    in_hook_dir = any(("/" + normalised).find("/" + d) >= 0 for d in _SCAN_DIRS)
+    return (
+        name.endswith(_BARE_VALUE_SUFFIXES)
+        or name.startswith("Dockerfile")
+        or (in_hook_dir and "." not in name)
+    )
+
+
+def is_makefile(path: str) -> bool:
+    return _normalised(path).rsplit("/", 1)[-1] in _MAKEFILE_NAMES
 
 
 def calculate_entropy(s: str) -> float:
@@ -260,6 +295,8 @@ def scan_file(path: str) -> List[int]:
     patterns = [CREDENTIAL_ASSIGNMENT, URL_EMBEDDED_CREDENTIAL]
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
+    elif is_makefile(path):
+        patterns.append(CREDENTIAL_ASSIGNMENT_MAKE)
     try:
         # errors="surrogateescape", NOT the default "strict", and this is the whole
         # point of the change. Under "strict" a single byte that is not valid UTF-8

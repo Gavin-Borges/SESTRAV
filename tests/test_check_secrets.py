@@ -392,6 +392,55 @@ def test_unquoted_value_in_yaml_is_flagged(tmp_path: Path) -> None:
     assert mod.scan_file(str(target)) == [1]
 
 
+def test_unquoted_value_in_an_extensionless_hook_is_flagged(tmp_path: Path) -> None:
+    """Files under scripts/hooks/ are shell with no suffix, so a bare value is literal.
+
+    The selection layer opens the directory's extensionless hooks; without this they
+    were scanned for quoted assignments only, and `API_TOKEN=<value>` passed.
+    """
+    mod = _load()
+    hooks = tmp_path / "scripts" / "hooks"
+    hooks.mkdir(parents=True)
+    target = hooks / "pre-push"
+    _bare(target, "API_" + "TOKEN=" + _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_unquoted_value_in_a_makefile_is_flagged(tmp_path: Path) -> None:
+    """Every Make assignment operator, including `:=`, which `[=:]` alone missed."""
+    mod = _load()
+    for operator in (" = ", " := ", " ?= ", " += "):
+        target = tmp_path / "Makefile"
+        _bare(target, "API_" + "TOKEN" + operator + _token())
+        assert mod.scan_file(str(target)) == [1], operator
+
+
+def test_python_helper_under_the_hook_dir_keeps_python_rules(tmp_path: Path) -> None:
+    """Only EXTENSIONLESS hook files are shell; a .py there keeps the .py exemption."""
+    mod = _load()
+    hooks = tmp_path / "scripts" / "hooks"
+    hooks.mkdir(parents=True)
+    target = hooks / "helper.py"
+    _bare(target, "to" + "ken = match.group(1)")
+    assert mod.scan_file(str(target)) == []
+
+
+def test_makefile_rule_line_is_not_read_as_an_assignment(tmp_path: Path) -> None:
+    """In a Makefile, `target: prerequisites` is a rule; a lone `:` is not assignment."""
+    mod = _load()
+    target = tmp_path / "Makefile"
+    _bare(target, "au" + "th-check: scripts/check_affiliation_claims.py")
+    assert mod.scan_file(str(target)) == []
+
+
+def test_extensionless_file_outside_the_hook_dir_stays_quoted_only(tmp_path: Path) -> None:
+    """The widening is scoped: an extensionless file elsewhere keeps quoted-only mode."""
+    mod = _load()
+    target = tmp_path / "CODEOWNERS"
+    _bare(target, "API_" + "TOKEN=" + _token())
+    assert mod.scan_file(str(target)) == []
+
+
 def test_unquoted_value_in_dockerfile_is_flagged(tmp_path: Path) -> None:
     """Dockerfile ENV/ARG values are unquoted literals; match on the basename."""
     mod = _load()
