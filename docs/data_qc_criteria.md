@@ -123,7 +123,7 @@ catch every modelled failure is `[0.198, 0.211]`, a margin of 249 rows or 0.49% 
 corpus. That is a checksum expressed as a ratio, and an exact SHA-256 checksum is already
 pinned in `config.yaml` under `dataset_governance.provenance`. Scoping the gate to the
 in-panel subset would let `[1.5, 4.0]` pass at 1.5104, but on a **37-row margin**, over nine
-per-virus ratios spanning 0.606 to 3.341 of which six sit below 1.5, and it would require
+per-virus ratios spanning 0.606 to 3.341 of which seven sit below 1.5, and it would require
 giving the gate a concept of virus panels and quarantine that it does not have.
 
 **What this bound does NOT catch, stated explicitly rather than implied.** Class ratio cannot

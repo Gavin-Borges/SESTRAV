@@ -2954,7 +2954,7 @@ This release candidate for SESTRAV v2.0 focuses on API & frontend demo container
 - **License SPDX Identifier**: Added machine-readable `SPDX-License-Identifier: MIT` tag to `LICENSE` for automated OSSF Scorecard detection.
 
 ### Changed
-- **Cross-Platform Path Standardization**: Standardized absolute Windows filesystem paths (`C:\Users\gavin\...`) to relative, POSIX-compliant expressions (`Path` bindings, `.relative_to().as_posix()`, and relative markdown paths) across `README.md`, `src/verify/sestrav_evaluator.py`, and `scripts/benchmark_runner.py` to allow execution on UNIX/Linux/WSL hosts.
+- **Cross-Platform Path Standardization**: Standardized absolute Windows filesystem paths (`C:\Users\<username>\...`) to relative, POSIX-compliant expressions (`Path` bindings, `.relative_to().as_posix()`, and relative markdown paths) across `README.md`, `src/verify/sestrav_evaluator.py`, and `scripts/benchmark_runner.py` to allow execution on UNIX/Linux/WSL hosts.
 - **GitHub Actions Security Hardening**: Pinned all upstream action runners to secure, verified commit SHAs rather than mutable version tags. Locked down workflow run tokens to a strict `permissions: read-all` default state.
 - **Branch Rulesets & Review Gating**: Applied automated branch protection configurations via Git credential tokens:
   - Required PR reviews for external contributors while allowing frictionless self-merge bypasses for the repo owner.
