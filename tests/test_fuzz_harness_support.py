@@ -69,6 +69,26 @@ print("control did not abort")
 """
 
 
+# Starts from the worst inherited state: a caller's bypass list naming the host, and
+# the no_proxy="*" an earlier version of the guard itself set.
+GUARD_PROXY = """
+import os, sys, urllib.request
+os.environ["NO_PROXY"] = "example.org"
+os.environ["no_proxy"] = "*"
+sys.path.insert(0, sys.argv[1])
+import _offline_guard
+_offline_guard.install()
+print("urllib bypass", urllib.request.proxy_bypass("example.org"))
+print("urllib https", urllib.request.getproxies().get("https"))
+try:
+    import requests.utils
+except ImportError:
+    print("requests absent")
+else:
+    print("requests https", requests.utils.get_environ_proxies("https://example.org/").get("https"))
+"""
+
+
 def _run(code: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-c", code, str(FUZZ_DIR)],
@@ -85,6 +105,22 @@ def test_offline_guard_positive_control_passes_when_installed():
     assert "OFFLINE_GUARD control verdict: PASS" in proc.stdout
     refused = [ln for ln in proc.stdout.splitlines() if ln.endswith("(OfflineGuardViolation)")]
     assert len(refused) >= 4, proc.stdout
+
+
+def test_offline_guard_proxy_layer_exempts_no_host():
+    """The proxy variables are the only layer a child process inherits.
+
+    A bypass list defeats them: no_proxy="*" exempts every host, so the dead proxy
+    was never used. After install() no host may be exempted, including one named by
+    a bypass list inherited from the caller.
+    """
+    proc = _run(GUARD_PROXY)
+    assert proc.returncode == 0, proc.stderr
+    assert "urllib bypass False" in proc.stdout, proc.stdout
+    assert "urllib https http://127.0.0.1:1" in proc.stdout, proc.stdout
+    assert "requests absent" in proc.stdout or "requests https http://127.0.0.1:1" in proc.stdout, (
+        proc.stdout
+    )
 
 
 def test_offline_guard_positive_control_aborts_when_a_patch_is_missing():

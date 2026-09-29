@@ -6,13 +6,20 @@ targets live in modules that talk to third-party web services
 (``src/external_predictors.py`` posts to DTU and UCM;
 ``src/verify/iedb_multi_virus_extractor.py`` queries IEDB and VDJdb), so a harness
 that reached one of those code paths by accident would send fuzzed payloads to a
-third-party server. The guard makes that impossible rather than unlikely:
+third-party server. The guard makes that fail loudly instead of reaching the server:
 
 * ``socket.socket``, ``socket.create_connection``, ``socket.getaddrinfo`` and
   ``ssl.SSLContext.wrap_socket`` are replaced by callables that raise
-  :class:`OfflineGuardViolation`;
-* ``no_proxy`` is set to ``*`` and ``http_proxy`` and ``https_proxy`` (both cases)
-  point at ``http://127.0.0.1:1``, a port nothing listens on;
+  :class:`OfflineGuardViolation`. This covers this process only. Not patched: the
+  lower-level ``_socket`` module, the ``socket.SocketType`` alias, and the
+  name-resolution helpers other than ``getaddrinfo`` (``gethostbyname``,
+  ``gethostbyname_ex``, ``gethostbyaddr``, ``getnameinfo``); none of the fuzz
+  targets use them;
+* ``http_proxy`` and ``https_proxy`` (both cases) point at ``http://127.0.0.1:1``,
+  a port nothing listens on, and ``no_proxy``/``NO_PROXY`` are removed so that no
+  host is exempted. This is the layer a CHILD process inherits, which the socket
+  patches do not reach; it binds clients that honour the proxy variables, such as
+  urllib and requests;
 * a POSITIVE CONTROL then attempts one outbound connection through each patched
   entry point (and through ``requests`` when it is installed) and aborts the
   process with exit status 97 unless every attempt raised
@@ -66,8 +73,11 @@ _installed = False
 def install() -> None:
     """Patch the network entry points and point the http(s) proxy variables at a dead port."""
     global _installed
-    os.environ["no_proxy"] = "*"
-    os.environ["NO_PROXY"] = "*"
+    # A proxy variable protects only a request whose host the bypass list does not
+    # exempt, and no_proxy="*" exempts every host. Remove the bypass list, including
+    # one inherited from the caller's environment, so the dead proxy always applies.
+    for key in ("no_proxy", "NO_PROXY"):
+        os.environ.pop(key, None)
     for key in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
         os.environ[key] = PROXY_SINK
     socket.socket = _RefusingSocket  # type: ignore[misc]
@@ -148,8 +158,10 @@ def install_and_verify(quiet: bool = False) -> list[str]:
     """Install the guard, run the positive control, and report it on stderr."""
     install()
     lines = [
-        "OFFLINE_GUARD installed: no_proxy={} http_proxy={} https_proxy={}".format(
-            os.environ["no_proxy"], os.environ["http_proxy"], os.environ["https_proxy"]
+        "OFFLINE_GUARD installed: http_proxy={} https_proxy={} no_proxy={}".format(
+            os.environ["http_proxy"],
+            os.environ["https_proxy"],
+            os.environ.get("no_proxy", "<unset>"),
         )
     ]
     lines.extend(positive_control())
