@@ -25,6 +25,7 @@ jobs:
   review-required:
     name: Require human review
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Check for at least one approving review
