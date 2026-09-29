@@ -30,16 +30,18 @@ def _extract_tracked_tree(destination: Path) -> None:
     assert result.returncode == 0, result.stderr.decode(errors="replace")
     destination.mkdir()
     with tarfile.open(fileobj=io.BytesIO(result.stdout), mode="r:") as archive:
-        for member in archive.getmembers():
-            target = (destination / member.name).resolve()
-            assert target.is_relative_to(destination.resolve())
-        archive.extractall(destination)  # noqa: S202 - members validated above
+        # The stdlib "data" filter strips leading slashes and refuses parent-directory
+        # escapes and links that leave the destination. Unlike an assert-based check, it
+        # still runs under python -O.
+        archive.extractall(destination, filter="data")
 
 
 def test_tracked_smoke_fixture_executes_generate_peptides(tmp_path):
     snakemake = shutil.which("snakemake")
     if snakemake is None:
         pytest.skip("snakemake executable is not installed in this test environment")
+    if not hasattr(tarfile, "data_filter"):
+        pytest.skip("tarfile extraction filters need Python 3.11.4 or later")
 
     tree = tmp_path / "tracked-tree"
     _extract_tracked_tree(tree)
