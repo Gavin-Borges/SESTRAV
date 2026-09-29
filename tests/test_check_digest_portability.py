@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+from pathlib import Path
 
 import scripts.check_digest_portability as cdp
 from scripts.check_digest_portability import (
@@ -234,3 +236,75 @@ def test_strict_failing_set_matches_the_consuming_workflow():
         f"{sorted(cdp.STRICT_FAILING)}; the two must agree or a hand-run of the "
         "tool means something different from the gate"
     )
+
+
+# ---------------------------------------------------------------------------
+# The Zenodo DOI manifest
+# ---------------------------------------------------------------------------
+#
+# docs/zenodo_manifest_v5.json pins a sha256 and a byte count for every file of
+# the DOI deposit, and until 2026-09-29 no PATTERNS entry matched it, so nothing
+# recomputed those digests. It had already drifted: #540 changed
+# data/immunogenicity_dataset_v5_schema.json and left the manifest's digest
+# behind. CHANGELOG.md records the same manifest carrying a stale digest once
+# before, corrected by hand with no gate added, which is why it recurred.
+#
+# Two tests, deliberately. The fixture one pins the SHAPE; the live-tree one is
+# the only one that can see drift, and its absence is what let this through.
+
+
+def test_zenodo_manifest_shape_pairs_its_digest_with_path(tmp_path):
+    """A bare ``sha256`` key must pair with a sibling ``path``.
+
+    Without that pairing the record is UNRESOLVED, which is in STRICT_FAILING,
+    so adding the manifest to PATTERNS alone would turn the gate permanently red
+    for a schema reason while never once comparing a digest.
+    """
+    manifest = tmp_path / "zenodo_manifest_v5.json"
+    payload = {
+        "doi": "10.5281/zenodo.XXXXXXX",
+        "files": [
+            {"path": "data/set.csv", "role": "dataset", "bytes": 10, "sha256": DIGEST_A},
+            {"path": "data/schema.json", "role": "schema", "bytes": 20, "sha256": DIGEST_B},
+        ],
+    }
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    records = extract_records("docs/zenodo_manifest_v5.json", payload)
+
+    assert {str(record["source"]): record["path"] for record in records} == {
+        "files[0].sha256": "data/set.csv",
+        "files[1].sha256": "data/schema.json",
+    }
+    assert all(record["reason"] is None for record in records)
+
+
+def test_the_doi_manifest_is_in_scope_and_every_digest_resolves():
+    """Live tree, not a fixture: the real manifest is scanned and fully paired.
+
+    A fixture cannot see drift in a tracked file, so this reads the repository
+    the gate actually runs against. It asserts SCOPE and PAIRING only. Whether
+    each recorded digest still MATCHES is what the gate itself reports; pinning
+    that here as well would duplicate the gate rather than guard it.
+    """
+    root = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    rows = [
+        row
+        for row in cdp.scan_repository(Path(root))
+        if row["manifest"] == "docs/zenodo_manifest_v5.json"
+    ]
+
+    assert rows, "docs/zenodo_manifest_v5.json matched no PATTERNS entry"
+    unresolved = [row for row in rows if row["verdict"] == "UNRESOLVED"]
+    assert not unresolved, f"unpaired digests in the DOI manifest: {unresolved}"
+    assert {row["path"] for row in rows} == {
+        "data/immunogenicity_dataset_v5.csv",
+        "data/immunogenicity_dataset_v5_schema.json",
+        "data/immunogenicity_dataset_v5_provenance.json",
+    }
