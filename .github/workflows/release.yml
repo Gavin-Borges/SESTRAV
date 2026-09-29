@@ -270,6 +270,9 @@ jobs:
       - name: Publish GitHub Release with artifacts + checksums
         env:
           GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so gh cannot infer the repository from a git
+          # remote, and gh does not read GITHUB_REPOSITORY; name it explicitly.
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             dist/*.tar.gz dist/*.whl dist/SHA256SUMS.txt dist/*.intoto.jsonl \
