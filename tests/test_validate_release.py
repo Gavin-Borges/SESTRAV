@@ -21,6 +21,7 @@ import pytest
 import yaml
 
 from src.ci.validate_release import check_feature_count
+from src.features import FEATURE_COLUMNS_31, FEATURE_COLUMNS_51
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "config.yaml"
@@ -67,7 +68,15 @@ def test_the_configured_feature_mode_is_accepted_by_the_gate() -> None:
     """
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     feature_mode = config["feature_mode"]
-    assert check_feature_count(_Model(feature_mode), feature_mode) == feature_mode
+    shipped_feature_count = len(FEATURE_COLUMNS_31)
+    assert check_feature_count(_Model(shipped_feature_count), feature_mode) == shipped_feature_count
+
+
+def test_mode_51_maps_to_its_55_canonical_columns() -> None:
+    assert len(FEATURE_COLUMNS_51) == 55
+    assert check_feature_count(_Model(55), 51) == 55
+    with pytest.raises(ValueError, match="requires 55"):
+        check_feature_count(_Model(51), 51)
 
 
 def test_the_stale_allowlist_would_have_rejected_the_shipped_configuration() -> None:
