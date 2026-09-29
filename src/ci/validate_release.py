@@ -3,7 +3,15 @@ from pathlib import Path
 import logging
 from typing import Any
 
-from src.features import (
+# run_pipeline.sh runs this file by path, which puts src/ci on sys.path rather than
+# the repository root. Add this file's own tree at the front of sys.path when it is
+# not already listed, so the first-party import below resolves to this tree rather
+# than failing, or reaching an installed copy through that copy's import finder.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.features import (  # noqa: E402
     FEATURE_COLUMNS_10,
     FEATURE_COLUMNS_30,
     FEATURE_COLUMNS_31,
@@ -63,10 +71,8 @@ def main():
     try:
         from mhcflurry import Class1PresentationPredictor
 
-        # Make sure our source tree is in path
-        project_root = Path(__file__).resolve().parent.parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
+        # The source tree was put on sys.path at import time, above.
+        project_root = PROJECT_ROOT
 
         from src.core.config import SestravConfig
         from src.core.model_registry import ModelRegistry
