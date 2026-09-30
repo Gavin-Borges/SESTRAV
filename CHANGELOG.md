@@ -96,6 +96,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_security_floors_have_a_dependent.py` fails on any floor, in any lockfile
   spec, whose package nothing but the spec requires; against the previous spec it names
   exactly these four.
+- **`keras` and `protobuf`, pinned as security fixes in `requirements.in` and
+  `environments/requirements-ci.in`, are removed along with eight packages beneath them,
+  because nothing in the closure of `requirements.in` or `environments/requirements-ci.in`
+  requires either.** The same
+  defect as the entry above in `==` form: a line in a `.in` spec is a requirement, so the
+  pins were what installed them. mhcflurry 2.2.1 declares only torch among ML frameworks
+  and imports neither package, no tracked module imports keras, protobuf or any of the
+  eight, shap's only explainer is `TreeExplainer`, and every keras and protobuf entry in
+  the three locks below named only a `.in` spec in its `# via`, never another package.
+  (CI's semgrep tool lock does carry protobuf, as a dependency of opentelemetry-proto and
+  googleapis-common-protos; that is outside these specs and untouched.) Recompiling
+  `requirements.txt`, `environments/requirements-ci.txt` and `environments/requirements.lock`
+  with their own header argv removes keras, protobuf, absl-py, h5py, markdown-it-py,
+  mdurl, ml-dtypes, namex, optree and rich from all three (and numpy from
+  `requirements-ci.txt`, which CI only ever installs beside `requirements.txt`) and
+  changes no other pin. keras alone has carried six advisories, including arbitrary code
+  execution through a `safe_mode` bypass, and it could not even be imported where it was
+  installed: in the set CI installs, `import keras` raises
+  `ModuleNotFoundError: No module named 'tensorflow'`, its default backend, which nothing
+  installs. In a Linux full-suite run of that set, the lock change before its baseline edit
+  failed exactly one test `origin/main` passes, a co-install divergence baseline whose
+  `absl-py` entries no longer apply; with those four entries removed, as committed, that
+  test passes. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` were rebuilt using the
+  `python-sbom` job's argv and lose the same ten, with no drift in the 130 that remain.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit

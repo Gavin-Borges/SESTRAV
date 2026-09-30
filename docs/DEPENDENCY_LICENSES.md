@@ -8,7 +8,6 @@
 | PyYAML                                | 6.0.3       | MIT License                                                                                         |
 | Pygments                              | 2.20.0      | BSD-2-Clause                                                                                        |
 | SQLAlchemy                            | 2.0.51      | MIT                                                                                                 |
-| absl-py                               | 2.5.0       | Apache-2.0                                                                                          |
 | aiohappyeyeballs                      | 2.7.1       | Python Software Foundation License                                                                  |
 | aiohttp                               | 3.14.3      | Apache-2.0 AND MIT                                                                                  |
 | aiosignal                             | 1.4.0       | Apache Software License                                                                             |
@@ -42,7 +41,6 @@
 | gitdb                                 | 4.0.12      | BSD License                                                                                         |
 | greenlet                              | 3.5.4       | MIT AND PSF-2.0                                                                                     |
 | h11                                   | 0.16.0      | MIT License                                                                                         |
-| h5py                                  | 3.16.0      | BSD-3-Clause                                                                                        |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
 | hypothesis                            | 6.168.0     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
@@ -52,12 +50,9 @@
 | jsonschema                            | 4.26.0      | MIT                                                                                                 |
 | jsonschema-specifications             | 2025.9.1    | MIT                                                                                                 |
 | jupyter_core                          | 5.9.1       | BSD-3-Clause                                                                                        |
-| keras                                 | 3.15.1      | Apache License 2.0                                                                                  |
 | kiwisolver                            | 1.5.0       | BSD License                                                                                         |
 | llvmlite                              | 0.48.0      | BSD-2-Clause AND Apache-2.0 WITH LLVM-exception                                                     |
-| markdown-it-py                        | 4.2.0       | MIT License                                                                                         |
 | matplotlib                            | 3.11.2      | Python Software Foundation License                                                                  |
-| mdurl                                 | 0.1.2       | MIT License                                                                                         |
 | mhcflurry                             | 2.2.1       | Apache-2.0                                                                                          |
 | mhcgnomes                             | 3.33.4      | Apache License                                                                                      |
 |                                       |             |                            Version 2.0, January 2004                                                |
@@ -261,10 +256,8 @@
 |                                       |             |    See the License for the specific language governing permissions and                              |
 |                                       |             |    limitations under the License.                                                                   |
 |                                       |             |                                                                                                     |
-| ml_dtypes                             | 0.5.4       | Apache-2.0                                                                                          |
 | mpmath                                | 1.3.0       | BSD License                                                                                         |
 | multidict                             | 6.7.1       | Apache License 2.0                                                                                  |
-| namex                                 | 0.1.0       | UNKNOWN                                                                                             |
 | nbformat                              | 5.11.1      | BSD License                                                                                         |
 | networkx                              | 3.6.1       | BSD-3-Clause                                                                                        |
 | numba                                 | 0.66.0      | BSD License                                                                                         |
@@ -286,14 +279,12 @@
 | nvidia-nvshmem-cu13                   | 3.4.5       | LicenseRef-NVIDIA-Proprietary                                                                       |
 | nvidia-nvtx                           | 13.0.85     | Other/Proprietary License                                                                           |
 | openpyxl                              | 3.1.5       | MIT License                                                                                         |
-| optree                                | 0.19.1      | Apache-2.0                                                                                          |
 | packaging                             | 25.0        | Apache Software License; BSD License                                                                |
 | pandas                                | 3.0.3       | BSD License                                                                                         |
 | pillow                                | 12.3.0      | MIT-CMU                                                                                             |
 | platformdirs                          | 4.11.3      | MIT                                                                                                 |
 | pluggy                                | 1.6.0       | MIT License                                                                                         |
 | propcache                             | 0.5.2       | Apache Software License                                                                             |
-| protobuf                              | 7.35.1      | 3-Clause BSD License                                                                                |
 | psutil                                | 7.2.2       | BSD-3-Clause                                                                                        |
 | pyahocorasick                         | 2.3.1       | BSD-3-Clause and Public-Domain                                                                      |
 | pydantic                              | 2.13.5      | MIT                                                                                                 |
@@ -303,7 +294,6 @@
 | python-dateutil                       | 2.9.0.post0 | Apache Software License; BSD License                                                                |
 | referencing                           | 0.37.0      | MIT                                                                                                 |
 | requests                              | 2.34.2      | Apache Software License                                                                             |
-| rich                                  | 15.0.0      | MIT License                                                                                         |
 | rpds-py                               | 2026.6.3    | MIT                                                                                                 |
 | scikit-learn                          | 1.8.0       | BSD-3-Clause                                                                                        |
 | scipy                                 | 1.17.1      | BSD License                                                                                         |

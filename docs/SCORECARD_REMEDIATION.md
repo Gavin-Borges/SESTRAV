@@ -16,8 +16,8 @@ parenthetical, for current state.
 
 | # | Alert | Severity | Status |
 |---|-------|----------|--------|
-| 1 | keras CVEs (6×) - GHSA-36fq, 4f3f, cjgq, hjqc, mq84, 7gcm | **High** | ✅ Pinned & regenerated in `requirements.txt` |
-| 2 | protobuf DoS - GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt` |
+| 1 | keras CVEs (6×) - GHSA-36fq, 4f3f, cjgq, hjqc, mq84, 7gcm | **High** | ✅ Pinned & regenerated in `requirements.txt`; the pin and the package have since been removed, because nothing in the closure of `requirements.in` or `environments/requirements-ci.in` requires keras (see `requirements.in`) |
+| 2 | protobuf DoS - GHSA-m2f8 | **High** | ✅ Pinned & regenerated in `requirements.txt`; the pin and the package have since been removed, because nothing in the closure of `requirements.in` or `environments/requirements-ci.in` requires protobuf (see `requirements.in`; CI's semgrep tool lock carries protobuf as an opentelemetry-proto dependency) |
 | 3 | Semgrep false positive (`joblib_load` pattern) | Low | ✅ Fixed in `semgrep-rules/sestrav-custom.yml` |
 | 4 | Branch-Protection (score 4/10) | **High** | ⬜ Ruleset `Protect Main Branch` (id 16846770) is active, but it is UI-managed and was not applied by the automation script - Step 2 retracted that attribution on 2026-08-22, and `scripts/apply-branch-ruleset.ps1` is untracked and disabled. The check still scores 4/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "branch protection is not maximal on development and all release branches"). Its three Warn details bind to live ruleset fields: admin-role bypass (`bypass_actors` RepositoryRole 5, always), `required_approving_review_count: 0`, and `require_last_push_approval: false` |
 | 5 | Code-Review (score 0/10) | **High** | ⬜ Same retracted attribution as row 4, and the ruleset does not remediate this check: it sets `required_approving_review_count: 0`, so no approving review is required to merge. The check still scores 0/10 live (verified 2026-08-23 at commit 36e3d8d, Scorecard v5.5.0: reason "Found 0/4 approved changesets -- score normalized to 0"). Approving reviews do occur in this repo on bot-authored PRs (#278 and #280 each carry an owner APPROVED review), but Scorecard deliberately discards those: `probes/codeApproved/impl.go` skips approved changesets whose author is a bot, commented as skewing single-maintainer projects. The 4 changesets it did count are the owner's own merged PRs (#277, #282, #283, #284), which carry zero reviews |
@@ -155,6 +155,10 @@ The live badge is embedded at the top of `README.md`:
 Added explicit minimum version pins:
 - `keras>=3.13.2` - patches all 6 keras CVEs
 - `protobuf>=5.29.6` - patches protobuf DoS CVE
+
+Both pins were later removed: nothing in the closure of `requirements.in` or
+`environments/requirements-ci.in` requires keras or protobuf, so the pins were what installed
+them. `requirements.in` records the measurement.
 
 ### Semgrep Rule Fix (`semgrep-rules/sestrav-custom.yml`)
 Removed overly-broad `joblib_load(...)` pattern that was false-positively matching
