@@ -7,7 +7,7 @@ pandas==3.0.3
 pyyaml==6.0.3
 scikit-learn==1.8.0
 scipy==1.17.1
-threadpoolctl==3.6.0
+threadpoolctl==3.7.0
 xgboost==3.2.0
 pulp==3.3.2
 
@@ -27,7 +27,7 @@ shap==0.51.0
 
 # Test tooling
 pytest==9.1.1
-hypothesis==6.168.0
+hypothesis==6.168.1
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
