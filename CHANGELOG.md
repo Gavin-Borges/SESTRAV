@@ -364,6 +364,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `--no-deps`, with backslash continuations joined, comments ignored and chained commands
   split. `CONTRIBUTING.md` and `ARCHITECTURE.md`, which said no tier compiles with an
   override, now name this one.
+- **Seven tool lockfiles are now compiled for the Python of the CI jobs that install
+  them.** `tools/update_dependencies.py` compiled `ci-build`, `ci-mypy`, `ci-pytest-cov`
+  and `ci-ruff` for 3.11 while their jobs run 3.13, `pip-audit` and `semgrep` for 3.12 and
+  `security` for 3.13 while their jobs run 3.11. `uv pip compile --python-version`
+  resolves for that interpreter only, so such a lock can carry a package the job's
+  Python never needs or miss one it does. Recompiled for each job's Python, six locks
+  change only their header and `requirements-ci-pytest-cov.txt` drops `tomli`, which
+  Python 3.13 does not need. Each was then installed with its CI job's own flags on that
+  job's Python in a fresh Linux venv, and each tool installed and reported its version. The new
+  `tests/test_tool_locks_match_their_job_python.py` parses every workflow, finds the jobs
+  that install each managed lock, and fails when the lock's compile target is not their
+  Python; the runtime and `ci` locks, which a Python matrix installs by design, must
+  target one of the matrix versions. Against the previous tool settings it fails exactly
+  these seven.
 
 ### Added
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
