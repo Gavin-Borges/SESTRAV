@@ -1,15 +1,17 @@
 """Tests for scripts/fetch_human_proteome.py.
 
-Network-dependent download is not tested here; only pure-logic functions
-(_sha256, _count_sequences, fetch skip-if-present, CLI parsing) are covered.
+The network is never touched. Pure-logic functions (_sha256, _count_sequences,
+fetch skip-if-present, CLI parsing) are covered directly, and the download path
+is covered with urllib.request.urlopen monkeypatched to return fixed bytes.
 """
 
 import hashlib
+import io
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
-from fetch_human_proteome import _count_sequences, _sha256, fetch, main  # noqa: E402
+from fetch_human_proteome import _count_sequences, _download, _sha256, fetch, main  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # _count_sequences
@@ -121,3 +123,49 @@ def test_main_force_flag_skips_check(tmp_path, monkeypatch):
     rc = main([f"--output={dest}", "--force"])
     assert rc == 0
     assert len(calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# _download - urlopen monkeypatched, no network
+# ---------------------------------------------------------------------------
+
+
+def _fake_urlopen(payload, calls):
+    # io.BytesIO is readable and a context manager, like urlopen's response.
+    def fake(url, *args, **kwargs):
+        calls.append((url, args, kwargs))
+        return io.BytesIO(payload)
+
+    return fake
+
+
+def test_download_passes_a_timeout_to_urlopen(tmp_path, monkeypatch):
+    # Without a timeout a stalled UniProt connection blocks the fetch forever.
+    calls = []
+    monkeypatch.setattr(
+        "fetch_human_proteome.urllib.request.urlopen",
+        _fake_urlopen(b">s1\nACDE\n", calls),
+    )
+    _download("https://example.invalid/proteome.fasta", tmp_path / "human.fasta")
+    assert len(calls) == 1
+    timeout = calls[0][2].get("timeout")
+    assert timeout is not None, "urlopen was called without a timeout"
+    assert timeout > 0
+
+
+def test_main_force_replaces_an_existing_file(tmp_path, monkeypatch):
+    # Path.rename raises FileExistsError on Windows when the target exists, so
+    # --force over an existing FASTA must move the temp file with replace().
+    dest = tmp_path / "proteome.fasta"
+    dest.write_text(">old\nAAAA\n")
+    new_payload = b">s1\nACDE\n>s2\nFGHI\n"
+    calls = []
+    monkeypatch.setattr(
+        "fetch_human_proteome.urllib.request.urlopen",
+        _fake_urlopen(new_payload, calls),
+    )
+    rc = main([f"--output={dest}", "--force"])
+    assert rc == 0
+    assert len(calls) == 1
+    assert dest.read_bytes() == new_payload
+    assert not (tmp_path / "proteome.fasta.tmp").exists()
