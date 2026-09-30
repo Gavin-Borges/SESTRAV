@@ -151,13 +151,26 @@ formally declined on `bus_factor` / `two_person_review` grounds as of 2026-08-17
 Noted here because a reader of the enumeration above, without this paragraph, would
 conclude owner merges are human-reviewed. They are CI-reviewed.
 
-**Corrected 2026-09-13.** This paragraph read "its five required status checks" and
-enumerated five, omitting `Bandit Security Scan` and `CodeQL Static Analysis`. That
-understated enforcement, and it contradicted this document's own CI gate map below,
-which was corrected on 2026-09-12 to record Bandit as blocking. Both statements were
-true of different dates and neither said so. **Do not quote this enumeration as
-current** - the count has already changed at least twice (five as of 2026-08-24,
-seven as of 2026-09-13). Re-measure instead:
+**It is satisfied automatically for two dependency bots as well.** The same workflow
+returns success, again before reading any review, when the pull request author's login
+is exactly one of the entries in its `TRUSTED_BOTS` list: `dependabot[bot]` and
+`renovate[bot]`. Its own comment rests that bypass on the CI suite enforcing
+correctness, so a bot pull request, like an owner one, is CI-reviewed rather than
+human-reviewed. For every
+other author the check counts only each reviewer's latest non-comment review, and
+passes only on an `APPROVED` one from an account whose `author_association` is `OWNER`,
+`MEMBER` or `COLLABORATOR` and which is not the pull request author. A second required
+check has a wider exemption: `.github/workflows/dco.yml` exits 0 before checking any
+sign-off when the author's login ends in `[bot]`, so `check_dco` passes for any bot
+account, not only these two.
+
+**Corrected 2026-09-13.** The opening paragraph of this section read "its five required
+status checks" and enumerated five, omitting `Bandit Security Scan` and
+`CodeQL Static Analysis`. That understated enforcement, and it contradicted this
+document's own CI gate map below, which was corrected on 2026-09-12 to record Bandit as
+blocking. Both statements were true of different dates and neither said so. **Do not
+quote this enumeration as current** - the count has already changed at least twice (five
+as of 2026-08-24, seven as of 2026-09-13). Re-measure instead:
 
 ```bash
 gh api repos/Gavin-Borges/SESTRAV/rulesets/16846770 \
@@ -184,29 +197,57 @@ mechanically enforced today, and the two are not yet the same for every row.
 
 ### CI gate map
 
-| Tool / workflow | What it checks | Tier |
-| --------------- | -------------- | ---- |
-| Bandit (`security.yml`, `-ll`) | Python SAST, MEDIUM+ severity | **Blocking** - the `bandit` job declares `name: Bandit Security Scan`, and that exact context is among ruleset 16846770's required status checks, so a MEDIUM+ finding fails the job AND holds the merge button. Corrected 2026-09-12: this row read "Advisory - ... is not a required status check, so it does not gate the merge button", which the ruleset refutes; the error understated enforcement |
-| Dependency Review (`dependency-review.yml`) | New deps introduced in a PR (`fail-on-severity: moderate`) | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button |
-| CodeQL (`security.yml`) | Deep SAST -> Security > Code scanning | **Blocking** - the ruleset's code-scanning rule names `CodeQL` |
-| Semgrep custom rules (`security.yml`, `semgrep-rules/`) | SESTRAV's own three ERROR rules: unsafe `pickle.load`, raw `joblib.load` bypassing `load_verified_joblib`, `subprocess(..., shell=True)` | **Blocking at the job level** - no `continue-on-error`, so any finding fails the run. It does NOT hold the merge button: `Semgrep Custom Rules (blocking)` is not among the required status checks on `Protect Main Branch`, re-measured 2026-09-13 against the live ruleset, and promoting it is a separate repo-settings change. The paragraph below this table lists this job among the three that turn their own run red without gating the merge |
-| Semgrep `p/python` (`security.yml`) | Registry SAST ruleset -> Security > Code scanning | Advisory |
-| pip-audit (`security.yml`, weekly + PR) | CVEs in the pinned `requirements.lock` -> run summary | Advisory - fails closed (non-`continue-on-error`) on any lockfile advisory absent from `environments/accepted_advisories.toml`, but is not a required status check |
-| Dependabot alerts | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged) |
-| PII & path-leak scan (`pii_scan.yml`) | Workstation absolute paths and AI-tooling filenames, over the tracked tree and over published refs | Advisory, and **split**: pushes to `main`/`release/**` and pull requests are ENFORCED (hard `exit 1`), while **tags are REPORTED only** - the ref loop passes `report`, which downgrades a finding to a `::warning`. That exemption is deliberate and commented in the workflow: a tag is immutable published provenance, so wiring it to `exit 1` would wedge the job red on history no push can change. Note the workflow has **no tag trigger at all**, so a tag is first examined on the next `main` push, pull request or weekly sweep. Neither of its jobs is a required status check, so even the enforced half cannot hold the merge button |
+Every job in `security.yml`, `dependency-review.yml`, `pii_scan.yml`,
+`dependency-lockfile-check.yml`, `lock_manifest_coverage.yml`, `scorecard.yml` and
+`dismissal_justifications_advisory.yml` has a row below, named by its check context
+(the job's `name:`, or its job id when it has none), followed by the two repository-level GitHub features that raise security
+alerts. A row is **Required** only when its context is one of ruleset 16846770's
+required status checks listed above, or when the ruleset's code-scanning rule names
+its tool; every other row is advisory. Of the seven required contexts, only
+`Bandit Security Scan` and `CodeQL Static Analysis` come from these seven workflows.
+`tests/test_security_gate_map_covers_security_jobs.py` fails if a job in those seven
+workflows has no row here.
 
-Advisory findings never block a merge on their own - none of them is a required
-status check or a code-scanning rule on `Protect Main Branch`. Three of them
-(Dependency Review, pip-audit and the Semgrep custom-rules job) still
-turn their *own* CI job red on a
-finding rather than merely reporting one; that failure is visible in the run and
-in branch-status UI, but does not prevent the merge button from going green.
-Findings surface as **(a)** tracked, dismissable alerts in *Security > Code
-scanning* (Semgrep/CodeQL SARIF), **(b)** a red or markdown-annotated
-`security.yml` job run (Bandit, Dependency Review, pip-audit, Semgrep custom
-rules), and **(c)**
-Dependabot alerts/PRs. They are reviewed on the weekly cadence and logged in the
-register below whenever consciously deferred.
+| Check context (workflow, job id) | What it checks | Tier |
+| -------------------------------- | -------------- | ---- |
+| `Bandit Security Scan` (`security.yml`, `bandit`) | Python SAST, `-ll`: MEDIUM+ severity | **Required** - that exact context is among ruleset 16846770's required status checks, so a MEDIUM+ finding fails the job AND holds the merge button. Corrected 2026-09-12: this row read "Advisory - ... is not a required status check, so it does not gate the merge button", which the ruleset refutes; the error understated enforcement |
+| `Custom Secret Pattern Scan` (`security.yml`, `secret-pattern-scan`) | `scripts/check_secrets.py`, whose comments define the patterns exactly: an `=` or `:` assignment to a name carrying a credential-class keyword (`api_key`, `token`, `secret`, `password`, `passwd`, `auth`, `private_key`) after any prefix and before only `_`- or `-`-separated suffixes, so `accessToken`, `dbpassword` and `AWS_SECRET_ACCESS_KEY` all qualify; the value must be quoted, except in `.yml`, `.yaml`, `.sh`, `.md`, `.txt` and `Dockerfile*` files, where an unquoted value counts too. The script's bare-value list also names `.env`, `.cfg` and `.ini`, but it never opens files with those suffixes: scannability is decided by a SEPARATE suffix set that omits all three, so for them the exemption is declared and unreachable. Measured 2026-09-23 by calling the script's own helpers: an unquoted high-entropy assignment in a `.cfg` IS flagged when the file is handed to `scan_file` directly, and is never reached by a tree scan. Tracked `pytest.ini` is therefore not scanned. In a scanned file, a value is flagged when it has no whitespace, is longer than 8 characters and has Shannon entropy above 3.0. A file it cannot read, or a scan over fewer than 10 files, also fails | Advisory - no `continue-on-error`, so a finding fails the job red, but it is not a required status check. `scripts/hooks/pre-push` runs the same script locally. Added 2026-09-23: until then this job had no row in the map |
+| `CodeQL Static Analysis` (`security.yml`, `codeql`) | Deep SAST, `security-extended` query suite -> Security > Code scanning | **Required, twice** - the context is a required status check, and the ruleset's code-scanning rule names the `CodeQL` tool (`security_alerts_threshold: all`, `alerts_threshold: errors_and_warnings`) |
+| `Semgrep Custom Rules (blocking)` (`security.yml`, `semgrep-custom`, `semgrep-rules/`) | SESTRAV's own three ERROR rules: unsafe `pickle.load`, raw `joblib.load` bypassing `load_verified_joblib`, `subprocess(..., shell=True)` | **Blocking at the job level** - no `continue-on-error`, so any finding fails the run. It does NOT hold the merge button: `Semgrep Custom Rules (blocking)` is not among the required status checks on `Protect Main Branch`, re-measured 2026-09-23 against the live ruleset, and promoting it is a separate repo-settings change. The paragraph below this table lists it among the advisory jobs that turn their own run red |
+| `Semgrep Security Scan (advisory)` (`security.yml`, `semgrep`) | Registry `p/python` ruleset plus `semgrep-rules/` -> Security > Code scanning | Advisory - the scan step is `continue-on-error`, so a finding leaves this job green. It still surfaces in two places: as a code-scanning alert, and, on a pull request, in the `Semgrep OSS` check run from the `github-advanced-security` app, which a finding can turn red, as PR #418's did. That check run is not required, but it shares one check suite with the `CodeQL` check run, so a red run makes the suite conclude `failure`, and OpenSSF Scorecard's SAST check, which reads check suites rather than runs, then counts the commit as not SAST-scanned; the `semgrep-custom` job's comments in `security.yml` record this cost (code-scanning alert #87). The job does go red on a TOOLING failure: a missing or unparseable SARIF, or one carrying 0 rules, fails its assertion step, so a scan that never ran cannot upload a zero-result analysis |
+| `pip-audit Dependency Scan (advisory)` (`security.yml`, `pip-audit`; push to `main`, pull request, weekly) | CVEs in the installed `environments/requirements.lock` set -> run summary | Advisory - the audit step itself is `continue-on-error`, but the `tools/check_lockfile_advisories.py` step after it is not, so an advisory against a package pinned in `environments/requirements.lock` fails the job red unless `environments/accepted_advisories.toml` accepts that exact (advisory, package) PAIR - `load_acceptances` keys on both, so an ID accepted for one package still fails when the same ID surfaces on a different pinned package, as does a tooling failure. Findings on packages the lock does not pin, such as the runner's own `pip`, are reported but never fail. It is not a required status check |
+| `Python SBOM (pip-licenses)` (`security.yml`, `python-sbom`) | Regenerates the dependency SBOM from the pinned lockfile and compares it with the committed `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` | Advisory - fails red when either committed file is stale, or when the generated SBOM lacks any of its production sentinels (`numpy`, `pandas`, `scikit-learn`); not a required status check |
+| `dependency-review` (`dependency-review.yml`, `dependency-review`; pull requests only) | New deps introduced in a PR (`fail-on-severity: moderate`) | Advisory - fails its own CI job on a finding, but is not a required status check, so it does not gate the merge button. The job declares no `name:`, so its check context is its job id |
+| `Check lockfile freshness and hash pinning` (`dependency-lockfile-check.yml`, `lockfile-freshness`) | `tools/check_lockfile_freshness.py --check`: each `requirements*.in` pin is honoured by its compiled lockfile, and every compiled entry carries a `--hash=sha256:` pin; on a pull request authored by `dependabot[bot]`, also refuses any edit to `environments/requirements-ci-render.txt` | Advisory - red on a finding, but it runs only on pull requests that touch a file in its `paths:` filter, and it is not a required status check |
+| `Locked packages are Dependabot-visible` (`lock_manifest_coverage.yml`, `check_lock_manifest_coverage`) | `tools/check_lock_manifest_coverage.py`: every distribution pinned in `environments/requirements.lock` is declared in a manifest GitHub's dependency graph parses, so none is invisible to Dependabot alerts by name. It matches distribution names only and does not compare versions | Advisory - red on an uncovered distribution; not a required status check |
+| `Check for Paths and Credentials` and `Content Scan of Published Refs` (`pii_scan.yml`, `scan-leaks` and `scan-published-refs`) | Workstation absolute paths and AI-tooling filenames, over the tracked tree and over published refs | Advisory, and **split**: pushes to `main`/`release/**` and pull requests are ENFORCED (hard `exit 1`), while **tags are REPORTED only** - the ref loop passes `report`, which downgrades a finding to a `::warning`. That exemption is deliberate and commented in the workflow: a tag is immutable published provenance, so wiring it to `exit 1` would wedge the job red on history no push can change. Note the workflow has **no tag trigger at all**, so a tag is first examined on the next `main` push, pull request or weekly sweep. Neither of its jobs is a required status check, so even the enforced half cannot hold the merge button |
+| `Scorecard analysis` (`scorecard.yml`, `analysis`) | OpenSSF Scorecard supply-chain checks -> published score and Security > Code scanning | Advisory - it runs on push to `main` and weekly, never on a pull request, and the workflow sets no score threshold (its only action inputs are `results_file`, `results_format` and `publish_results`), so it cannot gate a merge |
+| `Report undocumented alert dismissals` (`dismissal_justifications_advisory.yml`, `dismissal-justifications`; weekly schedule only) | `tools/check_dismissal_justifications.py --branch main`: reports dismissed code-scanning alerts on `main` whose `dismissed_comment` is absent or blank, and warns on dismissed repo-level alerts, which OpenSSF Scorecard raises once per check | Advisory, and cannot turn red on a finding: its only trigger is a weekly `schedule` (cron `17 13 * * 1`, Mondays), so it never runs on a pull request or a push, and its report step is `continue-on-error: true`, so neither a finding nor a failed alert fetch fails the job |
+| Dependabot alerts (repository setting) | Known CVEs in dependencies -> Security > Dependabot | Advisory (triaged). Vulnerability alerts and Dependabot security updates were both enabled when re-measured 2026-09-23 |
+| GitHub secret scanning and push protection (repository settings) | Secrets in GitHub's provider patterns -> Security > Secret scanning; push protection rejects a push carrying one | Not a status check, so it never holds the merge button; push protection acts at push time instead. Re-measured 2026-09-23 from the repository's `security_and_analysis`: `secret_scanning` and `secret_scanning_push_protection` are `enabled`, while `secret_scanning_non_provider_patterns` and `secret_scanning_validity_checks` are `disabled`, so this layer does not look for generic credentials that follow no provider format. In CI those are left to the advisory `Custom Secret Pattern Scan` |
+
+Advisory findings never block a merge on their own - none of them is a required status
+check or a code-scanning rule on `Protect Main Branch`. **Advisory does not mean never
+red.** These advisory jobs fail their own run on a finding:
+`Custom Secret Pattern Scan`, `Semgrep Custom Rules (blocking)`,
+`pip-audit Dependency Scan (advisory)` (on an unaccepted advisory against a locked
+package), `Python SBOM (pip-licenses)` (on a stale committed SBOM), `dependency-review`,
+`Check lockfile freshness and hash pinning`, `Locked packages are Dependabot-visible`,
+`Check for Paths and Credentials` and `Content Scan of Published Refs` (tag findings in
+the latter are reported, not failed). The `Semgrep Security Scan (advisory)` job itself
+goes red on a tooling failure only; its findings can instead turn the separate
+`Semgrep OSS` check run red on a pull request, as its row describes. That failure is
+visible in the run and in branch-status UI, but does not prevent the merge button from
+going green. **Corrected 2026-09-23:** this paragraph said "Three of them (Dependency
+Review, pip-audit and the Semgrep custom-rules job)", which the PII row above already
+contradicted, and the table had no row for `Custom Secret Pattern Scan`, the SBOM job,
+the two dependency-integrity jobs, Scorecard or secret scanning. The list above is
+enumerated rather than counted so that it can be checked against the table. Findings
+surface as **(a)** tracked, dismissable alerts in *Security > Code scanning* (CodeQL,
+Semgrep and Scorecard SARIF), **(b)** a red or markdown-annotated job run (any workflow
+row above), or a red `Semgrep OSS` code-scanning check run on a pull request, **(c)**
+Dependabot alerts/PRs, and **(d)** secret-scanning alerts. They are reviewed on the
+weekly cadence and logged in the register below whenever consciously deferred.
 
 ### Recording a risk acceptance
 
