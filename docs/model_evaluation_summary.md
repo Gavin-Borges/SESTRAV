@@ -54,19 +54,29 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 > `scripts/evaluate_per_virus.py`). The contaminated figure is retained rather than replaced:
 > the defect was publishing it alone, not computing it.
 
-| Virus | `auc_roc` (all negatives) | `auc_roc_real_neg_only` (decoy-free) | Negatives: real / decoy | Threshold | Status as the gate reads it | Status on the decoy-free column |
+| Virus | `auc_roc` (all negatives) | `auc_roc_real_neg_only` (decoy-free) | Negatives: real / decoy | Threshold | Status as the gate reads it (decoy-free since #538) | Status on the decoy-free column |
 |---|---|---|---|---|---|---|
 | HPV | 0.482 | 0.482 | 137 / 0 | >= 0.58 | FAIL | FAIL |
-| EBV | 0.711 | 0.556 | 72 / 300 | >= 0.57 | PASS (post B*27 conflict quarantine) | FAIL |
+| EBV | 0.711 | 0.556 | 72 / 300 | >= 0.57 | FAIL (the 0.711 is post B*27 conflict quarantine) | FAIL |
 
-> **What is true TODAY, stated exactly, with no claim that anything has been changed.** The
-> Amendment 6 exit criterion has NOT been amended, and this edit does not amend it.
-> `check_exit_criterion` in `scripts/evaluate_per_virus.py` reads the `auc_roc` key, so the
-> gate AS CURRENTLY IMPLEMENTED compares the contaminated figure against its threshold and
-> returns PASS for EBV at 0.711 against >= 0.57. What is disclosed here is narrower and purely
-> factual: the reported EBV figure is decoy-carried, and the decoy-free figure from the same
-> file, 0.5557, is materially lower and does not clear 0.57. The "Status as the gate reads it"
-> column describes what the gate does; it is not an endorsement of what it measures.
+> **What is true TODAY, stated exactly.** Amendment 6's THRESHOLDS have not been amended
+> (EBV >= 0.57, HPV >= 0.58) and nothing here amends them. What changed is the COLUMN they
+> are applied to, and that was changed by #538, not by this file.
+> `EXIT_CRITERION` in `scripts/evaluate_per_virus.py` is keyed on `HONEST_AUC_COL`, i.e.
+> `auc_roc_real_neg_only`, so the gate AS CURRENTLY IMPLEMENTED compares the DECOY-FREE figure
+> against its threshold and returns FAIL for EBV at 0.5557 against >= 0.57. That module states
+> the same thing in its own comment: "EBV moves from PASS (auc_roc 0.711) to FAIL (honest
+> 0.556) and HPV stays FAIL (0.482 on both, since it has no decoys). No virus is made to pass
+> by this change." **This paragraph said the opposite until 2026-09-29, and it was true when
+> written:** the gate read `auc_roc` until `e3520209` (#538, 2026-09-23) moved it, two days
+> after this file was last edited. Ordinary staleness, recorded rather than quietly overwritten.
+>
+> **What is NOT settled, and the distinction is load-bearing.** Only the COLUMN moved. The
+> thresholds are unchanged at 0.57 and 0.58, and those were calibrated on the contaminated
+> scale, so the gate now applies an old bar to a clean column. The two status columns therefore
+> agree by construction today and are still kept apart, because "what the gate reads" and "what
+> the bar was calibrated against" remain different questions. Neither column endorses what the
+> gate measures.
 >
 > **At EBV's sample size the decoy-free figure is not separable from chance.** With 287
 > positives and 72 real negatives, the Mann-Whitney null puts the one-sided 95% AUC-ROC
@@ -117,8 +127,8 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 > 35,597-row build, and to **0.482** under the peptide-grouped splitter (2026-08-10) - further
 > below the 0.58 Amendment-6 threshold, and consistent with the manuscript's characterization
 > of HPV as an active generalization failure. EBV rose from 0.667 to 0.790 ungrouped, and sits
-> at **0.711** peptide-grouped. It clears its 0.57 threshold on the contaminated `auc_roc`
-> column, which is the column the gate reads, and fails it on the decoy-free column. Prior
+> at **0.711** peptide-grouped. It clears 0.57 on the contaminated `auc_roc` column and fails
+> it on the decoy-free column, which is the column the gate reads. Prior
 > ungrouped values (HPV 0.561, EBV 0.790) are retracted per `docs/claims_register.md` D15.
 
 > **Note:** v3/v4 sections below are historical. The v5 31-feature RF is the canonical
