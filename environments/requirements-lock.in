@@ -18,8 +18,11 @@ cryptography>=50.0.1
 msgpack>=1.2.2
 # pydantic-settings: GHSA-4xgf-cpjx-pc3j
 pydantic-settings>=2.15.0
-# pyjwt: PYSEC-2026-175/176/177/178/179 (algorithm confusion attacks)
-pyjwt>=2.13.0
+# pyjwt: PYSEC-2026-175/176/177/178/179 (algorithm confusion attacks), and
+# CVE-2026-102274 / GHSA-w6j9-cwv2-h6wq (a malformed RSA JWK raises a bare
+# ValueError that PyJWKSet's except-PyJWTError skip path cannot catch, so one
+# bad key aborts parsing of the whole JWK Set). Affects >=2.9.0,<=2.13.0.
+pyjwt>=2.14.0
 # setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
 # Unicode NFC/NFD normalization collision on macOS APFS/HFS+).
 # This floor used to conflict with torch 2.12.0's `setuptools<82` build-metadata
