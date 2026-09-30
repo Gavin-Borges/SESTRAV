@@ -61,6 +61,7 @@ from dataclasses import dataclass
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_ACCEPT_FILE = "environments/accepted_advisories.toml"
+DEFAULT_REGISTER_FILE = "SECURITY.md"
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,30 @@ def filter_in_scope(
     return in_scope, out_of_scope
 
 
+def unregistered_acceptances(
+    acceptances: dict[tuple[str, str], Acceptance], register_text: str
+) -> list[Acceptance]:
+    """Return acceptances whose ``register_entry`` is absent from the register text.
+
+    ``environments/accepted_advisories.toml`` states that every entry MUST have a
+    matching Risk-Acceptance Register entry in SECURITY.md carrying a re-review
+    trigger. Until now nothing checked that: ``register_entry`` was parsed into the
+    ``Acceptance`` dataclass and then never read again, and the only other mentions
+    of SECURITY.md in this file are static strings in messages. An unenforced MUST on
+    the sole suppression mechanism for a security gate is the worst place to have one.
+
+    The match is a plain substring test, deliberately. No format for a register entry
+    is specified anywhere, so anything cleverer would be guessing at one. An empty
+    ``register_entry`` never matches, which is correct: the TOML requires a value.
+    """
+    missing = [
+        acceptance
+        for acceptance in acceptances.values()
+        if not acceptance.register_entry or acceptance.register_entry not in register_text
+    ]
+    return sorted(missing, key=lambda a: (a.advisory_id, a.package))
+
+
 def evaluate(
     findings: list[Finding], acceptances: dict[tuple[str, str], Acceptance]
 ) -> tuple[list[Finding], list[tuple[str, str]]]:
@@ -194,6 +219,11 @@ def main(argv: list[str] | None = None) -> int:
         "--lockfile",
         default=str(REPO_ROOT / "environments" / "requirements.lock"),
         help="compiled lockfile defining which packages are in scope for this gate",
+    )
+    parser.add_argument(
+        "--register",
+        default=str(REPO_ROOT / DEFAULT_REGISTER_FILE),
+        help="file that must carry a Risk-Acceptance Register entry per acceptance",
     )
     args = parser.parse_args(argv)
 
@@ -219,6 +249,37 @@ def main(argv: list[str] | None = None) -> int:
 
     accept_path = pathlib.Path(args.accept)
     acceptances = load_acceptances(accept_path)
+
+    # The register is only consulted when something is actually accepted, so a repo
+    # with an empty acceptance list does not depend on SECURITY.md being present.
+    if acceptances:
+        register_path = pathlib.Path(args.register)
+        try:
+            register_text = register_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            # Cannot verify is not the same as verified, and an unreadable register
+            # must not let an unjustified suppression through.
+            print(
+                f"::error::cannot read {register_path} to verify acceptance register "
+                f"entries: {exc}"
+            )
+            return 2
+        unregistered = unregistered_acceptances(acceptances, register_text)
+        if unregistered:
+            for acceptance in unregistered:
+                shown = acceptance.register_entry or "(empty)"
+                print(
+                    f"::error::{acceptance.advisory_id} for {acceptance.package} is "
+                    f"accepted in {accept_path} with register_entry {shown!r}, which "
+                    f"does not appear in {register_path}"
+                )
+            print(
+                f"\n{len(unregistered)} acceptance(s) with no Risk-Acceptance Register "
+                f"entry. {accept_path} requires one per entry, carrying a re-review "
+                f"trigger."
+            )
+            return 1
+
     unaccepted, stale = evaluate(in_scope, acceptances)
 
     print(
