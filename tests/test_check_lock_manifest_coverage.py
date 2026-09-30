@@ -192,6 +192,144 @@ def test_pyproject_optional_and_build_system_both_count(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Coverage is by NAME: version drift is reported, never failed
+# ---------------------------------------------------------------------------
+
+
+def test_version_drift_is_listed_but_does_not_fail(tmp_path):
+    """A name match at a different version is coverage by name only.
+
+    The gate must still pass, because reconciling versions is lockfile
+    regeneration, but the report must say which packages matched by name only
+    instead of implying the locked version is visible.
+    """
+    root = tmp_path / "repo"
+    root.mkdir()
+    write(root, "environments/requirements.lock", pinned("alpha", "1.0.0", hashed=True) + pinned("beta", "2.0.0", hashed=True))
+    write(root, "requirements.txt", pinned("alpha", "1.0.0") + pinned("beta", "1.9.0"))
+    code, report = run_gate(root)
+    assert code == gate.EXIT_OK
+    assert report["uncovered"] == []
+    drift = report.get("version_drift")
+    assert [(item["normalized"], item["lock_version"]) for item in drift or []] == [("beta", "2.0.0")]
+    assert drift[0]["declared"] == ["requirements.txt line 2: ==1.9.0"]
+
+    text = gate.render(report, code)
+    assert "VERSION DRIFT (1)" in text
+    assert "does not change the exit code" in text
+    assert "beta  locked 2.0.0" in text
+    assert "requirements.txt line 2: ==1.9.0" in text
+
+
+def test_one_manifest_pinning_the_locked_version_is_not_drift(tmp_path):
+    """Another manifest pinning an older version does not matter if one agrees."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    write(root, "environments/requirements.lock", pinned("alpha", "1.0.0"))
+    write(root, "requirements.txt", pinned("alpha", "0.9.0"))
+    write(root, "environments/requirements-ci.txt", pinned("alpha", "1.0.0"))
+    code, report = run_gate(root)
+    assert code == gate.EXIT_OK
+    assert report.get("version_drift") == []
+
+
+def test_a_range_alone_does_not_pin_the_locked_version(tmp_path):
+    """A range admits the locked version but declares no version of its own."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    write(root, "environments/requirements.lock", pinned("Torch-Geometric", "2.7.0", hashed=True))
+    write(
+        root,
+        "pyproject.toml",
+        '[project]\nname = "x"\nversion = "1"\n'
+        'dependencies = ["torch_geometric>=2.5.0 ; python_version >= \'3.11\'"]\n',
+    )
+    code, report = run_gate(root)
+    assert code == gate.EXIT_OK
+    assert [item["normalized"] for item in report.get("version_drift") or []] == ["torch-geometric"]
+    assert report["version_drift"][0]["declared"] == ["pyproject.toml [project.dependencies]: >=2.5.0"]
+
+
+def test_drift_text_claims_only_a_missing_pin_not_a_missing_version(tmp_path):
+    """The warning must say what was tested: no manifest PINS the version.
+
+    A range such as pyproject's ``>=2.5.0`` may admit the locked version, so
+    the text must not say the version is declared nowhere.
+    """
+    root = tmp_path / "repo"
+    root.mkdir()
+    write(root, "environments/requirements.lock", pinned("Torch-Geometric", "2.7.0", hashed=True))
+    write(
+        root,
+        "pyproject.toml",
+        '[project]\nname = "x"\nversion = "1"\ndependencies = ["torch_geometric>=2.5.0"]\n',
+    )
+    code, report = run_gate(root)
+    assert code == gate.EXIT_OK
+    assert report.get("version_drift"), "a range alone must still be listed as drift"
+    text = gate.render(report, code)
+    assert "declared nowhere" not in text
+    assert "PINS that exact version" in text
+    assert "may still admit it" in text
+
+
+@pytest.mark.parametrize("drifting_pin_first", [True, False])
+def test_every_lock_pin_of_a_name_is_checked_for_drift(tmp_path, drifting_pin_first):
+    """A name pinned twice in the lock has BOTH locked versions checked.
+
+    The per-name de-duplication that keeps the coverage count honest must not
+    also hide the second pin from the drift check.
+    """
+    agreeing = 'alpha==1.0.0 ; python_version < "3.12"\n'
+    drifting = 'alpha==2.0.0 ; python_version >= "3.12"\n'
+    lock = drifting + agreeing if drifting_pin_first else agreeing + drifting
+    root = tmp_path / "repo"
+    root.mkdir()
+    write(root, "environments/requirements.lock", lock)
+    write(root, "requirements.txt", pinned("alpha", "1.0.0"))
+    code, report = run_gate(root)
+    assert code == gate.EXIT_OK
+    assert report["locked_distribution_count"] == 1
+    assert report["covered_count"] == 1
+    drift = report.get("version_drift") or []
+    assert [(item["normalized"], item["lock_version"]) for item in drift] == [("alpha", "2.0.0")]
+    assert drift[0]["lock_line"] == (1 if drifting_pin_first else 2)
+
+
+def test_a_repeated_identical_lock_pin_is_listed_once(tmp_path):
+    """Two lock lines at the same version are one drifting version, not two."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    write(
+        root,
+        "environments/requirements.lock",
+        'alpha==2.0.0 ; sys_platform == "win32"\nalpha==2.0.0 ; sys_platform != "win32"\n',
+    )
+    write(root, "requirements.txt", pinned("alpha", "1.0.0"))
+    code, report = run_gate(root)
+    assert code == gate.EXIT_OK
+    drift = report.get("version_drift") or []
+    assert [(item["normalized"], item["lock_version"]) for item in drift] == [("alpha", "2.0.0")]
+
+
+@pytest.mark.parametrize(
+    "specifier,expected",
+    [
+        ("==1.0.0", "1.0.0"),
+        ("== 1.0.0", "1.0.0"),
+        ("===1.0.0", "1.0.0"),
+        (">=1.0.0", None),
+        ("==1.0.*", None),
+        ("!=1.2,>=1.0", None),
+        ("", None),
+        ("@ https://example.invalid/alpha.whl", None),
+    ],
+)
+def test_exact_pin_reads_only_single_exact_pins(specifier, expected):
+    assert gate.exact_pin(specifier) == expected
+
+
+# ---------------------------------------------------------------------------
 # Parsing: what must be understood, and what must fail loudly
 # ---------------------------------------------------------------------------
 
