@@ -702,7 +702,7 @@
   {
     "License": "MIT",
     "Name": "urllib3",
-    "Version": "2.7.0"
+    "Version": "2.8.0"
   },
   {
     "License": "BSD-3-Clause",

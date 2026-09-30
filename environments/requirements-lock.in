@@ -35,3 +35,8 @@ pyjwt>=2.14.0
 setuptools>=84.0.0
 # gitpython: PYSEC-2026-3785, PYSEC-2026-3786, PYSEC-2026-3787, PYSEC-2026-3788, CVE-2026-78679
 gitpython>=3.1.62
+# urllib3: CVE-2026-97687 / GHSA-8988-9cw3-xx77 (HTTPS-proxy and target TLS
+# settings), CVE-2026-97688 / GHSA-gh4c-6fx4-qh6g and CVE-2026-97689 /
+# GHSA-vxq7-64xx-v4gw (streaming decompression and chunked decoding). All three
+# list 2.8.0 as the fix.
+urllib3>=2.8.0
