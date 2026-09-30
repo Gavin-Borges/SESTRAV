@@ -30,6 +30,16 @@ jobs:
       - name: Install SESTRAV (no additional deps)
         run: pip install --no-deps -e .
 
+      - name: Preflight, before anything is fetched
+        run: |
+          # The model gate that main() already applies, run EARLY. models/*.joblib
+          # is gitignored and nothing here supplies one, so this job has never
+          # scored; previously it discovered that only AFTER two live queries to
+          # IEDB, a third-party academic service, whose results it then discarded.
+          # Same gate, same exit code, reached before anything is fetched.
+          # This changes WHEN the job fails, never WHETHER it does.
+          python -m src.continuous_validation --preflight --require-measurement
+
       - name: Fetch latest IEDB T-cell data (EBV + HPV16)
         run: |
           mkdir -p data_tmp/iedb
