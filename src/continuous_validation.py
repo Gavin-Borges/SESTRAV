@@ -373,7 +373,7 @@ def main(argv: Optional[list] = None) -> int:
         prog="continuous_validation",
         description="Score a fresh IEDB export and alert on >3% AUC-PR regression.",
     )
-    p.add_argument("--inputs", nargs="+", required=True, help="IEDB export CSV paths")
+    p.add_argument("--inputs", nargs="+", help="IEDB export CSV paths")
     p.add_argument("--baseline", default=DEFAULT_BASELINE_PATH, help="Baselines JSON path")
     p.add_argument("--results-dir", default=RESULTS_DIR, help="Output directory")
     p.add_argument("--model-path", default=None, help="Model path (default: config.yaml)")
@@ -388,7 +388,22 @@ def main(argv: Optional[list] = None) -> int:
             "mean a measurement actually happened."
         ),
     )
+    p.add_argument(
+        "--preflight",
+        action="store_true",
+        help=(
+            "Apply the model gate and exit without scoring. Intended to run "
+            "BEFORE the IEDB fetch, so a run that cannot score never pulls data "
+            "from a third-party service it would immediately discard."
+        ),
+    )
     a = p.parse_args(argv)
+
+    # --inputs stays mandatory for a scoring run; a preflight has nothing to
+    # score, and requiring paths that have not been fetched yet would defeat
+    # the point of running it first.
+    if not a.preflight and not a.inputs:
+        p.error("--inputs is required unless --preflight is given")
 
     model_path, binding_matrix = _resolve_paths(a.model_path, a.binding_matrix)
     if not os.path.exists(model_path):
@@ -407,6 +422,13 @@ def main(argv: Optional[list] = None) -> int:
             )
             return EXIT_COULD_NOT_RUN
         print(f"Model not found at {model_path}. Skipping AUC-PR computation.")
+        return 0
+
+    # Reached only when the model gate above PASSED. A preflight deliberately
+    # shares that one block rather than restating the condition, so the early
+    # check and the scoring check cannot drift apart.
+    if a.preflight:
+        print(f"Preflight: model present at {model_path}.")
         return 0
 
     return run(

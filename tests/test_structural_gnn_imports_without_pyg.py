@@ -121,3 +121,80 @@ def test_has_pyg_is_false_rather_than_raising(pyg_shadow: str) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "HAS_PYG False" in result.stdout, result.stdout
+
+
+# --- The PyG-absent fallback CLASS, not just the module import ---
+#
+# `structural_gnn.py` picks the base at class-creation time:
+#
+#     class StructuralPeptideMHCDataset(Dataset if HAS_PYG else object):
+#
+# A class statement runs once, at module import, so the base is fixed then and
+# `monkeypatch.setattr(sgnn, "HAS_PYG", False)` cannot change it. `__init__` and
+# `get` read the module attribute at CALL time, so the monkeypatch does reach
+# those branches - which is why the four in-process HAS_PYG=False tests in
+# tests/test_structural_gnn.py are not vacuous. But it leaves them exercising a
+# state that ships nowhere: PyG's Dataset as the base, with `super().__init__`
+# skipped. The genuine PyG-absent deployment has `object` as the base AND skips
+# the super call, and only a fresh interpreter can produce it.
+#
+# test_pyg_present_base_is_not_object below is the anchor for that claim: it
+# fails if the base ever stops depending on PyG, at which point these
+# subprocess tests would be testing the same thing as the in-process ones.
+
+FALLBACK_PROBE = """\
+import pandas as pd
+import src.verify.structural_gnn as m
+
+assert m.HAS_PYG is False, m.HAS_PYG
+
+cls = m.StructuralPeptideMHCDataset
+assert cls.__mro__ == (cls, object), [c.__name__ for c in cls.__mro__]
+print("BASE", cls.__bases__[0].__name__)
+
+df = pd.DataFrame(
+    {
+        "peptide": ["GLFYTRTGL", "AAYSDQWAL"],
+        "allele": ["HLA-A*02:01", "HLA-A*24:02"],
+        "label": [1, 0],
+    }
+)
+dataset = cls(df)
+assert len(dataset.peptides) == 2, len(dataset.peptides)
+
+item = dataset.get(0)
+assert type(item).__name__ == "SimpleData", type(item).__name__
+assert hasattr(item, "x") and hasattr(item, "edge_index"), dir(item)
+print("EXERCISED", type(item).__name__, tuple(item.x.shape))
+"""
+
+
+def test_fallback_dataset_has_object_as_its_base_and_is_usable(pyg_shadow: str) -> None:
+    """The `object`-based fallback class is constructed and queried, PyG genuinely absent.
+
+    This is the state a `pip install sestrav` without the `gnn` extra actually runs.
+    """
+    result = _run(FALLBACK_PROBE, pyg_shadow)
+    assert result.returncode == 0, (
+        "the PyG-absent fallback class could not be built or used:\n"
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    assert "BASE object" in result.stdout, result.stdout
+    assert "EXERCISED SimpleData" in result.stdout, result.stdout
+
+
+def test_pyg_present_base_is_not_object() -> None:
+    """Anti-vacuity: with PyG installed the base is NOT object, so the in-process
+    monkeypatch tests cannot reach the branch the subprocess test above covers.
+
+    If this ever fails, the base no longer depends on HAS_PYG and the subprocess
+    test above has stopped testing anything the cheaper tests do not.
+    """
+    structural_gnn = pytest.importorskip("src.verify.structural_gnn")
+    if not structural_gnn.HAS_PYG:
+        pytest.skip("torch_geometric is not installed, so both bases are already object")
+    base = structural_gnn.StructuralPeptideMHCDataset.__bases__[0]
+    assert base is not object, (
+        "StructuralPeptideMHCDataset's base is object even with torch_geometric "
+        "installed; the PyG-absent fallback is no longer a distinct branch"
+    )

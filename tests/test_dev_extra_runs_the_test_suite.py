@@ -30,6 +30,7 @@ content - the opposite of what a gate is for.
 from __future__ import annotations
 
 import ast
+import functools
 import pathlib
 import re
 import subprocess
@@ -106,12 +107,18 @@ def _tracked_test_files() -> list[pathlib.Path]:
 
 
 def _is_first_party(name: str, importer: pathlib.Path) -> bool:
+    return _is_first_party_from(name, importer.parent)
+
+
+@functools.lru_cache(maxsize=None)
+def _is_first_party_from(name: str, directory: pathlib.Path) -> bool:
+    # Keyed on the importing DIRECTORY, not the file: the closure scan asks
+    # this for every module it reaches, and most of them share a directory.
     if name in INTRA_REPO:
         return True
     candidates = [REPO_ROOT / root for root in SOURCE_ROOTS]
     # Also every directory from the importing file up to the repo root, since a
     # test may put its own directory on sys.path and import a sibling by stem.
-    directory = importer.parent
     while True:
         candidates.append(directory)
         if directory == REPO_ROOT or REPO_ROOT not in directory.parents:
@@ -151,7 +158,41 @@ def _importorskip_modules(tree: ast.Module) -> set[str]:
     return out
 
 
-def _module_scope_imports(path: pathlib.Path) -> set[str]:
+def _stubbed_modules(tree: ast.Module) -> set[str]:
+    """Top-level names a module assigns into `sys.modules` itself, at module scope.
+
+    A stub satisfies a later import without the real distribution:
+    `tests/test_shap_analysis_results_guard.py` installs an empty `shap` module
+    object before importing `src.shap_analysis`, behind an `if`, which is why
+    module-scope `if`/`try` bodies are searched too. Function bodies are not:
+    a stub installed inside a test does not run before collection.
+    """
+    out: set[str] = set()
+    pending = list(tree.body)
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.If, ast.Try)):
+            pending.extend([*node.body, *node.orelse, *getattr(node, "finalbody", [])])
+            continue
+        for target in node.targets if isinstance(node, ast.Assign) else []:
+            if (
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Attribute)
+                and target.value.attr == "modules"
+                and isinstance(target.slice, ast.Constant)
+                and isinstance(target.slice.value, str)
+            ):
+                out.add(target.slice.value.split(".")[0])
+    return out
+
+
+@functools.lru_cache(maxsize=None)
+def _tree(path: pathlib.Path) -> ast.Module:
+    return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+
+@functools.lru_cache(maxsize=None)
+def _module_scope_imports(path: pathlib.Path) -> frozenset[str]:
     """Top-level import names that would abort collection if unsatisfied.
 
     Three guard forms are excluded, because none of them aborts collection:
@@ -187,11 +228,12 @@ def _module_scope_imports(path: pathlib.Path) -> set[str]:
     A plain grep reports 16, counting function-scope calls too, so the three
     figures are worth keeping distinct. Treating these as hard requirements
     would demand the `dev` extra pull the whole GNN stack, which is the
-    opposite of what `dev` is for.
+    opposite of what `dev` is for. A module-scope `sys.modules` stub is excluded
+    for the same reason; see `_stubbed_modules`.
     """
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    tree = _tree(path)
     stdlib = set(sys.stdlib_module_names)
-    skipped = _importorskip_modules(tree)
+    skipped = _importorskip_modules(tree) | _stubbed_modules(tree)
     names: set[str] = set()
     for node in tree.body:
         if isinstance(node, (ast.Try, ast.If)):
@@ -208,7 +250,7 @@ def _module_scope_imports(path: pathlib.Path) -> set[str]:
             if name in stdlib or name in skipped:
                 continue
             names.add(name)
-    return names
+    return frozenset(names)
 
 
 def test_dev_extra_declares_every_module_scope_import_in_the_test_suite():
@@ -228,7 +270,8 @@ def test_dev_extra_declares_every_module_scope_import_in_the_test_suite():
     )
 
 
-def _first_party_import_targets(path: pathlib.Path) -> set[str]:
+@functools.lru_cache(maxsize=None)
+def _first_party_import_targets(path: pathlib.Path) -> frozenset[str]:
     """FULL dotted module names imported at module scope that are first-party.
 
     `_module_scope_imports` deliberately keeps only the TOP-level name, because
@@ -236,11 +279,18 @@ def _first_party_import_targets(path: pathlib.Path) -> set[str]:
     matters: `from src.optimizer import ...` has to lead to `src/optimizer.py`,
     and the top-level name alone (`src`) leads nowhere.
 
-    The same three guard forms are excluded as in `_module_scope_imports`, for
-    the same reason: none of them aborts collection.
+    The same guard forms are excluded as in `_module_scope_imports`, for the
+    same reason: none of them aborts collection.
+
+    `from pkg import name` yields `pkg.name` as well as `pkg`, because `name`
+    may be a SUBMODULE, whose own module scope then runs: that is how
+    `from src import shap_analysis` reaches `import shap`. A candidate that
+    names a class or function simply resolves to no file. Relative imports are
+    resolved against this file's own package rather than skipped, since
+    `src/gnn/__init__.py` reaches `src/gnn/models.py` only that way.
     """
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    skipped = _importorskip_modules(tree)
+    tree = _tree(path)
+    skipped = _importorskip_modules(tree) | _stubbed_modules(tree)
     out: set[str] = set()
     for node in tree.body:
         if isinstance(node, (ast.Try, ast.If)):
@@ -248,87 +298,162 @@ def _first_party_import_targets(path: pathlib.Path) -> set[str]:
         if isinstance(node, ast.Import):
             candidates = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom):
-            if node.level:  # relative import - always intra-repo
-                continue
-            candidates = [node.module] if node.module else []
+            module = node.module or ""
+            if node.level:
+                package = path.parents[node.level - 1].relative_to(REPO_ROOT).parts
+                module = ".".join([*package, *([module] if module else [])])
+            candidates = [module, *(f"{module}.{alias.name}" for alias in node.names)]
         else:
             continue
         for full in candidates:
             top = full.split(".")[0]
             if top in skipped:
                 continue
-            if _is_first_party(top, path):
+            if _is_relative(node) or _is_first_party(top, path):
                 out.add(full)
-    return out
+    return frozenset(out)
 
 
-def _resolve_repo_module(dotted: str) -> pathlib.Path | None:
-    """A dotted first-party name -> the tracked file it imports, or None."""
+def _is_relative(node: ast.stmt) -> bool:
+    return isinstance(node, ast.ImportFrom) and bool(node.level)
+
+
+@functools.lru_cache(maxsize=None)
+def _resolve_import_files(dotted: str, directory: pathlib.Path) -> tuple[pathlib.Path, ...]:
+    """Every tracked file that importing `dotted` executes: parent packages first.
+
+    Empty when `dotted` names no module here (for instance a class). Bare stems
+    resolve against the same bases `_is_first_party` accepts, since a test may
+    put `scripts/` on sys.path and import a script by its name.
+    """
     parts = dotted.split(".")
-    for candidate in (
-        REPO_ROOT.joinpath(*parts).with_suffix(".py"),
-        REPO_ROOT.joinpath(*parts, "__init__.py"),
-    ):
-        if candidate.is_file():
-            return candidate
-    return None
+    bases = [REPO_ROOT, *(REPO_ROOT / root for root in SOURCE_ROOTS)]
+    while directory != REPO_ROOT and REPO_ROOT in directory.parents:
+        bases.append(directory)
+        directory = directory.parent
+    for base in bases:
+        files: list[pathlib.Path] = []
+        for depth in range(1, len(parts) + 1):
+            here = base.joinpath(*parts[:depth])
+            if (here / "__init__.py").is_file():
+                files.append(here / "__init__.py")
+            elif depth == len(parts) and here.with_suffix(".py").is_file():
+                files.append(here.with_suffix(".py"))
+            elif not here.is_dir():
+                files = []
+                break
+        if files:
+            return tuple(files)
+    return ()
 
 
-def test_dev_extra_covers_imports_reached_through_a_first_party_module():
-    """One level deeper than the scan above, which is where three slipped through.
+@functools.lru_cache(maxsize=None)
+def _module_scope_closure(test_path: pathlib.Path) -> dict[pathlib.Path, str]:
+    """Every first-party file that importing `test_path` executes -> the import chain.
+
+    Breadth-first over module-scope first-party imports, so each chain reported is
+    a shortest one. Guarded imports are not followed, for the reason they are not
+    counted: none of them aborts collection.
+    """
+    chains: dict[pathlib.Path, str] = {}
+    frontier = [(test_path, "")]
+    while frontier:
+        path, chain = frontier.pop(0)
+        for dotted in sorted(_first_party_import_targets(path)):
+            for target in _resolve_import_files(dotted, path.parent):
+                if target != test_path and target not in chains:
+                    chains[target] = f"{chain} -> {dotted}" if chain else dotted
+                    frontier.append((target, chains[target]))
+    return chains
+
+
+def test_dev_extra_covers_imports_reached_through_first_party_modules():
+    """Every module-scope import a tracked test reaches through first-party code.
 
     The companion test scans what `tests/` imports DIRECTLY. A test that imports
     a first-party module is importing everything that module imports at module
-    scope, and `src`/`scripts` are first-party, so the direct scan classifies
-    `from src.optimizer import ...` as intra-repo and stops. `src/optimizer.py`
-    then does `import pulp` at module scope.
+    scope, and everything those modules import in turn, so the direct scan
+    classifies `from src.optimizer import ...` as intra-repo and stops.
+    `src/optimizer.py` then does `import pulp` at module scope.
 
-    Measured 2026-09-13, before the companion fix: pulp (declared in no extra at
-    all), pyahocorasick and mhcgnomes (declared only in `scripts`, which a `dev`
-    install does not pull) were all reachable this way, and the direct scan was
-    green throughout. A collection error means ZERO tests run, so this is the
-    same severity as the failure the direct scan was written for.
+    Measured 2026-09-13: pulp, pyahocorasick and mhcgnomes were reachable one
+    first-party hop out while the direct scan was green. This test then
+    followed exactly ONE hop, on the argument that a full closure would drag in
+    optional research dependencies that `dev` has never promised.
 
-    Scope is deliberately ONE level. A full transitive closure would drag in the
-    whole import graph and start reporting optional research dependencies that
-    `dev` has never promised, which is the opposite of what this gate is for.
+    Measured 2026-09-26, that limit was the next blind spot. A clean
+    `pip install -e ".[dev]"` aborted collecting
+    `tests/test_run_analysis_results_guard.py`, which reaches `import shap`
+    TWO hops out (`scripts.run_analysis` -> `src.shap_analysis`), while this
+    test was green. The feared noise did not appear: on that tree the full
+    closure reported two findings, that one and a `shap` import which the
+    importing test satisfies with a `sys.modules` stub, now honoured by
+    `_stubbed_modules`. A collection error means ZERO tests run in the file,
+    so no depth is a safe place to stop.
+
+    What this cannot see, by construction: imports inside FUNCTION bodies.
+    `src.gnn.models` imports torch_geometric inside `GraphEncoderV2.__init__`,
+    so a `dev` install collects those tests and they fail one by one at call
+    time; each such test has to `pytest.importorskip` the package itself, and
+    this test does not check that it does.
     """
     declared = _dev_environment_distributions()
     missing = []
     for path in _tracked_test_files():
-        for dotted in sorted(_first_party_import_targets(path)):
-            target = _resolve_repo_module(dotted)
-            if target is None:
-                continue
-            for name in sorted(_module_scope_imports(target)):
+        tree = _tree(path)
+        excused = _importorskip_modules(tree) | _stubbed_modules(tree)
+        for target, chain in sorted(_module_scope_closure(path).items()):
+            for name in sorted(_module_scope_imports(target) - excused):
                 if _is_first_party(name, target):
                     continue
                 dist = DIST_NAME_OVERRIDES.get(name.lower(), name)
                 if _normalize(dist) not in declared:
                     relative = path.relative_to(REPO_ROOT).as_posix()
-                    missing.append(f"{relative} -> {dotted}: {name} (-> {dist})")
+                    missing.append(f"{relative} -> {chain}: {name} (-> {dist})")
     assert not missing, (
-        "third-party import(s) reached at module scope through a first-party module "
+        "third-party import(s) reached at module scope through first-party modules "
         'that `pip install -e ".[dev]"` does not provide, so collection aborts '
-        "before any test runs:\n" + "\n".join(missing)
+        "before any test runs:\n" + "\n".join(sorted(set(missing)))
     )
 
 
+def test_the_closure_follows_more_than_one_first_party_hop(tmp_path, monkeypatch):
+    # The regression this closes, in miniature: test -> scripts module -> src
+    # module -> an undeclared distribution, two first-party hops out. A module-
+    # scope stub must excuse its own name and nothing else.
+    for directory in ("scripts", "src", "tests"):
+        (tmp_path / directory).mkdir()
+        (tmp_path / directory / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "leaf.py").write_text("import undeclared_leaf\n", encoding="utf-8")
+    (tmp_path / "scripts" / "runner.py").write_text("from src import leaf\n", encoding="utf-8")
+    test = tmp_path / "tests" / "test_probe.py"
+    test.write_text(
+        "import sys\n"
+        "if 'stubbed_dist' not in sys.modules:\n"
+        "    sys.modules['stubbed_dist'] = object()\n"
+        "from scripts.runner import go\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(globals(), "REPO_ROOT", tmp_path)
+    chains = {
+        path.relative_to(tmp_path).as_posix(): chain
+        for path, chain in _module_scope_closure(test).items()
+    }
+    assert chains["src/leaf.py"] == "scripts.runner -> src.leaf"
+    assert _module_scope_imports(tmp_path / "src" / "leaf.py") == {"undeclared_leaf"}
+    assert _stubbed_modules(_tree(test)) == {"stubbed_dist"}
+
+
 def test_the_deeper_scan_actually_resolves_first_party_targets():
-    # Anti-vacuity guard for the test above, in the same spirit as the one below.
-    # If `_resolve_repo_module` stopped resolving anything - a path-shape change,
-    # a wrong cwd - the deeper scan would silently check NOTHING while staying
-    # green, which is the failure mode that let these three through in the first
-    # place.
-    resolved = 0
-    for path in _tracked_test_files():
-        for dotted in _first_party_import_targets(path):
-            if _resolve_repo_module(dotted) is not None:
-                resolved += 1
-    assert resolved >= MINIMUM_SCANNED_FILES, (
-        f"expected the deeper scan to resolve at least {MINIMUM_SCANNED_FILES} "
-        f"first-party import targets, resolved {resolved}; it is reaching nothing "
-        "and the test above is therefore vacuous"
+    # Anti-vacuity guard for the closure scan, in the same spirit as the one
+    # below. If `_resolve_import_files` stopped resolving anything - a path-shape
+    # change, a wrong cwd - the closure would silently check NOTHING while
+    # staying green, which is the failure mode that let these through before.
+    reached = set().union(*(_module_scope_closure(path) for path in _tracked_test_files()))
+    assert len(reached) >= MINIMUM_SCANNED_FILES, (
+        f"expected the closure scan to reach at least {MINIMUM_SCANNED_FILES} "
+        f"distinct first-party files, reached {len(reached)}; it is reaching nothing "
+        "and the closure test above is therefore vacuous"
     )
 
 

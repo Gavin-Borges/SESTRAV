@@ -729,9 +729,9 @@ def score_immunogenicity(
     return features_df, model
 
 
-def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
+def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20, output_dir="results"):
     """Save top-N bar chart and score distribution histogram."""
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     top_df = ranked_df.head(top_n)
     plt.figure(figsize=(10, 6))
@@ -741,7 +741,10 @@ def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
     plt.title(f"Top {top_n} Immunogenic Peptides - {proteome_id}")
     plt.gca().invert_yaxis()
     plt.tight_layout()
-    plt.savefig(f"results/{proteome_id}_top{top_n}_immunogenicity.png", dpi=150)
+    plt.savefig(
+        os.path.join(output_dir, f"{proteome_id}_top{top_n}_immunogenicity.png"),
+        dpi=150,
+    )
     plt.close()
 
     plt.figure(figsize=(8, 5))
@@ -750,7 +753,9 @@ def plot_immunogenicity_scores(ranked_df, proteome_id, top_n=20):
     plt.ylabel("Number of Peptides")
     plt.title(f"Immunogenicity Score Distribution - {proteome_id}")
     plt.tight_layout()
-    plt.savefig(f"results/{proteome_id}_score_distribution.png", dpi=150)
+    plt.savefig(
+        os.path.join(output_dir, f"{proteome_id}_score_distribution.png"), dpi=150
+    )
     plt.close()
 
     print(f"[Plot] Saved plots for {proteome_id}")

@@ -244,7 +244,7 @@ def _build_pdf_scorecard(
             color=score_color,
             fontweight="bold",
         )
-        bind_txt = f"{bind_score:.3f}" if bind_score is not None else "N/A (MHCflurry unavailable)"
+        bind_txt = f"{bind_score:.3f}" if bind_score is not None else "N/A (no MHCflurry score)"
         ax_hdr.text(0.0, 0.20, f"Binding Score:  {bind_txt}", fontsize=10, va="top")
         ax_hdr.text(
             0.0,
@@ -357,7 +357,15 @@ def main() -> None:
         # for what actually feeds the model)
         bind_score = _get_binding_score(sequence, allele)
         if bind_score is None:
-            st.warning("MHCflurry is not available - the Binding Score metric below is N/A.")
+            # _get_binding_score returns None on ANY exception, so this text
+            # cannot name which cause it was.
+            st.warning(
+                "No MHCflurry binding prediction could be computed, so the Binding "
+                "Score metric below is N/A. Possible causes include MHCflurry not "
+                "being installed, its downloadable model data not being present, "
+                "or the prediction call failing. The immunogenicity score does not "
+                "use this value."
+            )
 
         # Feature vector (31-feature aligned to rf_31feature_integrated)
         built = _build_feature_vector(sequence)

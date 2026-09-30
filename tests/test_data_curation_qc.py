@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import pandas as pd
 import pytest
 
@@ -32,7 +33,7 @@ def test_qc_script_valid(temp_dataset, temp_config):
     # Run the QC script as a subprocess
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(temp_dataset),
@@ -61,7 +62,7 @@ def test_qc_script_invalid_amino_acids(tmp_path, temp_config):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(path),
@@ -82,7 +83,7 @@ def test_qc_script_duplicates(tmp_path, temp_config):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(path),
@@ -103,7 +104,7 @@ def test_qc_script_conflicting_labels(tmp_path, temp_config):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "src/data_curation_qc.py",
             "--check-dataset",
             str(path),
@@ -115,3 +116,30 @@ def test_qc_script_conflicting_labels(tmp_path, temp_config):
     )
     assert result.returncode != 0
     assert "Dataset contains conflicting labels" in result.stderr
+
+
+def test_qc_script_freeze_mode_missing_checksum_fails(tmp_path, temp_dataset):
+    config = tmp_path / "missing_checksum.yaml"
+    config.write_text(
+        """
+freeze_mode: true
+dataset_governance:
+  require_checksum_match_in_freeze_mode: true
+  provenance: {}
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "src/data_curation_qc.py",
+            "--check-dataset",
+            str(temp_dataset),
+            "--config",
+            str(config),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "checksum pin is absent" in result.stdout + result.stderr

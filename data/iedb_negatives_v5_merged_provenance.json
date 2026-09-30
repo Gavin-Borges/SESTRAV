@@ -3,7 +3,7 @@
   "sources": [
     "data/iedb_negatives_v5_merged.csv"
   ],
-  "sources_note": "The untracked API input directory data/iedb is omitted because it cannot be resolved from a clone; this run added no API rows. sources[0] is this artifact's own prior output because the run was an idempotent re-merge over the already-merged file: existing_rows equals row_count and net_new_api_rows is 0, so the --existing input was the 36,689-row merged file, not the smaller 32,506-row iedb_negatives_v5.csv. See scripts/merge_iedb_api_negatives.py's write_provenance call in merge() for the field mapping, and tools/check_dataset_provenance.py's per-stream-pin docstring for why the two files must never be substituted for each other.",
+  "sources_note": "The untracked API input directory data/iedb is omitted because it cannot be resolved from a clone; this run added no API rows. sources[0] is this artifact's own prior output because the run was an idempotent re-merge over the already-merged file: existing_rows equals row_count and net_new_api_rows is 0, so the --existing input was the 36,689-row merged file, not iedb_negatives_v5.csv, which held 32,470 data rows when this run was recorded and has held 32,506 since its 2026-08-31 regeneration. This record therefore says nothing about where any row came from; the earlier run that produced them, including the 4,219 rows from the API directory, is retained in upstream_generator_run. See scripts/merge_iedb_api_negatives.py's write_provenance call in merge() for the field mapping, and tools/check_dataset_provenance.py's per-stream-pin docstring for why the two files must never be substituted for each other.",
   "row_count": 36689,
   "generated_utc": "2026-07-04T21:27:24.177728+00:00",
   "git_sha": "cb11000b2556f04b61170efb58c2040d1d5fc7bb",
@@ -18,5 +18,28 @@
     "HPV16": 136,
     "HPV18": 30,
     "SARS-CoV-2": 1992
+  },
+  "upstream_generator_run": {
+    "note": "The generator run that produced this artifact's rows, retained as history because the top-level record describes a later idempotent re-merge that added none. It merged the 32,470 data rows of data/iedb_negatives_v5.csv, as tracked at existing_input_revision, with 4,219 net-new rows from the API directory data/iedb, which is untracked and cannot be resolved from a clone; those 4,219 rows are 11.5% of the artifact. Both counts re-derive from tracked Git objects: the artifact committed at recorded_in_revision is the same Git blob as the one this sidecar describes, and it contains every one of those 32,470 rows plus exactly 4,219 others, by whole-row multiset comparison over its 23 columns. Copied from the sidecar committed at recorded_in_revision with two documented edits: the Windows backslash separators in sources were normalized to forward slashes, and the run's git_sha field was omitted because it names an object absent from this repository. The unedited record remains readable at recorded_in_revision.",
+    "sources": [
+      "data/iedb",
+      "data/iedb_negatives_v5.csv"
+    ],
+    "row_count": 36689,
+    "generated_utc": "2026-07-04T02:35:17.547701+00:00",
+    "existing_rows": 32470,
+    "net_new_api_rows": 4219,
+    "per_virus_counts": {
+      "EBV": 248,
+      "HBV": 351,
+      "HCV": 465,
+      "HIV-1": 147,
+      "HPV": 108,
+      "HPV16": 136,
+      "HPV18": 30,
+      "SARS-CoV-2": 1992
+    },
+    "existing_input_revision": "e6aafe2161e0cd029008fe1a66077bbe6e496fc7",
+    "recorded_in_revision": "dbde99684d53531ebcdfb7d4b46203a6211bd325"
   }
 }

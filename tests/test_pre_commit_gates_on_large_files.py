@@ -214,6 +214,17 @@ def test_large_file_private_key_is_blocked(repo: Path) -> None:
     )
 
 
+def test_large_file_workstation_path_is_blocked(repo: Path) -> None:
+    """Gate 4 must not lose a successful path match to SIGPIPE and pipefail."""
+    workstation_path = "C:/" + "Users" + "/example/project/file.txt"
+    _stage(repo, "big_path.txt", f"{workstation_path}\n{PADDING}")
+    result = _run_hook(repo)
+    assert result.returncode != 0, (
+        "gate 4 accepted a workstation path in a "
+        f"{PADDING_BYTES}-byte file. stderr={result.stderr}"
+    )
+
+
 def test_small_em_dash_file_is_blocked_when_staged_with_a_large_clean_file(
     repo: Path,
 ) -> None:

@@ -19,14 +19,12 @@ permissions:
   contents: read
 
 jobs:
-  release:
-    name: Build, attest, and publish signed release
+  build:
+    name: Build and verify release artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: write       # create the GitHub Release and upload assets
-      id-token: write        # OIDC token for keyless Sigstore signing
-      attestations: write    # store the build-provenance attestation
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,6 +95,13 @@ jobs:
           today = datetime.datetime.now(datetime.UTC).date()
           if cff_date is None:
               errors.append("CITATION.cff has no top-level 'date-released:' field.")
+          # date.fromisoformat alone is not enough: on Python 3.11+ it also
+          # accepts the ISO basic form (20260923) and week dates (2026-W38-3),
+          # while docs/releasing.md requires YYYY-MM-DD.
+          elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", cff_date):
+              errors.append(
+                  f"CITATION.cff date-released {cff_date!r} is not in YYYY-MM-DD form."
+              )
           else:
               try:
                   released = datetime.date.fromisoformat(cff_date)
@@ -132,9 +137,53 @@ jobs:
           pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/
 
+      - name: Verify JSON package data in built distributions
+        # src/verify/structural_gnn.py reads mhc_pseudo_sequences.json at
+        # runtime, and only pyproject.toml's [tool.setuptools.package-data]
+        # entry puts it and targets.json into these archives. The
+        # install-and-import gate below never imports src.verify, so it cannot
+        # see them go missing; this step reads the member lists of the exact
+        # files this job publishes. tests/test_package_data_declaration.py
+        # checks the same declaration at pull-request time.
+        run: |
+          python - <<'PY'
+          import glob
+          import tarfile
+          import zipfile
+
+          required = {
+              "src/verify/mhc_pseudo_sequences.json",
+              "src/verify/targets.json",
+          }
+          wheel_paths = glob.glob("dist/*.whl")
+          sdist_paths = glob.glob("dist/*.tar.gz")
+          if len(wheel_paths) != 1 or len(sdist_paths) != 1:
+              raise SystemExit(
+                  f"expected one wheel and one sdist, got {wheel_paths=} {sdist_paths=}"
+              )
+
+          with zipfile.ZipFile(wheel_paths[0]) as archive:
+              wheel_names = set(archive.namelist())
+          with tarfile.open(sdist_paths[0]) as archive:
+              sdist_names = {
+                  "/".join(name.split("/")[1:]) for name in archive.getnames() if "/" in name
+              }
+
+          missing_by_artifact = {}
+          for artifact, names in (("wheel", wheel_names), ("sdist", sdist_names)):
+              print(f"{artifact} member count: {len(names)}")
+              missing = sorted(required - names)
+              if missing:
+                  missing_by_artifact[artifact] = missing
+              else:
+                  print(f"{artifact} contains required package data: {sorted(required)}")
+          if missing_by_artifact:
+              raise SystemExit(f"built distributions are missing package data: {missing_by_artifact}")
+          PY
+
       - name: Verify the built wheel installs and imports (PRE-PUBLISH GATE)
         # The last point at which a bad package is still recoverable. The
-        # post-upload smoke test in the publish job cannot serve this purpose:
+        # post-upload smoke test in the smoke job cannot serve this purpose:
         # it runs AFTER gh-action-pypi-publish, and PyPI permanently refuses a
         # re-upload of the same version, so a failure there burns the version
         # number and leaves a broken release published for good.
@@ -170,22 +219,72 @@ jobs:
               sys.exit(1)
           print("import sestrav OK", sestrav.__version__)
           PY
-          /tmp/relcheck/bin/python -c "
-          import functions.stage1_peptide_generation
-          import functions.stage2_mhc_binding_prediction
-          import functions.stage3_tcr_feature_extraction
-          import functions.stage4_immunogenicity_scoring
-          print('import functions.stage1-4 OK')
-          "
-          /tmp/relcheck/bin/python -c "import src.cli; print('import src.cli OK')"
+          # The import list is DERIVED, not hardcoded. The hardcoded form has
+          # already failed once in exactly the way a hardcoded list fails: until
+          # 2026-08-16 it named stage 1 only, so matplotlib - reached through
+          # stage 4 - cleared this gate while declared nowhere.
+          # scripts/check_consumer_install.py walks src/cli.py's module-scope
+          # imports plus the lazy imports inside every cmd_* function and follows
+          # them transitively, so a new command or a new module is covered without
+          # anyone remembering to edit this file. It also fails when a subparser
+          # has no cmd_ function or a cmd_ function no parser advertises, which is
+          # how this coverage would otherwise go quietly stale again.
+          #
+          # It is scoped to reachability from a shipped command, not to every
+          # module in the wheel: src/optimizer.py imports pulp from the dev extra
+          # and no command reaches it, so importing everything would fail here and
+          # push pulp into every consumer's install for nothing.
+          #
+          # Run from outside the checkout with --require-installed so the imports
+          # resolve to the wheel just installed and not to the source tree in
+          # $GITHUB_WORKSPACE. Without that flag the whole check is vacuous, and
+          # the flag makes that failure loud instead of silent.
+          ( cd /tmp && /tmp/relcheck/bin/python               "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"               --root "${GITHUB_WORKSPACE}" --require-installed )
+
           /tmp/relcheck/bin/sestrav --help > /dev/null
           echo "sestrav --help OK"
+          for command in $(/tmp/relcheck/bin/python                 "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"                 --root "${GITHUB_WORKSPACE}" --list-commands); do
+            /tmp/relcheck/bin/sestrav "$command" --help > /dev/null
+            echo "sestrav $command --help OK"
+          done
 
       - name: Build canonical results bundle (checksummed zip of tracked results/ artifacts)
         # Stdlib-only (hashlib/json/zipfile) - no ML runtime deps needed. Lets a reader
         # verify a published release's result artifacts byte-for-byte via the bundle's
         # own manifest, independent of the sdist/wheel above.
         run: python -m src.release_bundle --output-dir dist_release_bundle
+
+      - name: Upload verified artifacts for signing and release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-input-${{ github.ref_name }}
+          path: |
+            dist/*.tar.gz
+            dist/*.whl
+            dist_release_bundle/*.zip
+            dist_release_bundle/*.manifest.json
+          retention-days: 1
+
+  release:
+    name: Attest and publish signed release
+    needs: build
+    runs-on: ubuntu-latest
+    # 15 is the bound ci.yml's compat job and security.yml's pip-audit and
+    # python-sbom jobs already carry. This job downloads one artifact and then
+    # makes authenticated network calls (Sigstore signing, gh release create). It
+    # neither builds nor resolves dependencies, so it is bounded by network
+    # round-trips rather than by compute.
+    timeout-minutes: 15
+    permissions:
+      contents: write       # create the GitHub Release and upload assets
+      id-token: write       # OIDC token for keyless Sigstore signing
+      attestations: write   # store the build-provenance attestation
+    steps:
+      - name: Download verified release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-input-${{ github.ref_name }}
+          path: .
 
       - name: Attest build provenance (keyless SLSA)
         id: attest
@@ -241,6 +340,9 @@ jobs:
       - name: Publish GitHub Release with artifacts + checksums
         env:
           GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so gh cannot infer the repository from a git
+          # remote, and gh does not read GITHUB_REPOSITORY; name it explicitly.
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             dist/*.tar.gz dist/*.whl dist/SHA256SUMS.txt dist/*.intoto.jsonl \
@@ -289,6 +391,21 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
+  smoke:
+    name: Smoke-test the published package
+    needs: publish
+    runs-on: ubuntu-latest
+    # 20, the bound security.yml's codeql job already carries, rather than the 10
+    # the single-purpose gates use: the install step below tries five times and
+    # sleeps 30 seconds after each failed attempt (two and a half minutes of
+    # sleeps on its own), and every attempt resolves the full dependency closure.
+    # A kill here does not un-publish anything, and only this job needs
+    # re-running; the bound is generous because a spurious failure marks an
+    # already-published release red.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
       - name: Set up Python for smoke test
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -296,11 +413,11 @@ jobs:
 
       - name: Smoke-test installation from PyPI
         # Confirms PyPI actually serves the artifact. Importability is already
-        # proven by the PRE-PUBLISH GATE in the release job, so the job of this
+        # proven by the PRE-PUBLISH GATE in the build job, so the job of this
         # step is narrower - and it retries instead of failing on the first
-        # miss, because a fresh upload can take a little while to reach the CDN
-        # and a failure here is NOT fixable by re-running: the version is
-        # already published and PyPI will not accept it twice.
+        # miss, because a fresh upload can take a little while to reach the CDN.
+        # A failure here does not un-publish anything, and because this is its
+        # own job it can be re-run alone, without re-running `publish`.
         #
         # `--no-deps` was removed on 2026-08-14. It could never have worked:
         # `import sestrav` reaches src.features (pandas, numpy) and

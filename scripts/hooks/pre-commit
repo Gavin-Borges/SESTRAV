@@ -294,20 +294,22 @@ WORKSTATION_PATTERNS=(
 HOME_PATTERN='/home/[A-Za-z0-9_.-]+'
 HOME_ALLOWLIST='/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])'
 
-# Exact repo-relative paths where an example workstation path is legitimately
-# quoted. Matched with string equality, never as a substring, so a file merely
-# containing one of these names (e.g. "docs/notes_CHANGELOG.md") cannot inherit
-# the exemption.
-PATH_SCAN_EXEMPT=(
-  'CHANGELOG.md'             # documents the historical path-cleanup, quoting an example
-)
+# Exact repo-relative paths exempt from the workstation-path scan. Tracked
+# prose has no exemption; keep the empty array so the loop below remains the
+# single exemption mechanism if an unavoidable scanner fixture is added later.
+PATH_SCAN_EXEMPT=()
 
 gate4_failed=0
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
 
   exempt=0
-  for allowed in "${PATH_SCAN_EXEMPT[@]}"; do
+  # The ${arr[@]+...} form, not a bare "${arr[@]}": the array is EMPTY, and bash
+  # before 4.4 treats an empty array as unbound under `set -u` (bash CHANGES,
+  # bash-4.4-rc2 section, item 3a), which would abort this hook on every commit
+  # that stages a file.
+  # This hook is kept runnable under macOS's bash 3.2; see the STAGED note above.
+  for allowed in ${PATH_SCAN_EXEMPT[@]+"${PATH_SCAN_EXEMPT[@]}"}; do
     if [[ "$file" == "$allowed" ]]; then
       exempt=1
       break

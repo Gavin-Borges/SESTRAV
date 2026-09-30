@@ -16,7 +16,9 @@
 > `src/verify/promote_gnn.py`, and its Gate-1 threshold was unreachable as written
 > (AUC-PR >= 0.85; re-anchored to >= 0.65 under a peptide-grouped splitter on 2026-08-10,
 > and evaluated against that bar once since, on 2026-08-13, when a v5 GNN run under
-> `PeptideGroupedKFold` returned Gate 1 = 0.6458 and missed it by 0.0042 - so the track remains
+> `PeptideGroupedKFold` returned Gate 1 = 0.6458 and missed it by 0.0042, the best of eight
+> runs and the smallest of eight deficits, none of which reached the bar
+> (`docs/gnn_gate_retry_preregistration.md` section 1.1) - so the track remains
 > unpromoted, now on a measured null rather than for want of a scoreable run; corrected
 > 2026-08-15, this clause previously read "and not since re-evaluated"). The protocol as written
 > could not have been run against the system that actually

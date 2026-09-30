@@ -27,6 +27,11 @@ from pathlib import Path
 
 import pytest
 
+# shap is in the `demo` extra, not `dev`, and scripts.run_analysis reaches it at
+# module scope through src.shap_analysis, so without this a `.[dev]` install
+# aborts collecting this file. CI installs requirements.txt, which pins shap.
+pytest.importorskip("shap", reason="scripts.run_analysis imports shap (demo extra, not dev)")
+
 from scripts.run_analysis import _guard_results_dir as guard_run_analysis, planned_analysis_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

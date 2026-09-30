@@ -40,6 +40,7 @@ another).
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -99,11 +100,17 @@ def _posix(path: Path) -> str:
 def _run_commit_msg(message: str, tmp_path: Path, shim_dir: Path | None) -> int:
     msg_file = tmp_path / "COMMIT_EDITMSG"
     msg_file.write_text(message, encoding="utf-8", newline="\n")
+    hook_copy = tmp_path / "commit-msg"
+    hook_copy.write_text(
+        COMMIT_MSG_HOOK.read_text(encoding="utf-8"),
+        encoding="utf-8",
+        newline="\n",
+    )
     env = dict(os.environ)
     if shim_dir is not None:
         env["PATH"] = _posix(shim_dir) + os.pathsep + env.get("PATH", "")
     return subprocess.run(
-        ["bash", str(COMMIT_MSG_HOOK), str(msg_file)],
+        ["bash", str(hook_copy), str(msg_file)],
         capture_output=True,
         env=env,
     ).returncode
@@ -165,10 +172,13 @@ def test_hooks_do_not_execute_a_pcre_grep() -> None:
     Mentions inside comments are allowed and expected - both hooks explain the defect
     they are guarding against - so comment lines are stripped before the check.
     """
+    pcre_option = re.compile(r"(?:^|\s)(?:-[A-Za-z]*P[A-Za-z]*|--perl-regexp)(?=\s|=|$)")
     for hook in ("commit-msg", "pre-commit"):
         text = (REPO_ROOT / "scripts" / "hooks" / hook).read_text(encoding="utf-8")
         code = [
             line for line in text.splitlines() if not line.lstrip().startswith("#")
         ]
-        offenders = [line for line in code if "-qP" in line or "-oP" in line]
+        offenders = [
+            line for line in code if "grep" in line and pcre_option.search(line)
+        ]
         assert not offenders, f"{hook} still runs a PCRE grep: {offenders}"

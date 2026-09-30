@@ -4,9 +4,21 @@ Merges output files from all predictors (SESTRAV RF, PRIME, PredIG, and MHC bind
 """
 
 import os
+import sys
 import argparse
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
+
+# The standardize_predictor_outputs rule runs this file by path, which puts
+# scripts/ rather than the repository root first on sys.path. Without this, the
+# deferred `src` import in main() fails wherever the package is not installed,
+# and resolves to whatever `src` the environment has installed, not this tree's,
+# wherever one is.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def main():

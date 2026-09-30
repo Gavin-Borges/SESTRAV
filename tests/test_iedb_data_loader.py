@@ -324,11 +324,36 @@ def test_load_schmidt_missing_label_defaults_zero(tmp_path):
     assert df["label"].iloc[0] == 0
 
 
-def test_load_schmidt_missing_hla_uses_default(tmp_path):
+def test_load_schmidt_missing_hla_raises_by_default(tmp_path, monkeypatch):
+    """A missing allele column must fail loud, not fabricate HLA-A*02:01.
+
+    The allele drives the allele-stratified binding features, so a single
+    substituted value becomes feature data that is indistinguishable from
+    measured data downstream.
+    """
+    monkeypatch.delenv("SESTRAV_ALLOW_SCHMIDT_ALLELE_FALLBACK", raising=False)
+    p = tmp_path / "schmidt_nohla.csv"
+    pd.DataFrame({"peptide": ["SLLMWITQV"], "label": [1]}).to_csv(p, index=False)
+    with pytest.raises(ValueError, match="Refusing to substitute"):
+        load_schmidt_2021(str(p))
+
+
+def test_load_schmidt_missing_hla_fallback_is_opt_in(tmp_path, monkeypatch):
+    """The historical default remains reachable, but only when opted into."""
+    monkeypatch.setenv("SESTRAV_ALLOW_SCHMIDT_ALLELE_FALLBACK", "1")
     p = tmp_path / "schmidt_nohla.csv"
     pd.DataFrame({"peptide": ["SLLMWITQV"], "label": [1]}).to_csv(p, index=False)
     df = load_schmidt_2021(str(p))
     assert df["hla"].iloc[0] == "HLA-A*02:01"
+
+
+def test_load_schmidt_opt_in_flag_must_be_exactly_one(tmp_path, monkeypatch):
+    """Any value other than "1" must not unlock the fabricated allele."""
+    monkeypatch.setenv("SESTRAV_ALLOW_SCHMIDT_ALLELE_FALLBACK", "true")
+    p = tmp_path / "schmidt_nohla.csv"
+    pd.DataFrame({"peptide": ["SLLMWITQV"], "label": [1]}).to_csv(p, index=False)
+    with pytest.raises(ValueError, match="Refusing to substitute"):
+        load_schmidt_2021(str(p))
 
 
 def test_load_schmidt_missing_peptide_raises(tmp_path):

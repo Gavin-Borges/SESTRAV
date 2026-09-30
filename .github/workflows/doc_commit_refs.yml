@@ -1,6 +1,9 @@
 name: Doc Commit References
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main

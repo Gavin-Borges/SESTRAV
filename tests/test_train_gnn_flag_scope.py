@@ -24,6 +24,8 @@ torch = pytest.importorskip("torch", reason="GNN modules require torch")
 
 import src.train_gnn as tg  # noqa: E402
 
+_NEEDS_PYG = "train_gnn_v2 imports torch_geometric before its guard runs"
+
 
 @pytest.fixture(autouse=True)
 def _isolated_global_flags():
@@ -77,6 +79,7 @@ def _abort_v1(tmp_path, model_dir):
 
 
 def _abort_v2(tmp_path, model_dir):
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         tg.train_gnn_v2(str(tmp_path / "does_not_exist.csv"), model_dir=str(model_dir))
 
@@ -132,6 +135,7 @@ def test_v2_run_does_not_enable_anomaly_detection(tmp_path, monkeypatch):
 
     The wrapper only restores; it must never be read as licence to re-enable.
     """
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     seen = {}
 
     def spy(model_dir, pooling, architecture, allow_overwrite):

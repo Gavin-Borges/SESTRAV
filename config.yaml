@@ -54,6 +54,30 @@ binding_backend: mhcflurry
 # Update this value after running: mhcflurry-downloads fetch models_class1_presentation
 # DO NOT change without rebuilding the training dataset and updating all model provenance files.
 mhcflurry_model_version: "2.2.1"
+# The URL is not guessed: it is read from the download table installed by the
+# exact locked MHCflurry package. Package 2.2.1 selects the 2.2.0 table, whose
+# presentation entry points at the older pre-2.0 release asset. The names look
+# wrong together and are correct.
+#
+# TRUST ON FIRST USE. This digest attests to the bytes SOMEBODY DOWNLOADED ONCE,
+# not to a value the publisher stands behind, because no publisher value exists
+# to compare against. Measured 2026-09-24, both possible upstream sources:
+#   - MHCflurry's own downloads.yml records a url and NO checksum. Confirmed by
+#     grepping the installed table for sha/checksum/md5/digest: zero hits.
+#   - GitHub's release API exposes an asset `digest` field and it is NULL here.
+#     The asset was uploaded in 2020, before GitHub computed digests.
+# What IS independently corroborated is the size: the API reports 135359558
+# bytes, matching the downloaded archive exactly. Size is a weak check and is
+# named as one.
+#
+# So this pin buys IMMUTABILITY from now on, not provenance at first fetch: it
+# detects any later substitution, and cannot detect a substitution that already
+# happened before the digest was taken. Verified to do that job - the genuine
+# archive verifies at exit 0 and a copy with ONE byte flipped exits 1 naming
+# both digests. If upstream ever publishes a checksum, cross-check this value
+# against it and replace this note with that stronger statement.
+mhcflurry_model_archive_url: "https://github.com/openvax/mhcflurry/releases/download/pre-2.0/models_class1_presentation.20200611.tar.bz2"
+mhcflurry_model_archive_sha256: "6193efee43e768c605b1869b1a7da2b8b89a31140f49cf45449fae17b5b7102e"
 
 # Feature mode: 21 (legacy sequence-only) | 30 (physico + binding, legacy) | 31 (canonical) | 33 (+ antigen processing)
 # Canonical production model: feature_mode=31 (full_31: physico_20 + binding_10 + peptide_length)

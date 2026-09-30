@@ -594,10 +594,16 @@ def build_virus_composition_table(
         n = len(group)
         n_pos = int((group["label"] == 1).sum())
         n_neg = int((group["label"] == 0).sum())
+        # Bound to a name rather than written inline, because an UNNAMED literal is
+        # invisible to tests/test_real_neg_origins_agree.py: that test discovers
+        # carriers by walking the AST for assignments whose normalized name is
+        # REAL_NEG_ORIGINS. Inline, this copy could be widened while every named
+        # carrier stayed put and the agreement test stayed green.
+        _real_neg_origins = {"tested_negative", "iedb_api"}
         n_real_neg = int(
             group.get("negative_origin", pd.Series(dtype=str))
             .fillna("")
-            .isin({"tested_negative", "iedb_api"})
+            .isin(_real_neg_origins)
             .sum()
         )
         pos_rate = round(n_pos / n, 4) if n > 0 else 0.0
