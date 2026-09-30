@@ -77,6 +77,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 ### Security
+- **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
+  which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
+  CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
+  path into `environments/requirements.lock` was a security floor in
+  `environments/requirements-lock.in`. A `name>=version` line there is a requirement,
+  not a constraint, so each floor installed the package it was meant to hold at a
+  patched release: every one of the four lock entries was annotated
+  `# via -r environments/requirements-lock.in` and nothing else, and no tracked module
+  imports any of them. The `Dockerfile` installs that lock, so the production image
+  carried all four plus cffi, pycparser and python-dotenv beneath them. Recompiling with
+  the four floors deleted (`uv pip compile`, the argv recorded in the lock's header)
+  removes exactly those seven packages and changes no other pin; `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` were rebuilt using the `python-sbom` job's argv and
+  lose the same seven, with no drift in the 140 that remain. Run against the rebuilt
+  SBOM, the SBOM freshness gate reports the seven stale entries only as a notice and
+  exits 0, so it would not have caught them. The new
+  `tests/test_security_floors_have_a_dependent.py` fails on any floor, in any lockfile
+  spec, whose package nothing but the spec requires; against the previous spec it names
+  exactly these four.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit

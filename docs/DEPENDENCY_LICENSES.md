@@ -5,7 +5,6 @@
 | Jinja2                                | 3.1.6       | BSD License                                                                                         |
 | MarkupSafe                            | 3.0.3       | BSD-3-Clause                                                                                        |
 | PuLP                                  | 3.3.2       | MIT                                                                                                 |
-| PyJWT                                 | 2.14.0      | MIT                                                                                                 |
 | PyYAML                                | 6.0.3       | MIT License                                                                                         |
 | Pygments                              | 2.20.0      | BSD-2-Clause                                                                                        |
 | SQLAlchemy                            | 2.0.51      | MIT                                                                                                 |
@@ -21,14 +20,12 @@
 | attrs                                 | 26.1.0      | MIT                                                                                                 |
 | biopython                             | 1.88        | LicenseRef-Biopython-License-Agreement                                                              |
 | certifi                               | 2026.7.22   | Mozilla Public License 2.0 (MPL 2.0)                                                                |
-| cffi                                  | 2.1.0       | MIT-0                                                                                               |
 | charset-normalizer                    | 3.4.9       | MIT                                                                                                 |
 | click                                 | 8.4.2       | BSD-3-Clause                                                                                        |
 | cloudpickle                           | 3.1.2       | BSD License                                                                                         |
 | conda-inject                          | 1.3.2       | UNKNOWN                                                                                             |
 | connection_pool                       | 0.0.3       | MIT License                                                                                         |
 | contourpy                             | 1.3.3       | BSD License                                                                                         |
-| cryptography                          | 50.0.1      | Apache-2.0 OR BSD-3-Clause                                                                          |
 | cuda-bindings                         | 13.3.1      | LicenseRef-NVIDIA-SOFTWARE-LICENSE                                                                  |
 | cuda-pathfinder                       | 1.6.0       | Apache-2.0                                                                                          |
 | cuda-toolkit                          | 13.0.3.0    | UNKNOWN                                                                                             |
@@ -266,7 +263,6 @@
 |                                       |             |                                                                                                     |
 | ml_dtypes                             | 0.5.4       | Apache-2.0                                                                                          |
 | mpmath                                | 1.3.0       | BSD License                                                                                         |
-| msgpack                               | 1.2.2       | Apache-2.0                                                                                          |
 | multidict                             | 6.7.1       | Apache License 2.0                                                                                  |
 | namex                                 | 0.1.0       | UNKNOWN                                                                                             |
 | nbformat                              | 5.11.1      | BSD License                                                                                         |
@@ -300,14 +296,11 @@
 | protobuf                              | 7.35.1      | 3-Clause BSD License                                                                                |
 | psutil                                | 7.2.2       | BSD-3-Clause                                                                                        |
 | pyahocorasick                         | 2.3.1       | BSD-3-Clause and Public-Domain                                                                      |
-| pycparser                             | 3.0         | BSD-3-Clause                                                                                        |
 | pydantic                              | 2.13.5      | MIT                                                                                                 |
-| pydantic-settings                     | 2.15.0      | MIT                                                                                                 |
 | pydantic_core                         | 2.46.5      | MIT                                                                                                 |
 | pyparsing                             | 3.3.2       | MIT                                                                                                 |
 | pytest                                | 9.1.1       | MIT                                                                                                 |
 | python-dateutil                       | 2.9.0.post0 | Apache Software License; BSD License                                                                |
-| python-dotenv                         | 1.2.2       | BSD-3-Clause                                                                                        |
 | referencing                           | 0.37.0      | MIT                                                                                                 |
 | requests                              | 2.34.2      | Apache Software License                                                                             |
 | rich                                  | 15.0.0      | MIT License                                                                                         |
