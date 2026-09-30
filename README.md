@@ -156,7 +156,7 @@ SESTRAV is evaluated under **two complementary paradigms**: (1) a **Tier A label
 
 **Re-baselined 2026-08-10** under a peptide-grouped splitter (`src.ml_utils.PeptideGroupedKFold`) that closes D15: every row sharing a peptide now lands in exactly one fold, so the numbers below are a generalization estimate rather than a partial memorization estimate. The prior ungrouped figures are retracted (see the correction notes below the table).
 
-The canonical same-pathogen (within-virus) discrimination metric is the per-virus within-CV table (mode-31 RF trained and evaluated per virus; `results/per_virus_eval_v5_mode31.csv`):
+The canonical same-pathogen (within-virus) discrimination metric is the per-virus within-CV table (a single pooled mode-31 RF, evaluated per virus by slicing its peptide-grouped out-of-fold predictions; `results/per_virus_eval_v5_mode31.csv`). **This is one model scored on nine virus slices, not nine per-virus models:** `scripts/evaluate_per_virus.py` consumes an OOF prediction CSV via `--predictions` and performs no training, so each virus's score comes from a model that also saw the other eight viruses during training. Cross-virus generalization is therefore not inferrable from this table; it is reported separately in Paradigm 3 below.
 
 | Virus | Within-CV AUC-ROC |
 |------|-------------------|
