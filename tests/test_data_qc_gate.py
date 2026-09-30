@@ -1,8 +1,11 @@
 import hashlib
 import io
 import os
+import re
 import subprocess
 import sys
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -735,6 +738,18 @@ def test_the_margin_is_last_passing_not_first_breaching():
     assert passes(V5_POSITIVES - losable), "the quoted margin must still PASS"
     assert not passes(V5_POSITIVES - (losable + 1)), "one more must BREACH"
     assert losable >= 1000, f"margin collapsed to {losable} rows"
+
+    criteria = (
+        Path(__file__).resolve().parents[1] / "docs" / "data_qc_criteria.md"
+    ).read_text(encoding="utf-8")
+    margin_match = re.search(r"\*\*Margin: ([\d,]+) rows\*\*", criteria)
+    breach_match = re.search(r"first breach is at \*\*([\d,]+)\*\*", criteria)
+    assert margin_match, "docs/data_qc_criteria.md no longer states the QC margin"
+    assert breach_match, "docs/data_qc_criteria.md no longer states the first breach"
+    documented_margin = int(margin_match.group(1).replace(",", ""))
+    documented_breach = int(breach_match.group(1).replace(",", ""))
+    assert documented_margin == losable
+    assert documented_breach == losable + 1
 
 
 # --- Duplicate canonical columns -------------------------------------------
