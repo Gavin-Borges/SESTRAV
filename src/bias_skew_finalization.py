@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Dict
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ from src.train_classifier import train_models
 
 
 def _gate_status(
-    bias_summary: Dict,
+    bias_summary: Dict[str, Any],
     subgroup_csv: str,
     threshold_json: str,
     sensitivity_delta_csv: str,
