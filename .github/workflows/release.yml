@@ -137,6 +137,50 @@ jobs:
           pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/
 
+      - name: Verify JSON package data in built distributions
+        # src/verify/structural_gnn.py reads mhc_pseudo_sequences.json at
+        # runtime, and only pyproject.toml's [tool.setuptools.package-data]
+        # entry puts it and targets.json into these archives. The
+        # install-and-import gate below never imports src.verify, so it cannot
+        # see them go missing; this step reads the member lists of the exact
+        # files this job publishes. tests/test_package_data_declaration.py
+        # checks the same declaration at pull-request time.
+        run: |
+          python - <<'PY'
+          import glob
+          import tarfile
+          import zipfile
+
+          required = {
+              "src/verify/mhc_pseudo_sequences.json",
+              "src/verify/targets.json",
+          }
+          wheel_paths = glob.glob("dist/*.whl")
+          sdist_paths = glob.glob("dist/*.tar.gz")
+          if len(wheel_paths) != 1 or len(sdist_paths) != 1:
+              raise SystemExit(
+                  f"expected one wheel and one sdist, got {wheel_paths=} {sdist_paths=}"
+              )
+
+          with zipfile.ZipFile(wheel_paths[0]) as archive:
+              wheel_names = set(archive.namelist())
+          with tarfile.open(sdist_paths[0]) as archive:
+              sdist_names = {
+                  "/".join(name.split("/")[1:]) for name in archive.getnames() if "/" in name
+              }
+
+          missing_by_artifact = {}
+          for artifact, names in (("wheel", wheel_names), ("sdist", sdist_names)):
+              print(f"{artifact} member count: {len(names)}")
+              missing = sorted(required - names)
+              if missing:
+                  missing_by_artifact[artifact] = missing
+              else:
+                  print(f"{artifact} contains required package data: {sorted(required)}")
+          if missing_by_artifact:
+              raise SystemExit(f"built distributions are missing package data: {missing_by_artifact}")
+          PY
+
       - name: Verify the built wheel installs and imports (PRE-PUBLISH GATE)
         # The last point at which a bad package is still recoverable. The
         # post-upload smoke test in the smoke job cannot serve this purpose:
