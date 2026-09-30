@@ -122,3 +122,46 @@ def test_optimize_vaccine_cocktail_to_dict_serialization():
     assert "population_coverage" in summary
     assert "allele_coverage" in summary
     assert "panel_ceilings" in summary
+
+
+def test_min_lower_bound_refuses_a_frame_without_conformal_bounds():
+    """tau_conf on a frame lacking 'lower_bound' raises instead of thresholding raw scores.
+
+    Stage 4 emits lower_bound/upper_bound/interval_width only when a conformal
+    calibrator resolves, and models/v5/conformal_calibrator.joblib is gitignored, so a
+    clone routinely produces ranked frames without them. Applying min_lower_bound to
+    immunogenicity_score in that case silently changes what the threshold means.
+    """
+    df = _synthetic_candidates(n_peptides=15, seed=7).drop(
+        columns=["lower_bound", "upper_bound", "interval_width"]
+    )
+    assert "immunogenicity_score" in df.columns
+    with pytest.raises(ValueError, match="no 'lower_bound' column"):
+        optimize_vaccine_cocktail(df, max_peptides=4, min_lower_bound=0.5)
+
+
+def test_min_lower_bound_refuses_when_only_a_flat_default_is_available():
+    """The 0.5-constant fallback is refused too, not just the score substitution."""
+    df = _synthetic_candidates(n_peptides=15, seed=8).drop(
+        columns=["lower_bound", "upper_bound", "interval_width", "immunogenicity_score"]
+    )
+    with pytest.raises(ValueError, match="default_0.5"):
+        optimize_vaccine_cocktail(df, max_peptides=4, min_lower_bound=0.4)
+
+
+def test_substitution_without_a_threshold_is_recorded_not_silent():
+    """min_lower_bound=0.0 still optimizes, but the result says the bounds were substituted."""
+    df = _synthetic_candidates(n_peptides=15, seed=9).drop(
+        columns=["lower_bound", "upper_bound", "interval_width"]
+    )
+    res = optimize_vaccine_cocktail(df, max_peptides=4, min_lower_bound=0.0)
+    assert res.lower_bound_source == "immunogenicity_score"
+    assert res.to_dict()["lower_bound_source"] == "immunogenicity_score"
+
+
+def test_genuine_conformal_bounds_are_reported_as_such():
+    """A frame that really carries conformal bounds is labelled 'lower_bound'."""
+    df = _synthetic_candidates(n_peptides=15, seed=10)
+    res = optimize_vaccine_cocktail(df, max_peptides=4, min_lower_bound=0.2)
+    assert res.lower_bound_source == "lower_bound"
+    assert res.to_dict()["lower_bound_source"] == "lower_bound"
