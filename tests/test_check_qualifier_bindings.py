@@ -58,7 +58,7 @@ def test_repository_config_declares_the_debt_it_still_carries():
     """
     config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
     assert _declared_ceilings(config) == {
-        "gnn-gate1-best-of-eight": 7,
+        "gnn-gate1-best-of-eight": 0,
         "per-virus-mean-nine-virus-scope": 0,
     }
 
@@ -76,18 +76,16 @@ def test_repository_config_passes_its_ratchet():
     assert not result.over_ceiling
 
 
-def test_strict_mode_exposes_the_seed_debt():
+def test_strict_mode_reports_the_repaired_tree_clean():
+    # The seed debt this test used to require - one to seven carriers stating the
+    # best-of-eight figure without its qualifier - is repaired, so strict mode, which
+    # fails on ANY violation, must now report none. The carrier count keeps this from
+    # passing vacuously on a config that audits nothing.
     config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
-    ceilings = _declared_ceilings(config)
     result = gate.audit(ROOT, config, strict=True)
-    assert result.over_ceiling
-    # The lower bound keeps the `all(...)` below from passing vacuously, which is
-    # the non-vacuity the retired `== 7` used to supply. NOTE: it also means a
-    # COMPLETE repair of every seed carrier reds this test by design - retire it
-    # in the commit that clears the last violation, and drop the ceiling to 0 in
-    # the pin above.
-    assert 1 <= len(result.violations) <= sum(ceilings.values())
-    assert all("gnn-gate1-best-of-eight" in item for item in result.violations)
+    assert result.carriers_checked == 9
+    assert result.violations == []
+    assert not result.over_ceiling
 
 
 def test_counterfactual_qualifier_removal_names_file_and_line(tmp_path: Path):

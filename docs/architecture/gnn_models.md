@@ -155,7 +155,7 @@ separate decision.
 **A v5 run under `PeptideGroupedKFold` has since been performed, so promotion is no
 longer waiting on one (updated 2026-08-15).** It ran 2026-08-13 at feature mode 31 and
 returned Gate 1 FAIL at 0.6458 against >= 0.65, Gate 2 FAIL at 0.0234 against <= 0.02,
-and Gates 3, 4 and 5 PASS. Promotion stays blocked on that measured null rather than on
+and Gates 3, 4 and 5 PASS. These figures are the best of eight runs, not one (`docs/gnn_gate_retry_preregistration.md` section 1.1): across the series Gate 1 spans 0.6298 to 0.6458 and passes 0 of 8, so the null is better supported than a single run implies, while the 0.0042 deficit is the series smallest against a mean of 0.0122 and the +0.0402 delta is the series maximum against a worst seed of +0.0243. Promotion stays blocked on that measured null rather than on
 the absence of a scoreable frame. Its out-of-fold frame lives under gitignored
 `models/scratch/`, which is why the tracked artifact above is unchanged.
 
