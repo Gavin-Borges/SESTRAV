@@ -77,6 +77,7 @@ import shutil
 import subprocess  # nosec B404 - fixed argv to the gh CLI, never a shell
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
@@ -375,14 +376,16 @@ def _fetch_page_gh(repo: str, state: str, page: int) -> list[dict]:
 
 def _fetch_page_http(repo: str, state: str, page: int, token: str) -> list[dict]:
     url = f"{API_ROOT}/{_alerts_path(repo, state, page)}"
-    # Constrain the scheme and host BEFORE opening, rather than only
-    # asserting in a comment that they are safe. API_ROOT is a module
-    # constant, so this can only fail if someone edits it to a non-https
-    # or off-host value - and then it fails loudly here instead of letting
-    # urlopen honour file:// or a custom scheme. This guard is what makes
-    # the suppression below honest.
-    if not url.startswith(f"{API_ROOT}/"):
-        raise CouldNotRun(f"refusing to fetch a URL outside {API_ROOT}: {url}")
+    # Constrain the scheme and host BEFORE opening, against LITERALS. The
+    # URL is built from API_ROOT, so any check derived from API_ROOT (such
+    # as a prefix match on it) passes whatever API_ROOT says and cannot
+    # catch the edit it exists for: a non-https scheme or another host.
+    # Comparing the parsed netloc exactly also refuses a port, userinfo, or
+    # a look-alike host such as api.github.com.example.org. Nothing is
+    # opened, and the bearer token below is never sent, unless this passes.
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != "api.github.com":
+        raise CouldNotRun(f"refusing to fetch {url}: only https://api.github.com is allowed")
     request = urllib.request.Request(
         url,
         headers={
@@ -393,8 +396,11 @@ def _fetch_page_http(repo: str, state: str, page: int, token: str) -> list[dict]
         },
     )
     try:
-        # The B310 suppression on the next line rests on the scheme and host
-        # guard above, not on an assertion that urlopen is safe in general.
+        # The B310 suppression on the next line rests on the guard above,
+        # which compares the parsed URL with the literals "https" and
+        # "api.github.com" and so refuses file:// or any other scheme or
+        # host before urlopen is reached. It is not a claim that urlopen is
+        # safe in general.
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:  # nosec B310
             raw = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
