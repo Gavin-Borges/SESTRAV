@@ -115,7 +115,9 @@ study, and its cross-validation contract changed on 2026-08-12:
   sharing a peptide fall on both sides of a fold boundary (`docs/claims_register.md`
   D15).
 - Each `gnn_oof_predictions*.csv` row is written by `build_oof_records` with the
-  schema `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. The former schema
+  schema `peptide,hla_allele,label,gnn_oof_score,fold,splitter`, followed by
+  `virus,strain,protein,negative_origin` when the corpus supplies them (the v5
+  corpus supplies all four). The former schema
   was `peptide,label,gnn_oof_score`; a three-column frame is therefore a pre-repair
   artifact and is rejected by promotion Gate 1.
 - The Project 2 GCN/GAT/bipartite figures quoted above come from the separate

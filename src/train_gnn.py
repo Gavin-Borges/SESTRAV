@@ -184,6 +184,18 @@ GNN_CV_SPLITTER: str = "PeptideGroupedKFold"
 # Column carrying the splitter provenance marker in the OOF CSV.
 SPLITTER_COLUMN: str = "splitter"
 
+# Corpus metadata appended to each OOF row when the training pool supplies it,
+# so a failed promotion gate can be stratified by virus, strain, protein or
+# negative origin straight from the artifact rather than by a join back to the
+# corpus. Appended AFTER the existing columns, so every column the artifact
+# already carried keeps its position.
+OOF_STRATIFICATION_COLUMNS: tuple[str, ...] = (
+    "virus",
+    "strain",
+    "protein",
+    "negative_origin",
+)
+
 
 def build_cv_splits(
     train_pool: pd.DataFrame,
@@ -246,19 +258,69 @@ def build_oof_records(
     included when the corpus supplies it because (peptide, hla_allele) is the v5
     dedup key - peptide alone does not uniquely identify a row, so it cannot
     join the two OOF frames one-to-one.
+
+    The OOF_STRATIFICATION_COLUMNS the corpus supplies are appended after
+    'splitter'. 'label' and 'gnn_oof_score' are taken element by element from
+    the input arrays, so each keeps the array's own numpy scalar type. Boxing
+    them to Python floats (DataFrame.to_dict does) turns a float32 score column
+    into float64, which rewrites every score in the CSV at longer precision.
     """
-    has_allele = "hla_allele" in train_pool.columns
-    records: list[dict] = []
-    for i, idx_val in enumerate(val_idx):
-        record: dict = {"peptide": train_pool["peptide"].iloc[idx_val]}
-        if has_allele:
-            record["hla_allele"] = train_pool["hla_allele"].iloc[idx_val]
-        record["label"] = val_labels[i]
-        record["gnn_oof_score"] = val_preds[i]
+    identity_columns = ["peptide"]
+    if "hla_allele" in train_pool.columns:
+        identity_columns.append("hla_allele")
+    stratification_columns = [c for c in OOF_STRATIFICATION_COLUMNS if c in train_pool.columns]
+    held_out = train_pool.iloc[val_idx]
+    records = held_out.loc[:, identity_columns].to_dict(orient="records")
+    # to_dict returns [] for a zero-column frame, not one empty dict per row.
+    strata = held_out.loc[:, stratification_columns].to_dict(orient="records") or [{}] * len(
+        records
+    )
+    for record, stratum, label, score in zip(records, strata, val_labels, val_preds, strict=True):
+        record["label"] = label
+        record["gnn_oof_score"] = score
         record["fold"] = fold
         record[SPLITTER_COLUMN] = GNN_CV_SPLITTER
-        records.append(record)
+        record.update(stratum)
     return records
+
+
+def build_gnn_run_config(
+    *,
+    esm2_model_name: str,
+    node_dim: int,
+    feature_mode: int,
+    num_continuous_features: int,
+    binding_matrix_path: str | None,
+    max_epochs: int,
+    mean_best_epoch: int,
+    early_stopping_patience: int,
+    seed: int,
+    pooling: str,
+    edge_mode: str,
+) -> dict[str, object]:
+    """Return the persisted v2 run configuration.
+
+    'max_epochs' is the configured per-fold ceiling. 'mean_best_epoch' is the
+    rounded mean of the per-fold best epochs, which is also the number of epochs
+    the saved final model was retrained for. Both used to share one 'epochs'
+    key that held the second value.
+    """
+    return {
+        "esm2_model_name": esm2_model_name,
+        "node_dim": node_dim,
+        "feature_mode": feature_mode,
+        "num_continuous_features": num_continuous_features,
+        "binding_matrix_path": binding_matrix_path,
+        "max_epochs": max_epochs,
+        "mean_best_epoch": mean_best_epoch,
+        "early_stopping_patience": early_stopping_patience,
+        "seed": seed,
+        "pooling": pooling,
+        # Recorded so an ablation run is distinguishable from a production run by
+        # its artifacts alone. Configs written before this key existed are
+        # full-graph runs by construction.
+        "edge_mode": edge_mode,
+    }
 
 
 def set_seed(seed: int = 42) -> None:
@@ -1033,20 +1095,19 @@ def train_gnn_v2(
         joblib.dump(scaler_full, os.path.join(model_dir, "gnn_scaler.joblib"))
 
     # Save config so promote_gnn.py and inference code know the node dim without guessing
-    gnn_config = {
-        "esm2_model_name": esm2_model_name,
-        "node_dim": node_dim,
-        "feature_mode": feature_mode,
-        "num_continuous_features": int(X_feats.shape[1]),
-        "binding_matrix_path": binding_matrix_path,
-        "epochs": avg_best_epochs,
-        "early_stopping_patience": early_stopping_patience,
-        "pooling": pooling,
-        # Recorded so an ablation run is distinguishable from a production run by
-        # its artifacts alone. Configs written before this key existed are
-        # full-graph runs by construction.
-        "edge_mode": edge_mode,
-    }
+    gnn_config = build_gnn_run_config(
+        esm2_model_name=esm2_model_name,
+        node_dim=node_dim,
+        feature_mode=feature_mode,
+        num_continuous_features=int(X_feats.shape[1]),
+        binding_matrix_path=binding_matrix_path,
+        max_epochs=epochs,
+        mean_best_epoch=avg_best_epochs,
+        early_stopping_patience=early_stopping_patience,
+        seed=seed,
+        pooling=pooling,
+        edge_mode=edge_mode,
+    )
     config_tagged_path = os.path.join(model_dir, f"gnn_config_{pooling}.json")
     with open(config_tagged_path, "w") as fh:
         json.dump(gnn_config, fh, indent=2)

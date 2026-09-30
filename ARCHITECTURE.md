@@ -280,8 +280,10 @@ only from this v1 path; the v2 PyG path has no spatial builder at all.
   `StratifiedKFold` until 2026-08-12; this is the D15 repair that Phase 0 applied to
   `src/train_classifier.py` finally reaching the second model track.
 - **OOF artifact schema:** `build_oof_records` writes one self-describing row per
-  held-out example - `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. It was
-  previously `peptide,label,gnn_oof_score`. `hla_allele` is written when the corpus
+  held-out example - `peptide,hla_allele,label,gnn_oof_score,fold,splitter`,
+  followed by `virus,strain,protein,negative_origin` when the corpus supplies them
+  (the v5 corpus supplies all four). It was previously
+  `peptide,label,gnn_oof_score`. `hla_allele` is written when the corpus
   supplies it, because `(peptide, hla_allele)` is the v5 dedup key and is what joins
   the GNN frame one-to-one against `models/v5/rf_oof_predictions_mode31.csv` for a
   paired comparison; `fold` and `splitter` are per-row rather than in a sidecar so
