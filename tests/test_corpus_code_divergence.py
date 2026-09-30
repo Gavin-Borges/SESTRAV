@@ -154,13 +154,17 @@ def test_published_active_row_count_matches_the_corpus() -> None:
     measured = int((df["is_quarantined"].str.lower() == "false").sum())
 
     text = ARCHITECTURE_PATH.read_text(encoding="utf-8")
-    published = {
-        int(m.replace(",", ""))
-        for m in re.findall(r"([\d,]{4,})[ -]active[ -]row", text)
-    }
+    occurrences = re.findall(
+        r"(?:([\d,]{4,})[ -]active[ -]row|([\d,]{4,})[ -]row[ -]active)",
+        text,
+    )
+    published = [int((active or row).replace(",", "")) for active, row in occurrences]
     assert published, "ARCHITECTURE.md no longer states an active row count in a parsed form"
-    assert published == {measured}, (
-        f"ARCHITECTURE.md publishes active row count(s) {sorted(published)} but "
+    assert len(published) == 5, (
+        f"ARCHITECTURE.md must publish the active row count 5 times, found {len(published)}"
+    )
+    assert set(published) == {measured}, (
+        f"ARCHITECTURE.md publishes active row count(s) {sorted(set(published))} but "
         f"data/immunogenicity_dataset_v5.csv carries {measured}."
     )
 
