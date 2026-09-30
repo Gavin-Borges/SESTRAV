@@ -95,6 +95,13 @@ jobs:
           today = datetime.datetime.now(datetime.UTC).date()
           if cff_date is None:
               errors.append("CITATION.cff has no top-level 'date-released:' field.")
+          # date.fromisoformat alone is not enough: on Python 3.11+ it also
+          # accepts the ISO basic form (20260923) and week dates (2026-W38-3),
+          # while docs/releasing.md requires YYYY-MM-DD.
+          elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", cff_date):
+              errors.append(
+                  f"CITATION.cff date-released {cff_date!r} is not in YYYY-MM-DD form."
+              )
           else:
               try:
                   released = datetime.date.fromisoformat(cff_date)
