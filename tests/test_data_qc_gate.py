@@ -357,6 +357,41 @@ freeze_mode: true
     assert "does not match expected" in output
 
 
+def test_qc_gate_freeze_mode_missing_checksum_fails(tmp_path, valid_df):
+    dataset_path = tmp_path / "freeze_dataset.csv"
+    valid_df.to_csv(dataset_path, index=False)
+    config_path = tmp_path / "freeze_config.yaml"
+    config_path.write_text(
+        """
+dataset_governance:
+  qc_thresholds:
+    min_peptide_yield: 5
+    max_conflict_ratio: 0.15
+    max_null_allele_fraction: 0.50
+    class_ratio_bounds: [1.5, 4.0]
+  require_checksum_match_in_freeze_mode: true
+  provenance: {}
+freeze_mode: true
+""",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "checksum pin is absent" in result.stdout + result.stderr
+
+
 def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
     dataset_path = tmp_path / "valid.csv"
     valid_df.to_csv(dataset_path, index=False)

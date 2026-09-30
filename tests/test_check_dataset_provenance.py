@@ -36,7 +36,8 @@ CORPUS_ROWS = ["peptide,hla_allele,label"] + [
 
 
 def _write_fixture(root: pathlib.Path, *, counts=None, pins=None, corpus_lines=None,
-                   checksum=None, config_checksum=None, output_file=None):
+                   checksum=None, config_checksum=None, output_file=None,
+                   include_config_checksum=True):
     """Build a self-consistent fixture repo, then let callers perturb one field."""
     lines = corpus_lines if corpus_lines is not None else CORPUS_ROWS
     body = "\n".join(lines) + "\n"
@@ -73,11 +74,13 @@ def _write_fixture(root: pathlib.Path, *, counts=None, pins=None, corpus_lines=N
     if pins is not None:
         base_pins = pins
     pin_lines = "".join(f"      {k}: {v}\n" for k, v in base_pins.items())
-    cfg = (
-        "dataset_governance:\n"
-        "  provenance:\n"
+    checksum_line = (
         f'    checksum: "{config_checksum if config_checksum is not None else digest}"\n'
-        + ("    source_counts:\n" + pin_lines if base_pins else "")
+        if include_config_checksum
+        else ""
+    )
+    cfg = "dataset_governance:\n  provenance:\n" + checksum_line + (
+        "    source_counts:\n" + pin_lines if base_pins else ""
     )
     (root / "config.yaml").write_text(cfg, encoding="utf-8")
     return root, rows, digest
@@ -126,6 +129,12 @@ def test_config_checksum_disagreement_is_caught(tmp_path):
     root, _rows, _ = _write_fixture(tmp_path, config_checksum="f" * 64)
     problems = TOOL_MOD.check(root)
     assert any("freeze_mode would reject" in p for p in problems), problems
+
+
+def test_absent_config_checksum_fails_closed(tmp_path):
+    root, _rows, _ = _write_fixture(tmp_path, include_config_checksum=False)
+    problems = TOOL_MOD.check(root)
+    assert any("checksum is absent" in p for p in problems), problems
 
 
 def test_a_changed_stream_count_is_caught(tmp_path):
