@@ -129,6 +129,21 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # A panel whose peptide column is present but entirely empty compares against
+    # nothing: _normalize_col turns every value into NaN, .isin() returns False for
+    # all of them, and the report then certifies every row as new and "safe for
+    # held-out use". That is a false all-clear on the exact question this tool is
+    # asked, so it is an error rather than a clean run. Two tracked panels are in
+    # this state today, carrying 25 rows each with no peptide and no label.
+    if len(panel) > 0 and panel[panel_pep_col].notna().sum() == 0:
+        print(
+            f"[error] Panel file has a '{panel_pep_col}' column but every value is "
+            f"empty across {len(panel)} row(s), so no comparison is possible. "
+            f"Refusing to report a contamination verdict.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     panel["_pep_norm"] = _normalize_col(panel[panel_pep_col])
     dataset["_pep_norm"] = _normalize_col(dataset[dataset_pep_col])
 
