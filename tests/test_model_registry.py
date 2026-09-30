@@ -57,11 +57,60 @@ def test_validate_signature_rejects_mismatched_feature_count(tmp_path):
     assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
 
 
-def test_validate_signature_ignores_non_joblib_artifacts(tmp_path):
-    # Non-.joblib artifacts are not introspected and are treated as valid.
+def test_validate_signature_rejects_a_torch_checkpoint_with_no_manifest(tmp_path):
+    """A .pt artifact is not introspected, but it IS checksum-verified.
+
+    This test previously asserted True here, on the reasoning that a non-joblib
+    artifact is simply "not introspected". That conflated two separate halves of
+    the contract. The FEATURE comparison is genuinely skipped for a torch
+    checkpoint, which exposes no n_features_in_. The CHECKSUM requirement is not
+    suffix-specific, and skipping it made a method named validate_signature
+    return True for bytes it had never verified.
+    """
     model_path = tmp_path / "model.pt"
     model_path.write_bytes(b"not really a torch file")
+    assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
+
+
+def test_validate_signature_rejects_an_artifact_that_does_not_exist(tmp_path):
+    """The sharpest form of the fail-open: nothing on disk at all.
+
+    `validate_signature(Path("does/not/exist.pt"), 31)` returned True, so a
+    caller asking whether an artifact was trustworthy got a yes for a file that
+    was not there.
+    """
+    missing = tmp_path / "absent.pt"
+    assert not missing.exists()
+    assert _registry(tmp_path).validate_signature(missing, expected_features=30) is False
+
+
+def test_validate_signature_accepts_a_torch_checkpoint_with_a_matching_checksum(tmp_path):
+    """Fail-closed must not mean fail-always: a verified .pt is still valid."""
+    model_path = tmp_path / "model.pt"
+    model_path.write_bytes(b"torch-checkpoint-bytes")
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
     assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is True
+
+
+def test_validate_signature_rejects_a_tampered_torch_checkpoint(tmp_path):
+    """The manifest entry must be checked against the bytes, not merely present."""
+    model_path = tmp_path / "model.pt"
+    model_path.write_bytes(b"torch-checkpoint-bytes")
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
+    model_path.write_bytes(b"tampered-checkpoint-bytes")
+    assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
+
+
+def test_validate_signature_rejects_an_extension_load_would_refuse(tmp_path):
+    """The two halves of the registry must agree about the same path.
+
+    load() raises ValueError("Unsupported model extension") for .bin, so
+    reporting a valid signature for it put the pair in direct contradiction.
+    """
+    model_path = tmp_path / "model.bin"
+    model_path.write_bytes(b"data")
+    update_checksum_manifest(default_manifest_path_for(model_path), [model_path])
+    assert _registry(tmp_path).validate_signature(model_path, expected_features=30) is False
 
 
 def test_load_rejects_unsupported_extension(tmp_path, monkeypatch):
