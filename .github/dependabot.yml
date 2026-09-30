@@ -108,10 +108,6 @@ updates:
       - dependency-name: "ipython"
       - dependency-name: "jupyter-client"
       - dependency-name: "wcwidth"
-      # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
-      # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
-      # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
-      # semgrep first, then remove this ignore, to let jsonschema move again.
       # And again on 2026-09-20, one name further on: PRs #515 and #517 both
       # reached pure_eval and edited the render closure, and both had to be
       # closed exactly as #312, #396 and #397 were. It is pinned in exactly one
@@ -120,6 +116,10 @@ updates:
       # emits "pure_eval" with an underscore, but Dependabot matches PEP 503
       # normalized names, so the hyphenated form is the one that binds.
       - dependency-name: "pure-eval"
+      # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
+      # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
+      # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
+      # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
 
   - package-ecosystem: "pip"
@@ -227,10 +227,6 @@ updates:
       - dependency-name: "ipython"
       - dependency-name: "jupyter-client"
       - dependency-name: "wcwidth"
-      # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
-      # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
-      # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
-      # semgrep first, then remove this ignore, to let jsonschema move again.
       # And again on 2026-09-20, one name further on: PRs #515 and #517 both
       # reached pure_eval and edited the render closure, and both had to be
       # closed exactly as #312, #396 and #397 were. It is pinned in exactly one
@@ -239,6 +235,10 @@ updates:
       # emits "pure_eval" with an underscore, but Dependabot matches PEP 503
       # normalized names, so the hyphenated form is the one that binds.
       - dependency-name: "pure-eval"
+      # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
+      # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
+      # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
+      # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
 
   # Keep the root Dockerfiles' base image current. Dockerfile, Dockerfile.api
