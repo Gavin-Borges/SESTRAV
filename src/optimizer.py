@@ -100,6 +100,7 @@ class CocktailResult:
     objective_value: float
     status: str
     panel_ceilings: dict[str, float]
+    lower_bound_source: str = "lower_bound"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result summary to a serializable dictionary."""
@@ -112,6 +113,7 @@ class CocktailResult:
             "population_coverage": self.population_coverage,
             "allele_coverage": self.allele_coverage,
             "mean_conformal_lower_bound": round(self.mean_conformal_lower_bound, 4),
+            "lower_bound_source": self.lower_bound_source,
             "mean_score": round(self.mean_score, 4),
             "objective_value": round(self.objective_value, 4),
             "panel_ceilings": self.panel_ceilings,
@@ -228,11 +230,33 @@ def optimize_vaccine_cocktail(
 
     # Determine score and lower bound columns
     df = candidates_df.copy().reset_index(drop=True)
+    # Two documented sentences above conflict. The candidates_df doc permits
+    # 'immunogenicity_score' to stand in for a missing 'lower_bound'; min_lower_bound is
+    # documented as tau_conf, a threshold on the CONFORMAL lower bound. Taking the
+    # substitution therefore reinterprets the threshold onto a raw-score scale without
+    # saying so. The 'default_0.5' branch is documented nowhere at all, and being a
+    # constant it makes the filter all-or-nothing: it either empties the frame or is a
+    # no-op, never a meaningful prune. Column-less frames are ordinary input here, since
+    # Stage 4 adds the conformal columns only when a calibrator resolves and
+    # functions/stage4_immunogenicity_scoring.py::_apply_conformal returns False SILENTLY
+    # when it does not. Refuse rather than threshold a scale the caller did not ask for.
+    lower_bound_source = "lower_bound"
     if "lower_bound" not in df.columns:
         if "immunogenicity_score" in df.columns:
+            lower_bound_source = "immunogenicity_score"
             df["lower_bound"] = df["immunogenicity_score"]
         else:
+            lower_bound_source = "default_0.5"
             df["lower_bound"] = 0.5
+        if min_lower_bound > 0.0:
+            raise ValueError(
+                "[CocktailOptimizer] min_lower_bound="
+                f"{min_lower_bound:.3f} is a threshold on the conformal lower bound, but "
+                "the candidate frame has no 'lower_bound' column, so the threshold would "
+                f"be applied to {lower_bound_source!r} instead. Supply a frame carrying "
+                "conformal intervals (run Stage 4 with a resolvable conformal calibrator), "
+                "or pass min_lower_bound=0.0 to optimize without a bound threshold."
+            )
 
     if "immunogenicity_score" not in df.columns:
         df["immunogenicity_score"] = df["lower_bound"]
@@ -373,4 +397,5 @@ def optimize_vaccine_cocktail(
         objective_value=obj_val,
         status=status,
         panel_ceilings=PANEL_CEILINGS,
+        lower_bound_source=lower_bound_source,
     )

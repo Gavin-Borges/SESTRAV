@@ -56,7 +56,7 @@ def run_pipeline(proteome_id: str, fasta_path: str, config: SestravConfig, regis
         freeze_mode=config.freeze_mode,
         output_dir=str(config.output_dir),
     )
-    plot_immunogenicity_scores(ranked_df, proteome_id)
+    plot_immunogenicity_scores(ranked_df, proteome_id, output_dir=str(config.output_dir))
 
     logger.info(f"Pipeline complete for {proteome_id}\n")
 

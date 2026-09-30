@@ -59,6 +59,24 @@ GitHub will then show your tags/commits as **Verified**.
    git push origin v2.0.2
    ```
 
+   **The tag push is the point of no return, and nothing on the server stops it.**
+   Ruleset `Protect Main Branch` targets `refs/heads/main` only; no ruleset covers
+   `refs/tags/*`, so a tag push needs no pull request, no review and no required
+   check. It starts the Release workflow and, for a `vX.Y.Z` tag, the container
+   workflow, and if the `PYPI_PUBLISH` repository variable is `true` it queues an
+   upload PyPI will never let you replace for that version number.
+
+   `scripts/hooks/pre-push` Check 1b is the local mitigation. It re-runs the Release
+   workflow's own version assertions before the push instead of after it, on the files
+   in the commit the tag points at, so a `pyproject.toml` or `CITATION.cff` mismatch
+   costs a corrected commit rather than a public tag that fails its own release. It is
+   a copy of those checks, not the workflow: it can block a few forms the workflow
+   accepts, and it takes the first `version = "..."` line of `pyproject.toml` instead
+   of parsing TOML. Keep the tag message ASCII: the
+   `commit-msg` hook gates commit messages but not tag messages, and the `v2.0.3` tag
+   message carries an em-dash, which `CONTRIBUTING.md` bans from commit messages and
+   staged files.
+
 3. The **Release workflow** runs automatically and:
    - builds `dist/*.tar.gz` + `dist/*.whl`,
    - generates `SHA256SUMS.txt`,
@@ -150,8 +168,9 @@ Trusted Publishers** - no API token or GitHub secret is required.
 
 ### How a release publishes to PyPI
 
-After the `release` job completes (build -> attest -> GitHub Release), the `publish`
-job is triggered, pauses for reviewer approval, then runs
+After the `build` job (build and pre-publish checks) and the `release` job (attest ->
+GitHub Release) complete, the `publish` job is triggered, pauses for reviewer
+approval, then runs
 `pypa/gh-action-pypi-publish` which exchanges a short-lived GitHub OIDC token for
 a PyPI upload credential automatically. No static credentials are involved.
 

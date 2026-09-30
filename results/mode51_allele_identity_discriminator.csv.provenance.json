@@ -1,0 +1,31 @@
+{
+  "generated_utc": "2026-09-28T01:35:19+00:00",
+  "script": "scripts/compute_mode51_allele_identity_discriminator.py",
+  "artifact": "results/mode51_allele_identity_discriminator.csv",
+  "sha256": "94c75450462ada17b9164d676fc2ca44f88b40fbcf0cfef270b4e5283ba63939",
+  "library_versions": {
+    "scikit-learn": "1.8.0",
+    "joblib": "1.6.0",
+    "numpy": "2.4.6",
+    "xgboost": "3.2.0",
+    "torch": "2.14.0+cpu"
+  },
+  "training_data": "data/immunogenicity_dataset_v5.csv",
+  "training_data_sha256": "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4",
+  "binding_matrix": "models/peptide_binding_matrix_v5.csv",
+  "binding_matrix_sha256": "af40777743a898fb9a138a39209ddb0c264caad9d64a6f9e49b646bd59fa0bf9",
+  "git_sha": "26a36521a68b020c363a8890ba1a05f36bff69c8",
+  "python": "3.11.16",
+  "platform": "Linux x86_64",
+  "permutation_seeds": [
+    7,
+    42,
+    99,
+    123,
+    1337,
+    2026
+  ],
+  "model_seed": 42,
+  "splitter": "PeptideGroupedKFold(n_splits=5, shuffle=True, random_state=42)",
+  "target_rate_guard": "held-out encodings use only outer-fold training labels; training encodings are leave-one-out"
+}

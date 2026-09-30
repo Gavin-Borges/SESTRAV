@@ -67,7 +67,9 @@ Defined in `src/gnn/models.py`; trained via `src/train_gnn.py`.
   `models/gnn_oof_predictions.csv` (and a `_<pooling>`-tagged sibling - note the one
   tagged sibling that is tracked today is a byte-identical duplicate, not a second
   measurement; see the `_mean` note below the promotion gates):
-  `peptide,hla_allele,label,gnn_oof_score,fold,splitter`. Previously
+  `peptide,hla_allele,label,gnn_oof_score,fold,splitter`, followed by
+  `virus,strain,protein,negative_origin` when the corpus supplies them (the v5
+  corpus supplies all four). Previously
   `peptide,label,gnn_oof_score` - any three-column frame is a pre-repair artifact.
   `hla_allele` appears when the corpus supplies it, `(peptide, hla_allele)` being the
   v5 dedup key that joins this frame to the RF OOF frame one-to-one; `fold` and
@@ -153,7 +155,7 @@ separate decision.
 **A v5 run under `PeptideGroupedKFold` has since been performed, so promotion is no
 longer waiting on one (updated 2026-08-15).** It ran 2026-08-13 at feature mode 31 and
 returned Gate 1 FAIL at 0.6458 against >= 0.65, Gate 2 FAIL at 0.0234 against <= 0.02,
-and Gates 3, 4 and 5 PASS. Promotion stays blocked on that measured null rather than on
+and Gates 3, 4 and 5 PASS. These figures are the best of eight runs, not one (`docs/gnn_gate_retry_preregistration.md` section 1.1): across the series Gate 1 spans 0.6298 to 0.6458 and passes 0 of 8, so the null is better supported than a single run implies, while the 0.0042 deficit is the series smallest against a mean of 0.0122 and the +0.0402 delta is the series maximum against a worst seed of +0.0243. Promotion stays blocked on that measured null rather than on
 the absence of a scoreable frame. Its out-of-fold frame lives under gitignored
 `models/scratch/`, which is why the tracked artifact above is unchanged.
 

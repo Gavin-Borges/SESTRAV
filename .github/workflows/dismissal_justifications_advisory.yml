@@ -3,6 +3,7 @@ name: Dismissal Justifications Advisory
 on:
   schedule:
     - cron: '17 13 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,10 +26,55 @@ jobs:
           python-version: '3.11'
 
       - name: Report dismissal justification gaps
-        continue-on-error: true
+        # The tool's exit contract (its module docstring): 0 clean, 1 findings,
+        # 2 could not run. There is deliberately no `continue-on-error:` here:
+        # it concluded this step green on all three, so a census that was never
+        # taken read exactly like a clean one. Findings stay advisory (a warning
+        # annotation, exit 0); could not run, or any other code, fails the job.
+        # `shell: bash` pins `bash --noprofile --norc -eo pipefail {0}`, and the
+        # `|| status=$?` capture keeps errexit from ending the step before the
+        # report reaches the log and the step summary.
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          python tools/check_dismissal_justifications.py
-          --repo "${GITHUB_REPOSITORY}"
-          --branch main
+        run: |
+          report="$(mktemp)"
+          status=0
+          python tools/check_dismissal_justifications.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --branch main > "${report}" 2>&1 || status=$?
+          cat "${report}"
+          {
+            echo "## Dismissal justification audit"
+            echo ""
+            echo "Tool exit code: ${status} (0 clean, 1 findings, 2 could not run)"
+            echo ""
+            echo '```text'
+            cat "${report}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          case "${status}" in
+            0)
+              echo "Dismissal justification audit: clean."
+              ;;
+            1)
+              # Python also exits 1 on an uncaught exception, so exit 1 counts
+              # as findings only when the report carries the tool's own FAIL
+              # line. Without one, the census did not complete.
+              first_fail="$(grep -m1 '^FAIL - ' "${report}" || true)"
+              if [ -n "${first_fail}" ]; then
+                echo "::warning title=Dismissal justification audit::${first_fail} Advisory only; the full list is in the step summary."
+              else
+                echo "::error title=Dismissal justification audit::Exit 1 with no FAIL line in the report, so the tool failed rather than judged. Verdict UNKNOWN, not clean."
+                exit 1
+              fi
+              ;;
+            2)
+              echo "::error title=Dismissal justification audit::COULD NOT RUN (exit 2) - the census was never taken. Verdict UNKNOWN, not clean. This is NOT a pass."
+              exit 2
+              ;;
+            *)
+              echo "::error title=Dismissal justification audit::Unexpected exit ${status}. Verdict UNKNOWN, not clean."
+              exit "${status}"
+              ;;
+          esac

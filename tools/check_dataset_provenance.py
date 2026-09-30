@@ -132,7 +132,12 @@ def check(repo_root: pathlib.Path) -> list[str]:
 
         # --- 3. the sidecar agrees with config.yaml -----------------------------
         pinned = provenance.get("checksum")
-        if pinned and pinned != actual_digest:
+        if not isinstance(pinned, str) or not pinned.strip():
+            problems.append(
+                f"{CONFIG}: dataset_governance.provenance.checksum is absent, so "
+                "freeze_mode has no corpus digest to enforce"
+            )
+        elif pinned != actual_digest:
             problems.append(
                 f"{CONFIG}: dataset_governance.provenance.checksum is {pinned} but the "
                 f"corpus digest is {actual_digest} (freeze_mode would reject this corpus)"

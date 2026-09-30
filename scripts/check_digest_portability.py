@@ -13,7 +13,16 @@ import textwrap
 from collections import Counter
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
-PATTERNS = ("*provenance*.json", "*.provenance.json", "*model_artifact_checksums.json")
+PATTERNS = (
+    "*provenance*.json",
+    "*.provenance.json",
+    "*model_artifact_checksums.json",
+    # The Zenodo DOI manifest pins a sha256 and a byte count per deposited file.
+    # It was out of scope until 2026-09-29 and had already drifted: #540 changed
+    # data/immunogenicity_dataset_v5_schema.json and left the manifest behind.
+    # CHANGELOG.md records this same manifest carrying a stale digest once before.
+    "*zenodo_manifest*.json",
+)
 DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 CATEGORIES = ("PORTABLE", "WINDOWS_ONLY", "MISMATCH", "MISSING", "UNRESOLVED", "EXEMPT")
 
@@ -77,7 +86,11 @@ def _paired_path(node: dict, key: str) -> str | None:
     stem = key.removesuffix("_sha256").removesuffix("_checksum")
     names = [stem, f"{stem}_path", f"{stem}_file"]
     if key == "sha256":
-        names = ["artifact", "output_path", "output_file", "output"]
+        # "path" is appended LAST so every pre-existing pairing keeps priority. It is
+        # what the Zenodo manifest names its subject; without it that file yields
+        # UNRESOLVED, which is in STRICT_FAILING, so the gate would go red for a
+        # schema reason while never once comparing a digest.
+        names = ["artifact", "output_path", "output_file", "output", "path"]
     return next((node[name] for name in names if isinstance(node.get(name), str)), None)
 
 

@@ -5,11 +5,13 @@ each peptide, using the shared feature hub in src/features.py.
 Canonical 30-feature mode adds 10 per-allele binding columns from Stage 2.
 """
 
+from pathlib import Path
+
 from src.features import compute_features_for_dataset
 from src.naming import sanitize_name as _sanitize_name
 
 
-def extract_tcr_features(binding_df, proteome_id):
+def extract_tcr_features(binding_df, proteome_id, output_dir="results"):
     """
     Extract 22 per-position physicochemical features for all peptide rows.
 
@@ -19,6 +21,7 @@ def extract_tcr_features(binding_df, proteome_id):
     Args:
         binding_df: DataFrame from Stage 2 with 'peptide' and 'presentation_score'
         proteome_id: label used in output filename
+        output_dir: directory for the extracted feature CSV
 
     Returns:
         DataFrame with original columns + 22 new feature columns
@@ -32,7 +35,9 @@ def extract_tcr_features(binding_df, proteome_id):
         binding_df, peptide_col="peptide", binding_col=binding_col
     )
 
-    output_path = f"results/{proteome_id}_features.csv"
+    resolved_output_dir = Path(output_dir)
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = resolved_output_dir / f"{proteome_id}_features.csv"
     features_df.to_csv(output_path, index=False)
     n_feat = len(
         [

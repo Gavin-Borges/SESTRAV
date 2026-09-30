@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from typing import Dict, Iterable, List, Set
+from typing import Any, Dict, Iterable, List, Set
 
 import pandas as pd
 
@@ -91,7 +91,7 @@ def run_gold_standard_sensitivity(
 ) -> pd.DataFrame:
     """Run the 3-way sensitivity analysis and write CSV + markdown report."""
     _guard_gold_standard_sensitivity(output_csv, output_md, allow_overwrite)
-    rows: List[Dict] = []
+    rows: List[Dict[str, Any]] = []
     gs_sets = _sets()
 
     for virus, prefix in VIRUS_FILE_MAP.items():

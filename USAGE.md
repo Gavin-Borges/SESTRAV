@@ -28,6 +28,20 @@ After installing, download the MHCflurry presentation models (required for bindi
 mhcflurry-downloads fetch models_class1_presentation
 ```
 
+> **Python 3.13:** with MHCflurry 2.2.1, the version `requirements.txt` pins,
+> this fetch command fails before downloading because 2.2.1 imports the
+> standard-library `pipes` module, which Python 3.13 removed. Run the fetch
+> under Python 3.11 or 3.12; an environment using the same MHCflurry data
+> release can then reuse the downloaded model directory. MHCflurry 2.3.0,
+> released 2026-09-28, no longer imports `pipes`; the unpinned `pip install .`
+> above can resolve it.
+>
+> The fetch is not required for the mode-31 `sestrav validate` command in step 3
+> below, or for `python -m src.train_classifier --feature-mode 31`. Given the
+> tracked `data/immunogenicity_dataset_v5.csv` and the tracked pre-built
+> `models/peptide_binding_matrix_v5.csv`, neither invokes MHCflurry. Model data is
+> required for live binding prediction or for rebuilding the binding matrix.
+
 ---
 
 ## Five-Command Quickstart

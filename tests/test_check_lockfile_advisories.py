@@ -13,6 +13,7 @@ Linux-compiled lockfile; nvidia-cufile has no Windows wheel).
 from __future__ import annotations
 
 import json
+import pathlib
 import textwrap
 
 import pytest
@@ -25,6 +26,7 @@ from tools.check_lockfile_advisories import (
     filter_in_scope,
     load_acceptances,
     main,
+    unregistered_acceptances,
     parse_lockfile_packages,
     parse_report,
 )
@@ -271,6 +273,22 @@ def test_filter_in_scope_splits_by_lockfile_membership():
 # --- main (end-to-end via CLI) --------------------------------------------------
 
 
+def _write_register(tmp_path, *entries: str):
+    """A stand-in Risk-Acceptance Register.
+
+    Tests that accept an advisory must supply one. Before the register check
+    existed these tests passed no --register and so silently consulted the REAL
+    SECURITY.md, which never contained the fixture's placeholder value: the string
+    "SECURITY.md" appears 0 times inside SECURITY.md. They were hermetic only by
+    accident of nothing reading it.
+    """
+    path = tmp_path / "REGISTER.md"
+    path.write_text(
+        "\n".join(("# Risk-Acceptance Register", *entries)) + "\n", encoding="utf-8"
+    )
+    return path
+
+
 def _write_lockfile(tmp_path, *package_names: str):
     lines = "".join(f"{name}==1.0.0 \\\n    --hash=sha256:deadbeef\n" for name in package_names)
     lock = tmp_path / "requirements.lock"
@@ -321,7 +339,11 @@ def test_main_accepted_finding_returns_zero(tmp_path, capsys):
         """,
     )
     lockfile = _write_lockfile(tmp_path, "torch")
-    exit_code = main([str(report), "--accept", str(accept), "--lockfile", str(lockfile)])
+    register = _write_register(tmp_path, "SECURITY.md")
+    exit_code = main(
+        [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
+         "--register", str(register)]
+    )
     assert exit_code == 0
     assert "accepted: 1" in capsys.readouterr().out
 
@@ -382,7 +404,11 @@ def test_main_stale_acceptance_still_returns_zero_but_notices(tmp_path, capsys):
         """,
     )
     lockfile = _write_lockfile(tmp_path, "numpy", "torch")
-    exit_code = main([str(report), "--accept", str(accept), "--lockfile", str(lockfile)])
+    register = _write_register(tmp_path, "SECURITY.md")
+    exit_code = main(
+        [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
+         "--register", str(register)]
+    )
     out = capsys.readouterr().out
     assert exit_code == 0
     assert "::notice::accepted advisory PYSEC-2025-194" in out
@@ -402,3 +428,123 @@ def test_main_missing_accept_file_treated_as_empty_acceptances(tmp_path):
         [str(report), "--accept", str(tmp_path / "missing.toml"), "--lockfile", str(lockfile)]
     )
     assert exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# The Risk-Acceptance Register requirement
+# ---------------------------------------------------------------------------
+#
+# environments/accepted_advisories.toml states that every entry MUST have a
+# matching Risk-Acceptance Register entry in SECURITY.md carrying a re-review
+# trigger. Nothing checked it: register_entry was parsed into Acceptance and
+# never read again, and the file's other SECURITY.md mentions are static strings
+# in error messages. An unenforced MUST on the sole suppression mechanism for a
+# security gate is the worst possible place for one.
+
+
+def test_unregistered_acceptances_flags_an_entry_absent_from_the_register():
+    acceptances = {
+        ("PYSEC-1", "torch"): Acceptance("PYSEC-1", "torch", "r", "listed entry"),
+        ("PYSEC-2", "numpy"): Acceptance("PYSEC-2", "numpy", "r", "absent entry"),
+    }
+    missing = unregistered_acceptances(acceptances, "register holds: listed entry")
+    assert [a.advisory_id for a in missing] == ["PYSEC-2"]
+
+
+def test_unregistered_acceptances_treats_an_empty_register_entry_as_missing():
+    acceptances = {("PYSEC-1", "torch"): Acceptance("PYSEC-1", "torch", "r", "")}
+    assert unregistered_acceptances(acceptances, "anything at all") != []
+
+
+def test_main_acceptance_without_a_register_entry_fails(tmp_path, capsys):
+    """The positive control. Without it the check could not be shown to fire."""
+    report = tmp_path / "report.json"
+    report.write_text(
+        _report([{"name": "torch", "version": "2.12.0",
+                  "vulns": [{"id": "PYSEC-2025-194", "fix_versions": ["2.13.0"]}]}]),
+        encoding="utf-8",
+    )
+    accept = _write_toml(
+        tmp_path / "accepted.toml",
+        """        [[accepted]]
+        id = "PYSEC-2025-194"
+        package = "torch"
+        reason = "temporary"
+        register_entry = "PYSEC-2025-194 torch"
+        """,
+    )
+    lockfile = _write_lockfile(tmp_path, "torch")
+    register = _write_register(tmp_path, "some unrelated register entry")
+
+    exit_code = main(
+        [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
+         "--register", str(register)]
+    )
+
+    assert exit_code == 1
+    out = capsys.readouterr().out
+    assert "does not appear in" in out
+    assert "PYSEC-2025-194" in out
+
+
+def test_main_unreadable_register_with_acceptances_fails_closed(tmp_path, capsys):
+    """Cannot verify is not the same as verified."""
+    report = tmp_path / "report.json"
+    report.write_text(
+        _report([{"name": "torch", "version": "2.12.0",
+                  "vulns": [{"id": "PYSEC-2025-194", "fix_versions": ["2.13.0"]}]}]),
+        encoding="utf-8",
+    )
+    accept = _write_toml(
+        tmp_path / "accepted.toml",
+        """        [[accepted]]
+        id = "PYSEC-2025-194"
+        package = "torch"
+        reason = "temporary"
+        register_entry = "PYSEC-2025-194 torch"
+        """,
+    )
+    lockfile = _write_lockfile(tmp_path, "torch")
+
+    exit_code = main(
+        [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
+         "--register", str(tmp_path / "no_such_register.md")]
+    )
+
+    assert exit_code == 2
+    assert "cannot read" in capsys.readouterr().out
+
+
+def test_main_with_no_acceptances_does_not_require_a_register(tmp_path, capsys):
+    """An empty acceptance list must not make the gate depend on SECURITY.md."""
+    report = tmp_path / "report.json"
+    report.write_text(_report([{"name": "torch", "version": "2.12.0", "vulns": []}]),
+                      encoding="utf-8")
+    accept = _write_toml(tmp_path / "accepted.toml", "")
+    lockfile = _write_lockfile(tmp_path, "torch")
+
+    exit_code = main(
+        [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
+         "--register", str(tmp_path / "no_such_register.md")]
+    )
+
+    assert exit_code == 0
+
+
+def test_the_shipped_acceptance_list_is_fully_registered():
+    """Live tree, and VACUOUS TODAY: the shipped list parses to 0 entries.
+
+    Stated rather than hidden. A textual grep for "[[accepted]]" returns 1, from a
+    commented example, so the count must be parsed and never grepped. This test
+    becomes load-bearing the moment a real acceptance is added, which is exactly
+    when the requirement matters.
+    """
+    import tomllib
+
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    accept_path = repo_root / "environments" / "accepted_advisories.toml"
+    entries = tomllib.loads(accept_path.read_text(encoding="utf-8")).get("accepted", [])
+
+    register_text = (repo_root / "SECURITY.md").read_text(encoding="utf-8")
+    missing = [e for e in entries if str(e["register_entry"]).strip() not in register_text]
+    assert missing == [], f"acceptances with no SECURITY.md register entry: {missing}"

@@ -4,7 +4,8 @@ SESTRAV 2.0 - FastAPI Microservice
 Endpoints
 ---------
 POST /score         Score a single peptide-allele pair.
-GET  /health        Liveness probe.
+GET  /health        Liveness probe; 200 even when no model is loaded (degraded).
+GET  /ready         Readiness probe; same body as /health, 503 until the model loads.
 GET  /model-card    Version metadata and training parameters.
 GET  /provenance    Dataset checksums and Zenodo DOI.
 
@@ -31,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("sestrav-api")
@@ -426,6 +427,24 @@ def health_check():
         "model_loaded": False,
         "reason": _manager.load_error or "Model has not been loaded.",
     }
+
+
+@app.get(
+    "/ready",
+    tags=["Operations"],
+    responses={503: {"description": "No model is loaded, so /score would answer 503."}},
+)
+def readiness_check(response: Response) -> dict[str, Any]:
+    """Readiness probe: /health's body, but HTTP 503 until the model is loaded.
+
+    /health is a liveness probe and answers 200 in degraded mode, so a gate on
+    it (docker-compose.yml's api healthcheck, which the demo service waits on)
+    passed while /score answered 503. Gate on this route instead.
+    """
+    body = health_check()
+    if not body["model_loaded"]:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return body
 
 
 @app.post(

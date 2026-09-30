@@ -22,11 +22,15 @@ asserted is that the demo reads the same panel training does.
 
 from __future__ import annotations
 
+import ast
 import sys
 import types
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
+
+DEMO_SOURCE = Path(__file__).resolve().parents[1] / "app" / "demo.py"
 
 
 def _install_streamlit_stub() -> None:
@@ -181,3 +185,87 @@ def test_scorecard_panel_image_is_three_channel(demo) -> None:
     panel = captured[0]
     assert panel.ndim == 3, f"panel image is not 2D RGB: shape {panel.shape}"
     assert panel.shape[2] == 3, f"panel image has {panel.shape[2]} channels, expected 3"
+
+
+class _MissingModelDataPredictor:
+    """mhcflurry.Class1PresentationPredictor when the package imports but its
+    downloadable model data is absent: MHCflurry 2.2.1's downloads.get_path
+    raises RuntimeError("Missing MHCflurry downloadable file: ...") from load()."""
+
+    load_calls = 0
+
+    @classmethod
+    def load(cls):
+        cls.load_calls += 1
+        raise RuntimeError("Missing MHCflurry downloadable file: models_class1_presentation")
+
+
+class _WorkingPredictor:
+    @classmethod
+    def load(cls):
+        return cls()
+
+    def predict(self, peptides, alleles, include_affinity_percentile):
+        import pandas as pd
+
+        return pd.DataFrame({"presentation_score": [0.42]})
+
+
+def test_binding_helper_cannot_tell_a_missing_package_from_missing_model_data(
+    demo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the demo's warning must not name a cause: _get_binding_score catches
+    every Exception, so MHCflurry being unimportable and MHCflurry importing
+    without its model data both come back as the same None."""
+    monkeypatch.setitem(sys.modules, "mhcflurry", None)  # the import raises ImportError
+    assert demo._get_binding_score(PANEL_PEPTIDE, "HLA-A*02:01") is None
+
+    installed = types.ModuleType("mhcflurry")
+    installed.Class1PresentationPredictor = _MissingModelDataPredictor  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "mhcflurry", installed)
+    calls_before = _MissingModelDataPredictor.load_calls
+    assert demo._get_binding_score(PANEL_PEPTIDE, "HLA-A*02:01") is None
+    assert _MissingModelDataPredictor.load_calls == calls_before + 1, "fake predictor not reached"
+
+    # Anti-vacuity: the helper does return a score when the predictor works.
+    installed.Class1PresentationPredictor = _WorkingPredictor  # type: ignore[attr-defined]
+    assert demo._get_binding_score(PANEL_PEPTIDE, "HLA-A*02:01") == pytest.approx(0.42)
+
+
+_ABSENCE_CLAIMS = (
+    "mhcflurry is not available",
+    "mhcflurry is unavailable",
+    "mhcflurry unavailable",
+    "mhcflurry is not installed",
+)
+
+
+def test_demo_text_does_not_assert_why_the_binding_score_is_missing() -> None:
+    """The demo said "MHCflurry is not available" whenever _get_binding_score
+    returned None, including when MHCflurry was installed and only its model
+    data was missing. Read at source because main() is a Streamlit flow."""
+    tree = ast.parse(DEMO_SOURCE.read_text(encoding="utf-8"))
+    strings = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+    assert any("mhcflurry" in s.lower() for s in strings), "no MHCflurry text found - vacuous"
+    offenders = [s for s in strings if any(claim in s.lower() for claim in _ABSENCE_CLAIMS)]
+    assert not offenders, f"demo text asserts MHCflurry is absent: {offenders!r}"
+
+    warnings = [
+        call
+        for node in ast.walk(tree)
+        if isinstance(node, ast.If) and ast.unparse(node.test) == "bind_score is None"
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call) and ast.unparse(call.func) == "st.warning"
+    ]
+    assert len(warnings) == 1, (
+        f"expected one st.warning under `if bind_score is None`, got {len(warnings)}"
+    )
+    arg = warnings[0].args[0]
+    assert isinstance(arg, ast.Constant) and isinstance(arg.value, str), ast.unparse(arg)
+    text = arg.value.lower()
+    # Both causes the helper cannot tell apart must be offered as possibilities.
+    assert "installed" in text and "model data" in text, arg.value

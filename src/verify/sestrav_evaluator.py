@@ -11,6 +11,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import json
+import math
 import logging
 import pickle
 from typing import Dict, Any, Optional
@@ -37,6 +38,22 @@ except ImportError:
     HAS_PYG = False
 
 
+def _json_safe(obj: object) -> object:
+    """Replace non-finite floats with None so the report stays valid JSON.
+
+    An undefined metric is carried as NaN in memory, which is the honest value
+    to compute with, but `json.dump` writes a bare `NaN` token that is not legal
+    JSON and that a strict parser rejects. `null` says the same thing portably.
+    """
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    return obj
+
+
 def calculate_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     """
     Calculate Area Under the Receiver Operating Characteristic curve (ROC-AUC)
@@ -47,7 +64,11 @@ def calculate_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     n_pos = np.sum(y_true == 1)
     n_neg = np.sum(y_true == 0)
     if n_pos == 0 or n_neg == 0:
-        return 0.0
+        # NaN, not 0.0. ROC-AUC is undefined without both classes, and 0.0 is a
+        # real value here meaning a perfectly inverted ranker, so returning it
+        # makes "could not be computed" indistinguishable from the worst
+        # possible result - and averages that fiction into the global mean.
+        return float("nan")
 
     # Sort samples by score ascending
     sorted_idx = np.argsort(y_scores)
@@ -74,13 +95,22 @@ def calculate_roc_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
 def calculate_average_precision(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     """
     Calculate Area Under the Precision-Recall Curve (PRC-AUC / Average Precision)
-    via trapezoidal integration over unique score thresholds.
+    as a step-wise sum over unique score thresholds, sum((r_n - r_n-1) * p_n).
+
+    NOT trapezoidal, which this docstring claimed until 2026-09-15. The
+    distinction is not pedantic: trapezoidal interpolation between PR points is
+    optimistically biased, which is why sklearn's average_precision_score uses
+    the step-wise form and documents that it does. This implementation matches
+    that function to within 1e-12, so a reader taking the old wording at face
+    value might have "fixed" a correct function into a biased one.
     """
     y_true = np.asarray(y_true)
     y_scores = np.asarray(y_scores)
     n_pos = np.sum(y_true == 1)
     if n_pos == 0:
-        return 0.0
+        # NaN for the same reason as calculate_roc_auc: average precision is
+        # undefined with no positives, and 0.0 is a reportable value.
+        return float("nan")
 
     # Sort by scores descending
     desc_idx = np.argsort(y_scores)[::-1]
@@ -340,6 +370,40 @@ def _load_torch_checkpoint(model_path, device):
         ) from e
 
 
+def global_summary(viral_families: Dict[str, Any]) -> Dict[str, Any]:
+    """Aggregate per-cohort metrics, EXCLUDING cohorts whose metric is undefined.
+
+    A single-class cohort has no ROC-AUC and a cohort with no positives has no
+    average precision. Both arrive here as NaN. Folding either in as 0.0 would
+    be wrong in a specific and damaging way: 0.0 is not a neutral sentinel, it
+    is the value meaning a perfectly inverted ranker, so one undefined cohort
+    drags the mean down as hard as a maximally wrong model would.
+
+    The scored and undefined counts are returned alongside the means so a
+    reader can see that the mean is over a subset rather than over every
+    cohort in the report.
+
+    Lifted out of run_evaluation_pipeline so the aggregation can be tested
+    without constructing a model, a dataset and a results directory. A test
+    that reimplements this filter inline rather than calling it passes against
+    the unfixed code and proves nothing.
+    """
+    all_aucs = [v["roc_auc"] for v in viral_families.values() if "roc_auc" in v]
+    all_prcs = [v["prc_auc"] for v in viral_families.values() if "prc_auc" in v]
+    scored_aucs = [x for x in all_aucs if np.isfinite(x)]
+    scored_prcs = [x for x in all_prcs if np.isfinite(x)]
+
+    return {
+        "mean_roc_auc": float(np.mean(scored_aucs)) if scored_aucs else float("nan"),
+        "mean_prc_auc": float(np.mean(scored_prcs)) if scored_prcs else float("nan"),
+        "total_cohorts": len(viral_families),
+        "cohorts_scored_roc_auc": len(scored_aucs),
+        "cohorts_undefined_roc_auc": len(all_aucs) - len(scored_aucs),
+        "cohorts_scored_prc_auc": len(scored_prcs),
+        "cohorts_undefined_prc_auc": len(all_prcs) - len(scored_prcs),
+    }
+
+
 def run_evaluation_pipeline(
     targets_json_path: Path,
     model_checkpoint_path: Optional[Path] = None,
@@ -415,19 +479,16 @@ def run_evaluation_pipeline(
     )
     report["metadata"]["use_mock_fallback"] = use_mock or (model is None) or any_virus_fallback
 
-    # Compile global summary statistics
-    all_aucs = [v["roc_auc"] for v in report["viral_families"].values() if "roc_auc" in v]
-    all_prcs = [v["prc_auc"] for v in report["viral_families"].values() if "prc_auc" in v]
-
-    report["global_summary"] = {
-        "mean_roc_auc": float(np.mean(all_aucs)) if all_aucs else 0.0,
-        "mean_prc_auc": float(np.mean(all_prcs)) if all_prcs else 0.0,
-        "total_cohorts": len(report["viral_families"]),
-    }
+    # Compile global summary statistics. Cohorts whose metric is undefined (a
+    # single-class cohort has no ROC-AUC) are EXCLUDED from the mean rather than
+    # folded in as zeros, and the counts are reported so a reader can see that
+    # the mean is over a subset. See global_summary for why 0.0 is not a safe
+    # sentinel here.
+    report["global_summary"] = global_summary(report["viral_families"])
 
     report_json_path = results_dir / "validation_report.json"
     with open(report_json_path, "w") as f:
-        json.dump(report, f, indent=2)
+        json.dump(_json_safe(report), f, indent=2)
 
     logger.info(f"Validation report saved successfully to: {report_json_path}")
 
@@ -455,8 +516,20 @@ def run_evaluation_pipeline(
             )
         print("-" * 60)
 
-    print(f"GLOBAL MEAN ROC-AUC: {report['global_summary']['mean_roc_auc']:.4f}")
-    print(f"GLOBAL MEAN PRC-AUC: {report['global_summary']['mean_prc_auc']:.4f}")
+    gs = report["global_summary"]
+    # Print the scored/undefined split beside each mean. Without it the reader
+    # sees a bare average and cannot tell it is taken over a subset, which is
+    # the whole point of excluding undefined cohorts rather than zeroing them.
+    print(
+        f"GLOBAL MEAN ROC-AUC: {gs['mean_roc_auc']:.4f}"
+        f"  (over {gs['cohorts_scored_roc_auc']} scored cohort(s);"
+        f" {gs['cohorts_undefined_roc_auc']} undefined and excluded)"
+    )
+    print(
+        f"GLOBAL MEAN PRC-AUC: {gs['mean_prc_auc']:.4f}"
+        f"  (over {gs['cohorts_scored_prc_auc']} scored cohort(s);"
+        f" {gs['cohorts_undefined_prc_auc']} undefined and excluded)"
+    )
     print("=" * 60 + "\n")
 
     return report

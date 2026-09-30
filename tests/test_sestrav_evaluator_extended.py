@@ -34,17 +34,30 @@ from src.verify.sestrav_evaluator import (
 
 
 def test_calculate_average_precision_all_negative():
+    """Undefined, not 0.0: with no positives there is no precision to average.
+
+    This test asserted 0.0 until 2026-09-15. That pinned a defect rather than a
+    contract - 0.0 is a value the metric can legitimately report, so it cannot
+    also mean "not computable".
+    """
     y_true = np.array([0, 0, 0, 0])
     y_scores = np.array([0.9, 0.8, 0.2, 0.1])
     ap = calculate_average_precision(y_true, y_scores)
-    assert ap == 0.0
+    assert np.isnan(ap)
 
 
 def test_calculate_roc_auc_all_same_class():
+    """Undefined, not 0.0. A single-class cohort has no ROC-AUC at all.
+
+    This test asserted 0.0 until 2026-09-15, which is the value meaning a
+    perfectly inverted ranker. Returning it here made an uncomputable cohort
+    indistinguishable from the worst possible result, and averaged that into
+    the published global mean.
+    """
     y_true = np.array([1, 1, 1])
     y_scores = np.array([0.9, 0.8, 0.7])
     auc = calculate_roc_auc(y_true, y_scores)
-    assert auc == 0.0
+    assert np.isnan(auc)
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +177,10 @@ def test_run_evaluation_pipeline_empty_viruses(tmp_path):
     targets_json.write_text(json.dumps(targets))
     report = run_evaluation_pipeline(targets_json, results_dir=tmp_path / "results", use_mock=True)
     assert report["global_summary"]["total_cohorts"] == 0
-    assert report["global_summary"]["mean_roc_auc"] == 0.0
+    # The mean of no cohorts is undefined, not zero. Asserted as 0.0 until
+    # 2026-09-15, for the same reason as the two metric tests above.
+    assert np.isnan(report["global_summary"]["mean_roc_auc"])
+    assert report["global_summary"]["cohorts_scored_roc_auc"] == 0
 
 
 # ---------------------------------------------------------------------------

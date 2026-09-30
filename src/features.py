@@ -308,6 +308,10 @@ CONTACT_WEIGHT_COLUMNS: list[str] = [
     "tcr_contact_weight_p8",
 ]
 
+# Feature-mode numbers are identifiers, not column counts. Each of
+# FEATURE_COLUMNS_10/30/31/33/35/50 happens to hold n columns, n being its
+# suffix; this one holds 55: the 50 of mode 50 plus the five contact weights
+# above.
 FEATURE_COLUMNS_51 = FEATURE_COLUMNS_50 + CONTACT_WEIGHT_COLUMNS
 
 # ---------------------------------------------------------------------------

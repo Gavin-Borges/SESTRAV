@@ -4,6 +4,8 @@ Parses viral proteome FASTA files and generates all overlapping k-mer peptides
 (8-11 amino acids) via a sliding window. Non-standard amino acids are rejected.
 """
 
+from pathlib import Path
+
 from Bio import SeqIO
 import pandas as pd
 
@@ -13,7 +15,7 @@ STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
 DEFAULT_LENGTHS = [8, 9, 10, 11]
 
 
-def generate_peptides(fasta_path, proteome_id, peptide_lengths=None):
+def generate_peptides(fasta_path, proteome_id, peptide_lengths=None, output_dir="results"):
     """
     Generate all overlapping peptides from a multi-protein FASTA file.
 
@@ -21,6 +23,7 @@ def generate_peptides(fasta_path, proteome_id, peptide_lengths=None):
         fasta_path: path to a FASTA file containing one or more protein sequences
         proteome_id: label used in output filename (e.g., 'HPV16_18_panel8')
         peptide_lengths: list of k-mer sizes (default: [8, 9, 10, 11])
+        output_dir: directory for the generated peptide CSV
 
     Returns:
         DataFrame with columns: protein_id, peptide, length, start, end
@@ -50,7 +53,9 @@ def generate_peptides(fasta_path, proteome_id, peptide_lengths=None):
                     )
 
     df = pd.DataFrame(peptides)
-    output_path = f"results/{proteome_id}_peptides.csv"
+    resolved_output_dir = Path(output_dir)
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = resolved_output_dir / f"{proteome_id}_peptides.csv"
     df.to_csv(output_path, index=False)
     print(f"[Stage 1] Generated {len(df)} peptides for {proteome_id}")
     return df

@@ -657,6 +657,59 @@ def test_artifact_library_dependencies_scopes_each_shipped_format():
     assert "torch" not in artifact_library_dependencies("m.joblib")
 
 
+def test_joblib_overstrictness_is_asymmetric():
+    """The spare comparisons fall UNEVENLY on the two `.joblib` groups.
+
+    Keying on the extension rather than on what the pickle actually references
+    is deliberate, and the reason is in the comment on
+    `ARTIFACT_FORMAT_LIBRARIES`: an extension is total, where a pickle reader
+    that fails silently would return an empty set and make verification
+    vacuous. That choice has a price, and the price is not symmetric.
+
+    Per the opcode walk recorded in that comment, an estimator dump resolves
+    scikit-learn, joblib and numpy, so exactly one of the four compared names
+    is spare; a booster dump resolves xgboost alone, so three are. The comment
+    asserted the opposite attribution until 2026-09-23, which is why the
+    arithmetic is pinned here rather than left in prose.
+    """
+    compared = artifact_library_dependencies("models/rf_mode31.joblib")
+    estimator_resolves = ("scikit-learn", "joblib", "numpy")
+    booster_resolves = ("xgboost",)
+
+    assert len(compared) == 4
+    assert set(estimator_resolves) < set(compared)
+    assert set(booster_resolves) < set(compared)
+    # Disjoint groups are what make the asymmetry possible in the first place.
+    assert not set(estimator_resolves) & set(booster_resolves)
+
+    assert len(compared) - len(estimator_resolves) == 1
+    assert len(compared) - len(booster_resolves) == 3
+
+
+def test_unrelated_xgboost_drift_blocks_an_estimator_load(tmp_path):
+    """An xgboost-only change blocks an RF load today.
+
+    CHARACTERISATION, not endorsement. Every production caller passes
+    `required_checksum=True`, and the trainer now writes `library_versions`
+    into its sidecars, so this path is live rather than hypothetical: an
+    xgboost bump that cannot touch how an sklearn RandomForest deserializes
+    still raises.
+
+    Narrowing the mapping so it stops raising is a policy change, not a
+    refactor, and this test is written to FAIL if anyone makes it silently.
+    """
+    artifact = _write(tmp_path / "rf_mode31.joblib")
+    recorded = {
+        name: importlib_metadata.version(name)
+        for name in ("scikit-learn", "joblib", "numpy")
+    }
+    recorded["xgboost"] = "0.0.0-not-the-version-in-this-environment"
+    _sidecar_with_versions(artifact, recorded)
+
+    with pytest.raises(ArtifactIntegrityError, match="xgboost"):
+        verify_artifact_library_versions(artifact, required=True)
+
+
 def test_every_scoped_package_is_one_the_writer_records():
     """The mapping may only narrow `ARTIFACT_LIBRARY_PACKAGES`, never extend it.
 

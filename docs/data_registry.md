@@ -228,3 +228,10 @@ python scripts/generate_hard_decoys.py \
 # 4. Merge and validate:
 python scripts/build_dataset_v4.py
 ```
+
+On Python 3.13, MHCflurry 2.2.1's fetch command fails before downloading because
+it imports the removed standard-library `pipes` module. Fetch the presentation
+models under Python 3.11 or 3.12, then reuse that data directory from an
+environment with the same MHCflurry data release. Only the `mhcflurry-downloads`
+command imports `pipes`; importing and loading `Class1PresentationPredictor`
+does not.

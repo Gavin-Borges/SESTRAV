@@ -169,7 +169,14 @@ def extract_mock_data(virus_name: str, tax_id: int) -> List[Dict[str, Any]]:
 def is_valid_peptide(seq: str, min_len: int = 8, max_len: int = 11) -> bool:
     if not seq or pd.isna(seq):
         return False
-    seq = str(seq).strip().upper()
+    seq = str(seq).strip()
+    # Reject non-ASCII BEFORE upper-casing. str.upper() maps some non-ASCII letters
+    # onto amino-acid codes (U+0131 -> "I") and can change the length (U+00DF ->
+    # "SS"), so checking the upper-cased string accepted residues the input never
+    # contained. Found by fuzz/fuzz_is_valid_peptide.py.
+    if not seq.isascii():
+        return False
+    seq = seq.upper()
     if not (min_len <= len(seq) <= max_len):
         return False
     return all(aa in STANDARD_AA for aa in seq)

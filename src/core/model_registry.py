@@ -6,6 +6,7 @@ from src.artifact_integrity import (
     ArtifactIntegrityError,
     load_verified_joblib,
     sha256_file,
+    verify_artifact_checksum,
 )
 
 # Anchored to the installed package, NOT to the current working directory.
@@ -50,6 +51,17 @@ class ModelRegistry:
         and, if it exposes n_features_in_, match expected_features. Any verification failure
         - a missing or mismatched checksum, or an unreadable/corrupt artifact - returns False
         rather than being silently accepted.
+
+        That contract used to hold for `.joblib` ALONE. Every other suffix fell
+        through to `return True`, so this method reported a valid signature for a
+        `.pt` path that did not exist, and for any extension `load()` refuses. The
+        checksum half is suffix-agnostic, so it now applies to torch checkpoints
+        too, and an extension this registry cannot load is reported invalid rather
+        than valid.
+
+        The FEATURE half is still skipped for a torch checkpoint, which exposes no
+        `n_features_in_`. That is the same skip applied to any artifact without the
+        attribute, and it is what `src/ci/validate_release.py` mirrors.
         """
         if model_path.suffix == ".joblib":
             try:
@@ -73,7 +85,21 @@ class ModelRegistry:
             n_features = getattr(model, "n_features_in_", None)
             if n_features is not None and n_features != expected_features:
                 return False
-        return True
+            return True
+
+        if model_path.suffix in (".pt", ".pth"):
+            try:
+                return verify_artifact_checksum(model_path, required=True)
+            except (
+                ArtifactIntegrityError,  # absent artifact, absent manifest, or mismatch
+                OSError,  # unreadable path or manifest: PermissionError, IsADirectoryError
+            ):
+                return False
+
+        # An extension load() refuses is not a valid artifact. Reporting it valid
+        # contradicted the only other half of this pair: load() raises ValueError
+        # for the same path this method called good.
+        return False
 
     def artifact_checksum(self, path: Path) -> str:
         """Compute SHA256 checksum of an artifact."""

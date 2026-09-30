@@ -115,6 +115,11 @@ def _stub_stages(monkeypatch, stage_modules, captured):
     monkeypatch.setattr(
         s4, "score_immunogenicity", create_autospec(s4.score_immunogenicity, side_effect=_score)
     )
+    # cmd_predict refuses to start without MHCflurry model data, which CI never
+    # fetches; every stage is stubbed here, so none is needed.
+    import src.cli
+
+    monkeypatch.setattr(src.cli, "_mhcflurry_model_data_path", lambda: "stubbed")
 
 
 def _predict_argv(tmp_path, *extra):
@@ -122,6 +127,9 @@ def _predict_argv(tmp_path, *extra):
     fasta.write_text(">prot\nMAAAKLLGV\n", encoding="utf-8")
     model = tmp_path / "rf_31feature_integrated.joblib"
     model.write_bytes(b"stub-model")  # only _require_file's isfile() ever looks
+    # config.yaml ships freeze_mode: true, under which cmd_predict now refuses to
+    # start without a conformal calibrator; the resolver looks beside the model.
+    (tmp_path / "conformal_calibrator.joblib").write_bytes(b"stub-calibrator")
     return [
         "predict",
         "--fasta",

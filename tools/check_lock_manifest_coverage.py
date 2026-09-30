@@ -9,11 +9,25 @@ actually install from, but GitHub's dependency graph does not parse a bare
 raised 0 of this repository's 108 Dependabot alerts, while its compile input
 ``environments/requirements-lock.in`` is parsed and has raised 2.
 
-Today every distribution pinned in the lock also appears in at least one parsed
-manifest, so nothing is unmonitored. That is a property of today's content, not
-an enforced invariant. A future lock-only package would be invisible to
-Dependabot forever with nothing to notice. This gate converts the coincidence
-into an invariant.
+Today every distribution pinned in the lock also appears, by name, in at least
+one parsed manifest. That is a property of today's content, not an enforced
+invariant. A future lock-only package would be invisible to Dependabot forever
+with nothing to notice. This gate converts the coincidence into an invariant,
+for NAMES only; see the next section for what it does not certify.
+
+COVERAGE IS BY NAME, NOT BY VERSION
+-----------------------------------
+A locked distribution counts as covered when any parsed manifest declares its
+name, at any version or none. A name match is not proof that the locked
+VERSION is visible: measured on 2026-09-23, 9 of the 148 locked distributions
+were declared in parsed manifests none of which pinned the version the lock
+pins. The gate lists those as VERSION DRIFT, a warning that never changes the
+exit code. Reconciling them is lockfile regeneration, not this gate's job.
+Versions are compared as literal ``==`` strings, so ``1.0`` and ``1.0.0``
+count as different, and a range or a bare name pins no version at all. VERSION
+DRIFT therefore means no parsed manifest PINS the locked version; a range there
+may still admit it, and ranges are not evaluated. Every lock pin is checked,
+so a name the lock pins more than once has each distinct version checked.
 
 OFFLINE BY DESIGN
 -----------------
@@ -24,7 +38,8 @@ against the live dependency graph and is hardcoded; see PARSED_MANIFEST_RULE.
 
 EXIT CODES
 ----------
-0  every locked distribution is covered by a parsed manifest
+0  every locked distribution is covered, by name, by a parsed manifest
+   (version drift, if any, is listed as a warning)
 1  one or more locked distributions are covered by nothing (findings)
 2  could not run: lock missing, empty, or a line that cannot be classified
 """
@@ -174,6 +189,8 @@ _NAME_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)$", 
 # after it: trailing text is how two requirements on one physical line would
 # slip through as one, silently dropping the second.
 _SPEC_CLAUSE_RE = re.compile(r"^(===|==|>=|<=|~=|!=|<|>)\s*[A-Za-z0-9*][A-Za-z0-9*.+!_-]*$")
+# A single exact pin: '==' or '===' and one version with no wildcard.
+_EXACT_PIN_RE = re.compile(r"^===?\s*([^\s,*]+)$")
 
 
 def _tail_is_classifiable(tail: str) -> bool:
@@ -189,6 +206,17 @@ def _tail_is_classifiable(tail: str) -> bool:
     if tail.startswith("@"):
         return True
     return all(_SPEC_CLAUSE_RE.match(clause.strip()) for clause in tail.split(",") if clause.strip())
+
+
+def exact_pin(specifier: str) -> str | None:
+    """The version a specifier pins exactly, or None if it pins none.
+
+    Only a single ``==``/``===`` clause pins. A range, a wildcard, a bare name
+    or a direct reference declares no one version. The result is compared as
+    a literal string; no PEP 440 normalization is attempted.
+    """
+    match = _EXACT_PIN_RE.match(specifier.strip())
+    return match.group(1) if match else None
 
 
 class ManifestParseError(Exception):
@@ -217,6 +245,7 @@ class Requirement:
     path: str
     lineno: int
     raw: str
+    specifier: str = ""
 
 
 @dataclass
@@ -319,7 +348,7 @@ def parse_requirement_line(path: str, lineno: int, line: str) -> Requirement | N
             line,
             "text after the distribution name {!r} is not a version specifier or URL: {!r}".format(name, tail[:80]),
         )
-    return Requirement(name=name, normalized=normalize(name), path=path, lineno=lineno, raw=line)
+    return Requirement(name=name, normalized=normalize(name), path=path, lineno=lineno, raw=line, specifier=tail)
 
 
 def parse_requirements_file(root: Path, rel: str) -> ParseResult:
@@ -520,6 +549,7 @@ def run(root: Path, lock_rel: str, follow_includes: bool) -> tuple[int, dict]:
         "locked_distribution_count": 0,
         "covered_count": 0,
         "uncovered": [],
+        "version_drift": [],
         "notes": [],
         "status": "ok",
     }
@@ -567,13 +597,38 @@ def run(root: Path, lock_rel: str, follow_includes: bool) -> tuple[int, dict]:
     report["notes"] = notes
 
     seen: set[str] = set()
+    drift_seen: set[tuple[str, str]] = set()
     uncovered: list[dict] = []
+    version_drift: list[dict] = []
     covered = 0
     for req in lock_result.requirements:
+        is_covered = req.normalized in coverage
+        # Covered by NAME. Say so when no parsed manifest pins the locked
+        # version, rather than letting the name match imply it does. This runs
+        # for EVERY lock pin, before the per-name de-duplication below, so a
+        # name the lock pins twice (for example under two markers) has each
+        # distinct locked version checked, not only the first.
+        locked_version = exact_pin(req.specifier) if is_covered else None
+        if locked_version is not None and (req.normalized, locked_version) not in drift_seen:
+            drift_seen.add((req.normalized, locked_version))
+            declared = coverage[req.normalized]
+            if all(exact_pin(d.specifier) != locked_version for d in declared):
+                version_drift.append(
+                    {
+                        "name": req.name,
+                        "normalized": req.normalized,
+                        "lock_version": locked_version,
+                        "lock_line": req.lineno,
+                        "declared": [
+                            "{}{}: {}".format(d.path, " line {}".format(d.lineno) if d.lineno else "", d.specifier or "(no version)")
+                            for d in declared
+                        ],
+                    }
+                )
         if req.normalized in seen:
             continue
         seen.add(req.normalized)
-        if req.normalized in coverage:
+        if is_covered:
             covered += 1
         else:
             uncovered.append(
@@ -588,6 +643,7 @@ def run(root: Path, lock_rel: str, follow_includes: bool) -> tuple[int, dict]:
     report["locked_distribution_count"] = len(seen)
     report["covered_count"] = covered
     report["uncovered"] = uncovered
+    report["version_drift"] = version_drift
     report["status"] = "findings" if uncovered else "ok"
     return (EXIT_FINDINGS if uncovered else EXIT_OK), report
 
@@ -611,6 +667,7 @@ def render(report: dict, exit_code: int) -> str:
     lines.append("  locked distributions: {}".format(report["locked_distribution_count"]))
     lines.append("  covered:              {}".format(report["covered_count"]))
     lines.append("  uncovered:            {}".format(len(report["uncovered"])))
+    lines.append("  version drift:        {} (warning only)".format(len(report["version_drift"])))
 
     if report["uncovered"]:
         lines.append("")
@@ -629,8 +686,22 @@ def render(report: dict, exit_code: int) -> str:
         lines.append("it to the lock's compile input, which IS parsed, and recompiling.")
     else:
         lines.append("")
-        lines.append("OK: every distribution pinned in the lock is declared in at least one")
-        lines.append("manifest that GitHub's dependency graph parses.")
+        lines.append("OK: every distribution pinned in the lock is declared, by name, in at")
+        lines.append("least one manifest that GitHub's dependency graph parses.")
+
+    if report["version_drift"]:
+        lines.append("")
+        lines.append("VERSION DRIFT ({}) -- a warning; it does not change the exit code.".format(len(report["version_drift"])))
+        lines.append("Coverage is matched by distribution NAME. For each locked version below,")
+        lines.append("no parsed manifest PINS that exact version with == or ===. A range")
+        lines.append("declared there may still admit it; this check does not evaluate ranges.")
+        lines.append("Reconcile by regenerating the lock or the manifest, not by editing this")
+        lines.append("gate.")
+        lines.append("")
+        for item in report["version_drift"]:
+            lines.append("  {}  locked {}".format(item["name"], item["lock_version"]))
+            for declaration in item["declared"]:
+                lines.append("      declared: {}".format(declaration[:160]))
 
     if report["notes"]:
         lines.append("")
