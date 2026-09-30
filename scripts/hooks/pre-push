@@ -414,5 +414,54 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+# ---- Check 7: Qualifier bindings ----------------------------------------
+# Fails when a bound value gains a violation while its binding sits at its
+# ceiling: a new bare occurrence in a scanned file that is not a registered
+# carrier, or a QUALIFIED registered carrier that loses its qualifier, is
+# deleted, stops being tracked, or whose anchor_pattern stops matching exactly
+# one occurrence. Its known limits are recorded in
+# .github/workflows/qualifier_bindings.yml. Only TRACKED files are read, so
+# gitignored notes in a working checkout cannot block a push.
+#
+# WHY A SEPARATE CHECK. Check 2 collects tests/test_check_qualifier_bindings.py,
+# whose live-tree tests do audit this tree against the ratchet, but a failure
+# there surfaces as failing tests inside the suite. This check runs the gate
+# itself, so the push is blocked by name with the gate's own report.
+#
+# RATCHET FORM, NOT --strict. --strict zeroes every ceiling and exits 1 on the
+# 7 seed violations this tree still carries, which would block every push until
+# the last carrier is repaired. The default form honours the per-binding
+# violation_ceiling in docs/qualifier_bindings.json, so it exits 0 today and
+# exits 1 the moment the count rises. See the same reasoning, at length, in
+# .github/workflows/qualifier_bindings.yml.
+#
+# THE STANDING DEBT IS PRINTED, NOT SUPPRESSED, on a passing run. Under the
+# ceiling this check is silent about nothing: every unrepaired carrier is named
+# on every push, so the size of the blind spot stays visible. That is
+# scripts/check_digest_portability.py's stated principle for its EXEMPT rows,
+# applied to a ratchet.
+#
+# DELIBERATELY UNGUARDED, for the same reason Check 6 is: the script and its
+# config are both TRACKED, so they exist in every worktree and every clone and
+# there is no condition under which this should announce a skip.
+printf '[pre-push] Checking published values against their qualifier bindings...\n'
+
+cd "${REPO_ROOT}" && python scripts/check_qualifier_bindings.py
+
+if [[ $? -ne 0 ]]; then
+    printf '\n' >&2
+    block "Qualifier binding gate failed: violations exceed the declared ceiling."
+    printf '\n' >&2
+    printf '%s\n' "  A published value has lost the qualifier that bounds its meaning," >&2
+    printf '%s\n' "  or a tracked file that is not a registered carrier states it bare." >&2
+    printf '%s\n' "  The reported file:line is the occurrence; the qualifier must appear" >&2
+    printf '%s\n' "  within window_lines of it." >&2
+    printf '%s\n' "  Repair the carrier. Do NOT raise a violation_ceiling to clear this:" >&2
+    printf '%s\n' "  a ceiling may only be LOWERED, and the declared values are pinned" >&2
+    printf '%s\n' "  exactly by tests/test_check_qualifier_bindings.py." >&2
+    printf '%s\n' "  After a reviewed repair, run --update in the same commit." >&2
+    exit 1
+fi
+
 printf '[pre-push] All checks passed -- push allowed.\n'
 exit 0
