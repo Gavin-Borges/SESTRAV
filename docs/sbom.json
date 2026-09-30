@@ -655,9 +655,9 @@
     "Version": "9.1.4"
   },
   {
-    "License": "BSD License",
+    "License": "BSD-3-Clause",
     "Name": "threadpoolctl",
-    "Version": "3.6.0"
+    "Version": "3.7.0"
   },
   {
     "License": "MIT License",
