@@ -24,13 +24,14 @@ behaviour so the cheap-but-wrong fix cannot be reintroduced.
 from __future__ import annotations
 
 import importlib.util
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_doc_commit_refs.py"
+_WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "doc_commit_refs.yml"
 
 
 def _load_module():
@@ -41,6 +42,11 @@ def _load_module():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def test_dedicated_gate_runs_on_push_to_main():
+    workflow = _WORKFLOW.read_text(encoding="utf-8")
+    assert re.search(r"(?m)^  push:\n    branches:\n      - main$", workflow)
 
 
 @pytest.fixture(scope="module")

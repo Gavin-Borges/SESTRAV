@@ -18,9 +18,13 @@ def check_imports() -> bool:
         try:
             __import__(pkg)
             print(f"  [+] {pkg} is available")
-        except ImportError:
+        except (ImportError, OSError) as exc:
+            # OSError, not just ImportError: a native extension whose DLL the OS
+            # refuses to load raises OSError, so an ImportError-only guard lets it
+            # escape and crashes the health checker in exactly the degraded
+            # environment it exists to diagnose. src/cli.py already catches both.
             missing.append(pkg)
-            print(f"  [x] {pkg} is NOT available")
+            print(f"  [x] {pkg} is NOT available ({type(exc).__name__})")
 
     if missing:
         print(f"Error: Missing required environment packages: {', '.join(missing)}")

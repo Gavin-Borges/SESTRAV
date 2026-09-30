@@ -447,10 +447,25 @@ def _vaccinia_ablation(active: pd.DataFrame) -> list[dict]:
 # same-label concordance - the signature of sliding-window / registration
 # boundary variants of one underlying epitope rather than spurious short-string
 # matches. D22 measured that inside the 704-peptide Tier A pool; it states no
-# figure for v5, which is the corpus this arm measures. It is the CONSERVATIVE
-# end of D22's evidence: D22 saw length differences up to 3 residues and only
-# the 1-residue edge types are admitted here, so what this arm reports is a
-# floor, not an estimate.
+# figure for v5, which is the corpus this arm measures.
+#
+# The relation is WIDER than the one D22's scan used, not a subset of it.
+# Only hamming1 and indel1 are limited to one residue. Containment is not:
+# `_near_homolog_adjacency` scans every sub-window width the corpus carries
+# that is shorter than the peptide, so it links a peptide to each shorter
+# distinct peptide that occurs in it contiguously, at any length difference -
+# an 11mer to an 8mer window of it as readily as to a 10mer. The width cap
+# never drops such a pair, because the window is itself a corpus peptide and
+# so its width is one the scan tries. Containment here is therefore the same
+# substring relation D22's all-pairs scan used, restricted to distinct
+# peptides (exact repeats are `_fold_overlap`'s channel), and hamming1 and
+# indel1 add pairs that scan did not look for. Pairs the relation leaves out: two or
+# more substitutions, a multi-residue deletion that does not leave a
+# contiguous window, and a substitution combined with any change of length.
+# Admitting any of those could only add edges, which cannot lower the count
+# of peptides with a near-homolog, the edge count, or the share of held-out
+# rows with a near-homolog in their train fold; in that sense only, those
+# three counts are a floor.
 #
 # Cost. The active v5 corpus is 8mers to 11mers (measured, not assumed - the
 # sub-window scan reads its widths off the data), so all three edge types are

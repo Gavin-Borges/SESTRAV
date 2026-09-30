@@ -21,6 +21,12 @@ against its compiled ``requirements*.txt`` / ``.lock`` output and fails if:
    in LOCKFILE_PAIRS below (fail closed rather than silently skip a new
    file). Discovery is tracked-file scoped, not a filesystem walk - see
    _git_tracked_in_files for why.
+5. A line in a ``.in`` file (or anything it includes) cannot be read: an
+   ``-r`` include that does not resolve to an existing file, or a
+   requirement that is not a ``name==version`` / ``name>=version`` pin
+   (``[extras]`` and a ``; marker`` are accepted). This fails rather than
+   warns, because a warning would leave exit 0 meaning "checked" for input
+   the gate never compared - the same fail-closed reasoning as item 4.
 
 This performs no network access and does not invoke pip-compile: it is a
 static diff between declared intent (``.in``) and committed output
@@ -72,11 +78,20 @@ LOCKFILE_PAIRS: tuple[tuple[str, str], ...] = (
 )
 
 _NAME_NORMALIZE_RE = re.compile(r"[-_.]+")
+# Anchored at both ends: a line matches only if the WHOLE requirement is a
+# name (optional [extras]), one == or >= specifier, and an optional marker.
+# A prefix match read "a>=1,<2" as a bare floor and dropped the ceiling.
 _PIN_RE = re.compile(
-    r"^([A-Za-z0-9][A-Za-z0-9._-]*)\s*(==|>=)\s*([0-9][A-Za-z0-9.\-+]*)"
+    r"^([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(==|>=)\s*"
+    r"([0-9][A-Za-z0-9.\-+]*)\s*(?:;.*)?$"
 )
+# The same pattern as COMMENT_RE in pip's requirement-file parser
+# (pip/_internal/req/req_file.py, read at pip 26.2.1): a "#" at the start of
+# a line or after any whitespace, tab included, starts a comment that runs
+# to the end of the line.
+_COMMENT_RE = re.compile(r"(^|\s+)#.*$")
 _INCLUDE_RE = re.compile(r"^-r\s+(\S+)")
-_COMPILED_NAME_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s\\]+)")
+_COMPILED_NAME_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[^\]]*\])?==([^\s\\]+)")
 _HASH_RE = re.compile(r"--hash=sha256:[0-9a-fA-F]{64}")
 
 
@@ -110,18 +125,43 @@ class CompiledEntry:
     has_hash: bool
 
 
-def parse_in_file(path: Path, _visited: set[Path] | None = None) -> dict[str, Pin]:
-    """Parse a requirements*.in file, following -r includes recursively."""
+def parse_in_file(
+    path: Path,
+    _visited: set[Path] | None = None,
+    problems: list[str] | None = None,
+) -> dict[str, Pin]:
+    """Parse a requirements*.in file, following -r includes recursively.
+
+    Every non-blank, non-comment line must be an ``-r <file>`` include that
+    resolves to an existing file, or a ``name==version`` / ``name>=version``
+    pin (``[extras]`` and a ``; marker`` allowed). Anything else - an include
+    that resolves to nothing, ``~=``, a range, a wildcard, a bare name, a pip
+    option - is a line this gate cannot hold to its word, so it is reported
+    rather than skipped. Skipping it let the gate pass while it had stopped
+    reading part of its input.
+
+    Reports are appended to ``problems`` when the caller passes a list, as
+    check_pair does, so every unreadable line surfaces in one run. Without a
+    list, any report raises ValueError: a direct caller never receives a
+    partial parse without being told.
+    """
     if _visited is None:
         _visited = set()
+    raise_on_problems = problems is None
+    if problems is None:
+        problems = []
     resolved = path.resolve()
     if resolved in _visited:
         return {}
     _visited.add(resolved)
+    try:
+        rel_source = resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel_source = str(path)
 
     pins: dict[str, Pin] = {}
     text = path.read_text(encoding="utf-8")
-    for raw_line in text.splitlines():
+    for lineno, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -129,27 +169,37 @@ def parse_in_file(path: Path, _visited: set[Path] | None = None) -> dict[str, Pi
         include_match = _INCLUDE_RE.match(line)
         if include_match:
             included = (path.parent / include_match.group(1)).resolve()
-            if included.exists():
-                pins.update(parse_in_file(included, _visited))
+            if included.is_file():
+                pins.update(parse_in_file(included, _visited, problems))
+            else:
+                problems.append(
+                    f"{rel_source}:{lineno}: -r include {include_match.group(1)!r} "
+                    f"does not resolve to an existing file, so none of its pins "
+                    f"are checked"
+                )
             continue
 
         # Strip a trailing inline comment before pin/marker parsing.
-        code = line.split(" #", 1)[0].strip()
+        code = _COMMENT_RE.sub("", line).strip()
         if not code:
             continue
 
         pin_match = _PIN_RE.match(code)
         if not pin_match:
+            problems.append(
+                f"{rel_source}:{lineno}: cannot classify {code!r} - this gate "
+                f"compares only name==version and name>=version pins and -r "
+                f"includes, so the line would go unchecked (rewrite it in one "
+                f"of those forms, or teach this parser the new form)"
+            )
             continue
         name, operator, version = pin_match.groups()
         marker = ";" in code
-        try:
-            rel_source = path.resolve().relative_to(REPO_ROOT).as_posix()
-        except ValueError:
-            rel_source = str(path)
         pins[normalize(name)] = Pin(
             name=name, operator=operator, version=version, marker=marker, source=rel_source
         )
+    if raise_on_problems and problems:
+        raise ValueError("; ".join(problems))
     return pins
 
 
@@ -171,7 +221,15 @@ def parse_compiled_file(path: Path) -> dict[str, CompiledEntry]:
                     if _HASH_RE.search(lines[i]):
                         has_hash = True
                     i += 1
-                entries[normalize(name)] = CompiledEntry(version=version, has_hash=has_hash)
+                key = normalize(name)
+                # "pkg==X" and "pkg[extra]==X" normalize to one key. AND the
+                # hash flag across them so an unhashed line is reported
+                # whichever order the lines come in, instead of the last
+                # line overwriting the first.
+                previous = entries.get(key)
+                if previous is not None:
+                    has_hash = has_hash and previous.has_hash
+                entries[key] = CompiledEntry(version=version, has_hash=has_hash)
                 continue
         i += 1
     return entries
@@ -198,7 +256,7 @@ def check_pair(in_path: Path, out_path: Path) -> list[str]:
         )
         return problems
 
-    pins = parse_in_file(in_path)
+    pins = parse_in_file(in_path, problems=problems)
     compiled = parse_compiled_file(out_path)
 
     for key, pin in sorted(pins.items()):

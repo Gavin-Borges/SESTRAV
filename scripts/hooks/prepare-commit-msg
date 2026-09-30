@@ -1,7 +1,7 @@
 #!/bin/bash
 # SESTRAV DCO sign-off automation.
 #
-# Appends the Developer Certificate of Origin trailer to every commit message
+# Adds the Developer Certificate of Origin trailer to every commit message
 # so that .github/workflows/dco.yml (check_dco) passes on the first push.
 #
 # Why this exists: sign-offs were previously backfilled onto already-published
@@ -11,8 +11,9 @@
 # reason to ever backfill, which removes the rewrite, which removes the
 # orphaned-citation defect class at its source.
 #
-# Never edits history and never blocks a commit: if identity is unset the hook
-# warns and exits 0 so the commit still succeeds (CI remains the hard gate).
+# Never edits history and never blocks a commit: if identity is unset, or git
+# interpret-trailers fails, the hook warns and exits 0 so the commit still
+# succeeds (CI remains the hard gate).
 
 set -euo pipefail
 
@@ -41,14 +42,20 @@ if grep -qxF "$signoff" "$commit_msg_file"; then
     exit 0
 fi
 
-# Strip trailing blank lines, then append the trailer separated by one blank
-# line. Comment lines are left alone; git removes them when the message is
-# finalized, leaving the trailer as the last line of the real message.
-tmp_file="${commit_msg_file}.sestrav.tmp"
-awk 'BEGIN { blanks = 0 }
-     /^[[:space:]]*$/ { blanks++; next }
-     { while (blanks > 0) { print ""; blanks-- } print }' \
-    "$commit_msg_file" > "$tmp_file"
-
-printf '\n%s\n' "$signoff" >> "$tmp_file"
-mv "$tmp_file" "$commit_msg_file"
+# Insert the trailer with git's own trailer parser; never append it to the end
+# of the file. Under `git commit -v` (or commit.verbose=true) the file ends with
+# a scissors line followed by the diff, and git discards everything below the
+# scissors line, so an appended trailer was silently dropped and dco.yml then
+# failed the pull request. interpret-trailers places it after the last line of
+# the real message, above the trailing comment block and the scissors line.
+#   --no-divider: a "---" line in a commit body is prose, not a patch divider;
+#     without it the trailer lands above that line, mid-message.
+#   --where/--if-exists/--if-missing: pinned because a developer's trailer.*
+#     config applies here too (trailer.ifmissing=doNothing drops the trailer).
+if ! git interpret-trailers --in-place --no-divider \
+        --where end --if-exists addIfDifferent --if-missing add \
+        --trailer "$signoff" "$commit_msg_file"; then
+    echo "prepare-commit-msg: git interpret-trailers failed - no Signed-off-by added." >&2
+    echo "  Commit with 'git commit -s', or CI will reject the push." >&2
+    exit 0
+fi

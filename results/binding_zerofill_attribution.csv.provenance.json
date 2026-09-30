@@ -1,0 +1,43 @@
+{
+  "generated_utc": "2026-09-28T14:56:25+00:00",
+  "script": "scripts/compute_binding_zerofill_attribution.py",
+  "artifact": "results/binding_zerofill_attribution.csv",
+  "sha256": "4d78f583a4753ed0324781064f17e02485feb8db836382fa5c182616ab63fbf0",
+  "library_versions": {
+    "scikit-learn": "1.8.0",
+    "joblib": "1.5.3",
+    "numpy": "2.4.6",
+    "xgboost": "3.2.0",
+    "torch": "2.13.0+cu130"
+  },
+  "git_sha": "26a36521a68b020c363a8890ba1a05f36bff69c8",
+  "metric": "pooled AUC-ROC minus pair-count-weighted within-coverage AUC-ROC",
+  "populations": [
+    "def_a",
+    "def_b",
+    "pooled"
+  ],
+  "comparison_max_abs_diff": 0.0,
+  "inputs": [
+    {
+      "path": "models/v5/rf_oof_predictions_mode31.csv",
+      "sha256": "4862bd59623986fd6e1c7acb9666378d1494dd05ec414c2f1f5d6ebe78323ea3",
+      "blob_sha": "d665d665028629460ada3d638eb33c69374e1c48"
+    },
+    {
+      "path": "models/v5/rf_oof_predictions_mode10.csv",
+      "sha256": "20bfb9baceadc4664517d106620763fc28be42b631586c93b2b24a0268a45068",
+      "blob_sha": "921b6a79f29d0ee344a4e83479953b63b815bc7d"
+    },
+    {
+      "path": "models/peptide_binding_matrix_v5.csv",
+      "sha256": "af40777743a898fb9a138a39209ddb0c264caad9d64a6f9e49b646bd59fa0bf9",
+      "blob_sha": "3098a765edc7f0f671c90980270c9aade21470dd"
+    },
+    {
+      "path": "results/binding_only_comparison_mode31_vs_mode10.csv",
+      "sha256": "0a56a34720acc31d83fabfdd69c4645c75d771926605977f31c468b8561b5e98",
+      "blob_sha": "1fab5d96ecf70ae619bc7ba6749d015d8d127a1f"
+    }
+  ]
+}

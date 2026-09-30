@@ -1,7 +1,11 @@
 import hashlib
 import io
 import os
+import re
 import subprocess
+import sys
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -40,7 +44,7 @@ def test_qc_gate_valid(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -66,7 +70,7 @@ def test_qc_gate_length_outlier(tmp_path, temp_config, valid_df):
     quarantine_path = tmp_path / "quarantine.csv"
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -104,7 +108,7 @@ def test_qc_gate_non_canonical_aa(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -115,6 +119,7 @@ def test_qc_gate_non_canonical_aa(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on non-canonical AA"
+    assert f"{'length_and_composition_valid':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_missing_metadata(tmp_path, temp_config, valid_df):
@@ -126,7 +131,7 @@ def test_qc_gate_missing_metadata(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -137,6 +142,7 @@ def test_qc_gate_missing_metadata(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on missing peptide"
+    assert f"{'length_and_composition_valid':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_duplicate_conflict(tmp_path, temp_config, valid_df):
@@ -161,7 +167,7 @@ def test_qc_gate_duplicate_conflict(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -175,6 +181,7 @@ def test_qc_gate_duplicate_conflict(tmp_path, temp_config, valid_df):
     assert result.returncode == 1, (
         f"QC gate did not fail on duplicate conflicts (status={result.returncode}, err={result.stderr})"
     )
+    assert f"{'conflict_ratio_passed':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_null_allele_fraction(tmp_path, temp_config, valid_df):
@@ -190,7 +197,7 @@ def test_qc_gate_null_allele_fraction(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -201,6 +208,7 @@ def test_qc_gate_null_allele_fraction(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on high null allele fraction"
+    assert f"{'null_allele_fraction_passed':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
@@ -214,7 +222,7 @@ def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -225,6 +233,7 @@ def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on out-of-bounds class ratio"
+    assert f"{'class_ratio_passed':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
@@ -236,7 +245,7 @@ def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -247,6 +256,7 @@ def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on low yield"
+    assert f"{'peptide_yield_passed':32s} : FAIL" in result.stdout
 
 
 @pytest.mark.parametrize("use_crlf", [False, True], ids=["lf", "crlf"])
@@ -293,7 +303,7 @@ freeze_mode: true
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -335,7 +345,7 @@ freeze_mode: true
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -350,6 +360,41 @@ freeze_mode: true
     assert "does not match expected" in output
 
 
+def test_qc_gate_freeze_mode_missing_checksum_fails(tmp_path, valid_df):
+    dataset_path = tmp_path / "freeze_dataset.csv"
+    valid_df.to_csv(dataset_path, index=False)
+    config_path = tmp_path / "freeze_config.yaml"
+    config_path.write_text(
+        """
+dataset_governance:
+  qc_thresholds:
+    min_peptide_yield: 5
+    max_conflict_ratio: 0.15
+    max_null_allele_fraction: 0.50
+    class_ratio_bounds: [1.5, 4.0]
+  require_checksum_match_in_freeze_mode: true
+  provenance: {}
+freeze_mode: true
+""",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "checksum pin is absent" in result.stdout + result.stderr
+
+
 def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
     dataset_path = tmp_path / "valid.csv"
     valid_df.to_csv(dataset_path, index=False)
@@ -358,7 +403,7 @@ def test_qc_gate_malformed_config_does_not_silently_pass(tmp_path, valid_df):
 
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -446,7 +491,7 @@ freeze_mode: false
 def _run_gate(dataset_path, config_path):
     result = subprocess.run(
         [
-            "python",
+            sys.executable,
             "scripts/data_qc_gate.py",
             "--dataset",
             str(dataset_path),
@@ -693,3 +738,113 @@ def test_the_margin_is_last_passing_not_first_breaching():
     assert passes(V5_POSITIVES - losable), "the quoted margin must still PASS"
     assert not passes(V5_POSITIVES - (losable + 1)), "one more must BREACH"
     assert losable >= 1000, f"margin collapsed to {losable} rows"
+
+    criteria = (
+        Path(__file__).resolve().parents[1] / "docs" / "data_qc_criteria.md"
+    ).read_text(encoding="utf-8")
+    margin_match = re.search(r"\*\*Margin: ([\d,]+) rows\*\*", criteria)
+    breach_match = re.search(r"first breach is at \*\*([\d,]+)\*\*", criteria)
+    assert margin_match, "docs/data_qc_criteria.md no longer states the QC margin"
+    assert breach_match, "docs/data_qc_criteria.md no longer states the first breach"
+    documented_margin = int(margin_match.group(1).replace(",", ""))
+    documented_breach = int(breach_match.group(1).replace(",", ""))
+    assert documented_margin == losable
+    assert documented_breach == losable + 1
+
+
+# --- Duplicate canonical columns -------------------------------------------
+# The mapper renames whichever column it selected onto the canonical name
+# ("peptide", "label", "allele"). When the corpus ALSO carries a column already
+# holding that name, the rename used to leave two columns with it, and the next
+# single-column access raised several steps away from the cause. Each case below
+# crashed with a DIFFERENT exception before the fix, which is why all three are
+# pinned rather than just the allele one:
+#   hla_allele + allele        -> "Cannot set a DataFrame with multiple columns"
+#   description + peptide      -> "Grouper for 'peptide' not 1-dimensional"
+#   qualitative measure + label -> "The truth value of a Series is ambiguous"
+# In every case the column order below is the one that crashed: the fuzzy match
+# sits FIRST, so setdefault() reached it before the exact canonical name.
+
+
+def _run_qc_gate(dataset_path, config_path):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(config_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return result, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "columns, extra",
+    [
+        pytest.param(
+            ["peptide", "label", "hla_allele", "allele"],
+            {"hla_allele": "allele"},
+            id="hla_allele_and_allele",
+        ),
+        pytest.param(
+            ["description", "label", "allele", "peptide"],
+            {"description": "peptide"},
+            id="description_and_peptide",
+        ),
+        pytest.param(
+            ["peptide", "qualitative measure", "allele", "label"],
+            {"qualitative measure": "label"},
+            id="qualitative_and_label",
+        ),
+    ],
+)
+def test_qc_gate_duplicate_canonical_columns_yield_a_verdict(
+    tmp_path, temp_config, valid_df, columns, extra
+):
+    """A corpus carrying two spellings of one field must be ADJUDICATED.
+
+    Before the fix each of these raised out of check_dataset_qc, so the gate
+    produced no verdict at all - neither pass nor fail. The requirement is a
+    verdict: the duplicate is dropped, the run completes, and this otherwise
+    valid dataset passes.
+    """
+    df = valid_df.copy()
+    for new_col, source_col in extra.items():
+        df[new_col] = df[source_col]
+    df = df[columns]
+
+    dataset_path = tmp_path / "duplicate_canonical.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_qc_gate(dataset_path, temp_config)
+
+    assert "Traceback" not in output, f"gate crashed instead of adjudicating:\n{output}"
+    assert result.returncode == 0, f"valid dataset did not pass the gate:\n{output}"
+    assert "All dataset QC gates passed successfully." in output
+
+
+def test_qc_gate_reports_which_duplicate_column_it_dropped(tmp_path, temp_config, valid_df):
+    """Dropping a column must not be silent.
+
+    ALLELE_COL_PRIORITY deliberately prefers "hla_allele" over a bare "allele",
+    so with both present one of them is discarded. A reader of the QC log has to
+    be able to see which column the null-allele fraction was actually measured
+    on.
+    """
+    df = valid_df.copy()
+    df["hla_allele"] = df["allele"]
+    df = df[["peptide", "label", "hla_allele", "allele"]]
+
+    dataset_path = tmp_path / "duplicate_allele.csv"
+    df.to_csv(dataset_path, index=False)
+
+    _result, output = _run_qc_gate(dataset_path, temp_config)
+
+    assert "dropping the duplicate 'allele'" in output, (
+        f"the dropped column was not reported:\n{output}"
+    )
+    assert "'hla_allele'" in output

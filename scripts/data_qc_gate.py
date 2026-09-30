@@ -59,6 +59,27 @@ def _is_null_allele(value) -> bool:
     return str(value).strip().lower() in NULL_ALLELE_TOKENS
 
 
+def _rename_to_canonical(df, source, target):
+    """Rename `source` to `target`, dropping any OTHER column already named `target`.
+
+    A corpus can legitimately carry both a specific and a generic spelling of one
+    field: ALLELE_COL_PRIORITY deliberately prefers "hla_allele" over a bare
+    "allele", and a file may hold both. Renaming onto an occupied name leaves two
+    columns with that name, and pandas then raises on the first single-column
+    access - a crash reported several steps from its cause. The column the mapper
+    did NOT select is the duplicate, so drop it and say so rather than failing.
+    """
+    if source == target:
+        return df
+    if target in df.columns:
+        logger.warning(
+            f"Column '{target}' already present alongside the selected '{source}'; "
+            f"dropping the duplicate '{target}' so '{source}' can take that name."
+        )
+        df = df.drop(columns=[target])
+    return df.rename(columns={source: target})
+
+
 def load_config(config_path: str) -> dict:
     """Load config.yaml and return thresholds with defaults."""
     defaults = {
@@ -93,7 +114,7 @@ def load_config(config_path: str) -> dict:
                     "class_ratio_bounds", defaults["class_ratio_bounds"]
                 ),
                 "freeze_mode": config.get("freeze_mode", defaults["freeze_mode"]),
-                "expected_checksum": gov.get("provenance", {}).get("checksum", "pending"),
+                "expected_checksum": gov.get("provenance", {}).get("checksum"),
                 "require_checksum": gov.get("require_checksum_match_in_freeze_mode", False),
             }
     except Exception as e:
@@ -130,8 +151,13 @@ def check_dataset_qc(
 
     # Verify checksum matches if freeze mode is active
     if cfg["freeze_mode"] and cfg.get("require_checksum", False):
-        expected = cfg.get("expected_checksum", "pending")
-        if expected != "pending" and expected != checksum:
+        expected = cfg.get("expected_checksum")
+        if not expected:
+            logger.error(
+                "Freeze mode violation! Required dataset checksum pin is absent from config."
+            )
+            return False
+        if expected != checksum:
             logger.error(
                 f"Freeze mode violation! Dataset checksum {checksum} does not match expected {expected}."
             )
@@ -163,6 +189,16 @@ def check_dataset_qc(
         if _canonical in lower_to_orig:
             col_map["allele"] = lower_to_orig[_canonical]
             break
+
+    # The same principle for peptide and label. The loop above matches them
+    # fuzzily ("description", anything containing "qualitative"), so a corpus
+    # carrying BOTH a fuzzy spelling and the exact name resolves to whichever
+    # sat earlier in column order. Renaming the fuzzy one onto the exact name
+    # then leaves two columns of that name, and the next single-column access
+    # raises several steps away from the cause.
+    for _canonical in ("peptide", "label"):
+        if _canonical in lower_to_orig:
+            col_map[_canonical] = lower_to_orig[_canonical]
 
     if "peptide" not in col_map or "label" not in col_map:
         logger.error(
@@ -217,10 +253,13 @@ def check_dataset_qc(
     # Create clean dataset subset
     df_clean = df.drop(index=list(indices_to_drop)).copy()
 
-    # Rename columns to standard ones
-    df_clean = df_clean.rename(columns={pep_col: "peptide", lbl_col: "label"})
+    # Rename columns to standard ones. Go through _rename_to_canonical so a
+    # corpus carrying both spellings of a field yields a QC verdict rather than
+    # a duplicate-column traceback.
+    df_clean = _rename_to_canonical(df_clean, pep_col, "peptide")
+    df_clean = _rename_to_canonical(df_clean, lbl_col, "label")
     if allele_col:
-        df_clean = df_clean.rename(columns={allele_col: "allele"})
+        df_clean = _rename_to_canonical(df_clean, allele_col, "allele")
 
     # Parse labels to binary integers
     def parse_binary_label(val):

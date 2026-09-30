@@ -19,8 +19,8 @@
     {
       "path": "data/immunogenicity_dataset_v5_schema.json",
       "role": "schema",
-      "bytes": 7933,
-      "sha256": "f0a1f69baa3c6feb380effbf9b73c69f76cc3e839096ea40ab4ebcd38db640d7"
+      "bytes": 9015,
+      "sha256": "71ba3d0df28bd3651edb50bff3d2b0ddda36e869fd40f6beac2298c062862b7b"
     },
     {
       "path": "data/immunogenicity_dataset_v5_provenance.json",

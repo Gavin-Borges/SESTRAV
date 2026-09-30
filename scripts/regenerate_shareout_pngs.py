@@ -67,7 +67,7 @@ def step2_stage4_plots():
             continue
         ranked_df = pd.read_csv(ranked_path)
         print(f"[Step 2] Generating plots for {ag} ({len(ranked_df)} peptides)...")
-        plot_immunogenicity_scores(ranked_df, ag)
+        plot_immunogenicity_scores(ranked_df, ag, output_dir=RESULTS_DIR)
 
     print("[Step 2] Done\n")
 

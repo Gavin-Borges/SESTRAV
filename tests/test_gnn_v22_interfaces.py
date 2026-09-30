@@ -15,6 +15,11 @@ if str(_ROOT) not in sys.path:
 
 torch = pytest.importorskip("torch")
 
+# GraphEncoderV2, GraphPeptideDatasetV2 and promote_gnn's gate3_latency import
+# torch_geometric inside their own bodies, so the tests reaching them collect
+# without it and would FAIL rather than skip. It is in the gnn extra, not dev.
+_NEEDS_PYG = "the v2 GNN path imports torch_geometric (gnn extra, not dev)"
+
 
 # ---------------------------------------------------------------------------
 # GraphPredictorV2 node_dim propagation
@@ -22,6 +27,7 @@ torch = pytest.importorskip("torch")
 
 
 def test_predictor_v2_default_node_dim():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     model = GraphPredictorV2(num_continuous_features=10)
@@ -29,6 +35,7 @@ def test_predictor_v2_default_node_dim():
 
 
 def test_predictor_v2_custom_node_dim_480():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     model = GraphPredictorV2(num_continuous_features=10, node_dim=480)
@@ -36,6 +43,7 @@ def test_predictor_v2_custom_node_dim_480():
 
 
 def test_predictor_v2_custom_node_dim_640():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     model = GraphPredictorV2(num_continuous_features=10, node_dim=640)
@@ -173,6 +181,7 @@ def _run_gate3(monkeypatch, tmp_path, *, state_dict, n_features, checkpoint_path
 
 def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
     """gate3_latency must build the GNN with node_dim from gnn_config.json."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import src.verify.promote_gnn as pg
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.gnn.models import GraphPredictorV2
@@ -192,6 +201,7 @@ def test_gate3_reads_node_dim_from_config(tmp_path, monkeypatch):
 
 def test_gate3_defaults_node_dim_320_when_config_missing(tmp_path, monkeypatch):
     """gate3_latency falls back to 320 when gnn_config.json does not exist."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import src.verify.promote_gnn as pg
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.gnn.models import GraphPredictorV2
@@ -207,6 +217,7 @@ def test_gate3_defaults_node_dim_320_when_config_missing(tmp_path, monkeypatch):
 
 def test_gate3_reads_num_continuous_features_from_config(tmp_path, monkeypatch):
     """gate3_latency must build the GNN with num_continuous_features from the config."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import src.verify.promote_gnn as pg
     from src.gnn.models import GraphPredictorV2
 
@@ -231,6 +242,7 @@ def test_gate3_reads_num_continuous_features_from_config(tmp_path, monkeypatch):
 
 def test_gate3_defaults_num_features_21_when_config_missing(tmp_path, monkeypatch):
     """gate3_latency falls back to 21 (TRAIN_FEATURE_COLUMNS) when gnn_config.json absent."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import src.verify.promote_gnn as pg
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.gnn.models import GraphPredictorV2
@@ -252,6 +264,7 @@ def test_gate3_reads_pooling_from_config(tmp_path, monkeypatch):
     GraphPredictorV2 has no slot for, so ignoring this key makes gate3 time the
     wrong architecture (GNN rule 8/9).
     """
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import src.verify.promote_gnn as pg
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.gnn.models import GraphPredictorV2
@@ -276,6 +289,7 @@ def test_gate3_reads_the_checkpoint_siblings_config_not_the_tracked_one(tmp_path
     purpose: reading it instead would build a 320-dim model for a 480-dim
     checkpoint.
     """
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import src.verify.promote_gnn as pg
     from src.features import TRAIN_FEATURE_COLUMNS
     from src.gnn.models import GraphPredictorV2
@@ -312,6 +326,7 @@ def test_gate3_reads_the_checkpoint_siblings_config_not_the_tracked_one(tmp_path
 
 def test_dataset_v2_node_count_equals_peptide_length():
     """Each Data item must have exactly L nodes, not max_len (11)."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import numpy as np
     import pandas as pd
     from src.train_gnn import GraphPeptideDatasetV2
@@ -341,6 +356,7 @@ def test_dataset_v2_threads_edge_mode_to_emitted_graphs():
     Builder-level tests pass even if the dataset never forwards the flag, which
     would silently run the full graph while the run is recorded as an ablation.
     """
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import numpy as np
     import pandas as pd
     from src.train_gnn import GraphPeptideDatasetV2
@@ -371,6 +387,7 @@ def test_dataset_v2_threads_edge_mode_to_emitted_graphs():
 
 def test_dataset_v2_edge_index_within_node_range():
     """All edge indices must reference nodes within [0, L-1]."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import numpy as np
     import pandas as pd
     from src.train_gnn import GraphPeptideDatasetV2
@@ -391,6 +408,7 @@ def test_dataset_v2_edge_index_within_node_range():
 
 def test_dataset_v2_pyg_batch_node_count():
     """PyG batching must produce total_nodes == sum of individual peptide lengths."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     import numpy as np
     import pandas as pd
     from src.train_gnn import GraphPeptideDatasetV2
@@ -416,6 +434,7 @@ def test_dataset_v2_pyg_batch_node_count():
 
 def test_predictor_v2_default_pooling_is_mean():
     """Default readout must stay mean pool so existing v2.1-v2.3 checkpoints load."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     model = GraphPredictorV2(num_continuous_features=10)
@@ -424,6 +443,7 @@ def test_predictor_v2_default_pooling_is_mean():
 
 
 def test_predictor_v2_attention_pooling_adds_gate():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     model = GraphPredictorV2(num_continuous_features=10, pooling="attention")
@@ -432,6 +452,7 @@ def test_predictor_v2_attention_pooling_adds_gate():
 
 
 def test_predictor_v2_invalid_pooling_raises():
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     with pytest.raises(ValueError):
@@ -459,6 +480,7 @@ def _build_v2_batch(node_dim=320, n_feats=21):
 
 def test_predictor_v2_attention_forward_shape():
     """Attention-pooled forward must return one logit per graph on a real PyG batch."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     batch = _build_v2_batch()
@@ -471,6 +493,7 @@ def test_predictor_v2_attention_forward_shape():
 
 def test_predictor_v2_mean_forward_still_works():
     """Backward-compat: default mean pooling forward unchanged."""
+    pytest.importorskip("torch_geometric", reason=_NEEDS_PYG)
     from src.gnn.models import GraphPredictorV2
 
     batch = _build_v2_batch()

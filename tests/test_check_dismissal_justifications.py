@@ -16,6 +16,7 @@ import importlib.util
 import io
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -319,6 +320,84 @@ def test_fetch_raises_when_no_auth_route_exists(monkeypatch):
     with pytest.raises(gate.CouldNotRun) as excinfo:
         gate.fetch_dismissed_alerts("owner/name")
     assert "no authentication route" in str(excinfo.value)
+
+
+# ---------------------------------------------------------------------------
+# HTTP route: the URL guard and the pagination loop
+# ---------------------------------------------------------------------------
+
+
+class _FakeResponse:
+    """The slice of an ``urlopen`` response that the HTTP fetcher reads."""
+
+    def __init__(self, body: str):
+        self._body = body.encode("utf-8")
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> bool:
+        return False
+
+
+@pytest.mark.parametrize(
+    "root",
+    [
+        "file:///C:/Windows",
+        "http://api.github.com",
+        "https://evil.example.com",
+        "https://api.github.com.evil.example",
+        "https://api.github.com@evil.example.com",
+        "https://api.github.com:8443",
+    ],
+)
+def test_url_guard_refuses_an_off_host_api_root_before_urlopen(monkeypatch, root):
+    # The guard must compare the parsed URL against LITERALS. A check derived
+    # from API_ROOT itself passes whatever API_ROOT says, so every root here
+    # would reach urlopen with the bearer token attached.
+    opened: list[str] = []
+
+    def spy_urlopen(request, timeout=None):
+        opened.append(request.full_url)
+        raise AssertionError(f"urlopen reached for a URL the guard should refuse: {request.full_url}")
+
+    monkeypatch.setattr(gate, "API_ROOT", root)
+    monkeypatch.setattr(gate.urllib.request, "urlopen", spy_urlopen)
+    with pytest.raises(gate.CouldNotRun) as excinfo:
+        gate._fetch_page_http("owner/name", "dismissed", 1, "token")
+    assert "refusing" in str(excinfo.value)
+    assert opened == []
+
+
+def test_http_route_fetches_past_a_full_page_and_stops_after_a_short_one(monkeypatch):
+    # A full page (PER_PAGE alerts) means more may follow; a short page ends
+    # the census. Any page past the short one is answered with an error
+    # object, so an over-fetch fails loudly instead of passing quietly.
+    requested: list[int] = []
+
+    def fake_urlopen(request, timeout=None):
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(request.full_url).query)
+        page = int(query["page"][0])
+        requested.append(page)
+        if page == 1:
+            batch = [make_alert(n) for n in range(1, gate.PER_PAGE + 1)]
+        elif page == 2:
+            batch = [make_alert(gate.PER_PAGE + 1)]
+        else:
+            return _FakeResponse(json.dumps({"message": f"page {page} is past the end"}))
+        return _FakeResponse(json.dumps(batch))
+
+    monkeypatch.setattr(gate.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.setattr(gate.urllib.request, "urlopen", fake_urlopen)
+
+    alerts = gate.fetch_dismissed_alerts("owner/name")
+    assert requested == [1, 2]
+    assert [alert["number"] for alert in alerts] == list(range(1, gate.PER_PAGE + 2))
 
 
 # ---------------------------------------------------------------------------

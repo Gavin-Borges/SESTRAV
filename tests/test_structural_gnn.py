@@ -56,6 +56,9 @@ def test_generate_edge_features():
     assert edge_attr.shape[1] == 3
 
 
+# Without PyG the dataset's base class is plain `object`, which has no __len__:
+# `len(dataset)` below is PyG's Dataset.__len__ delegating to our len().
+@pytest.mark.skipif(not HAS_PYG, reason="torch_geometric not installed")
 def test_dataset_generation():
     df = pd.DataFrame(
         {

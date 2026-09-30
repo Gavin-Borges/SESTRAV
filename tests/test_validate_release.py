@@ -15,12 +15,15 @@ and the file previously had no test coverage of any kind.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
 from src.ci.validate_release import check_feature_count
+from src.features import FEATURE_COLUMNS_31, FEATURE_COLUMNS_51
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "config.yaml"
@@ -67,7 +70,15 @@ def test_the_configured_feature_mode_is_accepted_by_the_gate() -> None:
     """
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
     feature_mode = config["feature_mode"]
-    assert check_feature_count(_Model(feature_mode), feature_mode) == feature_mode
+    shipped_feature_count = len(FEATURE_COLUMNS_31)
+    assert check_feature_count(_Model(shipped_feature_count), feature_mode) == shipped_feature_count
+
+
+def test_mode_51_maps_to_its_55_canonical_columns() -> None:
+    assert len(FEATURE_COLUMNS_51) == 55
+    assert check_feature_count(_Model(55), 51) == 55
+    with pytest.raises(ValueError, match="requires 55"):
+        check_feature_count(_Model(51), 51)
 
 
 def test_the_stale_allowlist_would_have_rejected_the_shipped_configuration() -> None:
@@ -76,4 +87,36 @@ def test_the_stale_allowlist_would_have_rejected_the_shipped_configuration() -> 
     assert config["feature_mode"] not in (21, 30, 50), (
         "config.yaml's feature_mode is back inside the retired hardcoded allowlist; "
         "the regression pin above no longer distinguishes the fix from the defect."
+    )
+
+
+def test_running_the_file_by_path_imports_this_tree(tmp_path: Path) -> None:
+    """run_pipeline.sh runs `python src/ci/validate_release.py`, by path.
+
+    Run that way, Python puts src/ci on sys.path, not the repository root. The
+    module-level `from src.features import ...` then fails where the package is not
+    installed, or, where an installed copy exists (an editable install of another
+    checkout, or a wheel), silently resolves to that copy and validates the wrong
+    tree. runpy executes the module's top level without calling main().
+    """
+    script = REPO_ROOT / "src" / "ci" / "validate_release.py"
+    probe = "\n".join(
+        [
+            "import runpy, sys",
+            "sys.path[0] = sys.argv[1]",
+            "runpy.run_path(sys.argv[2], run_name='validate_release_by_path')",
+            "print(sys.modules['src.features'].__file__)",
+        ]
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe, str(script.parent), str(script)],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    resolved = Path(result.stdout.strip().splitlines()[-1]).resolve()
+    assert resolved.is_relative_to(REPO_ROOT.resolve()), (
+        f"src.features resolved to {resolved}, outside the tree under test {REPO_ROOT}"
     )

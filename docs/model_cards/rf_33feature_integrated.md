@@ -36,8 +36,8 @@ Identical to `rf_31feature_integrated.md` (v3 dataset, n=1,004, sample weights).
 |--------|-----------------|----------------------|-------|
 | **AUC-PR** | **0.8399 ± 0.011** | 0.8235 ± 0.012 | Primary metric |
 | AUC-ROC | 0.6728 ± 0.023 | 0.6393 ± 0.029 | |
-| ISSR@10 | **0.9158 ± 0.042** | 0.8842 ± 0.052 | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile) |
-| ISSR@25 | 0.9102 ± 0.038 | 0.8816 ± 0.024 | |
+| ISSR@10 | ~~0.9158 ± 0.042~~ withdrawn, unsourced | ~~0.8842 ± 0.052~~ withdrawn, unsourced | Fraction of the top-10% ranked peptides that are true positives (precision within the top decile). Both cells withdrawn: see the ISSR note below |
+| ISSR@25 | ~~0.9102 ± 0.038~~ withdrawn, unsourced | ~~0.8816 ± 0.024~~ withdrawn, unsourced | Both cells withdrawn: see the ISSR note below |
 
 > **PROVENANCE SPLIT (added 2026-08-15, S1). The eight cells above do NOT come from one source, and
 > the two halves need opposite treatment.** Re-derived cell by cell against `models/training_results.csv`

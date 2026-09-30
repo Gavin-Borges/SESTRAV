@@ -66,7 +66,7 @@ EOF
 
 > Curated MHC class I immunogenicity dataset for viral T-cell epitope prediction, assembled for
 > the SESTRAV v5 release. 51,185 total peptide records (8,712 positive / 42,473 negative), of
-> which 35,597 are active (non-quarantined) rows retained for per-virus training and metrics; the
+> which 35,597 are active (non-quarantined) rows retained for training and per-virus metrics; the
 > remaining rows are flagged `is_quarantined = true` (virus with fewer than 50 rows or fewer than
 > 10 real tested negatives) and kept in the file for traceability. Positives are experimentally
 > annotated CD8+ T-cell epitopes drawn from IEDB T-cell assays and VDJdb; negatives include

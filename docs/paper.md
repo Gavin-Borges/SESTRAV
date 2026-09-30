@@ -654,8 +654,8 @@ configuration. This is documented in full as `docs/claims_register.md` **D18**; 
 remedy - replacing the mock cache rather than repairing it - is tracked as Phase 1 step 8
 of `docs/proposals/2026_feature_upgrade_roadmap.md` and has not been carried out.
 
-Per-virus within-CV AUC-ROC values, computed by training and evaluating exclusively on
-each individual virus under peptide-grouped 5-fold cross-validation, are more variable,
+Per-virus within-CV AUC-ROC values, obtained by partitioning a single pooled
+peptide-grouped 5-fold out-of-fold prediction set by virus, are more variable,
 ranging from 0.482 (HPV) to 0.805 (DENV) (Table 2; results/per_virus_eval_v5_mode31.csv).
 This spread reflects differences in cohort size, negative-class composition,
 and the inherent difficulty of within-virus immunogenicity discrimination for each
@@ -689,8 +689,10 @@ remains. HPV and HCV remain the lowest-performing viruses in within-CV evaluatio
 have comparatively sparse confirmed-negative records, which limits negative-class
 separation.
 
-Table 2. Per-virus within-CV AUC-ROC (peptide-grouped 5-fold, per-virus-only training,
-mode-31 RF, v5 dataset, re-baselined 2026-08-10; results/per_virus_eval_v5_mode31.csv).
+Table 2. Per-virus within-CV AUC-ROC (peptide-grouped 5-fold, one pooled mode-31 RF
+partitioned by virus rather than trained per virus, v5 dataset, re-baselined 2026-08-10;
+results/per_virus_eval_v5_mode31.csv). Each virus's model saw the other eight during
+training, so these values are not cross-virus generalization estimates; see Table 3.
 
 | Virus      | Within-CV AUC-ROC |
 |------------|-------------------|
@@ -1249,7 +1251,7 @@ splitter, was completed and evaluated against a pre-registered promotion bar
 zero versus the RF mode-31 baseline). The result is a null on that bar: pooled
 AUC-PR reached 0.6458, missing the threshold by 0.0042, and cross-fold stability
 also failed the corresponding gate, though calibration, latency, and escape-sensitivity
-gates passed. AUC-PR was nonetheless significantly higher than the RF mode-31
+gates passed. Both quoted figures are the most favourable of eight independent evaluations against this scoring frame, not a single run: pooled AUC-PR spans 0.6298 to 0.6458 across the series and no run reaches the threshold, so the null is more strongly supported than the quoted run implies, while the 0.0042 shortfall is the smallest observed against a series mean of 0.0122 and the reported delta is the series maximum against a worst-seed delta that still excludes zero. AUC-PR was nonetheless significantly higher than the RF mode-31
 baseline (a paired-bootstrap delta with a 95% CI of [0.0286, 0.0520], excluding
 zero), indicating that the
 graph track as a whole, and principally the per-residue ESM-2 t12 embeddings [19]

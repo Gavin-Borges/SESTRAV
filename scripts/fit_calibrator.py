@@ -24,13 +24,20 @@ logits. The Stage 4 apply hook dispatches on the calibrator type.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 
-from src.artifact_integrity import default_manifest_path_for, update_checksum_manifest
+# The documented usage runs this file by path, which puts scripts/ rather than the
+# repository root first on sys.path, so `src` would otherwise not resolve to this tree.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import default_manifest_path_for, update_checksum_manifest  # noqa: E402
 
 # Deterministic seed for any stochastic dependency (isotonic itself is
 # deterministic, but we set this so the whole run is reproducible).

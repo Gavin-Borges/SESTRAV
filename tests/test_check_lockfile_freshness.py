@@ -158,6 +158,191 @@ def test_check_pair_missing_compiled_output(tmp_path):
     assert "compiled output is missing" in problems[0]
 
 
+# ---------------------------------------------------------------------------
+# Inputs the parser cannot read must be reported, never dropped.
+#
+# Before this block existed, parse_in_file skipped without a word an "-r"
+# include whose target did not exist, a pin carrying extras
+# (pkg[extra]==1.0), and any line that was not a single == or >= pin (~=, a
+# bare name, a pip option). A range or a wildcard was misread rather than
+# skipped: the prefix match took "a>=1,<2" as a bare floor and "numpy==2.4.*"
+# as version "2.4.". parse_compiled_file likewise dropped a compiled entry
+# carrying extras, hiding it from the unhashed check. check_pair compared only
+# what was left, so the gate passed while it had stopped reading part of its
+# input. Every test below except the last failed on that code.
+# ---------------------------------------------------------------------------
+
+_HASHED = "    --hash=sha256:a53b324a331d807ab68d442bc777a9de1894d82e6fff082cdeae5b5e4355bd68\n"
+
+
+def test_check_pair_fails_on_include_that_does_not_resolve(tmp_path):
+    in_file = _write(tmp_path / "requirements.in", "-r does-not-exist.in\nbiopython==1.87\n")
+    out_file = _write(tmp_path / "requirements.txt", "biopython==1.87 \\\n" + _HASHED)
+    problems = check_pair(in_file, out_file)
+    assert len(problems) == 1, problems
+    assert "does-not-exist.in" in problems[0]
+    assert "does not resolve to an existing file" in problems[0]
+    assert "requirements.in:1:" in problems[0]
+
+
+def test_check_pair_reports_unresolvable_include_in_a_nested_file(tmp_path):
+    _write(tmp_path / "base.in", "-r gone.in\nnumpy==2.4.6\n")
+    top = _write(tmp_path / "top.in", "-r base.in\n")
+    out_file = _write(tmp_path / "top.txt", "numpy==2.4.6 \\\n" + _HASHED)
+    problems = check_pair(top, out_file)
+    assert len(problems) == 1, problems
+    assert "gone.in" in problems[0]
+    assert "base.in:1:" in problems[0]
+
+
+def test_parse_in_file_raises_without_a_collector(tmp_path):
+    """A direct caller must not receive a partial parse silently."""
+    in_file = _write(tmp_path / "requirements.in", "-r does-not-exist.in\n")
+    with pytest.raises(ValueError, match="does not resolve to an existing file"):
+        parse_in_file(in_file)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "uvicorn[standard]==0.53.0",
+        "uvicorn[standard,socks] >= 0.53.0",
+        'uvicorn [standard]==0.53.0 ; python_version >= "3.10"',
+    ],
+)
+def test_parse_in_file_accepts_extras_on_a_pin(tmp_path, line):
+    in_file = _write(tmp_path / "requirements.in", line + "\n")
+    pins = parse_in_file(in_file)
+    assert "uvicorn" in pins, f"extras pin dropped: {line!r}"
+    assert pins["uvicorn"].name == "uvicorn"
+    assert pins["uvicorn"].version == "0.53.0"
+    assert pins["uvicorn"].marker is ("python_version" in line)
+
+
+def test_check_pair_flags_stale_extras_pin(tmp_path):
+    in_file = _write(tmp_path / "requirements.in", "uvicorn[standard]==0.53.0\n")
+    out_file = _write(tmp_path / "requirements.txt", "uvicorn==0.40.0 \\\n" + _HASHED)
+    problems = check_pair(in_file, out_file)
+    assert len(problems) == 1, problems
+    assert "uvicorn==0.53.0" in problems[0]
+    assert "uvicorn==0.40.0" in problems[0]
+    assert "stale" in problems[0]
+
+
+def test_parse_compiled_file_reads_entries_with_extras(tmp_path):
+    # environments/requirements-semgrep.txt (its header says uv generated it)
+    # carries one: pyjwt[crypto]==2.13.0. Whether a compiled line keeps its
+    # extras depends on the tool and its flags, so the parser must accept them.
+    out_file = _write(
+        tmp_path / "requirements.txt",
+        "pyjwt[crypto]==2.13.0 \\\n" + _HASHED + "shap[plots]==0.51.0\n",
+    )
+    entries = parse_compiled_file(out_file)
+    assert "pyjwt" in entries, f"extras entry dropped: {sorted(entries)}"
+    assert entries["pyjwt"].version == "2.13.0"
+    assert entries["pyjwt"].has_hash is True
+    assert entries["shap"].has_hash is False
+
+
+def test_check_pair_flags_unhashed_compiled_entry_with_extras(tmp_path):
+    in_file = _write(tmp_path / "requirements.in", "biopython==1.87\n")
+    out_file = _write(
+        tmp_path / "requirements.txt",
+        "biopython==1.87 \\\n" + _HASHED + "pyjwt[crypto]==2.13.0\n",
+    )
+    problems = check_pair(in_file, out_file)
+    assert len(problems) == 1, problems
+    assert "pyjwt==2.13.0" in problems[0]
+    assert "unhashed" in problems[0]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "pyjwt==2.13.0 \\\n" + _HASHED + "pyjwt[crypto]==2.13.0\n",
+        "pyjwt[crypto]==2.13.0\n" + "pyjwt==2.13.0 \\\n" + _HASHED,
+    ],
+    ids=["hashed-first", "unhashed-first"],
+)
+def test_check_pair_flags_an_unhashed_duplicate_in_either_order(tmp_path, body):
+    # "pyjwt==" and "pyjwt[crypto]==" normalize to one key; the unhashed
+    # line must be reported whichever comes last.
+    in_file = _write(tmp_path / "requirements.in", "pyjwt==2.13.0\n")
+    out_file = _write(tmp_path / "requirements.txt", body)
+    assert parse_compiled_file(out_file)["pyjwt"].has_hash is False
+    problems = check_pair(in_file, out_file)
+    assert len(problems) == 1, problems
+    assert "pyjwt==2.13.0" in problems[0]
+    assert "unhashed" in problems[0]
+
+
+@pytest.mark.parametrize(
+    ("line", "compiled"),
+    [
+        # Compatible release: this gate compares with a digit tuple, not a
+        # PEP 440 comparator, so it cannot hold ~= to its word.
+        ("bandit~=1.9.5", "bandit==1.8.0"),
+        # A range: the old prefix match read the floor and dropped the ceiling.
+        ("aiohttp>=3.14.3,<3.15", "aiohttp==3.15.0"),
+        # A wildcard: the old prefix match read "2.4." as the version.
+        ("numpy==2.4.*", "numpy==2.4.6"),
+        # A bare name has no version to compare.
+        ("requests", "requests==2.32.5"),
+        # pip options and constraint files change what the lock resolves to.
+        ("--index-url https://example.invalid/simple", None),
+        ("-c constraints.txt", None),
+    ],
+)
+def test_check_pair_reports_lines_it_cannot_classify(tmp_path, line, compiled):
+    in_file = _write(tmp_path / "requirements.in", f"biopython==1.87\n{line}\n")
+    body = "biopython==1.87 \\\n" + _HASHED
+    if compiled:
+        body += f"{compiled} \\\n" + _HASHED
+    out_file = _write(tmp_path / "requirements.txt", body)
+    problems = check_pair(in_file, out_file)
+    assert len(problems) == 1, problems
+    assert "requirements.in:2:" in problems[0]
+    assert "cannot classify" in problems[0]
+    assert repr(line) in problems[0]
+
+
+def test_check_pair_reports_every_unreadable_line_not_only_the_first(tmp_path):
+    in_file = _write(
+        tmp_path / "requirements.in",
+        """\
+        -r gone.in
+        biopython==1.87
+        bandit~=1.9.5
+        requests
+        """,
+    )
+    out_file = _write(tmp_path / "requirements.txt", "biopython==1.87 \\\n" + _HASHED)
+    problems = check_pair(in_file, out_file)
+    assert len(problems) == 3, problems
+    assert "requirements.in:1:" in problems[0]
+    assert "requirements.in:3:" in problems[1]
+    assert "requirements.in:4:" in problems[2]
+
+
+def test_parse_in_file_still_strips_an_inline_comment_after_a_pin(tmp_path):
+    # Guard for the full-line match above: an inline comment is not an
+    # unclassifiable tail. Passes before and after the fix by design. pip
+    # starts a comment at a "#" after any whitespace, so a TAB separator
+    # counts too; splitting on " #" alone reported the tab line as
+    # unclassifiable.
+    in_file = _write(
+        tmp_path / "requirements.in",
+        "biopython==1.87  # pinned for the Bio.Align API\n"
+        'nvidia-nccl-cu12==2.30.7; platform_system == "Linux"  # CUDA only\n'
+        "numpy==2.4.6\t# tab-separated comment\n",
+    )
+    pins = parse_in_file(in_file)
+    assert pins["biopython"].version == "1.87"
+    assert pins["nvidia-nccl-cu12"].marker is True
+    assert pins["numpy"].version == "2.4.6"
+    assert pins["numpy"].marker is False
+
+
 def test_discover_unmapped_in_files_is_empty_for_real_repo():
     # The live LOCKFILE_PAIRS mapping in the script must cover every
     # requirements*.in file actually tracked in this repo - this is the

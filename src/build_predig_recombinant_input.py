@@ -69,8 +69,15 @@ def parse_fasta(path: str) -> Dict[str, Tuple[str, str]]:
 
 
 def _protein_name_from_header(header: str) -> str:
-    """Use UniProt-style ID token when present, else first whitespace token."""
+    """Use UniProt-style ID token when present, else first whitespace token.
+
+    An empty or whitespace-only header (a bare ">" line) has no token and yields
+    "" instead of raising IndexError. Found by
+    fuzz/fuzz_protein_name_from_header.py.
+    """
     parts = header.split()
+    if not parts:
+        return ""
     if len(parts) >= 2 and parts[0].startswith("sp|"):
         return parts[0].split("|")[-1] if "|" in parts[0] else parts[1]
     return parts[0]

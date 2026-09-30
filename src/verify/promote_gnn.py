@@ -35,8 +35,12 @@ pre-registered bar**, which is an AND-conjunction, so Gate 1 alone decides it:
 
 Underneath that null sits a real effect, and both halves must be reported
 together or neither is honest: against RF mode-31 the GNN scored AUC-PR 0.6458
-vs 0.6055, **delta +0.0402, 95% CI [0.0286, 0.0520], excludes zero, p < 0.0001**
+vs 0.6055 (RF's POOLED AUC-PR, as the GNN's is; RF's 5-fold MEAN is 0.6058),
+**delta +0.0402, 95% CI [0.0286, 0.0520], excludes zero, p < 0.0001**
 (paired bootstrap, seed 20260813, 10,000 resamples, 35,555 rows matched 1:1).
+Both the GNN figure and that delta are the best of eight GNN runs against this
+frame (docs/gnn_gate_retry_preregistration.md section 1.1), so each is a best
+case, not a typical run.
 So the architecture is measurably better on discrimination and still misses the
 promotion bar. It is not promoted.
 
@@ -147,9 +151,10 @@ CHECKSUM_FILE = Path("models/model_artifact_checksums.json")
 # Gate 1 re-anchored 2026-08-10 from 0.85 to 0.65. The 0.85 threshold was set
 # against the pre-remediation ungrouped RF baseline (pooled AUC-PR 0.8312), which
 # is retracted as peptide-leakage-inflated (docs/claims_register.md D15). Against
-# the certified peptide-grouped RF baseline of 0.6058 it was unreachable rather
-# than ambitious. A promotion candidate must be scored under a peptide-grouped
-# splitter (src.ml_utils.PeptideGroupedKFold) for this comparison to be valid.
+# the certified peptide-grouped RF baseline of 0.6058 (its 5-fold MEAN; the same
+# model's POOLED AUC-PR is 0.6055) it was unreachable rather than ambitious. A
+# promotion candidate must be scored under a peptide-grouped splitter
+# (src.ml_utils.PeptideGroupedKFold) for this comparison to be valid.
 GATE1_AUC_PR_MIN: float = 0.65
 GATE2_STD_MAX: float = 0.02
 GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2x RF latency
@@ -164,8 +169,9 @@ GATE5_SENSITIVITY_MIN: float = 0.80
 # pure function of the peptide string, so an ungrouped fold boundary leaves a
 # held-out peptide's feature-identical twin in the training set. Comparing such
 # a number against a threshold anchored on the peptide-grouped RF baseline
-# (0.6058) is a category error, so the frame must carry positive evidence of
-# its splitter. Absence of the marker fails the gate; it never waives it.
+# (0.6058 as a 5-fold mean, 0.6055 pooled) is a category error, so the frame must
+# carry positive evidence of its splitter. Absence of the marker fails the gate; it
+# never waives it.
 SPLITTER_COLUMN: str = "splitter"
 GROUPED_SPLITTERS: frozenset[str] = frozenset({"PeptideGroupedKFold"})
 FOLD_COLUMN: str = "fold"

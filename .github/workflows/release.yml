@@ -95,6 +95,13 @@ jobs:
           today = datetime.datetime.now(datetime.UTC).date()
           if cff_date is None:
               errors.append("CITATION.cff has no top-level 'date-released:' field.")
+          # date.fromisoformat alone is not enough: on Python 3.11+ it also
+          # accepts the ISO basic form (20260923) and week dates (2026-W38-3),
+          # while docs/releasing.md requires YYYY-MM-DD.
+          elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", cff_date):
+              errors.append(
+                  f"CITATION.cff date-released {cff_date!r} is not in YYYY-MM-DD form."
+              )
           else:
               try:
                   released = datetime.date.fromisoformat(cff_date)
@@ -129,6 +136,50 @@ jobs:
         run: |
           pip install --require-hashes -r environments/requirements-ci-build.txt
           python -m build --sdist --wheel --outdir dist/
+
+      - name: Verify JSON package data in built distributions
+        # src/verify/structural_gnn.py reads mhc_pseudo_sequences.json at
+        # runtime, and only pyproject.toml's [tool.setuptools.package-data]
+        # entry puts it and targets.json into these archives. The
+        # install-and-import gate below never imports src.verify, so it cannot
+        # see them go missing; this step reads the member lists of the exact
+        # files this job publishes. tests/test_package_data_declaration.py
+        # checks the same declaration at pull-request time.
+        run: |
+          python - <<'PY'
+          import glob
+          import tarfile
+          import zipfile
+
+          required = {
+              "src/verify/mhc_pseudo_sequences.json",
+              "src/verify/targets.json",
+          }
+          wheel_paths = glob.glob("dist/*.whl")
+          sdist_paths = glob.glob("dist/*.tar.gz")
+          if len(wheel_paths) != 1 or len(sdist_paths) != 1:
+              raise SystemExit(
+                  f"expected one wheel and one sdist, got {wheel_paths=} {sdist_paths=}"
+              )
+
+          with zipfile.ZipFile(wheel_paths[0]) as archive:
+              wheel_names = set(archive.namelist())
+          with tarfile.open(sdist_paths[0]) as archive:
+              sdist_names = {
+                  "/".join(name.split("/")[1:]) for name in archive.getnames() if "/" in name
+              }
+
+          missing_by_artifact = {}
+          for artifact, names in (("wheel", wheel_names), ("sdist", sdist_names)):
+              print(f"{artifact} member count: {len(names)}")
+              missing = sorted(required - names)
+              if missing:
+                  missing_by_artifact[artifact] = missing
+              else:
+                  print(f"{artifact} contains required package data: {sorted(required)}")
+          if missing_by_artifact:
+              raise SystemExit(f"built distributions are missing package data: {missing_by_artifact}")
+          PY
 
       - name: Verify the built wheel installs and imports (PRE-PUBLISH GATE)
         # The last point at which a bad package is still recoverable. The
@@ -168,16 +219,34 @@ jobs:
               sys.exit(1)
           print("import sestrav OK", sestrav.__version__)
           PY
-          /tmp/relcheck/bin/python -c "
-          import functions.stage1_peptide_generation
-          import functions.stage2_mhc_binding_prediction
-          import functions.stage3_tcr_feature_extraction
-          import functions.stage4_immunogenicity_scoring
-          print('import functions.stage1-4 OK')
-          "
-          /tmp/relcheck/bin/python -c "import src.cli; print('import src.cli OK')"
+          # The import list is DERIVED, not hardcoded. The hardcoded form has
+          # already failed once in exactly the way a hardcoded list fails: until
+          # 2026-08-16 it named stage 1 only, so matplotlib - reached through
+          # stage 4 - cleared this gate while declared nowhere.
+          # scripts/check_consumer_install.py walks src/cli.py's module-scope
+          # imports plus the lazy imports inside every cmd_* function and follows
+          # them transitively, so a new command or a new module is covered without
+          # anyone remembering to edit this file. It also fails when a subparser
+          # has no cmd_ function or a cmd_ function no parser advertises, which is
+          # how this coverage would otherwise go quietly stale again.
+          #
+          # It is scoped to reachability from a shipped command, not to every
+          # module in the wheel: src/optimizer.py imports pulp from the dev extra
+          # and no command reaches it, so importing everything would fail here and
+          # push pulp into every consumer's install for nothing.
+          #
+          # Run from outside the checkout with --require-installed so the imports
+          # resolve to the wheel just installed and not to the source tree in
+          # $GITHUB_WORKSPACE. Without that flag the whole check is vacuous, and
+          # the flag makes that failure loud instead of silent.
+          ( cd /tmp && /tmp/relcheck/bin/python               "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"               --root "${GITHUB_WORKSPACE}" --require-installed )
+
           /tmp/relcheck/bin/sestrav --help > /dev/null
           echo "sestrav --help OK"
+          for command in $(/tmp/relcheck/bin/python                 "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"                 --root "${GITHUB_WORKSPACE}" --list-commands); do
+            /tmp/relcheck/bin/sestrav "$command" --help > /dev/null
+            echo "sestrav $command --help OK"
+          done
 
       - name: Build canonical results bundle (checksummed zip of tracked results/ artifacts)
         # Stdlib-only (hashlib/json/zipfile) - no ML runtime deps needed. Lets a reader

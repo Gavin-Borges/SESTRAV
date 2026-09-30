@@ -215,8 +215,9 @@ def stratified_bootstrap_ci(
     resampled row indices, so the per-resample difference
     ``C(score_col) - C(compare_col)`` is a genuine PAIRED contrast. Returns a dict
     carrying both marginal CIs, the paired delta point estimate, its CI, and whether
-    that CI excludes zero. With ``compare_col=None`` the historical ``(low, high)``
-    2-tuple is returned, numerically unchanged.
+    that CI excludes zero. The point estimate is the observed difference on the
+    shared row mask; the resamples set only its CI. With ``compare_col=None`` the
+    historical ``(low, high)`` 2-tuple is returned, numerically unchanged.
 
     Why the pairing has to be BUILT rather than recovered: the two marginal calls in
     run_stratified_evaluation use DIFFERENT seeds (``bootstrap_seed`` and
@@ -306,10 +307,22 @@ def stratified_bootstrap_ci(
     sorted_delta = sorted(delta_estimates)
     delta_lo = float(sorted_delta[low_idx])
     delta_hi = float(sorted_delta[high_idx])
+    # The point estimate is the OBSERVED paired difference on the shared row mask,
+    # not the mean of the resampled deltas: that mean is this value plus Monte
+    # Carlo noise, so it moved with the seed and the resample count. It draws
+    # nothing from the RNG, so the intervals above are unchanged.
+    observed_delta = (
+        sum(
+            _concordant_count(pos[score_col], neg[score_col])
+            - _concordant_count(pos[compare_col], neg[compare_col])
+            for pos, neg, _pairs in strata_data
+        )
+        / total_pairs
+    )
     return {
         "score_ci": (float(boot_estimates[low_idx]), float(boot_estimates[high_idx])),
         "compare_ci": (float(compare_estimates[low_idx]), float(compare_estimates[high_idx])),
-        "delta_point": float(np.mean(delta_estimates)),
+        "delta_point": float(observed_delta),
         "delta_ci": (delta_lo, delta_hi),
         "delta_excludes_zero": bool(delta_lo > 0.0 or delta_hi < 0.0),
         "paired_pairs": int(total_pairs),

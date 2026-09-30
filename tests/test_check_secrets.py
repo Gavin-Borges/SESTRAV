@@ -393,6 +393,55 @@ def test_unquoted_value_in_yaml_is_flagged(tmp_path: Path) -> None:
     assert mod.scan_file(str(target)) == [1]
 
 
+def test_unquoted_value_in_an_extensionless_hook_is_flagged(tmp_path: Path) -> None:
+    """Files under scripts/hooks/ are shell with no suffix, so a bare value is literal.
+
+    The selection layer opens the directory's extensionless hooks; without this they
+    were scanned for quoted assignments only, and `API_TOKEN=<value>` passed.
+    """
+    mod = _load()
+    hooks = tmp_path / "scripts" / "hooks"
+    hooks.mkdir(parents=True)
+    target = hooks / "pre-push"
+    _bare(target, "API_" + "TOKEN=" + _token())
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_unquoted_value_in_a_makefile_is_flagged(tmp_path: Path) -> None:
+    """Every Make assignment operator, including `:=`, which `[=:]` alone missed."""
+    mod = _load()
+    for operator in (" = ", " := ", " ?= ", " += "):
+        target = tmp_path / "Makefile"
+        _bare(target, "API_" + "TOKEN" + operator + _token())
+        assert mod.scan_file(str(target)) == [1], operator
+
+
+def test_python_helper_under_the_hook_dir_keeps_python_rules(tmp_path: Path) -> None:
+    """Only EXTENSIONLESS hook files are shell; a .py there keeps the .py exemption."""
+    mod = _load()
+    hooks = tmp_path / "scripts" / "hooks"
+    hooks.mkdir(parents=True)
+    target = hooks / "helper.py"
+    _bare(target, "to" + "ken = match.group(1)")
+    assert mod.scan_file(str(target)) == []
+
+
+def test_makefile_rule_line_is_not_read_as_an_assignment(tmp_path: Path) -> None:
+    """In a Makefile, `target: prerequisites` is a rule; a lone `:` is not assignment."""
+    mod = _load()
+    target = tmp_path / "Makefile"
+    _bare(target, "au" + "th-check: scripts/check_affiliation_claims.py")
+    assert mod.scan_file(str(target)) == []
+
+
+def test_extensionless_file_outside_the_hook_dir_stays_quoted_only(tmp_path: Path) -> None:
+    """The widening is scoped: an extensionless file elsewhere keeps quoted-only mode."""
+    mod = _load()
+    target = tmp_path / "CODEOWNERS"
+    _bare(target, "API_" + "TOKEN=" + _token())
+    assert mod.scan_file(str(target)) == []
+
+
 def test_unquoted_value_in_dockerfile_is_flagged(tmp_path: Path) -> None:
     """Dockerfile ENV/ARG values are unquoted literals; match on the basename."""
     mod = _load()
@@ -627,3 +676,367 @@ def test_ordinary_files_are_unaffected() -> None:
     assert mod._is_scannable("README.md") is True
     assert mod._is_scannable("Dockerfile.api") is True
     assert mod._is_scannable("models/weights.bin") is False
+
+
+# ---------------------------------------------------------------------------
+# File-SELECTION coverage. Added 2026-09-23.
+#
+# The defect these cover was in _is_scannable, not in the patterns. Measured on
+# b080b7ef before the fix: scan_file found the planted assignment in all ten
+# formats below, while _is_scannable returned False for all ten, so scan_tree
+# never opened one of them. A tree holding ten planted credentials and twelve
+# clean .py files printed "[SUCCESS] No secrets detected." and exited 0.
+#
+# 145 of 678 tracked files were unscannable, 22 of them non-binary, including
+# all four git hooks, the Makefile, both Snakemake files, pytest.ini, the
+# rendered report source and the lockfile.
+# ---------------------------------------------------------------------------
+
+_NEWLY_COVERED = (
+    "pipeline.smk",
+    "docs/results_report.qmd",
+    "notebooks/run.ipynb",
+    "environments/requirements.lock",
+    "setup.cfg",
+    "pytest.ini",
+    "deploy.env",
+    "Makefile",
+    "Snakefile",
+    "LICENSE",
+    ".github/CODEOWNERS",
+    "scripts/hooks/pre-push",
+    "scripts/hooks/pre-commit",
+    "scripts/hooks/commit-msg",
+    "scripts/hooks/prepare-commit-msg",
+)
+
+
+def test_formats_that_were_never_opened_are_now_scannable() -> None:
+    mod = _load()
+    missed = [rel for rel in _NEWLY_COVERED if not mod._is_scannable(rel)]
+    assert missed == [], f"still unscannable: {missed}"
+
+
+def test_a_new_hook_is_covered_without_editing_a_name_list() -> None:
+    """scripts/hooks/ is selected as a DIRECTORY, so a fifth hook needs no edit."""
+    mod = _load()
+    assert mod._is_scannable("scripts/hooks/post-checkout") is True
+    assert mod._is_scannable(r"scripts\hooks\post-checkout") is True
+
+
+def test_selection_is_still_selective() -> None:
+    """Anti-vacuity partner. If _is_scannable regressed to returning True for
+    everything, the test above would pass for the wrong reason. These must stay
+    OUT: binaries and bulk data are not credential surfaces and opening 84
+    tracked .csv files would cost the walk for nothing.
+    """
+    mod = _load()
+    for rel in (
+        "models/weights.bin",
+        "data/immunogenicity_dataset_v5.csv",
+        "figures/roc.png",
+        "data/proteome.fasta",
+        "models/rf.joblib",
+    ):
+        assert mod._is_scannable(rel) is False, f"{rel} should not be scanned"
+
+
+def test_every_bare_value_format_can_actually_be_opened() -> None:
+    """The defect CLASS, not one instance.
+
+    _BARE_VALUE_SUFFIXES decides how a value is parsed once a file is open. Three
+    of its entries - .env, .cfg and .ini - were absent from the selection layer,
+    so no file of those types was ever opened and that branch was unreachable.
+    A capability declared in one layer and unreachable from another is exactly
+    the shape that hid this bug; assert the two layers agree.
+    """
+    mod = _load()
+    unreachable = [
+        suffix
+        for suffix in mod._BARE_VALUE_SUFFIXES
+        if not mod._is_scannable("case" + suffix)
+    ]
+    assert unreachable == [], f"declared but never opened: {unreachable}"
+
+
+def test_planted_credential_in_a_hook_turns_the_tree_red(tmp_path: Path) -> None:
+    """End-to-end regression. Before the fix this exited 0 with [SUCCESS].
+
+    The twelve clean .py files are load-bearing: without them scan_tree returns 1
+    from the MIN_SCANNED_FILES floor, which is a different failure and would have
+    made this test pass for the wrong reason.
+    """
+    mod = _load()
+    hook = tmp_path / "scripts" / "hooks" / "pre-push"
+    hook.parent.mkdir(parents=True)
+    _write(hook, "api_" + "key", " = ", _token())
+    for i in range(12):
+        (tmp_path / f"mod{i}.py").write_text("x = 1\n", encoding="utf-8")
+    assert mod.scan_tree(str(tmp_path), min_files=mod.MIN_SCANNED_FILES) == 1
+
+
+def test_that_tree_is_clean_once_the_hook_is(tmp_path: Path) -> None:
+    """Non-vacuity partner for the test above: same tree, credential removed."""
+    mod = _load()
+    hook = tmp_path / "scripts" / "hooks" / "pre-push"
+    hook.parent.mkdir(parents=True)
+    hook.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    for i in range(12):
+        (tmp_path / f"mod{i}.py").write_text("x = 1\n", encoding="utf-8")
+    assert mod.scan_tree(str(tmp_path), min_files=mod.MIN_SCANNED_FILES) == 0
+
+
+# ---------------------------------------------------------------------------
+# Vendor credential FORMATS. Added 2026-09-23.
+#
+# Every literal below is assembled at runtime. A real vendor-format token
+# written into this file would be flagged by the very gates it tests: pre-commit
+# Gate 2 reads staged content, and check_secrets scans tests/ as tracked source.
+# The same reason the file writes "api_" + "key" elsewhere.
+#
+# Measured before the port: the assignment patterns need a credential-class NAME
+# followed by = or :, so a self-identifying vendor token assigned to an innocuous
+# name, embedded in a URL, or standing alone on a line was not flagged at all.
+# ---------------------------------------------------------------------------
+
+
+def _vendor_samples() -> dict:
+    return {
+        "github pat": "ghp_" + "016C4aBcDeFgHiJkLmNoPqRsTuVwXyZ1234",
+        "github actions": "ghs_" + "016C4aBcDeFgHiJkLmNoPqRsTuVwXyZ1234",
+        "github fine grained": "github_pat_" + "11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ",
+        "aws access key id": "AKIA" + "IOSFODNN7EXAMPLE",
+        "aws temporary": "ASIA" + "IOSFODNN7EXAMPLE",
+        "google api": "AIza" + "SyD1e2F3g4H5i6J7k8L9m0N1o2P3q4R5s6T",
+        "slack": "xox" + "b-1234567890-abcdefGHIJ",
+        "openai project": "sk-proj-" + "9fJkLmNoPqRsTuVwXyZaBcDeFgHi",
+        "openai classic": "sk-" + "a" * 20 + "B3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV3",
+        "anthropic": "sk-ant-" + "api03aBcDeFgHiJkLmNoPqRsTuVwXyZ",
+        "pem header": "-----BEGIN RSA " + "PRIVATE KEY-----",
+    }
+
+
+def test_vendor_formats_are_flagged_without_a_credential_keyword(
+    tmp_path: Path,
+) -> None:
+    """The gap: these carry no api_key/token/secret NAME, so the assignment
+    patterns never saw them. They are assigned to an innocuous identifier here
+    on purpose."""
+    mod = _load()
+    missed = []
+    for label, sample in _vendor_samples().items():
+        target = tmp_path / "case.py"
+        target.write_text('default_value = "' + sample + '"\n', encoding="utf-8")
+        if not mod.scan_file(str(target)):
+            missed.append(label)
+    assert missed == [], f"vendor formats not flagged: {missed}"
+
+
+def test_vendor_format_inside_a_url_is_flagged(tmp_path: Path) -> None:
+    """A token in a clone URL is assigned to nothing the keyword patterns match."""
+    mod = _load()
+    token = "ghp_" + "016C4aBcDeFgHiJkLmNoPqRsTuVwXyZ1234"
+    target = tmp_path / "case.py"
+    target.write_text(
+        'remote = "https://' + token + '@github.com/o/r.git"\n', encoding="utf-8"
+    )
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_pem_header_alone_on_a_line_is_flagged(tmp_path: Path) -> None:
+    """No assignment at all, which is exactly how a pasted key block arrives."""
+    mod = _load()
+    target = tmp_path / "id_rsa"
+    target.write_text("-----BEGIN RSA " + "PRIVATE KEY-----\n", encoding="utf-8")
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_vendor_pass_does_not_fire_on_lookalikes(tmp_path: Path) -> None:
+    """Anti-vacuity partner. If the vendor pass regressed to matching broadly,
+    the tests above would pass for the wrong reason. Two of these are real
+    measured false-positive risks, not invented ones:
+
+    - the amino-acid run is the FASTA collision the hook's own comment records
+      for an unanchored AKIA/ASIA rule (DENV2_NGC_panel1.fasta:31);
+    - the malformed sk-proj value has no hyphen after 'proj', and a first draft
+      of this suite reported it as a coverage gap when the test value, not the
+      pattern, was wrong.
+    """
+    mod = _load()
+    for label, line in {
+        "amino acid run": 'seq = "FTDPASIAARGYISTRVEMGEAAGIF"',
+        "malformed openai prefix": 'c = "sk-' + 'proj9fJkLmNoPqRsTuVwXyZaBcDeFgHi"',
+        "prose about a password": 'password: "must be at least twelve characters"',
+        "short lookalike": 'x = "ghp_' + 'abc"',
+        "the word private key in prose": "# rotate the private key every 90 days",
+    }.items():
+        target = tmp_path / "case.py"
+        target.write_text(line + "\n", encoding="utf-8")
+        assert mod.scan_file(str(target)) == [], f"false positive on {label}"
+
+
+def test_ci_scanner_carries_every_pattern_the_local_hook_does() -> None:
+    """Drift guard, and the reason this port exists.
+
+    scripts/hooks/pre-commit is a LOCAL hook: it runs on a developer machine and
+    on no CI runner. check_secrets.py is the only content scanner CI runs. When
+    the hook knows a credential format and the scanner does not, a commit made
+    without the hook installed - or created server side by a squash merge -
+    reaches the public remote with CI green. Measured 2026-09-23: the scanner
+    carried none of the hook's 12 formats.
+
+    Asserting the sets are equal rather than a subset, so a pattern added to
+    either side has to be added to both.
+    """
+    import re as _re
+
+    mod = _load()
+    hook_text = (
+        Path(__file__).resolve().parents[1] / "scripts" / "hooks" / "pre-commit"
+    ).read_text(encoding="utf-8")
+    block = _re.search(r"CRED_PATTERNS=\((.*?)\n\)", hook_text, _re.S)
+    assert block is not None, "CRED_PATTERNS array not found in pre-commit"
+    hook_patterns = {
+        m.group(1) for m in _re.finditer(r"^\s*'([^']+)'", block.group(1), _re.M)
+    }
+    assert len(hook_patterns) >= 10, f"parsed only {len(hook_patterns)} patterns"
+    ported = {p.pattern for p in mod.VENDOR_CREDENTIAL_FORMATS}
+    assert hook_patterns == ported, (
+        f"only in hook: {sorted(hook_patterns - ported)}; "
+        f"only in scanner: {sorted(ported - hook_patterns)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Credential-class NAMES and URL userinfo. Added 2026-09-23.
+#
+# The third measured gap in the same finding. Unlike the vendor formats these
+# ARE assignments; the alternation simply did not carry the name.
+# ---------------------------------------------------------------------------
+
+
+def test_pwd_and_credentials_names_are_flagged(tmp_path: Path) -> None:
+    mod = _load()
+    for left in ("DB_" + "PWD", "credential" + "s", "credential"):
+        target = tmp_path / "case.py"
+        _write(target, left, " = ", _token())
+        assert mod.scan_file(str(target)) == [1], f"{left} not flagged"
+
+
+def test_password_inside_a_url_is_flagged(tmp_path: Path) -> None:
+    """Keyword-independent: `postgres://u:<value>@h/db` names nothing the
+    assignment patterns recognise."""
+    mod = _load()
+    target = tmp_path / "case.py"
+    target.write_text(
+        'DATABASE_URL = "postgres://u:' + _token() + '@h:5432/db"\n', encoding="utf-8"
+    )
+    assert mod.scan_file(str(target)) == [1]
+
+
+def test_url_placeholder_is_not_flagged(tmp_path: Path) -> None:
+    """Anti-vacuity partner for the test above, and the reason the URL pattern
+    is routed through the same length floor as the others: a documentation
+    placeholder carries an 8-character value and does not clear `len > 8`."""
+    mod = _load()
+    target = tmp_path / "doc.py"
+    target.write_text(
+        'doc = "https://user:' + "pass" + 'word@example.com"\n', encoding="utf-8"
+    )
+    assert mod.scan_file(str(target)) == []
+
+
+def test_suffix_key_names_stay_unflagged(tmp_path: Path) -> None:
+    """A deliberate NON-widening, kept as a test so it is not quietly reversed.
+
+    An audit recommended covering `*_KEY` names. Measured over every scanned
+    file at b080b7ef, 547 of them, the obvious pattern `[a-z0-9]+[_-]key`
+    produces six hits on tracked code and every one is a false positive: two
+    module constants holding a ledger key and a baseline name, and four
+    `score_key` lines - one assignment and three dict-rename arguments.
+    Re-measured after PRs #540, #541 and #543 landed, 549 files, the same six
+    at the same lines: the file count moves with the tree, the finding does not.
+    Adding it would turn a blocking CI gate red on legitimate code.
+
+    These three lines are copied from the real tracked hits. If a future change
+    widens the alternation to reach them, this test fails and the measurement
+    above has to be redone rather than rediscovered.
+    """
+    mod = _load()
+    for line in (
+        'RATCHET_' + 'KEY = "exempt_ledger_citation_ceiling"',
+        'BASELINE_' + 'KEY = "iedb_ebv_hpv16_tcell"',
+        'df.rename(columns={peptide_key: "peptide", score_' + 'key: "predig_max_score"})',
+    ):
+        target = tmp_path / "case.py"
+        target.write_text(line + "\n", encoding="utf-8")
+        assert mod.scan_file(str(target)) == [], f"false positive on: {line[:30]}"
+
+
+# ---------------------------------------------------------------------------
+# Tracked paths that git has to quote. Added 2026-09-23.
+#
+# _tracked_paths is the additive net that pulls TRACKED files back in after
+# EXCLUDE_DIRS prunes the walk by directory name. It is the only thing that
+# reaches a tracked file under results/, so a path it cannot represent is a
+# file nothing scans. Anywhere else the walk finds the file regardless, which
+# is why this is tested under an excluded directory specifically.
+# ---------------------------------------------------------------------------
+
+# Built with chr() so this SOURCE file stays pure ASCII. A literal here
+# fails tests/test_encoding_ascii_output.py, which allowlists non-ASCII
+# string literals per module - a real gate that caught exactly this.
+_NON_ASCII_NAME = "caf" + chr(0xE9) + ".md"
+
+
+def test_tracked_non_ascii_path_under_an_excluded_dir_is_scanned(
+    tmp_path: Path,
+) -> None:
+    """Two defects had to be fixed together and either one alone still drops it.
+
+    Without -z, git applies core.quotePath and the name arrives as
+    "caf\303\251.md", which names no file. With -z but with text=True alone,
+    the UTF-8 bytes are decoded using the process's preferred encoding - cp1252
+    on the Windows workstation - and the name arrives double-encoded, which also
+    names no file. Both end at the same os.path.isfile() guard.
+    """
+    mod = _load()
+    repo = tmp_path / "repo"
+    (repo / "results").mkdir(parents=True)
+    _git(repo, "init", "-q")
+    for name in ("plain.md", _NON_ASCII_NAME):
+        _write(repo / "results" / name, "api_" + "key", " = ", _token())
+    _git(repo, "add", "-A")
+    names = _basenames(mod, repo)
+    assert "plain.md" in names, "the ASCII control was not selected either"
+    assert _NON_ASCII_NAME in names, f"non-ASCII tracked path dropped; got {names}"
+
+
+def test_untracked_non_ascii_path_under_an_excluded_dir_is_still_skipped(
+    tmp_path: Path,
+) -> None:
+    """Anti-vacuity partner. Selection under an excluded directory must still be
+    driven by TRACKEDNESS; if the fix had widened the walk instead, this would
+    start being scanned and the test above would pass for the wrong reason."""
+    mod = _load()
+    repo = tmp_path / "repo"
+    (repo / "results").mkdir(parents=True)
+    _git(repo, "init", "-q")
+    _write(repo / "results" / _NON_ASCII_NAME, "api_" + "key", " = ", _token())
+    assert _NON_ASCII_NAME not in _basenames(mod, repo)
+
+
+def test_tracked_paths_parses_the_repo_without_quoting_artifacts() -> None:
+    """Every entry must name a real file. A quoted or mis-decoded path is not an
+    error anywhere - it simply fails os.path.isfile() and vanishes - so assert
+    the property directly rather than waiting for a count to look wrong."""
+    import os as _os
+
+    mod = _load()
+    root = str(Path(__file__).resolve().parents[1])
+    tracked = mod._tracked_paths(root)
+    assert len(tracked) > 100, f"only {len(tracked)} tracked paths parsed"
+    quoted = [p for p in tracked if p.startswith('"') and p.endswith('"')]
+    assert quoted == [], f"quoted paths returned: {quoted[:5]}"
+    missing = [p for p in tracked if not _os.path.exists(_os.path.join(root, p))]
+    assert missing == [], f"paths naming no file: {missing[:5]}"

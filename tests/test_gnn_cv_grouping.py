@@ -31,6 +31,7 @@ from src.train_gnn import (  # noqa: E402
     GNN_CV_SPLITTER,
     SPLITTER_COLUMN,
     build_cv_splits,
+    build_gnn_run_config,
     build_oof_records,
 )
 
@@ -55,6 +56,9 @@ def _train_pool(n_peptides: int = 40, rows_per_peptide: int = 3) -> pd.DataFrame
                     "peptide": f"PEPTIDE{i:03d}",
                     "label": i % 2,
                     "hla_allele": alleles[j % len(alleles)],
+                    "virus": "EBV" if i % 2 else "HPV16",
+                    "strain": f"strain_{i % 4}",
+                    "protein": f"protein_{i % 3}",
                     "negative_origin": "tested_negative" if i % 2 == 0 else None,
                 }
             )
@@ -175,12 +179,82 @@ def test_oof_records_carry_the_allele_so_rows_can_be_joined_one_to_one():
     assert [r["hla_allele"] for r in records] == pool["hla_allele"].iloc[val_idx].tolist()
 
 
-def test_oof_records_omit_the_allele_when_the_corpus_has_none():
-    pool = _train_pool(n_peptides=4, rows_per_peptide=2).drop(columns=["hla_allele"])
+def test_oof_records_carry_stratification_metadata_in_validation_order():
+    pool = _train_pool(n_peptides=4, rows_per_peptide=3)
+    val_idx = np.array([5, 1, 3])
     records = build_oof_records(
-        pool, np.array([0]), np.array([1.0]), np.array([0.7]), fold=1
+        pool, val_idx, np.array([0.0, 1.0, 0.0]), np.array([0.2, 0.8, 0.3]), fold=2
     )
+    actual = pd.DataFrame(records)[
+        ["virus", "strain", "protein", "negative_origin", "hla_allele"]
+    ].reset_index(drop=True)
+    expected = pool.iloc[val_idx][
+        ["virus", "strain", "protein", "negative_origin", "hla_allele"]
+    ].reset_index(drop=True)
+    pd.testing.assert_frame_equal(actual, expected)
+
+
+# The six columns the OOF artifact carried before the stratification metadata
+# was added, in the order the writer emitted them.
+_PRE_EXISTING_OOF_COLUMNS = [
+    "peptide",
+    "hla_allele",
+    "label",
+    "gnn_oof_score",
+    "fold",
+    SPLITTER_COLUMN,
+]
+
+
+def test_oof_records_append_the_metadata_after_the_existing_columns():
+    """FAILS IF: a stratification column is inserted among the existing ones,
+    which shifts every later column for a reader that goes by position."""
+    pool = _train_pool(n_peptides=4, rows_per_peptide=3)
+    records = build_oof_records(
+        pool, np.array([0, 4]), np.array([1.0, 0.0]), np.array([0.6, 0.4]), fold=1
+    )
+    assert list(records[0]) == [
+        *_PRE_EXISTING_OOF_COLUMNS,
+        "virus",
+        "strain",
+        "protein",
+        "negative_origin",
+    ]
+
+
+def test_oof_records_write_the_existing_columns_byte_for_byte_as_before():
+    """FAILS IF: the label or score is boxed to a Python float on its way into the
+    record. The network emits float32; boxed values make pandas infer float64, and
+    to_csv then writes every score at float64 precision (0.1 becomes
+    0.10000000149011612), so the existing columns change bytes on disk."""
+    pool = _train_pool(n_peptides=4, rows_per_peptide=3)
+    val_idx = np.array([5, 1, 3, 0])
+    labels = np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32)
+    scores = np.array([0.1, 0.7, 0.33, 0.9], dtype=np.float32)
+    # The per-row construction the writer used before the metadata was added.
+    before = pd.DataFrame(
+        [
+            {
+                "peptide": pool["peptide"].iloc[j],
+                "hla_allele": pool["hla_allele"].iloc[j],
+                "label": labels[i],
+                "gnn_oof_score": scores[i],
+                "fold": 2,
+                SPLITTER_COLUMN: GNN_CV_SPLITTER,
+            }
+            for i, j in enumerate(val_idx)
+        ]
+    )
+    after = pd.DataFrame(build_oof_records(pool, val_idx, labels, scores, fold=2))
+    assert after[_PRE_EXISTING_OOF_COLUMNS].to_csv(index=False) == before.to_csv(index=False)
+
+
+def test_oof_records_omit_the_allele_when_the_corpus_has_none():
+    optional = ["virus", "strain", "protein", "negative_origin", "hla_allele"]
+    pool = _train_pool(n_peptides=4, rows_per_peptide=2).drop(columns=optional)
+    records = build_oof_records(pool, np.array([0]), np.array([1.0]), np.array([0.7]), fold=1)
     assert "hla_allele" not in records[0]
+    assert not (set(optional) & records[0].keys())
     assert records[0][SPLITTER_COLUMN] == GNN_CV_SPLITTER
 
 
@@ -211,3 +285,25 @@ def test_oof_frame_from_a_full_cv_pass_satisfies_the_gate1_precondition():
     )
     assert sorted(oof_df["fold"].unique().tolist()) == [1, 2, 3, 4, 5]
     assert grouped_splitter_violation(oof_df) is None
+
+
+def test_run_config_names_epoch_quantities_and_records_seed():
+    config = build_gnn_run_config(
+        esm2_model_name="example/model",
+        node_dim=320,
+        feature_mode=31,
+        num_continuous_features=31,
+        binding_matrix_path="models/binding.csv",
+        max_epochs=50,
+        mean_best_epoch=17,
+        early_stopping_patience=10,
+        seed=123,
+        pooling="mean",
+        edge_mode="self-loop-only",
+    )
+
+    assert config["max_epochs"] == 50
+    assert config["mean_best_epoch"] == 17
+    assert config["seed"] == 123
+    assert config["edge_mode"] == "self-loop-only"
+    assert "epochs" not in config

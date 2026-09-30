@@ -8,6 +8,7 @@ In multi-allele mode, per-allele presentation scores are retained as separate
 columns (bind_A0101 ... bind_B4402) for use with 30-feature models.
 """
 
+from pathlib import Path
 import re
 from mhcflurry import Class1PresentationPredictor
 import pandas as pd
@@ -33,7 +34,7 @@ def _allele_to_col(allele):
     return "bind_" + re.sub(r"[^A-Za-z0-9]", "", allele.replace("HLA-", ""))
 
 
-def predict_binding(peptides_df, proteome_id, alleles=None):
+def predict_binding(peptides_df, proteome_id, alleles=None, output_dir="results"):
     """
     Predict MHC-I presentation using MHCflurry for all unique peptides.
 
@@ -44,6 +45,7 @@ def predict_binding(peptides_df, proteome_id, alleles=None):
         peptides_df: DataFrame with at least 'peptide' and 'protein_id' columns
         proteome_id: label used in output filename
         alleles: list of HLA allele strings (default: 10-allele panel)
+        output_dir: directory for the binding prediction CSV
 
     Returns:
         DataFrame with one row per peptide containing:
@@ -109,7 +111,9 @@ def predict_binding(peptides_df, proteome_id, alleles=None):
     # Merge per-allele columns onto the best-allele result
     predictions = predictions.merge(per_allele_pivot, on="peptide", how="left")
 
-    output_path = f"results/{proteome_id}_binding.csv"
+    resolved_output_dir = Path(output_dir)
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = resolved_output_dir / f"{proteome_id}_binding.csv"
     predictions.to_csv(output_path, index=False)
     print(
         f"[Stage 2] Retained best allele for {len(predictions)} peptides "

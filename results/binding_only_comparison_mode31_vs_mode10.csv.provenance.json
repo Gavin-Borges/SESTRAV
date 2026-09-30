@@ -1,0 +1,22 @@
+{
+  "generated_utc": "2026-09-16T18:18:10+00:00",
+  "script": "scripts/compute_binding_only_comparison.py",
+  "artifact": "results/binding_only_comparison_mode31_vs_mode10.csv",
+  "sha256": "0a56a34720acc31d83fabfdd69c4645c75d771926605977f31c468b8561b5e98",
+  "mode31_oof": "models/v5/rf_oof_predictions_mode31.csv",
+  "mode31_oof_sha256": "4862bd59623986fd6e1c7acb9666378d1494dd05ec414c2f1f5d6ebe78323ea3",
+  "mode10_oof": "models/v5/rf_oof_predictions_mode10.csv",
+  "mode10_oof_sha256": "20bfb9baceadc4664517d106620763fc28be42b631586c93b2b24a0268a45068",
+  "bootstrap_resamples": 10000,
+  "bootstrap_seed": 42,
+  "bootstrap_unit": "OOF row, paired across models",
+  "alignment_columns": [
+    "peptide",
+    "virus",
+    "strain",
+    "negative_origin",
+    "hla_allele",
+    "label",
+    "fold"
+  ]
+}

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,12 +23,18 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.artifact_integrity import (
+# The documented usage runs this file by path, which puts scripts/ rather than the
+# repository root first on sys.path, so `src` would otherwise not resolve to this tree.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.artifact_integrity import (  # noqa: E402
     default_manifest_path_for,
     sha256_file,
     update_checksum_manifest,
 )
-from src.conformal import (
+from src.conformal import (  # noqa: E402
     CrossVennAbers,
     fit_venn_abers,
     oof_intervals,

@@ -14,35 +14,63 @@
         "*.md",
         "docs/**/*.md"
       ],
-      "violation_ceiling": 7,
+      "violation_ceiling": 0,
       "carriers": [
         {
           "path": "ARCHITECTURE.md",
-          "anchor_pattern": "called against it: Gate 1 FAIL at 0\\.6458"
+          "anchor_pattern": "called against it: Gate 1 FAIL at 0\\.6458",
+          "observed": {
+            "line": 344,
+            "window_sha256": "3bc0f1280fa67006608a6be5cde9adc737ffd04561a435771daa20319cd8d623"
+          }
         },
         {
           "path": "README.md",
-          "anchor_pattern": "GNN Structural Benchmark.*0\\.6458"
+          "anchor_pattern": "GNN Structural Benchmark.*0\\.6458",
+          "observed": {
+            "line": 229,
+            "window_sha256": "3792e7569fae2688ec1d98c4604c5e50fb7e171c4f88b74920047935d7a4931d"
+          }
         },
         {
           "path": "ROADMAP.md",
-          "anchor_pattern": "Gate 1 alone settles it:.*0\\.6458"
+          "anchor_pattern": "Gate 1 alone settles it:.*0\\.6458",
+          "observed": {
+            "line": 221,
+            "window_sha256": "93ce0dcc3bf861acbc27380b7936fbe85de767a03178617a06d0b06120d0e4bc"
+          }
         },
         {
           "path": "docs/Wet_Lab_Protocol_v1.md",
-          "anchor_pattern": "PeptideGroupedKFold.*0\\.6458"
+          "anchor_pattern": "PeptideGroupedKFold.*0\\.6458",
+          "observed": {
+            "line": 19,
+            "window_sha256": "26403170018fa42da073989ad60aa47961333e395b1ec6e1e64313aa804e6ccc"
+          }
         },
         {
           "path": "docs/architecture/gnn_models.md",
-          "anchor_pattern": "returned Gate 1 FAIL at 0\\.6458"
+          "anchor_pattern": "returned Gate 1 FAIL at 0\\.6458",
+          "observed": {
+            "line": 155,
+            "window_sha256": "66b07ccd17ef5721ded57a1bd56231fe516468b287d460aad2584f7127b89dd7"
+          }
         },
         {
           "path": "docs/claims_register.md",
-          "anchor_pattern": "GNN structural scorer.*0\\.6458"
+          "anchor_pattern": "GNN structural scorer.*0\\.6458",
+          "observed": {
+            "line": 100,
+            "window_sha256": "fdcc5a0efb8164f5ea8d0d1b8a8bd37276811a9a719aa08a305ea01f2c532267"
+          }
         },
         {
           "path": "docs/paper.md",
-          "anchor_pattern": "AUC-PR reached 0\\.6458"
+          "anchor_pattern": "AUC-PR reached 0\\.6458",
+          "observed": {
+            "line": 1250,
+            "window_sha256": "8b47259e6264009ddd54a3e98ec12f2548422326d48782830d15ddfcf2729b1c"
+          }
         }
       ],
       "exemptions": [
@@ -73,11 +101,19 @@
       "carriers": [
         {
           "path": "ARCHITECTURE.md",
-          "anchor_pattern": "0\\.658.*over nine viruses"
+          "anchor_pattern": "0\\.658.*over nine viruses",
+          "observed": {
+            "line": 201,
+            "window_sha256": "22301436e6891a1fe7184983fbff12ba4ca628fb444112cf9e88b5a24c0750bf"
+          }
         },
         {
           "path": "docs/model_evaluation_summary.md",
-          "anchor_pattern": "\\(mean AUC-ROC \\*\\*0\\.658\\*\\*;"
+          "anchor_pattern": "\\(mean AUC-ROC \\*\\*0\\.658\\*\\*;",
+          "observed": {
+            "line": 22,
+            "window_sha256": "c35bea37d20a8b0453562aecc9a25974e82c2d9e9a20aa6035edf1a0f8a7b907"
+          }
         }
       ],
       "exemptions": []
