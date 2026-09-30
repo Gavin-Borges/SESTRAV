@@ -116,6 +116,13 @@ updates:
       # emits "pure_eval" with an underscore, but Dependabot matches PEP 503
       # normalized names, so the hyphenated form is the one that binds.
       - dependency-name: "pure-eval"
+      # And again on 2026-09-28, two names at once: PRs #569 and #571 both
+      # reached debugpy and tornado and edited the render closure. Both are
+      # pinned in exactly one tracked file - the closure itself - so they, too,
+      # were reached transitively. The two edits were taken out of those PRs and
+      # made by hand in a separate one.
+      - dependency-name: "debugpy"
+      - dependency-name: "tornado"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
@@ -235,6 +242,13 @@ updates:
       # emits "pure_eval" with an underscore, but Dependabot matches PEP 503
       # normalized names, so the hyphenated form is the one that binds.
       - dependency-name: "pure-eval"
+      # And again on 2026-09-28, two names at once: PRs #569 and #571 both
+      # reached debugpy and tornado and edited the render closure. Both are
+      # pinned in exactly one tracked file - the closure itself - so they, too,
+      # were reached transitively. The two edits were taken out of those PRs and
+      # made by hand in a separate one.
+      - dependency-name: "debugpy"
+      - dependency-name: "tornado"
       # Capped below 4.26 by semgrep's pin (environments/requirements-semgrep.in).
       # The weekly group bump keeps trying jsonschema 4.26.0 and fails the recompile
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
