@@ -72,6 +72,20 @@ def _workflow_block(start_marker: str, end_marker: str) -> str:
     return textwrap.dedent(start_marker + body)
 
 
+def _workflow_function(name: str) -> str:
+    """One shell function from the workflow, from its opening line to its own closing brace.
+
+    Cutting at a later marker would also capture whatever the workflow runs after the
+    function, which then executes here without the setup it depends on.
+    """
+    lines = WORKFLOW.read_text(encoding="utf-8").splitlines(keepends=True)
+    opener = f"          {name}() {{\n"
+    assert lines.count(opener) == 1, opener
+    start = lines.index(opener)
+    end = lines.index("          }\n", start)
+    return textwrap.dedent("".join(lines[start : end + 1]))
+
+
 def _workflow_scan_setup() -> str:
     """The workflow's real pattern setup and function definitions, up to its canary."""
     setup = _workflow_block('          WORK="$(mktemp -d)"', "          # Positive control.")
@@ -126,9 +140,7 @@ def test_workflow_scan_ref_reports_a_changelog_path(tmp_path: Path) -> None:
         check=True,
         env=GIT_ENV,
     )
-    scan_ref = _workflow_block(
-        "          scan_ref() {", '          echo "===== BRANCHES (enforced) ====="'
-    )
+    scan_ref = _workflow_function("scan_ref")
     script = (
         _workflow_scan_setup()
         + "\nFAILED=0\n"
