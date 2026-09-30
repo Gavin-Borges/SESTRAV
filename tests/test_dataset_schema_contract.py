@@ -12,6 +12,22 @@ full `_dataset_utils.validate_against_schema`.
 
 The tests below close it from both directions: the schema must admit everything the
 generator can emit, and the tracked artifact must satisfy the schema.
+
+The second direction is only as strong as the schema itself, and as the read. It
+checks the required columns, the enums, patterns and bounds the schema carries, and
+the declared types as far as the read leaves them open; it checks nothing the schema
+leaves unconstrained. For the 17 declared-string columns the read closes that
+question: `_dataset` reads them as text, so every cell pandas does not parse as
+missing reaches `jsonschema` as a str whatever its text, and every missing cell as
+None. The type check there tests only whether a missing value is allowed, and enums,
+patterns and lengths are the only checks on those columns' content. `reference_pmid`
+is the live example: the schema declares it type string-or-null with no pattern, so
+a float-suffixed PMID such as "38923358.0" is a valid string and passes. Measured
+2026-09-23 against the tracked artifact: every numeric-only PMID in it carries that
+suffix, none is a bare integer, and this file passes regardless. Nothing in this
+file checks the PMID format of the tracked artifact; tests/test_reference_pmid_format.py
+pins that format on the writer side, on synthetic inputs, and does not read the
+tracked artifact.
 """
 
 from __future__ import annotations
@@ -79,17 +95,21 @@ def _dataset() -> pd.DataFrame:
     A CSV carries no types, so validating one against a JSON Schema requires a
     decision about how each column is typed on read, and dtype inference is the
     wrong instrument for a column the schema calls a string. `reference_pmid` is
-    the case that proves it: pandas infers object for it today ONLY because 2,238
-    LANL rows carry free-text references such as "Plana2004 PMID:15213562". Drop
-    those 2,238 and the remaining 18,671 all-numeric values infer as float64, so
-    the column would fail `type: ["string", "null"]` and this file would go red
-    without a single defect having been introduced. Measured 2026-09-17: a CSV
-    whose PMID column is already CORRECT (bare integers plus a blank) fails that
-    same check under inference, and passes when read as text.
+    the case that proves it: pandas infers a text dtype for it today (`str` on the
+    pinned pandas 3.0.3, `object` with its `future.infer_string` option off) ONLY
+    because 2,238 LANL rows carry free-text references such as
+    "Plana2004 PMID:15213562". Drop those 2,238 and the remaining 18,671 all-numeric
+    values infer as float64, so the column would fail `type: ["string", "null"]` and
+    this file would go red without a single defect having been introduced. Measured
+    2026-09-17: a CSV whose PMID column is already CORRECT (bare integers plus a
+    blank) fails that same check under inference, and passes when read as text.
 
-    Typing the read from the schema removes that coupling. It does not weaken the
-    float-suffix coverage, which is a data-format question rather than a schema
-    one and is held by tests/test_reference_pmid_format.py.
+    Typing the read from the schema removes that coupling. It does not weaken
+    float-suffix coverage, because neither read has any: the suffix is a
+    data-format question the schema does not encode, and the tracked artifact
+    validates with float-suffixed PMIDs under this read and under dtype inference
+    alike. tests/test_reference_pmid_format.py holds the format on the writer side
+    only; see the module docstring.
     """
     assert DATASET_PATH.is_file(), f"tracked dataset missing: {DATASET_PATH}"
     return _read_csv_typed(DATASET_PATH)
@@ -166,9 +186,15 @@ def test_tracked_dataset_uses_only_declared_enum_values(column: str) -> None:
 def test_tracked_dataset_validates_against_its_schema() -> None:
     """The whole artifact, every row, against the shipped schema.
 
-    This is the assertion `validate_output_schema` never made. Read exactly the way
-    `_dataset_utils.validate_against_schema` reads: dtype-inferred, records, NaN
-    rendered as null.
+    This is the assertion `validate_output_schema` never made. The frame comes from
+    `_dataset`, which types every declared-string column as text and leaves only
+    the remaining columns to dtype inference, so it is NOT a dtype-inferred read.
+    `_dataset_utils.validate_against_schema` does not read the CSV at all: it takes
+    an in-memory frame from its caller. What this test shares with it is the step
+    after the read: records, float NaN rendered as null, then `jsonschema.validate`.
+
+    A pass establishes that every row satisfies the constraints the schema encodes,
+    and no more; the module docstring names one it does not encode.
     """
     df = _dataset()
     schema = _load_schema()
@@ -194,9 +220,10 @@ def test_validation_does_not_depend_on_free_text_pmids_being_present(tmp_path: P
 
     Guards the coupling described in `_dataset`. The subset is written out and
     RE-READ rather than merely filtered: a dtype is fixed by the whole column at
-    read time, so dropping rows from an already-read frame leaves object dtype in
-    place and exercises nothing. An earlier version of this test did exactly that
-    and passed with dtype inference restored, which is to say it tested nothing.
+    read time, so dropping rows from an already-read frame leaves the column's text
+    dtype in place and exercises nothing. An earlier version of this test did
+    exactly that and passed with dtype inference restored, which is to say it
+    tested nothing.
     """
     df = _dataset()
     pmid = df["reference_pmid"].astype("string")
