@@ -1,8 +1,9 @@
 """Regression tests for tools/check_lockfile_advisories.py.
 
 The gate this script backs closes a structural blind spot: a vulnerable pin that
-exists only in a compiled lockfile is invisible to Dependabot (it parses `.in`
-sources, never `.lock`/`.txt` artifacts) and was previously invisible to CI too, since
+exists only in environments/requirements.lock is invisible to Dependabot (GitHub's
+dependency graph parses the `requirements*.txt` locks but not that file) and was
+previously invisible to CI too, since
 every pip-audit invocation in .github/workflows/security.yml carried permanent
 `--ignore-vuln` flags applied before any report was written. These tests exercise the
 parsing/evaluation logic directly against fixture reports and acceptance files, since
