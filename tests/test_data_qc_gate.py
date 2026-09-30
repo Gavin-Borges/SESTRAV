@@ -116,6 +116,7 @@ def test_qc_gate_non_canonical_aa(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on non-canonical AA"
+    assert f"{'length_and_composition_valid':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_missing_metadata(tmp_path, temp_config, valid_df):
@@ -138,6 +139,7 @@ def test_qc_gate_missing_metadata(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on missing peptide"
+    assert f"{'length_and_composition_valid':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_duplicate_conflict(tmp_path, temp_config, valid_df):
@@ -176,6 +178,7 @@ def test_qc_gate_duplicate_conflict(tmp_path, temp_config, valid_df):
     assert result.returncode == 1, (
         f"QC gate did not fail on duplicate conflicts (status={result.returncode}, err={result.stderr})"
     )
+    assert f"{'conflict_ratio_passed':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_null_allele_fraction(tmp_path, temp_config, valid_df):
@@ -202,6 +205,7 @@ def test_qc_gate_null_allele_fraction(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on high null allele fraction"
+    assert f"{'null_allele_fraction_passed':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
@@ -226,6 +230,7 @@ def test_qc_gate_class_ratio(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on out-of-bounds class ratio"
+    assert f"{'class_ratio_passed':32s} : FAIL" in result.stdout
 
 
 def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
@@ -248,6 +253,7 @@ def test_qc_gate_insufficient_yield(tmp_path, temp_config, valid_df):
         text=True,
     )
     assert result.returncode == 1, "QC gate did not fail on low yield"
+    assert f"{'peptide_yield_passed':32s} : FAIL" in result.stdout
 
 
 @pytest.mark.parametrize("use_crlf", [False, True], ids=["lf", "crlf"])
