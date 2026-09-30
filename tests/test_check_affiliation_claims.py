@@ -758,3 +758,75 @@ def test_every_tracked_twin_must_allow_the_name_not_merely_one():
         )
         is False
     )
+
+
+# ---------------------------------------------------------------------------
+# RETRACTED_ALIASES: other spellings folded onto one canonical key.
+#
+# Every name below is read out of the gate module at runtime. Writing a mapped
+# institution name as a literal here would add an occurrence of it to this
+# file, which is the count the gate reports on.
+# ---------------------------------------------------------------------------
+
+
+def test_every_alias_resolves_to_a_key_that_exists():
+    """An alias pointing at a missing key would silently deny every carrier."""
+    assert mod.RETRACTED_ALIASES, "the map is empty, so the tests below prove nothing"
+    for alias, canonical in mod.RETRACTED_ALIASES.items():
+        assert canonical in mod.RETRACTED_INSTITUTIONS, (
+            f"alias resolves to {canonical!r}, which is not a retracted key"
+        )
+        assert alias not in mod.RETRACTED_INSTITUTIONS, (
+            f"{alias!r} is both an alias and a key; that is the duplicated "
+            "carrier list the alias map exists to avoid"
+        )
+
+
+def test_an_aliased_spelling_is_still_refused_off_its_carriers():
+    """The map must not WIDEN anything. Off-carrier, every spelling still fails."""
+    for alias in mod.RETRACTED_ALIASES:
+        assert not mod.is_allowed(alias, "README.md"), (
+            f"{alias!r} was permitted in README.md, which is the exact surface "
+            "the D35 retraction was published on"
+        )
+
+
+def test_an_aliased_spelling_is_permitted_on_the_canonical_carriers():
+    for alias, canonical in mod.RETRACTED_ALIASES.items():
+        for carrier in mod.RETRACTED_INSTITUTIONS[canonical]:
+            if carrier.endswith("/"):
+                continue
+            assert mod.is_allowed(alias, carrier), (
+                f"{alias!r} refused on {carrier}, a carrier of its own key"
+            )
+
+
+def test_the_alias_map_is_load_bearing(monkeypatch):
+    """Proof this is not a no-op: emptying the map must flip the verdict."""
+    alias, canonical = next(iter(mod.RETRACTED_ALIASES.items()))
+    carrier = next(
+        c for c in mod.RETRACTED_INSTITUTIONS[canonical] if not c.endswith("/")
+    )
+    assert mod.is_allowed(alias, carrier)
+
+    monkeypatch.setattr(mod, "RETRACTED_ALIASES", {})
+    assert not mod.is_allowed(alias, carrier), (
+        "with the map emptied the spelling is still permitted, so the map is "
+        "not what is doing the work and this fix is inert"
+    )
+
+
+def test_the_audit_sweep_record_and_its_json_twin_are_carriers():
+    """Pins the push-blocker fix.
+
+    The 2026-09-23 sweep's own record carries control strings for this gate:
+    text whose job is to prove a name is refused. Both halves of that record,
+    the prose and the JSON the same run wrote, must be able to hold them, or
+    --all is permanently red and a red gate gets skipped.
+    """
+    carriers = mod.RETRACTED_INSTITUTIONS["nc state"]
+    for expected in (
+        "_local/notes/audit_swarm_2026-09-23.md",
+        "_local/notes/audit_swarm_2026-09-23.raw.json",
+    ):
+        assert expected in carriers, f"{expected} is no longer a permitted carrier"

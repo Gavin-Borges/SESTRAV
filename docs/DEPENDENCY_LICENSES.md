@@ -5,7 +5,7 @@
 | Jinja2                                | 3.1.6       | BSD License                                                                                         |
 | MarkupSafe                            | 3.0.3       | BSD-3-Clause                                                                                        |
 | PuLP                                  | 3.3.2       | MIT                                                                                                 |
-| PyJWT                                 | 2.13.0      | MIT                                                                                                 |
+| PyJWT                                 | 2.14.0      | MIT                                                                                                 |
 | PyYAML                                | 6.0.3       | MIT License                                                                                         |
 | Pygments                              | 2.20.0      | BSD-2-Clause                                                                                        |
 | SQLAlchemy                            | 2.0.51      | MIT                                                                                                 |

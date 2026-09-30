@@ -2,78 +2,22 @@
 #
 # Renamed from tests/run_evals.py so pytest actually collects it.
 # The default `python_files` globs are `test_*.py` and `*_test.py`; the old name
-# matched neither, so these three checks were collected ZERO times by the normal
+# matched neither, so the checks here were collected ZERO times by the normal
 # suite and had never executed. Naming the file on the command line collected it,
-# which is why a casual check looked fine.
+# which is why a casual check looked fine. The file held three checks at that
+# rename and holds two now: test_data_leakage_contamination_gate was retired
+# on 2026-09-21; see the commit that removed it.
 #
 # The assertions below are unchanged from the original. What changed is that the
 # branches which used to `print(...)` and pass silently now `pytest.skip(...)` with
-# the concrete path or column that was missing, and the set comparisons now refuse
-# to certify an empty comparison. A gate that passes because it compared two empty
-# sets is a false PASS, and a false PASS is silent.
+# the concrete path or column that was missing. A gate that passes because it
+# compared two empty sets is a false PASS, and a false PASS is silent.
 import os
 
 import pandas as pd
 import pytest
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
-
-
-def test_data_leakage_contamination_gate():
-    """Verify that training set peptides do not overlap with validation/evaluation sets."""
-    # Look for immunogenicity dataset
-    dataset_path = os.path.join(DATA_DIR, "immunogenicity_dataset_v3.csv")
-    if not os.path.exists(dataset_path):
-        # Fallback to general immunogenicity_dataset.csv
-        fallback_path = os.path.join(os.path.dirname(__file__), "..", "immunogenicity_dataset.csv")
-        if not os.path.exists(fallback_path):
-            pytest.skip(
-                "no immunogenicity dataset to audit: neither "
-                f"{os.path.abspath(dataset_path)} nor {os.path.abspath(fallback_path)} exists"
-            )
-        dataset_path = fallback_path
-
-    df = pd.read_csv(dataset_path)
-
-    if "split" not in df.columns:
-        # Not a pass. This gate audits a train/test partition recorded in a `split`
-        # column; without that column there is nothing to audit and nothing is
-        # certified. Skipping keeps that visible in the summary line instead of
-        # letting the gate report green.
-        pytest.skip(
-            f"{os.path.abspath(dataset_path)} has no 'split' column "
-            f"(columns present: {sorted(df.columns)}), so no train/test partition "
-            "is recorded for this gate to audit"
-        )
-
-    assert "peptide" in df.columns, (
-        f"{os.path.abspath(dataset_path)} has a 'split' column but no 'peptide' column; "
-        "the leakage gate cannot compare partitions"
-    )
-
-    train_peps = set(df[df["split"] == "train"]["peptide"].dropna().str.upper())
-    test_peps = set(df[df["split"] == "test"]["peptide"].dropna().str.upper())
-
-    # Two empty sets intersect to the empty set, so the overlap assertion below
-    # would pass without comparing anything. Refuse that outcome explicitly.
-    assert train_peps, (
-        f"{os.path.abspath(dataset_path)} yielded 0 peptides for split=='train' "
-        f"(split values present: {sorted(df['split'].dropna().unique())}); "
-        "an empty train set makes the overlap check vacuous"
-    )
-    assert test_peps, (
-        f"{os.path.abspath(dataset_path)} yielded 0 peptides for split=='test' "
-        f"(split values present: {sorted(df['split'].dropna().unique())}); "
-        "an empty test set makes the overlap check vacuous"
-    )
-
-    overlap = train_peps.intersection(test_peps)
-    assert len(overlap) == 0, f"DATA LEAKAGE DETECTED! Overlapping peptides: {overlap}"
-    print(
-        f"[EVAL SUCCESS] Contamination gate verified: 0 overlapping peptides "
-        f"across {len(train_peps)} train / {len(test_peps)} test peptides."
-    )
 
 
 def test_gnn_batch_dimension_safety():
