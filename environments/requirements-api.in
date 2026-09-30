@@ -1,0 +1,34 @@
+# Source inputs for environments/requirements-api.txt, the hash-pinned closure
+# Dockerfile.api installs. Regenerate with:
+#   python tools/update_dependencies.py --all              (full re-lock)
+#   python tools/update_dependencies.py --target PACKAGE   (bump one package)
+#   Not reachable via --ci-env; requirements-api.txt line 2 records the exact argv.
+#
+# Exactly the image's declared requirements: every [project].dependencies entry
+# and the [api] extra, each at the version requirements.txt pins (jsonschema,
+# which requirements.txt does not carry, at the version
+# environments/requirements.lock resolves), plus setuptools, the build backend
+# for the image's --no-build-isolation install of the package itself. Compiled
+# for Python 3.13, the image's interpreter, with requirements.txt as uv's version
+# preference (SEEDED_SPECS in tools/update_dependencies.py), so the transitive
+# dependencies it shares with requirements.txt keep the versions CI tests.
+# tests/test_images_install_only_hashed_dependencies.py enforces all of this.
+biopython==1.88
+fastapi==0.141.1
+joblib==1.6.0
+jsonschema==4.26.0
+matplotlib==3.11.2
+mhcflurry==2.2.1
+networkx==3.6.1
+numpy==2.4.6
+openpyxl==3.1.5
+pandas==3.0.3
+pydantic==2.13.5
+pyyaml==6.0.3
+requests==2.34.2
+scikit-learn==1.8.0
+scipy==1.17.1
+setuptools==84.0.0
+torch==2.13.0
+uvicorn==0.53.0
+xgboost==3.2.0

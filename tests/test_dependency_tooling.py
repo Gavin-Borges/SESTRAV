@@ -117,7 +117,8 @@ def test_no_shell_metacharacter_joining():
 def test_ci_env_choices_cover_every_tool_environment():
     # All 8 CI tool environments must be individually selectable. 4 of them
     # (ci, pip-audit, security, semgrep) are not `ci-` prefixed and were once
-    # reachable only via --all. The two application lockfiles are excluded.
+    # reachable only via --all. The four application lockfiles (runtime, lock,
+    # and the api and demo image locks) are excluded.
     assert set(update_dependencies.ci_env_choices()) == {
         "build",
         "mypy",
@@ -459,7 +460,11 @@ def test_successful_compile_runs_one_command_per_spec(monkeypatch):
     monkeypatch.setattr(update_dependencies.subprocess, "run", runner)
     assert update_dependencies.main(["--target", "pillow"]) == 0
     assert len(seen) == len(LOCK_SPECS)
-    assert all("--upgrade-package" in command for command in seen)
+    for spec, command in zip(LOCK_SPECS, seen):
+        # Seeded image specs apply the bump through their preference list,
+        # because uv ignores preferences for a package it is told to upgrade.
+        seeded = spec.name in update_dependencies.SEEDED_SPECS
+        assert ("--upgrade-package" in command) is not seeded, spec.name
 
 
 def test_subprocess_is_never_invoked_with_a_shell(monkeypatch):

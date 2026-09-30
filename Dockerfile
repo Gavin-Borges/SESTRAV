@@ -65,9 +65,16 @@ COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.t
 # `pip install --user "pip==26.1.2"` was version-pinned but not hash-pinned,
 # which is what Scorecard's PinnedDependencies check reports as an unpinned
 # pipCommand.
+#
+# --no-build-isolation builds the package against the setuptools the lock just
+# installed. Without it pip downloads [build-system].requires from PyPI,
+# unhashed, into a throwaway environment for this build. One such download
+# remains in the lock install below: requirements.lock pins connection-pool
+# (via snakemake) as an sdist only, so pip builds it in an isolated environment
+# that fetches its setuptools unhashed. That is tracked separately.
 RUN pip install --user --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt && \
     pip install --user --require-hashes --no-deps -r environments/requirements.lock && \
-    pip install --user --no-deps .
+    pip install --user --no-deps --no-build-isolation .
 
 # Default command
 ENTRYPOINT ["sestrav"]

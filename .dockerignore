@@ -62,13 +62,17 @@ docs/
 _local/
 .env
 .venv
-# Environments: copy only the production lock and the pip bootstrap manifest
-# (see Dockerfile). `environments/` as a directory exclusion would make a
-# later negation a no-op, because an excluded directory is not walked.
-# Narrowing to `environments/*` lets the un-ignore of those two files take
-# effect. Other files here are CI-only.
+# Environments: copy only the three image locks and the pip bootstrap manifest
+# (see Dockerfile, Dockerfile.api, Dockerfile.demo). `environments/` as a
+# directory exclusion would make a later negation a no-op, because an excluded
+# directory is not walked. Narrowing to `environments/*` lets the un-ignore of
+# those files take effect. Other files here are CI-only.
+# tests/test_images_install_only_hashed_dependencies.py fails if a Dockerfile
+# COPYs a file these rules keep out of the build context.
 environments/*
 !environments/requirements.lock
+!environments/requirements-api.txt
+!environments/requirements-demo.txt
 !environments/requirements-pip-bootstrap.txt
 ci_install_test.log
 
