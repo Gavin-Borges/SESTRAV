@@ -43,6 +43,11 @@ class LockSpec:
     output: str
     python_version: str
     allow_unsafe: bool
+    # uv override file this spec needs to reach a patched release, or None.
+    # An override makes the lock disagree with a package's own metadata, so a
+    # resolving `pip install` of it fails and every install must pass --no-deps.
+    # See environments/semgrep-overrides.txt for the one current case.
+    overrides: str | None = None
 
 
 LOCK_SPECS: tuple[LockSpec, ...] = (
@@ -109,6 +114,7 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
         "environments/requirements-semgrep.txt",
         "3.12",
         False,
+        overrides="environments/semgrep-overrides.txt",
     ),
 )
 
@@ -145,6 +151,13 @@ the advisory minimum. That floor used to collide with torch 2.12.0's declared
 resolver, so each compiled through a `--overrides overrides.txt` file. torch
 2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was retired and
 both specs now compile with no special handling.
+
+The 'semgrep' spec compiles with `--overrides environments/semgrep-overrides.txt`.
+semgrep 1.177.0 (pinned) and 1.178.0 (the latest on 2026-09-30) declare
+`pyjwt[crypto]~=2.13.0`, and the override lifts pyjwt to a patched release. The
+resulting lock no longer satisfies semgrep's own metadata, so it must be
+installed with --no-deps; that file records the measurement behind it and its
+exit condition.
 """
 
 
@@ -188,6 +201,8 @@ def build_command(
     if not spec.allow_unsafe:
         for package in UNSAFE_PACKAGES:
             command += ["--unsafe-package", package]
+    if spec.overrides:
+        command += ["--overrides", spec.overrides]
     if upgrade_all:
         command.append("--upgrade")
     elif upgrade_package:

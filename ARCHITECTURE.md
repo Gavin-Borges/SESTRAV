@@ -455,7 +455,9 @@ trained model binaries or runtime caches; training must run before production sc
   cannot express (a CPU-only torch index, single-platform closures), the
   `pyproject.toml` extras, and `environment.yml`. All compiled tiers are
   regenerated through `tools/update_dependencies.py` (`uv pip compile
-  --generate-hashes`), with no per-tier special handling. The two application
+  --generate-hashes`). The one per-tier special case is the `semgrep` tool tier,
+  which compiles with `--overrides environments/semgrep-overrides.txt` to lift pyjwt
+  past semgrep's own pin and is therefore installed with `--no-deps`. The two application
   lockfiles used to require an extra `--overrides overrides.txt` pass to resolve
   at all, because this repo's `setuptools>=83.0.0` security floor collided with
   torch 2.12.0's `setuptools<82` build-metadata cap; torch 2.13.0 raised that

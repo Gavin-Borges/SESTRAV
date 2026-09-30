@@ -120,9 +120,14 @@ build-metadata cap, which made `uv pip compile` return `ResolutionImpossible`
 unaided, so both application lockfiles compiled through an `overrides.txt` file
 that `tools/update_dependencies.py` passed automatically. torch 2.13.0 declares
 `setuptools>=77.0.3`, meeting that override's documented exit condition, so
-`overrides.txt` was deleted and the tool no longer passes `--overrides` for any
-tier. `tests/test_dependency_tooling.py` asserts both halves of the retirement,
-so the workaround cannot quietly return and mask a real resolution conflict.
+`overrides.txt` was deleted and the tool no longer passes `--overrides` for either
+application lockfile. `tests/test_dependency_tooling.py` asserts both halves of the
+retirement, so the workaround cannot quietly return and mask a real resolution
+conflict. One tool tier is a deliberate, named exception: the `semgrep` spec compiles
+with `--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
+`~=2.13.0` declaration, so `environments/requirements-semgrep.txt` must be installed
+with `--no-deps`. That file records the measurement behind it and its exit condition,
+and the same test module fails if any other tier gains an override.
 
 ## Development Guidelines
 

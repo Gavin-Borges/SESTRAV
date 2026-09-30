@@ -333,6 +333,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   rejected - and telling those apart requires making the very write that could break it.
   One field outside the documented schema also proves a GET can carry fields a
   hand-built payload would drop, so the GitHub UI is now recorded as the source of truth.
+- **The semgrep tool lock moves pyjwt from 2.13.0 to 2.15.1, closing the twelve
+  Dependabot advisories (one critical, five high) raised against
+  `environments/requirements-semgrep.txt`, and the eleven of them on which OpenSSF
+  Scorecard's Vulnerabilities check (code-scanning alert 15) scored 0.** semgrep 1.166.0
+  through 1.178.0 (1.177.0 pinned, 1.178.0 the latest on 2026-09-30) declare
+  `pyjwt[crypto]~=2.13.0`, so no available semgrep upgrade reaches a patched pyjwt, a floor
+  would make the spec unsatisfiable, and a hand-edited pin had already failed both semgrep
+  jobs at install time; the only other route, downgrading semgrep to 1.156.0 or earlier,
+  was rejected. The `semgrep` spec now compiles with a uv override file,
+  `environments/semgrep-overrides.txt`, that lifts pyjwt and nothing else, bounded to the
+  measured `2.15` series, and both semgrep installs in `security.yml` pass `--no-deps`,
+  since a resolving install of a lock that contradicts semgrep's own metadata fails with
+  ResolutionImpossible (measured: exit 1 without the flag, 0 with it). Measured before
+  adopting it, semgrep 1.177.0 on Linux and Python 3.11 against the same tree under pyjwt
+  2.13.0 and 2.15.1, the latter installed from the committed lock: the blocking
+  custom-rules scan returned 0 results and 0 errors over the same 189 files under both, and
+  the advisory `p/python` scan returned the same 3 SARIF results, all suppressed in source
+  by `nosemgrep`, with the same 154 rules loaded. Every `semgrep scan` imports pyjwt,
+  because semgrep's CLI loads its `mcp` command eagerly, so pyjwt's import-time
+  initialisation runs on every scan; after import, a tracer wrapping pyjwt's public
+  functions, methods and module-level aliases logged 0 calls through both scans under both
+  versions, while logging encode, decode and get_unverified_header in a control run. The
+  retired-override guard in `tests/test_dependency_tooling.py` now names this as its single
+  permitted exception, and new tests fail if the override names anything but pyjwt, if the
+  lock pins a pyjwt its override does not admit (a recompile that does not pass the
+  override walks it back to 2.13.0, which Dependabot's grouped `/environments` updates
+  are expected to do), or if any `pip install` of the lock in `.github/`, a
+  `Dockerfile*`, the `Makefile` or a `scripts/`/`tools/` shell script lacks its own
+  `--no-deps`, with backslash continuations joined, comments ignored and chained commands
+  split. `CONTRIBUTING.md` and `ARCHITECTURE.md`, which said no tier compiles with an
+  override, now name this one.
 
 ### Added
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of

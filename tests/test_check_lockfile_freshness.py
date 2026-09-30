@@ -231,8 +231,9 @@ def test_check_pair_flags_stale_extras_pin(tmp_path):
 
 def test_parse_compiled_file_reads_entries_with_extras(tmp_path):
     # environments/requirements-semgrep.txt (its header says uv generated it)
-    # carries one: pyjwt[crypto]==2.13.0. Whether a compiled line keeps its
-    # extras depends on the tool and its flags, so the parser must accept them.
+    # carried one, pyjwt[crypto]==2.13.0, until a uv recompile wrote that pin
+    # without the extra. Whether a compiled line keeps its extras depends on the
+    # tool and its flags, so the parser must accept them.
     out_file = _write(
         tmp_path / "requirements.txt",
         "pyjwt[crypto]==2.13.0 \\\n" + _HASHED + "shap[plots]==0.51.0\n",
