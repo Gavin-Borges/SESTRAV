@@ -382,3 +382,56 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     the pytest warning filter. Added 2026-08-05: this entry previously carried no trigger,
     which the standing lesson above says is exactly how a risk acceptance decays silently.
 
+
+- **`environments/requirements.lock` is outside Dependabot's dependency graph (a detection
+  gap, not an exposure):** Risk-accepted. GitHub's dependency graph for this repository
+  (measured 2026-09-19 at `21bbcac`, re-measured 2026-09-28) parses 15 pip-ecosystem
+  manifests: `pyproject.toml`, every tracked `requirements*.txt`, and
+  `environments/requirements-lock.in`. `environments/requirements.lock` is not among them,
+  so the compiled production closure raises no Dependabot alert of its own.
+  - **Identifiers:** none. This is a gap in the alerting surface rather than a vulnerability
+    in a package, so no advisory id applies.
+  - **Scope:** `environments/requirements.lock` alone. Measured first on 2026-09-19 at
+    commit `21bbcac` by two instruments that share no input: GitHub's dependency graph
+    reported 31 parsed manifests (34 on 2026-09-28; the 15 pip ones unchanged) and this
+    file is absent from all of them, and none of the Dependabot alerts the API returned
+    (108 on 2026-09-19, 106 on 2026-09-28) names it. Its compile input
+    `environments/requirements-lock.in` IS parsed and HAS raised two alerts, so the
+    constraint layer is covered even though the compiled layer is not.
+  - **Severity:** Medium, and for DETECTION only. This is the file CI installs from in both
+    the `pip-audit` and `python-sbom` jobs of `.github/workflows/security.yml` (via
+    `pip install --require-hashes --no-deps`), so an advisory affecting only the version
+    pinned here, and not a version any parsed manifest declares, would not appear in the
+    Security tab.
+  - **Mitigation:** the closure is audited, just not alerted on. The `pip-audit` job's
+    "Install the pinned lockfile (resolver-free) for auditing" step installs this lock and
+    the "Audit installed dependency set" step that follows audits the resulting environment;
+    the comment above them records why the `pip-audit -r environments/requirements.lock`
+    form is deliberately not used. `tools/check_lockfile_freshness.py`, whose
+    `LOCKFILE_PAIRS` names this exact `.in`-to-`.lock` pair, fails when a package the `.in`
+    pins with `==` is missing from the lock or at another version, or when one it floors
+    with `>=` sits below that floor in the lock; `tools/check_hash_pins.py` separately
+    requires hash pins. `tools/check_lock_manifest_coverage.py` (CI job `Locked packages are
+    Dependabot-visible`) fails if any distribution pinned here is declared in no parsed
+    manifest, judged by a filename rule calibrated against the live graph, so every locked
+    package is Dependabot-visible by name; it does not compare versions. **Stated
+    precisely, because the direction matters:** that `pip-audit` job is named "(advisory)"
+    and is not a required status check, so this mitigation fails that job red on an
+    unaccepted advisory against a locked package but does not gate a merge.
+  - **Suppression:** none, and none is possible. Nothing is dismissed; the alerts are never
+    generated in the first place.
+  - **Re-review trigger:** if the `pip-audit` job stops installing this lock or is removed;
+    if `tools/check_lockfile_freshness.py` is retired, since the `.in`-to-`.lock`
+    propagation is what makes the covered layer meaningful; or if
+    `tools/check_lock_manifest_coverage.py` is retired; or if GitHub's dependency graph
+    starts parsing this file, at which point this entry should be RETIRED rather than
+    re-reviewed. Renaming the file to `environments/requirements-lock.txt` was considered;
+    since every tracked `requirements*.txt` is parsed, it would very likely close the gap
+    directly. It is not done here because 29 tracked files name this path at `26a36521`,
+    and every one that depends on the name would have to change in the same commit: among
+    them the `Dockerfile`, `singularity.def` and `.dockerignore`, the `security.yml`,
+    `iedb_benchmark.yml` and `lock_manifest_coverage.yml` workflows, and
+    `tools/check_hash_pins.py`, `tools/check_lock_manifest_coverage.py`,
+    `tools/check_lockfile_advisories.py`, `tools/check_lockfile_freshness.py` and
+    `tools/update_dependencies.py`. `scripts/check_doc_commit_refs.py` also names its
+    basename.
