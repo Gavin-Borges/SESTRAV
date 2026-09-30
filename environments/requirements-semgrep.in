@@ -13,3 +13,16 @@ semgrep==1.177.0
 # EXIT CONDITION: drop this floor once semgrep's own dependency graph requires
 # cryptography>=50.0.1 without help, then recompile and re-verify hashes.
 cryptography>=50.0.1
+
+# pyjwt deliberately has NO security floor here, unlike requirements-lock.in.
+# CVE-2026-102274 (and nine sibling advisories) affect pyjwt<=2.13.0 with the
+# fix in 2.14.0, but semgrep 1.177.0 declares pyjwt~=2.13.0, and 1.178.0 (the
+# latest on 2026-09-30) does not resolve alongside pyjwt 2.14.0 either. A >=2.14.0 floor here,
+# or a hand-edited 2.14.0 pin in the .txt, makes `pip install --require-hashes`
+# fail with ResolutionImpossible, which takes down both semgrep jobs in
+# security.yml, the blocking custom-rules one included. This environment is
+# installed only by those two jobs, is never shipped, and neither job passes a
+# Semgrep app token. The runtime lock (requirements.lock) is unaffected and
+# carries 2.14.0.
+# EXIT CONDITION: once a semgrep release accepts pyjwt>=2.14.0, bump semgrep,
+# add `pyjwt>=2.14.0` here, recompile and re-verify hashes.
