@@ -64,8 +64,20 @@ ARTIFACT_LIBRARY_PACKAGES = (
 # empty set, records nothing and makes verification VACUOUS - reintroducing by
 # the back door the fail-open that `comparable_library_versions` exists to
 # close. An extension is total and cannot fail. So .joblib keeps all four
-# pickle-based distributions: over-strict by one comparison for an xgboost
-# booster, never fail-open, and never wrong about torch.
+# pickle-based distributions, never fail-open, and never wrong about torch.
+#
+# CORRECTED 2026-09-23. This comment used to end "over-strict by one comparison
+# for an xgboost booster", which attributes the residual to the wrong group.
+# Measured against the opcode walk recorded above: an ESTIMATOR dump resolves
+# three of the four (scikit-learn, joblib, numpy), so exactly ONE comparison is
+# spare there, and it is xgboost. A BOOSTER dump resolves xgboost ALONE, so
+# THREE are spare. The "by one" belongs to the estimator group, which is also
+# the larger one by the figures above: 190 .joblib walked, 30 of them xgb_*.
+# The cost of the coarse split is therefore borne mainly by the boosters, not,
+# as the old sentence said, by one comparison on them.
+#
+# Pinned by tests/test_artifact_integrity.py so the arithmetic cannot rot the
+# way the sentence it replaces did.
 #
 # An extension absent from this mapping has NO entry rather than a default,
 # because the two cases are different: a `.csv` under results/ is a real
