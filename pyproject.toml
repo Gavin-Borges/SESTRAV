@@ -199,8 +199,8 @@ include = ["sestrav*", "src*", "functions*"]
 # The two tracked non-.py files under the packaged source trees. Until this
 # declaration, a built wheel carried zero data files - `src.verify`'s own
 # mhc_pseudo_sequences.json was silently absent from every installed
-# package (verified: a wheel built from `git archive HEAD` has 75 entries and
-# no non-.py members outside its own `.dist-info/` metadata directory).
+# package (verified: a wheel built from `git archive HEAD` without this table
+# has no non-.py members outside its own `.dist-info/` metadata directory).
 #
 # The mechanism is NOT that setuptools defaults to excluding package data -
 # it does not. Resolved against this very file (setuptools 83.0.0,
