@@ -351,12 +351,17 @@ jobs:
       # cap, so the direct form is no longer blocked by it - but the installed-set
       # form is kept deliberately, because it audits the exact artifact set runtime
       # installs (`--require-hashes --no-deps`, no resolution step) rather than
-      # whatever a fresh resolve produces. Dependabot also tracks these in the
-      # Security tab; this surfaces them inline in CI and on the run summary so they
-      # are visible without leaving the PR.
+      # whatever a fresh resolve produces. This surfaces findings inline in CI and
+      # on the run summary so they are visible without leaving the PR.
       #
-      # NOTE: Dependabot parses `.in` sources, not compiled `.lock`/`.txt`
-      # artifacts, so a resolved-but-vulnerable pin in a lockfile raises no alert.
+      # NOTE: Dependabot does NOT watch this lock. GitHub's dependency graph, which
+      # Dependabot alerts read, parses the `requirements*.txt` locks and
+      # environments/requirements-lock.in, but not environments/requirements.lock
+      # (measured 2026-09-30 with the GraphQL `dependencyGraphManifests` query; none
+      # of the 130 listable Dependabot alerts names that file, and 9 more are
+      # withdrawn and unreadable). A vulnerable
+      # version pinned only here therefore raises no alert, even when the same
+      # package is pinned at another version in a parsed manifest.
       # This job is the only thing that SEES those - the step below is what ENFORCES
       # on what it sees.
       #

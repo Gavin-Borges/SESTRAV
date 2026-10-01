@@ -11,10 +11,19 @@ name: Lock Manifest Coverage
 # invisible to Dependabot permanently. No advisory against it can ever raise an
 # alert here, and nothing in the repository would notice that it had not.
 #
-# Today every distribution pinned in the lock also appears in at least one
-# parsed manifest, so nothing is unmonitored. That is a property of today's
-# content, not an enforced invariant, and a lock-only package would be silent
-# forever. This workflow converts the coincidence into an invariant.
+# Every distribution pinned in the lock also appears in at least one parsed
+# manifest. That was a property of the content, not an enforced invariant, and a
+# lock-only package would be silent forever. This workflow converts the
+# coincidence into an invariant.
+#
+# It is an invariant about NAMES, not versions, so it does not mean nothing is
+# unmonitored. When no parsed manifest pins the exact version the lock ships
+# (the tool's non-gating version-drift warnings), that version is still outside
+# the graph. Measured 2026-09-30:
+# requirements.lock pinned pyjwt 2.14.0, which GHSA-42vr-xj54-vc7v covers. That
+# advisory raised Dependabot alert 139 against the semgrep lock's pyjwt 2.13.0,
+# and none against requirements.lock or requirements-lock.in. security.yml's
+# pip-audit job is what audits the shipped versions.
 #
 # EXIT CODES, AND WHY 2 IS A FAILURE
 #
