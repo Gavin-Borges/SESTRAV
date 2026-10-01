@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from src.features import BINDING_ALLELE_COLUMNS, FEATURE_COLUMNS_10, HLA_PSEUDO_COLS
 from src.train_classifier import (
+    RECOGNIZED_FEATURE_MODES,
     load_all_proteins,
     _get_protein_name_from_header,
     _cross_validate,
@@ -587,6 +588,47 @@ def test_train_models_mode31_requires_binding_matrix(tmp_path):
         train_models(str(data_path), model_dir=str(tmp_path / "m"), n_cv_folds=3, feature_mode=31)
 
 
+@pytest.mark.parametrize("bad_mode", [32, "21x", 0, -1, "", None])
+def test_train_models_rejects_an_unknown_feature_mode(tmp_path, bad_mode):
+    """An unrecognized feature mode must raise, not train the 21-feature model.
+
+    The feature-selection chain's final else builds the 21-feature matrix,
+    while _artifact_stems keys off the REQUESTED mode, so before this guard a
+    typo such as --feature-mode 32 wrote rf_32feature_integrated.joblib from a
+    21-feature fit - a mislabelled artifact that exits 0. model_dir is asserted
+    absent afterwards because the guard runs before os.makedirs, so a rejected
+    run leaves nothing behind.
+    """
+    data_path, _ = _training_csv(tmp_path)
+    model_dir = tmp_path / "m"
+    with pytest.raises(ValueError, match="Unknown feature_mode"):
+        train_models(str(data_path), model_dir=str(model_dir), n_cv_folds=3, feature_mode=bad_mode)
+    assert not model_dir.exists()
+
+
+@pytest.mark.parametrize("mode", [m for m in RECOGNIZED_FEATURE_MODES if m != 21])
+def test_a_recognized_mode_reaches_its_own_dispatch_branch(tmp_path, mode):
+    """Each RECOGNIZED_FEATURE_MODES entry except 21 reaches its own branch.
+
+    Every one of them requires --binding-matrix and the chain's final else (the
+    21-feature matrix) does not, and each branch names its own mode in that
+    error. So an exact match on the message proves the mode was dispatched to
+    its own branch rather than rejected by the new guard, sent to another
+    mode's branch, or fallen through to 21. Without this, a mode added to the
+    tuple with no branch would re-create the mislabelled-artifact defect the
+    test above closes.
+    """
+    data_path, _ = _training_csv(tmp_path)
+    with pytest.raises(ValueError) as excinfo:
+        train_models(
+            str(data_path),
+            model_dir=str(tmp_path / "m"),
+            n_cv_folds=3,
+            feature_mode=mode,
+        )
+    assert str(excinfo.value) == f"--binding-matrix is required for feature-mode {mode}"
+
+
 def test_train_models_mode10_smoke(tmp_path):
     """Mode 10 must publish a 10-feature model, not a relabelled 21-feature one.
 
@@ -906,6 +948,19 @@ def test_every_advertised_feature_mode_has_a_dispatch_branch():
         "dispatch branch, so selecting one silently falls through to the "
         f"{_ELSE_FALLTHROUGH_MODE}-feature path instead of raising: {missing}"
     )
+
+
+def test_recognized_feature_modes_matches_the_module_cli_choices():
+    """The guard tuple and the --feature-mode choices list must name one set.
+
+    train_models raises on anything outside RECOGNIZED_FEATURE_MODES, so a mode
+    added to `choices` alone would be accepted by argparse and then rejected by
+    the function, and a mode added to the tuple alone would be unselectable from
+    the module CLI. The choices list stays a literal because
+    _advertised_feature_modes reads it out of the AST.
+    """
+    advertised = _advertised_feature_modes()
+    assert advertised == [str(mode) for mode in RECOGNIZED_FEATURE_MODES]
 
 
 def test_mode_51_is_selectable_and_the_scan_is_not_vacuous():

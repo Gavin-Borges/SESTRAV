@@ -83,6 +83,26 @@ from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.subgroup_eval import evaluate_subgroups, pick_operating_threshold
 
+# The feature modes train_models dispatches on. Every entry except 21 has its
+# own branch in train_models' feature-selection chain; 21 is the chain's final
+# else. Kept in the same order as main()'s --feature-mode choices list, which
+# stays a literal because tests/test_train_classifier.py reads it out of the
+# AST; the two are tied together by
+# test_recognized_feature_modes_matches_the_module_cli_choices.
+RECOGNIZED_FEATURE_MODES: tuple[int | str, ...] = (
+    10,
+    21,
+    30,
+    31,
+    33,
+    35,
+    50,
+    51,
+    166,
+    "30_esm",
+    "30_graph",
+)
+
 
 def prepare_features(df, include_binding=False, binding_col="binding_score"):
     """Compute feature matrix for all peptides in the DataFrame.
@@ -985,6 +1005,12 @@ def train_models(
     deliberate choice. Existing artifacts there are never replaced unless
     allow_overwrite is True.
 
+    feature_mode must be one of RECOGNIZED_FEATURE_MODES; anything else
+    raises ValueError before model_dir is created or the corpus is read.
+    The artifact stems follow the REQUESTED mode (_artifact_stems), so an
+    unrecognized mode falling through to the 21-feature matrix would save a
+    21-feature model under the requested mode's name.
+
     fold_impute=False (default) matches every pre-Phase-0 caller. When True
     and feature_mode is 33 or 35, the antigen-processing scores are median-
     imputed inside each CV fold from that fold's training rows only, instead
@@ -997,6 +1023,12 @@ def train_models(
         feature_mode = int(feature_mode)
     except (ValueError, TypeError):
         pass
+
+    if feature_mode not in RECOGNIZED_FEATURE_MODES:
+        raise ValueError(
+            f"Unknown feature_mode {feature_mode!r}; expected one of: "
+            + ", ".join(str(mode) for mode in RECOGNIZED_FEATURE_MODES)
+        )
 
     fold_impute_columns = ANTIGEN_PROCESSING_COLUMNS if fold_impute and feature_mode in (33, 35) else None
 
