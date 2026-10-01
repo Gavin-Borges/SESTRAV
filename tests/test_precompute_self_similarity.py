@@ -11,6 +11,7 @@ from precompute_self_similarity import (
     compute_self_similarity,
     build_kmer_sets,
     process_peptides,
+    select_valid_peptides,
 )
 
 # ---------------------------------------------------------------------------
@@ -209,3 +210,72 @@ class TestBuildKmerSets:
         fasta.write_text("")
         ksets = build_kmer_sets(str(fasta), kmer_lengths=(9,))
         assert len(ksets[9]) == 0
+
+
+# ---------------------------------------------------------------------------
+# select_valid_peptides
+# ---------------------------------------------------------------------------
+
+# Codepoints whose str.upper() folds INTO the standard amino-acid alphabet, so a
+# filter that upper-cases before checking the alphabet admits a residue the input
+# never had. Built with chr() rather than string literals because
+# tests/test_encoding_ascii_output.py inspects each literal's VALUE through the
+# AST, so an escape sequence is flagged exactly as a literal glyph is; chr()
+# leaves only an int literal and keeps this file pure ASCII.
+_FOLDING_CODEPOINTS = [
+    chr(0x0131),  # dotless i   -> "I"
+    chr(0x017F),  # long s      -> "S"
+    chr(0x00DF),  # sharp s     -> "SS", length 1 -> 2
+    chr(0xFB00),  # ligature ff -> "FF", length 1 -> 2
+]
+
+
+class TestSelectValidPeptides:
+    def test_accepts_standard_9mer(self):
+        assert select_valid_peptides(["GILGFVFTL"]) == ["GILGFVFTL"]
+
+    def test_normalizes_case_and_whitespace(self):
+        """Lowercase input is accepted on purpose; the fix must not tighten this."""
+        assert select_valid_peptides(["  gilgfvftl "]) == ["GILGFVFTL"]
+
+    def test_deduplicates_and_sorts(self):
+        got = select_valid_peptides(["QQQQQQQQQ", "gilgfvftl", "GILGFVFTL"])
+        assert got == ["GILGFVFTL", "QQQQQQQQQ"]
+
+    def test_rejects_outside_the_length_window(self):
+        assert select_valid_peptides(["ACDEFGH", "ACDEFGHIKLMN"]) == []
+
+    def test_rejects_non_standard_amino_acids(self):
+        assert select_valid_peptides(["GILGFVFTX"]) == []
+
+    def test_skips_non_str_entries(self):
+        assert select_valid_peptides([None, 42, 3.5, "GILGFVFTL"]) == ["GILGFVFTL"]
+
+    def test_respects_custom_bounds(self):
+        assert select_valid_peptides(["ACDEFGH"], min_len=7, max_len=7) == ["ACDEFGH"]
+
+    @pytest.mark.parametrize("codepoint", _FOLDING_CODEPOINTS)
+    def test_rejects_non_ascii_that_folds_into_the_alphabet(self, codepoint):
+        """Each of these passed the pre-fix alphabet check after the fold."""
+        assert select_valid_peptides(["GILGFVFT" + codepoint]) == []
+
+    def test_length_window_reads_the_string_that_is_returned(self):
+        """The second defect: the window and the stored value must be one string.
+
+        U+00DF upper-cases to "SS", so this input is 11 characters before the fold
+        and 12 after. The inline form this replaced measured the length BEFORE the
+        fold and stored the value AFTER it, so it admitted the input and emitted a
+        12-mer while reporting "8-11mer".
+        """
+        eleven_before_fold = "GILGFVFTLA" + chr(0x00DF)
+        assert len(eleven_before_fold) == 11, "input is inside the window pre-fold"
+        assert len(eleven_before_fold.upper()) == 12, "and outside it post-fold"
+        assert select_valid_peptides([eleven_before_fold]) == []
+
+    def test_every_returned_peptide_is_inside_the_window(self):
+        """Property: no emitted peptide can fall outside the advertised window."""
+        raw = ["GILGFVFTL", "  acdefghik ", "GILGFVFTLA" + chr(0x00DF), "ACDEFGH"]
+        for peptide in select_valid_peptides(raw):
+            assert 8 <= len(peptide) <= 11
+            assert peptide.isascii()
+            assert peptide == peptide.upper()
