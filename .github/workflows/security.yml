@@ -265,7 +265,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Semgrep
-        # Same hash-pinned set the advisory job installs (semgrep==1.177.0), and
+        # Same hash-pinned set the advisory job installs (semgrep==1.178.0), and
         # --no-deps for the same reason: see the advisory job's install step.
         run: pip install --require-hashes --no-deps -r environments/requirements-semgrep.txt
 
@@ -318,6 +318,10 @@ jobs:
         # excludes them. Note the anchors above were `:608,611` until that
         # re-check: the call sites had drifted two lines and nothing pins them,
         # so re-derive with `grep -n 'joblib.load'` rather than trusting them.
+        # Re-checked 2026-09-30 for the 1.177.0 -> 1.178.0 bump with this step's
+        # exact argv: "Ran 3 rules on 189 files: 0 findings" under both
+        # versions, and a --json run reports 0 files under tests/ in either
+        # scanned set.
         # Local rules only - no registry fetch - so this gate has no network
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off

@@ -1,21 +1,21 @@
 # uv override file for environments/requirements-semgrep.in ONLY.
 # tools/update_dependencies.py passes it as `--overrides` for the `semgrep` spec.
 #
-# semgrep 1.166.0 through 1.178.0 (1.177.0 is pinned; 1.178.0 was the latest on
-# PyPI on 2026-09-30) declare `pyjwt[crypto]~=2.13.0`, so no available semgrep
+# semgrep 1.166.0 through 1.178.0 (1.178.0 is pinned and was the latest on PyPI
+# on 2026-09-30) declare `pyjwt[crypto]~=2.13.0`, so no available semgrep
 # upgrade reaches a patched pyjwt, and a pyjwt floor in the .in makes the spec
-# unsatisfiable. pyjwt 2.13.0 carries twelve advisories, one critical, and 2.15.0
+# unsatisfiable. pyjwt 2.13.0 carries thirteen advisories, one critical, and 2.15.0
 # is the first release that fixes all of them (2.14.0 left GHSA-42vr-xj54-vc7v
 # open). This override replaces semgrep's and mcp's pyjwt requirement with the
 # line below. The one alternative was a DOWNGRADE: semgrep 1.150.0 through
 # 1.156.0 declare `pyjwt[crypto]~=2.4`, which admits 2.15.x (and 1.149.0 and
-# earlier declare no pyjwt requirement of their own), but that is 21 minor
-# versions (24 PyPI releases, 1.157.0 through 1.177.0) of the scanner backwards,
+# earlier declare no pyjwt requirement of their own), but that is 22 minor
+# versions (25 PyPI releases, 1.157.0 through 1.178.0) of the scanner backwards,
 # and was rejected.
 #
 # Measured before adopting it, semgrep 1.177.0 on Linux / Python 3.11 against the
-# same tree, with pyjwt 2.13.0 (the previous lock) and 2.15.1 (this lock, the
-# committed blob):
+# same tree, with pyjwt 2.13.0 (the lock before this override) and 2.15.1 (the
+# first lock compiled with it, installed from its committed blob):
 #   - the blocking custom-rules scan returned 0 results and 0 errors over the same
 #     189 files under both;
 #   - the advisory `p/python` scan returned the same 3 SARIF results, all three
@@ -27,6 +27,13 @@
 #     calls through both scans, custom-rules and advisory (each traced in the
 #     semgrep entrypoint and its pysemgrep re-exec), under both versions, while
 #     logging encode, decode and get_unverified_header in a control run under each.
+#
+# Re-measured 2026-09-30 for the semgrep 1.177.0 -> 1.178.0 bump, both locks
+# carrying pyjwt 2.15.1, installed with CI's argv on Linux / Python 3.11 and
+# scanned against the same tree: the blocking custom-rules scan returned 0
+# results and 0 errors over 189 files under both, and the advisory scan the same
+# 3 SARIF results, all suppressed by `nosemgrep`, with 154 rules loaded. 1.178.0
+# declares exactly the requirements 1.177.0 does, pyjwt[crypto]~=2.13.0 included.
 #
 # CONSEQUENCES:
 #   - The lock no longer satisfies semgrep's own metadata, so a resolving

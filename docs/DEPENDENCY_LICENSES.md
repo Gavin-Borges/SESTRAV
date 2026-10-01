@@ -42,7 +42,7 @@
 | greenlet                              | 3.5.4       | MIT AND PSF-2.0                                                                                     |
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.168.0     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.168.1     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
