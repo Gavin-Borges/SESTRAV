@@ -48,10 +48,11 @@ jobs:
       - name: Verify every published value still carries its bounding qualifier
         # RATCHET FORM, NOT --strict, and the difference is the whole design.
         #
-        # --strict sets every ceiling to 0. Measured on this tree it exits 1 on
-        # 7 seed violations - carriers that state 0.6458 without recording that
-        # it is the best of eight seeds - so a --strict step would red main from
-        # the first merge and stay red until the last carrier is repaired. A
+        # --strict sets every ceiling to 0. When this step was added (4061aaf1)
+        # it exited 1 on 7 violations - carriers that stated 0.6458 without
+        # recording that it is the best of eight runs - so a --strict step would
+        # have turned main red from the first merge until the last carrier was
+        # repaired (c1e88236 lowered that ceiling to 0 once they were). A
         # permanently failing gate cannot be cleared by the PR that adds it, and
         # it trains reviewers to ignore the job.
         #
