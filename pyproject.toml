@@ -255,9 +255,9 @@ ignore = [
 # Static type checking
 # ---------------------------------------------------------------------------
 # Baseline: ignore missing stubs for third-party libraries (torch, pandas, etc.)
-# so `mypy src/` runs cleanly on CI without requiring stub packages.
-# Enforcement is gradual: errors in new code are blocked by the pre-commit hook;
-# legacy errors are tracked in mypy.ini suppressions as they are fixed.
+# so local `mypy src/` runs do not require stub packages. CI's lint job runs
+# `mypy src/` and fails on any error. pre-push runs `mypy --strict` over the files
+# in docs/strict_typing_ratchet.json, through pytest, when mypy is installed.
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
