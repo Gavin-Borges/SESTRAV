@@ -293,7 +293,14 @@ def _process_records(raw_records: list[dict], virus_display: str) -> list[dict]:
         if not isinstance(raw_peptide, str):
             skipped_aa += 1
             continue
-        peptide = raw_peptide.strip().upper()
+        peptide = raw_peptide.strip()
+        # Reject non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I" and
+        # U+00DF to "SS", so the checks below would pass on residues and lengths the
+        # input never had.
+        if not peptide.isascii():
+            skipped_aa += 1
+            continue
+        peptide = peptide.upper()
 
         if not (8 <= len(peptide) <= 11):
             skipped_length += 1

@@ -92,7 +92,13 @@ def read_groups(tsv_path: Path) -> dict[tuple[str, str], list[str]]:
     with tsv_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         for row in reader:
-            peptide = (row.get("peptide") or "").strip().upper()
+            peptide = (row.get("peptide") or "").strip()
+            # Reject non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I"
+            # and U+00DF to "SS", so the alphabet check below would pass on residues
+            # the input never had.
+            if not peptide.isascii():
+                continue
+            peptide = peptide.upper()
             allele_original = (row.get("hla_allele") or "").strip()
             if not peptide or not allele_original:
                 continue

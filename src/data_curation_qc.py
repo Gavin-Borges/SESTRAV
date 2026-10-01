@@ -187,10 +187,12 @@ if __name__ == "__main__":
             logger.info(f"Running strict dataset QC on {args.check_dataset}")
             df = pd.read_csv(args.check_dataset)
 
-            # 1. Amino Acid Validity
+            # 1. Amino Acid Validity. Non-ASCII is tested BEFORE upper-casing:
+            # str.upper() folds U+0131 to "I" and U+00DF to "SS", so the subset test
+            # alone would pass residues the dataset does not contain.
             valid_chars = set("ACDEFGHIKLMNPQRSTVWY")
             invalid_mask = ~df["peptide"].apply(
-                lambda pep: set(str(pep).upper()).issubset(valid_chars)
+                lambda pep: str(pep).isascii() and set(str(pep).upper()).issubset(valid_chars)
             )
             if invalid_mask.any():
                 raise ValueError(

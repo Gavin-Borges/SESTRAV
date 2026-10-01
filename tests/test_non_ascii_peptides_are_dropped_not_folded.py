@@ -18,7 +18,8 @@ EMIT, not on any validator's return value:
 * scripts/data_qc_gate.py, run as a subprocess, which must quarantine the rows
 * scripts/extract_allele_aware_data.load_tcell_assay_files, all three formats. The
   processed-flat fixture holds raw non-ASCII, which that format's producer,
-  scripts/fetch_iedb_tcell.py, would already have folded before writing.
+  scripts/fetch_iedb_tcell.py, drops before writing; that producer is covered by
+  tests/test_fold_first_peptide_sites_drop_non_ascii.py.
 
 These are not every place that folds before validating. Other code that does is not
 covered here, so a pass here says nothing about it.
