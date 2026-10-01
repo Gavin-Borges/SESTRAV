@@ -121,12 +121,52 @@ class CocktailResult:
 
 
 def load_afnd_frequencies(path: str | None = None) -> dict[str, dict[str, float]]:
-    """Load versioned AFND haplotype frequencies from JSON or default table."""
-    if path is not None and os.path.isfile(path):
+    """Load AFND haplotype frequencies from an explicit file or the default table.
+
+    Parameters
+    ----------
+    path : str, optional
+        An explicit frequency file, shaped {"alleles": {allele: {population: freq}}}.
+        Passing one is a request for that table specifically, so it is never
+        substituted; see Raises. Omit it, or pass None, for the default table.
+
+    Returns
+    -------
+    dict[str, dict[str, float]]
+        The 'alleles' mapping of the file named by path. When path is None, the
+        'alleles' mapping of 'data/population/afnd_frequencies.json' resolved
+        against the process working directory, or DEFAULT_ALLELE_FREQUENCIES when
+        that file is absent or carries no 'alleles' key. That no-path fallback
+        chain is silent by design.
+
+    Raises
+    ------
+    FileNotFoundError
+        path is not None and names no existing file. Only the explicit-path branch
+        raises: an absent default table is a documented fallback, not an error.
+    ValueError
+        path is not None and the file is not a JSON object carrying an 'alleles'
+        key. json.JSONDecodeError, itself a ValueError, propagates unchanged from
+        a file that is not valid JSON.
+    """
+    if path is not None:
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"[CocktailOptimizer] Allele frequency file {path!r} does not exist. An "
+                "explicit path is not substituted with the tracked table or the built-in "
+                "defaults, because the coverage reported would then come from frequencies "
+                "the caller never supplied. Omit the argument to use the default table."
+            )
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        if "alleles" in data:
-            return data["alleles"]
+        if not isinstance(data, dict) or "alleles" not in data:
+            raise ValueError(
+                f"[CocktailOptimizer] Allele frequency file {path!r} has no top-level "
+                "'alleles' key, so no frequencies can be read from it. Supply a file "
+                'shaped {"alleles": {"HLA-A*02:01": {"EUR": 0.27}}}, or omit the argument '
+                "to use the default table."
+            )
+        return data["alleles"]
     canonical_path = os.path.join("data", "population", "afnd_frequencies.json")
     if os.path.isfile(canonical_path):
         with open(canonical_path, encoding="utf-8") as f:
