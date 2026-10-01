@@ -1,7 +1,10 @@
-"""Release jobs with OIDC authority must not resolve Python dependencies."""
+"""Release jobs with OIDC authority must not resolve Python dependencies, and the
+job that builds the release artifacts must not run unhashed third-party code."""
 
+import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -59,13 +62,210 @@ def test_gh_steps_in_jobs_without_a_checkout_name_the_repository() -> None:
     assert checked >= 1, "no gh step in a checkout-less job was found; the guard is vacuous"
 
 
+def _needs(job: dict) -> set[str]:
+    needs = job.get("needs", [])
+    return {needs} if isinstance(needs, str) else set(needs)
+
+
+# pip's global options, each possibly followed by a value (`pip --log x install`).
+_PIP_OPTIONS = r"(?:\s+-\S+(?:\s+[^\s-]\S*)?)*?"
+_PIP_INSTALL = re.compile(
+    rf"\bpip3?(?:\.\d+)?{_PIP_OPTIONS}\s+install\b|-m\s+pip{_PIP_OPTIONS}\s+install\b"
+)
+# Anything else that fetches or builds third-party code: pip wheel and pip download
+# run an sdist's build backend too.
+_OTHER_INSTALLERS = re.compile(
+    rf"(?:^|\s)(?:uvx|pipx|uv\s+(?:pip|tool|run|add|sync)|conda\s+install|easy_install)\b"
+    rf"|\bpip3?(?:\.\d+)?{_PIP_OPTIONS}\s+(?:wheel|download)\b|-m\s+pip{_PIP_OPTIONS}\s+(?:wheel|download)\b"
+)
+
+
+def _can_be_skipped_or_ignored(node: dict) -> bool:
+    """A job or step that might not run, or whose failure would not count."""
+    return "if" in node or bool(node.get("continue-on-error"))
+
+
+def _commands(job: dict) -> list[str]:
+    """Every shell command in a job's run steps: continuations joined, comments dropped,
+    split on &&, ||, | and ;, whitespace collapsed."""
+    commands = []
+    for step in job.get("steps", []):
+        run = step.get("run")
+        if not isinstance(run, str):
+            continue
+        for line in re.sub(r"\\\s*\n", " ", run).splitlines():
+            line = re.sub(r"(?:^|\s)#.*$", "", line)
+            for command in re.split(r"&&|\|\||;|\|", line):
+                command = " ".join(command.split())
+                if command:
+                    commands.append(command)
+    return commands
+
+
+def _pip_installs(job: dict) -> list[str]:
+    return [c for c in _commands(job) if _PIP_INSTALL.search(c)]
+
+
+def _step_index(job: dict, predicate) -> int:
+    return next((i for i, step in enumerate(job.get("steps", [])) if predicate(step)), -1)
+
+
 def test_dependency_checks_run_before_token_holding_jobs() -> None:
     jobs = _jobs()
 
     assert not _has_oidc_write(jobs["build"])
+    assert not _has_oidc_write(jobs["verify"])
     assert "pip install" in _run_script(jobs["build"])
-    assert jobs["release"]["needs"] == "build"
-    assert jobs["publish"]["needs"] == "release"
-    assert jobs["smoke"]["needs"] == "publish"
+    assert "pip install" in _run_script(jobs["verify"])
+    assert _needs(jobs["verify"]) == {"build"}
+    assert _needs(jobs["release"]) == {"build", "verify"}
+    assert _needs(jobs["publish"]) == {"release"}
+    assert _needs(jobs["smoke"]) == {"publish"}
     assert not _has_oidc_write(jobs["smoke"])
     assert "pip install" in _run_script(jobs["smoke"])
+    # An `if:` such as always() would run the release even when verify failed.
+    assert "if" not in jobs["release"], jobs["release"].get("if")
+
+
+def test_the_job_that_builds_the_artifacts_runs_no_unhashed_install() -> None:
+    """The pre-publish gate installs the built wheel with its dependencies resolved
+    from PyPI, unhashed by design, then imports the package and runs its CLI. In
+    the build job that third-party code ran beside dist/ before the upload, where a
+    compromised dependency could alter what the release job attests and publishes.
+    The build job may only run hash-pinned installs; the gate runs in `verify`,
+    against the artifact `build` already uploaded.
+    """
+    jobs = _jobs()
+    build = jobs["build"]
+    installs = _pip_installs(build)
+    assert installs, "no pip install found in the build job; this guard has gone vacuous"
+    unhashed = [c for c in installs if "--require-hashes" not in c.split()]
+    assert not unhashed, unhashed
+    others = [c for c in _commands(build) if _OTHER_INSTALLERS.search(c)]
+    assert not others, others
+    third_party = [
+        step["uses"]
+        for step in build.get("steps", [])
+        if "uses" in step and not str(step["uses"]).startswith("actions/")
+    ]
+    assert not third_party, third_party
+
+    verify = jobs["verify"]
+    assert verify.get("permissions") == {"contents": "read"}, verify.get("permissions")
+    download = _step_index(
+        verify, lambda s: str(s.get("uses", "")).startswith("actions/download-artifact@")
+    )
+    gate = _step_index(verify, lambda s: "dist/*.whl" in str(s.get("run", "")))
+    assert gate >= 0, "the gate is not in the verify job"
+    assert 0 <= download < gate, (download, gate)
+    assert (
+        verify["steps"][download].get("with", {}).get("name")
+        == "release-input-${{ github.ref_name }}"
+    )
+    # A gate that could be skipped or whose failure is ignored would let verify pass.
+    assert not _can_be_skipped_or_ignored(verify)
+    assert not _can_be_skipped_or_ignored(verify["steps"][gate])
+    assert not _can_be_skipped_or_ignored(verify["steps"][download])
+
+
+def test_the_release_job_checks_the_artifact_against_the_build_digests() -> None:
+    """An artifact is downloaded by name, and a later job in the run can replace one of
+    the same name, so the release job checks every file against digests the build job
+    recorded as a job output, which nothing after that job can change."""
+    jobs = _jobs()
+    build, release = jobs["build"], jobs["release"]
+    assert build.get("outputs", {}).get("artifact-sha256") == "${{ steps.digests.outputs.sha256 }}"
+
+    record = _step_index(build, lambda s: s.get("id") == "digests")
+    upload = _step_index(
+        build, lambda s: str(s.get("uses", "")).startswith("actions/upload-artifact@")
+    )
+    assert 0 <= record < upload, (record, upload)
+    recorded = build["steps"][record]["run"]
+    assert "$GITHUB_OUTPUT" in recorded and "sha256sum" in recorded
+    uploaded_globs = build["steps"][upload]["with"]["path"].split()
+    hashed_globs = recorded.split("sha256sum", 1)[1].splitlines()[0].split()
+    assert sorted(hashed_globs) == sorted(uploaded_globs), (hashed_globs, uploaded_globs)
+
+    download = _step_index(
+        release, lambda s: str(s.get("uses", "")).startswith("actions/download-artifact@")
+    )
+    check = _step_index(
+        release,
+        lambda s: s.get("env", {}).get("EXPECTED") == "${{ needs.build.outputs.artifact-sha256 }}",
+    )
+    attest = _step_index(
+        release, lambda s: str(s.get("uses", "")).startswith("actions/attest-build-provenance@")
+    )
+    assert download == 0 and check == 1 and attest > check, (download, check, attest)
+    script = release["steps"][check]["run"]
+    assert 'test -n "$EXPECTED"' in script
+    assert "sha256sum --check --strict" in script
+    assert "diff " in script
+    # The check must be able to fail the job.
+    assert not _can_be_skipped_or_ignored(release["steps"][check])
+    assert "||" not in script and "set +e" not in script and "shell" not in release["steps"][check]
+
+
+@pytest.mark.parametrize(
+    ("script", "expected"),
+    [
+        ("pip install --require-hashes -r environments/requirements-ci-build.txt", []),
+        (
+            "python -m build --no-isolation\npip install --quiet dist/*.whl",
+            ["pip install --quiet dist/*.whl"],
+        ),
+        ("a && pip install x  # comment", ["pip install x"]),
+        ("pip install \\\n  --require-hashes -r x.txt", []),
+        ("pip install \\\n  -r x.txt", ["pip install -r x.txt"]),
+        ("pip3 install foo", ["pip3 install foo"]),
+        ("python -m pip --quiet install foo", ["python -m pip --quiet install foo"]),
+        ("pip  install foo", ["pip install foo"]),
+        ("pip install --require-hashes -r x.txt || pip install build", ["pip install build"]),
+        ("echo x | pip install foo", ["pip install foo"]),
+        ("pip --log /tmp/pip.log install foo", ["pip --log /tmp/pip.log install foo"]),
+        (
+            "python -m pip --cache-dir c --quiet install foo",
+            ["python -m pip --cache-dir c --quiet install foo"],
+        ),
+        ("pip --version", []),
+    ],
+)
+def test_pip_installs_reads_commands(script: str, expected: list[str]) -> None:
+    found = _pip_installs({"steps": [{"run": script}]})
+    unhashed = [c for c in found if "--require-hashes" not in c.split()]
+    assert unhashed == expected
+
+
+@pytest.mark.parametrize(
+    ("command", "matches"),
+    [
+        ("pip wheel --no-deps -w w foo", True),
+        ("python -m pip --quiet download foo", True),
+        ("pip --log x wheel foo", True),
+        ("conda install -y foo", True),
+        ("easy_install foo", True),
+        ("uvx build", True),
+        ("uv pip install foo", True),
+        ("pipx run build", True),
+        ("pip install --require-hashes -r x.txt", False),
+        ("python -m build --no-isolation --sdist --wheel --outdir dist/", False),
+        ("sha256sum dist/*.whl", False),
+    ],
+)
+def test_other_installers_are_recognised(command: str, matches: bool) -> None:
+    assert bool(_OTHER_INSTALLERS.search(command)) is matches
+
+
+@pytest.mark.parametrize(
+    ("node", "flagged"),
+    [
+        ({}, False),
+        ({"continue-on-error": False}, False),
+        ({"continue-on-error": True}, True),
+        ({"continue-on-error": "${{ always() }}"}, True),
+        ({"if": "success()"}, True),
+    ],
+)
+def test_skippable_or_ignored_is_recognised(node: dict, flagged: bool) -> None:
+    assert _can_be_skipped_or_ignored(node) is flagged

@@ -279,6 +279,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   bootstrap, or that comes from a lock pinning no setuptools. Nine mutants fail it. It
   reads commands as text and cannot see wheel availability offline, so an sdist entering
   a tool lock later is not caught there.
+- **The release's pre-publish gate runs in its own job, and the release checks the
+  artifact it signs against digests the build job recorded.** `release.yml`'s gate
+  installs the freshly built wheel with its dependencies resolved from PyPI - unhashed
+  by design, since it proves `[project].dependencies` is enough for a user's install -
+  then imports the package and runs its CLI. It ran inside the `build` job, after the
+  build and before the upload, so third-party code ran as the same user on the same
+  runner while `dist/` was still writable: a compromised dependency release could have
+  altered the sdist and wheel that the `release` job then attests and publishes. The gate
+  now runs, unchanged, in a new `verify` job (read-only permissions, no OIDC token) that
+  downloads the artifact `build` already uploaded, and `release` needs both `build` and
+  `verify`, so a failing gate still stops the release before anything is signed or
+  published. Because an artifact is fetched by name and a later job in the run can
+  replace one of the same name (upload-artifact's `overwrite`), `build` also records the
+  sha256 of every file it uploads as a job output, which nothing after it can change, and
+  `release` checks its download against those digests, and that no file was added, before
+  attesting. The check was exercised on Linux under `bash -e` (GitHub's default for a
+  `run` step) and under `-eo pipefail`, with both GNU coreutils 9.7 and uutils 0.8.0: an
+  intact download passes, and a tampered wheel, an extra file and an empty digest list
+  each fail it. `build` now runs only hash-pinned installs and
+  repository code (`src.release_bundle` and the `src.artifact_integrity` it imports load
+  only the standard library at module scope; `src/__init__.py` imports nothing).
+  `tests/test_release_workflow_oidc_install_isolation.py` now requires `release`
+  to need `verify` and carry no `if:`; every `pip install` in `build`, in any spelling or
+  pipeline, to carry `--require-hashes`, with no other installer and only `actions/`
+  steps; `verify` to be read-only and download the build's artifact before the gate; and
+  the digest output, its coverage of every uploaded glob, and the check ahead of the
+  attestation; and the gate, `verify` and the check can be neither skipped (`if:`) nor
+  made non-fatal (`continue-on-error`, `||`, `set +e`). Eighteen mutants fail it. The
+  smoke test's comment and `docs/releasing.md` now
+  place the gate in `verify`. The artifact is kept for one day, so re-running `verify`
+  alone after that fails at the download; re-run the workflow. `release.yml` runs only on
+  version tags, so no pull request exercises these jobs; the restructure was checked by
+  parsing the workflow and by those tests, not by a run. Not covered: `publish` still
+  downloads `dist-<tag>` by name with no digest check.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
