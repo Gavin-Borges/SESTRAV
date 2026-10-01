@@ -1,0 +1,143 @@
+{
+  "generated_utc": "2026-10-01T08:50:42+00:00",
+  "script": null,
+  "artifact": "results/n4_edge_ablation_n8.csv",
+  "sha256": "a13d5e7d96ca64557132655999a752cedea88b38405ebae28eeb9f289e9fd1fc",
+  "provenance_kind": "transcription",
+  "transcription": {
+    "source": "a gitignored working note dated 2026-09-04, n4_edge_ablation_n8_2026-09-04.md, which a clone does not carry",
+    "method": "the note's results table copied cell for cell: 8 full-arm, 8 self-loop-only and 8 paired-delta pooled AUC-PR values, each at 6 decimals, in the note's seed order. Nothing was recomputed or re-rounded.",
+    "added_columns": "seed, run_tag_full and run_tag_self_loop_only. The run tags are the names of the local run directories under models/scratch/ that hold each run's out-of-fold frame.",
+    "paired_delta_rounding": "paired_delta_self_loop_only_minus_full was computed from unrounded AUC-PR and rounded once, so it is not always the difference of the two rounded arm columns: for seeds 42 and 123 it differs from that difference by 0.000001. Recomputing the delta from the arm columns changes those two cells."
+  },
+  "upstream_runs": {
+    "trainer": "src/train_gnn.py --architecture v2, two arms identical except --edge-mode (full, self-loop-only)",
+    "seeds": [
+      42,
+      1337,
+      2026,
+      7,
+      99,
+      123,
+      555,
+      31337
+    ],
+    "held_fixed_per_the_note": "v5 corpus, models/peptide_binding_matrix_v5.csv, ESM-2 embeddings data/esm2_embeddings_t12_v5.pt, feature mode 31, mean pooling, 18 epochs, early-stopping patience 10, one shared feature cache",
+    "primary_quantity": "pooled AUC-PR: sklearn average_precision_score over each run's own out-of-fold frame, gnn_oof_predictions_mean.csv",
+    "run_date": "2026-09-04",
+    "trainer_revision": "not recorded by the note"
+  },
+  "verification": {
+    "date": "2026-10-01",
+    "method": "pooled AUC-PR re-derived with sklearn average_precision_score from each of the 16 local out-of-fold frames listed under inputs",
+    "result": "all 24 transcribed values reproduce at 6 decimals",
+    "rows_per_frame": 35555,
+    "positives_per_frame": 8021,
+    "arm_identity": "each run directory's run1/gnn_config_mean.json records an edge_mode equal to the arm named in its tag, 16 of 16",
+    "environment": {
+      "python": "3.11.15",
+      "scikit-learn": "1.8.0",
+      "pandas": "3.0.3",
+      "platform": "Windows AMD64"
+    }
+  },
+  "statistics_from_this_file": {
+    "method": "computed from this file's 6-decimal values; delta is self-loop-only minus full; sd uses ddof=1; CI is the two-sided 95% t interval on n=8; both tests are exact and two-sided",
+    "mean_pooled_auc_pr_full": "0.625927",
+    "mean_pooled_auc_pr_self_loop_only": "0.643458",
+    "mean_paired_delta": "0.017531",
+    "paired_sd": "0.008213",
+    "seeds_positive": "8 of 8",
+    "sign_test_p": "0.0078125",
+    "wilcoxon_signed_rank_p": "0.0078125",
+    "ci95_mean_paired_delta": [
+      "0.0107",
+      "0.0244"
+    ],
+    "mean_paired_delta_without_seed_1337": "0.015527",
+    "note": "The working note's paired t = 6.037 was computed from unrounded values; from this file's rounded values it reads 6.038. No tracked doc quotes t."
+  },
+  "inputs_note": "local and gitignored: present only on the machine that ran the ablation, so a clone cannot re-derive the transcribed values from them",
+  "inputs": [
+    {
+      "run_tag": "n4v5_full_s42",
+      "path": "models/scratch/n4v5_full_s42/gnn_oof_predictions_mean.csv",
+      "sha256": "b390985362f503079f572c05da75849b34d13503d5f40f6a6faa7f33cea678a3"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s42",
+      "path": "models/scratch/n4v5_self-loop-only_s42/gnn_oof_predictions_mean.csv",
+      "sha256": "f003cfb56f397862d0f2b7b6a5a261b6176544347d0a7097d75f29bcb2aebe14"
+    },
+    {
+      "run_tag": "n4v5_full_s1337",
+      "path": "models/scratch/n4v5_full_s1337/gnn_oof_predictions_mean.csv",
+      "sha256": "4210c1a8963ce3f8a4f9e3d56a151a8ecfaef56fe303bba8493f758092300aae"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s1337",
+      "path": "models/scratch/n4v5_self-loop-only_s1337/gnn_oof_predictions_mean.csv",
+      "sha256": "603e749352ea3b83b49a0932eaf49c3b779ae72fa4b51bc5dd6c4f8818032ed3"
+    },
+    {
+      "run_tag": "n4v5_full_s2026",
+      "path": "models/scratch/n4v5_full_s2026/gnn_oof_predictions_mean.csv",
+      "sha256": "7c96dd270a4d88dfb5112277033de02f7d0fec2fffa6d416e1b9e054b4c44167"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s2026",
+      "path": "models/scratch/n4v5_self-loop-only_s2026/gnn_oof_predictions_mean.csv",
+      "sha256": "b6c16ac909e0960b7fefc803e25ce989eff69c1d690b00d6166e536a2bf4aa61"
+    },
+    {
+      "run_tag": "n4v5_full_s7",
+      "path": "models/scratch/n4v5_full_s7/gnn_oof_predictions_mean.csv",
+      "sha256": "40f1e383083ea817fa891a6a6df191e6af980fb7eaffd05c21f49c69482bb4fd"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s7",
+      "path": "models/scratch/n4v5_self-loop-only_s7/gnn_oof_predictions_mean.csv",
+      "sha256": "8e1b20376ac7eb9187a769806c52d397b4027e97a224c9bf6e9f0095ee7fddca"
+    },
+    {
+      "run_tag": "n4v5_full_s99",
+      "path": "models/scratch/n4v5_full_s99/gnn_oof_predictions_mean.csv",
+      "sha256": "9c4f3bcf759dcb22d709f4f38de63cebf85a1763206ec11be0857226e9a8d70f"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s99",
+      "path": "models/scratch/n4v5_self-loop-only_s99/gnn_oof_predictions_mean.csv",
+      "sha256": "8169412e23857851c5e4648c13ef1fa4efa1f79122a02ac33193262e0fea5123"
+    },
+    {
+      "run_tag": "n4v5_full_s123",
+      "path": "models/scratch/n4v5_full_s123/gnn_oof_predictions_mean.csv",
+      "sha256": "48efa12a65d4a46e08fc3ab3c2090857c180bc4c1beb03b2bb3ba90e0feb39ba"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s123",
+      "path": "models/scratch/n4v5_self-loop-only_s123/gnn_oof_predictions_mean.csv",
+      "sha256": "60ebed3da1ef616e62becb652b0c736b131d2dbc6fee7e9b1e7768f8a86b37a5"
+    },
+    {
+      "run_tag": "n4v5_full_s555",
+      "path": "models/scratch/n4v5_full_s555/gnn_oof_predictions_mean.csv",
+      "sha256": "0d1153e84c82e4737b6e6daac352fe8903db4307401c0f866147669751308eee"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s555",
+      "path": "models/scratch/n4v5_self-loop-only_s555/gnn_oof_predictions_mean.csv",
+      "sha256": "304383ce35457f4daca7dc8a6a65875ac39d89c8fffa87d8461a04f055b3a67f"
+    },
+    {
+      "run_tag": "n4v5_full_s31337",
+      "path": "models/scratch/n4v5_full_s31337/gnn_oof_predictions_mean.csv",
+      "sha256": "4c7053ae075a59d4fa0277c391dfe0cd986c18d0d7c35ef8f705b9a8e4d47120"
+    },
+    {
+      "run_tag": "n4v5_self-loop-only_s31337",
+      "path": "models/scratch/n4v5_self-loop-only_s31337/gnn_oof_predictions_mean.csv",
+      "sha256": "61dc9b1180330314a721347bb53a632003e9090d07a96fc6fcd6212578451ded"
+    }
+  ]
+}

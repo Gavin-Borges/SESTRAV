@@ -1,0 +1,9 @@
+seed,run_tag_full,run_tag_self_loop_only,pooled_auc_pr_full,pooled_auc_pr_self_loop_only,paired_delta_self_loop_only_minus_full
+42,n4v5_full_s42,n4v5_self-loop-only_s42,0.628095,0.633244,0.005150
+1337,n4v5_full_s1337,n4v5_self-loop-only_s1337,0.625494,0.657054,0.031560
+2026,n4v5_full_s2026,n4v5_self-loop-only_s2026,0.628324,0.635863,0.007539
+7,n4v5_full_s7,n4v5_self-loop-only_s7,0.632937,0.652404,0.019467
+99,n4v5_full_s99,n4v5_self-loop-only_s99,0.627450,0.644533,0.017083
+123,n4v5_full_s123,n4v5_self-loop-only_s123,0.620595,0.639263,0.018669
+555,n4v5_full_s555,n4v5_self-loop-only_s555,0.621469,0.641304,0.019835
+31337,n4v5_full_s31337,n4v5_self-loop-only_s31337,0.623050,0.643997,0.020947
