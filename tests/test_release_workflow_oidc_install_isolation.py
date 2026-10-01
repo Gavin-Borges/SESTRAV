@@ -1,7 +1,10 @@
 """Release jobs with OIDC authority must not resolve Python dependencies, and the
 job that builds the release artifacts must not run unhashed third-party code."""
 
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -269,3 +272,102 @@ def test_other_installers_are_recognised(command: str, matches: bool) -> None:
 )
 def test_skippable_or_ignored_is_recognised(node: dict, flagged: bool) -> None:
     assert _can_be_skipped_or_ignored(node) is flagged
+
+
+def _gate_step() -> tuple[str, dict]:
+    """The pre-publish gate step, found by the command list it builds."""
+    for name, job in _jobs().items():
+        for step in job.get("steps", []):
+            if "--list-commands" in str(step.get("run", "")):
+                return name, step
+    raise AssertionError("no step in release.yml runs --list-commands")
+
+
+def _subcommand_help_block() -> str:
+    """The gate's per-subcommand --help block, taken verbatim from release.yml.
+
+    Continuations are joined first, so the block reads the same whether the
+    command list is produced on one line or several.
+    """
+    _name, step = _gate_step()
+    lines = re.sub(r"\\\s*\n", " ", str(step["run"])).splitlines()
+    start = next(i for i, line in enumerate(lines) if "--list-commands" in line)
+    end = next(i for i in range(start, len(lines)) if lines[i].strip() == "done")
+    return "\n".join(lines[start : end + 1])
+
+
+# The two executables in the gate's throwaway venv, matched as a whole absolute
+# path so the surrounding `$(` or `"` is never swallowed with it.
+_VENV_EXECUTABLE = re.compile(r"(?:/[\w.-]+)*/relcheck/bin/(python|sestrav)\b")
+_STUBS = {"python": "stub_list", "sestrav": "stub_sestrav"}
+
+
+def _run_help_block(tmp_path: Path, stdout: str, status: int) -> tuple[int, list[str]]:
+    """Run that block under GitHub's default shell with the list producer planted.
+
+    The two venv executables are the only text replaced; the assignment, the
+    emptiness check and the loop itself are whatever release.yml says they are,
+    which is what makes this a control on the workflow rather than on a copy of
+    it.
+    """
+    block = _VENV_EXECUTABLE.sub(lambda match: _STUBS[match.group(1)], _subcommand_help_block())
+    assert "stub_list" in block and "stub_sestrav" in block, block
+    # The planted stdout goes through a file so the test never has to quote a
+    # multi-line string into shell source.
+    # Written as bytes, not text: on Windows a text-mode write would turn every
+    # newline into CRLF, and the stray CR then rides into the loop variable.
+    listing = tmp_path / "listing.txt"
+    listing.write_bytes(stdout.encode("utf-8"))
+    ran = tmp_path / "ran.txt"
+    ran.unlink(missing_ok=True)
+    script = tmp_path / "help_block.sh"
+    script.write_bytes(
+        (
+            'stub_list() { cat "$LISTING"; return ' + str(status) + "; }\n"
+            'stub_sestrav() { printf "%s\\n" "$*" >> "$RAN"; }\n'
+            f"{block}\n"
+        ).encode("utf-8")
+    )
+    # GitHub's default shell for a `run:` step with no `shell:` key is
+    # `bash -e {0}`: errexit on, pipefail off. The step sets no `shell:`, so
+    # relying on either -o pipefail or -u here would test something else.
+    assert "shell" not in _gate_step()[1]
+    environment = dict(os.environ)
+    environment.update(GITHUB_WORKSPACE=str(tmp_path), LISTING=str(listing), RAN=str(ran))
+    completed = subprocess.run(
+        ["bash", "-e", str(script)],
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    exercised = ran.read_text(encoding="utf-8").splitlines() if ran.exists() else []
+    return completed.returncode, exercised
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs a POSIX bash")
+def test_the_subcommand_help_loop_fails_on_an_empty_or_failed_list(tmp_path: Path) -> None:
+    """A planted empty or failed command list must fail the step.
+
+    `for command in $(...)` throws the producer's exit status away and runs zero
+    iterations on empty output, so before this guard all three planted failures
+    below left the gate green having run no subcommand at all. The third is the
+    one the step actually meets: `check_consumer_install.py --list-commands`
+    prints the names and returns 1 when a subparser has no cmd_ function, so the
+    discarded status was the only signal that anything was wrong.
+    """
+    for stdout, status, label in [
+        ("", 0, "empty output, producer succeeded"),
+        ("", 1, "empty output, producer failed"),
+        ("predict\nvalidate\n", 1, "names printed, producer failed"),
+    ]:
+        returncode, exercised = _run_help_block(tmp_path, stdout, status)
+        assert returncode != 0, f"{label}: step passed (rc 0) on a list it must reject"
+        assert exercised == [], (label, exercised)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs a POSIX bash")
+def test_the_subcommand_help_loop_still_runs_every_command_it_is_given(tmp_path: Path) -> None:
+    """Negative control: the harness above can pass, so its failures are real."""
+    returncode, exercised = _run_help_block(tmp_path, "predict\nvalidate\n", 0)
+    assert returncode == 0, returncode
+    assert exercised == ["predict --help", "validate --help"], exercised
