@@ -376,7 +376,7 @@ per arm with everything else held fixed (v5 corpus, `models/peptide_binding_matr
 `data/esm2_embeddings_t12_v5.pt`, feature mode 31, mean pooling, 18 epochs, one shared feature
 cache). Full-graph pooled AUC-PR mean
 0.625927, self-loop-only 0.643458, mean paired delta **+0.017531** (paired sd 0.008213),
-**8 of 8 seeds positive**, exact sign test and Wilcoxon signed-rank both p = 0.0078125.
+**8 of 8 seeds positive**, exact sign test and Wilcoxon signed-rank both p = 0.0078125 (`docs/claims_register.md` D42).
 
 **The sign is established; the pre-registered 0.0160 threshold is NOT cleared robustly, and
 the two must not be conflated.** The 95% CI on the mean delta is [0.0107, 0.0244] and straddles

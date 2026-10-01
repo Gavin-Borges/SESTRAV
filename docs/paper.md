@@ -1261,7 +1261,7 @@ attributable to the graph edges. A pre-registered edge ablation at eight seeds
 (2026-09-04), holding every node feature fixed and removing the neighbour edges so
 that message passing carries no topology, found that removal did not hurt and
 consistently helped: mean paired AUC-PR delta +0.017531 (paired sd 0.008213), 8 of
-8 seeds positive, exact sign test and Wilcoxon signed-rank both p = 0.0078125. Both
+8 seeds positive, exact sign test and Wilcoxon signed-rank both p = 0.0078125 (`docs/claims_register.md` D42). Both
 ablation arms were trained under a shared 18-epoch budget, which is not the
 budget under which the gated v5 run was trained; their levels, and the delta
 between them, are therefore interpretable only within the ablation and must not
