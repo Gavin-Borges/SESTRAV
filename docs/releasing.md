@@ -168,7 +168,8 @@ Trusted Publishers** - no API token or GitHub secret is required.
 
 ### How a release publishes to PyPI
 
-After the `build` job (build and pre-publish checks) and the `release` job (attest ->
+After the `build` job (build and package-data checks), the `verify` job (the pre-publish
+install-and-import gate) and the `release` job (artifact digest check, attest ->
 GitHub Release) complete, the `publish` job is triggered, pauses for reviewer
 approval, then runs
 `pypa/gh-action-pypi-publish` which exchanges a short-lived GitHub OIDC token for

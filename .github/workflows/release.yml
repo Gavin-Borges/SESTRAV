@@ -25,6 +25,10 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    outputs:
+      # sha256 of every file in the release-input artifact; see the step that
+      # records them. The release job checks its download against this.
+      artifact-sha256: ${{ steps.digests.outputs.sha256 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -188,6 +192,80 @@ jobs:
               raise SystemExit(f"built distributions are missing package data: {missing_by_artifact}")
           PY
 
+      - name: Build canonical results bundle (checksummed zip of tracked results/ artifacts)
+        # Stdlib-only (hashlib/json/zipfile) - no ML runtime deps needed. Lets a reader
+        # verify a published release's result artifacts byte-for-byte via the bundle's
+        # own manifest, independent of the sdist/wheel above.
+        run: python -m src.release_bundle --output-dir dist_release_bundle
+
+      - name: Record the artifact digests
+        id: digests
+        # The release job downloads the artifact by name, and a later job in this
+        # run could replace an artifact of the same name (upload-artifact's
+        # `overwrite`). So the release job checks every downloaded file against
+        # these digests, which are this job's output and so cannot be changed by
+        # anything that runs after it, including the verify job's unhashed
+        # install.
+        run: |
+          {
+            echo 'sha256<<DIGESTS_END'
+            sha256sum dist/*.tar.gz dist/*.whl dist_release_bundle/*.zip dist_release_bundle/*.manifest.json
+            echo 'DIGESTS_END'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the built artifacts for verification, signing and release
+        # The pre-publish gate runs in the verify job against this upload, and the
+        # release job needs it, so nothing is signed or published unless it passes.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-input-${{ github.ref_name }}
+          path: |
+            dist/*.tar.gz
+            dist/*.whl
+            dist_release_bundle/*.zip
+            dist_release_bundle/*.manifest.json
+          retention-days: 1
+
+  verify:
+    name: Verify the built wheel installs and imports
+    needs: build
+    runs-on: ubuntu-latest
+    # The pre-publish gate used to run inside the build job, after the build and
+    # before the upload. It installs the wheel WITH dependencies from PyPI, which
+    # is unhashed by design (see the step), and then imports the package and runs
+    # its CLI, so third-party code ran as the same user, on the same runner, while
+    # dist/ was still writable and not yet uploaded: a compromised dependency
+    # release could have altered the artifacts that the release job then attests
+    # and publishes. Here it runs on its own runner against the artifact the build
+    # job already uploaded, and the release job needs this job, so a failing gate
+    # still stops the release. No OIDC token is held here and its permissions
+    # are read-only; the release job also checks the artifact against the build
+    # job's digests, so this job cannot swap it either. The artifact is kept for
+    # one day: re-running this job alone after that fails at the download, so
+    # re-run the whole workflow instead.
+    # Same bound as the build job, whose time this install used to take.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        # For environments/requirements-pip-bootstrap.txt and
+        # scripts/check_consumer_install.py; the distributions come from the artifact.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Download the built artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-input-${{ github.ref_name }}
+          path: .
+
       - name: Verify the built wheel installs and imports (PRE-PUBLISH GATE)
         # The last point at which a bad package is still recoverable. The
         # post-upload smoke test in the smoke job cannot serve this purpose:
@@ -255,26 +333,9 @@ jobs:
             echo "sestrav $command --help OK"
           done
 
-      - name: Build canonical results bundle (checksummed zip of tracked results/ artifacts)
-        # Stdlib-only (hashlib/json/zipfile) - no ML runtime deps needed. Lets a reader
-        # verify a published release's result artifacts byte-for-byte via the bundle's
-        # own manifest, independent of the sdist/wheel above.
-        run: python -m src.release_bundle --output-dir dist_release_bundle
-
-      - name: Upload verified artifacts for signing and release
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-input-${{ github.ref_name }}
-          path: |
-            dist/*.tar.gz
-            dist/*.whl
-            dist_release_bundle/*.zip
-            dist_release_bundle/*.manifest.json
-          retention-days: 1
-
   release:
     name: Attest and publish signed release
-    needs: build
+    needs: [build, verify]
     runs-on: ubuntu-latest
     # 15 is the bound ci.yml's compat job and security.yml's pip-audit and
     # python-sbom jobs already carry. This job downloads one artifact and then
@@ -292,6 +353,20 @@ jobs:
         with:
           name: release-input-${{ github.ref_name }}
           path: .
+
+      - name: Check the artifact against the build job's digests
+        # Before anything is attested: every file must match the digest the build
+        # job recorded (an output, fixed when that job ended), and no file may have
+        # been added. Tested with a tampered wheel, an extra file and an empty
+        # digest list, each of which fails this step.
+        env:
+          EXPECTED: ${{ needs.build.outputs.artifact-sha256 }}
+        run: |
+          test -n "$EXPECTED"
+          printf '%s\n' "$EXPECTED" | sha256sum --check --strict -
+          printf '%s\n' "$EXPECTED" | awk '{print $2}' | sort > "$RUNNER_TEMP/expected-files.txt"
+          find dist dist_release_bundle -type f | sort > "$RUNNER_TEMP/downloaded-files.txt"
+          diff "$RUNNER_TEMP/expected-files.txt" "$RUNNER_TEMP/downloaded-files.txt"
 
       - name: Attest build provenance (keyless SLSA)
         id: attest
@@ -420,7 +495,7 @@ jobs:
 
       - name: Smoke-test installation from PyPI
         # Confirms PyPI actually serves the artifact. Importability is already
-        # proven by the PRE-PUBLISH GATE in the build job, so the job of this
+        # proven by the PRE-PUBLISH GATE in the verify job, so the job of this
         # step is narrower - and it retries instead of failing on the first
         # miss, because a fresh upload can take a little while to reach the CDN.
         # A failure here does not un-publish anything, and because this is its
