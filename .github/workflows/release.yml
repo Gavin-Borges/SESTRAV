@@ -133,9 +133,16 @@ jobs:
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
         #   python tools/update_dependencies.py --ci-env build
         #   (wraps `uv pip compile`; the .txt header records the exact argv)
+        # The lock carries the backend too (setuptools, wheel), and --no-isolation
+        # makes the build use it. Without the flag `build` creates a throwaway
+        # environment and pip-installs [build-system].requires into it from PyPI
+        # with no hashes, once for the sdist and once for the wheel, so the
+        # published artifacts were built by whatever setuptools and wheel PyPI
+        # served that day. `build` still checks those requirements against the
+        # environment and refuses to run if one is missing.
         run: |
           pip install --require-hashes -r environments/requirements-ci-build.txt
-          python -m build --sdist --wheel --outdir dist/
+          python -m build --no-isolation --sdist --wheel --outdir dist/
 
       - name: Verify JSON package data in built distributions
         # src/verify/structural_gnn.py reads mhc_pseudo_sequences.json at

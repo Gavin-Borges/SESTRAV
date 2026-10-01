@@ -1,1 +1,11 @@
 build==1.6.1
+
+# The build backend. release.yml runs `python -m build --no-isolation`, so the
+# build uses these two, hash-checked, instead of downloading pyproject.toml's
+# [build-system].requires into a throwaway environment with no hashes. Both
+# must satisfy [build-system].requires, and setuptools must equal requirements.in's
+# pin (tests/test_release_build_uses_hashed_backend.py checks both). wheel is in
+# [build-system].requires too, and `build --no-isolation` refuses to run without
+# it ("Unmet dependencies").
+setuptools==84.0.0
+wheel==0.48.0

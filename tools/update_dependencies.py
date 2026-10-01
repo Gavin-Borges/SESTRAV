@@ -95,12 +95,14 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
         "3.11",
         True,
     ),
+    # allow_unsafe: this lock carries the build backend (setuptools, wheel) that
+    # release.yml's `python -m build --no-isolation` builds with.
     LockSpec(
         "ci-build",
         "environments/requirements-ci-build.in",
         "environments/requirements-ci-build.txt",
         "3.13",
-        False,
+        True,
     ),
     LockSpec(
         "ci-mypy",
