@@ -4,9 +4,12 @@
 Two structural gaps let CVE-2025-3000 sit patched-but-unnoticed in this repo for four
 weeks after torch 2.13.0 shipped, and they compound:
 
-1. **Dependabot never sees a vulnerable pin that exists only in a compiled lockfile.**
-   It parses `.in` sources, not `.lock`/`.txt` artifacts. Across every alert this
-   repository has ever had, zero carry a `manifest_path` ending in `.lock`.
+1. **Dependabot never sees a vulnerable pin that exists only in the production lock.**
+   GitHub's dependency graph parses the `requirements*.txt` locks and
+   `environments/requirements-lock.in`, but not `environments/requirements.lock`,
+   the file this gate audits. Of the 130 Dependabot alerts that can still be listed
+   (measured 2026-09-30; 9 more are withdrawn and unreadable), zero carry a
+   `manifest_path` ending in `.lock`.
 2. **CI's pip-audit job could not have failed on it even if Dependabot had.** Every
    `pip-audit` invocation in `.github/workflows/security.yml` was `continue-on-error`,
    AND every one of them carried permanent `--ignore-vuln` flags for this exact

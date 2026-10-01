@@ -396,8 +396,11 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
     reported 31 parsed manifests (34 on 2026-09-28; the 15 pip ones unchanged) and this
     file is absent from all of them, and none of the Dependabot alerts the API returned
     (108 on 2026-09-19, 106 on 2026-09-28) names it. Its compile input
-    `environments/requirements-lock.in` IS parsed and HAS raised two alerts, so the
-    constraint layer is covered even though the compiled layer is not.
+    `environments/requirements-lock.in` IS parsed and HAS raised two alerts, but that
+    covers the constraint layer only partly: an exact pin there is checked at its own
+    version, but a `>=` floor says nothing about the version the lock resolves to. Its
+    `pyjwt>=2.14.0` floor raised no alert for GHSA-42vr-xj54-vc7v (published
+    2026-09-30), which covers the 2.14.0 the lock shipped.
   - **Severity:** Medium, and for DETECTION only. This is the file CI installs from in both
     the `pip-audit` and `python-sbom` jobs of `.github/workflows/security.yml` (via
     `pip install --require-hashes --no-deps`), so an advisory affecting only the version

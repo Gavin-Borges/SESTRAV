@@ -1971,18 +1971,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   field as the authoritative test of whether a patch exists, not prose in a checked-in
   document.
 - **Noted the Dependabot lockfile blind spot** in `.github/workflows/security.yml`:
-  Dependabot parses `.in` sources, never the compiled `.lock`/`.txt` artifacts, so a
-  resolved-but-vulnerable pin that exists only in a lockfile raises no alert. That job is
-  currently the only thing that sees such a pin.
+  GitHub's dependency graph, which Dependabot reads, does not parse
+  `environments/requirements.lock`, so a resolved-but-vulnerable pin that exists only in
+  that lock raises no alert. That job is currently the only thing that sees such a pin.
+  (This entry first said Dependabot parses `.in` sources and never compiled `.txt`
+  artifacts. Measured 2026-09-30 with the GraphQL `dependencyGraphManifests` query, it
+  parses every `requirements*.txt` lock and exactly one `.in` file,
+  `environments/requirements-lock.in`; the blind spot is the `.lock` file alone.)
 
 - **Fail-closed advisory gate added for the production lockfile**
   (`tools/check_lockfile_advisories.py`, `environments/accepted_advisories.toml`),
   retiring pip-audit's `--ignore-vuln` CLI flags as a suppression mechanism in
   `.github/workflows/security.yml`. Two structural gaps compounded to let
   CVE-2025-3000 sit patched-but-unnoticed for four weeks after torch 2.13.0 shipped:
-  Dependabot parses `.in` sources, never compiled `.lock`/`.txt` artifacts (across
-  every alert this repo has ever had, zero carry a `manifest_path` ending in
-  `.lock`), and every pip-audit step in CI was `continue-on-error` with permanent
+  Dependabot never sees `environments/requirements.lock`, which GitHub's dependency
+  graph does not parse (of the 130 Dependabot alerts still listable on 2026-09-30, zero
+  carry a `manifest_path` ending in `.lock`), and every pip-audit step in CI was `continue-on-error` with permanent
   `--ignore-vuln` flags applied *before* any report was written - invisible to any
   tool that reads pip-audit's own output, including one meant to notice when a
   suppressed finding gets fixed upstream. The new step consumes the same
