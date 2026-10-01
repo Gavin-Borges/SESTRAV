@@ -156,7 +156,13 @@ def clean_and_curate(records: list[dict[str, Any]], virus_name: str) -> pd.DataF
         if not pep or not val_measure:
             continue
 
-        pep = str(pep).strip().upper()
+        pep = str(pep).strip()
+        # Reject non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I" and
+        # U+00DF to "SS", so the filter below would pass on residues and lengths the
+        # input never had.
+        if not pep.isascii():
+            continue
+        pep = pep.upper()
         # 1. Length & standard AA filter
         if not (MIN_LEN <= len(pep) <= MAX_LEN) or not all(aa in STANDARD_AA for aa in pep):
             continue
