@@ -25,10 +25,21 @@ jobs:
           python-version: '3.11'
 
       - name: Install pinned dependencies
-        run: pip install --require-hashes -r environments/requirements.lock
+        # Hash-pinned pip first (taking hashes from a constraints file needs a recent
+        # pip: 24.0 and 25.0.1 refuse it), then the lock's own setuptools (-c: its
+        # version, its hashes enforced), then
+        # every build against it with --no-build-isolation: the lock's connection-pool
+        # sdist here, and the editable package below. Without the flag each build runs
+        # in a throwaway environment that downloads its backend from PyPI with no hash.
+        # tests/test_ci_builds_against_hashed_setuptools.py enforces this. This
+        # workflow runs only on schedule and dispatch, so no pull request exercises it.
+        run: |
+          pip install --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt
+          pip install --require-hashes --no-deps -c environments/requirements.lock setuptools
+          pip install --require-hashes --no-build-isolation -r environments/requirements.lock
 
       - name: Install SESTRAV (no additional deps)
-        run: pip install --no-deps -e .
+        run: pip install --no-deps --no-build-isolation -e .
 
       - name: Preflight, before anything is fetched
         run: |

@@ -90,9 +90,13 @@ them, find the tier it belongs to.
    instead. Do not convert any of them into a tier 1-3 pair. Note that neither
    CI gate covers `requirements-sbom.txt`, so changes to it are reviewed by hand.
    `requirements-pip-bootstrap.txt` (added 2026-09-06) is the fourth: it carries
-   the single `pip` pin that `Dockerfile` installs before anything else, because
-   pip accepts hashes only from a requirements file and `--require-hashes` demands
-   a hash for every requirement in that file, so the bootstrap cannot share
+   the single `pip` pin that the three Docker images and `release.yml`'s pre-publish
+   gate install first, and that every CI job taking setuptools from a lock as a
+   constraints file installs before it, because pip never takes a hash as a flag
+   on a bare `pip==X` spec, only from a
+   requirements file (or, since pip 26.1, a constraints file, which the pip doing
+   this install may predate), and `--require-hashes` demands a hash for every
+   requirement in that file, so the bootstrap cannot share
    `environments/requirements.lock`. Keep it to one requirement.
 3. **Every install path in this repo is hash-verified**
    (`pip install --no-deps --require-hashes -r ...`). This matters when adding a
@@ -307,12 +311,24 @@ This generates a ZIP archive and a SHA256 checksum manifest inside the `release_
 ### Reproducible builds
 
 SESTRAV is pure Python with no compilation step, and dependencies are hash-pinned
-(`environments/requirements.lock`). To produce a reproducible source/wheel build,
-set `SOURCE_DATE_EPOCH` so timestamps are deterministic:
+(`environments/requirements.lock`). To reproduce a source/wheel build, build the way
+`release.yml` does: on Linux, in a fresh virtual environment, against the hash-pinned
+backend in `environments/requirements-ci-build.txt` rather than in an isolated
+environment that installs whatever setuptools and wheel PyPI serves that day, with
+`SOURCE_DATE_EPOCH` set. The lock is compiled for Linux: on Windows `build` also wants
+`colorama`, which it does not pin, so the hashed install fails.
 ```bash
-SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) python -m build
+python3 -m venv /tmp/sestrav-build && . /tmp/sestrav-build/bin/activate
+pip install --require-hashes -r environments/requirements-ci-build.txt
+rm -rf build dist *.egg-info
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) python -m build --no-isolation
 ```
-Building twice from the same commit should yield byte-identical artifacts.
+On one machine, the wheel this produced was byte-identical across builds, from the same
+checkout or a fresh one; its file modes come from the file system, so a different umask
+changes its bytes. The sdist does not reproduce byte for byte, only its member contents
+do: setuptools 84.0.0 takes each entry's timestamp from the file system rather than
+`SOURCE_DATE_EPOCH`, records the build machine's owner names, and the gzip header carries
+the time the archive was written.
 
 ### Signing releases
 
