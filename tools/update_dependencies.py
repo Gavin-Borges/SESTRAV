@@ -182,7 +182,7 @@ resolver, so each compiled through a `--overrides overrides.txt` file. torch
 both specs now compile with no special handling.
 
 The 'semgrep' spec compiles with `--overrides environments/semgrep-overrides.txt`.
-semgrep 1.177.0 (pinned) and 1.178.0 (the latest on 2026-09-30) declare
+semgrep 1.178.0 (pinned, the latest on 2026-09-30) declares
 `pyjwt[crypto]~=2.13.0`, and the override lifts pyjwt to a patched release. The
 resulting lock no longer satisfies semgrep's own metadata, so it must be
 installed with --no-deps; that file records the measurement behind it and its

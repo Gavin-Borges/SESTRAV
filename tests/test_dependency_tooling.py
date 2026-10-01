@@ -155,8 +155,8 @@ def test_only_the_semgrep_spec_compiles_with_a_uv_override_file():
     # reintroduced override would silently mask a genuine resolution conflict.
     #
     # One exception is deliberate, and named here so that any other is not:
-    # semgrep 1.177.0 (pinned) and 1.178.0 (the latest on 2026-09-30) declare
-    # pyjwt[crypto]~=2.13.0 and 2.13.0 carries twelve advisories, so the semgrep
+    # semgrep 1.178.0 (pinned, the latest on 2026-09-30) declares
+    # pyjwt[crypto]~=2.13.0 and 2.13.0 carries thirteen advisories, so the semgrep
     # spec overrides pyjwt and nothing else.
     # environments/semgrep-overrides.txt records the measurement and exit condition.
     for spec in LOCK_SPECS:

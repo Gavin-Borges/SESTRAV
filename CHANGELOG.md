@@ -470,8 +470,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **The semgrep tool lock moves pyjwt from 2.13.0 to 2.15.1, closing the twelve
   Dependabot advisories (one critical, five high) raised against
   `environments/requirements-semgrep.txt`, and the eleven of them on which OpenSSF
-  Scorecard's Vulnerabilities check (code-scanning alert 15) scored 0.** semgrep 1.166.0
-  through 1.178.0 (1.177.0 pinned, 1.178.0 the latest on 2026-09-30) declare
+  Scorecard's Vulnerabilities check (code-scanning alert 15) scored 0.** A thirteenth,
+  GHSA-gvp8-978c-rx2q (pyjwt 2.11.0 to 2.13.0), was published on 2026-09-30 before this
+  merged and closed with them. semgrep 1.166.0
+  through 1.178.0 (1.177.0 pinned when this landed; 1.178.0, the latest on 2026-09-30,
+  since, compiled with the same override and re-measured to identical scans) declare
   `pyjwt[crypto]~=2.13.0`, so no available semgrep upgrade reaches a patched pyjwt, a floor
   would make the spec unsatisfiable, and a hand-edited pin had already failed both semgrep
   jobs at install time; the only other route, downgrading semgrep to 1.156.0 or earlier,
