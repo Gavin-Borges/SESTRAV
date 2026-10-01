@@ -185,7 +185,13 @@ def _parse_iedb_multiheader_csv(fpath, verbose=False):
         if pd.isna(pep_raw) or pd.isna(label_raw):
             continue
 
-        peptide = str(pep_raw).strip().upper()
+        peptide = str(pep_raw).strip()
+        # Reject non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I" and
+        # U+00DF to "SS", so the checks below would pass on residues and lengths the
+        # input never had. Mirrors src/verify/iedb_multi_virus_extractor.py.
+        if not peptide.isascii():
+            continue
+        peptide = peptide.upper()
         if not (8 <= len(peptide) <= 11):
             continue
         if not all(aa in STANDARD_AA for aa in peptide):
@@ -288,7 +294,11 @@ def _load_processed_tcell_csv(fpath: str, verbose: bool = False) -> list[dict]:
 
     records = []
     for _, row in df.iterrows():
-        pep = str(row.get("peptide", "")).strip().upper()
+        pep = str(row.get("peptide", "")).strip()
+        # Non-ASCII before the fold; see the note on the first such filter above.
+        if not pep.isascii():
+            continue
+        pep = pep.upper()
         if not (8 <= len(pep) <= 11):
             continue
         if not all(aa in STANDARD_AA for aa in pep):
@@ -488,7 +498,11 @@ def load_tcell_assay_files(data_dir, verbose=False):
                 label_raw = row.get(col_map["label"])
                 if pd.isna(pep_raw) or pd.isna(label_raw):
                     continue
-                peptide = str(pep_raw).strip().upper()
+                peptide = str(pep_raw).strip()
+                # Non-ASCII before the fold; see the first such filter above.
+                if not peptide.isascii():
+                    continue
+                peptide = peptide.upper()
                 if not (8 <= len(peptide) <= 11):
                     continue
                 if not all(aa in STANDARD_AA for aa in peptide):

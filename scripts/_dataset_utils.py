@@ -54,9 +54,14 @@ def normalize_peptides(
     because binding prediction and TCR-contact features are calibrated for 8-11mers.
     """
     df = df.copy()
-    df[peptide_col] = df[peptide_col].astype(str).str.strip().str.upper()
+    stripped = df[peptide_col].astype(str).str.strip()
+    # Test for non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I" and
+    # U+00DF to "SS", so the pattern match below would pass on residues and lengths
+    # the input never had. A caller that upper-cases first defeats this check.
+    is_ascii = stripped.map(lambda s: not isinstance(s, str) or s.isascii()).astype(bool)
+    df[peptide_col] = stripped.str.upper()
 
-    aa_mask = df[peptide_col].str.match(VALID_AA_PATTERN, na=False)
+    aa_mask = df[peptide_col].str.match(VALID_AA_PATTERN, na=False) & is_ascii
     n_bad_aa = int((~aa_mask).sum())
 
     lengths = df[peptide_col].str.len()

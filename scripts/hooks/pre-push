@@ -547,9 +547,9 @@ fi
 # there surfaces as failing tests inside the suite. This check runs the gate
 # itself, so the push is blocked by name with the gate's own report.
 #
-# RATCHET FORM, NOT --strict. --strict zeroes every ceiling and exits 1 on the
-# 7 seed violations this tree still carries, which would block every push until
-# the last carrier is repaired. The default form honours the per-binding
+# RATCHET FORM, NOT --strict. --strict zeroes every ceiling, and it exited 1 on
+# the 7 violations present when this check was added (4061aaf1), which would
+# have blocked every push. The default form honours the per-binding
 # violation_ceiling in docs/qualifier_bindings.json, so it exits 0 today and
 # exits 1 the moment the count rises. See the same reasoning, at length, in
 # .github/workflows/qualifier_bindings.yml.

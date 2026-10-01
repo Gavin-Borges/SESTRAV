@@ -2,12 +2,16 @@
 Unit and property tests for SESTRAV Vaccine Cocktail ILP Optimizer (src/optimizer.py).
 """
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from src.optimizer import (
     BIND_COL_TO_HLA,
+    DEFAULT_ALLELE_FREQUENCIES,
     PANEL_CEILINGS,
     WHO_SUPER_POPULATIONS,
     CocktailResult,
@@ -15,6 +19,9 @@ from src.optimizer import (
     load_afnd_frequencies,
     optimize_vaccine_cocktail,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+TRACKED_FREQUENCY_TABLE = REPO_ROOT / "data" / "population" / "afnd_frequencies.json"
 
 
 def _synthetic_candidates(n_peptides=20, seed=42):
@@ -47,6 +54,82 @@ def test_load_afnd_frequencies():
         for pop in WHO_SUPER_POPULATIONS:
             assert pop in pop_dict
             assert 0.0 <= pop_dict[pop] <= 1.0
+
+
+def test_load_afnd_frequencies_default_reads_the_tracked_table(monkeypatch):
+    """With no path, the loader reads the tracked table verbatim.
+
+    Pins the documented default: same table, same values. The canonical path is
+    relative, so the working directory is set to the repository root to make the
+    resolution deterministic rather than dependent on where pytest was launched.
+    """
+    monkeypatch.chdir(REPO_ROOT)
+    expected = json.loads(TRACKED_FREQUENCY_TABLE.read_text(encoding="utf-8"))["alleles"]
+    assert load_afnd_frequencies() == expected
+    assert load_afnd_frequencies(None) == expected
+
+
+def test_load_afnd_frequencies_default_still_falls_back_silently(monkeypatch, tmp_path):
+    """With no path and no tracked table on disk, the built-in defaults are returned.
+
+    This fallback is deliberate and must stay silent: only an explicitly supplied
+    path refuses to be substituted.
+    """
+    monkeypatch.chdir(tmp_path)
+    assert load_afnd_frequencies() == DEFAULT_ALLELE_FREQUENCIES
+
+
+def test_load_afnd_frequencies_explicit_path_to_the_tracked_table_loads():
+    """An explicit path that can be honoured is still honoured."""
+    expected = json.loads(TRACKED_FREQUENCY_TABLE.read_text(encoding="utf-8"))["alleles"]
+    assert load_afnd_frequencies(str(TRACKED_FREQUENCY_TABLE)) == expected
+
+
+def test_load_afnd_frequencies_missing_explicit_path_raises(tmp_path, monkeypatch):
+    """A missing explicit path raises instead of substituting another table.
+
+    The working directory is the repository root, so the pre-fix fallback chain
+    had a tracked table to substitute: the failure this pins is substitution, not
+    an incidental absence of the default table.
+    """
+    monkeypatch.chdir(REPO_ROOT)
+    missing = tmp_path / "frequencies_absent.json"
+    with pytest.raises(FileNotFoundError) as excinfo:
+        load_afnd_frequencies(str(missing))
+    assert "frequencies_absent.json" in str(excinfo.value)
+
+
+def test_load_afnd_frequencies_explicit_path_without_alleles_key_raises(tmp_path, monkeypatch):
+    """A JSON object lacking 'alleles' raises and names the file."""
+    monkeypatch.chdir(REPO_ROOT)
+    malformed = tmp_path / "frequencies_no_key.json"
+    malformed.write_text(json.dumps({"frequencies": {"HLA-A*02:01": {}}}), encoding="utf-8")
+    with pytest.raises(ValueError) as excinfo:
+        load_afnd_frequencies(str(malformed))
+    message = str(excinfo.value)
+    assert "frequencies_no_key.json" in message
+    assert "alleles" in message
+
+
+def test_load_afnd_frequencies_explicit_path_that_is_not_an_object_raises(tmp_path, monkeypatch):
+    """Valid JSON that is not an object raises rather than falling through."""
+    monkeypatch.chdir(REPO_ROOT)
+    not_an_object = tmp_path / "frequencies_list.json"
+    not_an_object.write_text(json.dumps([{"HLA-A*02:01": {}}]), encoding="utf-8")
+    with pytest.raises(ValueError) as excinfo:
+        load_afnd_frequencies(str(not_an_object))
+    assert "frequencies_list.json" in str(excinfo.value)
+
+
+def test_load_afnd_frequencies_explicit_unparseable_json_still_propagates(tmp_path):
+    """Unparseable JSON raises json.JSONDecodeError, which is a ValueError.
+
+    Pre-existing behaviour, pinned because the docstring now states it.
+    """
+    broken = tmp_path / "frequencies_broken.json"
+    broken.write_text("{not json", encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_afnd_frequencies(str(broken))
 
 
 def test_compute_population_coverage_single_allele():

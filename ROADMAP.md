@@ -220,7 +220,7 @@ _Last updated: 2026-09._
   a null result on the pre-registered bar**. Because the bar is an AND-conjunction,
   Gate 1 alone settles it: pooled peptide-grouped AUC-PR **0.6458 against a >= 0.65
   threshold, failing by 0.0042**; Gate 2 also failed (cross-fold std 0.0234 against
-  <= 0.02); Gates 3, 4 and 5 passed. These figures are the best of eight runs, not one (`docs/gnn_gate_retry_preregistration.md` section 1.1): across the series Gate 1 spans 0.6298 to 0.6458 and passes 0 of 8, so the null is better supported than a single run implies, while the 0.0042 deficit is the series smallest against a mean of 0.0122 and the +0.0402 delta is the series maximum against a worst seed of +0.0243. The track is **not promoted**. Reported alongside
+  <= 0.02, the worst of eight runs on that gate: across the series Gate 2 passes 4 of 8 at ddof=0, 3 of 8 at ddof=1, so it is not a standing FAIL); Gates 3, 4 and 5 passed. The Gate 1 and delta figures are the best of eight runs, not one (`docs/gnn_gate_retry_preregistration.md` section 1.1): across the series Gate 1 spans 0.6298 to 0.6458 and passes 0 of 8, so the null is better supported than a single run implies, while the 0.0042 deficit is the series smallest against a mean of 0.0122 and the +0.0402 delta is the series maximum against a worst seed of +0.0243. The track is **not promoted**. Reported alongside
   it, because omitting either half would misrepresent the run: against RF mode-31 the
   GNN improved AUC-PR by **+0.0402, 95% CI [0.0286, 0.0520], p < 0.0001** (paired
   bootstrap, 10,000 resamples). The architecture is measurably better on

@@ -400,10 +400,17 @@ def _extract_negatives(df: pd.DataFrame) -> list[dict[str, object]]:
         raw_pep_str = str(row[pep_col])
         raw_allele_str = str(row[allele_col])
 
-        peptides_raw = [p.strip().upper() for p in raw_pep_str.split(";") if p.strip()]
+        peptides_raw = [p.strip() for p in raw_pep_str.split(";") if p.strip()]
         alleles_raw = [a.strip() for a in raw_allele_str.split(";") if a.strip()]
 
         for pep in peptides_raw:
+            # Reject non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I"
+            # and U+00DF to "SS", so the filters below would pass on residues and
+            # lengths the input never had.
+            if not pep.isascii():
+                skipped_aa += 1
+                continue
+            pep = pep.upper()
             if not (_MIN_LEN <= len(pep) <= _MAX_LEN):
                 skipped_len += 1
                 continue

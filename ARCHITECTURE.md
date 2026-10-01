@@ -61,7 +61,7 @@ all driven by the same Snakemake workflow.
 | Track | Model | Status | Role |
 |---|---|---|---|
 | Production | Random Forest / XGBoost ensemble on the 31-feature representation (`mode_31`) | Validated, maintained | Canonical immunogenicity scorer used for ranked output |
-| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (v5 run 2026-08-13 under `PeptideGroupedKFold`: Gates 1 and 2 FAIL on measured values, Gates 3, 4 and 5 PASS - see 6.3. The separately tracked v4-era OOF artifact still fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
+| Research | GNN: GINEConv x2 + ESM-2 residue embeddings, fused with mode-31 features | Gated (v5 run 2026-08-13 under `PeptideGroupedKFold`: Gates 1 and 2 FAIL on measured values (the Gate 2 figure is the worst of eight runs; across the series Gate 2 passes 4 of 8 at ddof=0, 3 of 8 at ddof=1), Gates 3, 4 and 5 PASS - see 6.3. The separately tracked v4-era OOF artifact still fails Gate 1 by precondition) | Forward v2.0 architecture; promoted to canonical only on clearing all gates |
 
 Both tracks consume the same physicochemical feature pipeline and the same governed
 training data, which keeps comparisons fair and lets the GNN reuse the production
@@ -344,7 +344,9 @@ pooled AUC-PR rather than the spread across folds, and it referenced a `--save-f
 2026-08-15).** On 2026-08-13 a GNN v5 run under `src.ml_utils.PeptideGroupedKFold` (feature
 mode 31, ESM-2 t12, 15 epochs, seed 42) produced a fresh out-of-fold frame, and the scorecard
 was called against it: Gate 1 FAIL at 0.6458 against the >= 0.65 threshold, Gate 2 FAIL at
-0.0234 against <= 0.02, Gates 3, 4 and 5 PASS. Promotion stays blocked, but on a measured
+0.0234 against <= 0.02 (the worst of eight runs on that gate: across the series Gate 2 passes
+4 of 8 at ddof=0, 3 of 8 at ddof=1, so it is not a standing FAIL), Gates 3, 4 and 5 PASS.
+Promotion stays blocked, but on a measured
 result rather than for want of a scoreable frame - and the same run beat the RF mode-31
 baseline by a paired-bootstrap AUC-PR delta of +0.0402, 95% CI [0.0286, 0.0520], which
 excludes zero. Both are the outcome and neither cancels the other. **Both figures are the
@@ -374,7 +376,7 @@ per arm with everything else held fixed (v5 corpus, `models/peptide_binding_matr
 `data/esm2_embeddings_t12_v5.pt`, feature mode 31, mean pooling, 18 epochs, one shared feature
 cache). Full-graph pooled AUC-PR mean
 0.625927, self-loop-only 0.643458, mean paired delta **+0.017531** (paired sd 0.008213),
-**8 of 8 seeds positive**, exact sign test and Wilcoxon signed-rank both p = 0.0078125.
+**8 of 8 seeds positive**, exact sign test and Wilcoxon signed-rank both p = 0.0078125 (`docs/claims_register.md` D42).
 
 **The sign is established; the pre-registered 0.0160 threshold is NOT cleared robustly, and
 the two must not be conflated.** The 95% CI on the mean delta is [0.0107, 0.0244] and straddles
@@ -392,7 +394,7 @@ a second and largely redundant round of local mixing over 8 to 11 nodes. The sup
 is that **chain-edge message passing adds nothing on top of ESM-2 embeddings**, not that graph
 topology is uninformative in general. These are 18-epoch runs and their absolute levels are
 comparable within the ablation only; they must not be read against the 0.6458 Gate 1 figure
-above, which came from a different epoch budget.
+above (the best of eight runs), which came from a different epoch budget.
 
 ### 6.4 Structural edges (in development, not active)
 
