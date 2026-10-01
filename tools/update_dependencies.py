@@ -16,8 +16,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,9 +32,21 @@ DEFAULT_PYTHON_PLATFORM = "linux"
 # must opt out explicitly or the recompile adds packages that were never there.
 UNSAFE_PACKAGES = ("pip", "setuptools", "wheel")
 
-# The two application lockfiles, as opposed to the CI tool environments.
-# --ci-env selects among the tool environments only.
-RUNTIME_SPEC_NAMES = ("runtime", "lock")
+# The application lockfiles, as opposed to the CI tool environments: the runtime
+# closure, the production lock, and the API and demo images' closures. --ci-env
+# selects among the tool environments only.
+RUNTIME_SPEC_NAMES = ("runtime", "lock", "api", "demo")
+
+# Image lockfiles compiled with another lockfile's pins as uv's version
+# preferences, so the transitive dependencies they share with it keep the
+# versions CI tests. uv prefers whatever its --output-file already pins, so each
+# of these is compiled in a scratch copy whose output starts as a preference
+# list: the seed's version for every package the seed pins, the previous lock's
+# version for the rest (so an unrelated recompile does not churn them). See
+# _compile_seeded. Their specs must be self-contained (no -r or -c lines).
+SEEDED_SPECS = {"api": "requirements.txt", "demo": "requirements.txt"}
+
+_PIN_LINE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[^\]]*\])?==([^\s\\;]+)")
 
 
 @dataclass(frozen=True)
@@ -43,6 +58,11 @@ class LockSpec:
     output: str
     python_version: str
     allow_unsafe: bool
+    # uv override file this spec needs to reach a patched release, or None.
+    # An override makes the lock disagree with a package's own metadata, so a
+    # resolving `pip install` of it fails and every install must pass --no-deps.
+    # See environments/semgrep-overrides.txt for the one current case.
+    overrides: str | None = None
 
 
 LOCK_SPECS: tuple[LockSpec, ...] = (
@@ -52,6 +72,20 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
         "environments/requirements-lock.in",
         "environments/requirements.lock",
         "3.11",
+        True,
+    ),
+    LockSpec(
+        "api",
+        "environments/requirements-api.in",
+        "environments/requirements-api.txt",
+        "3.13",
+        True,
+    ),
+    LockSpec(
+        "demo",
+        "environments/requirements-demo.in",
+        "environments/requirements-demo.txt",
+        "3.13",
         True,
     ),
     LockSpec(
@@ -65,50 +99,51 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
         "ci-build",
         "environments/requirements-ci-build.in",
         "environments/requirements-ci-build.txt",
-        "3.11",
+        "3.13",
         False,
     ),
     LockSpec(
         "ci-mypy",
         "environments/requirements-ci-mypy.in",
         "environments/requirements-ci-mypy.txt",
-        "3.11",
+        "3.13",
         False,
     ),
     LockSpec(
         "ci-pytest-cov",
         "environments/requirements-ci-pytest-cov.in",
         "environments/requirements-ci-pytest-cov.txt",
-        "3.11",
+        "3.13",
         False,
     ),
     LockSpec(
         "ci-ruff",
         "environments/requirements-ci-ruff.in",
         "environments/requirements-ci-ruff.txt",
-        "3.11",
+        "3.13",
         False,
     ),
     LockSpec(
         "pip-audit",
         "environments/requirements-pip-audit.in",
         "environments/requirements-pip-audit.txt",
-        "3.12",
+        "3.11",
         False,
     ),
     LockSpec(
         "security",
         "environments/requirements-security.in",
         "environments/requirements-security.txt",
-        "3.13",
+        "3.11",
         False,
     ),
     LockSpec(
         "semgrep",
         "environments/requirements-semgrep.in",
         "environments/requirements-semgrep.txt",
-        "3.12",
+        "3.11",
         False,
+        overrides="environments/semgrep-overrides.txt",
     ),
 )
 
@@ -145,11 +180,18 @@ the advisory minimum. That floor used to collide with torch 2.12.0's declared
 resolver, so each compiled through a `--overrides overrides.txt` file. torch
 2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was retired and
 both specs now compile with no special handling.
+
+The 'semgrep' spec compiles with `--overrides environments/semgrep-overrides.txt`.
+semgrep 1.177.0 (pinned) and 1.178.0 (the latest on 2026-09-30) declare
+`pyjwt[crypto]~=2.13.0`, and the override lifts pyjwt to a patched release. The
+resulting lock no longer satisfies semgrep's own metadata, so it must be
+installed with --no-deps; that file records the measurement behind it and its
+exit condition.
 """
 
 
 def ci_env_choices() -> list[str]:
-    """Return the --ci-env names: every spec except the two runtime lockfiles.
+    """Return the --ci-env names: every spec except the application lockfiles.
 
     Specs named `ci-<name>` are offered as `<name>`, the shorthand this flag has
     always used. The remaining tool environments (ci, pip-audit, security,
@@ -188,6 +230,8 @@ def build_command(
     if not spec.allow_unsafe:
         for package in UNSAFE_PACKAGES:
             command += ["--unsafe-package", package]
+    if spec.overrides:
+        command += ["--overrides", spec.overrides]
     if upgrade_all:
         command.append("--upgrade")
     elif upgrade_package:
@@ -264,6 +308,99 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return args
 
 
+def _pins(path: Path) -> dict[str, str]:
+    """Map each `name==version` line's canonical name to its version."""
+    pins = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = _PIN_LINE.match(line)
+        if match:
+            pins[re.sub(r"[-_.]+", "-", match.group(1)).lower()] = match.group(2)
+    return pins
+
+
+def preference_text(
+    spec: LockSpec,
+    root: Path = REPO_ROOT,
+    *,
+    keep_previous: bool = True,
+    drop: str | None = None,
+) -> str:
+    """uv's version preferences for a seeded spec, as `name==version` lines.
+
+    The seed's version for every package the seed pins; for the rest, the
+    spec's current lock's version, unless keep_previous is False (a full
+    re-lock) or the package is `drop` (the one being upgraded). Pure: reads
+    files, writes nothing.
+    """
+    output = root / spec.output
+    preferences = _pins(output) if keep_previous and output.is_file() else {}
+    if drop is not None:
+        preferences.pop(re.sub(r"[-_.]+", "-", drop).lower(), None)
+    preferences.update(_pins(root / SEEDED_SPECS[spec.name]))
+    return "".join(f"{name}=={version}\n" for name, version in sorted(preferences.items()))
+
+
+def _without_upgrade_flags(command: list[str]) -> tuple[list[str], bool, str | None]:
+    """Split --upgrade / --upgrade-package X out of an argv."""
+    kept: list[str] = []
+    upgrade_all, upgrade_package = False, None
+    arguments = iter(command)
+    for argument in arguments:
+        if argument == "--upgrade":
+            upgrade_all = True
+        elif argument == "--upgrade-package":
+            upgrade_package = next(arguments)
+        else:
+            kept.append(argument)
+    return kept, upgrade_all, upgrade_package
+
+
+def _compile_seeded(spec: LockSpec, command: list[str], root: Path = REPO_ROOT) -> int:
+    """Compile a seeded spec in a scratch copy and install the result only on success.
+
+    uv reads its preferences from the --output-file, so the preference list has
+    to occupy that path while uv runs. Doing that in the working tree would leave
+    an unhashed list behind whenever the compile fails or never runs (a test that
+    stubs subprocess, say). The scratch directory holds the spec and the output
+    at the same relative paths, so the argv, and the header uv writes from it,
+    are unchanged; the real output is replaced only by a lock uv actually wrote,
+    byte for byte.
+
+    uv ignores every preference under --upgrade and ignores the named package's
+    under --upgrade-package, which would let a re-lock float the image locks off
+    the seed. So neither flag reaches uv here; each is applied to the preference
+    list instead (a full re-lock keeps only the seed's pins, a single-package
+    bump drops that package's previous pin). uv never records either flag in the
+    lock header.
+    """
+    command, upgrade_all, upgrade_package = _without_upgrade_flags(command)
+    preferences = preference_text(spec, root, keep_previous=not upgrade_all, drop=upgrade_package)
+    with tempfile.TemporaryDirectory() as scratch_dir:
+        scratch = Path(scratch_dir)
+        source = scratch / spec.source
+        source.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(root / spec.source, source)
+        output = scratch / spec.output
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(preferences.encode("utf-8"))
+        result = subprocess.run(command, cwd=scratch, check=False)
+        compiled = output.read_bytes()
+        if result.returncode == 0 and b"--hash=" in compiled:
+            (root / spec.output).write_bytes(compiled)
+        return result.returncode
+
+
+def _display(spec: LockSpec, command: list[str]) -> str:
+    """The argv uv actually receives, so a printed line can be pasted and rerun."""
+    if spec.name not in SEEDED_SPECS:
+        return " ".join(command)
+    kept, upgrade_all, upgrade_package = _without_upgrade_flags(command)
+    note = f"  # seeded from {SEEDED_SPECS[spec.name]}"
+    if upgrade_all or upgrade_package:
+        note += "; the upgrade is applied to the preference list, not passed to uv"
+    return " ".join(kept) + note
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     specs = select_specs(args.ci_env)
@@ -279,8 +416,8 @@ def main(argv: list[str] | None = None) -> int:
     ]
 
     if args.dry_run:
-        for command in commands:
-            print(" ".join(command))
+        for spec, command in zip(specs, commands):
+            print(_display(spec, command))
         return 0
 
     version = uv_version()
@@ -290,11 +427,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Using {version}")
 
     for spec, command in zip(specs, commands):
-        print(f"[{spec.name}] {' '.join(command)}")
-        result = subprocess.run(command, cwd=REPO_ROOT, check=False)
-        if result.returncode != 0:
+        print(f"[{spec.name}] {_display(spec, command)}")
+        if spec.name in SEEDED_SPECS:
+            returncode = _compile_seeded(spec, command)
+        else:
+            returncode = subprocess.run(command, cwd=REPO_ROOT, check=False).returncode
+        if returncode != 0:
             print(f"ERROR: uv pip compile failed for {spec.source}", file=sys.stderr)
-            return result.returncode
+            return returncode
     print(f"Recompiled {len(specs)} lockfile(s). Review the diff before committing.")
     return 0
 

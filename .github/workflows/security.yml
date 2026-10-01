@@ -124,7 +124,11 @@ jobs:
       - name: Install Semgrep
         # Hash-pinned (OpenSSF Scorecard Pinned-Dependencies). Regenerate with:
         #   python tools/update_dependencies.py --ci-env semgrep
-        run: pip install --require-hashes -r environments/requirements-semgrep.txt
+        # --no-deps is required, not optional: the lock lifts pyjwt past
+        # semgrep's own `~=2.13.0` declaration via environments/semgrep-overrides.txt,
+        # so a resolving install fails with ResolutionImpossible. The lock is
+        # the complete hashed closure, so nothing is left to resolve.
+        run: pip install --require-hashes --no-deps -r environments/requirements-semgrep.txt
 
       # Advisory gate (OpenSSF tier: non-blocking). `semgrep scan` exits non-zero
       # on any finding, so without continue-on-error this step silently blocked
@@ -261,8 +265,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install Semgrep
-        # Same hash-pinned set the advisory job installs (semgrep==1.177.0).
-        run: pip install --require-hashes -r environments/requirements-semgrep.txt
+        # Same hash-pinned set the advisory job installs (semgrep==1.177.0), and
+        # --no-deps for the same reason: see the advisory job's install step.
+        run: pip install --require-hashes --no-deps -r environments/requirements-semgrep.txt
 
       - name: Run SESTRAV custom rules
         # BLOCKING - deliberately no `continue-on-error`. Scans ONLY

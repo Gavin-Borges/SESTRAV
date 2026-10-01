@@ -21,6 +21,7 @@ COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
 COPY --chown=sestrav_user:sestrav_user src/ ./src/
 COPY --chown=sestrav_user:sestrav_user app/ ./app/
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
+COPY --chown=sestrav_user:sestrav_user environments/requirements-demo.txt ./environments/requirements-demo.txt
 COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.txt ./environments/requirements-pip-bootstrap.txt
 
 # Bootstrap pip from the hash-locked manifest. See that file's header for the
@@ -30,11 +31,22 @@ COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.t
 # GHSA-qwm4-qh6w-59xr: this image was pinned to pip 26.1.2, inside the affected
 # range (first patched 26.2.0).
 #
-# The second command remains an unpinned local install and Scorecard still
-# reports it; that needs a prebuilt wheel and is tracked separately.
+# The dependencies are hash-pinned too. The last command used to be
+# `pip install --user ".[demo]"`, which resolved the whole dependency tree from
+# PyPI at build time with no hashes (code-scanning alert #84, dismissed on the
+# same half-true rationale as the API image's). The image now installs
+# environments/requirements-demo.txt: exactly the core requirements and the
+# [demo] extra, pinned and seeded as Dockerfile.api describes, then the package
+# with --no-deps, and --no-build-isolation so the build uses the locked
+# setuptools instead of an unhashed download. Every pin in this lock installs
+# from a hashed wheel.
+#
+# The package install is still a local-path pip command, which Scorecard still
+# reports; a prebuilt wheel is tracked separately.
 RUN pip install --user --no-cache-dir --require-hashes --no-deps \
         -r environments/requirements-pip-bootstrap.txt && \
-    pip install --user --no-cache-dir ".[demo]"
+    pip install --user --no-cache-dir --require-hashes --no-deps -r environments/requirements-demo.txt && \
+    pip install --user --no-cache-dir --no-deps --no-build-isolation .
 
 EXPOSE 8501
 

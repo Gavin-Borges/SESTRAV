@@ -7,6 +7,7 @@ tools/check_hash_pins.py.
 """
 
 import pathlib
+import re
 import subprocess
 
 import pytest
@@ -116,7 +117,8 @@ def test_no_shell_metacharacter_joining():
 def test_ci_env_choices_cover_every_tool_environment():
     # All 8 CI tool environments must be individually selectable. 4 of them
     # (ci, pip-audit, security, semgrep) are not `ci-` prefixed and were once
-    # reachable only via --all. The two application lockfiles are excluded.
+    # reachable only via --all. The four application lockfiles (runtime, lock,
+    # and the api and demo image locks) are excluded.
     assert set(update_dependencies.ci_env_choices()) == {
         "build",
         "mypy",
@@ -140,7 +142,10 @@ def test_ci_env_cannot_select_the_application_lockfiles():
         assert update_dependencies.select_specs(ci_env=name) == []
 
 
-def test_no_spec_compiles_with_a_uv_override_file():
+OVERRIDDEN_SPECS = {"semgrep": "environments/semgrep-overrides.txt"}
+
+
+def test_only_the_semgrep_spec_compiles_with_a_uv_override_file():
     # History: requirements.in / requirements-lock.in floor setuptools>=83.0.0
     # for GHSA-h35f-9h28-mq5c, which collided with torch 2.12.0's declared
     # `setuptools<82` build-metadata cap and made both specs unsatisfiable for
@@ -148,8 +153,157 @@ def test_no_spec_compiles_with_a_uv_override_file():
     # torch 2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was
     # retired. This asserts the workaround does not creep back in: a
     # reintroduced override would silently mask a genuine resolution conflict.
+    #
+    # One exception is deliberate, and named here so that any other is not:
+    # semgrep 1.177.0 (pinned) and 1.178.0 (the latest on 2026-09-30) declare
+    # pyjwt[crypto]~=2.13.0 and 2.13.0 carries twelve advisories, so the semgrep
+    # spec overrides pyjwt and nothing else.
+    # environments/semgrep-overrides.txt records the measurement and exit condition.
     for spec in LOCK_SPECS:
-        assert "--overrides" not in build_command(spec), spec.name
+        command = build_command(spec)
+        expected = OVERRIDDEN_SPECS.get(spec.name)
+        if expected is None:
+            assert "--overrides" not in command, spec.name
+        else:
+            assert command[command.index("--overrides") + 1] == expected, spec.name
+
+
+def _requirement_lines(path: pathlib.Path) -> list[str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+
+
+def test_the_semgrep_override_lifts_pyjwt_only_and_states_its_exit_condition():
+    path = pathlib.Path(update_dependencies.REPO_ROOT) / OVERRIDDEN_SPECS["semgrep"]
+    requirements = _requirement_lines(path)
+    assert len(requirements) == 1, requirements
+    assert requirements[0].lower().startswith("pyjwt"), requirements
+    assert "EXIT CONDITION" in path.read_text(encoding="utf-8")
+
+
+def test_every_overridden_lock_pins_a_version_its_override_admits():
+    # Any recompile that does not read the override file, whether a hand-run
+    # `uv pip compile` without --overrides or another tool, walks pyjwt back to
+    # 2.13.0 without an error.
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
+    for spec in LOCK_SPECS:
+        if not spec.overrides:
+            continue
+        pinned: dict[str, list[str]] = {}
+        for pin_line in (root / spec.output).read_text(encoding="utf-8").splitlines():
+            if pin_line.startswith((" ", "#")) or "==" not in pin_line:
+                continue
+            name, rest = pin_line.split("==", 1)
+            pinned.setdefault(Requirement(name).name.lower(), []).append(rest.split()[0])
+        for line in _requirement_lines(root / spec.overrides):
+            requirement = Requirement(line)
+            pins = pinned.get(requirement.name.lower(), [])
+            assert len(pins) == 1, f"{spec.output}: {requirement.name} pinned {pins}"
+            assert Version(pins[0]) in requirement.specifier, (
+                f"{spec.output} pins {requirement.name}=={pins[0]}, "
+                f"outside its override {requirement.specifier}"
+            )
+
+
+_PIP_INSTALL = re.compile(r"\bpip(?:3(?:\.\d+)?)?\s+install\b")
+_NO_DEPS = re.compile(r"(?:^|\s)--no-deps(?:\s|$)")
+_COMMAND_SEPARATOR = re.compile(r"&&|\|\||;|\|")
+
+
+def _install_commands(text: str) -> list[str]:
+    """Every `pip install` command in `text`, continuations joined, comments dropped.
+
+    Continuations are joined first so an install whose `-r` path sits on the next
+    line (the shape Dockerfile.api uses) is one command; comments are dropped so a
+    `--no-deps` that appears only in a comment does not count; and a line is split
+    on shell separators so a `--no-deps` on one install cannot vouch for another.
+    """
+    commands = []
+    for line in re.sub(r"\\\r?\n", " ", text).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        code = re.split(r"\s#", stripped, maxsplit=1)[0]
+        for part in _COMMAND_SEPARATOR.split(code):
+            if _PIP_INSTALL.search(part):
+                commands.append(part.strip())
+    return commands
+
+
+def _unguarded_installs(text: str, lock_name: str) -> list[str]:
+    return [c for c in _install_commands(text) if lock_name in c and not _NO_DEPS.search(c)]
+
+
+def _install_surfaces(root: pathlib.Path) -> list[pathlib.Path]:
+    """Files that can install a lock: workflows and actions, images, make, shell."""
+    paths = [p for pattern in ("*.yml", "*.yaml") for p in (root / ".github").rglob(pattern)]
+    paths += [p for p in root.glob("Dockerfile*") if p.is_file()]
+    paths += [p for p in (root / "Makefile",) if p.is_file()]
+    for directory in ("scripts", "tools"):
+        paths += list((root / directory).rglob("*.sh"))
+    return sorted(set(paths))
+
+
+def test_every_install_of_an_overridden_lock_skips_resolution():
+    # The override makes the lock disagree with the overridden package's own
+    # metadata, so a resolving install dies with ResolutionImpossible. Measured:
+    # `pip install --require-hashes -r environments/requirements-semgrep.txt`
+    # exits 1 against the overridden lock and 0 with --no-deps added.
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
+    surfaces = _install_surfaces(root)
+    for spec in LOCK_SPECS:
+        if not spec.overrides:
+            continue
+        lock_name = pathlib.PurePosixPath(spec.output).name
+        texts = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8") for p in surfaces}
+        installs = [c for t in texts.values() for c in _install_commands(t) if lock_name in c]
+        assert installs, f"nothing installs {spec.output}; this guard checked nothing"
+        for where, text in texts.items():
+            assert not _unguarded_installs(text, lock_name), where
+
+
+_SEMGREP_LOCK = "environments/requirements-semgrep.txt"
+
+
+@pytest.mark.parametrize(
+    ("text", "unguarded"),
+    [
+        (f"pip install --require-hashes -r {_SEMGREP_LOCK}\n", 1),
+        (f"RUN pip install --user \\\n    -r {_SEMGREP_LOCK}\n", 1),
+        (f"pip3 install -r {_SEMGREP_LOCK}\n", 1),
+        (f"pip3.11 install -r {_SEMGREP_LOCK}\n", 1),
+        (f"python -m pip install -r {_SEMGREP_LOCK}  # --no-deps\n", 1),
+        ("cd environments && pip install -r requirements-semgrep.txt\n", 1),
+        (f"pip install --no-deps -r a.txt && pip install -r {_SEMGREP_LOCK}\n", 1),
+        (f"# pip install -r {_SEMGREP_LOCK}\n", 0),
+        (f"pip install --require-hashes --no-deps -r {_SEMGREP_LOCK}\n", 0),
+        ("uv pip compile environments/requirements-semgrep.in\n", 0),
+    ],
+)
+def test_the_no_deps_guard_sees_every_install_shape(text, unguarded):
+    assert len(_unguarded_installs(text, "requirements-semgrep.txt")) == unguarded
+
+
+def test_the_no_deps_guard_scans_every_install_surface(tmp_path):
+    expected = [
+        ".github/workflows/a.yml",
+        ".github/workflows/b.yaml",
+        ".github/actions/setup/action.yml",
+        "Dockerfile",
+        "Dockerfile.api",
+        "Makefile",
+        "scripts/nested/install.sh",
+        "tools/install.sh",
+    ]
+    for relative in expected:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("", encoding="utf-8")
+    found = {p.relative_to(tmp_path).as_posix() for p in _install_surfaces(tmp_path)}
+    assert found == set(expected)
 
 
 def test_the_retired_override_file_is_gone():
@@ -306,7 +460,11 @@ def test_successful_compile_runs_one_command_per_spec(monkeypatch):
     monkeypatch.setattr(update_dependencies.subprocess, "run", runner)
     assert update_dependencies.main(["--target", "pillow"]) == 0
     assert len(seen) == len(LOCK_SPECS)
-    assert all("--upgrade-package" in command for command in seen)
+    for spec, command in zip(LOCK_SPECS, seen):
+        # Seeded image specs apply the bump through their preference list,
+        # because uv ignores preferences for a package it is told to upgrade.
+        seeded = spec.name in update_dependencies.SEEDED_SPECS
+        assert ("--upgrade-package" in command) is not seeded, spec.name
 
 
 def test_subprocess_is_never_invoked_with_a_shell(monkeypatch):

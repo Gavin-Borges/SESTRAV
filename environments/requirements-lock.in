@@ -8,21 +8,28 @@
 
 # Security overrides - minimum versions to close CVEs that snakemake's dependency
 # resolver would otherwise peg to vulnerable releases.
+#
+# A line here is a REQUIREMENT, not a constraint: `uv pip compile` installs
+# whatever it names, whether or not anything else needs it. So a floor may only
+# name a package that the -r includes above already pull in, and it must be
+# deleted once they stop pulling it in. tests/test_security_floors_have_a_dependent.py
+# enforces that.
+#
+# Until this change the spec carried four floors that broke that rule -
+# cryptography, msgpack, pydantic-settings and pyjwt. Nothing in the closure of
+# requirements.in + requirements-ci.in requires any of them (each lock entry was
+# annotated `# via -r environments/requirements-lock.in` and nothing else), and no
+# tracked module imports them. They were therefore installing seven packages
+# (with cffi, pycparser and python-dotenv) into the production image, which
+# installs this lock, purely to hold them at a patched version. pyjwt 2.14.0 then
+# became vulnerable itself (GHSA-42vr-xj54-vc7v / CVE-2026-101918, fixed in
+# 2.15.0). Deleting the four floors removes exactly those seven packages and
+# changes no other pin. If a real dependency ever pulls one of them back in, the
+# pip-audit job in security.yml audits this installed set and goes red on any
+# unaccepted advisory once the advisory reaches pip-audit's feed (it is not a
+# required check), and the floor belongs back here with that dependent named.
 # aiohttp: CVE-2026-54273/54274/54275/54276/54277/54278/54280, CVE-2026-50269
 aiohttp>=3.14.3
-# cryptography: GHSA-537c-gmf6-5ccf, and GHSA-g6cj-pr64-35w5 / CVE-2026-69247
-# (PKCS#7 EnvelopedData decryption leaks a Bleichenbacher oracle through
-# distinguishable errors and timing; affects >=44.0.0,<50.0.0).
-cryptography>=50.0.1
-# msgpack: GHSA-6v7p-g79w-8964 (DoS via malformed input)
-msgpack>=1.2.2
-# pydantic-settings: GHSA-4xgf-cpjx-pc3j
-pydantic-settings>=2.15.0
-# pyjwt: PYSEC-2026-175/176/177/178/179 (algorithm confusion attacks), and
-# CVE-2026-102274 / GHSA-w6j9-cwv2-h6wq (a malformed RSA JWK raises a bare
-# ValueError that PyJWKSet's except-PyJWTError skip path cannot catch, so one
-# bad key aborts parsing of the whole JWK Set). Affects >=2.9.0,<=2.13.0.
-pyjwt>=2.14.0
 # setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
 # Unicode NFC/NFD normalization collision on macOS APFS/HFS+).
 # This floor used to conflict with torch 2.12.0's `setuptools<82` build-metadata

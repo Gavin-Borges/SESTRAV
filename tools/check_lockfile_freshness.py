@@ -64,6 +64,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 LOCKFILE_PAIRS: tuple[tuple[str, str], ...] = (
     ("requirements.in", "requirements.txt"),
     ("environments/requirements-lock.in", "environments/requirements.lock"),
+    ("environments/requirements-api.in", "environments/requirements-api.txt"),
+    ("environments/requirements-demo.in", "environments/requirements-demo.txt"),
     ("environments/requirements-ci.in", "environments/requirements-ci.txt"),
     ("environments/requirements-ci-build.in", "environments/requirements-ci-build.txt"),
     ("environments/requirements-ci-mypy.in", "environments/requirements-ci-mypy.txt"),

@@ -77,6 +77,90 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 ### Security
+- **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
+  which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
+  CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
+  path into `environments/requirements.lock` was a security floor in
+  `environments/requirements-lock.in`. A `name>=version` line there is a requirement,
+  not a constraint, so each floor installed the package it was meant to hold at a
+  patched release: every one of the four lock entries was annotated
+  `# via -r environments/requirements-lock.in` and nothing else, and no tracked module
+  imports any of them. The `Dockerfile` installs that lock, so the production image
+  carried all four plus cffi, pycparser and python-dotenv beneath them. Recompiling with
+  the four floors deleted (`uv pip compile`, the argv recorded in the lock's header)
+  removes exactly those seven packages and changes no other pin; `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` were rebuilt using the `python-sbom` job's argv and
+  lose the same seven, with no drift in the 140 that remain. Run against the rebuilt
+  SBOM, the SBOM freshness gate reports the seven stale entries only as a notice and
+  exits 0, so it would not have caught them. The new
+  `tests/test_security_floors_have_a_dependent.py` fails on any floor, in any lockfile
+  spec, whose package nothing but the spec requires; against the previous spec it names
+  exactly these four.
+- **`keras` and `protobuf`, pinned as security fixes in `requirements.in` and
+  `environments/requirements-ci.in`, are removed along with eight packages beneath them,
+  because nothing in the closure of `requirements.in` or `environments/requirements-ci.in`
+  requires either.** The same
+  defect as the entry above in `==` form: a line in a `.in` spec is a requirement, so the
+  pins were what installed them. mhcflurry 2.2.1 declares only torch among ML frameworks
+  and imports neither package, no tracked module imports keras, protobuf or any of the
+  eight, shap's only explainer is `TreeExplainer`, and every keras and protobuf entry in
+  the three locks below named only a `.in` spec in its `# via`, never another package.
+  (CI's semgrep tool lock does carry protobuf, as a dependency of opentelemetry-proto and
+  googleapis-common-protos; that is outside these specs and untouched.) Recompiling
+  `requirements.txt`, `environments/requirements-ci.txt` and `environments/requirements.lock`
+  with their own header argv removes keras, protobuf, absl-py, h5py, markdown-it-py,
+  mdurl, ml-dtypes, namex, optree and rich from all three (and numpy from
+  `requirements-ci.txt`, which CI only ever installs beside `requirements.txt`) and
+  changes no other pin. keras alone has carried six advisories, including arbitrary code
+  execution through a `safe_mode` bypass, and it could not even be imported where it was
+  installed: in the set CI installs, `import keras` raises
+  `ModuleNotFoundError: No module named 'tensorflow'`, its default backend, which nothing
+  installs. In a Linux full-suite run of that set, the lock change before its baseline edit
+  failed exactly one test `origin/main` passes, a co-install divergence baseline whose
+  `absl-py` entries no longer apply; with those four entries removed, as committed, that
+  test passes. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` were rebuilt using the
+  `python-sbom` job's argv and lose the same ten, with no drift in the 130 that remain.
+- **`Dockerfile.api` and `Dockerfile.demo` install minimal hash-pinned locks, and all three
+  images build the package without an unhashed build-backend download.** Both images used
+  to finish with `pip install ".[api]"` / `pip install ".[demo]"`, which resolved the
+  package's whole dependency tree, torch included, from PyPI at build time with no hashes;
+  code-scanning alerts #83 and #84 flagged those lines and were dismissed on the rationale
+  that a local-path install has no remote artifact to hash-pin, which was true of `.` and
+  false of the dependencies. Each image now installs its own lock,
+  `environments/requirements-api.txt` (77 pins) or `environments/requirements-demo.txt`
+  (93 pins), compiled by `tools/update_dependencies.py` for the images' Python 3.13 from a
+  spec naming exactly the core requirements and the image's extra, each at the version
+  `requirements.txt` pins (jsonschema at the version `environments/requirements.lock`
+  resolves, and streamlit, which neither carries, at its own pin), plus setuptools. A
+  `requirements.in` pin change must be mirrored into both specs by hand, which the new test
+  enforces. `requirements.txt` is uv's version preference
+  for both (`SEEDED_SPECS`, compiled in a scratch copy so a failed or stubbed compile never
+  touches the committed lock, and with any `--upgrade` flag applied to the preference list
+  because uv would otherwise ignore those preferences), so every package they share with
+  it, 73 and 77, is at the identical version, and neither image carries the 22 and 18
+  `requirements.txt` packages it never declared (pytest, hypothesis, aiohttp,
+  torch-geometric and others). The demo lock
+  carries protobuf again, as a genuine streamlit dependency. `.dockerignore` now admits
+  both locks to the build context. All three Dockerfiles install the package with
+  `--no-deps --no-build-isolation`, so the build uses the locked setuptools; the production
+  image's lock still has one sdist-only pin, connection-pool, whose isolated build fetches
+  setuptools unhashed, which is recorded in the Dockerfile. Simulated on Linux and Python
+  3.13 from each image's `.dockerignore`-filtered build context with its own pip commands
+  (without `--user`, which pip refuses in a virtualenv; `docker.yml` has never run): every
+  install exits 0, a wheels-only dry run of the API and demo locks exits 0, `pip check` is
+  clean, every module the API and demo import lazily imports, the API serves `GET /health`
+  (200, degraded because no model is baked in, as before), the demo serves Streamlit's
+  health endpoint and an `AppTest` run of `app/demo.py` raises nothing, and the production
+  image runs `sestrav --help`. pip-audit (PyPI and OSV) finds nothing in either new lock.
+  `tests/test_images_install_only_hashed_dependencies.py` fails any Dockerfile `pip install`
+  that is neither a `--require-hashes --no-deps` lock install nor a `--no-deps
+  --no-build-isolation` install of `.`, any exec-form or heredoc pip RUN, any COPY source
+  missing or excluded by `.dockerignore`, any declared requirement an image's lock does not
+  pin, and any image spec or lock that drifts from `requirements.txt`. Against the previous
+  Dockerfiles it names the production image's build isolation, both `.[extra]` installs, and
+  the two images' missing dependency locks. `CONTRIBUTING.md` (a tier 2a row and a
+  documented exception to rule 4), `ARCHITECTURE.md` and `docs/SCORECARD_REMEDIATION.md`
+  describe the new locks.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
@@ -333,6 +417,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   rejected - and telling those apart requires making the very write that could break it.
   One field outside the documented schema also proves a GET can carry fields a
   hand-built payload would drop, so the GitHub UI is now recorded as the source of truth.
+- **The semgrep tool lock moves pyjwt from 2.13.0 to 2.15.1, closing the twelve
+  Dependabot advisories (one critical, five high) raised against
+  `environments/requirements-semgrep.txt`, and the eleven of them on which OpenSSF
+  Scorecard's Vulnerabilities check (code-scanning alert 15) scored 0.** semgrep 1.166.0
+  through 1.178.0 (1.177.0 pinned, 1.178.0 the latest on 2026-09-30) declare
+  `pyjwt[crypto]~=2.13.0`, so no available semgrep upgrade reaches a patched pyjwt, a floor
+  would make the spec unsatisfiable, and a hand-edited pin had already failed both semgrep
+  jobs at install time; the only other route, downgrading semgrep to 1.156.0 or earlier,
+  was rejected. The `semgrep` spec now compiles with a uv override file,
+  `environments/semgrep-overrides.txt`, that lifts pyjwt and nothing else, bounded to the
+  measured `2.15` series, and both semgrep installs in `security.yml` pass `--no-deps`,
+  since a resolving install of a lock that contradicts semgrep's own metadata fails with
+  ResolutionImpossible (measured: exit 1 without the flag, 0 with it). Measured before
+  adopting it, semgrep 1.177.0 on Linux and Python 3.11 against the same tree under pyjwt
+  2.13.0 and 2.15.1, the latter installed from the committed lock: the blocking
+  custom-rules scan returned 0 results and 0 errors over the same 189 files under both, and
+  the advisory `p/python` scan returned the same 3 SARIF results, all suppressed in source
+  by `nosemgrep`, with the same 154 rules loaded. Every `semgrep scan` imports pyjwt,
+  because semgrep's CLI loads its `mcp` command eagerly, so pyjwt's import-time
+  initialisation runs on every scan; after import, a tracer wrapping pyjwt's public
+  functions, methods and module-level aliases logged 0 calls through both scans under both
+  versions, while logging encode, decode and get_unverified_header in a control run. The
+  retired-override guard in `tests/test_dependency_tooling.py` now names this as its single
+  permitted exception, and new tests fail if the override names anything but pyjwt, if the
+  lock pins a pyjwt its override does not admit (a recompile that does not pass the
+  override walks it back to 2.13.0, which Dependabot's grouped `/environments` updates
+  are expected to do), or if any `pip install` of the lock in `.github/`, a
+  `Dockerfile*`, the `Makefile` or a `scripts/`/`tools/` shell script lacks its own
+  `--no-deps`, with backslash continuations joined, comments ignored and chained commands
+  split. `CONTRIBUTING.md` and `ARCHITECTURE.md`, which said no tier compiles with an
+  override, now name this one.
+- **Seven tool lockfiles are now compiled for the Python of the CI jobs that install
+  them.** `tools/update_dependencies.py` compiled `ci-build`, `ci-mypy`, `ci-pytest-cov`
+  and `ci-ruff` for 3.11 while their jobs run 3.13, `pip-audit` and `semgrep` for 3.12 and
+  `security` for 3.13 while their jobs run 3.11. `uv pip compile --python-version`
+  resolves for that interpreter only, so such a lock can carry a package the job's
+  Python never needs or miss one it does. Recompiled for each job's Python, six locks
+  change only their header and `requirements-ci-pytest-cov.txt` drops `tomli`, which
+  Python 3.13 does not need. Each was then installed with its CI job's own flags on that
+  job's Python in a fresh Linux venv, and each tool installed and reported its version. The new
+  `tests/test_tool_locks_match_their_job_python.py` parses every workflow, finds the jobs
+  that install each managed lock, and fails when the lock's compile target is not their
+  Python; the runtime and `ci` locks, which a Python matrix installs by design, must
+  target one of the matrix versions. Against the previous tool settings it fails exactly
+  these seven.
 
 ### Added
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of

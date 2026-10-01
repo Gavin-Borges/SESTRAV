@@ -19,6 +19,7 @@ COPY --chown=sestrav_user:sestrav_user pyproject.toml README.md ./
 COPY --chown=sestrav_user:sestrav_user src/ ./src/
 COPY --chown=sestrav_user:sestrav_user api/ ./api/
 COPY --chown=sestrav_user:sestrav_user config.yaml ./
+COPY --chown=sestrav_user:sestrav_user environments/requirements-api.txt ./environments/requirements-api.txt
 COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.txt ./environments/requirements-pip-bootstrap.txt
 
 # Bootstrap pip from the hash-locked manifest, for the same two reasons the
@@ -28,19 +29,33 @@ COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.t
 # range (first patched 26.2.0). The exposure was NOT visible on the Security
 # tab: Scorecard reported it as PinnedDependencies alerts #35 and #36, which
 # were dismissed as false positives. The dismissal comment - that a local-path
-# install has no remote artifact to hash-pin - is true of the `.[api]` half of
-# the line below and false of the `pip==` half, which is a remote artifact and
-# is hash-pinnable. Scorecard emits one result per unpinned pip command but
-# anchors every result to the whole RUN span, so one comment was applied to a
-# pair where it held for only one member.
+# install has no remote artifact to hash-pin - was true of the `.[api]` half of
+# the RUN line this image then ended with and false of the `pip==` half, which is
+# a remote artifact and is hash-pinnable. Scorecard emits one result per unpinned
+# pip command but anchors every result to the whole RUN span, so one comment was
+# applied to a pair where it held for only one member.
 #
-# The second command is still an unpinned local install and Scorecard still
-# reports it. Silencing that one needs a prebuilt wheel rather than a bare `.`
-# (a `.whl` argument is accepted where `.` is not); it is tracked separately
-# and is deliberately NOT bundled into this security fix.
+# That comment was only partly true of the `.[api]` half as well: `.` itself is
+# a local path, but `.[api]` resolved the package's whole dependency tree from
+# PyPI at build time with no hashes, torch included (code-scanning alert #83).
+# The image now installs environments/requirements-api.txt: exactly the core
+# requirements and the [api] extra, each at the version requirements.txt pins
+# (jsonschema, which it does not carry, at requirements.lock's), with the
+# transitive dependencies they share with requirements.txt at the same versions
+# (tests/test_images_install_only_hashed_dependencies.py enforces both), then the
+# package with --no-deps so pip cannot re-resolve.
+#
+# --no-build-isolation builds the package against the setuptools the lock just
+# installed. Without it pip downloads [build-system].requires from PyPI,
+# unhashed, into a throwaway environment on every build. Every pin in this lock
+# installs from a hashed wheel, so nothing in this RUN is fetched unhashed.
+#
+# The package install is still a local-path pip command, which Scorecard still
+# reports; a prebuilt wheel is tracked separately.
 RUN pip install --user --no-cache-dir --require-hashes --no-deps \
         -r environments/requirements-pip-bootstrap.txt && \
-    pip install --user --no-cache-dir ".[api]"
+    pip install --user --no-cache-dir --require-hashes --no-deps -r environments/requirements-api.txt && \
+    pip install --user --no-cache-dir --no-deps --no-build-isolation .
 
 EXPOSE 8000
 

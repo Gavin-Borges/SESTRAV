@@ -711,7 +711,13 @@ def test_live_repo_discovery_reproduces_the_measured_manifest_set():
         "environments/requirements-semgrep.txt",
         "environments/requirements-lock.in",
     }
+    # Added with the container-image locks, so PREDICTED by the filename rule
+    # rather than measured: on 2026-09-30 the dependency graph parsed all 13
+    # tracked requirements*.txt files. Confirm with the calibration query once
+    # these are on the default branch, then move them into `measured`.
+    predicted = {"environments/requirements-api.txt", "environments/requirements-demo.txt"}
+    expected = measured | predicted
     derived = set(gate.discover_parsed_manifests(REPO_ROOT))
-    assert derived == measured, "derived-only={} measured-only={}".format(
-        sorted(derived - measured), sorted(measured - derived)
+    assert derived == expected, "derived-only={} expected-only={}".format(
+        sorted(derived - expected), sorted(expected - derived)
     )

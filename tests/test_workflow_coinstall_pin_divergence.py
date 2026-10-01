@@ -65,23 +65,23 @@ _REQ = re.compile(r"-r\s+(\S+\.(?:txt|lock))")
 # direction moved and why.
 KNOWN_DIVERGENCES: dict[str, frozenset[str]] = {
     "ci.yml:compat": frozenset({
-        "absl-py", "annotated-types", "certifi", "charset-normalizer", "idna",
+        "annotated-types", "certifi", "charset-normalizer", "idna",
         "packaging", "typing-extensions",
     }),
     "ci.yml:test": frozenset({
-        "absl-py", "annotated-types", "certifi", "charset-normalizer",
+        "annotated-types", "certifi", "charset-normalizer",
         "fastjsonschema", "idna", "nbformat", "packaging", "platformdirs",
         "pygments", "rpds-py", "traitlets", "typing-extensions",
     }),
     "fuzzing.yml:fuzz": frozenset({
-        "absl-py", "annotated-types", "certifi", "charset-normalizer", "idna",
+        "annotated-types", "certifi", "charset-normalizer", "idna",
         "packaging", "typing-extensions",
     }),
     "security.yml:pip-audit": frozenset({
         "certifi", "charset-normalizer", "filelock", "packaging", "platformdirs",
     }),
     "sestrav_verify_benchmarking.yml:verify-benchmark": frozenset({
-        "absl-py", "annotated-types", "certifi", "charset-normalizer", "idna",
+        "annotated-types", "certifi", "charset-normalizer", "idna",
         "packaging", "typing-extensions",
     }),
 }

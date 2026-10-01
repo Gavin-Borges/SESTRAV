@@ -14,15 +14,12 @@ semgrep==1.177.0
 # cryptography>=50.0.1 without help, then recompile and re-verify hashes.
 cryptography>=50.0.1
 
-# pyjwt deliberately has NO security floor here, unlike requirements-lock.in.
-# CVE-2026-102274 (and nine sibling advisories) affect pyjwt<=2.13.0 with the
-# fix in 2.14.0, but semgrep 1.177.0 declares pyjwt~=2.13.0, and 1.178.0 (the
-# latest on 2026-09-30) does not resolve alongside pyjwt 2.14.0 either. A >=2.14.0 floor here,
-# or a hand-edited 2.14.0 pin in the .txt, makes `pip install --require-hashes`
-# fail with ResolutionImpossible, which takes down both semgrep jobs in
-# security.yml, the blocking custom-rules one included. This environment is
-# installed only by those two jobs, is never shipped, and neither job passes a
-# Semgrep app token. The runtime lock (requirements.lock) is unaffected and
-# carries 2.14.0.
-# EXIT CONDITION: once a semgrep release accepts pyjwt>=2.14.0, bump semgrep,
-# add `pyjwt>=2.14.0` here, recompile and re-verify hashes.
+# pyjwt has NO floor here, because a floor cannot reach a patched release:
+# semgrep 1.177.0 (pinned above) and 1.178.0 (the latest on 2026-09-30) both
+# declare pyjwt[crypto]~=2.13.0, so a >=2.14.0 floor makes this spec unsatisfiable
+# (ResolutionImpossible). A hand-edited pin in the .txt failed the same way at
+# install time, taking down both semgrep jobs in security.yml. pyjwt is instead
+# lifted by the uv override file environments/semgrep-overrides.txt, which
+# tools/update_dependencies.py passes for this spec. That file records the scan
+# equivalence measured before adopting it, why the lock must now be installed
+# with --no-deps, and the exit condition.

@@ -64,6 +64,7 @@ them, find the tier it belongs to.
 |---|---|---|---|
 | 1. Runtime | `requirements.in` | `requirements.txt` | `tools/update_dependencies.py` |
 | 2. Environment lock (CVE floors) | `environments/requirements-lock.in` | `environments/requirements.lock` | `tools/update_dependencies.py` |
+| 2a. Container image locks (2) | `environments/requirements-api.in`, `-demo.in` | matching `.txt` | `tools/update_dependencies.py`, seeded from `requirements.txt` |
 | 3. CI tool environments (8) | `environments/requirements-ci*.in`, `-pip-audit.in`, `-security.in`, `-semgrep.in` | matching `.txt` | `tools/update_dependencies.py --ci-env <name>` |
 | 4. Hand-maintained hash locks (4) | none - the `.txt` *is* the source | `requirements-ci-render.txt`, `requirements-ci-torch-cpu.txt`, `requirements-sbom.txt`, `requirements-pip-bootstrap.txt` | by hand, following each file's own header |
 | 5. Optional extras | `pyproject.toml` `[project.optional-dependencies]` | none - resolved at install time | edit by hand |
@@ -104,6 +105,16 @@ them, find the tier it belongs to.
    packages already in `requirements.txt` adds no capability, drifts independently
    from the pins it duplicates, and - if it pulls the hashed base in with `-r` -
    breaks rule 3 and cannot be installed at all.
+   The one deliberate exception is tier 2a: `Dockerfile.api` and `Dockerfile.demo`
+   need a minimal hashed closure compiled for their Python 3.13, which no other
+   manifest provides. Their specs re-pin only the image's declared requirements
+   plus setuptools, never pull a hashed file in with `-r`, and cannot drift
+   unnoticed: `tests/test_images_install_only_hashed_dependencies.py` fails if a
+   spec pin differs from `requirements.txt` (jsonschema, which that file does not
+   carry, is checked against `environments/requirements.lock`; streamlit, which
+   neither carries, is not checked) or if a shared lock version does. So a change
+   to a `requirements.in` pin must be mirrored into `requirements-api.in` and
+   `requirements-demo.in` by hand, then recompiled; that test fails until it is.
 
 ### The setuptools floor (and the override that used to be needed)
 
@@ -117,12 +128,17 @@ tracking the pin, and says so in its own `[build-system]` comment.
 
 Until 2026-08-05 it collided with torch 2.12.0's declared `setuptools<82`
 build-metadata cap, which made `uv pip compile` return `ResolutionImpossible`
-unaided, so both application lockfiles compiled through an `overrides.txt` file
-that `tools/update_dependencies.py` passed automatically. torch 2.13.0 declares
-`setuptools>=77.0.3`, meeting that override's documented exit condition, so
-`overrides.txt` was deleted and the tool no longer passes `--overrides` for any
-tier. `tests/test_dependency_tooling.py` asserts both halves of the retirement,
-so the workaround cannot quietly return and mask a real resolution conflict.
+unaided, so the runtime and production lockfiles compiled through an
+`overrides.txt` file that `tools/update_dependencies.py` passed automatically.
+torch 2.13.0 declares `setuptools>=77.0.3`, meeting that override's documented
+exit condition, so `overrides.txt` was deleted and the tool no longer passes
+`--overrides` for either of them. `tests/test_dependency_tooling.py` asserts both halves of the
+retirement, so the workaround cannot quietly return and mask a real resolution
+conflict. One tool tier is a deliberate, named exception: the `semgrep` spec compiles
+with `--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
+`~=2.13.0` declaration, so `environments/requirements-semgrep.txt` must be installed
+with `--no-deps`. That file records the measurement behind it and its exit condition,
+and the same test module fails if any other tier gains an override.
 
 ## Development Guidelines
 
