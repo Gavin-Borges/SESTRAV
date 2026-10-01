@@ -45,16 +45,25 @@ COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.t
 # (tests/test_images_install_only_hashed_dependencies.py enforces both), then the
 # package with --no-deps so pip cannot re-resolve.
 #
-# --no-build-isolation builds the package against the setuptools the lock just
-# installed. Without it pip downloads [build-system].requires from PyPI,
-# unhashed, into a throwaway environment on every build. Every pin in this lock
-# installs from a hashed wheel, so nothing in this RUN is fetched unhashed.
+# --no-build-isolation stops pip creating a throwaway build environment, which
+# downloads [build-system].requires from PyPI, unhashed, for every package it
+# builds from source. Every build instead runs against the setuptools installed
+# second, taken from this image's own lock: `-c` reads it as a constraints file,
+# so pip installs its setuptools pin and enforces that pin's hashes. Every pin
+# in this lock installs from a hashed wheel today, so only the package itself
+# is built; the lock install carries the flag too, so an sdist that enters the
+# lock later cannot fetch a backend unhashed: it builds against that
+# setuptools, or fails the build if it needs anything else to build. See
+# Dockerfile, whose lock does carry an sdist.
 #
 # The package install is still a local-path pip command, which Scorecard still
 # reports; a prebuilt wheel is tracked separately.
 RUN pip install --user --no-cache-dir --require-hashes --no-deps \
         -r environments/requirements-pip-bootstrap.txt && \
-    pip install --user --no-cache-dir --require-hashes --no-deps -r environments/requirements-api.txt && \
+    pip install --user --no-cache-dir --require-hashes --no-deps \
+        -c environments/requirements-api.txt setuptools && \
+    pip install --user --no-cache-dir --require-hashes --no-deps --no-build-isolation \
+        -r environments/requirements-api.txt && \
     pip install --user --no-cache-dir --no-deps --no-build-isolation .
 
 EXPOSE 8000

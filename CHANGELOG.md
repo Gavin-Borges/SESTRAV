@@ -143,8 +143,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   carries protobuf again, as a genuine streamlit dependency. `.dockerignore` now admits
   both locks to the build context. All three Dockerfiles install the package with
   `--no-deps --no-build-isolation`, so the build uses the locked setuptools; the production
-  image's lock still has one sdist-only pin, connection-pool, whose isolated build fetches
-  setuptools unhashed, which is recorded in the Dockerfile. Simulated on Linux and Python
+  image's lock still had one sdist-only pin, connection-pool, whose isolated build fetched
+  setuptools unhashed (closed by the next entry). Simulated on Linux and Python
   3.13 from each image's `.dockerignore`-filtered build context with its own pip commands
   (without `--user`, which pip refuses in a virtualenv; `docker.yml` has never run): every
   install exits 0, a wheels-only dry run of the API and demo locks exits 0, `pip check` is
@@ -154,13 +154,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   image runs `sestrav --help`. pip-audit (PyPI and OSV) finds nothing in either new lock.
   `tests/test_images_install_only_hashed_dependencies.py` fails any Dockerfile `pip install`
   that is neither a `--require-hashes --no-deps` lock install nor a `--no-deps
-  --no-build-isolation` install of `.`, any exec-form or heredoc pip RUN, any COPY source
+  --no-build-isolation` install of `.` (the next entry adds a third shape, the build backend
+  from the image's lock), any exec-form or heredoc pip RUN, any COPY source
   missing or excluded by `.dockerignore`, any declared requirement an image's lock does not
   pin, and any image spec or lock that drifts from `requirements.txt`. Against the previous
   Dockerfiles it names the production image's build isolation, both `.[extra]` installs, and
   the two images' missing dependency locks. `CONTRIBUTING.md` (a tier 2a row and a
   documented exception to rule 4), `ARCHITECTURE.md` and `docs/SCORECARD_REMEDIATION.md`
   describe the new locks.
+- **No image downloads a build backend unhashed any more, including the production image's
+  one sdist.** `environments/requirements.lock` pins connection-pool 0.0.3 (via snakemake),
+  its only sdist: 0.0.3 is the latest release and was published with no wheel. pip built it
+  in an isolated environment that fetched `setuptools>=40.8.0` from PyPI with no hash
+  (measured: that build logs `Collecting setuptools>=40.8.0`). All three Dockerfiles now
+  install setuptools first, from the image's own lock read as a constraints file
+  (`pip install --require-hashes --no-deps -c <lock> setuptools`: pip takes the lock's
+  version and enforces its hashes, and a copy of the lock with those hashes zeroed fails the
+  install), then install the lock and the package with `--no-build-isolation`, so every
+  build runs against that setuptools. The order is load-bearing: pip builds sdists before it
+  installs anything, and a `--no-build-isolation` install with no setuptools present fails
+  with `Cannot import 'setuptools.build_meta'` (measured). The API and demo locks carry no
+  sdist today; their lock installs take the flag too, so an sdist that enters them later
+  cannot fetch a build backend: it builds against the hash-checked setuptools, or fails the
+  image build if it needs anything else to build. Simulated on Linux and
+  Python 3.13 with each image's own pip commands, read from its Dockerfile, in a fresh venv
+  holding neither setuptools nor wheel (without `--user` and `--no-cache-dir`;
+  `docker.yml` has never run): every step exits 0, pip creates no isolated build
+  environment, the production image builds connection-pool and the package from source and
+  the other two build the package, `pip check` is clean in all three, and the production
+  image runs `sestrav --help`.
+  `tests/test_images_install_only_hashed_dependencies.py` now requires
+  `--no-build-isolation` on every dependency-lock install other than the pip bootstrap, and
+  exactly one `-c <the image's own lock> setuptools` install after the bootstrap and ahead of
+  every install that can build. It also checks that the setuptools each image's lock pins
+  satisfies `[build-system].requires`, which nothing else enforces at image build time once
+  isolation is off (see the floor entry below), and it now reads a `pip install` with pip
+  options before `install` (`pip --disable-pip-version-check install ...`), a form it could
+  not see before. Each of these fails it: the previous production Dockerfile; the
+  setuptools install moved after the lock install, before the bootstrap, taken from another
+  image's lock, or without `--require-hashes`; the demo lock install without
+  `--no-build-isolation`; a `[build-system]` floor above the locks' setuptools; and an
+  unhashed install hidden behind a pip option. Scorecard's Pinned-Dependencies check treats
+  the new install as pinned (`isUnpinnedPipInstall`, scorecard v5.5.0, returns pinned on
+  `--require-hashes`) and still reports each image's local-package install. **Not covered
+  here:** CI builds the same connection-pool sdist in isolation, with the same unhashed
+  setuptools fetch, wherever it installs `environments/requirements-ci.txt` or
+  `environments/requirements.lock` - seven install steps across `ci.yml`, `fuzzing.yml`,
+  `sestrav_verify_benchmarking.yml`, `security.yml` and `iedb_benchmark.yml`.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
@@ -272,7 +312,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   repository disables build isolation (no `--no-build-isolation`, no
   `PIP_NO_BUILD_ISOLATION`) or redirects what it resolves (no `PIP_CONSTRAINT` - which
   constrains resolution *inside* isolation rather than switching it off), so no build
-  path evades the floor.
+  path evades the floor. **That last sentence stopped being true with the image-lock
+  entries above:** all three Dockerfiles now build with `--no-build-isolation`, and pip
+  then neither installs nor checks `[build-system].requires` (measured on pip 26.2.1, the
+  images' bootstrap: a package requiring `setuptools>=99` and `wheel` installs under
+  setuptools 84.0.0 with no `wheel`, and only `--check-build-dependencies` makes it fail).
+  Those builds use the locks' setuptools 84.0.0, so the floor is still met, but by the
+  pin rather than by pip: `tests/test_images_install_only_hashed_dependencies.py` checks
+  that the setuptools each image's lock pins satisfies `[build-system].requires`, and
+  separately `tests/test_dependency_floors_match_pins.py` holds `requirements.in`'s pin to
+  this floor and `tests/test_dependency_tooling.py` holds
+  `environments/requirements-lock.in`'s own `setuptools>=84.0.0` to the advisory's 83.0.0.
   `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
   green (10 lockfile pairs fresh, 13 manifests hash-pinned).
 - **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**

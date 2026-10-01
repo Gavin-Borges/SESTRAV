@@ -6,9 +6,18 @@ PyPI at build time with no hashes. The production Dockerfile had already moved
 to a hashed lock; the two smaller images had not, and nothing checked. These
 tests make every image's install sequence a gate:
 
-- each `pip install` in a RUN is either a hash-pinned `-r <lock>` install with
-  `--require-hashes --no-deps`, or the package itself (`.`, no extras) with
-  `--no-deps --no-build-isolation`, so nothing is resolved or built unpinned;
+- each `pip install` in a RUN is a hash-pinned `-r <lock>` install with
+  `--require-hashes --no-deps` (and `--no-build-isolation`, except the pip
+  bootstrap), the build backend alone with `--require-hashes --no-deps` and the
+  image's lock as a `-c` constraints file (which supplies its version and
+  hashes), or the package itself (`.`, no extras) with `--no-deps
+  --no-build-isolation`, so nothing is resolved or built unpinned;
+- that backend install follows the pip bootstrap and precedes the lock install
+  and the package install, so every build, including a lock's sdist-only pin
+  (connection-pool in requirements.lock), runs against a hash-checked setuptools
+  rather than one an isolated build environment downloads unhashed, and the
+  setuptools each image's lock pins satisfies pyproject.toml's
+  [build-system].requires, which pip does not check without build isolation;
 - every file a Dockerfile COPYs exists and survives .dockerignore (a lock the
   build context never receives fails `docker build`, which no CI job runs);
 - each image's locks pin every [project].dependencies requirement and the
@@ -55,7 +64,10 @@ PIP_BOOTSTRAP = "environments/requirements-pip-bootstrap.txt"
 RUNTIME_LOCK = "requirements.txt"
 PRODUCTION_LOCK = "environments/requirements.lock"
 
-_PIP_INSTALL = re.compile(r"\bpip(?:3(?:\.\d+)?)?\s+install\b")
+# pip's global options may sit between `pip` and `install` (`pip --cache-dir /x
+# install ...`), each optionally followed by a value; without them in the pattern
+# such an install would be invisible to every check below.
+_PIP_INSTALL = re.compile(r"\bpip(?:3(?:\.\d+)?)?(?:\s+-\S+(?:\s+[^\s-]\S*)?)*?\s+install\b")
 _PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)(?:\[[^\]]*\])?==([^\s\\;]+)")
 
 
@@ -104,13 +116,35 @@ def _requirement_files(args: list[str]) -> list[str]:
     return [args[i + 1] for i, arg in enumerate(args[:-1]) if arg in ("-r", "--requirement")]
 
 
+def _constraint_files(args: list[str]) -> list[str]:
+    return [args[i + 1] for i, arg in enumerate(args[:-1]) if arg in ("-c", "--constraint")]
+
+
 def install_problems(args: list[str]) -> list[str]:
-    """Why a `pip install` argument list is not a hashed-lock or no-deps local install."""
+    """Why a `pip install` argument list is not one of the three permitted shapes.
+
+    A hashed lock install, the build backend installed from a lock used as a
+    constraints file, or the local package with no dependencies.
+    """
     files = _requirement_files(args)
+    constraints = _constraint_files(args)
     if files:
-        missing = [flag for flag in ("--require-hashes", "--no-deps") if flag not in args]
-        return [f"`-r {' '.join(files)}` lacks {flag}" for flag in missing]
-    targets = [a for a in args if not a.startswith("-")]
+        # The bootstrap is exempt from --no-build-isolation: it runs before the
+        # backend exists, and its one pin, pip, installs from a wheel.
+        required = ("--require-hashes", "--no-deps")
+        if files != [PIP_BOOTSTRAP]:
+            required += ("--no-build-isolation",)
+        return [f"`-r {' '.join(files)}` lacks {flag}" for flag in required if flag not in args]
+    targets = [a for a in args if not a.startswith("-") and a not in constraints]
+    if constraints:
+        problems = [
+            f"`-c {' '.join(constraints)}` lacks {flag}"
+            for flag in ("--require-hashes", "--no-deps")
+            if flag not in args
+        ]
+        if targets != [BUILD_BACKEND]:
+            problems.append(f"`-c` installs {targets} rather than {BUILD_BACKEND} alone")
+        return problems
     if targets != ["."]:
         return [f"installs {targets} rather than a hashed lock or the local package"]
     return [f"`.` lacks {flag}" for flag in ("--no-deps", "--no-build-isolation") if flag not in args]
@@ -190,7 +224,55 @@ def test_every_pip_install_is_hash_pinned_or_the_local_package(dockerfile: str) 
     problems = [p for args in installs for p in install_problems(args)]
     problems += [f"pip in an exec-form or heredoc RUN: {r}" for r in unparsed_pip_runs(text)]
     assert not problems, f"{dockerfile}: {problems}"
-    assert len(installs) >= 3, f"{dockerfile}: expected bootstrap, lock and package installs"
+    assert len(installs) >= 4, f"{dockerfile}: expected bootstrap, backend, lock and package installs"
+
+
+@pytest.mark.parametrize("dockerfile", sorted(IMAGE_EXTRAS))
+def test_the_build_backend_comes_hashed_from_the_image_lock_before_anything_is_built(
+    dockerfile: str,
+) -> None:
+    # pip builds every sdist before it installs anything, so a setuptools pinned
+    # inside the lock install would not exist yet when that install builds the
+    # lock's sdists; without isolation they would then fail, and with isolation
+    # they fetch setuptools unhashed. The backend therefore needs its own install,
+    # from the same lock, ahead of every install that can build.
+    installs = pip_installs(_read(dockerfile))
+    locks = _image_locks(dockerfile)
+    backend = [i for i, args in enumerate(installs) if _constraint_files(args)]
+    assert len(backend) == 1, f"{dockerfile}: expected one `-c <lock> {BUILD_BACKEND}` install"
+    [at] = backend
+    assert _constraint_files(installs[at]) == locks, (dockerfile, _constraint_files(installs[at]), locks)
+    # Hash enforcement from a constraints file was measured on the bootstrap's
+    # pip, so the backend install must run after the bootstrap, not under
+    # whatever pip the base image ships.
+    bootstrap = [i for i, args in enumerate(installs) if _requirement_files(args) == [PIP_BOOTSTRAP]]
+    assert bootstrap and bootstrap[0] < at, (dockerfile, bootstrap, at)
+    for lock in locks:
+        assert BUILD_BACKEND in _pins(lock), f"{lock} does not pin {BUILD_BACKEND}"
+    builders = [
+        i
+        for i, args in enumerate(installs)
+        if set(_requirement_files(args)) & set(locks) or "." in args
+    ]
+    assert builders and all(i > at for i in builders), (dockerfile, at, builders)
+
+
+@pytest.mark.parametrize("dockerfile", sorted(IMAGE_EXTRAS))
+def test_the_backend_each_image_builds_with_meets_the_build_system_floor(dockerfile: str) -> None:
+    # With --no-build-isolation pip neither installs nor checks
+    # [build-system].requires (measured on pip 26.2.1: a package requiring
+    # setuptools>=99 installs under 84.0.0 unless --check-build-dependencies is
+    # given), so pyproject.toml's setuptools floor reaches an image build only
+    # through the version that image's lock pins. No other test ties the two:
+    # the floor tests compare requirements.in and requirements-lock.in against
+    # their own floors, not against this one.
+    requires = [Requirement(r) for r in tomllib.loads(_read("pyproject.toml"))["build-system"]["requires"]]
+    [backend] = [r for r in requires if _canonical(r.name) == BUILD_BACKEND]
+    for lock in _image_locks(dockerfile):
+        version = _pins(lock)[BUILD_BACKEND]
+        assert Version(version) in backend.specifier, (
+            f"{lock} builds with {BUILD_BACKEND}=={version}, outside [build-system]'s {backend.specifier}"
+        )
 
 
 @pytest.mark.parametrize("dockerfile", sorted(IMAGE_EXTRAS))
@@ -206,7 +288,7 @@ def test_every_copied_path_exists_and_reaches_the_build_context(dockerfile: str)
 def test_every_installed_lock_is_copied_into_the_image(dockerfile: str) -> None:
     sources = set(copy_sources(_read(dockerfile)))
     for args in pip_installs(_read(dockerfile)):
-        for lock in _requirement_files(args):
+        for lock in _requirement_files(args) + _constraint_files(args):
             assert lock in sources, f"{dockerfile} installs {lock} without copying it in"
 
 
@@ -285,14 +367,24 @@ def test_seeded_specs_are_self_contained() -> None:
 @pytest.mark.parametrize(
     ("line", "problem_count"),
     [
-        ("RUN pip install --user --require-hashes --no-deps -r requirements.txt", 0),
+        ("RUN pip install --user --require-hashes --no-deps --no-build-isolation -r requirements.txt", 0),
+        ("RUN pip install --user --require-hashes --no-deps -r requirements.txt", 1),
+        (f"RUN pip install --user --require-hashes --no-deps -r {PIP_BOOTSTRAP}", 0),
         ("RUN pip install --user --no-deps --no-build-isolation .", 0),
         ('RUN pip install --user ".[api]"', 1),
         ("RUN pip install --user --no-deps .", 1),
-        ("RUN pip install --user -r requirements.txt", 2),
+        ("RUN pip install --user -r requirements.txt", 3),
         ("RUN pip install fastapi", 1),
-        ("RUN pip3 install --require-hashes -r x.txt", 1),
+        ("RUN pip3 install --require-hashes -r x.txt", 2),
         ("RUN python -m pip install --no-deps --no-build-isolation .", 0),
+        ("RUN pip install --user --require-hashes --no-deps -c lock.txt setuptools", 0),
+        ("RUN pip install --user --require-hashes --no-deps --constraint lock.txt setuptools", 0),
+        ("RUN pip install --user --no-deps -c lock.txt setuptools", 1),
+        ("RUN pip install --user --require-hashes --no-deps -c lock.txt setuptools wheel", 1),
+        ("RUN pip install --user --require-hashes --no-deps -c lock.txt", 1),
+        ("RUN pip --disable-pip-version-check install --user fastapi", 1),
+        ("RUN pip --cache-dir /tmp/pip install --user fastapi", 1),
+        ("RUN python -m pip --no-input install --no-deps --no-build-isolation .", 0),
     ],
 )
 def test_install_problems_classifies_each_shape(line: str, problem_count: int) -> None:
@@ -303,7 +395,7 @@ def test_install_problems_classifies_each_shape(line: str, problem_count: int) -
 def test_continuations_chains_and_unparseable_runs() -> None:
     text = (
         "# RUN pip install ignored-because-commented\n"
-        "RUN pip install --user --require-hashes --no-deps \\\n"
+        "RUN pip install --user --require-hashes --no-deps --no-build-isolation \\\n"
         "        -r a.txt && \\\n"
         '    pip install --user ".[api]"\n'
         'RUN ["pip", "install", "x"]\n'
