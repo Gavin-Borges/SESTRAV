@@ -71,6 +71,7 @@ import argparse
 import os
 import sys
 import time
+from collections.abc import Iterable
 
 import pandas as pd
 
@@ -228,6 +229,59 @@ def process_peptides(
 # ---------------------------------------------------------------------------
 
 
+def select_valid_peptides(
+    raw_peptides: Iterable[object],
+    min_len: int = 8,
+    max_len: int = 11,
+) -> list[str]:
+    """Return the sorted unique upper-cased peptides fit for self-similarity.
+
+    Normalisation happens ONCE and every check reads the string that is actually
+    returned. That ordering is load-bearing in two separate ways:
+
+    1. Non-ASCII is rejected BEFORE upper-casing, because str.upper() folds some
+       codepoints into the standard amino-acid alphabet (U+0131 to "I", U+017F to
+       "S"), so an alphabet check applied after the fold accepts residues the
+       input never contained. Same defect and same remedy as
+       src/verify/iedb_multi_virus_extractor.py's is_valid_peptide, where
+       fuzz/fuzz_is_valid_peptide.py found it; that harness covers only that one
+       copy, which is why this one survived.
+    2. The length window is measured on the NORMALISED string. The inline form
+       this replaces measured len(p.strip()) while storing p.strip().upper(),
+       which are two different strings: a pre-fold 11-mer carrying U+00DF (which
+       upper-cases to "SS") passed the window and was then stored as a 12-mer,
+       under a caller that reports the result as "8-11mer".
+
+    Both paths are unreachable on the shipped corpus, whose peptide column is
+    pure ASCII, and on ASCII input str.upper() never changes length, so this is
+    count-neutral there by construction. It is a guard for the next ingest, not
+    a correction to existing output.
+
+    Args:
+        raw_peptides: Raw peptide values, typically a pandas Series. Entries
+            that are not str are skipped rather than coerced.
+        min_len: Inclusive lower bound on peptide length, after normalisation.
+        max_len: Inclusive upper bound on peptide length, after normalisation.
+
+    Returns:
+        Sorted list of unique validated peptides, upper-cased.
+    """
+    selected: set[str] = set()
+    for raw in raw_peptides:
+        if not isinstance(raw, str):
+            continue
+        peptide = raw.strip()
+        if not peptide.isascii():
+            continue
+        peptide = peptide.upper()
+        if not (min_len <= len(peptide) <= max_len):
+            continue
+        if not all(c in _VALID_AA for c in peptide):
+            continue
+        selected.add(peptide)
+    return sorted(selected)
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Precompute human-proteome self-similarity scores for training peptides.",
@@ -281,15 +335,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Error: peptide source CSV must have a 'peptide' column.", file=sys.stderr)
         return 1
 
-    peptides = sorted(
-        {
-            p.strip().upper()
-            for p in df_train["peptide"].dropna()
-            if isinstance(p, str)
-            and 8 <= len(p.strip()) <= 11
-            and all(c in _VALID_AA for c in p.strip().upper())
-        }
-    )
+    peptides = select_valid_peptides(df_train["peptide"].dropna())
     print(f"Unique valid 8-11mer peptides: {len(peptides):,}")
 
     if args.dry_run:
