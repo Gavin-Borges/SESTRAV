@@ -328,7 +328,21 @@ jobs:
 
           /tmp/relcheck/bin/sestrav --help > /dev/null
           echo "sestrav --help OK"
-          for command in $(/tmp/relcheck/bin/python                 "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py"                 --root "${GITHUB_WORKSPACE}" --list-commands); do
+          # `for command in $(...)` discarded the list producer's exit status and
+          # ran zero iterations on empty output, so a --list-commands that failed
+          # or printed nothing left this step green while exercising no command at
+          # all. That is not hypothetical: on a parser/implementation mismatch
+          # --list-commands prints the names AND returns 1, so the discarded
+          # status was the only signal able to fail the step (its stderr WIRING
+          # line reaches the log but fails nothing). The list is therefore captured
+          # by a command of its own, whose failure `-e` does see, and then
+          # required to be non-empty before the loop. Guarded by
+          # tests/test_release_workflow_oidc_install_isolation.py::test_the_subcommand_help_loop_fails_on_an_empty_or_failed_list
+          commands="$(/tmp/relcheck/bin/python \
+            "${GITHUB_WORKSPACE}/scripts/check_consumer_install.py" \
+            --root "${GITHUB_WORKSPACE}" --list-commands)"
+          test -n "$commands"
+          for command in $commands; do
             /tmp/relcheck/bin/sestrav "$command" --help > /dev/null
             echo "sestrav $command --help OK"
           done
