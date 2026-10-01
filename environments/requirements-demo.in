@@ -8,7 +8,7 @@
 # and the [demo] extra, each at the version requirements.txt pins (jsonschema at
 # the version environments/requirements.lock resolves; streamlit, which neither
 # carries, at its own pin), plus setuptools, the build backend for the image's
-# --no-build-isolation install of the package itself. Compiled for Python 3.13,
+# --no-build-isolation installs of this lock and the package. Compiled for Python 3.13,
 # the image's interpreter, with requirements.txt as uv's version preference
 # (SEEDED_SPECS in tools/update_dependencies.py), so the transitive dependencies
 # it shares with requirements.txt keep the versions CI tests.

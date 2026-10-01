@@ -66,14 +66,20 @@ COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.t
 # which is what Scorecard's PinnedDependencies check reports as an unpinned
 # pipCommand.
 #
-# --no-build-isolation builds the package against the setuptools the lock just
-# installed. Without it pip downloads [build-system].requires from PyPI,
-# unhashed, into a throwaway environment for this build. One such download
-# remains in the lock install below: requirements.lock pins connection-pool
-# (via snakemake) as an sdist only, so pip builds it in an isolated environment
-# that fetches its setuptools unhashed. That is tracked separately.
+# --no-build-isolation stops pip creating a throwaway build environment, which
+# downloads [build-system].requires from PyPI, unhashed, for every package it
+# builds from source. That covers the package itself and requirements.lock's
+# one sdist-only pin, connection-pool (via snakemake), whose isolated build
+# used to fetch its setuptools that way. Every build instead runs against the
+# setuptools installed second, which comes from the lock itself: `-c` reads
+# requirements.lock as a constraints file, so pip installs the lock's
+# setuptools pin and enforces that pin's hashes (a tampered hash fails the
+# install). It has to precede the lock install, because pip builds sdists
+# before it installs anything, so a setuptools inside the same command would
+# not exist yet when connection-pool is built.
 RUN pip install --user --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt && \
-    pip install --user --require-hashes --no-deps -r environments/requirements.lock && \
+    pip install --user --require-hashes --no-deps -c environments/requirements.lock setuptools && \
+    pip install --user --require-hashes --no-deps --no-build-isolation -r environments/requirements.lock && \
     pip install --user --no-deps --no-build-isolation .
 
 # Default command

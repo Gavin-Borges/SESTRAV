@@ -37,15 +37,20 @@ COPY --chown=sestrav_user:sestrav_user environments/requirements-pip-bootstrap.t
 # same half-true rationale as the API image's). The image now installs
 # environments/requirements-demo.txt: exactly the core requirements and the
 # [demo] extra, pinned and seeded as Dockerfile.api describes, then the package
-# with --no-deps, and --no-build-isolation so the build uses the locked
-# setuptools instead of an unhashed download. Every pin in this lock installs
-# from a hashed wheel.
+# with --no-deps, and --no-build-isolation so every build uses the setuptools
+# installed second, from this lock (`-c`, hash-enforced), instead of an
+# unhashed download; Dockerfile.api describes the pattern. Every pin in this
+# lock installs from a hashed wheel today; the lock install carries the flag so
+# an sdist that enters it later cannot fetch a build backend unhashed.
 #
 # The package install is still a local-path pip command, which Scorecard still
 # reports; a prebuilt wheel is tracked separately.
 RUN pip install --user --no-cache-dir --require-hashes --no-deps \
         -r environments/requirements-pip-bootstrap.txt && \
-    pip install --user --no-cache-dir --require-hashes --no-deps -r environments/requirements-demo.txt && \
+    pip install --user --no-cache-dir --require-hashes --no-deps \
+        -c environments/requirements-demo.txt setuptools && \
+    pip install --user --no-cache-dir --require-hashes --no-deps --no-build-isolation \
+        -r environments/requirements-demo.txt && \
     pip install --user --no-cache-dir --no-deps --no-build-isolation .
 
 EXPOSE 8501
