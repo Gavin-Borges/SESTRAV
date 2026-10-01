@@ -45,7 +45,7 @@ See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D1
 
 **Per-virus within-CV results (Amendment 6 thresholds; regenerated 2026-08-10 under the peptide-grouped splitter, on the 35,597-row v5 dataset):**
 
-> **DISCLOSURE, added 2026-09-16: the EBV PASS in the table below is carried by synthetic
+> **DISCLOSURE, added 2026-09-16: EBV's pass on the all-negatives `auc_roc` column in the table below is carried by synthetic
 > decoys, and until this edit only the contaminated figure was ever shown here.** Both columns
 > come from `results/per_virus_eval_v5_mode31.csv`, which has shipped them side by side all
 > along. `auc_roc` scores positives against ALL negatives, synthetic allele-matched non-binders
