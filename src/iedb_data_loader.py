@@ -138,7 +138,8 @@ def _load_epitope_table(filepath, has_subheader):
     for _, row in df.iterrows():
         val = row.iloc[peptide_col_idx] if len(row) > peptide_col_idx else None
         if val is not None and isinstance(val, str):
-            seq = val.strip().upper()
+            # None for non-ASCII too, so both consumers drop the row; see _fold_peptide.
+            seq = _fold_peptide(val)
         else:
             seq = None
 
@@ -210,11 +211,35 @@ def map_label(qualitative_measure):
     return None
 
 
+def _fold_peptide(raw):
+    """Strip and upper-case one raw peptide value, or return None if it is not ASCII.
+
+    The non-ASCII check has to come BEFORE the fold. str.upper() maps some
+    non-ASCII letters onto amino-acid codes (U+0131 -> "I", U+017F -> "S") and can
+    change the length (U+00DF -> "SS", U+FB00 -> "FF"), so once a value is folded
+    no validator can tell the corrupt input from a different, well-formed peptide
+    of standard residues. Rejecting inside is_valid_peptide alone is therefore not
+    enough: _load_epitope_table, load_and_clean_iedb, load_schmidt_2021 and
+    src/data_bias_audit.py's _collect_raw_records all folded BEFORE calling it,
+    so the validator only ever saw the substituted ASCII string. Each of them
+    folds through here instead. Same defect and same remedy as
+    src/verify/iedb_multi_virus_extractor.py's is_valid_peptide, where
+    fuzz/fuzz_is_valid_peptide.py found it; that harness covers only that one
+    copy, which is why this one survived.
+    """
+    seq = str(raw).strip()
+    if not seq.isascii():
+        return None
+    return seq.upper()
+
+
 def is_valid_peptide(seq, min_len=8, max_len=11):
     """Check peptide is standard amino acids only and within MHC-I length range."""
     if pd.isna(seq):
         return False
-    seq = str(seq).strip().upper()
+    seq = _fold_peptide(seq)
+    if seq is None:
+        return False
     if not (min_len <= len(seq) <= max_len):
         return False
     return all(aa in STANDARD_AA for aa in seq)
@@ -424,9 +449,8 @@ def load_and_clean_iedb(data_dir, include_hpv11=False):
 
             n_added = 0
             for _, row in df.iterrows():
-                peptide = (
-                    str(row[peptide_col]).strip().upper() if pd.notna(row[peptide_col]) else None
-                )
+                # None for non-ASCII too, so the None check below drops it; see _fold_peptide.
+                peptide = _fold_peptide(row[peptide_col]) if pd.notna(row[peptide_col]) else None
                 row_label = map_label(row[label_col])
                 allele = None
                 if allele_col and pd.notna(row.get(allele_col)):
@@ -626,8 +650,10 @@ def load_schmidt_2021(filepath, gold_standard_peptides=None):
             else:
                 raise ValueError(f"Schmidt dataset missing required column: {col}")
 
-    # Clean and validate peptides
-    df["peptide"] = df["peptide"].astype(str).str.strip().str.upper()
+    # Clean and validate peptides. _fold_peptide returns None for non-ASCII, which
+    # is_valid_peptide then rejects, so a folding codepoint drops the row instead of
+    # becoming a different valid peptide.
+    df["peptide"] = df["peptide"].astype(str).map(_fold_peptide)
     df = df[df["peptide"].apply(is_valid_peptide)].copy()
 
     # Standardize alleles

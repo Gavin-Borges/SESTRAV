@@ -234,7 +234,17 @@ def check_dataset_qc(
             indices_to_drop.add(idx)
             continue
 
-        pep_str = str(pep).strip().upper()
+        pep_str = str(pep).strip()
+
+        # 2a. Reject non-ASCII BEFORE upper-casing. str.upper() maps some non-ASCII
+        # letters onto amino-acid codes (U+0131 -> "I") and can change the length
+        # (U+00DF -> "SS"), so check 2 below would pass on residues the input never
+        # contained. Without this the gate shares the blind spot it exists to catch.
+        if not pep_str.isascii():
+            add_to_quarantine(idx, row, "Non-ASCII characters present in sequence")
+            indices_to_drop.add(idx)
+            continue
+        pep_str = pep_str.upper()
 
         # 2. Check canonical amino acids
         if not all(c in STANDARD_AA for c in pep_str):
