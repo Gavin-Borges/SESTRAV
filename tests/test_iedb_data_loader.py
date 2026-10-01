@@ -104,6 +104,34 @@ def test_is_valid_peptide_normalizes_case_and_whitespace():
     assert is_valid_peptide("  sllmwitqv ") is True
 
 
+# Codepoints whose str.upper() folds INTO the standard amino-acid alphabet. A
+# validator that upper-cases before checking the alphabet therefore accepts a
+# residue the input never contained, and two of these also change the length.
+# Built with chr() rather than a string literal on purpose:
+# tests/test_encoding_ascii_output.py inspects each literal's VALUE through the AST,
+# so both a literal glyph and its escaped form are flagged, while chr(0x0131) leaves
+# only an int literal and keeps this file pure ASCII with no allowlist entry.
+_ASCII_FOLDING_CODEPOINTS = [
+    chr(0x0131),  # dotless i   -> "I"
+    chr(0x017F),  # long s      -> "S"
+    chr(0x00DF),  # sharp s     -> "SS", length 1 -> 2
+    chr(0xFB00),  # ligature ff -> "FF", length 1 -> 2
+]
+
+
+@pytest.mark.parametrize("codepoint", _ASCII_FOLDING_CODEPOINTS)
+def test_is_valid_peptide_rejects_non_ascii_that_folds_to_ascii(codepoint):
+    # Measured: "SLLMWITQ" + U+0131 upper-cases to SLLMWITQI, a well-formed 9mer of
+    # standard residues, so both the length and the alphabet check PASS unless
+    # non-ASCII is rejected BEFORE the fold. All four codepoints below were accepted
+    # pre-fix and are rejected post-fix. The failure mode is SUBSTITUTION, not
+    # rejection: corrupt input silently becomes a different valid-looking peptide,
+    # and for U+00DF and U+FB00 the length changes too.
+    # test_is_valid_peptide_normalizes_case_and_whitespace above is the paired
+    # guard: this fix must not tighten into rejecting lowercase ASCII.
+    assert is_valid_peptide("SLLMWITQ" + codepoint) is False
+
+
 # ---------------------------------------------------------------------------
 # is_mhc_class_i
 # ---------------------------------------------------------------------------

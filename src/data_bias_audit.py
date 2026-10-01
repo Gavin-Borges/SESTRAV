@@ -14,6 +14,7 @@ import pandas as pd
 from src.artifact_guard import guard_planned_paths
 from src.iedb_data_loader import (
     _detect_format,
+    _fold_peptide,
     _infer_protein_gene,
     _infer_strain,
     _label_from_filename,
@@ -75,9 +76,9 @@ def _collect_raw_records(data_dir: str, include_hpv11: bool = False) -> pd.DataF
             if peptide_col is None or label_col is None:
                 continue
             for _, row in df.iterrows():
-                peptide = (
-                    str(row[peptide_col]).strip().upper() if pd.notna(row[peptide_col]) else None
-                )
+                # None for non-ASCII too, so the None check below drops it. Folding here
+                # first would hand is_valid_peptide an already-substituted ASCII string.
+                peptide = _fold_peptide(row[peptide_col]) if pd.notna(row[peptide_col]) else None
                 row_label = map_label(row[label_col])
                 if peptide is None or row_label is None:
                     continue
