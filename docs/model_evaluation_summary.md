@@ -25,7 +25,7 @@
 
 | Evaluation context | AUC-PR | AUC-ROC | Notes |
 |---|---|---|---|
-| Within-virus (same-pathogen discrimination) | see per-virus table | **0.658** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses, peptide-grouped (`results/per_virus_eval_v5_mode31.csv`). Prior ungrouped 0.751 retracted. |
+| Within-virus (same-pathogen discrimination; per-virus within-CV mean AUC-ROC) | see per-virus table | **0.658** (mean) [^retracted] | Canonical metric: per-virus within-CV mean over 9 viruses, peptide-grouped (`results/per_virus_eval_v5_mode31.csv`). Prior ungrouped 0.751 retracted. |
 | Pooled cross-validation, single pass over the concatenated OOF rows (whole v5 corpus) | **0.6055** | **0.8136** | Peptide-grouped, re-baselined 2026-08-10. Both cells from `results/pooled_cv_metrics_mode31.csv` (`mode31_pooled_auc_pr`, `mode31_pooled_auc_roc`, both `kind = pooled_single_pass`), computed in one pass over the 35,555 rows of `models/v5/rf_oof_predictions_mode31.csv`. |
 | Fold-mean across the same five folds (whole v5 corpus) | **0.6058** | **0.8137** | Peptide-grouped, re-baselined 2026-08-10. Both cells from `models/v5/training_results_mode31.csv` (`rf_cv_mean`). **This row is the one to quote against the mode-33/35 antigen-processing ablation ladder**, which is computed fold-wise. **Until 2026-08-31 this row and the one above it were a single row** that paired the pooled AUC-PR with the fold-mean AUC-ROC under one "Pooled" label and cited only `training_results_mode31.csv` - a file that contains `0.6058` and no `0.6055`. The two errors cancelled into looking consistent: a reviewer spot-checking only the AUC-ROC column would have certified the row. **Two superseded predecessors:** this row once read "Self-proteome Gate 1, AUC-PR 0.8897, Gate 1 threshold protocol" - wrong on two counts (0.8897 is the pooled `auc_pr` of an earlier 2026-06-26 v5 build, and no self-proteome-vs-viral evaluation artifact exists here; "Gate 1" is a GNN promotion threshold, `src/verify/promote_gnn.py`, unrelated to this RF metric). It then read 0.8312, which was itself peptide-leakage-inflated (D15) and is now retracted in favour of the grouped 0.6055. The same ledger also carries `rf_cv_mean_no_vaccinia` (AUC-PR 0.7328 / AUC-ROC 0.6702), an OOF re-slice excluding the vaccinia bloc from validation - not a refit on a vaccinia-free corpus. |
 
@@ -36,10 +36,10 @@ out-of-panel vaccinia bloc (which is assay-confirmed, not synthetic - D19) -
 are mixed in as if they were same-pathogen negatives; RETRACTED. **(2) Peptide leakage
 (2026-08-10, D15):** the decoy-corrected figures that replaced it were computed under a
 splitter that stratified but did not group by peptide, and are themselves retracted - pooled
-honest same-pathogen ROC 0.712 -> **0.602**, per-virus within-CV mean 0.751 -> **0.658**.
+honest same-pathogen ROC 0.712 -> **0.602**, per-virus within-CV mean AUC-ROC 0.751 -> **0.658** over nine viruses.
 The current figures are decoy-corrected AND peptide-grouped. The pooled same-pathogen AUC-PR
 (now 0.8711) remains a base-rate artifact (8003 positive vs 1851 negative, about 81% positive)
-and is NOT reported as a headline. The canonical, reproducible same-pathogen metric is the
+and is NOT reported as a headline. The canonical, reproducible same-pathogen metric is the peptide-grouped
 per-virus within-CV table below (mean AUC-ROC 0.658), from `scripts/evaluate_per_virus.py`.
 See `docs/claims_register.md` D15 (remediated) and D12 (superseded-in-part by D15).
 
@@ -332,7 +332,7 @@ recommended production track where antigen processing cache is available.~~ **RE
 > within-CV mean of 0.751.** They are numerically identical by coincidence and are entirely
 > different quantities: this one is a v3 unweighted feature-ablation AUC-ROC over n=1,004, and
 > is NOT affected by the D15 peptide-grouping remediation (which re-baselined the v5 corpus
-> only). The v5 per-virus mean is now 0.658. This table is v3-era throughout and was not
+> only). The v5 per-virus within-CV mean AUC-ROC is now 0.658 over nine viruses. This table is v3-era throughout and was not
 > re-measured under the peptide-grouped splitter.
 
 ---

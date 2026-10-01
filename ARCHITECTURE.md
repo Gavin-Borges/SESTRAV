@@ -392,7 +392,7 @@ a second and largely redundant round of local mixing over 8 to 11 nodes. The sup
 is that **chain-edge message passing adds nothing on top of ESM-2 embeddings**, not that graph
 topology is uninformative in general. These are 18-epoch runs and their absolute levels are
 comparable within the ablation only; they must not be read against the 0.6458 Gate 1 figure
-above, which came from a different epoch budget.
+above (the best of eight runs), which came from a different epoch budget.
 
 ### 6.4 Structural edges (in development, not active)
 

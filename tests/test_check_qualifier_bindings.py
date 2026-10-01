@@ -133,6 +133,71 @@ def test_a_value_that_ends_a_sentence_is_still_a_claim(tmp_path: Path):
     assert result.violations[0].startswith("docs/summary.md" + ":1:")
 
 
+def test_second_bare_mention_in_a_registered_carrier_is_not_shielded(tmp_path: Path):
+    # A registered carrier used to be checked only at its anchor line, so a
+    # second, unrelated bare mention elsewhere in the same file rode free on
+    # the anchor's qualifier. Each other occurrence is now checked against
+    # its own window.
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "result.md").write_text(
+        "score 0.6458, best of eight runs\n\nan older draft also reported 0.6458 with no caveat\n",
+        encoding="utf-8",
+    )
+    result = gate.audit(tmp_path, {"version": 1, "bindings": [_binding()]}, strict=True)
+    assert result.over_ceiling
+    # Assembled, for the same reason as the counterfactual test above.
+    expected = "docs/result.md" + ":3: example: second bare mention of value 0.6458"
+    expected += " lacks a required qualifier within 1 line(s)"
+    assert result.violations == [expected]
+
+
+def test_second_mention_qualified_in_its_own_window_is_clean(tmp_path: Path):
+    # The negative control: a second mention carrying its own qualifier
+    # within its own window is not flagged.
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "result.md").write_text(
+        "score 0.6458, best of eight runs\n\n"
+        "a later table also shows 0.6458, again the best of eight runs\n",
+        encoding="utf-8",
+    )
+    result = gate.audit(tmp_path, {"version": 1, "bindings": [_binding()]}, strict=True)
+    assert result.violations == []
+    assert not result.over_ceiling
+
+
+def test_rewording_the_anchor_does_not_hide_the_other_mentions(tmp_path: Path):
+    # Every occurrence must still be checked when the anchor_pattern stops
+    # selecting exactly one line. Otherwise rewording only the anchor line
+    # LOWERS the count: under a ceiling of 1, an unqualified anchor plus one
+    # other bare mention (2 violations, over the ceiling) would fall to the
+    # single "anchor matched 0" violation and pass with both still bare.
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    carrier = docs / "result.md"
+    carrier.write_text("score 0.6458\n\n\nan older draft also reported 0.6458\n", encoding="utf-8")
+    config = {"version": 1, "bindings": [_binding(violation_ceiling=1)]}
+    before = gate.audit(tmp_path, config)
+    assert len(before.violations) == 2
+    assert before.over_ceiling
+
+    # Only the anchor line changes: "score" is what the anchor_pattern keys on.
+    carrier.write_text("result 0.6458\n\n\nan older draft also reported 0.6458\n", encoding="utf-8")
+    after = gate.audit(tmp_path, config)
+    assert len(after.violations) >= len(before.violations)
+    assert after.over_ceiling
+    # Assembled, for the same reason as the counterfactual test above.
+    prefix = "docs/result.md"
+    other = " example: second bare mention of value 0.6458 lacks a required qualifier"
+    other += " within 1 line(s)"
+    assert after.violations == [
+        prefix + ":0: example: anchor matched 0 occurrences; expected 1",
+        prefix + ":1:" + other,
+        prefix + ":4:" + other,
+    ]
+
+
 def test_untracked_and_gitignored_files_do_not_change_the_result(tmp_path: Path):
     """Only TRACKED files are scanned when the root is a git work tree's top level.
 
