@@ -17,14 +17,20 @@ read Python, so the docstring is left to the change that qualifies it. The repo
 has already shipped a correction that handled three of five carriers and left two
 standing (incident #9 in .claude/rules/third-party-claims-cases.md). Enumerating
 the carriers this file can see is what stops the next edit from re-opening them.
+
+The Gate 2 half, at the foot of this file, checks the Gate 2 statements that
+print no figure, which a qualifier binding keyed on a value cannot see.
 """
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from scripts import check_qualifier_bindings as gate
 
 ROOT = Path(__file__).parents[1]
 FIGURE = "0.6458"
@@ -108,4 +114,56 @@ def test_no_undisclosed_carrier_appears_outside_the_known_set():
         + "\n  ".join(offenders)
         + "\n\nAdd the disclosure, or add the file to EXEMPT with the reason it does not "
         "present the figure as a current result."
+    )
+
+
+# Gate 2 half. Section 1.1 also records that the quoted Gate 2 figure, a
+# cross-fold std of 0.0234, is the WORST of the same eight runs, and that Gate 2
+# passes 4 of 8 at ddof=0 (3 of 8 at ddof=1). Where a document prints 0.0234,
+# the gnn-gate2-worst-of-eight binding in docs/qualifier_bindings.json checks
+# the disclosure. The statements pinned below report the Gate 2 FAIL without
+# printing the figure, so a binding keyed on a value cannot see them. Each is
+# checked with that binding's own qualifier patterns and window, so the two
+# guards share one definition of the disclosure. Only these statements are
+# pinned: a Gate 2 statement elsewhere that prints no figure is not checked here.
+GATE2_BINDING = "gnn-gate2-worst-of-eight"
+
+# (file, a regex that selects exactly one line of it: the line stating the FAIL)
+GATE2_STATEMENTS_WITHOUT_THE_FIGURE = (
+    ("README.md", r"Gate 2 \(cross-fold std\) FAIL"),
+    ("README.md", r"Gate 2 FAIL"),
+    ("ARCHITECTURE.md", r"Gates 1 and 2 FAIL on measured values"),
+    ("docs/claims_register.md", r"^\| D3 \|"),
+    ("docs/claims_register.md", r'^\| "GNN structural scorer" \|'),
+)
+
+
+@pytest.mark.parametrize(
+    ("relative", "statement"),
+    GATE2_STATEMENTS_WITHOUT_THE_FIGURE,
+    ids=(
+        "README-pipeline-stage",
+        "README-gnn-paragraph",
+        "ARCHITECTURE-overview-table",
+        "claims_register-D3",
+        "claims_register-gnn-scorer",
+    ),
+)
+def test_gate2_statement_without_the_figure_discloses_the_series(relative: str, statement: str):
+    config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
+    binding = next(item for item in config["bindings"] if item["id"] == GATE2_BINDING)
+    lines = (ROOT / relative).read_text(encoding="utf-8").splitlines()
+    hits = [number for number, line in enumerate(lines, start=1) if re.search(statement, line)]
+    assert len(hits) == 1, (
+        f"{statement!r} selects {len(hits)} lines of {relative}, not 1. If the Gate 2 "
+        "statement was reworded or moved, re-pin it here; do not drop it unless the "
+        "document no longer reports the Gate 2 FAIL."
+    )
+    window = gate._window(lines, hits[0], binding["window_lines"])
+    assert gate._qualified(window, binding["qualifier_patterns"]), (
+        f"{relative} line {hits[0]} reports the Gate 2 FAIL without the series disclosure. "
+        'Within the window, write "worst of eight" followed by either "passes 4 of 8 at '
+        'ddof=0, 3 of 8 at ddof=1" or "passes 4 of 8 at ddof=0 (3 of 8 at ddof=1)", the '
+        "forms the gnn-gate2-worst-of-eight binding accepts. See "
+        "docs/gnn_gate_retry_preregistration.md section 1.1."
     )
