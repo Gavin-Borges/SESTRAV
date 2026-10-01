@@ -346,6 +346,22 @@ jobs:
         #   python tools/update_dependencies.py --ci-env pip-audit
         run: pip install --require-hashes -r environments/requirements-pip-audit.txt
 
+      - name: Install the lockfile's build backend (hash-checked)
+        # requirements.lock pins connection-pool (via snakemake) as an sdist only, so
+        # the lockfile install below builds it. This installs the lock's own setuptools
+        # first (-c reads the lock as a constraints file: its version, its hashes
+        # enforced), and that install builds with --no-build-isolation against it,
+        # instead of in a throwaway environment that downloads setuptools from PyPI with
+        # no hash. Its own step, without continue-on-error: if it failed, the build
+        # would fall back to whatever setuptools the runner ships (79.0.1 on its Python
+        # 3.11). The hash-pinned pip bootstrap comes first because taking hashes from a
+        # constraints file needs a recent pip (24.0 and 25.0.1 refuse it; 26.2.1, which
+        # the runner ships today, accepts it), and nothing else pins the runner's pip.
+        # tests/test_ci_builds_against_hashed_setuptools.py enforces the pair.
+        run: |
+          pip install --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt
+          pip install --require-hashes --no-deps -c environments/requirements.lock setuptools
+
       # Advisory gate (OpenSSF tier: non-blocking). Audits the INSTALLED,
       # hash-pinned production set. We install the lock first and audit the
       # resulting environment rather than `pip-audit -r environments/requirements.lock`.
@@ -385,7 +401,7 @@ jobs:
         # wheel may not install on this runner. The guard two steps down asserts the
         # real production set was audited, so a partial install is caught, not masked.
         continue-on-error: true
-        run: pip install --require-hashes --no-deps -r environments/requirements.lock
+        run: pip install --require-hashes --no-deps --no-build-isolation -r environments/requirements.lock
 
       - name: Audit installed dependency set
         continue-on-error: true
@@ -482,14 +498,22 @@ jobs:
         #   pip download pip-licenses==5.5.5 -d /tmp/sbom_pkgs && pip hash /tmp/sbom_pkgs/*.whl
         run: pip install --require-hashes -r environments/requirements-sbom.txt
 
+      - name: Install the lockfile's build backend (hash-checked)
+        # Same reason and shape as the pip-audit job's step of this name. setuptools
+        # is in the lock already, so the SBOM's package set does not change.
+        run: |
+          pip install --require-hashes --no-deps -r environments/requirements-pip-bootstrap.txt
+          pip install --require-hashes --no-deps -c environments/requirements.lock setuptools
+
       - name: Install pinned dependencies for SBOM scan
         # pip-licenses reports on installed packages; install the fully-pinned
         # lockfile so the SBOM covers the exact production dependency set.
         # --no-deps: trust the resolved set, do not re-resolve.
+        # --no-build-isolation: build the lock's sdist against the setuptools above.
         # continue-on-error: some platform-specific wheels (CUDA, etc.) may be
         # absent on this runner; pip-licenses will report on what installed.
         continue-on-error: true
-        run: pip install --require-hashes --no-deps -r environments/requirements.lock
+        run: pip install --require-hashes --no-deps --no-build-isolation -r environments/requirements.lock
 
       - name: Generate Python SBOM
         # --ignore-packages excludes the SBOM tooling itself and the runner's own
