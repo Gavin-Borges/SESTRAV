@@ -197,8 +197,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   unhashed install hidden behind a pip option. Scorecard's Pinned-Dependencies check treats
   the new install as pinned (`isUnpinnedPipInstall`, scorecard v5.5.0, returns pinned on
   `--require-hashes`) and still reports each image's local-package install. **Not covered
-  here:** CI builds the same connection-pool sdist in isolation, with the same unhashed
-  setuptools fetch, wherever it installs `environments/requirements-ci.txt` or
+  here, and closed since by the CI entry below:** CI built the same connection-pool sdist
+  in isolation, with the same unhashed setuptools fetch, wherever it installed
+  `environments/requirements-ci.txt` or
   `environments/requirements.lock` - seven install steps across `ci.yml`, `fuzzing.yml`,
   `sestrav_verify_benchmarking.yml`, `security.yml` and `iedb_benchmark.yml`.
 - **The release build no longer downloads its build backend unhashed.** `release.yml`'s
@@ -234,6 +235,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   builds, while the sdist reproduces only its member contents, since setuptools takes
   entry timestamps from the file system and owner names from the build machine, and the
   gzip header carries the time of writing.
+- **CI's lock installs no longer build anything against a setuptools downloaded unhashed.**
+  `environments/requirements-ci.txt` and `environments/requirements.lock` pin
+  connection-pool 0.0.3 (via snakemake) as an sdist only, so every job that installs them
+  built it in pip's isolated environment, which downloads `setuptools>=40.8.0` from PyPI
+  with no hash; `iedb_benchmark.yml`'s editable install of the package did the same with
+  `[build-system].requires`. A census of every pin's hashed files against PyPI, across all
+  16 hash-pinned lockfiles, found connection-pool the only pin whose locked hashes include
+  no wheel installable on Linux x86_64 for CPython 3.11, 3.12 or 3.13, so those two locks
+  are the only ones CI builds from. Each job that installs them now runs the hash-pinned
+  pip bootstrap (`environments/requirements-pip-bootstrap.txt`) and then setuptools from
+  `requirements.txt` or `requirements.lock` as a constraints file (version and hashes from
+  the lock), both in steps that cannot fail silently, and installs the locks with
+  `--no-build-isolation`: the `compat` and `test` jobs in `ci.yml`, `fuzzing.yml`,
+  `sestrav_verify_benchmarking.yml`, the pip-audit and SBOM jobs in `security.yml` (whose
+  lock installs stay `continue-on-error`, as before), and `iedb_benchmark.yml`, whose
+  editable install takes the flag too. The order is measured: pip builds every sdist
+  before it installs anything, and the runners' Python 3.11 ships setuptools 79.0.1
+  (`security.yml`'s pip-audit log shows the lock install replacing it), below the 83.0.0
+  that closes GHSA-h35f-9h28-mq5c, which a build without isolation would otherwise use.
+  Taking hashes from a constraints file needs a recent pip: pip 24.0 and 25.0.1 refuse it
+  (measured on uv-built CPython 3.11.16 and 3.12.14, whose bundled pips they are) and
+  26.2.1 accepts it and rejects a tampered hash. The runners ship 26.2.1 today, but nothing
+  pinned that; the bootstrap does. The four of those jobs that restore pip's cache also run
+  `pip cache remove connection_pool` before the lock installs: setup-python falls back to
+  the newest older cache for the same Python under a prefix key, and `main`'s test job
+  logged exactly that, restoring another key's cache and then "Using cached
+  connection_pool-0.0.3-py3-none-any.whl", a wheel built in isolation. Measured on pip
+  26.2.1, the removal drops only that locally built wheel and keeps the download cache
+  (`pip cache remove '*'` empties both), and the next install rebuilds it. Those jobs also
+  list the bootstrap lock in `cache-dependency-path`, so their comments' "every file this
+  job installs from" holds; that alone would not stop the reuse. `release.yml`'s two
+  installs that resolve from PyPI on purpose, to behave like a user's (`pip install
+  dist/*.whl` and
+  `pip install sestrav==...`), are not covered, and neither is `singularity.def`, whose lock
+  install still builds connection-pool in isolation.
+  `tests/test_ci_builds_against_hashed_setuptools.py` fails any job that installs one of
+  those locks, or the local package in any spelling, without `--no-build-isolation`,
+  before the setuptools install, or (in a job that restores pip's cache) before
+  `pip cache remove connection_pool`; a `pip wheel` or `pip download` of them; and a
+  setuptools or bootstrap install that could fail silently (`--dry-run`,
+  `continue-on-error`, `if:`, a custom `shell:`, `||`, `set +e`), that precedes the
+  bootstrap, or that comes from a lock pinning no setuptools. Nine mutants fail it. It
+  reads commands as text and cannot see wheel availability offline, so an sdist entering
+  a tool lock later is not caught there.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
@@ -347,11 +392,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   repository disables build isolation (no `--no-build-isolation`, no
   `PIP_NO_BUILD_ISOLATION`) or redirects what it resolves (no `PIP_CONSTRAINT` - which
   constrains resolution *inside* isolation rather than switching it off), so no build
-  path evades the floor. **That last sentence stopped being true with the image-lock
-  and release-build entries above:** all three Dockerfiles now build with `--no-build-isolation`, and so
-  does `release.yml`, with `build --no-isolation`. `build` still checks
+  path evades the floor. **That last sentence stopped being true with the image-lock,
+  CI and release-build entries above:** all three Dockerfiles now build with
+  `--no-build-isolation`, as does `iedb_benchmark.yml`'s editable install (CI entry
+  above), and so does `release.yml`, with `build --no-isolation`. `build` still checks
   `[build-system].requires` against its environment and refuses a setuptools below this
-  floor; pip, in the images, neither installs nor checks it (measured on pip 26.2.1, the
+  floor; pip, in the images and in iedb's install, neither installs nor checks it
+  (measured on pip 26.2.1, the
   images' bootstrap: a package requiring `setuptools>=99` and `wheel` installs under
   setuptools 84.0.0 with no `wheel`, and only `--check-build-dependencies` makes it fail).
   Those builds use the locks' setuptools 84.0.0, so the floor is still met, but by the

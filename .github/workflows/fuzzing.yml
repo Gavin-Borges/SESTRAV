@@ -59,6 +59,7 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             environments/requirements-ci.txt
+            environments/requirements-pip-bootstrap.txt
             environments/requirements-ci-torch-cpu.txt
 
       - name: Install CPU PyTorch (no CUDA needed for fuzz tests)
@@ -67,9 +68,16 @@ jobs:
         run: pip install --no-deps --require-hashes -r environments/requirements-ci-torch-cpu.txt --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
+        # Hash-pinned pip, then hash-checked setuptools, then no build isolation, so the
+        # connection-pool sdist in requirements-ci.txt is not built against a
+        # setuptools downloaded unhashed, and the pip cache cannot hand back a wheel
+        # an earlier run built in isolation: see ci.yml's compat job.
         run: |
-          pip install --no-deps --require-hashes -r requirements.txt
-          pip install --no-deps --require-hashes -r environments/requirements-ci.txt
+          pip install --no-deps --require-hashes -r environments/requirements-pip-bootstrap.txt
+          pip install --no-deps --require-hashes -c requirements.txt setuptools
+          pip cache remove connection_pool
+          pip install --no-deps --require-hashes --no-build-isolation -r requirements.txt
+          pip install --no-deps --require-hashes --no-build-isolation -r environments/requirements-ci.txt
 
       - name: Run Hypothesis fuzz tests
         # HYPOTHESIS_MAX_EXAMPLES controls depth; 200 on push/PR, 1000 on schedule.

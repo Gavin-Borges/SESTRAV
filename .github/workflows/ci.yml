@@ -99,11 +99,35 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             environments/requirements-ci.txt
+            environments/requirements-pip-bootstrap.txt
 
       - name: Install dependencies
+        # environments/requirements-ci.txt pins connection-pool (via snakemake) as an
+        # sdist only, so pip builds it. Without --no-build-isolation that build runs
+        # in a throwaway environment that downloads setuptools from PyPI with no hash.
+        # Instead setuptools is installed first, from requirements.txt as a
+        # constraints file (pip takes the version and enforces the hashes), and both
+        # installs build against it. It must come first: pip builds every sdist
+        # before it installs anything, and the runner's Python may ship its own
+        # setuptools (3.11's is 79.0.1), which a build would otherwise use. The
+        # hash-pinned pip bootstrap comes before that, because taking hashes from a
+        # constraints file needs a recent pip: 24.0 and 25.0.1 refuse it, 26.2.1
+        # accepts and enforces it (measured). The runners ship 26.2.1 today, but
+        # nothing pins that; the bootstrap does. This job restores pip's cache, and
+        # setup-python falls back to the newest older cache for the same Python
+        # (its restore key is a prefix without the files' hash), so a connection-pool
+        # wheel an earlier run built in isolation would be reused as it is.
+        # `pip cache remove connection_pool` drops that one locally built wheel (the
+        # download cache stays: measured, while `pip cache remove '*'` empties both),
+        # so pip rebuilds it here against the hash-checked setuptools.
+        # tests/test_ci_builds_against_hashed_setuptools.py enforces the order for
+        # every job that installs these locks.
         run: |
-          pip install --no-deps --require-hashes -r requirements.txt
-          pip install --no-deps --require-hashes -r environments/requirements-ci.txt
+          pip install --no-deps --require-hashes -r environments/requirements-pip-bootstrap.txt
+          pip install --no-deps --require-hashes -c requirements.txt setuptools
+          pip cache remove connection_pool
+          pip install --no-deps --require-hashes --no-build-isolation -r requirements.txt
+          pip install --no-deps --require-hashes --no-build-isolation -r environments/requirements-ci.txt
 
       - name: Smoke-test import
         run: python -c "import src.features; import src.model; print('import OK')"
@@ -131,6 +155,7 @@ jobs:
             environments/requirements-ci-torch-cpu.txt
             requirements.txt
             environments/requirements-ci.txt
+            environments/requirements-pip-bootstrap.txt
             environments/requirements-ci-pytest-cov.txt
             environments/requirements-ci-render.txt
 
@@ -140,9 +165,14 @@ jobs:
             --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
+        # Hash-pinned pip, then hash-checked setuptools, then no build isolation: see
+        # the compat job's step of the same name.
         run: |
-          pip install --no-deps --require-hashes -r requirements.txt
-          pip install --no-deps --require-hashes -r environments/requirements-ci.txt
+          pip install --no-deps --require-hashes -r environments/requirements-pip-bootstrap.txt
+          pip install --no-deps --require-hashes -c requirements.txt setuptools
+          pip cache remove connection_pool
+          pip install --no-deps --require-hashes --no-build-isolation -r requirements.txt
+          pip install --no-deps --require-hashes --no-build-isolation -r environments/requirements-ci.txt
 
       - name: Verify MHCflurry model version pin
         # Binding features change across MHCflurry releases; silent drift invalidates training checksums.

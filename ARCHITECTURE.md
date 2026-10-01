@@ -473,9 +473,11 @@ trained model binaries or runtime caches; training must run before production sc
   **Every other job that installs torch takes it from default PyPI**, and that set is wider than
   it looks - `iedb_benchmark.yml` and `security.yml` via `environments/requirements.lock`, and
   `ci.yml`'s own `compat` matrix via `requirements.txt`, which pins `torch` with no environment
-  marker. Two non-lockfile CI steps are additionally unhashed, for the same structural reason as
-  the Dockerfile: `iedb_benchmark.yml`'s editable install and `release.yml`'s install-from-index
-  smoke test).
+  marker. The non-lockfile CI steps that resolve from an index are unhashed by design:
+  `release.yml`'s pre-publish gate and its post-publish smoke test install the package with its
+  dependencies as a user would. `iedb_benchmark.yml`'s editable install, once listed here, is
+  now `--no-deps --no-build-isolation` and downloads nothing, and the Dockerfiles have since
+  moved to hash-pinned locks.)
   Two CI gates hold this together: `tools/check_hash_pins.py`
   (no unhashed requirement) and `tools/check_lockfile_freshness.py` (no `.in`
   drifted from its compiled output, fail-closed on unmapped `.in` files). See
@@ -483,7 +485,9 @@ trained model binaries or runtime caches; training must run before production sc
 - **Containers:** `Dockerfile` and `singularity.def` cover laptops and HPC respectively, but
   they are **not** equivalent images and this line previously claimed they were "identical"
   (corrected 2026-08-15). They differ on every axis that matters: Python 3.13 vs 3.11;
-  `pip install .` from `pyproject.toml` vs `--require-hashes -r environments/requirements.lock`;
+  the Docker image installs the package itself (`--no-deps`, after the hash-pinned
+  `environments/requirements.lock`) while the Singularity image installs only that lock and
+  runs from its copied source tree;
   and different file sets, since only the Singularity image carries `pipeline.py`, `functions/`
   and the proteomes, and only it fetches the MHCflurry models. Their entry points differ in kind
   too: the Docker image runs the `sestrav` CLI, the Singularity image runs `pipeline.py`. **Only
