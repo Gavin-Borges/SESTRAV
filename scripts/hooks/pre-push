@@ -582,5 +582,58 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+# ---- Check 8: Pinned line citations -------------------------------------
+# Fails when scripts/check_doc_line_citations.py reports a problem: a cited
+# line that no longer holds the text pinned for it in docs/line_citations.json
+# (DRIFTED), a citation with no baseline entry (UNPINNED), more line citations
+# in the exempt historical ledgers than the baseline's ceiling (RATCHET), or one
+# of the other kinds listed in that script's docstring.
+#
+# WHY A SEPARATE CHECK. That script, with the argv used here, is what the
+# required merge context `Cited lines still hold their content` runs
+# (.github/workflows/doc_line_citations.yml). Running it before the push means
+# a stale or unpinned citation blocks the push by name, with the gate's own
+# report, instead of failing that context afterwards. It runs the gate itself,
+# so it does not depend on which tests Check 2 collects.
+#
+# WHAT IT READS. The gate takes its file list from `git ls-files` and reads
+# each file from the working tree, so it audits this checkout as it stands.
+# That is the pushed commit only when the checkout is clean and at that commit.
+#
+# COST. Measured 2026-10-01 on the development workstation: 661 to 698 ms over
+# five warm runs, about 1.7 s on a cold first run. Small next to Check 2, which
+# runs the test suite.
+#
+# DELIBERATELY UNGUARDED, for the same reason Checks 6 and 7 are. The script
+# and its baseline docs/line_citations.json are both TRACKED and neither is
+# gitignored, so both exist in every worktree and every clone. Unlike Checks 4
+# and 5, which skip when _local/ is absent, there is no condition under which
+# this should announce a skip instead of running.
+printf '[pre-push] Checking pinned line citations against their recorded content...\n'
+
+cd "${REPO_ROOT}" && python scripts/check_doc_line_citations.py
+
+if [[ $? -ne 0 ]]; then
+    printf '\n' >&2
+    block "Pinned line-citation gate failed."
+    printf '\n' >&2
+    printf '%s\n' "  It runs the same script as the required context 'Cited lines still" >&2
+    printf '%s\n' "  hold their content'. Each finding names the CITING file:line," >&2
+    printf '%s\n' "  except STALE-PIN and RATCHET, which name the baseline file." >&2
+    printf '%s\n' "  DRIFTED means the cited line no longer holds its pinned text, usually" >&2
+    printf '%s\n' "  because lines were inserted or removed above it. Repoint the citation," >&2
+    printf '%s\n' "  or better, cite the SYMBOL instead - a function or constant name does" >&2
+    printf '%s\n' "  not move when lines are inserted above it." >&2
+    printf '%s\n' "  UNPINNED means a citation carries no baseline entry yet." >&2
+    printf '%s\n' "  Run 'python scripts/check_doc_line_citations.py --update', then READ" >&2
+    printf '%s\n' "  THE DIFF: a changed pin is either a deliberate repoint or the rot" >&2
+    printf '%s\n' "  itself, and the script cannot tell you which." >&2
+    printf '%s\n' "  RATCHET means the historical ledgers (EXEMPT_CITING_FILES in that" >&2
+    printf '%s\n' "  script) together hold more line citations than the recorded ceiling." >&2
+    printf '%s\n' "  Cite the SYMBOL or write the reference as prose. --update would clear" >&2
+    printf '%s\n' "  it only by RAISING the ceiling, which needs a stated reason." >&2
+    exit 1
+fi
+
 printf '[pre-push] All checks passed -- push allowed.\n'
 exit 0
