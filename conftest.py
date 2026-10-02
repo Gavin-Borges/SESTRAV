@@ -1,10 +1,12 @@
 import os
+import re
 import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-# Drop inherited git repository-discovery variables before anything is collected.
+# Drop inherited git repository-discovery variables, and the variables that carry
+# `git -c` settings, before anything is collected.
 #
 # Git exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE into hook subprocesses,
 # and scripts/hooks/pre-push runs pytest, so every test in this suite inherits
@@ -18,13 +20,36 @@ sys.path.insert(0, os.path.dirname(__file__))
 # additionally runs `git rm src/train_classifier.py` and can rewrite
 # docs/line_citations.json under the same leak.
 #
+# `git -c name=value` passes its settings to the processes it starts through
+# GIT_CONFIG_PARAMETERS, and git reads the same kind of setting from
+# GIT_CONFIG_COUNT with GIT_CONFIG_KEY_<n> / GIT_CONFIG_VALUE_<n>. Either form
+# outranks a repository's local config, so a throwaway repo that sets its own
+# core.hooksPath gets the inherited value instead. Measured 2026-10-01 on git
+# 2.55.0.windows.3: with GIT_CONFIG_PARAMETERS="'core.hooksPath'='scripts/hooks'"
+# exported (the value `git -c core.hooksPath=scripts/hooks` exports), and again
+# with the COUNT form, tests/test_prepare_commit_msg_signoff.py failed 11 of its
+# 17 tests; with neither set it passed 17. `git rev-parse --local-env-vars` lists
+# GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT beside the four discovery variables.
+# GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM and GIT_CONFIG_NOSYSTEM are kept: `git -c`
+# does not use them, and they are what a caller sets on purpose to keep a
+# developer's own config files out of git. tests/test_conftest_drops_git_c_config.py
+# pins both halves.
+#
 # Stripped here, at module scope rather than in a fixture, because
 # tests/test_check_doc_commit_refs.py shells out to git at COLLECTION time (in a
 # skipif decorator), which is earlier than any session-scoped fixture runs.
 # Individual helpers still pass an explicit scrubbed env as a second guard - see
 # tests/test_check_lockfile_freshness.py, which established this idiom, and
 # tools/check_lockfile_freshness.py, whose docstring documents the mechanism.
-for _leaked_git_var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX"):
+for _leaked_git_var in (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_PREFIX",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    *[_name for _name in os.environ if re.fullmatch(r"GIT_CONFIG_(KEY|VALUE)_[0-9]+", _name)],
+):
     os.environ.pop(_leaked_git_var, None)
 
 # Choose the root pytest uses for tmp_path / tmpdir.
