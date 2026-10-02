@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 # SESTRAV pre-push gate
 #
+# Eight numbered checks plus Check 1b, each opened by a banner line that starts
+# "# ---- Check", run in the order listed below; any failing check blocks the
+# push. Check 1b's banner is indented because it runs inside Check 1's loop over
+# the pushed refs. Check 6 runs two scans under one banner, and the second has
+# no banner of its own. A shared setup section, also bannered, sits above
+# Check 1. To list every banner:
+#   grep -n -E '^[[:space:]]*# ---- ' scripts/hooks/pre-push
+#
+# Shared setup (not a numbered check) -- assigns REPO_ROOT and defines
+#   ensure_python, which every check that runs python calls before its first
+#   python command. The first call activates the sestrav environment where
+#   conda is on PATH and blocks unless `python` imports pytest.
+#
 # Check 1 -- blocks direct pushes to the 'main' branch.
 #   Every change to main goes through a typed feature branch -> PR -> CI -> merge.
 #   Authorized admin/hotfix override: git push --no-verify
@@ -37,6 +50,28 @@
 #   and outreach copy. Check 3 and CI both see tracked files only. Outreach
 #   publishes where it cannot be edited afterwards, so this is the surface with
 #   no second chance. Also local-only, and also announces its skip.
+#
+# Check 6 -- credential scan, in two passes under one banner:
+#   (a) scripts/check_secrets.py's entropy scan over this checkout's files;
+#   (b) no banner of its own: an inline Python scan of every scannable blob
+#       that the non-merge commits being pushed add or modify, reusing that
+#       script's scanner, so content crossing to the remote is scanned even
+#       when the checkout no longer holds it. A merge commit's own changes,
+#       such as a conflict resolution, are not scanned here: git diff-tree
+#       lists no paths for a merge. It prints "Scanning blobs introduced by
+#       the pushed commit ranges".
+#
+# Check 7 -- runs scripts/check_qualifier_bindings.py in its ratchet form: it
+#   fails when a binding's violations exceed its violation_ceiling in
+#   docs/qualifier_bindings.json. Runs in every clone and never skips.
+#
+# Check 8 -- runs scripts/check_doc_line_citations.py, the script behind the
+#   required context 'Cited lines still hold their content': each pinned line
+#   citation must still hold the text recorded for it in
+#   docs/line_citations.json, a citation the script scans must have an entry
+#   there (it skips the historical ledgers and the other exclusions it
+#   lists), and those ledgers together may not hold more line citations than
+#   the ceiling that file records. Runs in every clone and never skips.
 
 set -uo pipefail
 
@@ -464,6 +499,8 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+# Check 6, pass (b): the pushed-range blob scan. It has no banner of its own;
+# the header lists it under Check 6.
 printf '[pre-push] Scanning blobs introduced by the pushed commit ranges...\n'
 
 cd "${REPO_ROOT}" && python - "${PUSH_UPDATES}" <<'PY'
