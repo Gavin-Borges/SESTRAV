@@ -1,2 +1,10 @@
 pytest-cov==7.1.0
 pytest-xdist==3.8.0
+# packaging is pinned to the version environments/requirements-ci.txt pins.
+# Nothing checks that the two stay equal.
+# ci.yml's test job installs the lock compiled from this file after that one,
+# into the same environment, and resolved without this line pytest's
+# packaging>=22 came out as 26.2 here and replaced 25.0, which snakemake 9.27.0
+# and snakemake-interface-common 1.23.0 (both pinned in requirements-ci.txt) do
+# not admit: each declares packaging<26.
+packaging==25.0

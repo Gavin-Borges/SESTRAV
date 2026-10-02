@@ -6,6 +6,10 @@
 #     --python-version 3.13 --only-binary :all: \
 #     --platform manylinux_2_17_x86_64
 #   pip hash --algorithm sha256 /tmp/pkgs/*.whl
+# packaging is held at 25.0, the version environments/requirements-ci.txt
+# pins: ci.yml's test job installs this file into the same environment, and
+# snakemake 9.27.0 and snakemake-interface-common 1.23.0 declare packaging<26.
+# The recipe above resolves the newest packaging; re-pin it to 25.0.
 asttokens==3.0.2 \
     --hash=sha256:3ecdbd8f2cc195f53ccada3a613538bb5f9ef6f6869129f13e03c30a677b8fe2 \
     --hash=sha256:9da13157f5b28becde0bd374fc677dcd3c290614264eff096f167c469cd9f933
@@ -50,9 +54,9 @@ nbformat==5.11.1 \
     --hash=sha256:cc6698fa75f4fab8755ead786317815f13a6fee3b53311c0abb1a8b51d52f7ec
 nest_asyncio==1.6.0 \
     --hash=sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c
-packaging==26.3 \
-    --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
-    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+packaging==25.0 \
+    --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484 \
+    --hash=sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f
 parso==0.8.7 \
     --hash=sha256:a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c
 pexpect==4.9.0 \
