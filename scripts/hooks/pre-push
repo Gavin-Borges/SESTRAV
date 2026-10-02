@@ -76,6 +76,74 @@ is_calendar_date() {
     (( d <= last ))
 }
 
+# ---- Shared setup for every check (not a numbered check) ----------------
+# Defined above Check 1 so that no check depends on another check having run
+# first. Checks 2 to 8 all need REPO_ROOT, and all of them run bare `python`.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# ensure_python verifies, once per push, the interpreter that bare `python`
+# resolves to, and blocks the push with a diagnosis unless it imports pytest.
+#
+# Bare `python` is whatever PATH resolves. Each check that runs python calls
+# ensure_python itself, as a plain statement, before its first python command,
+# instead of relying on an earlier check to have verified the interpreter. The
+# first call activates the sestrav environment where conda is on PATH, then
+# blocks unless `python` imports pytest; every later call returns at once. So
+# reordering, removing or skipping checks below this section cannot leave a
+# check running an interpreter that nothing verified. A new check that runs
+# python must call it too; tests/test_pre_push_interpreter_guard.py fails when
+# one does not, or when a check sits above this definition.
+#
+# Never call it inside $(...) or a pipeline: there it runs in a subshell, and
+# its `exit 1` would not stop the hook.
+#
+# Say WHY when the environment is not usable, instead of blaming the tests.
+#
+# The activation below is a silent no-op in Git Bash: `command -v conda` finds
+# nothing there, because conda is not on PATH under that shell (verified
+# 2026-09-02). Without the probe below, the hook would then run whatever
+# `python` resolves to - on Windows that is usually the WindowsApps store shim,
+# which has no pytest - so `python -m pytest` would exit non-zero and Check 2
+# would report "Fast test gate failed. Fix failures before pushing."
+#
+# That message is misleading in the worst way: it names the tests when the tests
+# never ran. The gate does FAIL CLOSED, so nothing unsafe reaches the remote, but
+# a reader is sent to debug a suite that was never executed. This preflight
+# converts that into an accurate diagnosis. It changes nothing when the
+# environment IS active: if pytest imports, the checks proceed exactly as before.
+_prepush_python_verified=0
+ensure_python() {
+    if [[ "${_prepush_python_verified}" -eq 1 ]]; then
+        return 0
+    fi
+
+    # Activate conda environment if not already active.
+    if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; then
+        if command -v conda >/dev/null 2>&1; then
+            eval "$(conda shell.bash hook 2>/dev/null)" && conda activate sestrav 2>/dev/null || true
+        fi
+    fi
+
+    if ! python -c "import pytest" >/dev/null 2>&1; then
+        block "pytest is not importable, so no pre-push check that runs python can run."
+        printf '\n' >&2
+        printf '%s\n' "  This is an ENVIRONMENT problem, not a test failure. Nothing ran." >&2
+        printf '\n' >&2
+        printf '%s\n' "  'conda' is not on PATH in Git Bash, so the activation above is a" >&2
+        printf '%s\n' "  no-op and 'python' resolves to an interpreter without pytest." >&2
+        printf '\n' >&2
+        printf '%s\n' "  Activate the environment, then push again:" >&2
+        printf '%s\n' '    eval "$(<conda-root>/Scripts/conda.exe shell.bash hook)"' >&2
+        printf '%s\n' "    conda activate sestrav" >&2
+        printf '\n' >&2
+        printf '%s\n' "  Confirm with:" >&2
+        printf '%s\n' "    python -c 'import sys, pytest; print(sys.executable)'" >&2
+        exit 1
+    fi
+
+    _prepush_python_verified=1
+}
+
 # ---- Check 1: Direct-push guard ----------------------------------------
 protected_branch="main"
 PUSH_UPDATES="$(mktemp)"
@@ -155,8 +223,6 @@ done
 # ---- Check 2: Fast test gate -------------------------------------------
 printf '[pre-push] Running fast test gate (Windows shells skip six native-crash targets; CI runs them)...\n'
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-
 # Drop the repository-discovery variables git exports into every hook before
 # handing off to pytest. They take precedence over cwd, so any test that builds
 # a throwaway repo and runs git in it inherits them and operates on THIS repo
@@ -168,43 +234,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # It does NOT cover other hooks or `git bisect run`, hence the in-suite scrub too.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 
-# Activate conda environment if not already active.
-if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; then
-    if command -v conda >/dev/null 2>&1; then
-        eval "$(conda shell.bash hook 2>/dev/null)" && conda activate sestrav 2>/dev/null || true
-    fi
-fi
-
-# Say WHY when the environment is not usable, instead of blaming the tests.
-#
-# The activation above is a silent no-op in Git Bash: `command -v conda` finds
-# nothing there, because conda is not on PATH under that shell (verified
-# 2026-09-02). The gate then runs whatever `python` resolves to - on Windows that
-# is usually the WindowsApps store shim, which has no pytest - so `python -m
-# pytest` exits non-zero and Check 2 reports "Fast test gate failed. Fix failures
-# before pushing."
-#
-# That message is misleading in the worst way: it names the tests when the tests
-# never ran. The gate does FAIL CLOSED, so nothing unsafe reaches the remote, but
-# a reader is sent to debug a suite that was never executed. This check converts
-# that into an accurate diagnosis. It changes nothing when the environment IS
-# active: if pytest imports, the gate proceeds exactly as before.
-if ! python -c "import pytest" >/dev/null 2>&1; then
-    block "pytest is not importable, so the fast test gate cannot run."
-    printf '\n' >&2
-    printf '%s\n' "  This is an ENVIRONMENT problem, not a test failure. Nothing ran." >&2
-    printf '\n' >&2
-    printf '%s\n' "  'conda' is not on PATH in Git Bash, so the activation above is a" >&2
-    printf '%s\n' "  no-op and 'python' resolves to an interpreter without pytest." >&2
-    printf '\n' >&2
-    printf '%s\n' "  Activate the environment, then push again:" >&2
-    printf '%s\n' '    eval "$(<conda-root>/Scripts/conda.exe shell.bash hook)"' >&2
-    printf '%s\n' "    conda activate sestrav" >&2
-    printf '\n' >&2
-    printf '%s\n' "  Confirm with:" >&2
-    printf '%s\n' "    python -c 'import sys, pytest; print(sys.executable)'" >&2
-    exit 1
-fi
+ensure_python
 
 # The native-extension exclusions below apply only on Windows shells (Git Bash,
 # MSYS2, Cygwin; detected by uname -s). Elsewhere the complete suite runs; all
@@ -304,10 +334,11 @@ printf '[pre-push] All fast tests passed.\n'
 # the public README, where it stood for five weeks. It carried no number, so
 # every gate this repo had was blind to it by construction.
 #
-# Runs after Check 2 to reuse the conda activation above; the check itself
-# is stdlib-only and takes under a second.
+# Calls ensure_python itself, like every check that runs python. The check
+# is stdlib-only and takes about a second.
 printf '[pre-push] Checking institution names against the affiliation allowlist...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_affiliation_claims.py
 
 if [[ $? -ne 0 ]]; then
@@ -335,6 +366,7 @@ printf '[pre-push] All checks passed -- affiliation allowlist clean.\n'
 HARNESS="${REPO_ROOT}/_local/integrity/integrity_check.py"
 if [[ -f "${HARNESS}" ]]; then
     printf '[pre-push] Running integrity harness against this worktree...\n'
+    ensure_python
     python "${HARNESS}" --repo-root "${REPO_ROOT}"
     if [[ $? -ne 0 ]]; then
         printf '\n' >&2
@@ -363,6 +395,7 @@ fi
 # covers has no second chance.
 if [[ -d "${REPO_ROOT}/_local" ]]; then
     printf '[pre-push] Checking _local/ drafts and outreach copy (--all)...\n'
+    ensure_python
     cd "${REPO_ROOT}" && python scripts/check_affiliation_claims.py --all
     if [[ $? -ne 0 ]]; then
         printf '\n' >&2
@@ -412,6 +445,7 @@ fi
 # under which this check should announce a skip instead of running.
 printf '[pre-push] Scanning for high-entropy credential assignments...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_secrets.py
 
 if [[ $? -ne 0 ]]; then
@@ -565,6 +599,7 @@ fi
 # there is no condition under which this should announce a skip.
 printf '[pre-push] Checking published values against their qualifier bindings...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_qualifier_bindings.py
 
 if [[ $? -ne 0 ]]; then
@@ -611,6 +646,7 @@ fi
 # this should announce a skip instead of running.
 printf '[pre-push] Checking pinned line citations against their recorded content...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_doc_line_citations.py
 
 if [[ $? -ne 0 ]]; then
