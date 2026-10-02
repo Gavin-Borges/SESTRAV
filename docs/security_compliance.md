@@ -9,7 +9,7 @@ This document tracks SESTRAV's posture against the [OpenSSF Best Practices Badge
 
 ## 2. Change Control
 - **Version Control:** Git/GitHub is strictly utilized.
-- **Release Tracking:** Releases are tagged with semantic versions (e.g., `v2.0.2`) and published as GitHub Releases with build-provenance attestations.
+- **Release Tracking:** Releases are tagged with semantic versions (e.g., `v2.0.2`) and published as GitHub Releases whose wheel and sdist carry build-provenance attestations (for v2.0.2 and v2.0.3 these are held in GitHub's attestation store, not attached as release assets).
 - **Review:** All pull requests to `main` require a successful GitHub Actions CI check before merging.
 
 ## 3. Reporting
@@ -167,10 +167,23 @@ Run 2026-06-18 (Day 5) with pip-audit 2.10.1. **4 packages flagged; 3 are transi
 
 ## Future Upgrades
 Automated dependency updates are in place via Dependabot (`.github/dependabot.yml`)
-alongside the Dependency-review Action and OSSF Scorecard. Signed releases now
-ship via the `release.yml` workflow, which attaches a Sigstore build-provenance
-attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
-`signed_releases` criterion (verify with `gh attestation verify`). Remaining
+alongside the Dependency-review Action and OSSF Scorecard. Each tagged release's
+wheel and sdist now carry a Sigstore build-provenance attestation produced by the
+`release.yml` workflow (v2.0.2 onward; verify with `gh attestation verify`).
+Neither OpenSSF measure that bears on release signing records it as met, and they
+are two different measures, not two readings of one. The Best
+Practices badge's `signed_releases` is a Silver-level criterion (the project's
+badge level is Passing), and the badge form leaves it unanswered: read
+2026-10-01, the project JSON (<https://www.bestpractices.dev/projects/13191.json>)
+gives `"signed_releases_status":"?"`, last updated 2026-06-16. OpenSSF
+Scorecard's separate Signed-Releases check matches release asset NAMES against
+signature and provenance suffixes such as `.intoto.jsonl`. It scored 0 on
+2026-08-26 (dated record in `CHANGELOG.md`) and 0 again in the result of the
+2026-10-01 `scorecard.yml` run on `153d2b06`, because v2.0.2 and v2.0.3 keep
+their attestations in GitHub's attestation store rather than as release assets.
+Since `da905e32` (2026-08-26) the workflow also uploads the attestation as a
+`sestrav-<version>.intoto.jsonl` release asset, but no release has been cut
+under it yet. Remaining
 planned work: publish the package to PyPI, and clear `version_tags_signed`
 (a SUGGESTED criterion). Note what that now requires: the tags are already being
 signed - v2.0.3 carries an SSH signature - but GitHub reports it `unknown_key`

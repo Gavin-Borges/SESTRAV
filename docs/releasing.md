@@ -83,7 +83,9 @@ GitHub will then show your tags/commits as **Verified**.
    - builds a checksummed results bundle (`src/release_bundle.py`: a zip + manifest of the
      tracked canonical `results/*` artifacts, so a reader can verify a release's reported
      numbers against the exact files that produced them),
-   - attaches a Sigstore provenance attestation covering the dist and results-bundle files,
+   - attaches a Sigstore provenance attestation covering the sdist, the wheel and the
+     results-bundle ZIP (the bundle's `*.manifest.json` is covered only through the copy
+     packed inside the ZIP),
    - creates the GitHub Release with all assets and auto-generated notes.
 
 4. **Update `SECURITY.md`** "Release Integrity & Verification" to record the first
@@ -178,10 +180,15 @@ a PyPI upload credential automatically. No static credentials are involved.
 ## Badge status (as shipped)
 
 The first release (**v2.0.2**) was published via this workflow with a Sigstore
-build-provenance attestation, so on the badge form
-(<https://www.bestpractices.dev/projects/13191>) `signed_releases` is recorded as
-**Met** (cryptographic provenance over the release artifacts, verifiable with
-`gh attestation verify`).
+build-provenance attestation over its wheel and sdist, verifiable with
+`gh attestation verify`. On the badge form
+(<https://www.bestpractices.dev/projects/13191>), `signed_releases` is not recorded
+as Met. It is a Silver-level
+criterion (the project's badge level is Passing), and the form leaves it
+unanswered: read 2026-10-01, the project JSON gives
+`"signed_releases_status":"?"`, last updated 2026-06-16, and the Silver page
+shows it as Unknown. This paragraph previously said it was "recorded as **Met**";
+that is not what the form records.
 
 `version_tags_signed` remains **Unmet**, and the reason is not the one this
 paragraph used to give. **Corrected 2026-09-15: v2.0.3 IS signed.** Its tag object

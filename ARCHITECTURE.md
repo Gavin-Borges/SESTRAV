@@ -520,8 +520,11 @@ Practices **Passing** badge ([project 13191](https://www.bestpractices.dev/proje
   transmit sequences, queries, or outputs. Network services bind to `127.0.0.1` only.
 
 **Tier position: Passing is terminal; Silver and Gold are declined (2026-08-17).** The
-non-multi-person Silver criteria are met (governance, two-scope coverage measurement,
-Sigstore-signed releases, published threat model), but both higher tiers require the
+repository carries documented governance (`GOVERNANCE.md`), two-scope coverage
+measurement (`.coveragerc.library` and `pyproject.toml`), Sigstore build-provenance
+attestations over each release's wheel and sdist (`.github/workflows/release.yml`) and
+a published threat model (`docs/threat_model.md`), and the badge form records Silver at
+4% complete, with `signed_releases` unanswered (read 2026-10-01), but both higher tiers require the
 multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`),
 which need a second maintainer. SESTRAV is solo-maintained with no plan to add one, so
 these tiers are not pursued - see `BUS_FACTOR.md`. Gold coverage thresholds are already cleared on the library scope

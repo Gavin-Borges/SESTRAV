@@ -161,9 +161,10 @@ The live badge is embedded at the top of `README.md`:
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 ```
 
-**Higher tiers are declined, not in progress (2026-08-17).** The non-multi-person
-Silver criteria are essentially met (signed releases ship via the `release.yml`
-Sigstore attestation workflow), but Silver and Gold both require the multi-person
+**Higher tiers are declined, not in progress (2026-08-17).** The repository's
+`.github/workflows/release.yml` produces Sigstore build-provenance attestations over
+each release's wheel and sdist, and the badge form records Silver at 4% complete, with
+`signed_releases` unanswered (read 2026-10-01), but Silver and Gold both require the multi-person
 criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which need a
 second maintainer or independent contributor. SESTRAV is solo-maintained with no plan
 to add one, so **Passing is the terminal tier**. See `BUS_FACTOR.md` for the honest
