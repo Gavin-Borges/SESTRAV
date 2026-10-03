@@ -6,18 +6,37 @@ name: Property-Based Fuzz Testing
 # so a push to a feature branch does not fire this workflow - only the pull request
 # that targets main does.
 #
-# This does NOT satisfy OSSF Scorecard's automated Fuzzing check. Verified live
-# against api.securityscorecards.dev on 2026-08-23, bound to commit 36e3d8d
-# (Scorecard v5.5.0, analysis date 2026-08-22T23:00:34Z): score 0, reason "project
-# is not fuzzed", details "Warn: no fuzzer integrations found".
-#
-# The reason is specific: Scorecard has no detector for Hypothesis, or for any
-# property-based Python library. Its only Python detector is Atheris, matched on
-# the source pattern `import atheris` (languageFuzzSpecs in checks/raw/fuzzing.go
-# at ossf/scorecard c395761, the exact revision that produced the score above).
-# Registering this check would require an Atheris harness, OSS-Fuzz registration,
-# or ClusterFuzzLite - so it is reachable, just not by this suite as written:
+# THIS SUITE does NOT satisfy OSSF Scorecard's automated Fuzzing check. Scorecard
+# has no detector for Hypothesis, or for any property-based Python library. Its
+# only Python detector is Atheris, matched on the source pattern `import atheris`
+# (languageFuzzSpecs in checks/raw/fuzzing.go at ossf/scorecard c395761):
 # https://scorecard.dev/checks/#fuzzing
+#
+# THE CHECK ITSELF IS NOW SATISFIED, which this header used to deny. Read from
+# api.securityscorecards.dev on 2026-10-02, for the scorecard.yml run of
+# 2026-10-01 on commit 153d2b06 (Scorecard v5.5.0): Fuzzing scores 10, reason
+# "project is fuzzed". It reports TEN matches, not nine. Nine are the fuzz/
+# harnesses that each `import atheris`. The tenth is in tests/, and it is not an
+# import at all: tests/test_fuzz_harness_support.py asserts that every harness
+# imports atheris, and the pattern appears inside that assertion's own failure
+# message. A bare per-line regex over *.py cannot tell a string literal from an
+# import. Separately, from GitHub's code-scanning API, alert FuzzingID (#13)
+# closed as fixed at 2026-09-30T14:32:03Z, by an earlier run than the one above.
+# The detector reads source and never inspects runs, so the check is satisfied
+# even though no workflow executes those harnesses - and the tenth match is the
+# sharpest evidence of that, being a test rather than a fuzzer. Keep the
+# distinction: the check passing is not this suite passing it.
+#
+# Superseded, kept as the dated record it was: read on 2026-08-23 against commit
+# 36e3d8d (Scorecard v5.5.0, analysis date 2026-08-22T23:00:34Z), Fuzzing scored
+# 0, reason "project is not fuzzed", details "Warn: no fuzzer integrations
+# found". This header also used to say that registering the check "would require
+# an Atheris harness, OSS-Fuzz registration, or ClusterFuzzLite - so it is
+# reachable, just not by this suite as written". That sentence was not falsified;
+# it was SATISFIED. An Atheris harness is exactly what registered the check, and
+# its closing clause, that the check is not reachable by this suite as written,
+# is the part this header keeps as still true. What went stale is only the
+# implication that the requirement was still outstanding.
 #
 # Tests are in tests/test_fuzz.py and exercise compute_features and get_tcr_positions
 # under adversarial/edge-case inputs using Hypothesis.
