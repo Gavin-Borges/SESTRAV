@@ -174,7 +174,9 @@ attestation to every tagged release (v2.0.2 onward) - satisfying the OpenSSF
 planned work: publish the package to PyPI, and clear `version_tags_signed`
 (a SUGGESTED criterion). Note what that now requires: the tags are already being
 signed - v2.0.3 carries an SSH signature - but GitHub reports it `unknown_key`
-because no signing key is registered on the account, so the criterion is Unmet
-despite the signing. Registering the key is the outstanding step, not tagging
-with `git tag -s`. See `ROADMAP.md` for the declined-tier position
+because the key that signed it is not the SSH signing key registered on the
+account, so the criterion is unsatisfied despite the signing. A signing key IS
+registered, and GitHub reports commits signed with it as verified; the
+outstanding step is to sign the next tag with that registered key (expected to
+verify, not yet measured on a tag). See `ROADMAP.md` for the declined-tier position
 on the multi-person Silver/Gold criteria, and the coverage ratchet.

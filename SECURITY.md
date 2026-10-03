@@ -94,9 +94,11 @@ release at which signing is introduced onward:
 - **Tags**: v2.0.3 IS signed with an SSH key and carries a signature block;
   v2.0.2 and earlier are annotated but unsigned. `version_tags_signed` is
   nevertheless still Unmet, for a different reason than "no signed tag exists":
-  GitHub reports v2.0.3 as unverified with reason `unknown_key`, because no SSH
-  signing key is registered on the account. Signing a future tag does not on its
-  own clear the criterion. See `docs/releasing.md`.
+  GitHub reports v2.0.3 as unverified with reason `unknown_key`, because the SSH
+  key that signed it is not the signing key registered on the account. A signing
+  key IS registered, and GitHub reports commits signed with it as verified, so the
+  next tag should be signed with that registered key. No tag has been signed with
+  it yet, so a verified tag is expected, not measured. See `docs/releasing.md`.
 - **Artifacts** carry a Sigstore provenance attestation, verifiable with:
 
   ```bash

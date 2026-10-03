@@ -336,9 +336,10 @@ Release **artifacts** carry a keyless Sigstore provenance attestation so consume
 can verify authenticity (not just integrity); the verification procedure is
 documented in `SECURITY.md`. Version **tags**: v2.0.3 is signed, earlier tags are not.
 `version_tags_signed` is still Unmet because GitHub reports that signature as
-`unknown_key`, no signing key being registered on the account, so signing alone
-does not clear it - see `docs/releasing.md`. Sign new tags with
-`git tag -s vX.Y.Z` regardless, and keep the tag message ASCII.
+`unknown_key`: v2.0.3 was signed with an SSH key that is not the signing key
+registered on the account - see `docs/releasing.md`. Sign new tags with the
+registered key (`git tag -s vX.Y.Z` with `user.signingkey` set to it), and
+keep the tag message ASCII.
 
 ---
 
