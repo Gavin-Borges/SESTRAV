@@ -173,8 +173,10 @@ Trusted Publishers** - no API token or GitHub secret is required.
      permanently refuses a re-upload of a version number that has already been
      published, so a bad upload cannot be replaced under the same number.
    - Set to anything that is not `true` (`false` included), or absent from the
-     repository altogether: the publish job is never scheduled, and the tag produces
-     the GitHub Release with its attestation and checksums and nothing else.
+     repository altogether: the publish job is never scheduled, so the tag produces
+     the GitHub Release, with its attestation and checksums, and does not publish to
+     PyPI. "Does not publish" is the whole of the difference: the Release's own assets
+     are the same either way.
 
    Change it at Settings -> Secrets and variables -> Actions -> Variables, or with
    `gh variable set PYPI_PUBLISH --body false`. The workflow itself never needs
