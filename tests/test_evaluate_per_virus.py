@@ -14,12 +14,14 @@ Covers:
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from scripts.evaluate_per_virus import (
     EXIT_CRITERION,
@@ -41,6 +43,7 @@ from scripts.evaluate_per_virus import (
     main,
     precision_at_recall,
 )
+from src.statistical_bootstrap import paired_bootstrap_comparison
 
 
 # ---------------------------------------------------------------------------
@@ -495,6 +498,37 @@ def test_main_compare_same_file(tmp_path: Path) -> None:
         ]
     )
     assert rc in (0, 1, 2)
+
+
+def test_main_compare_summary_prints_the_recorded_numbers(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each summary line shows the delta and p-value written to the JSON.
+
+    paired_bootstrap_comparison returns auc_roc with delta_mean and p_value.
+    The summary once looked up other key names, so every line printed nan
+    while the JSON held the real values. Fewer resamples keep this fast.
+    """
+    monkeypatch.setattr(
+        "scripts.evaluate_per_virus.paired_bootstrap_comparison",
+        functools.partial(paired_bootstrap_comparison, n_resamples=200),
+    )
+    pred = _write_multi_virus_csv(tmp_path)
+    other = pd.read_csv(pred)
+    other["score"] = np.random.default_rng(5).uniform(0.0, 1.0, size=len(other))
+    compare = _write_csv(tmp_path, other, name="compare.csv")
+    out_json = tmp_path / "results.json"
+
+    main(["--predictions", str(pred), "--compare", str(compare), "--output-json", str(out_json)])
+
+    comparisons = json.loads(out_json.read_text())["comparisons"]
+    assert sorted(comparisons) == ["EBV", "HPV"]
+    printed = capsys.readouterr().out.splitlines()
+    for virus, result in comparisons.items():
+        roc = result["auc_roc"]
+        assert math.isfinite(roc["delta_mean"]) and math.isfinite(roc["p_value"])
+        line = f"  {virus:<12}  delta AUC-ROC={roc['delta_mean']:.4f}  p={roc['p_value']:.3f}"
+        assert line in printed
 
 
 def test_main_no_virus_column_returns_1(tmp_path: Path) -> None:
