@@ -315,6 +315,28 @@ def test_identical_models_are_not_significantly_different():
         assert result[key]["ci_low"] == 0.0
         assert result[key]["ci_high"] == 0.0
         assert result[key]["significant_95"] == "no"
+        assert result[key]["p_value"] == 1.0
+
+
+def test_p_value_is_at_most_one_when_two_models_tie_on_a_metric():
+    """A p-value is a probability, so it must never exceed 1.
+
+    Both models in _df put only positives in their top decile, so ISSR@10 ties
+    in the full sample. A bootstrap delta of exactly zero falls in both tails,
+    and doubling the smaller tail used to report 2.0 here. This is two
+    different models, not a model compared with itself.
+    """
+    df = _df(n_pos=30, n_neg=30)
+    y, ref, comp = df["label"].to_numpy(), df["ref"].to_numpy(), df["comp"].to_numpy()
+    assert _top_decile_positive_rate(y, ref) == _top_decile_positive_rate(y, comp) == 1.0
+
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        result = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=200, seed=0)
+
+    assert result["issr_10"]["ci_low"] == result["issr_10"]["ci_high"] == 0.0
+    assert result["issr_10"]["p_value"] == 1.0
+    for key in ("auc_pr", "auc_roc", "issr_10"):
+        assert 0.0 <= result[key]["p_value"] <= 1.0
 
 
 # ---------------------------------------------------------------------------
