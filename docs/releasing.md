@@ -22,7 +22,8 @@ git config --global tag.gpgSign true
 
 Then add the **same public key** to GitHub as a *signing* key:
 GitHub -> Settings -> SSH and GPG keys -> **New SSH key** -> Key type: *Signing Key*.
-GitHub will then show your tags/commits as **Verified**.
+GitHub then shows commits signed with that key as **Verified**. No tag has been
+signed with it yet (see the `version_tags_signed` note below).
 
 ## Cutting a release
 
@@ -102,7 +103,9 @@ GitHub will then show your tags/commits as **Verified**.
    - builds a checksummed results bundle (`src/release_bundle.py`: a zip + manifest of the
      tracked canonical `results/*` artifacts, so a reader can verify a release's reported
      numbers against the exact files that produced them),
-   - attaches a Sigstore provenance attestation covering the dist and results-bundle files,
+   - attaches a Sigstore provenance attestation covering the sdist, the wheel and the
+     results-bundle ZIP (the bundle's `*.manifest.json` is covered only through the copy
+     packed inside the ZIP),
    - creates the GitHub Release with all assets and auto-generated notes.
 
 4. **Update `SECURITY.md`** "Release Integrity & Verification" to record the first
@@ -197,10 +200,15 @@ a PyPI upload credential automatically. No static credentials are involved.
 ## Badge status (as shipped)
 
 The first release (**v2.0.2**) was published via this workflow with a Sigstore
-build-provenance attestation, so on the badge form
-(<https://www.bestpractices.dev/projects/13191>) `signed_releases` is recorded as
-**Met** (cryptographic provenance over the release artifacts, verifiable with
-`gh attestation verify`).
+build-provenance attestation over its wheel and sdist, verifiable with
+`gh attestation verify`. On the badge form
+(<https://www.bestpractices.dev/projects/13191>), `signed_releases` is not recorded
+as Met. It is a Silver-level
+criterion (the project's badge level is Passing), and the form leaves it
+unanswered: read 2026-10-01, the project JSON gives
+`"signed_releases_status":"?"`, last updated 2026-06-16, and the Silver page
+shows it as Unknown. This paragraph previously said it was "recorded as **Met**";
+that is not what the form records.
 
 `version_tags_signed` remains **Unmet**, and the reason is not the one this
 paragraph used to give. **Corrected 2026-09-15: v2.0.3 IS signed.** Its tag object
@@ -208,14 +216,15 @@ carries an SSH signature block, and the local tag is byte-identical to the one o
 origin, so the pushed tag carries it too. v2.0.2 and earlier are genuinely
 unsigned. It is a SUGGESTED (not MUST) criterion, so it does not affect the tier.
 
-**Signing the next tag is necessary but NOT sufficient, which is the part that was
-missing here.** GitHub reports v2.0.3 as `verified: false, reason: unknown_key`,
-meaning no SSH signing key is registered on the account under Settings, SSH and
-GPG keys, with key type **Signing Key**. Until that registration happens, a tag
-cut with `git tag -s` will still display as Unverified on GitHub and the criterion
-stays Unmet no matter how it was signed. Local verification is a separate
-question: `git tag -v v2.0.3` reports a good signature but `No principal matched`,
-because it was signed with a different key than the one `user.signingkey` now
-names, so a tag cut with the current key will verify locally while still showing
-Unverified on GitHub until the key is registered. Register the key first, then
-tag. No CI step verifies tag signatures, so nothing else will catch this.
+**Corrected 2026-10-01: the cause is the KEY, not a missing registration.** GitHub
+reports v2.0.3 as `verified: false, reason: unknown_key`. That is not because no
+signing key is registered: one SSH key IS registered on the account with key type
+**Signing Key**, and GitHub reports commits signed with it as verified. v2.0.3 was
+signed with a different SSH key, one that is not registered on the account.
+`git tag -v v2.0.3` agrees: it reports a good signature but `No principal matched`,
+because that key is not in the local allowed-signers file that `git tag -v` checks,
+whose one entry is the registered key (also the key `user.signingkey` now names).
+So nothing needs registering before the next tag: sign it with the registered key.
+No tag has been signed with that key yet, so the next tag showing Verified is
+expected from the commit evidence, not measured. No CI step verifies tag
+signatures, so nothing else will catch this.

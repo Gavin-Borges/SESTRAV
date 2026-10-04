@@ -306,7 +306,9 @@ To prepare a new release bundle for upload as a GitHub Release Asset:
 ```bash
 python -m src.release_bundle --output-dir release_artifacts
 ```
-This generates a ZIP archive and a SHA256 checksum manifest inside the `release_artifacts/` directory.
+This generates a ZIP archive and a JSON manifest of SHA-256 digests inside the
+`release_artifacts/` directory. That manifest is not in `sha256sum` format, so `sha256sum -c`
+cannot read it; the released `SHA256SUMS.txt`, which is, comes from `release.yml` instead.
 
 ### Reproducible builds
 
@@ -336,9 +338,10 @@ Release **artifacts** carry a keyless Sigstore provenance attestation so consume
 can verify authenticity (not just integrity); the verification procedure is
 documented in `SECURITY.md`. Version **tags**: v2.0.3 is signed, earlier tags are not.
 `version_tags_signed` is still Unmet because GitHub reports that signature as
-`unknown_key`, no signing key being registered on the account, so signing alone
-does not clear it - see `docs/releasing.md`. Sign new tags with
-`git tag -s vX.Y.Z` regardless, and keep the tag message ASCII.
+`unknown_key`: v2.0.3 was signed with an SSH key that is not the signing key
+registered on the account - see `docs/releasing.md`. Sign new tags with the
+registered key (`git tag -s vX.Y.Z` with `user.signingkey` set to it), and
+keep the tag message ASCII.
 
 ---
 

@@ -14,10 +14,13 @@ _Last updated: 2026-09._
   are formally declined as of 2026-08-17**, not scheduled: both require the
   multi-person criteria (`bus_factor`, `two_person_review`,
   `contributors_unassociated`), SESTRAV has one maintainer, and there is no plan to
-  add a second (`BUS_FACTOR.md`). The many Silver/Gold criteria the project already
-  satisfies - governance, two-scope coverage measurement, Sigstore-signed releases,
-  threat model/assurance case - stand on their own merits and continue to be
-  maintained. See `docs/threat_model.md` and `GOVERNANCE.md`.
+  add a second (`BUS_FACTOR.md`). The repository carries documented governance
+  (`GOVERNANCE.md`), two-scope coverage measurement (`.coveragerc.library` and
+  `pyproject.toml`), Sigstore build-provenance attestations over each release's wheel
+  and sdist (`.github/workflows/release.yml`) and a threat model/assurance case
+  (`docs/threat_model.md`); these stand on their own merits and continue to be
+  maintained. The badge form records Silver and Gold each at 4% complete, with
+  `signed_releases` unanswered (read 2026-10-01).
 - **Test coverage.** Coverage is measured on two scopes; only the library scope is
   gated in CI:
   - **Library scope** (OpenSSF Silver `test_statement_coverage80`): the importable
@@ -44,13 +47,14 @@ _Last updated: 2026-09._
   scope is the one with headroom to grow. Subprocess-launched
   modules are measured via the `tools/coverage_subprocess` hook so they are not
   undercounted as 0%.
-- **Signed release artifacts - shipped.** Release artifacts carry a keyless
+- **Signed release artifacts - shipped.** Each release's wheel and sdist carry a keyless
   Sigstore/SLSA build-provenance attestation (`.github/workflows/release.yml`),
   with verification documented in `SECURITY.md`'s "Release Integrity &
   Verification" section. `version_tags_signed` (SUGGESTED) is currently **Unmet**,
   but not because tags are unsigned: v2.0.3 IS signed, and GitHub reports it
-  `unknown_key` because no SSH signing key is registered on the account. Signing
-  the next tag does not on its own clear this - see `docs/releasing.md`.
+  `unknown_key` because the key that signed it is not the SSH signing key
+  registered on the account. A signing key IS registered; the next tag should be
+  signed with it - see `docs/releasing.md`.
 - **Container image.** A publish-to-`ghcr.io` workflow with provenance and SBOM
   is in place (`.github/workflows/docker.yml`); it fires on the next version tag.
   It has not run yet - the workflow was added after `v2.0.3`, so no image is

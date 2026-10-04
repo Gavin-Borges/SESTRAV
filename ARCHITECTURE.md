@@ -433,8 +433,24 @@ independent extension. These are documented as forward work rather than shipped 
 - **Freeze mode:** setting `freeze_mode: true` in `config.yaml` enforces release-grade
   guardrails: no prototype-fallback scoring, no mixed legacy/canonical output stems, and
   atomic artifact updates.
-- **Integrity:** `src/release_bundle.py` emits SHA-256 manifests for release archives so a
-  consumer can verify exactly which data, code, and models produced a result.
+- **Integrity:** `src/release_bundle.py` emits a JSON manifest recording the path, byte size
+  and SHA-256 of each `results/` file it packs, so a consumer can verify that those result
+  files arrived unaltered. It records no code revision and no inputs, so it does not establish
+  WHICH code or models produced them; `docs/reproducibility.md` states that limit. As the
+  release workflow now stands, coverage of the uploaded assets is split across two different
+  mechanisms, not one: `SHA256SUMS.txt`, built with `sha256sum *` inside `dist/`, covers what
+  is in `dist/` (the wheel, the sdist and the attestation bundle), while the results-bundle ZIP
+  is published from `dist_release_bundle/`, is never copied into `dist/`, and is therefore
+  absent from `SHA256SUMS.txt`; the Sigstore attestation's subject-path names it instead,
+  alongside the wheel and the sdist. Two uploaded assets are in neither: `SHA256SUMS.txt`
+  itself, and the ZIP's standalone `*.manifest.json`, whose only attested route is the copy
+  packed inside the attested ZIP. GitHub also shows a SHA-256 digest for every uploaded asset,
+  but like `SHA256SUMS.txt` it is unsigned, and GitHub's auto-generated source archives are in
+  neither mechanism. No tag has yet run the workflow in this form: v2.0.2 and v2.0.3 ran an
+  earlier version, and each has only three uploaded assets, the wheel, the sdist and a
+  `SHA256SUMS.txt` listing those two; their wheel and sdist each carry a Sigstore provenance
+  attestation, held in GitHub's attestation store rather than as a release asset, and neither
+  release has a results-bundle ZIP (read 2026-10-03).
 
 A fresh clone ships with the data, proteomes, binding matrix, code, and tests, but not the
 trained model binaries or runtime caches; training must run before production scoring.
@@ -522,8 +538,11 @@ Practices **Passing** badge ([project 13191](https://www.bestpractices.dev/proje
   transmit sequences, queries, or outputs. Network services bind to `127.0.0.1` only.
 
 **Tier position: Passing is terminal; Silver and Gold are declined (2026-08-17).** The
-non-multi-person Silver criteria are met (governance, two-scope coverage measurement,
-Sigstore-signed releases, published threat model), but both higher tiers require the
+repository carries documented governance (`GOVERNANCE.md`), two-scope coverage
+measurement (`.coveragerc.library` and `pyproject.toml`), Sigstore build-provenance
+attestations over each release's wheel and sdist (`.github/workflows/release.yml`) and
+a published threat model (`docs/threat_model.md`), and the badge form records Silver at
+4% complete, with `signed_releases` unanswered (read 2026-10-01), but both higher tiers require the
 multi-person criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`),
 which need a second maintainer. SESTRAV is solo-maintained with no plan to add one, so
 these tiers are not pursued - see `BUS_FACTOR.md`. Gold coverage thresholds are already cleared on the library scope
@@ -552,7 +571,7 @@ gaps are the same multi-person criteria plus per-file SPDX/copyright headers
 | `src/antigen_processing.py` | Literature-transcribed ERAP/TAP PSSM proxy scores. **NOT wired into any build** - imported only by its own test, and it emits `erap_score` (N-terminal trimming), not `netchop_score`. Mode 33 reads `data/antigen_processing_cache.csv` instead, which holds MOCK values (D18) |
 | `src/evaluate_metrics.py` | AUC-PR, AUC-ROC, ISSR/precision/recall/NDCG at top-k |
 | `src/shap_analysis.py`, `src/statistical_bootstrap.py` | Interpretability and CI estimation |
-| `src/release_bundle.py` | SHA-256 release manifests |
+| `src/release_bundle.py` | JSON SHA-256 manifest over the packed `results/` bundle |
 | `scripts/precompute_esm2_embeddings.py` | ESM-2 embedding cache builder for the GNN |
 | `data/`, `models/`, `results/` | Committed datasets, binding matrices, and validation snapshots |
 

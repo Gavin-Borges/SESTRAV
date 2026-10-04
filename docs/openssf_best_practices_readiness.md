@@ -118,7 +118,7 @@ This document provides a comprehensive readiness checklist and evidence mapping 
 *   **SESTRAV Status:** ✅ **PASSING**
 *   **Evidence:** 
     *   SESTRAV does not store user credentials or perform custom payload encryption.
-    *   For data integrity, [release_bundle.py](../src/release_bundle.py) implements standard **SHA-256** checksum generation for validating release archives.
+    *   For data integrity, [release_bundle.py](../src/release_bundle.py) records a standard **SHA-256** digest for each `results/` file it packs, in a JSON manifest. As the release workflow now stands, coverage of the uploaded assets is split across two mechanisms: `SHA256SUMS.txt`, built with `sha256sum *` inside `dist/`, which covers the wheel, the sdist and the attestation bundle; and the Sigstore attestation, whose subject-path names the wheel, the sdist and the results-bundle ZIP, which is published from `dist_release_bundle/` and is not listed in `SHA256SUMS.txt`. Two uploaded assets are in neither: `SHA256SUMS.txt` itself, and the ZIP's standalone `*.manifest.json`, whose only attested route is the copy packed inside the attested ZIP. GitHub also shows a SHA-256 digest for every uploaded asset, but like `SHA256SUMS.txt` it is unsigned, and GitHub's auto-generated source archives are in neither mechanism. No tag has yet run the workflow in this form: v2.0.2 and v2.0.3 ran an earlier version, and each has only three uploaded assets, the wheel, the sdist and a `SHA256SUMS.txt` listing those two; their wheel and sdist each carry a Sigstore provenance attestation, held in GitHub's attestation store rather than as a release asset, and neither release has a results-bundle ZIP (read 2026-10-03).
     *   WL graph subtree calculations utilize MD5 strictly for non-cryptographic feature index mapping (with `usedforsecurity=False` flagged in `hashlib` to prevent warning triggers).
 
 ### 5.3 Pinned Dependencies & Secure Supply Chain
@@ -161,9 +161,10 @@ The live badge is embedded at the top of `README.md`:
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13191/badge)](https://www.bestpractices.dev/projects/13191)
 ```
 
-**Higher tiers are declined, not in progress (2026-08-17).** The non-multi-person
-Silver criteria are essentially met (signed releases ship via the `release.yml`
-Sigstore attestation workflow), but Silver and Gold both require the multi-person
+**Higher tiers are declined, not in progress (2026-08-17).** The repository's
+`.github/workflows/release.yml` produces Sigstore build-provenance attestations over
+each release's wheel and sdist, and the badge form records Silver at 4% complete, with
+`signed_releases` unanswered (read 2026-10-01), but Silver and Gold both require the multi-person
 criteria (`bus_factor`, `two_person_review`, `contributors_unassociated`), which need a
 second maintainer or independent contributor. SESTRAV is solo-maintained with no plan
 to add one, so **Passing is the terminal tier**. See `BUS_FACTOR.md` for the honest
