@@ -306,7 +306,9 @@ To prepare a new release bundle for upload as a GitHub Release Asset:
 ```bash
 python -m src.release_bundle --output-dir release_artifacts
 ```
-This generates a ZIP archive and a SHA256 checksum manifest inside the `release_artifacts/` directory.
+This generates a ZIP archive and a JSON manifest of SHA-256 digests inside the
+`release_artifacts/` directory. That manifest is not in `sha256sum` format, so `sha256sum -c`
+cannot read it; the released `SHA256SUMS.txt`, which is, comes from `release.yml` instead.
 
 ### Reproducible builds
 
