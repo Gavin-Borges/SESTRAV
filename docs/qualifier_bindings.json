@@ -20,8 +20,8 @@
           "path": "ARCHITECTURE.md",
           "anchor_pattern": "called against it: Gate 1 FAIL at 0\\.6458",
           "observed": {
-            "line": 344,
-            "window_sha256": "3bc0f1280fa67006608a6be5cde9adc737ffd04561a435771daa20319cd8d623"
+            "line": 346,
+            "window_sha256": "8ed6122b8060d41b0462e88eaaf27a4ab788ce07249d13a7ff01bf15d32b1bda"
           }
         },
         {
@@ -29,7 +29,7 @@
           "anchor_pattern": "GNN Structural Benchmark.*0\\.6458",
           "observed": {
             "line": 229,
-            "window_sha256": "3792e7569fae2688ec1d98c4604c5e50fb7e171c4f88b74920047935d7a4931d"
+            "window_sha256": "df05b4cc1c2f72558d31fd767734f314fa7906de83208a3412ec8b8919727597"
           }
         },
         {
@@ -37,7 +37,7 @@
           "anchor_pattern": "Gate 1 alone settles it:.*0\\.6458",
           "observed": {
             "line": 221,
-            "window_sha256": "93ce0dcc3bf861acbc27380b7936fbe85de767a03178617a06d0b06120d0e4bc"
+            "window_sha256": "96f73020226342bb1e1158a42cd0d862c5921188151fc2652364e6e3ef29a9f3"
           }
         },
         {
@@ -52,23 +52,23 @@
           "path": "docs/architecture/gnn_models.md",
           "anchor_pattern": "returned Gate 1 FAIL at 0\\.6458",
           "observed": {
-            "line": 155,
-            "window_sha256": "66b07ccd17ef5721ded57a1bd56231fe516468b287d460aad2584f7127b89dd7"
+            "line": 157,
+            "window_sha256": "5051c2ebbd8c763945cec0d3d832e1f6bda4d5b29d248285b7d5a60d0e305b3b"
           }
         },
         {
           "path": "docs/claims_register.md",
           "anchor_pattern": "GNN structural scorer.*0\\.6458",
           "observed": {
-            "line": 100,
-            "window_sha256": "fdcc5a0efb8164f5ea8d0d1b8a8bd37276811a9a719aa08a305ea01f2c532267"
+            "line": 102,
+            "window_sha256": "aaa6c927cf16b3b3cb941faf3e15066f6a7b225d4dcecb035b1a66cac89eaf8f"
           }
         },
         {
           "path": "docs/paper.md",
           "anchor_pattern": "AUC-PR reached 0\\.6458",
           "observed": {
-            "line": 1250,
+            "line": 1252,
             "window_sha256": "8b47259e6264009ddd54a3e98ec12f2548422326d48782830d15ddfcf2729b1c"
           }
         }
@@ -78,6 +78,61 @@
           "path": "CHANGELOG.md",
           "note": "Dated release history records what was reported at the time; rewriting it would alter the historical record."
         },
+        {
+          "path": "docs/gnn_gate_retry_preregistration.md",
+          "note": "This preregistration is the primary disclosure and positive control, so requiring it to cite itself would be circular."
+        }
+      ]
+    },
+    {
+      "id": "gnn-gate2-worst-of-eight",
+      "value": "0.0234",
+      "decimals": 4,
+      "qualifier_patterns": [
+        "worst\\s+of\\s+eight\\b[\\s\\S]*?\\bpasses\\s+4\\s+of\\s+8\\s+at\\s+ddof=0(?:,\\s+|\\s+\\()3\\s+of\\s+8\\s+at\\s+ddof=1"
+      ],
+      "window_lines": 3,
+      "scan_globs": [
+        "*.md",
+        "docs/**/*.md",
+        "src/**/*.py"
+      ],
+      "violation_ceiling": 0,
+      "carriers": [
+        {
+          "path": "ARCHITECTURE.md",
+          "anchor_pattern": "0\\.0234 against <= 0\\.02",
+          "observed": {
+            "line": 347,
+            "window_sha256": "99b791bf641140527de22b37602585299f855151f5b5c67de7c553dfb0b0f3ec"
+          }
+        },
+        {
+          "path": "ROADMAP.md",
+          "anchor_pattern": "cross-fold std 0\\.0234",
+          "observed": {
+            "line": 222,
+            "window_sha256": "1b2385c189b0a11e0184b01eb32d28ef4b122aff80ac91beaf64c1bc4b038ba9"
+          }
+        },
+        {
+          "path": "docs/architecture/gnn_models.md",
+          "anchor_pattern": "Gate 2 FAIL at 0\\.0234",
+          "observed": {
+            "line": 157,
+            "window_sha256": "d0388ae84729fc76dfcb73c595984e206c1354e940ba86927cc91e827ece68fe"
+          }
+        },
+        {
+          "path": "src/verify/promote_gnn.py",
+          "anchor_pattern": "Gate 2 \\(cross-fold AUC-PR std\\)\\s+0\\.0234",
+          "observed": {
+            "line": 33,
+            "window_sha256": "fea1afded3c0958e42895523be3af2a54b6e4c08bcb9eecef65c1a654de7e59d"
+          }
+        }
+      ],
+      "exemptions": [
         {
           "path": "docs/gnn_gate_retry_preregistration.md",
           "note": "This preregistration is the primary disclosure and positive control, so requiring it to cite itself would be circular."

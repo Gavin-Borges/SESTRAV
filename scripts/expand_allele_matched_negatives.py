@@ -83,7 +83,13 @@ def curate_negative_records(records: list[dict[str, Any]]) -> pd.DataFrame:
     """Filter and normalize candidate negative records."""
     rows = []
     for r in records:
-        pep = str(r.get("linear_sequence", "")).strip().upper()
+        pep = str(r.get("linear_sequence", "")).strip()
+        # Reject non-ASCII BEFORE upper-casing: str.upper() folds U+0131 to "I" and
+        # U+00DF to "SS", so the filter below would pass on residues and lengths the
+        # input never had.
+        if not pep.isascii():
+            continue
+        pep = pep.upper()
         if not (MIN_LEN <= len(pep) <= MAX_LEN) or not all(aa in STANDARD_AA for aa in pep):
             continue
 

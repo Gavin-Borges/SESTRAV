@@ -30,7 +30,8 @@ The v5 GNN was evaluated against these gates and **returned a null result on the
 pre-registered bar**, which is an AND-conjunction, so Gate 1 alone decides it:
 
   Gate 1 (pooled AUC-PR, peptide-grouped)  0.6458  vs >= 0.65   FAIL by 0.0042
-  Gate 2 (cross-fold AUC-PR std)           0.0234  vs <= 0.02   FAIL
+  Gate 2 (cross-fold AUC-PR std)           0.0234  vs <= 0.02   FAIL (worst of eight runs;
+      across the series Gate 2 passes 4 of 8 at ddof=0, 3 of 8 at ddof=1)
   Gates 3/4/5 (latency, ECE, escape)                            PASS
 
 Underneath that null sits a real effect, and both halves must be reported

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -59,6 +60,7 @@ def test_repository_config_declares_the_debt_it_still_carries():
     config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
     assert _declared_ceilings(config) == {
         "gnn-gate1-best-of-eight": 0,
+        "gnn-gate2-worst-of-eight": 0,
         "per-virus-mean-nine-virus-scope": 0,
     }
 
@@ -67,8 +69,8 @@ def test_repository_config_passes_its_ratchet():
     config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
     ceilings = _declared_ceilings(config)
     result = gate.audit(ROOT, config)
-    assert result.bindings_checked == 2
-    assert result.carriers_checked == 9
+    assert result.bindings_checked == 3
+    assert result.carriers_checked == 13
     assert len(result.violations) <= sum(ceilings.values())
     # Per binding, because that is the unit the script's ratchet is computed over.
     for binding_id, measured in result.per_binding.items():
@@ -83,9 +85,98 @@ def test_strict_mode_reports_the_repaired_tree_clean():
     # passing vacuously on a config that audits nothing.
     config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
     result = gate.audit(ROOT, config, strict=True)
-    assert result.carriers_checked == 9
+    assert result.carriers_checked == 13
     assert result.violations == []
     assert not result.over_ceiling
+
+
+def test_each_gate2_carrier_fails_once_its_disclosure_is_reworded(tmp_path: Path):
+    """The live Gate 2 binding can fail at every carrier it registers.
+
+    The two live-tree tests above prove the carriers pass, which a binding whose
+    pattern matched anything would also do. Here each carrier's live text is
+    copied into a scratch tree with its disclosure replaced by "the best of
+    eight runs", the wording that followed the 0.0234 figure in two carriers
+    before it was corrected, and the binding must report that carrier alone.
+    """
+    config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
+    binding = next(item for item in config["bindings"] if item["id"] == "gnn-gate2-worst-of-eight")
+    single = {"version": 1, "bindings": [binding]}
+    live = {
+        carrier["path"]: (ROOT / carrier["path"]).read_text(encoding="utf-8")
+        for carrier in binding["carriers"]
+    }
+    assert live, "the gnn-gate2-worst-of-eight binding registers no carrier"
+
+    def write_tree(reworded: str | None) -> str:
+        changed = ""
+        for relative, text in live.items():
+            if relative == reworded:
+                replaced = 0
+                for pattern in binding["qualifier_patterns"]:
+                    text, count = re.subn(
+                        pattern, "the best of eight runs", text, flags=re.IGNORECASE | re.DOTALL
+                    )
+                    replaced += count
+                assert replaced >= 1, f"no disclosure found to reword in {relative}"
+                changed = text
+            target = tmp_path / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+        return changed
+
+    write_tree(None)
+    assert gate.audit(tmp_path, single, strict=True).violations == []
+
+    suffix = ": gnn-gate2-worst-of-eight: value 0.0234 lacks a required qualifier within "
+    suffix += f"{binding['window_lines']} line(s)"
+    for relative in live:
+        changed = write_tree(relative)
+        result = gate.audit(tmp_path, single, strict=True)
+        assert result.over_ceiling, f"rewording the disclosure in {relative} went unreported"
+        assert len(result.violations) == 1, result.violations
+        reported = result.violations[0]
+        assert reported.startswith(relative + ":") and reported.endswith(suffix), reported
+        line = int(reported[len(relative) + 1 :].split(":", 1)[0])
+        assert "0.0234" in changed.splitlines()[line - 1]
+
+
+@pytest.mark.parametrize(
+    ("disclosure", "expected_violations"),
+    [
+        ("the worst of eight runs; Gate 2 passes 4 of 8 at ddof=0, 3 of 8 at ddof=1", 0),
+        ("the worst of eight runs; Gate 2 passes 4 of 8 at ddof=0 (3 of 8 at ddof=1)", 0),
+        ("the best of eight runs; Gate 2 passes 4 of 8 at ddof=0, 3 of 8 at ddof=1", 1),
+        ("the best of eight runs; Gate 2 passes 4 of 8 at ddof=0 (3 of 8 at ddof=1)", 1),
+    ],
+    ids=("comma", "parenthesis", "best-comma", "best-parenthesis"),
+)
+def test_gate2_pattern_takes_either_separator_and_still_rejects_best_of_eight(
+    tmp_path: Path, disclosure: str, expected_violations: int
+):
+    """The live Gate 2 pattern accepts the ddof=1 count after a comma or in parentheses.
+
+    The carriers write it after a comma; the preregistration, and the failure
+    message of the Gate 2 statement test, put it in parentheses. Either separator
+    must pass, and "best of eight" must fail with either.
+    """
+    config = gate._load_config(ROOT / "docs/qualifier_bindings.json")
+    live = next(item for item in config["bindings"] if item["id"] == "gnn-gate2-worst-of-eight")
+    binding = _binding(
+        id="gate2",
+        value=live["value"],
+        decimals=live["decimals"],
+        qualifier_patterns=live["qualifier_patterns"],
+        window_lines=live["window_lines"],
+        carriers=[{"path": "docs/result.md", "anchor_pattern": r"std 0\.0234"}],
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "result.md").write_text(
+        f"Gate 2 FAIL at cross-fold std 0.0234, {disclosure}.\n", encoding="utf-8"
+    )
+    result = gate.audit(tmp_path, {"version": 1, "bindings": [binding]}, strict=True)
+    assert len(result.violations) == expected_violations, result.violations
 
 
 def test_counterfactual_qualifier_removal_names_file_and_line(tmp_path: Path):
@@ -131,6 +222,71 @@ def test_a_value_that_ends_a_sentence_is_still_a_claim(tmp_path: Path):
     result = gate.audit(tmp_path, {"version": 1, "bindings": [_binding()]}, strict=True)
     assert len(result.violations) == 1
     assert result.violations[0].startswith("docs/summary.md" + ":1:")
+
+
+def test_second_bare_mention_in_a_registered_carrier_is_not_shielded(tmp_path: Path):
+    # A registered carrier used to be checked only at its anchor line, so a
+    # second, unrelated bare mention elsewhere in the same file rode free on
+    # the anchor's qualifier. Each other occurrence is now checked against
+    # its own window.
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "result.md").write_text(
+        "score 0.6458, best of eight runs\n\nan older draft also reported 0.6458 with no caveat\n",
+        encoding="utf-8",
+    )
+    result = gate.audit(tmp_path, {"version": 1, "bindings": [_binding()]}, strict=True)
+    assert result.over_ceiling
+    # Assembled, for the same reason as the counterfactual test above.
+    expected = "docs/result.md" + ":3: example: second bare mention of value 0.6458"
+    expected += " lacks a required qualifier within 1 line(s)"
+    assert result.violations == [expected]
+
+
+def test_second_mention_qualified_in_its_own_window_is_clean(tmp_path: Path):
+    # The negative control: a second mention carrying its own qualifier
+    # within its own window is not flagged.
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "result.md").write_text(
+        "score 0.6458, best of eight runs\n\n"
+        "a later table also shows 0.6458, again the best of eight runs\n",
+        encoding="utf-8",
+    )
+    result = gate.audit(tmp_path, {"version": 1, "bindings": [_binding()]}, strict=True)
+    assert result.violations == []
+    assert not result.over_ceiling
+
+
+def test_rewording_the_anchor_does_not_hide_the_other_mentions(tmp_path: Path):
+    # Every occurrence must still be checked when the anchor_pattern stops
+    # selecting exactly one line. Otherwise rewording only the anchor line
+    # LOWERS the count: under a ceiling of 1, an unqualified anchor plus one
+    # other bare mention (2 violations, over the ceiling) would fall to the
+    # single "anchor matched 0" violation and pass with both still bare.
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    carrier = docs / "result.md"
+    carrier.write_text("score 0.6458\n\n\nan older draft also reported 0.6458\n", encoding="utf-8")
+    config = {"version": 1, "bindings": [_binding(violation_ceiling=1)]}
+    before = gate.audit(tmp_path, config)
+    assert len(before.violations) == 2
+    assert before.over_ceiling
+
+    # Only the anchor line changes: "score" is what the anchor_pattern keys on.
+    carrier.write_text("result 0.6458\n\n\nan older draft also reported 0.6458\n", encoding="utf-8")
+    after = gate.audit(tmp_path, config)
+    assert len(after.violations) >= len(before.violations)
+    assert after.over_ceiling
+    # Assembled, for the same reason as the counterfactual test above.
+    prefix = "docs/result.md"
+    other = " example: second bare mention of value 0.6458 lacks a required qualifier"
+    other += " within 1 line(s)"
+    assert after.violations == [
+        prefix + ":0: example: anchor matched 0 occurrences; expected 1",
+        prefix + ":1:" + other,
+        prefix + ":4:" + other,
+    ]
 
 
 def test_untracked_and_gitignored_files_do_not_change_the_result(tmp_path: Path):

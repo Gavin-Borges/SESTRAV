@@ -26,10 +26,11 @@ GitHub will then show your tags/commits as **Verified**.
 
 ## Cutting a release
 
-1. **Bump the version in BOTH gated files.** The release workflow's fail-fast
-   "Verify tag matches package version" step runs before anything is built, so a
-   mismatch aborts the release with no artifact produced. Its name mentions only the
-   package version; it actually reads two files and enforces three conditions:
+1. **Bump the version in all seven carriers, two of which are gated.** The release
+   workflow's fail-fast "Verify tag matches package version" step runs before anything
+   is built, so a mismatch in either gated file aborts the release with no artifact
+   produced. Its name mentions only the package version; it actually reads two files
+   and enforces three conditions:
 
    | File | Field | What the step requires |
    |---|---|---|
@@ -46,7 +47,25 @@ GitHub will then show your tags/commits as **Verified**.
    `sestrav/__init__.py` resolves the version from installed package metadata, so it
    reports whatever `pyproject.toml` declared.
 
-   Commit both files together:
+   **Five further carriers, in four more files, state the current version and that
+   step reads none of them**, so each can go stale through a release without failing
+   it. Bump them in the same commit:
+
+   | File | Carrier | The form it takes |
+   |---|---|---|
+   | `README.md` | version badge | `badge/version-<X.Y.Z>-` inside the shields.io URL |
+   | `README.md` | BibTeX entry | `version   = {<X.Y.Z>}` in the BibTeX citation block |
+   | `USAGE.md` | CLI version output | the `sestrav version : <X.Y.Z>` line in the recorded `sestrav info` output |
+   | `api/main.py` | source-run API fallback | `_APP_VERSION = "<X.Y.Z>"`, the value served when the package metadata is unavailable |
+   | `docs/model_cards/rf_31feature_integrated.md` | model-card version field | `- **Version:** SESTRAV v<X.Y.Z>` |
+
+   That is seven current-version carriers across six files: the two the step gates,
+   and these five. The other model cards under `docs/model_cards/` are not carriers -
+   they record the version of the model they describe (`v2.0`, `v2.1-dev`), not the
+   project's, and none of them states an `X.Y.Z` version. `sestrav/__init__.py` is
+   still not a carrier either, for the reason above.
+
+   Commit every carrier together:
 
    ```bash
    git commit -am "release: v2.0.2"

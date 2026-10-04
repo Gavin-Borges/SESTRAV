@@ -288,26 +288,42 @@ def _audit_binding(
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
         anchor = re.compile(carrier["anchor_pattern"], re.IGNORECASE)
+        by_line = {item.line: item for item in _occurrences(lines, value)}
         selected_by_line = {
-            item.line: item for item in _occurrences(lines, value) if anchor.search(item.text)
+            line: item for line, item in by_line.items() if anchor.search(item.text)
         }
         selected = list(selected_by_line.values())
+        anchor_line: int | None = None
         if len(selected) != 1:
             violations.append(
                 f"{relative}:0: {binding_id}: anchor matched {len(selected)} occurrences; expected 1"
             )
-            continue
-        occurrence = selected[0]
-        text_window = _window(lines, occurrence.line, radius)
-        observations[(binding_id, relative)] = {
-            "line": occurrence.line,
-            "window_sha256": hashlib.sha256(text_window.encode("utf-8")).hexdigest(),
-        }
-        if not _qualified(text_window, patterns):
-            violations.append(
-                f"{relative}:{occurrence.line}: {binding_id}: value {value} lacks a required "
-                f"qualifier within {radius} line(s)"
-            )
+        else:
+            occurrence = selected[0]
+            anchor_line = occurrence.line
+            text_window = _window(lines, occurrence.line, radius)
+            observations[(binding_id, relative)] = {
+                "line": occurrence.line,
+                "window_sha256": hashlib.sha256(text_window.encode("utf-8")).hexdigest(),
+            }
+            if not _qualified(text_window, patterns):
+                violations.append(
+                    f"{relative}:{occurrence.line}: {binding_id}: value {value} lacks a required "
+                    f"qualifier within {radius} line(s)"
+                )
+        # The anchor check above does not exempt the rest of the carrier: every
+        # OTHER bare occurrence of the value in this file is checked against its
+        # own window, so a second, unrelated mention cannot ride on the anchor's
+        # qualifier. When the anchor selects no line or several, every
+        # occurrence is checked, so a broken anchor cannot hide the others.
+        for line in sorted(by_line):
+            if line == anchor_line:
+                continue
+            if not _qualified(_window(lines, line, radius), patterns):
+                violations.append(
+                    f"{relative}:{line}: {binding_id}: second bare mention of value {value} "
+                    f"lacks a required qualifier within {radius} line(s)"
+                )
 
     for relative in sorted(_scanned_paths(root, binding["scan_globs"], tracked)):
         if relative in configured or relative in exempt:

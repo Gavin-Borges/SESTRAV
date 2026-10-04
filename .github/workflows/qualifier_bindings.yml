@@ -48,10 +48,11 @@ jobs:
       - name: Verify every published value still carries its bounding qualifier
         # RATCHET FORM, NOT --strict, and the difference is the whole design.
         #
-        # --strict sets every ceiling to 0. Measured on this tree it exits 1 on
-        # 7 seed violations - carriers that state 0.6458 without recording that
-        # it is the best of eight seeds - so a --strict step would red main from
-        # the first merge and stay red until the last carrier is repaired. A
+        # --strict sets every ceiling to 0. When this step was added (4061aaf1)
+        # it exited 1 on 7 violations - carriers that stated 0.6458 without
+        # recording that it is the best of eight runs - so a --strict step would
+        # have turned main red from the first merge until the last carrier was
+        # repaired (c1e88236 lowered that ceiling to 0 once they were). A
         # permanently failing gate cannot be cleared by the PR that adds it, and
         # it trains reviewers to ignore the job.
         #
@@ -63,16 +64,19 @@ jobs:
         #    not already a registered carrier, including one ending a sentence;
         #  - a QUALIFIED registered carrier that loses its qualifier, is
         #    deleted, stops being tracked, or whose anchor_pattern stops
-        #    matching exactly one occurrence.
-        # Not caught: inside a registered carrier only the anchored occurrence
-        # is checked, so a second bare occurrence there passes; and a carrier
-        # that is ALREADY a violation (all seven best-of-eight carriers there)
-        # swaps one violation for another when it is deleted or its anchor
-        # breaks, so the count does not move. Nor is a value counted at all
-        # inside an inline code span, joined to a slash (as in 0.6458/0.7012),
-        # in an exempted path, or outside the binding's scan_globs. A repair
-        # lowers the count and still passes, so this gate and the separate
-        # qualifier-repair work can land in either order.
+        #    matching exactly one occurrence;
+        #  - any other bare occurrence inside a registered carrier that lacks
+        #    a qualifier within its own window. Every occurrence other than the
+        #    anchored one is checked, and every occurrence is checked when the
+        #    anchor_pattern matches no line or several, so a broken anchor
+        #    reports its own violation without hiding the rest of the carrier.
+        # Not caught: deleting or untracking a registered carrier replaces all
+        # of its violations with one "carrier is missing" violation, so under a
+        # nonzero ceiling the count can stay level or fall. Nor is a value
+        # counted at all inside an inline code span, joined to a slash (as in
+        # 0.6458/0.7012), in an exempted path, or outside the binding's
+        # scan_globs. A repair lowers the count and still passes, so this gate
+        # and the separate qualifier-repair work can land in either order.
         #
         # A ceiling may only be lowered, by a reviewed edit plus --update in the
         # same commit; tests/test_check_qualifier_bindings.py pins the declared

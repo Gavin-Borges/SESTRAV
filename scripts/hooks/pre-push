@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 # SESTRAV pre-push gate
 #
+# Eight numbered checks plus Check 1b, each opened by a banner line that starts
+# "# ---- Check", run in the order listed below; any failing check blocks the
+# push. Check 1b's banner is indented because it runs inside Check 1's loop over
+# the pushed refs. Check 6 runs two scans under one banner, and the second has
+# no banner of its own. A shared setup section, also bannered, sits above
+# Check 1. To list every banner:
+#   grep -n -E '^[[:space:]]*# ---- ' scripts/hooks/pre-push
+#
+# Shared setup (not a numbered check) -- assigns REPO_ROOT and defines
+#   ensure_python, which every check that runs python calls before its first
+#   python command. The first call activates the sestrav environment where
+#   conda is on PATH and blocks unless `python` imports pytest.
+#
 # Check 1 -- blocks direct pushes to the 'main' branch.
 #   Every change to main goes through a typed feature branch -> PR -> CI -> merge.
 #   Authorized admin/hotfix override: git push --no-verify
@@ -37,6 +50,28 @@
 #   and outreach copy. Check 3 and CI both see tracked files only. Outreach
 #   publishes where it cannot be edited afterwards, so this is the surface with
 #   no second chance. Also local-only, and also announces its skip.
+#
+# Check 6 -- credential scan, in two passes under one banner:
+#   (a) scripts/check_secrets.py's entropy scan over this checkout's files;
+#   (b) no banner of its own: an inline Python scan of every scannable blob
+#       that the non-merge commits being pushed add or modify, reusing that
+#       script's scanner, so content crossing to the remote is scanned even
+#       when the checkout no longer holds it. A merge commit's own changes,
+#       such as a conflict resolution, are not scanned here: git diff-tree
+#       lists no paths for a merge. It prints "Scanning blobs introduced by
+#       the pushed commit ranges".
+#
+# Check 7 -- runs scripts/check_qualifier_bindings.py in its ratchet form: it
+#   fails when a binding's violations exceed its violation_ceiling in
+#   docs/qualifier_bindings.json. Runs in every clone and never skips.
+#
+# Check 8 -- runs scripts/check_doc_line_citations.py, the script behind the
+#   required context 'Cited lines still hold their content': each pinned line
+#   citation must still hold the text recorded for it in
+#   docs/line_citations.json, a citation the script scans must have an entry
+#   there (it skips the historical ledgers and the other exclusions it
+#   lists), and those ledgers together may not hold more line citations than
+#   the ceiling that file records. Runs in every clone and never skips.
 
 set -uo pipefail
 
@@ -74,6 +109,74 @@ is_calendar_date() {
         *) last=31 ;;
     esac
     (( d <= last ))
+}
+
+# ---- Shared setup for every check (not a numbered check) ----------------
+# Defined above Check 1 so that no check depends on another check having run
+# first. Checks 2 to 8 all need REPO_ROOT, and all of them run bare `python`.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# ensure_python verifies, once per push, the interpreter that bare `python`
+# resolves to, and blocks the push with a diagnosis unless it imports pytest.
+#
+# Bare `python` is whatever PATH resolves. Each check that runs python calls
+# ensure_python itself, as a plain statement, before its first python command,
+# instead of relying on an earlier check to have verified the interpreter. The
+# first call activates the sestrav environment where conda is on PATH, then
+# blocks unless `python` imports pytest; every later call returns at once. So
+# reordering, removing or skipping checks below this section cannot leave a
+# check running an interpreter that nothing verified. A new check that runs
+# python must call it too; tests/test_pre_push_interpreter_guard.py fails when
+# one does not, or when a check sits above this definition.
+#
+# Never call it inside $(...) or a pipeline: there it runs in a subshell, and
+# its `exit 1` would not stop the hook.
+#
+# Say WHY when the environment is not usable, instead of blaming the tests.
+#
+# The activation below is a silent no-op in Git Bash: `command -v conda` finds
+# nothing there, because conda is not on PATH under that shell (verified
+# 2026-09-02). Without the probe below, the hook would then run whatever
+# `python` resolves to - on Windows that is usually the WindowsApps store shim,
+# which has no pytest - so `python -m pytest` would exit non-zero and Check 2
+# would report "Fast test gate failed. Fix failures before pushing."
+#
+# That message is misleading in the worst way: it names the tests when the tests
+# never ran. The gate does FAIL CLOSED, so nothing unsafe reaches the remote, but
+# a reader is sent to debug a suite that was never executed. This preflight
+# converts that into an accurate diagnosis. It changes nothing when the
+# environment IS active: if pytest imports, the checks proceed exactly as before.
+_prepush_python_verified=0
+ensure_python() {
+    if [[ "${_prepush_python_verified}" -eq 1 ]]; then
+        return 0
+    fi
+
+    # Activate conda environment if not already active.
+    if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; then
+        if command -v conda >/dev/null 2>&1; then
+            eval "$(conda shell.bash hook 2>/dev/null)" && conda activate sestrav 2>/dev/null || true
+        fi
+    fi
+
+    if ! python -c "import pytest" >/dev/null 2>&1; then
+        block "pytest is not importable, so no pre-push check that runs python can run."
+        printf '\n' >&2
+        printf '%s\n' "  This is an ENVIRONMENT problem, not a test failure. Nothing ran." >&2
+        printf '\n' >&2
+        printf '%s\n' "  'conda' is not on PATH in Git Bash, so the activation above is a" >&2
+        printf '%s\n' "  no-op and 'python' resolves to an interpreter without pytest." >&2
+        printf '\n' >&2
+        printf '%s\n' "  Activate the environment, then push again:" >&2
+        printf '%s\n' '    eval "$(<conda-root>/Scripts/conda.exe shell.bash hook)"' >&2
+        printf '%s\n' "    conda activate sestrav" >&2
+        printf '\n' >&2
+        printf '%s\n' "  Confirm with:" >&2
+        printf '%s\n' "    python -c 'import sys, pytest; print(sys.executable)'" >&2
+        exit 1
+    fi
+
+    _prepush_python_verified=1
 }
 
 # ---- Check 1: Direct-push guard ----------------------------------------
@@ -155,8 +258,6 @@ done
 # ---- Check 2: Fast test gate -------------------------------------------
 printf '[pre-push] Running fast test gate (Windows shells skip six native-crash targets; CI runs them)...\n'
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-
 # Drop the repository-discovery variables git exports into every hook before
 # handing off to pytest. They take precedence over cwd, so any test that builds
 # a throwaway repo and runs git in it inherits them and operates on THIS repo
@@ -168,43 +269,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # It does NOT cover other hooks or `git bisect run`, hence the in-suite scrub too.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 
-# Activate conda environment if not already active.
-if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "sestrav" ]]; then
-    if command -v conda >/dev/null 2>&1; then
-        eval "$(conda shell.bash hook 2>/dev/null)" && conda activate sestrav 2>/dev/null || true
-    fi
-fi
-
-# Say WHY when the environment is not usable, instead of blaming the tests.
-#
-# The activation above is a silent no-op in Git Bash: `command -v conda` finds
-# nothing there, because conda is not on PATH under that shell (verified
-# 2026-09-02). The gate then runs whatever `python` resolves to - on Windows that
-# is usually the WindowsApps store shim, which has no pytest - so `python -m
-# pytest` exits non-zero and Check 2 reports "Fast test gate failed. Fix failures
-# before pushing."
-#
-# That message is misleading in the worst way: it names the tests when the tests
-# never ran. The gate does FAIL CLOSED, so nothing unsafe reaches the remote, but
-# a reader is sent to debug a suite that was never executed. This check converts
-# that into an accurate diagnosis. It changes nothing when the environment IS
-# active: if pytest imports, the gate proceeds exactly as before.
-if ! python -c "import pytest" >/dev/null 2>&1; then
-    block "pytest is not importable, so the fast test gate cannot run."
-    printf '\n' >&2
-    printf '%s\n' "  This is an ENVIRONMENT problem, not a test failure. Nothing ran." >&2
-    printf '\n' >&2
-    printf '%s\n' "  'conda' is not on PATH in Git Bash, so the activation above is a" >&2
-    printf '%s\n' "  no-op and 'python' resolves to an interpreter without pytest." >&2
-    printf '\n' >&2
-    printf '%s\n' "  Activate the environment, then push again:" >&2
-    printf '%s\n' '    eval "$(<conda-root>/Scripts/conda.exe shell.bash hook)"' >&2
-    printf '%s\n' "    conda activate sestrav" >&2
-    printf '\n' >&2
-    printf '%s\n' "  Confirm with:" >&2
-    printf '%s\n' "    python -c 'import sys, pytest; print(sys.executable)'" >&2
-    exit 1
-fi
+ensure_python
 
 # The native-extension exclusions below apply only on Windows shells (Git Bash,
 # MSYS2, Cygwin; detected by uname -s). Elsewhere the complete suite runs; all
@@ -304,10 +369,11 @@ printf '[pre-push] All fast tests passed.\n'
 # the public README, where it stood for five weeks. It carried no number, so
 # every gate this repo had was blind to it by construction.
 #
-# Runs after Check 2 to reuse the conda activation above; the check itself
-# is stdlib-only and takes under a second.
+# Calls ensure_python itself, like every check that runs python. The check
+# is stdlib-only and takes about a second.
 printf '[pre-push] Checking institution names against the affiliation allowlist...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_affiliation_claims.py
 
 if [[ $? -ne 0 ]]; then
@@ -335,6 +401,7 @@ printf '[pre-push] All checks passed -- affiliation allowlist clean.\n'
 HARNESS="${REPO_ROOT}/_local/integrity/integrity_check.py"
 if [[ -f "${HARNESS}" ]]; then
     printf '[pre-push] Running integrity harness against this worktree...\n'
+    ensure_python
     python "${HARNESS}" --repo-root "${REPO_ROOT}"
     if [[ $? -ne 0 ]]; then
         printf '\n' >&2
@@ -363,6 +430,7 @@ fi
 # covers has no second chance.
 if [[ -d "${REPO_ROOT}/_local" ]]; then
     printf '[pre-push] Checking _local/ drafts and outreach copy (--all)...\n'
+    ensure_python
     cd "${REPO_ROOT}" && python scripts/check_affiliation_claims.py --all
     if [[ $? -ne 0 ]]; then
         printf '\n' >&2
@@ -412,6 +480,7 @@ fi
 # under which this check should announce a skip instead of running.
 printf '[pre-push] Scanning for high-entropy credential assignments...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_secrets.py
 
 if [[ $? -ne 0 ]]; then
@@ -430,6 +499,8 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
+# Check 6, pass (b): the pushed-range blob scan. It has no banner of its own;
+# the header lists it under Check 6.
 printf '[pre-push] Scanning blobs introduced by the pushed commit ranges...\n'
 
 cd "${REPO_ROOT}" && python - "${PUSH_UPDATES}" <<'PY'
@@ -547,9 +618,9 @@ fi
 # there surfaces as failing tests inside the suite. This check runs the gate
 # itself, so the push is blocked by name with the gate's own report.
 #
-# RATCHET FORM, NOT --strict. --strict zeroes every ceiling and exits 1 on the
-# 7 seed violations this tree still carries, which would block every push until
-# the last carrier is repaired. The default form honours the per-binding
+# RATCHET FORM, NOT --strict. --strict zeroes every ceiling, and it exited 1 on
+# the 7 violations present when this check was added (4061aaf1), which would
+# have blocked every push. The default form honours the per-binding
 # violation_ceiling in docs/qualifier_bindings.json, so it exits 0 today and
 # exits 1 the moment the count rises. See the same reasoning, at length, in
 # .github/workflows/qualifier_bindings.yml.
@@ -565,6 +636,7 @@ fi
 # there is no condition under which this should announce a skip.
 printf '[pre-push] Checking published values against their qualifier bindings...\n'
 
+ensure_python
 cd "${REPO_ROOT}" && python scripts/check_qualifier_bindings.py
 
 if [[ $? -ne 0 ]]; then
@@ -579,6 +651,60 @@ if [[ $? -ne 0 ]]; then
     printf '%s\n' "  a ceiling may only be LOWERED, and the declared values are pinned" >&2
     printf '%s\n' "  exactly by tests/test_check_qualifier_bindings.py." >&2
     printf '%s\n' "  After a reviewed repair, run --update in the same commit." >&2
+    exit 1
+fi
+
+# ---- Check 8: Pinned line citations -------------------------------------
+# Fails when scripts/check_doc_line_citations.py reports a problem: a cited
+# line that no longer holds the text pinned for it in docs/line_citations.json
+# (DRIFTED), a citation with no baseline entry (UNPINNED), more line citations
+# in the exempt historical ledgers than the baseline's ceiling (RATCHET), or one
+# of the other kinds listed in that script's docstring.
+#
+# WHY A SEPARATE CHECK. That script, with the argv used here, is what the
+# required merge context `Cited lines still hold their content` runs
+# (.github/workflows/doc_line_citations.yml). Running it before the push means
+# a stale or unpinned citation blocks the push by name, with the gate's own
+# report, instead of failing that context afterwards. It runs the gate itself,
+# so it does not depend on which tests Check 2 collects.
+#
+# WHAT IT READS. The gate takes its file list from `git ls-files` and reads
+# each file from the working tree, so it audits this checkout as it stands.
+# That is the pushed commit only when the checkout is clean and at that commit.
+#
+# COST. Measured 2026-10-01 on the development workstation: 661 to 698 ms over
+# five warm runs, about 1.7 s on a cold first run. Small next to Check 2, which
+# runs the test suite.
+#
+# DELIBERATELY UNGUARDED, for the same reason Checks 6 and 7 are. The script
+# and its baseline docs/line_citations.json are both TRACKED and neither is
+# gitignored, so both exist in every worktree and every clone. Unlike Checks 4
+# and 5, which skip when _local/ is absent, there is no condition under which
+# this should announce a skip instead of running.
+printf '[pre-push] Checking pinned line citations against their recorded content...\n'
+
+ensure_python
+cd "${REPO_ROOT}" && python scripts/check_doc_line_citations.py
+
+if [[ $? -ne 0 ]]; then
+    printf '\n' >&2
+    block "Pinned line-citation gate failed."
+    printf '\n' >&2
+    printf '%s\n' "  It runs the same script as the required context 'Cited lines still" >&2
+    printf '%s\n' "  hold their content'. Each finding names the CITING file:line," >&2
+    printf '%s\n' "  except STALE-PIN and RATCHET, which name the baseline file." >&2
+    printf '%s\n' "  DRIFTED means the cited line no longer holds its pinned text, usually" >&2
+    printf '%s\n' "  because lines were inserted or removed above it. Repoint the citation," >&2
+    printf '%s\n' "  or better, cite the SYMBOL instead - a function or constant name does" >&2
+    printf '%s\n' "  not move when lines are inserted above it." >&2
+    printf '%s\n' "  UNPINNED means a citation carries no baseline entry yet." >&2
+    printf '%s\n' "  Run 'python scripts/check_doc_line_citations.py --update', then READ" >&2
+    printf '%s\n' "  THE DIFF: a changed pin is either a deliberate repoint or the rot" >&2
+    printf '%s\n' "  itself, and the script cannot tell you which." >&2
+    printf '%s\n' "  RATCHET means the historical ledgers (EXEMPT_CITING_FILES in that" >&2
+    printf '%s\n' "  script) together hold more line citations than the recorded ceiling." >&2
+    printf '%s\n' "  Cite the SYMBOL or write the reference as prose. --update would clear" >&2
+    printf '%s\n' "  it only by RAISING the ceiling, which needs a stated reason." >&2
     exit 1
 fi
 
