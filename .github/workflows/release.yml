@@ -3,10 +3,14 @@ name: Release (signed + provenance)
 # Builds the Python distribution on a version tag, generates a SHA-256 manifest,
 # produces a keyless SLSA build-provenance attestation (Sigstore via GitHub OIDC -
 # no maintainer-managed signing keys), and publishes everything to a GitHub
-# Release. This satisfies OpenSSF `signed_releases`: consumers can cryptographically
-# verify an artifact came from this repo's CI with:
+# Release. Consumers can cryptographically verify an artifact came from this
+# repo's CI with:
 #
 #   gh attestation verify <artifact> --repo Gavin-Borges/SESTRAV
+#
+# Whether that counts as OpenSSF `signed_releases` being met is a separate
+# question: what the Best Practices badge form and Scorecard's Signed-Releases
+# check record, with dates, is in docs/security_compliance.md ("Future Upgrades").
 #
 # See docs/releasing.md and SECURITY.md "Release Integrity & Verification".
 
