@@ -52,8 +52,9 @@ _Last updated: 2026-09._
   with verification documented in `SECURITY.md`'s "Release Integrity &
   Verification" section. `version_tags_signed` (SUGGESTED) is currently **Unmet**,
   but not because tags are unsigned: v2.0.3 IS signed, and GitHub reports it
-  `unknown_key` because no SSH signing key is registered on the account. Signing
-  the next tag does not on its own clear this - see `docs/releasing.md`.
+  `unknown_key` because the key that signed it is not the SSH signing key
+  registered on the account. A signing key IS registered; the next tag should be
+  signed with it - see `docs/releasing.md`.
 - **Container image.** A publish-to-`ghcr.io` workflow with provenance and SBOM
   is in place (`.github/workflows/docker.yml`); it fires on the next version tag.
   It has not run yet - the workflow was added after `v2.0.3`, so no image is
