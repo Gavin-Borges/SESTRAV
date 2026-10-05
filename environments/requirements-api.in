@@ -19,7 +19,7 @@ joblib==1.6.0
 jsonschema==4.26.0
 matplotlib==3.11.2
 mhcflurry==2.2.1
-networkx==3.6.1
+networkx==3.7
 numpy==2.4.6
 openpyxl==3.1.5
 pandas==3.0.3
@@ -30,5 +30,5 @@ scikit-learn==1.8.0
 scipy==1.17.1
 setuptools==84.0.0
 torch==2.13.0
-uvicorn==0.53.0
+uvicorn==0.54.0
 xgboost==3.2.0

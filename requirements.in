@@ -27,7 +27,7 @@ shap==0.51.0
 
 # Test tooling
 pytest==9.1.1
-hypothesis==6.168.1
+hypothesis==6.168.3
 pyahocorasick==2.3.1
 
 # PyTorch & GNN
@@ -40,7 +40,7 @@ torch-geometric==2.7.0
 
 # API scaffolding
 fastapi==0.141.1
-uvicorn==0.53.0
+uvicorn==0.54.0
 pydantic==2.13.5
 
 # No keras or protobuf pins. Until this change this file pinned keras==3.15.1
