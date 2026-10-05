@@ -32,5 +32,5 @@ setuptools==84.0.0
 shap==0.51.0
 streamlit==1.64.0
 torch==2.13.0
-uvicorn==0.53.0
+uvicorn==0.54.0
 xgboost==3.2.0

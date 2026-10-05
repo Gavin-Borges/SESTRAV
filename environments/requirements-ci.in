@@ -1,6 +1,6 @@
 pytest==9.1.1
 snakemake==9.27.0
-hypothesis==6.168.1
+hypothesis==6.168.3
 # keras and protobuf were pinned here as well until they were removed from
 # requirements.in, where the reason is recorded: nothing in the closure of that
 # file or this one requires either.
