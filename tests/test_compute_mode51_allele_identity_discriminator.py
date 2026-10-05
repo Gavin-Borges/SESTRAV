@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 
 import numpy as np
@@ -72,3 +73,38 @@ def test_main_resolves_git_sha_before_writing_anything(tmp_path, monkeypatch) ->
     with pytest.raises(subprocess.CalledProcessError):
         discriminator.main(["--output", str(output)])
     assert not output.exists()
+
+
+def _sidecar_at(tmp_path, monkeypatch, seed: int | None) -> dict:
+    if seed is not None:
+        monkeypatch.setattr(discriminator, "MODEL_SEED", seed)
+    monkeypatch.setattr(discriminator.subprocess, "check_output", lambda *a, **k: "0" * 40 + "\n")
+    monkeypatch.setattr(
+        discriminator,
+        "compute_table",
+        lambda data_path, binding_path: pd.DataFrame(columns=discriminator.OUTPUT_COLUMNS),
+    )
+    data = tmp_path / "data.csv"
+    data.write_text("peptide\n", encoding="utf-8")
+    matrix = tmp_path / "matrix.csv"
+    matrix.write_text("peptide\n", encoding="utf-8")
+    output = tmp_path / "table.csv"
+    argv = ["--data", str(data), "--binding-matrix", str(matrix), "--output", str(output)]
+    assert discriminator.main(argv) == 0
+    return json.loads((tmp_path / "table.csv.provenance.json").read_text(encoding="utf-8"))
+
+
+def test_sidecar_describes_the_seed_the_run_used(tmp_path, monkeypatch) -> None:
+    # The splitter, both models and the within-allele shuffle read MODEL_SEED when they run,
+    # so a run at another seed must not be recorded as random_state=42.
+    sidecar = _sidecar_at(tmp_path, monkeypatch, 7)
+    assert sidecar["model_seed"] == 7
+    assert sidecar["splitter"] == "PeptideGroupedKFold(n_splits=5, shuffle=True, random_state=7)"
+
+
+def test_sidecar_text_at_the_default_seed_is_unchanged(tmp_path, monkeypatch) -> None:
+    # The tracked sidecar was written by the former literal; at the default seed the
+    # formatted string must reproduce it exactly, so regenerating changes no tracked text.
+    sidecar = _sidecar_at(tmp_path, monkeypatch, None)
+    assert sidecar["model_seed"] == 42
+    assert sidecar["splitter"] == "PeptideGroupedKFold(n_splits=5, shuffle=True, random_state=42)"
