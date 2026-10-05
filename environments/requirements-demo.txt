@@ -279,7 +279,7 @@ cuda-bindings==13.3.1 \
 cuda-pathfinder==1.6.0 \
     --hash=sha256:1503af579d8379c24bdd65528379bc57039b0455be9f5f9686cf8e473a1fce51
     # via cuda-bindings
-cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3.0 \
+cuda-toolkit==13.0.3.0 \
     --hash=sha256:d693caaa261214ddd7dbb60d68e71cbed884e68c2be7509778f3051da0b91c3f
     # via torch
 cycler==0.12.1 \
@@ -1639,6 +1639,12 @@ scipy==1.17.1 \
     #   scikit-learn
     #   shap
     #   xgboost
+setuptools==84.0.0 \
+    --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670 \
+    --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73
+    # via
+    #   -r environments/requirements-demo.in
+    #   torch
 shap==0.51.0 \
     --hash=sha256:07b0367408b1b9fc51556f2ddac5ee4209cc51be592099e6d51d0834c9b037d8 \
     --hash=sha256:0b1f9e62d6a3fa28765d7b61abda7caf76aba21e769423fbf3ce8a7a5e498243 \
@@ -1756,13 +1762,10 @@ typing-extensions==4.16.0 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
     # via
     #   altair
-    #   anyio
     #   fastapi
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   shap
-    #   starlette
     #   streamlit
     #   torch
     #   typing-inspection
