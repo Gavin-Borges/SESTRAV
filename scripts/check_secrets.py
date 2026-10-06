@@ -56,6 +56,97 @@ CREDENTIAL_ASSIGNMENT_MAKE = re.compile(
     r"(?:[_-][a-z0-9]+)*\s*(?:::=|[:?+!]?=)\s*([^\s'\"#,;)\]}]+)"
 )
 
+# Shapes probe2 measured as missed, re-measured on this revision before being added: 8 of 9
+# planted 24-character secrets were NOT detected while the plain `API_KEY = "<v>"` control was.
+# Each pattern below captures the value as group 2, so all of them drop into the same
+# no-whitespace, length and entropy floors as the assignment patterns above - none of them
+# lowers the bar, they only widen what reaches it. They are ADDITIVE: no line caught today
+# stops being caught.
+
+# 1. A type annotation between the name and the `=`. The pattern above requires a quote
+#    directly after `[=:]`, so `API_TOKEN: str = "<v>"` read the `:` as the operator and the
+#    annotation as the value, which the length floor then dropped.
+CREDENTIAL_ANNOTATED = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*:\s*[A-Za-z_][A-Za-z0-9_.\[\], |]*\s*=\s*"
+    r"[bfu]?['\"]([^'\"]+)['\"]"
+)
+
+# A RAW prefix is deliberately excluded from every prefix class below. Measured on the
+# live tree: the sole false positive the five patterns produced was
+# `VERSION_TOKEN = rf"..."` in tools/check_version_carriers.py - a regex template whose
+# name ends in TOKEN. A raw literal is a regex or a path template, not a credential, so
+# excluding `r` removes that class rather than allowlisting one line of it. The class is
+# `[bfu]` and ONE character is enough: all 24 legal Python string prefixes were compiled,
+# the non-raw set is exactly {b, f, u} case-insensitively, and every legal
+# multi-character prefix contains `r`.
+
+# 2. A string PREFIX before the quote. `f"..."`, `b"..."`, `rb"..."` and the rest put a letter
+#    where the pattern above demands a quote. At least one prefix character is required here,
+#    so this never duplicates a match the unprefixed pattern already makes.
+CREDENTIAL_PREFIXED_STRING = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*[bfu]['\"]([^'\"]+)['\"]"
+)
+
+# 3. A default handed to os.getenv / os.environ.get. There is no assignment operator between
+#    the credential NAME and the value at all: the name is the first argument and the secret
+#    is the second, so every assignment pattern above is blind to it by construction.
+CREDENTIAL_ENV_DEFAULT = re.compile(
+    r"(?i)(getenv|environ\.get)\(\s*[bfu]?['\"][^'\"]*"
+    r"(?:api[_-]?key|token|secret|password|passwd|pwd|credential|auth|private[_-]?key)"
+    r"[^'\"]*['\"]\s*,\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+
+# 4. An Authorization header. The scheme name is the keyword, and the credential follows a
+#    SPACE rather than an operator, so nothing above reaches it. Quoting is optional because
+#    the header is as often built in a string as assigned.
+CREDENTIAL_BEARER = re.compile(
+    r"(?i)(bearer|authorization\s*:\s*bearer)\s+[bfu]?['\"]?"
+    r"([A-Za-z0-9._~+/=-]{9,})"
+)
+
+# 5. A credential in a URL query string. `?token=<v>` carries the keyword and the value with
+#    no quote between them, inside what is otherwise an ordinary quoted URL.
+CREDENTIAL_QUERY_PARAM = re.compile(
+    r"(?i)[?&](api[_-]?key|token|secret|password|passwd|pwd|auth)"
+    r"=([^&'\"\s>]+)"
+)
+
+# 6. An assignment whose quotes are ESCAPED, which is what a notebook is. `.ipynb`
+#    has been in _SCAN_SUFFIXES since 2026-09-23, so the file was already opened;
+#    measured on a notebook holding `API_KEY = "<v>"` in its JSON `source`, the scan
+#    still returned nothing, because JSON stores that as a backslash before each
+#    quote and the patterns above want a quote directly after the operator. The
+#    backslash run is REQUIRED, so this expresses the escaped case alone; no test can
+#    distinguish that from an optional run, because the unescaped case is already
+#    CREDENTIAL_ASSIGNMENT's.
+#
+#    The value class is `[^'\"]`, NOT `[^'\"\\]`, and the first draft had it the other
+#    way round on a FALSE rationale: that excluding the backslash stopped the capture
+#    absorbing the closing escape and reporting 9 characters for an 8-character
+#    secret. Measured on a real notebook line, both forms report 8, because the engine
+#    BACKTRACKS to satisfy the closing `\\+`. Nothing was ever inflated. What the
+#    exclusion did do was REFUSE a value containing an interior backslash, returning
+#    no match at all where the permissive form flags 18 characters - so the
+#    defensive-looking choice was a bypass, not a guard.
+CREDENTIAL_ESCAPED_QUOTE = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\\*['\"]?\s*[=:]\s*\\+['\"]([^'\"]+)\\+['\"]"
+)
+
+# 7. An IPython `%env` or `%set_env` magic. The name and the value are separated by
+#    `=` or by whitespace and NEITHER is quoted, so no assignment pattern reaches it
+#    and the bare-value parse does not run on a notebook. Measured as missed.
+CREDENTIAL_NOTEBOOK_MAGIC = re.compile(
+    r"(?i)%(?:env|set_env)\s+"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*(?:=|\s)\s*([^\s'\"\\]+)"
+)
+
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
 # reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
 # the patterns above recognise, so the assignment rules never saw it. The value
@@ -138,7 +229,21 @@ VENDOR_CREDENTIAL_FORMATS = tuple(
 )
 
 # Formats in which an unquoted scalar IS the string literal.
-_BARE_VALUE_SUFFIXES = (".yml", ".yaml", ".sh", ".env", ".md", ".txt", ".cfg", ".ini")
+_BARE_VALUE_SUFFIXES = (
+    ".yml",
+    ".yaml",
+    ".sh",
+    ".env",
+    ".md",
+    ".txt",
+    ".cfg",
+    ".ini",
+    # Both were already in _SCAN_SUFFIXES, so the file was opened and then read with the
+    # quoted-value parse only. A container definition and a Quarto document both carry
+    # `export NAME=value`, whose value is unquoted, so every such line went unmatched.
+    ".def",
+    ".qmd",
+)
 
 # Refuse a vacuous pass over an empty walk (wrong cwd, or every file excluded).
 MIN_SCANNED_FILES = 10
@@ -152,6 +257,23 @@ def _normalised(path: str) -> str:
     return normalised[2:] if normalised.startswith("./") else normalised
 
 
+def _is_dotenv(name: str) -> bool:
+    """A dotenv file, including every `.env.<variant>` spelling.
+
+    Matched by PREFIX because a variant carries its name in a SECOND extension:
+    os.path.splitext(".env.production") returns (".env", ".production"), so the
+    suffix is ".production" and no suffix tuple can ever select it. `.env` itself
+    was listed in both suffix tuples and worked; `.env.production`, `.env.local` and
+    `.env.example` were measured as _is_scannable FALSE, so the file was never
+    opened at all.
+
+    One helper, used by both _is_scannable and allows_bare_value, so the two cannot
+    disagree about what a dotenv is. A file that is scanned but not parsed for bare
+    values is the exact shape that made `.def` and `.qmd` unmatchable.
+    """
+    return name == ".env" or name.startswith(".env.")
+
+
 def allows_bare_value(path: str) -> bool:
     normalised = _normalised(path)
     name = normalised.rsplit("/", 1)[-1]
@@ -163,6 +285,7 @@ def allows_bare_value(path: str) -> bool:
     in_hook_dir = any(("/" + normalised).find("/" + d) >= 0 for d in _SCAN_DIRS)
     return (
         name.endswith(_BARE_VALUE_SUFFIXES)
+        or _is_dotenv(name)
         or name.startswith("Dockerfile")
         or (in_hook_dir and "." not in name)
     )
@@ -224,8 +347,21 @@ EXCLUDE_DIRS = {
 # happen.
 EXCLUDE_PATHS = frozenset(
     {
+        # NOTE, measured 2026-10-06: this path does NOT EXIST in the tree, so it
+        # excludes nothing. It is left in place rather than cleaned up here because a
+        # dead entry is a separate finding from this unit, and removing it is not
+        # free: the paragraph above dates its "all three return zero findings"
+        # verification to a day when the file was present. Deleting the entry is
+        # tracked as its own follow-up.
         "scripts/apply-branch-ruleset.ps1",
-        "tools/apply_protection.sh",
+        # `tools/apply_protection.sh` is NO LONGER excluded. It is the admin-token
+        # script, so a REAL token is likelier content there than an example pattern,
+        # which inverts the "guard against a future example credential" rationale
+        # above: that reasoning holds for check_secrets.py, which exists to contain
+        # credential patterns, and not for a script that HANDLES a token. Removing it
+        # is free today, measured before the change rather than assumed: scan_file on
+        # that path returned zero findings, so the gate is green either way and this
+        # only widens what is covered.
         "scripts/check_secrets.py",
     }
 )
@@ -292,7 +428,17 @@ def scan_file(path: str) -> List[int]:
     flagged_line_numbers: List[int] = []
     # The bare pattern is ADDITIVE, never a replacement: the quoted pattern runs on
     # every format, so no line that is caught today can stop being caught.
-    patterns = [CREDENTIAL_ASSIGNMENT, URL_EMBEDDED_CREDENTIAL]
+    patterns = [
+        CREDENTIAL_ASSIGNMENT,
+        CREDENTIAL_ANNOTATED,
+        CREDENTIAL_PREFIXED_STRING,
+        CREDENTIAL_ENV_DEFAULT,
+        CREDENTIAL_BEARER,
+        CREDENTIAL_QUERY_PARAM,
+        CREDENTIAL_ESCAPED_QUOTE,
+        CREDENTIAL_NOTEBOOK_MAGIC,
+        URL_EMBEDDED_CREDENTIAL,
+    ]
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     elif is_makefile(path):
@@ -376,6 +522,7 @@ def _is_scannable(rel_path: str) -> bool:
     return (
         name.endswith(_SCAN_SUFFIXES)
         or name in _SCAN_NAMES
+        or _is_dotenv(name)
         or name.startswith("Dockerfile")
     )
 

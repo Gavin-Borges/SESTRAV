@@ -633,10 +633,15 @@ def test_unreadable_paths_does_not_leak_between_runs(tmp_path: Path) -> None:
 
 
 def test_intended_exclusions_are_still_excluded_at_their_real_paths() -> None:
+    """`tools/apply_protection.sh` was REMOVED from this list deliberately, in the
+    commit that stopped excluding it, and that removal is asserted positively by
+    test_the_admin_token_script_is_no_longer_excluded rather than by its absence
+    here. A test that pins a behaviour being changed on purpose is expected to
+    change with it; leaving it would have meant the suite enforcing the exclusion
+    the same commit set out to lift."""
     mod = _load()
     for rel in (
         "scripts/check_secrets.py",
-        "tools/apply_protection.sh",
         "scripts/apply-branch-ruleset.ps1",
     ):
         assert mod._is_scannable(rel) is False, f"{rel} should remain excluded"
@@ -1040,3 +1045,374 @@ def test_tracked_paths_parses_the_repo_without_quoting_artifacts() -> None:
     assert quoted == [], f"quoted paths returned: {quoted[:5]}"
     missing = [p for p in tracked if not _os.path.exists(_os.path.join(root, p))]
     assert missing == [], f"paths naming no file: {missing[:5]}"
+
+
+# --- SX-U4: shapes the scanner could not see ------------------------------------
+#
+# Nine shapes were planted ONE AT A TIME into a throwaway checkout of main and
+# scanned, so one shape's verdict could not mask another's. EIGHT were missed while
+# the plain `API_KEY = "<v>"` control was caught. Each is bound below.
+#
+# Two conventions keep this module from becoming a secret-bearing file itself.
+# Payloads are assembled at runtime, as the module docstring says. And every
+# template carries its value as the four-character placeholder `{v}`, which the
+# scanner's own `len > 8` floor drops - the same mechanism the scanner documents
+# for documentation placeholders - so the TEMPLATE lines are quiet even where they
+# spell a credential keyword next to an operator.
+
+
+def _plant(tmp_path: Path, name: str, template: str, keyword: str, token: str) -> list:
+    """Write one shape into `name` and return the line numbers the scanner flags."""
+    target = tmp_path / name
+    target.write_text(template.format(k=keyword, v=token) + "\n", encoding="utf-8")
+    return _load().scan_file(str(target))
+
+
+_KEY = "api_" + "key"
+_TOKEN_NAME = "api_" + "token"
+_SECRET_NAME = "secret_" + "value"
+
+
+def test_type_annotated_assignment_is_flagged(tmp_path: Path) -> None:
+    """An annotation between the name and the `=`. CREDENTIAL_ASSIGNMENT wants a
+    quote directly after `[=:]`, so it read the `:` as the operator and the type
+    name as the value, which the length floor then dropped."""
+    assert _plant(tmp_path, "case.py", '{k}: str = "{v}"', _TOKEN_NAME, _token()) == [1]
+
+
+def test_getenv_default_is_flagged(tmp_path: Path) -> None:
+    """There is no assignment operator between the credential NAME and the value:
+    the name is the first argument and the secret the second, so every assignment
+    pattern was blind to it by construction."""
+    template = 'DB = os.getenv("DB_{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [1]
+
+
+def test_environ_get_default_is_flagged(tmp_path: Path) -> None:
+    """The same shape through the other spelling. `os.environ.get` is as common as
+    `os.getenv` and a pattern naming only one of them covers half the cases."""
+    template = 'DB = os.environ.get("DB_{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [1]
+
+
+def test_fstring_prefixed_value_is_flagged(tmp_path: Path) -> None:
+    """A string prefix puts a letter where CREDENTIAL_ASSIGNMENT demands a quote."""
+    assert _plant(tmp_path, "case.py", '{k} = f"{v}"', _SECRET_NAME, _token()) == [1]
+
+
+def test_bytes_prefixed_value_is_flagged(tmp_path: Path) -> None:
+    assert _plant(tmp_path, "case.py", '{k} = b"{v}"', _SECRET_NAME, _token()) == [1]
+
+
+def test_unicode_prefixed_value_is_flagged(tmp_path: Path) -> None:
+    assert _plant(tmp_path, "case.py", '{k} = u"{v}"', _SECRET_NAME, _token()) == [1]
+
+
+def test_credential_in_a_url_query_string_is_flagged(tmp_path: Path) -> None:
+    """`?token=<v>` carries the keyword and the value with no quote between them,
+    inside what is otherwise an ordinary quoted URL."""
+    template = 'url = "https://x.example/api?{k}={v}"'
+    assert _plant(tmp_path, "case.py", template, "token", _token()) == [1]
+
+
+def test_bearer_authorization_header_is_flagged(tmp_path: Path) -> None:
+    """The scheme name is the keyword and the credential follows a SPACE rather
+    than an operator, so no assignment pattern reaches it."""
+    template = 'HEADERS = {{"Authorization": "{k} {v}"}}'
+    assert _plant(tmp_path, "case.py", template, "Bearer", _token()) == [1]
+
+
+def test_unquoted_bearer_credential_is_flagged(tmp_path: Path) -> None:
+    """The header is as often built in a string as assigned, so the quote after the
+    scheme is optional."""
+    template = 'send("Authorization: {k} {v}")'
+    assert _plant(tmp_path, "case.py", template, "Bearer", _token()) == [1]
+
+
+def test_export_in_a_container_definition_is_flagged(tmp_path: Path) -> None:
+    """`.def` was already in _SCAN_SUFFIXES, so the file was opened and then read
+    with the quoted-value parse only. A container definition carries
+    `export NAME=value`, whose value is unquoted, so every such line went
+    unmatched - the file was scanned and nothing in it could ever match."""
+    assert _plant(tmp_path, "case.def", "export ADMIN_{k}={v}", "TOKEN", _token()) == [1]
+
+
+def test_export_in_a_quarto_document_is_flagged(tmp_path: Path) -> None:
+    """`.qmd` had the same gap as `.def`."""
+    assert _plant(tmp_path, "case.qmd", "export ADMIN_{k}={v}", "TOKEN", _token()) == [1]
+
+
+# --- SX-U4 false positives: the RAW prefix is excluded deliberately -------------
+
+
+def test_raw_prefixed_regex_template_is_not_flagged(tmp_path: Path) -> None:
+    """The measured false positive, and the reason the prefix class excludes `r`.
+
+    `tools/check_version_carriers.py` assigns a regex to VERSION_TOKEN as an
+    `rf"..."` literal. A raw literal is a regex or a path template, not a
+    credential. The first draft of the prefixed-string pattern accepted `r`,
+    turned this gate red on the live tree, and would have been cleared by
+    allowlisting one line instead of removing the class."""
+    template = '{k} = rf"[0-9]+\\.[0-9]+(?:[0-9A-Za-z.+-]*[0-9A-Za-z])?"'
+    assert _plant(tmp_path, "case.py", template, _TOKEN_NAME, _token()) == []
+
+
+def test_every_non_raw_prefix_is_flagged_and_every_raw_one_is_not(
+    tmp_path: Path,
+) -> None:
+    """ONE character is enough for the prefix class, and this is why.
+
+    All 24 legal Python string prefixes were compiled: the non-raw set is exactly
+    {b, f, u} case-insensitively, and every legal MULTI-character prefix contains
+    an `r`. So `[bfu]` is complete for non-raw literals, and excluding `r` excludes
+    every multi-character prefix with it. Both halves are asserted here rather than
+    described, because the claim is what licenses the single-character class."""
+    legal = []
+    for first in "rbufRBUF":
+        for rest in ("", *"rbufRBUF"):
+            prefix = first + rest
+            try:
+                compile(prefix + '"x"', "<t>", "eval")
+            except SyntaxError:
+                continue
+            legal.append(prefix)
+    assert len(legal) == 24, legal
+    assert sorted(p for p in legal if "r" not in p.lower()) == list("BFUbfu")
+    assert all("r" in p.lower() for p in legal if len(p) > 1)
+
+    for prefix in sorted({p.lower() for p in legal}):
+        flagged = _plant(
+            tmp_path, "case.py", "{k} = " + prefix + '"{v}"', _SECRET_NAME, _token()
+        )
+        if "r" in prefix:
+            assert flagged == [], f"raw prefix {prefix!r} was flagged"
+        else:
+            assert flagged == [1], f"non-raw prefix {prefix!r} was NOT flagged"
+
+
+def test_the_new_shapes_did_not_lower_the_entropy_and_length_floors(
+    tmp_path: Path,
+) -> None:
+    """Every new pattern captures its value as group 2, so all of them drop into
+    the floors the assignment patterns already use. Asserted rather than stated: a
+    pattern that captured the value as group 1 would silently flag on group 2 being
+    something else, and a widened pattern that bypassed the floors would turn this
+    gate red on ordinary code."""
+    short = "ab12"
+    repetitive = "a" * 40
+    shapes = [
+        ("case.py", '{k}: str = "{v}"', _TOKEN_NAME),
+        ("case.py", '{k} = f"{v}"', _SECRET_NAME),
+        ("case.py", '{k} = b"{v}"', _SECRET_NAME),
+        ("case.py", 'DB = os.getenv("DB_{k}", "{v}")', "PASSWORD"),
+        ("case.py", 'url = "https://x.example/api?{k}={v}"', "token"),
+        ("case.def", "export ADMIN_{k}={v}", "TOKEN"),
+    ]
+    for name, template, keyword in shapes:
+        assert _plant(tmp_path, name, template, keyword, short) == [], template
+        assert _plant(tmp_path, name, template, keyword, repetitive) == [], template
+        assert _plant(tmp_path, name, template, keyword, _token()) == [1], template
+
+
+def test_the_live_repository_passes_its_own_scan() -> None:
+    """The guard this unit needed and the suite did not have.
+
+    Every other test here plants a payload in a tmp_path, so none of them can see a
+    FALSE POSITIVE on tracked code - which is exactly what the first draft of this
+    unit's patterns produced. Measured at 1.9s over the live tree, so it is cheap
+    enough to run with the rest. scan_tree enforces MIN_SCANNED_FILES itself, so
+    this cannot pass by walking an empty tree."""
+    root = str(Path(__file__).resolve().parents[1])
+    assert _load().scan_tree(root) == 0
+
+
+# --- SX-U4 part 2: the two notebook shapes --------------------------------------
+#
+# `.ipynb` has been in _SCAN_SUFFIXES since 2026-09-23, so a notebook was already
+# being OPENED. Measured anyway rather than assumed, and the file selection turned
+# out not to be the hole: a notebook carrying a credential assignment in its JSON
+# `source` still scanned clean, because JSON escapes each quote and every pattern
+# wanted a quote directly after the operator. The lesson is the one this file
+# already records for `.def` and `.qmd`, one layer in: a format can be scanned and
+# still be unmatchable.
+
+
+def _notebook(*source_lines: str) -> str:
+    """One code cell, serialised the way jupyter actually writes it."""
+    import json
+
+    return json.dumps(
+        {
+            "cells": [{"cell_type": "code", "source": list(source_lines)}],
+            "metadata": {},
+            "nbformat": 4,
+            "nbformat_minor": 5,
+        },
+        indent=1,
+    )
+
+
+def test_notebook_assignment_with_escaped_quotes_is_flagged(tmp_path: Path) -> None:
+    target = tmp_path / "case.ipynb"
+    body = _notebook(_KEY + ' = "' + _token() + '"\n')
+    target.write_text(body, encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_notebook_env_magic_is_flagged(tmp_path: Path) -> None:
+    """`%env NAME=value` quotes nothing, so no assignment pattern reaches it and the
+    bare-value parse does not run on a notebook."""
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook("%env " + _KEY.upper() + "=" + _token() + "\n"),
+                      encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_notebook_set_env_magic_is_flagged(tmp_path: Path) -> None:
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook("%set_env " + _KEY.upper() + "=" + _token() + "\n"),
+                      encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_env_magic_separated_by_whitespace_is_flagged(tmp_path: Path) -> None:
+    """IPython accepts `%env NAME value` as well as `NAME=value`."""
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook("%env " + _KEY.upper() + " " + _token() + "\n"),
+                      encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_an_escaped_value_of_eight_characters_is_not_flagged(tmp_path: Path) -> None:
+    """The `len > 8` floor holds inside a notebook too, where the value is reached
+    through two escapes rather than two quotes.
+
+    This test was first written to prove something ELSE, which measurement refuted: that
+    excluding a backslash from the captured value stopped the capture absorbing the
+    closing escape and reporting 9 characters for an 8-character secret. Both forms
+    report 8, because the engine backtracks to satisfy the closing escape. The floor
+    is what this case actually pins, so that is what it now says."""
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook(_KEY + ' = "a8f3k9d2"\n'), encoding="utf-8")
+    assert _load().scan_file(str(target)) == []
+
+
+def test_a_notebook_secret_containing_a_backslash_is_still_flagged(
+    tmp_path: Path,
+) -> None:
+    """The bypass the first draft shipped, now a regression test.
+
+    Excluding a backslash from the captured value looked defensive and was the
+    opposite: a value carrying an interior backslash matched NOTHING, so a secret
+    could be hidden inside a notebook by putting one character in it. The permissive
+    class flags the same value at 18 characters. Restoring the exclusion turns this
+    test red, which is the only reason the choice is checkable at all."""
+    target = tmp_path / "case.ipynb"
+    secret = "a8f3" + "\\" + "k9d2m1q7x4z0"
+    target.write_text(_notebook(_KEY + ' = "' + secret + '"\n'), encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_notebook_floors_match_the_rest_of_the_scanner(tmp_path: Path) -> None:
+    """A short value and a long low-entropy value stay quiet in a notebook too."""
+    target = tmp_path / "case.ipynb"
+    for value in ("ab12", "a" * 40):
+        target.write_text(_notebook(_KEY + ' = "' + value + '"\n'), encoding="utf-8")
+        assert _load().scan_file(str(target)) == [], value
+        target.write_text(_notebook("%env " + _KEY.upper() + "=" + value + "\n"),
+                          encoding="utf-8")
+        assert _load().scan_file(str(target)) == [], value
+
+
+# --- SX-U4 part 3: dotenv variants, and one exclusion removed -------------------
+#
+# `.env` worked because it is both a NAME and its own SUFFIX. A variant carries its
+# name in a SECOND extension, so os.path.splitext(".env.production") returns
+# (".env", ".production") and no suffix tuple can ever select it. Measured at
+# 1852983f: `.env.production`, `.env.local` and `.env.example` were all
+# _is_scannable FALSE, so the file was never opened, AND none of them was gitignored,
+# so it was freely committable. Both halves were open at once.
+
+
+_DOTENV_VARIANTS = (".env", ".env.production", ".env.local", ".env.example")
+
+
+def test_every_dotenv_variant_is_scannable() -> None:
+    mod = _load()
+    for name in _DOTENV_VARIANTS:
+        assert mod._is_scannable(name), name
+
+
+def test_every_dotenv_variant_is_parsed_for_bare_values() -> None:
+    """Scannability alone is NOT coverage. A dotenv's right-hand side is unquoted, so
+    a file that is opened and then read with the quoted-value parse only is exactly
+    how `.def` and `.qmd` stayed unmatchable while already being scanned."""
+    mod = _load()
+    for name in _DOTENV_VARIANTS:
+        assert mod.allows_bare_value(name), name
+
+
+def test_the_two_dotenv_questions_are_answered_by_one_helper() -> None:
+    """Scannability and bare-value parsing both route through _is_dotenv. Answered
+    separately they can drift, and the drift is SILENT in the dangerous direction:
+    the file gets scanned and nothing in it can match. The negative cases matter as
+    much as the positive ones, so `.envrc` and a trailing `.env` are pinned too."""
+    mod = _load()
+    expected = {
+        ".env": True,
+        ".env.production": True,
+        ".env.local": True,
+        ".env.example": True,
+        ".envrc": False,
+        ".environment": False,
+        "env": False,
+        "settings.env": False,
+    }
+    for name, want in expected.items():
+        assert mod._is_dotenv(name) is want, name
+
+
+def test_an_unquoted_credential_in_a_dotenv_variant_is_flagged(tmp_path: Path) -> None:
+    for name in _DOTENV_VARIANTS:
+        target = tmp_path / name
+        target.write_text(_KEY.upper() + "=" + _token() + "\n", encoding="utf-8")
+        assert _load().scan_file(str(target)) == [1], name
+
+
+def test_dotenv_variants_are_gitignored() -> None:
+    """The other half of the control, and NOT redundant with scannability.
+
+    Gitignoring stops such a file being committed; scannability catches one that is
+    tracked anyway, which this suite already covers for a force-added path. Before
+    this, `.env` matched only that exact path, so a `.env.production` holding a real
+    secret was both committable and unscannable. `--no-index` is required because no
+    such file exists in the tree: the question is what the RULES say, not what is on
+    disk."""
+    import subprocess
+
+    root = Path(__file__).resolve().parents[1]
+    for name in (".env", ".env.production", ".env.local"):
+        done = subprocess.run(
+            ["git", "check-ignore", "-q", "--no-index", "--", name],
+            cwd=str(root), capture_output=True,
+        )
+        assert done.returncode == 0, name
+    # Negative control, so the test cannot pass by matching everything.
+    done = subprocess.run(
+        ["git", "check-ignore", "-q", "--no-index", "--", "README.md"],
+        cwd=str(root), capture_output=True,
+    )
+    assert done.returncode != 0, "README.md reads as ignored, so the probe is broken"
+
+
+def test_the_admin_token_script_is_no_longer_excluded() -> None:
+    """`tools/apply_protection.sh` was in EXCLUDE_PATHS. The exclusion's rationale is
+    to guard against a file that LEGITIMATELY carries an example credential pattern,
+    which is true of check_secrets.py and is the wrong way round for a script that
+    HANDLES an admin token: there, a real token is the likelier content."""
+    mod = _load()
+    assert "tools/apply_protection.sh" not in mod.EXCLUDE_PATHS
+    assert mod._is_scannable("tools/apply_protection.sh")
+    assert "scripts/check_secrets.py" in mod.EXCLUDE_PATHS, (
+        "the detector must stay excluded: it exists to contain credential patterns"
+    )
