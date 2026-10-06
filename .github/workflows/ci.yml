@@ -200,6 +200,14 @@ jobs:
         # drifted from the source tree.
         run: python tools/check_library_coverage.py --check
 
+      - name: Verify the tracked version carriers agree
+        # tools/check_version_carriers.py shipped with its own tests and no caller, so
+        # nothing ran it: a badge, citation file, model card or API fallback could
+        # disagree with pyproject.toml's version and no gate would say so. It runs here,
+        # in a job that is already a required context, rather than only at a version tag,
+        # because a tag-time check fires after the disagreement has been published.
+        run: python tools/check_version_carriers.py
+
       - name: Run tests with coverage (OpenSSF Silver test_statement_coverage80)
         # Statement + branch coverage on the importable LIBRARY surface, gated at
         # fail_under=95 via .coveragerc.library (executable research/pipeline
