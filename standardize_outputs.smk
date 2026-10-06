@@ -17,7 +17,10 @@ rule run_prime:
     conda:
         "environments/prime.yaml"
     shell:
-        "\"{sys.executable}\" scripts/run_prime_wrapper.py --binding-csv {input.binding} --output {output.prime_out} --alleles '{params.alleles}' > {log} 2>&1"
+        # The hand-written '...' around {params.alleles} is replaced by `:q`. The
+        # manual single quotes were POSIX-only and offered no protection: a config
+        # allele containing a single quote closed them and escaped the argument.
+        "{sys.executable:q} scripts/run_prime_wrapper.py --binding-csv {input.binding:q} --output {output.prime_out:q} --alleles {params.alleles:q} > {log:q} 2>&1"
 
 rule run_predig:
     input:
@@ -33,7 +36,7 @@ rule run_predig:
     conda:
         "environments/predig.yaml"
     shell:
-        "\"{sys.executable}\" scripts/run_predig_wrapper.py --binding-csv {input.binding} --output {output.predig_out} --alleles '{params.alleles}' > {log} 2>&1"
+        "{sys.executable:q} scripts/run_predig_wrapper.py --binding-csv {input.binding:q} --output {output.predig_out:q} --alleles {params.alleles:q} > {log:q} 2>&1"
 
 rule standardize_predictor_outputs:
     input:
@@ -50,10 +53,10 @@ rule standardize_predictor_outputs:
     conda:
         "environment.yml"
     shell:
-        "\"{sys.executable}\" scripts/standardize_outputs.py "
-        "--binding {input.binding} "
-        "--prime {input.prime} "
-        "--predig {input.predig} "
-        "--sestrav {input.sestrav} "
-        "--output {output.std_out} "
-        "> {log} 2>&1"
+        "{sys.executable:q} scripts/standardize_outputs.py "
+        "--binding {input.binding:q} "
+        "--prime {input.prime:q} "
+        "--predig {input.predig:q} "
+        "--sestrav {input.sestrav:q} "
+        "--output {output.std_out:q} "
+        "> {log:q} 2>&1"
