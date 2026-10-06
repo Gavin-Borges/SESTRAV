@@ -49,6 +49,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.artifact_guard import guard_planned_paths
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.ml_utils import pin_serial_scoring
 from src.train_classifier import prepare_features_31
 
 DATASET_PATH = "data/immunogenicity_dataset_v5.csv"
@@ -63,9 +64,17 @@ RF_PARAMS = dict(n_estimators=200, class_weight="balanced", random_state=42, n_j
 
 
 def _fit_rf(X_train: np.ndarray, y_train: np.ndarray) -> RandomForestClassifier:
+    """Fit on every core, then pin scoring to one thread.
+
+    Fitting is invariant to ``n_jobs`` given ``random_state``, but scoring with
+    ``n_jobs=-1`` adds per-tree probabilities in thread-completion order, so one
+    seed's leave-one-virus-out metrics differed between runs (by enough, in the
+    sixth decimal, to move a 4-dp value across a rounding boundary).
+    ``pin_serial_scoring`` is the same fix ``train_models`` already applies.
+    """
     clf = RandomForestClassifier(**RF_PARAMS)
     clf.fit(X_train, y_train)
-    return clf
+    return pin_serial_scoring(clf)
 
 
 def planned_loo_paths(output_json: str, output_csv: str) -> list[str]:
