@@ -1219,3 +1219,101 @@ def test_the_live_repository_passes_its_own_scan() -> None:
     this cannot pass by walking an empty tree."""
     root = str(Path(__file__).resolve().parents[1])
     assert _load().scan_tree(root) == 0
+
+
+# --- SX-U4 part 2: the two notebook shapes --------------------------------------
+#
+# `.ipynb` has been in _SCAN_SUFFIXES since 2026-09-23, so a notebook was already
+# being OPENED. Measured anyway rather than assumed, and the file selection turned
+# out not to be the hole: a notebook carrying a credential assignment in its JSON
+# `source` still scanned clean, because JSON escapes each quote and every pattern
+# wanted a quote directly after the operator. The lesson is the one this file
+# already records for `.def` and `.qmd`, one layer in: a format can be scanned and
+# still be unmatchable.
+
+
+def _notebook(*source_lines: str) -> str:
+    """One code cell, serialised the way jupyter actually writes it."""
+    import json
+
+    return json.dumps(
+        {
+            "cells": [{"cell_type": "code", "source": list(source_lines)}],
+            "metadata": {},
+            "nbformat": 4,
+            "nbformat_minor": 5,
+        },
+        indent=1,
+    )
+
+
+def test_notebook_assignment_with_escaped_quotes_is_flagged(tmp_path: Path) -> None:
+    target = tmp_path / "case.ipynb"
+    body = _notebook(_KEY + ' = "' + _token() + '"\n')
+    target.write_text(body, encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_notebook_env_magic_is_flagged(tmp_path: Path) -> None:
+    """`%env NAME=value` quotes nothing, so no assignment pattern reaches it and the
+    bare-value parse does not run on a notebook."""
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook("%env " + _KEY.upper() + "=" + _token() + "\n"),
+                      encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_notebook_set_env_magic_is_flagged(tmp_path: Path) -> None:
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook("%set_env " + _KEY.upper() + "=" + _token() + "\n"),
+                      encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_env_magic_separated_by_whitespace_is_flagged(tmp_path: Path) -> None:
+    """IPython accepts `%env NAME value` as well as `NAME=value`."""
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook("%env " + _KEY.upper() + " " + _token() + "\n"),
+                      encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_an_escaped_value_of_eight_characters_is_not_flagged(tmp_path: Path) -> None:
+    """The `len > 8` floor holds inside a notebook too, where the value is reached
+    through two escapes rather than two quotes.
+
+    This test was first written to prove something ELSE, which measurement refuted: that
+    excluding a backslash from the captured value stopped the capture absorbing the
+    closing escape and reporting 9 characters for an 8-character secret. Both forms
+    report 8, because the engine backtracks to satisfy the closing escape. The floor
+    is what this case actually pins, so that is what it now says."""
+    target = tmp_path / "case.ipynb"
+    target.write_text(_notebook(_KEY + ' = "a8f3k9d2"\n'), encoding="utf-8")
+    assert _load().scan_file(str(target)) == []
+
+
+def test_a_notebook_secret_containing_a_backslash_is_still_flagged(
+    tmp_path: Path,
+) -> None:
+    """The bypass the first draft shipped, now a regression test.
+
+    Excluding a backslash from the captured value looked defensive and was the
+    opposite: a value carrying an interior backslash matched NOTHING, so a secret
+    could be hidden inside a notebook by putting one character in it. The permissive
+    class flags the same value at 18 characters. Restoring the exclusion turns this
+    test red, which is the only reason the choice is checkable at all."""
+    target = tmp_path / "case.ipynb"
+    secret = "a8f3" + "\\" + "k9d2m1q7x4z0"
+    target.write_text(_notebook(_KEY + ' = "' + secret + '"\n'), encoding="utf-8")
+    assert _load().scan_file(str(target)) != []
+
+
+def test_notebook_floors_match_the_rest_of_the_scanner(tmp_path: Path) -> None:
+    """A short value and a long low-entropy value stay quiet in a notebook too."""
+    target = tmp_path / "case.ipynb"
+    for value in ("ab12", "a" * 40):
+        target.write_text(_notebook(_KEY + ' = "' + value + '"\n'), encoding="utf-8")
+        assert _load().scan_file(str(target)) == [], value
+        target.write_text(_notebook("%env " + _KEY.upper() + "=" + value + "\n"),
+                          encoding="utf-8")
+        assert _load().scan_file(str(target)) == [], value

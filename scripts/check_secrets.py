@@ -115,6 +115,38 @@ CREDENTIAL_QUERY_PARAM = re.compile(
     r"=([^&'\"\s>]+)"
 )
 
+# 6. An assignment whose quotes are ESCAPED, which is what a notebook is. `.ipynb`
+#    has been in _SCAN_SUFFIXES since 2026-09-23, so the file was already opened;
+#    measured on a notebook holding `API_KEY = "<v>"` in its JSON `source`, the scan
+#    still returned nothing, because JSON stores that as a backslash before each
+#    quote and the patterns above want a quote directly after the operator. The
+#    backslash run is REQUIRED, so this expresses the escaped case alone; no test can
+#    distinguish that from an optional run, because the unescaped case is already
+#    CREDENTIAL_ASSIGNMENT's.
+#
+#    The value class is `[^'\"]`, NOT `[^'\"\\]`, and the first draft had it the other
+#    way round on a FALSE rationale: that excluding the backslash stopped the capture
+#    absorbing the closing escape and reporting 9 characters for an 8-character
+#    secret. Measured on a real notebook line, both forms report 8, because the engine
+#    BACKTRACKS to satisfy the closing `\\+`. Nothing was ever inflated. What the
+#    exclusion did do was REFUSE a value containing an interior backslash, returning
+#    no match at all where the permissive form flags 18 characters - so the
+#    defensive-looking choice was a bypass, not a guard.
+CREDENTIAL_ESCAPED_QUOTE = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\\*['\"]?\s*[=:]\s*\\+['\"]([^'\"]+)\\+['\"]"
+)
+
+# 7. An IPython `%env` or `%set_env` magic. The name and the value are separated by
+#    `=` or by whitespace and NEITHER is quoted, so no assignment pattern reaches it
+#    and the bare-value parse does not run on a notebook. Measured as missed.
+CREDENTIAL_NOTEBOOK_MAGIC = re.compile(
+    r"(?i)%(?:env|set_env)\s+"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*(?:=|\s)\s*([^\s'\"\\]+)"
+)
+
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
 # reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
 # the patterns above recognise, so the assignment rules never saw it. The value
@@ -372,6 +404,8 @@ def scan_file(path: str) -> List[int]:
         CREDENTIAL_ENV_DEFAULT,
         CREDENTIAL_BEARER,
         CREDENTIAL_QUERY_PARAM,
+        CREDENTIAL_ESCAPED_QUOTE,
+        CREDENTIAL_NOTEBOOK_MAGIC,
         URL_EMBEDDED_CREDENTIAL,
     ]
     if allows_bare_value(path):
