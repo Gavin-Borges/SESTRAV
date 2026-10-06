@@ -1040,3 +1040,182 @@ def test_tracked_paths_parses_the_repo_without_quoting_artifacts() -> None:
     assert quoted == [], f"quoted paths returned: {quoted[:5]}"
     missing = [p for p in tracked if not _os.path.exists(_os.path.join(root, p))]
     assert missing == [], f"paths naming no file: {missing[:5]}"
+
+
+# --- SX-U4: shapes the scanner could not see ------------------------------------
+#
+# Nine shapes were planted ONE AT A TIME into a throwaway checkout of main and
+# scanned, so one shape's verdict could not mask another's. EIGHT were missed while
+# the plain `API_KEY = "<v>"` control was caught. Each is bound below.
+#
+# Two conventions keep this module from becoming a secret-bearing file itself.
+# Payloads are assembled at runtime, as the module docstring says. And every
+# template carries its value as the four-character placeholder `{v}`, which the
+# scanner's own `len > 8` floor drops - the same mechanism the scanner documents
+# for documentation placeholders - so the TEMPLATE lines are quiet even where they
+# spell a credential keyword next to an operator.
+
+
+def _plant(tmp_path: Path, name: str, template: str, keyword: str, token: str) -> list:
+    """Write one shape into `name` and return the line numbers the scanner flags."""
+    target = tmp_path / name
+    target.write_text(template.format(k=keyword, v=token) + "\n", encoding="utf-8")
+    return _load().scan_file(str(target))
+
+
+_KEY = "api_" + "key"
+_TOKEN_NAME = "api_" + "token"
+_SECRET_NAME = "secret_" + "value"
+
+
+def test_type_annotated_assignment_is_flagged(tmp_path: Path) -> None:
+    """An annotation between the name and the `=`. CREDENTIAL_ASSIGNMENT wants a
+    quote directly after `[=:]`, so it read the `:` as the operator and the type
+    name as the value, which the length floor then dropped."""
+    assert _plant(tmp_path, "case.py", '{k}: str = "{v}"', _TOKEN_NAME, _token()) == [1]
+
+
+def test_getenv_default_is_flagged(tmp_path: Path) -> None:
+    """There is no assignment operator between the credential NAME and the value:
+    the name is the first argument and the secret the second, so every assignment
+    pattern was blind to it by construction."""
+    template = 'DB = os.getenv("DB_{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [1]
+
+
+def test_environ_get_default_is_flagged(tmp_path: Path) -> None:
+    """The same shape through the other spelling. `os.environ.get` is as common as
+    `os.getenv` and a pattern naming only one of them covers half the cases."""
+    template = 'DB = os.environ.get("DB_{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [1]
+
+
+def test_fstring_prefixed_value_is_flagged(tmp_path: Path) -> None:
+    """A string prefix puts a letter where CREDENTIAL_ASSIGNMENT demands a quote."""
+    assert _plant(tmp_path, "case.py", '{k} = f"{v}"', _SECRET_NAME, _token()) == [1]
+
+
+def test_bytes_prefixed_value_is_flagged(tmp_path: Path) -> None:
+    assert _plant(tmp_path, "case.py", '{k} = b"{v}"', _SECRET_NAME, _token()) == [1]
+
+
+def test_unicode_prefixed_value_is_flagged(tmp_path: Path) -> None:
+    assert _plant(tmp_path, "case.py", '{k} = u"{v}"', _SECRET_NAME, _token()) == [1]
+
+
+def test_credential_in_a_url_query_string_is_flagged(tmp_path: Path) -> None:
+    """`?token=<v>` carries the keyword and the value with no quote between them,
+    inside what is otherwise an ordinary quoted URL."""
+    template = 'url = "https://x.example/api?{k}={v}"'
+    assert _plant(tmp_path, "case.py", template, "token", _token()) == [1]
+
+
+def test_bearer_authorization_header_is_flagged(tmp_path: Path) -> None:
+    """The scheme name is the keyword and the credential follows a SPACE rather
+    than an operator, so no assignment pattern reaches it."""
+    template = 'HEADERS = {{"Authorization": "{k} {v}"}}'
+    assert _plant(tmp_path, "case.py", template, "Bearer", _token()) == [1]
+
+
+def test_unquoted_bearer_credential_is_flagged(tmp_path: Path) -> None:
+    """The header is as often built in a string as assigned, so the quote after the
+    scheme is optional."""
+    template = 'send("Authorization: {k} {v}")'
+    assert _plant(tmp_path, "case.py", template, "Bearer", _token()) == [1]
+
+
+def test_export_in_a_container_definition_is_flagged(tmp_path: Path) -> None:
+    """`.def` was already in _SCAN_SUFFIXES, so the file was opened and then read
+    with the quoted-value parse only. A container definition carries
+    `export NAME=value`, whose value is unquoted, so every such line went
+    unmatched - the file was scanned and nothing in it could ever match."""
+    assert _plant(tmp_path, "case.def", "export ADMIN_{k}={v}", "TOKEN", _token()) == [1]
+
+
+def test_export_in_a_quarto_document_is_flagged(tmp_path: Path) -> None:
+    """`.qmd` had the same gap as `.def`."""
+    assert _plant(tmp_path, "case.qmd", "export ADMIN_{k}={v}", "TOKEN", _token()) == [1]
+
+
+# --- SX-U4 false positives: the RAW prefix is excluded deliberately -------------
+
+
+def test_raw_prefixed_regex_template_is_not_flagged(tmp_path: Path) -> None:
+    """The measured false positive, and the reason the prefix class excludes `r`.
+
+    `tools/check_version_carriers.py` assigns a regex to VERSION_TOKEN as an
+    `rf"..."` literal. A raw literal is a regex or a path template, not a
+    credential. The first draft of the prefixed-string pattern accepted `r`,
+    turned this gate red on the live tree, and would have been cleared by
+    allowlisting one line instead of removing the class."""
+    template = '{k} = rf"[0-9]+\\.[0-9]+(?:[0-9A-Za-z.+-]*[0-9A-Za-z])?"'
+    assert _plant(tmp_path, "case.py", template, _TOKEN_NAME, _token()) == []
+
+
+def test_every_non_raw_prefix_is_flagged_and_every_raw_one_is_not(
+    tmp_path: Path,
+) -> None:
+    """ONE character is enough for the prefix class, and this is why.
+
+    All 24 legal Python string prefixes were compiled: the non-raw set is exactly
+    {b, f, u} case-insensitively, and every legal MULTI-character prefix contains
+    an `r`. So `[bfu]` is complete for non-raw literals, and excluding `r` excludes
+    every multi-character prefix with it. Both halves are asserted here rather than
+    described, because the claim is what licenses the single-character class."""
+    legal = []
+    for first in "rbufRBUF":
+        for rest in ("", *"rbufRBUF"):
+            prefix = first + rest
+            try:
+                compile(prefix + '"x"', "<t>", "eval")
+            except SyntaxError:
+                continue
+            legal.append(prefix)
+    assert len(legal) == 24, legal
+    assert sorted(p for p in legal if "r" not in p.lower()) == list("BFUbfu")
+    assert all("r" in p.lower() for p in legal if len(p) > 1)
+
+    for prefix in sorted({p.lower() for p in legal}):
+        flagged = _plant(
+            tmp_path, "case.py", "{k} = " + prefix + '"{v}"', _SECRET_NAME, _token()
+        )
+        if "r" in prefix:
+            assert flagged == [], f"raw prefix {prefix!r} was flagged"
+        else:
+            assert flagged == [1], f"non-raw prefix {prefix!r} was NOT flagged"
+
+
+def test_the_new_shapes_did_not_lower_the_entropy_and_length_floors(
+    tmp_path: Path,
+) -> None:
+    """Every new pattern captures its value as group 2, so all of them drop into
+    the floors the assignment patterns already use. Asserted rather than stated: a
+    pattern that captured the value as group 1 would silently flag on group 2 being
+    something else, and a widened pattern that bypassed the floors would turn this
+    gate red on ordinary code."""
+    short = "ab12"
+    repetitive = "a" * 40
+    shapes = [
+        ("case.py", '{k}: str = "{v}"', _TOKEN_NAME),
+        ("case.py", '{k} = f"{v}"', _SECRET_NAME),
+        ("case.py", '{k} = b"{v}"', _SECRET_NAME),
+        ("case.py", 'DB = os.getenv("DB_{k}", "{v}")', "PASSWORD"),
+        ("case.py", 'url = "https://x.example/api?{k}={v}"', "token"),
+        ("case.def", "export ADMIN_{k}={v}", "TOKEN"),
+    ]
+    for name, template, keyword in shapes:
+        assert _plant(tmp_path, name, template, keyword, short) == [], template
+        assert _plant(tmp_path, name, template, keyword, repetitive) == [], template
+        assert _plant(tmp_path, name, template, keyword, _token()) == [1], template
+
+
+def test_the_live_repository_passes_its_own_scan() -> None:
+    """The guard this unit needed and the suite did not have.
+
+    Every other test here plants a payload in a tmp_path, so none of them can see a
+    FALSE POSITIVE on tracked code - which is exactly what the first draft of this
+    unit's patterns produced. Measured at 1.9s over the live tree, so it is cheap
+    enough to run with the rest. scan_tree enforces MIN_SCANNED_FILES itself, so
+    this cannot pass by walking an empty tree."""
+    root = str(Path(__file__).resolve().parents[1])
+    assert _load().scan_tree(root) == 0

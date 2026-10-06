@@ -56,6 +56,65 @@ CREDENTIAL_ASSIGNMENT_MAKE = re.compile(
     r"(?:[_-][a-z0-9]+)*\s*(?:::=|[:?+!]?=)\s*([^\s'\"#,;)\]}]+)"
 )
 
+# Shapes probe2 measured as missed, re-measured on this revision before being added: 8 of 9
+# planted 24-character secrets were NOT detected while the plain `API_KEY = "<v>"` control was.
+# Each pattern below captures the value as group 2, so all of them drop into the same
+# no-whitespace, length and entropy floors as the assignment patterns above - none of them
+# lowers the bar, they only widen what reaches it. They are ADDITIVE: no line caught today
+# stops being caught.
+
+# 1. A type annotation between the name and the `=`. The pattern above requires a quote
+#    directly after `[=:]`, so `API_TOKEN: str = "<v>"` read the `:` as the operator and the
+#    annotation as the value, which the length floor then dropped.
+CREDENTIAL_ANNOTATED = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*:\s*[A-Za-z_][A-Za-z0-9_.\[\], |]*\s*=\s*"
+    r"[bfu]?['\"]([^'\"]+)['\"]"
+)
+
+# A RAW prefix is deliberately excluded from every prefix class below. Measured on the
+# live tree: the sole false positive the five patterns produced was
+# `VERSION_TOKEN = rf"..."` in tools/check_version_carriers.py - a regex template whose
+# name ends in TOKEN. A raw literal is a regex or a path template, not a credential, so
+# excluding `r` removes that class rather than allowlisting one line of it. The class is
+# `[bfu]` and ONE character is enough: all 24 legal Python string prefixes were compiled,
+# the non-raw set is exactly {b, f, u} case-insensitively, and every legal
+# multi-character prefix contains `r`.
+
+# 2. A string PREFIX before the quote. `f"..."`, `b"..."`, `rb"..."` and the rest put a letter
+#    where the pattern above demands a quote. At least one prefix character is required here,
+#    so this never duplicates a match the unprefixed pattern already makes.
+CREDENTIAL_PREFIXED_STRING = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*['\"]?\s*[=:]\s*[bfu]['\"]([^'\"]+)['\"]"
+)
+
+# 3. A default handed to os.getenv / os.environ.get. There is no assignment operator between
+#    the credential NAME and the value at all: the name is the first argument and the secret
+#    is the second, so every assignment pattern above is blind to it by construction.
+CREDENTIAL_ENV_DEFAULT = re.compile(
+    r"(?i)(getenv|environ\.get)\(\s*[bfu]?['\"][^'\"]*"
+    r"(?:api[_-]?key|token|secret|password|passwd|pwd|credential|auth|private[_-]?key)"
+    r"[^'\"]*['\"]\s*,\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+
+# 4. An Authorization header. The scheme name is the keyword, and the credential follows a
+#    SPACE rather than an operator, so nothing above reaches it. Quoting is optional because
+#    the header is as often built in a string as assigned.
+CREDENTIAL_BEARER = re.compile(
+    r"(?i)(bearer|authorization\s*:\s*bearer)\s+[bfu]?['\"]?"
+    r"([A-Za-z0-9._~+/=-]{9,})"
+)
+
+# 5. A credential in a URL query string. `?token=<v>` carries the keyword and the value with
+#    no quote between them, inside what is otherwise an ordinary quoted URL.
+CREDENTIAL_QUERY_PARAM = re.compile(
+    r"(?i)[?&](api[_-]?key|token|secret|password|passwd|pwd|auth)"
+    r"=([^&'\"\s>]+)"
+)
+
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
 # reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
 # the patterns above recognise, so the assignment rules never saw it. The value
@@ -138,7 +197,21 @@ VENDOR_CREDENTIAL_FORMATS = tuple(
 )
 
 # Formats in which an unquoted scalar IS the string literal.
-_BARE_VALUE_SUFFIXES = (".yml", ".yaml", ".sh", ".env", ".md", ".txt", ".cfg", ".ini")
+_BARE_VALUE_SUFFIXES = (
+    ".yml",
+    ".yaml",
+    ".sh",
+    ".env",
+    ".md",
+    ".txt",
+    ".cfg",
+    ".ini",
+    # Both were already in _SCAN_SUFFIXES, so the file was opened and then read with the
+    # quoted-value parse only. A container definition and a Quarto document both carry
+    # `export NAME=value`, whose value is unquoted, so every such line went unmatched.
+    ".def",
+    ".qmd",
+)
 
 # Refuse a vacuous pass over an empty walk (wrong cwd, or every file excluded).
 MIN_SCANNED_FILES = 10
@@ -292,7 +365,15 @@ def scan_file(path: str) -> List[int]:
     flagged_line_numbers: List[int] = []
     # The bare pattern is ADDITIVE, never a replacement: the quoted pattern runs on
     # every format, so no line that is caught today can stop being caught.
-    patterns = [CREDENTIAL_ASSIGNMENT, URL_EMBEDDED_CREDENTIAL]
+    patterns = [
+        CREDENTIAL_ASSIGNMENT,
+        CREDENTIAL_ANNOTATED,
+        CREDENTIAL_PREFIXED_STRING,
+        CREDENTIAL_ENV_DEFAULT,
+        CREDENTIAL_BEARER,
+        CREDENTIAL_QUERY_PARAM,
+        URL_EMBEDDED_CREDENTIAL,
+    ]
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     elif is_makefile(path):
