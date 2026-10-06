@@ -460,11 +460,21 @@ matrix.
 ### 4.6 Reject on this dataset: self-proteome tolerance (RSAT / foreignness)
 
 Already implemented as `feature_mode=35` and already measured in this audit: peptide-grouped
-AUC-PR 0.6055 vs 0.6092 for mode 31 (-0.0037, `results/cv_leakage_audit.csv`, metric `mode35_
-grouped_auc_pr`), consistent in direction with the certified peptide-grouped ablation (`models/v5/
+AUC-PR 0.6055 for mode 35 against 0.6092 for mode 31 (-0.0037; both from
+`results/cv_leakage_audit.csv`, config `peptide_grouped_splitter`, metrics `mode35_grouped_auc_pr`
+and `mode31_grouped_auc_pr`), consistent in direction with the certified peptide-grouped ablation (`models/v5/
 training_results_ablation.csv`, regenerated under `PeptideGroupedKFold` on 2026-08-10: AUC-PR
 0.6085 at mode 33 -> 0.6069 at mode 35, i.e. **-0.0016**; this parenthetical read "ungrouped ...
--0.0002" until 2026-08-10 and was wrong on both counts). This section previously added a "structural
+-0.0002" until 2026-08-10 and was wrong on both counts).
+
+**The 0.6055 on this line belongs to mode 35 and is NOT the certified pooled mode-31 figure**,
+which renders to the same four-decimal literal. Re-derived from both tracked artifacts on
+2026-10-05: `results/cv_leakage_audit.csv`'s `mode35_grouped_auc_pr` is 0.605519 and
+`results/pooled_cv_metrics_mode31.csv`'s `mode31_pooled_auc_pr` is 0.605524, so the two differ by
+5e-06 and no four-decimal rendering can separate them. Do not reconcile this line against the
+pooled figure, and do not repoint it: the metric key is the only safe identifier here.
+
+This section previously added a "structural
 reason" on top of that null result: that `scripts/generate_hard_decoys.py` builds the majority of
 hard negatives *by sampling the human self-proteome*, so a "is this peptide human" feature would
 predict "negative" by construction of the decoy set rather than by learned immunological
