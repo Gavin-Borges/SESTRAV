@@ -54,6 +54,17 @@ jobs:
       # SBOM require the registry exporter and fail under the docker exporter that
       # `load` uses; that is a property of the exporter, not a weakening of the
       # release path, which still sets both.
+      #
+      # NO BUILDKIT CACHE IS CONFIGURED, DELIBERATELY. A `cache-from` and a
+      # `cache-to` key naming the `gha` backend stood here until this change. The
+      # Actions cache is scoped so that a run on a tag ref restores entries SAVED
+      # BY DEFAULT-BRANCH RUNS, so any code executing in a main-branch job, a
+      # compromised build dependency included, could plant BuildKit layers that
+      # this tag-only publish then bakes into the released image and that the
+      # `provenance` and `sbom` attestations below sign as genuine. Fork pull
+      # requests get an isolated cache scope and were never the exposure. Release
+      # builds are slower without a cache; on a tag-only, low-frequency publish
+      # that is the intended trade. Do not re-add either key.
       - name: Build and push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
@@ -62,8 +73,6 @@ jobs:
           load: ${{ github.event_name != 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           provenance: ${{ github.event_name == 'push' }}   # SLSA build provenance attestation
           sbom: ${{ github.event_name == 'push' }}         # Software Bill of Materials
 
