@@ -318,3 +318,78 @@ def test_scan_blob_keeps_dash_capital_i_on_the_looser_home_pattern() -> None:
     home_line = next(line for line in setup.splitlines() if "pat_home.txt" in line)
     assert " -a " in path_line and " -I " not in path_line, path_line
     assert " -I " in home_line and " -a " not in home_line, home_line
+
+
+def _diff_constructions() -> list[str]:
+    """Every line in the workflow that BUILDS diff.txt with git diff."""
+    return [
+        line.strip()
+        for line in WORKFLOW.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("git diff") and "> diff.txt" in line
+    ]
+
+
+def test_every_diff_construction_reads_binary_as_text() -> None:
+    """--text on each git diff that builds diff.txt.
+
+    This is the OTHER HALF of the `-a` requirement its sibling test above pins, and
+    neither flag substitutes for the other. `-a` makes grep read a NUL-bearing
+    diff.txt; --text is what puts the content INTO diff.txt in the first place. Without
+    it git writes "Binary files ... differ" and no content at all, so there is nothing
+    for any grep to read, flagged or not."""
+    builds = _diff_constructions()
+    assert len(builds) == 2, f"expected the PR and push diff builds, found {builds}"
+    for line in builds:
+        assert "--text" in line, f"this git diff does not pass --text: {line}"
+
+
+def test_a_minus_diff_attribute_or_a_nul_hides_a_leak_without_text(tmp_path: Path) -> None:
+    """The mechanism, measured per carrier so one cannot mask the other.
+
+    Two carriers reach the same blind spot, and the FIRST is attacker-selectable: a pull
+    request can add `nodiff.txt -diff` to .gitattributes in the same commit that adds
+    the leak, so the file stays ordinary text a reviewer can read while this gate is
+    told to treat it as binary. The second is an ordinary binary file holding a NUL.
+
+    Without --text each carrier yields ZERO visible leak lines; with it, one each. The
+    canary is assembled at runtime and uses the Git Bash home form, so no literal
+    workstation path sits in this file."""
+    import subprocess as sp
+
+    users = "U" + "sers"
+    leak = "see /c/" + users + "/someone/private/key here"
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@example.com",
+             "-c", "user.name=T", "-c", "commit.gpgsign=false", *argv],
+            capture_output=True, text=True, check=False,
+        )
+
+    git("init", "-q")
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    base = git("rev-parse", "HEAD").stdout.strip()
+    assert base, "the fixture repo has no base commit"
+
+    (repo / ".gitattributes").write_text("nodiff.txt -diff\n", encoding="utf-8")
+    (repo / "nodiff.txt").write_text(leak + "\n", encoding="utf-8")
+    (repo / "blob.bin").write_bytes(b"\x00\x01" + leak.encode() + b"\n\x00")
+    git("add", "-A")
+    git("commit", "-q", "-m", "add both carriers")
+
+    def visible(carrier: str, *extra: str) -> int:
+        out = git("diff", *extra, base + "...HEAD", "--", carrier).stdout
+        return sum(1 for line in out.splitlines() if "private/key" in line)
+
+    for carrier in ("nodiff.txt", "blob.bin"):
+        assert visible(carrier) == 0, (
+            f"{carrier} leaked content without --text, so this fixture no longer "
+            f"reproduces the blind spot and the test proves nothing"
+        )
+        assert visible(carrier, "--text") == 1, (
+            f"{carrier} is still invisible WITH --text, so the fix does not work"
+        )

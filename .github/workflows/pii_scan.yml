@@ -67,10 +67,24 @@ jobs:
             ':(exclude).github/workflows/pii_scan.yml'
           )
 
+          # --text is load-bearing, and it is the OTHER HALF of the `grep -a` below.
+          # Without it `git diff` emits "Binary files a/x and b/x differ" and NO content
+          # for two carriers, so the leak never reaches the scan at all and no amount of
+          # `-a` on the grep can recover it. Measured in a throwaway repo, per carrier,
+          # with a Git Bash home path as the canary:
+          #
+          #   carrier                              no --text   with --text
+          #   a TEXT file the PR marks `-diff`         0            1
+          #   a binary file holding a NUL              0            1
+          #
+          # The first carrier is the sharp one: a pull request can add `nodiff.txt -diff`
+          # to .gitattributes in the SAME commit that adds the leak, so the file stays
+          # ordinary text that any reader can see while this gate is told to treat it as
+          # binary. That makes the blind spot attacker-selectable rather than incidental.
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
           else
-            git diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
