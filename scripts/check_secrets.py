@@ -3,7 +3,7 @@ import re
 import subprocess  # nosec B404 - fixed argv, no shell, reads git ls-files only
 import sys
 import math
-from typing import List
+from typing import List, Optional
 
 # Credential-class identifier, then an assignment. Entropy is applied to the
 # captured value, not used as a second pass over the whole line. The old
@@ -420,6 +420,11 @@ _SCAN_DIRS = ("scripts/hooks/",)
 # that signature; scan_tree resets it at the start of every run.
 UNREADABLE_PATHS: List[str] = []
 
+# Why git could not list a git work tree's tracked files, if it could not. Same
+# shape and lifetime as UNREADABLE_PATHS: iter_scanned_files records it, and
+# scan_tree resets it and refuses to pass while it is non-empty.
+TRACKED_LIST_ERRORS: List[str] = []
+
 
 def scan_file(path: str) -> List[int]:
     # Returns only the line NUMBERS of credential-like assignments. The matched
@@ -527,12 +532,22 @@ def _is_scannable(rel_path: str) -> bool:
     )
 
 
-def _tracked_paths(root: str) -> List[str]:
-    """Repo-relative paths of tracked files, or [] outside a work tree.
+def _tracked_paths(root: str) -> Optional[List[str]]:
+    """Repo-relative paths of tracked files; [] outside a work tree; None if git failed IN one.
 
-    Returning [] on failure keeps this an ADDITIVE safety net: a non-git
+    Returning [] outside a work tree keeps this an ADDITIVE safety net: a non-git
     checkout scans exactly what the walk found, as before, rather than erroring.
+
+    Inside a work tree the same [] was a fail-open, and the reason is the walk:
+    EXCLUDE_DIRS prunes by directory NAME, so a tracked file under results/ is
+    reached ONLY through this list. Measured 2026-10-06: with git exiting 128
+    ("dubious ownership", what git says on a checkout another user owns, as in a
+    container), a credential in a tracked results/ file passed with [SUCCESS].
+    So when root holds a .git entry (a directory, or the file a linked worktree
+    or a submodule uses) and git cannot list it, this returns None and
+    scan_tree refuses to pass. A root with no .git entry keeps the old answer.
     """
+    in_work_tree = os.path.exists(os.path.join(root, ".git"))
     try:
         # -z, and the sibling _ignored_paths below already uses it on both its
         # input and its output. Without it git applies core.quotePath, which
@@ -567,9 +582,19 @@ def _tracked_paths(root: str) -> List[str]:
             errors="surrogateescape",
             check=False,
         )
-    except OSError:
+    except OSError as exc:
+        if in_work_tree:
+            TRACKED_LIST_ERRORS.append(f"git could not be run: {exc}")
+            return None
         return []
     if out.returncode != 0:
+        if in_work_tree:
+            detail = (out.stderr or "").strip().splitlines()
+            TRACKED_LIST_ERRORS.append(
+                f"git ls-files exited {out.returncode}"
+                + (f": {detail[0]}" if detail else "")
+            )
+            return None
         return []
     return [entry for entry in out.stdout.split("\0") if entry]
 
@@ -665,7 +690,10 @@ def iter_scanned_files(root: str) -> List[str]:
     # gitignored assistant trees - stays unscanned and the walk's cost is
     # unchanged. Only tracked files are pulled back in.
     seen = {os.path.normcase(os.path.abspath(p)) for p in found}
-    for rel in _tracked_paths(root):
+    # None means git could not list a work tree; _tracked_paths has recorded why
+    # in TRACKED_LIST_ERRORS and scan_tree will refuse to pass. Scanning what the
+    # walk found still runs, so a credential there is reported as well.
+    for rel in _tracked_paths(root) or []:
         if not _is_scannable(rel):
             continue
         absolute = os.path.abspath(os.path.join(root, rel))
@@ -678,6 +706,7 @@ def iter_scanned_files(root: str) -> List[str]:
 
 def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
     UNREADABLE_PATHS.clear()
+    TRACKED_LIST_ERRORS.clear()
     paths = iter_scanned_files(root)
     if len(paths) < min_files:
         print(
@@ -696,6 +725,17 @@ def scan_tree(root: str, min_files: int = MIN_SCANNED_FILES) -> int:
     # failure rather than folded into [FLAGGED], because the two mean opposite
     # things: FLAGGED is "we looked and found something", this is "we could not
     # look". Silently treating the second as a pass is the defect this gate had.
+    # A git checkout whose tracked files git could not list has not been scanned
+    # in full: the files under pruned directory names were never reached. Same
+    # standing as an unreadable file, so the same refusal.
+    if TRACKED_LIST_ERRORS:
+        for reason in TRACKED_LIST_ERRORS:
+            print(f"[UNLISTED] {reason}")
+        print(
+            "\n[ERROR] git could not list the tracked files of this checkout, so tracked "
+            "files under excluded directory names were NOT scanned. Action blocked."
+        )
+        return 1
     if UNREADABLE_PATHS:
         for path in UNREADABLE_PATHS:
             print(f"[UNREADABLE] {path} (could not be opened; NOT cleared)")
