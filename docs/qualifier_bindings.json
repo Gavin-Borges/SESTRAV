@@ -36,7 +36,7 @@
           "path": "ROADMAP.md",
           "anchor_pattern": "Gate 1 alone settles it:.*0\\.6458",
           "observed": {
-            "line": 221,
+            "line": 225,
             "window_sha256": "96f73020226342bb1e1158a42cd0d862c5921188151fc2652364e6e3ef29a9f3"
           }
         },
@@ -111,7 +111,7 @@
           "path": "ROADMAP.md",
           "anchor_pattern": "cross-fold std 0\\.0234",
           "observed": {
-            "line": 222,
+            "line": 226,
             "window_sha256": "1b2385c189b0a11e0184b01eb32d28ef4b122aff80ac91beaf64c1bc4b038ba9"
           }
         },
