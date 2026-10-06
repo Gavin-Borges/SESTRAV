@@ -77,6 +77,32 @@ def _fit_rf(X_train: np.ndarray, y_train: np.ndarray) -> RandomForestClassifier:
     return pin_serial_scoring(clf)
 
 
+def auc_pr_chance_floor(n_test_pos: int, n_test_total: int) -> float:
+    """The AUC-PR a random ranker scores on this test set: its positive rate.
+
+    Average precision has no fixed chance level. It equals the positive rate,
+    so a figure of 0.98 on a 98.5 per cent positive test set is below chance
+    while 0.53 on a 51 per cent one is above it. Published without this
+    denominator, the LOO table's largest numbers read as its best results.
+
+    The table already carried this quantity as pos_rate_test, rounded to three
+    decimals while auc_pr carries four. That costs up to 5e-04 on a lift, which
+    matters here: the lifts range down to about -5e-03, so the rounding is a
+    tenth of the effect. This returns it at four decimals, comparable with the
+    metric it bounds.
+    """
+    if n_test_total <= 0:
+        raise ValueError(f"test set must be non-empty, got n_test_total={n_test_total}")
+    if not 0 <= n_test_pos <= n_test_total:
+        raise ValueError(f"n_test_pos={n_test_pos} is not within 0..{n_test_total}")
+    return round(n_test_pos / n_test_total, 4)
+
+
+def auc_pr_lift(auc_pr: float, floor: float) -> float:
+    """How far above its own chance floor a figure sits. Negative means below."""
+    return round(auc_pr - floor, 4)
+
+
 def planned_loo_paths(output_json: str, output_csv: str) -> list[str]:
     """Both tracked artifacts run_loo writes.
 
@@ -222,10 +248,13 @@ def run_loo(
         elapsed = time.time() - t1
         print(f"  AUC-PR={m['auc_pr']:.4f}  AUC-ROC={m['auc_roc']:.4f}  ({elapsed:.1f}s)")
 
+        floor = auc_pr_chance_floor(n_test_pos, len(y_test))
         rows.append(
             {
                 "test_virus": test_virus,
                 "auc_pr": round(m["auc_pr"], 4),
+                "auc_pr_chance_floor": floor,
+                "auc_pr_lift": auc_pr_lift(round(m["auc_pr"], 4), floor),
                 "auc_roc": round(m["auc_roc"], 4),
                 "issr_10": round(m.get("issr_10", float("nan")), 4),
                 "issr_25": round(m.get("issr_25", float("nan")), 4),
@@ -283,6 +312,8 @@ def run_loo(
             [
                 "test_virus",
                 "auc_pr",
+                "auc_pr_chance_floor",
+                "auc_pr_lift",
                 "auc_roc",
                 "n_test_pos",
                 "n_test_neg",
