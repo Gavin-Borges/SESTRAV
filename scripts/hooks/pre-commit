@@ -18,6 +18,25 @@ RED='\033[0;31m'
 NC='\033[0m'
 block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 
+# matches CMD...: run a grep and turn its exit status into the gate's answer. 0 is
+# a match and 1 is no match. ANY other status means the scan never ran (2 for a
+# grep error, 126 or 127 for a grep that cannot be executed), and the hook stops
+# BLOCKED. A bare 'if grep ...' reads every one of those as "no match": measured
+# 2026-10-06 with a grep shim exiting 2, and again exiting 127, a planted
+# violation passed all four gates below. Call it in an 'if' or after '&&', never
+# inside $( ): there 'exit' would leave only the subshell, so the two command
+# substitutions in Gates 3 and 4 test grep's status themselves.
+matches() {
+  local rc=0
+  "$@" 2>/dev/null || rc=$?
+  if [[ $rc -gt 1 ]]; then
+    block "'$1' exited ${rc}, so this scan did not run - NOT cleared"
+    block "  A scan that cannot run is not a clean scan. Fix the tool, then commit again."
+    exit 1
+  fi
+  return "$rc"
+}
+
 # The filter MUST include R. git does rename detection by default, so a moved
 # file is reported as R and an ACM-only filter drops it from this list entirely -
 # and every gate below iterates this one list, so a rename bypassed all four.
@@ -44,7 +63,17 @@ block() { printf "${RED}[BLOCKED]${NC} %s\n" "$*" >&2; }
 # and this hook runs under `#!/usr/bin/env bash`, so a macOS 3.2 bash would
 # break outright. Unquoting fixes the case that was measured to leak; the
 # remaining quoted shapes now FAIL CLOSED at the git show sites below.
-STAGED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMRT 2>/dev/null || true)
+#
+# FAIL CLOSED here too. This used to end '2>/dev/null || true', so a git that
+# could not run read as "nothing is staged", and every gate below iterates this
+# one list. Measured 2026-10-06 with a git shim exiting 128 ("dubious
+# ownership"): a planted violation passed all four gates at rc=0.
+if ! STAGED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMRT); then
+  block "git could not list the staged files - NOT cleared"
+  block "  Every gate below reads that list, so an empty list from a failed git call"
+  block "  would clear all four without scanning anything."
+  exit 1
+fi
 
 # ---- Gate 1: Blocked path patterns ------------------------------------------
 # Pattern categories (add new entries here, never remove existing ones):
@@ -111,7 +140,7 @@ while IFS= read -r file; do
     # Gate 2. This gate's producer is a single path and is too short to fill a
     # pipe buffer, so it was not reachable here; it is written the safe way so
     # the file has one form and no reader has to re-derive which sites are safe.
-    if grep -qiE -- "$pat" <<<"$file" 2>/dev/null; then
+    if matches grep -qiE -- "$pat" <<<"$file"; then
       block "Staged file '$file' matches blocked pattern: $pat"
       block "  Correct action: move to _local/ then: git reset HEAD '$file'"
       gate1_failed=1
@@ -169,8 +198,9 @@ while IFS= read -r file; do
   fi
   for pat in "${CRED_PATTERNS[@]}"; do
     # '--' is REQUIRED: the PEM pattern begins with '-----', which grep would
-    # otherwise parse as an option bundle, exit 2, and (with stderr suppressed)
-    # silently never match - letting private keys through this gate entirely.
+    # otherwise parse as an option bundle and exit 2. Before matches() that read
+    # as "no match" and let private keys through this gate entirely; now it
+    # blocks every commit loudly, which is safe but still wrong, so keep '--'.
     #
     # A HERE-STRING, not 'printf ... | grep -q'. This is the third fail-open
     # found in this file and the mechanism is new: 'grep -q' exits 0 at the
@@ -185,7 +215,7 @@ while IFS= read -r file; do
     # stages one, and the threshold is LOWER on macOS.
     # A here-string is not a pipe: there is no producer to signal, and the
     # status is grep's own. Do NOT "fix" this by removing pipefail.
-    if grep -qE -- "$pat" <<<"$staged_content" 2>/dev/null; then
+    if matches grep -qE -- "$pat" <<<"$staged_content"; then
       block "Credential pattern '$pat' detected in staged '$file'"
       block "  Remove the secret, then re-stage: git add '$file'"
       gate2_failed=1
@@ -234,10 +264,37 @@ if [[ -n "$STAGED" ]]; then
   # open whenever it was staged alongside one large clean file - a regenerated
   # lockfile is enough. Measured 2026-09-20: a 60-byte doc with two em-dashes
   # exits 1 alone, and exits 0 when staged with a 267 KB clean lockfile.
-  # '|| true' is required because grep exits 1 on no match and line 15 sets -e.
-  staged_diff=$(git diff --cached 2>/dev/null || true)
-  added_lines=$(LC_ALL=C grep '^+' <<<"$staged_diff" || true)
-  if LC_ALL=C grep -q -- "$em_dash" <<<"$added_lines"; then
+  #
+  # The diff must be the INDEX's text whatever the user's git config says.
+  # Measured 2026-10-06, a staged em-dash passed this gate under each of:
+  # color.ui=always (added lines then start with an escape, so '^+' never
+  # matches); an external diff command, from GIT_EXTERNAL_DIFF or diff.external
+  # (it runs INSTEAD of git's diff: git exits 0 and no '+' line reaches us); and
+  # a textconv driver named by .gitattributes (a working one rewrites the added
+  # lines, and a failing one made this diff fail, which '|| true' used to hide).
+  # --no-color, --no-ext-diff and --no-textconv close all three, and a diff that
+  # still fails now BLOCKS.
+  #
+  # NOT closed here, on purpose: a file git classifies as BINARY, by a NUL byte
+  # or by a -diff or binary attribute, still shows as "Binary files differ".
+  # '--text' would read it, but would also scan genuine binaries, where these
+  # three bytes turn up by chance. CI's banned-character test reads every tracked
+  # .py/.md/.toml/.yml/.yaml/.cfg/.txt/.smk/.sh/.json file as UTF-8 whatever its
+  # attributes, so those suffixes stay covered there. This hook guards against
+  # accidents; anyone can skip it with --no-verify.
+  if ! staged_diff=$(git diff --cached --no-color --no-ext-diff --no-textconv); then
+    block "git could not produce the staged diff - NOT cleared for em-dashes"
+    exit 1
+  fi
+  # grep exits 1 when nothing is added (a pure deletion) and line 15 sets -e, so
+  # the status is captured rather than tested; above 1 means the scan never ran.
+  added_rc=0
+  added_lines=$(LC_ALL=C grep '^+' <<<"$staged_diff") || added_rc=$?
+  if [[ $added_rc -gt 1 ]]; then
+    block "'grep' exited ${added_rc} reading the staged diff, so the em-dash scan did not run - NOT cleared"
+    exit 1
+  fi
+  if LC_ALL=C matches grep -q -- "$em_dash" <<<"$added_lines"; then
     # Identify which files contain the hit for a useful error message.
     while IFS= read -r file; do
       [[ -z "$file" ]] && continue
@@ -248,7 +305,7 @@ if [[ -n "$STAGED" ]]; then
         gate3_failed=1
         continue
       fi
-      if LC_ALL=C grep -q -- "$em_dash" <<<"$staged_content"; then
+      if LC_ALL=C matches grep -q -- "$em_dash" <<<"$staged_content"; then
         block "Em-dash (U+2014) detected in staged '${file}'"
         block "  Replace the U+2014 character with a plain ASCII '-' or ' - ' (spaced)"
         block "  Quick fix: python -c \"import pathlib; p=pathlib.Path('${file}'); p.write_text(p.read_text(encoding='utf-8').replace('\\u2014','-'), encoding='utf-8')\""
@@ -328,7 +385,7 @@ while IFS= read -r file; do
   fi
 
   for pat in "${WORKSTATION_PATTERNS[@]}"; do
-    if grep -qiE -- "$pat" <<<"$staged_content" 2>/dev/null; then
+    if matches grep -qiE -- "$pat" <<<"$staged_content"; then
       block "Hardcoded workstation path detected in staged '$file'"
       block "  Matched pattern: $pat"
       gate4_failed=1
@@ -341,8 +398,15 @@ while IFS= read -r file; do
   # not cosmetic: a here-string fed an empty variable still presents ONE EMPTY
   # LINE, which does not match the allowlist, so 'grep -qv' would succeed and
   # report a home path on every file that contains none.
-  home_hits=$(grep -oE -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null || true)
-  if [[ -n "$home_hits" ]] && grep -qvE -- "$HOME_ALLOWLIST" <<<"$home_hits" 2>/dev/null; then
+  # grep exits 1 when the file names no home path at all, so its status is
+  # captured, not tested; above 1 means the scan never ran (see matches()).
+  home_rc=0
+  home_hits=$(grep -oE -- "$HOME_PATTERN" <<<"$staged_content" 2>/dev/null) || home_rc=$?
+  if [[ $home_rc -gt 1 ]]; then
+    block "'grep' exited ${home_rc} scanning '${file}' for home paths, so that scan did not run - NOT cleared"
+    exit 1
+  fi
+  if [[ -n "$home_hits" ]] && matches grep -qvE -- "$HOME_ALLOWLIST" <<<"$home_hits"; then
     block "Hardcoded Linux home path detected in staged '$file'"
     gate4_failed=1
   fi
