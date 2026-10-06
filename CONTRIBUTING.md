@@ -153,11 +153,13 @@ The exact ruleset and any documented exceptions live in `pyproject.toml`
 `.github/workflows/ci.yml`. That job's check context, `lint`, is **not** among the
 branch ruleset's required status checks, so it fails visibly without holding the
 merge button (see Code Review Process below, which has said so all along). Please
-lint and format before submitting:
+lint before submitting, and format only the files you changed:
 ```bash
-ruff check . --fix   # lint (and auto-fix what is safely fixable)
-ruff format .        # format (ruff-format, black-compatible)
+ruff check . --fix                # lint (and auto-fix what is safely fixable)
+ruff format path/to/your_file.py  # format each file you changed (ruff-format, black-compatible)
 ```
+Do not run `ruff format .` across the repository. The tree as a whole is not ruff-formatted and
+CI does not check formatting, so a whole-tree run rewrites many files your change never touched.
 
 ### 2. Running Tests
 Tests are located in the `tests/` directory. All tests must pass before submitting a pull request:
@@ -287,7 +289,7 @@ When submitting a pull request, ensure the following checklist is completed:
 - [ ] Branch follows naming convention (`feat/`, `fix/`, `docs/`, `chore/`, etc.).
 - [ ] All tests pass locally using `pytest`.
 - [ ] Snakemake dry-run succeeds.
-- [ ] Coding style follows PEP 8 / formatting via `ruff` is applied.
+- [ ] Coding style follows PEP 8: `ruff check .` passes, and the files you changed are formatted with `ruff format`.
 - [ ] No changes are made to frozen validation outputs in `results/` unless explicitly requested.
 - [ ] `freeze_mode: true` is enabled in `config.yaml` for release-grade validation runs.
 
