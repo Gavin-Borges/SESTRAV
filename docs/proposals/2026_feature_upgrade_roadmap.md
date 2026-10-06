@@ -606,12 +606,17 @@ of the additions below ship.
 - `snakemake --snakefile pipeline.smk --configfile tests/fixtures/dag_smoke/config.smoke.yaml
   --dry-run --cores 1` continues to resolve 12 jobs.
 - `ruff check .` and `mypy src/` (CI lint gate).
-- `python tools/check_library_coverage.py --check`, then `pytest tests/ --cov-config=
-  .coveragerc.library` against the 95% library-scope floor.
-- `python scripts/data_qc_gate.py` to confirm the governance/checksum path is unaffected by
-  additive feature-mode changes.
-- Re-run `python scripts/audit_cv_leakage.py` after Phase 0 lands and confirm the production
-  training path now reports the grouped number by default.
+- `python tools/check_library_coverage.py --check`, then `pytest tests/ --cov=src
+  --cov=functions --cov-config=.coveragerc.library` against the 95% library-scope floor
+  (`fail_under = 95` in that config). The `--cov` flags are load-bearing: with
+  `--cov-config` alone, pytest-cov never activates and the floor is never checked.
+- `python scripts/data_qc_gate.py --dataset data/immunogenicity_dataset_v5.csv --config
+  config.yaml` to confirm the governance/checksum path is unaffected by additive
+  feature-mode changes. Both arguments are required; this is the argv CI's own QC step uses.
+- Re-run `python scripts/audit_cv_leakage.py --out results/cv_leakage_audit_local.csv` after Phase 0
+  lands and confirm the production training path now reports the grouped number by
+  default. Without a fresh `--out`, the run aborts on the artifact guard, because the
+  default output is tracked.
 
 > **Phase 0 arm of this checklist is discharged (2026-08-10).** The fold-disjointness test exists
 > (named in the closure note in Section 2) and `scripts/audit_cv_leakage.py` carries a

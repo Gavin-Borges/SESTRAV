@@ -49,7 +49,9 @@ status: historical-v3
   - AUC-PR: **0.828** (OOF, 30-feature RF, D16; substring-homology risk disclosed, D22). **This card's attribution is the correct one:** 0.828 is a 30-feature, unweighted, 200-tree measurement, and `README.md`'s attribution of it to `mode_31` "weighted OOF" is the error (`docs/claims_register.md` D16).
   - ISSR@10: 0.843
 - **External benchmark note:** On the certified Tier A field, the closest external tool is BigMHC (0.822, a near-tie; fully trained, edges SESTRAV on top-decile precision, ISSR@10 0.917 vs 0.843). SESTRAV does not lead the ISSR@10 metric: binding-only (0.861) and MixMHCpred 2.2 (0.847) also exceed it, placing SESTRAV 4th of 5 on top-decile precision even though it leads on the primary AUC-PR metric. The previous "conservative by design" claim is withdrawn, but not replaced with the opposite claim: this benchmark's 720-peptide corpus has zero duplicate peptides, so the exact-duplicate leakage mechanism (D15) that would have made the arm optimistic is a structural no-op here and does not apply (D16). A different, unquantified risk does apply and has never been filtered for this benchmark: 32.1% of the 704-peptide scored pool has a substring-level near-duplicate elsewhere in the pool. Whether this affected the score is not established, so the arm should not be read as biased in either direction (`docs/claims_register.md` D22). PRIME and PredIG are compared on capabilities only; their metric head-to-head is not reproducible from a certified results file and is not reported.
-- **Subgroup:** HPV16 subgroup AUC-PR lower than EBV. Reproduce with `python scripts/scoring_error_audit.py` (writes
+- **Subgroup:** HPV16 subgroup AUC-PR lower than EBV. Reproduce with `python scripts/scoring_error_audit.py --predictions <a 30-feature OOF
+  frame>` - that argument is required, and no tracked OOF frame is named for the 30-feature
+  track, so the frame has to be built locally first (writes
   `results/scoring_error_audit.md`, a generated artifact that is not tracked in this
   repository).
   This entry previously continued *"; 9-mer subgroup AUC-PR above PredIG baseline"*. **That clause
