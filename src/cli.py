@@ -180,12 +180,20 @@ def _require_conformal_calibrator(args: argparse.Namespace, freeze_mode: bool) -
             "existing --conformal-calibrator path, or --no-conformal to run without intervals."
         ) from None
     if resolved is None and freeze_mode:
+        # "under the working directory" was true of the old resolver, and was exactly
+        # the vulnerability it described: the default calibrator was whatever
+        # models/v5/conformal_calibrator.joblib the cwd happened to supply, trusted
+        # against the checksum manifest sitting beside it. That default is now
+        # anchored to the installation root, so this text has to say so, or it
+        # misdirects the reader into "fixing" a refusal by changing directory into
+        # one that carries a calibrator.
         raise CliPreconditionError(
             "freeze mode requires a conformal calibrator and none was found: no "
             "--conformal-calibrator was given, and there is no conformal_calibrator.joblib "
-            "beside the model or at models/v5/conformal_calibrator.joblib under the working "
-            "directory. Pass --conformal-calibrator PATH, --no-conformal to run without "
-            "intervals, or --no-freeze-mode to let Stage 4 continue without them."
+            "beside the model or at models/v5/conformal_calibrator.joblib under the SESTRAV "
+            "installation root. The default is deliberately NOT searched for under the "
+            "working directory. Pass --conformal-calibrator PATH, --no-conformal to run "
+            "without intervals, or --no-freeze-mode to let Stage 4 continue without them."
         )
 
 
@@ -588,7 +596,9 @@ def _build_predict_parser() -> argparse.ArgumentParser:
         "--conformal-calibrator",
         type=str,
         default=None,
-        help="Path to conformal calibrator joblib (default: resolved from model directory or models/v5/)",
+        help="Path to conformal calibrator joblib (default: resolved from the model "
+        "directory, then models/v5/ under the SESTRAV installation root, never under "
+        "the working directory)",
     )
     p.add_argument(
         "--freeze-mode",
@@ -726,7 +736,9 @@ Examples:
         "--conformal-calibrator",
         type=str,
         default=None,
-        help="Path to conformal calibrator joblib (default: resolved from model directory or models/v5/)",
+        help="Path to conformal calibrator joblib (default: resolved from the model "
+        "directory, then models/v5/ under the SESTRAV installation root, never under "
+        "the working directory)",
     )
     p_predict.add_argument(
         "--freeze-mode",
