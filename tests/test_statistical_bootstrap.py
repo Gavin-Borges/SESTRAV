@@ -12,6 +12,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 from src.statistical_bootstrap import (
     _bootstrap_iter,
@@ -233,6 +235,108 @@ def test_paired_bootstrap_different_seeds_produce_different_output():
         first = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=100, seed=7)
         second = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=100, seed=8)
     assert first != second
+
+
+# ---------------------------------------------------------------------------
+# paired_bootstrap_comparison - delta sign and the significance call
+# ---------------------------------------------------------------------------
+
+
+def _ranked_pair(n_per_class: int = 50) -> pd.DataFrame:
+    """A reference that ranks every positive first, and a weaker comparator.
+
+    No two scores tie, so each metric has one value. The comparator's ten
+    highest scores hold some positives but not only positives, so its ISSR@10
+    lies strictly between 0 and 1, and a sum of the two models' metrics cannot
+    equal their difference.
+    """
+    rng = np.random.default_rng(3)
+    labels = np.array([1] * n_per_class + [0] * n_per_class)
+    ref = np.concatenate(
+        [np.linspace(0.55, 0.99, n_per_class), np.linspace(0.01, 0.45, n_per_class)]
+    )
+    comp = np.concatenate([rng.uniform(0.0, 0.9, n_per_class), rng.uniform(0.1, 1.0, n_per_class)])
+    return pd.DataFrame({"label": labels, "ref": ref, "comp": comp})
+
+
+def _top_decile_positive_rate(labels: np.ndarray, scores: np.ndarray) -> float:
+    top = np.argsort(-scores)[: len(scores) // 10]
+    return float(labels[top].mean())
+
+
+def test_deltas_are_reference_minus_comparator_in_either_order():
+    """delta_base is the reference metric minus the comparator metric.
+
+    Expected values come from sklearn and a direct top-decile count, not from
+    the module. Swapping the two columns must negate every delta and interval,
+    and both orders must be called significant: a comparison that could only
+    ever report the reference as better would pass the forward half alone.
+    """
+    df = _ranked_pair()
+    y, ref, comp = df["label"].to_numpy(), df["ref"].to_numpy(), df["comp"].to_numpy()
+    assert len(np.unique(ref)) == len(np.unique(comp)) == len(df)
+    assert 0 < _top_decile_positive_rate(y, comp) < 1
+    expected = {
+        "auc_pr": average_precision_score(y, ref) - average_precision_score(y, comp),
+        "auc_roc": roc_auc_score(y, ref) - roc_auc_score(y, comp),
+        "issr_10": _top_decile_positive_rate(y, ref) - _top_decile_positive_rate(y, comp),
+    }
+
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        forward = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=200, seed=0)
+        reverse = paired_bootstrap_comparison(df, "comp", "ref", n_resamples=200, seed=0)
+
+    for key, delta in expected.items():
+        assert delta > 0
+        assert forward[key]["delta_base"] == pytest.approx(delta)
+        assert reverse[key]["delta_base"] == pytest.approx(-delta)
+        assert reverse[key]["delta_mean"] == pytest.approx(-forward[key]["delta_mean"])
+        assert reverse[key]["ci_low"] == pytest.approx(-forward[key]["ci_high"])
+        assert forward[key]["ci_low"] > 0
+        assert reverse[key]["ci_high"] < 0
+        assert forward[key]["significant_95"] == "yes"
+        assert reverse[key]["significant_95"] == "yes"
+
+
+def test_identical_models_are_not_significantly_different():
+    """Comparing a model with itself gives zero deltas and is not significant.
+
+    Every bootstrap delta is exactly zero here, so both interval ends are zero.
+    An interval that touches zero must not be called significant, because the
+    test is ci_low > 0 or ci_high < 0, strictly.
+    """
+    df = _ranked_pair()
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        result = paired_bootstrap_comparison(df, "comp", "comp", n_resamples=200, seed=0)
+
+    for key in ("auc_pr", "auc_roc", "issr_10"):
+        assert result[key]["delta_base"] == 0.0
+        assert result[key]["delta_mean"] == 0.0
+        assert result[key]["ci_low"] == 0.0
+        assert result[key]["ci_high"] == 0.0
+        assert result[key]["significant_95"] == "no"
+        assert result[key]["p_value"] == 1.0
+
+
+def test_p_value_is_at_most_one_when_two_models_tie_on_a_metric():
+    """A p-value is a probability, so it must never exceed 1.
+
+    Both models in _df put only positives in their top decile, so ISSR@10 ties
+    in the full sample. A bootstrap delta of exactly zero falls in both tails,
+    and doubling the smaller tail used to report 2.0 here. This is two
+    different models, not a model compared with itself.
+    """
+    df = _df(n_pos=30, n_neg=30)
+    y, ref, comp = df["label"].to_numpy(), df["ref"].to_numpy(), df["comp"].to_numpy()
+    assert _top_decile_positive_rate(y, ref) == _top_decile_positive_rate(y, comp) == 1.0
+
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        result = paired_bootstrap_comparison(df, "ref", "comp", n_resamples=200, seed=0)
+
+    assert result["issr_10"]["ci_low"] == result["issr_10"]["ci_high"] == 0.0
+    assert result["issr_10"]["p_value"] == 1.0
+    for key in ("auc_pr", "auc_roc", "issr_10"):
+        assert 0.0 <= result[key]["p_value"] <= 1.0
 
 
 # ---------------------------------------------------------------------------
