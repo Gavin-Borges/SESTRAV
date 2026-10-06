@@ -77,14 +77,24 @@ jobs:
 
           # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
           # Removing a pre-existing leak must not fail the gate.
-          USER_LEAKS=$(grep -E "^\+[^+]" diff.txt \
+          #
+          # -a is load-bearing, not tidiness. git diffs a file holding a NUL as text, so the
+          # NUL lands in diff.txt; without -a grep replaces the matching LINES with the single
+          # message 'Binary file <path> matches'. The verdict is then decided by that message
+          # instead of by the diff, and it fails BOTH ways. Measured on GNU grep 3.0: with the
+          # diff piped in, an unrelated leaked path goes from 1 hit to 0, so real leak lines in
+          # every other file of the diff go unexamined and the step prints PASSED. With the
+          # diff named as an argument instead, the pattern can match the PATH inside grep's own
+          # message and report a leak that is only the scanner quoting itself. -a removes both:
+          # every input is read as text, so no byte can swap the lines for a diagnostic.
+          USER_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
             | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
           # /Users/ forms above so an allowlisted /home/ token on the same line
           # cannot mask a real /Users/ leak.
-          HOME_LEAKS=$(grep -E "^\+[^+]" diff.txt \
+          HOME_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
             | grep -oE "/home/[A-Za-z0-9_.-]+" \
             | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
@@ -214,7 +224,14 @@ jobs:
           # The single code path that decides "does this blob leak?". The
           # positive control below drives THIS function, not a copy of it.
           scan_blob() {
-            { grep -n -I -i -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
+            # -a, not -I: a path hidden inside a binary blob is invisible to -I (measured 0 hits
+            # against 1 with -a). The PATH patterns are specific enough to read binary bytes
+            # safely - measured over every tracked binary in the tree, 15 files and 1.3 MB, 0
+            # hits in 0.04 s, and the flag change adds no grep invocations. The HOME pattern
+            # below deliberately KEEPS -I: /home/<name> is far looser, so a chance byte run in
+            # a future binary would block a push on noise. It measured 0 hits with -a today
+            # too, which bounds the present tree and not the next binary added to it.
+            { grep -n -a -i -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
             { grep -o -I -E -f "$WORK/pat_home.txt" "$1" \
                 | grep -v -E -f "$WORK/pat_home_ok.txt" || true; } > "$WORK/h2"
             cat "$WORK/h1" "$WORK/h2" | grep -E '.' || true

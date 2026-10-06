@@ -206,3 +206,115 @@ def test_the_empty_exemption_loop_is_safe_on_old_bash() -> None:
     assert re.search(r"^PATH_SCAN_EXEMPT=\(\)$", source, re.M), "the list is expected empty"
     assert 'for allowed in ${PATH_SCAN_EXEMPT[@]+"${PATH_SCAN_EXEMPT[@]}"}; do' in source
     assert 'for allowed in "${PATH_SCAN_EXEMPT[@]}"; do' not in source
+
+
+# ---------------------------------------------------------------------------------------------
+# A NUL byte, or a binary blob, used to blank these scans entirely. Both were reproduced on GNU
+# grep 3.0 before the fix: one NUL anywhere in diff.txt took the hit count for an unrelated
+# leaked path from 1 to 0 and the step printed PASSED, and a path hidden inside a binary blob
+# scored 0 hits under -I against 1 without it. A scanner that reports clean because it stopped
+# looking is the failure mode this file exists for.
+# ---------------------------------------------------------------------------------------------
+
+
+def _path_ere() -> str:
+    """The workflow's own path ERE, read from its quoted heredoc rather than restated here."""
+    source = WORKFLOW.read_text(encoding="utf-8")
+    marker = 'pat_paths.txt" <<'
+    assert source.count(marker) == 1, marker
+    after = source.split(marker, 1)[1]
+    for line in after.splitlines()[1:]:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("PATEOF"):
+            return stripped
+    raise AssertionError("the pat_paths heredoc has no pattern line")
+
+
+def _diff_scan_greps() -> list[str]:
+    """Every line in the workflow that greps diff.txt."""
+    return [
+        line.strip()
+        for line in WORKFLOW.read_text(encoding="utf-8").splitlines()
+        if "diff.txt" in line and line.strip().startswith(("USER_LEAKS=", "HOME_LEAKS="))
+    ]
+
+
+def test_every_diff_scan_grep_reads_binary_as_text() -> None:
+    """-a on each grep of diff.txt, or one NUL in the diff silently empties the whole scan."""
+    greps = _diff_scan_greps()
+    assert len(greps) == 2, f"expected the two leak scans over diff.txt, found {greps}"
+    for line in greps:
+        assert " -a " in line, f"this grep of diff.txt does not pass -a: {line}"
+
+
+def test_a_nul_byte_would_blank_the_added_line_scan_without_dash_a(tmp_path: Path) -> None:
+    """The mechanism, with the workflow's own pattern, so -a is shown to be load-bearing.
+
+    Without -a the leak below is reported 0 times even though it sits in a different file of the
+    same diff; with -a it is reported once. If a future grep stops needing the flag this test
+    fails and the comment in the workflow can go with it.
+
+    The canary is the Git Bash form on purpose, and that was measured rather than chosen. Whether
+    the no--a scan collapses depends on the content: this layout with a Git Bash path reproduces
+    the blanking on GNU grep 3.0 across three variants (plain or added-line filler, pattern given
+    as an argument or in a file), while the same layout carrying a backslash drive-letter path does
+    NOT. The fix does not rest on that detail - -a makes grep treat every input as text, so no
+    content can suppress output - but a test asserting the negative half has to use a layout that
+    actually exhibits it. The form also carries no backslash, so no quoting layer can mangle it.
+    """
+    leak = "+see /c/" + "U" + "sers/someone/private here"
+    diff = tmp_path / "diff.txt"
+    with diff.open("wb") as handle:
+        handle.write(b"diff --git a/x b/x\n")
+        handle.write(leak.encode("utf-8") + b"\n")
+        handle.write(b"diff --git a/big b/big\n")
+        handle.write(b"+" + b"A" * 8100 + b"\n")
+        handle.write(b"+binary\x00payload\n")
+    pattern = tmp_path / "pat.txt"
+    pattern.write_text(_path_ere() + "\n", encoding="utf-8", newline="\n")
+
+    def hits(extra: str) -> int:
+        # The diff is fed on STDIN, not named as an argument, and that is measured rather than
+        # stylistic. Without -a grep prints "Binary file <path> matches" in place of the lines, and
+        # when the file is named, <path> is the temp directory - which under pytest on Windows lives
+        # beneath the very profile directory these patterns hunt. The full ERE then matches grep's
+        # OWN diagnostic and the scan reports 1, for a reason that has nothing to do with the diff.
+        # On stdin the message carries no path, so the count reflects the diff alone.
+        script = (
+            f'grep {extra} -E "^\\+[^+]" < "{diff.as_posix()}" '
+            f'| grep -c -i -E -f "{pattern.as_posix()}" || true'
+        )
+        return int((_bash(script).stdout or "0").strip() or 0)
+
+    assert hits("") == 0, "premise: without -a the NUL hides the leak"
+    assert hits("-a") == 1, "with -a the leak in the other file is still found"
+
+
+def test_scan_blob_finds_a_path_hidden_inside_a_binary_blob(tmp_path: Path) -> None:
+    """Drives the workflow's REAL scan_blob, so the -I to -a change is proved where it is used."""
+    work = tmp_path / "work"
+    work.mkdir()
+    blob = tmp_path / "blob.bin"
+    with blob.open("wb") as handle:
+        handle.write(b"PK\x03\x04 junk ")
+        handle.write(("see " + _synthetic_path() + " here").encode("utf-8"))
+        handle.write(b" \x00 more junk\n")
+    script = _workflow_scan_setup() + f'\nscan_blob "{blob.as_posix()}"\n'
+    result = _bash(script, SCAN_WORK=str(work))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip(), "scan_blob reported nothing for a path inside a binary blob"
+
+
+def test_scan_blob_keeps_dash_capital_i_on_the_looser_home_pattern() -> None:
+    """The asymmetry is deliberate and worth pinning.
+
+    The PATH patterns are specific enough to read binary bytes; /home/<name> is not, so a chance
+    byte run in a binary added later would block a push on noise. Measured when this landed: both
+    patterns gave 0 hits with -a over every tracked binary, which bounds the tree of that day and
+    not the next binary added to it.
+    """
+    setup = _workflow_function("scan_blob")
+    path_line = next(line for line in setup.splitlines() if "pat_paths.txt" in line)
+    home_line = next(line for line in setup.splitlines() if "pat_home.txt" in line)
+    assert " -a " in path_line and " -I " not in path_line, path_line
+    assert " -I " in home_line and " -a " not in home_line, home_line
