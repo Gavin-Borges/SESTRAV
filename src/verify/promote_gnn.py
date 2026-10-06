@@ -152,10 +152,31 @@ CHECKSUM_FILE = Path("models/model_artifact_checksums.json")
 # Gate 1 re-anchored 2026-08-10 from 0.85 to 0.65. The 0.85 threshold was set
 # against the pre-remediation ungrouped RF baseline (pooled AUC-PR 0.8312), which
 # is retracted as peptide-leakage-inflated (docs/claims_register.md D15). Against
-# the certified peptide-grouped RF baseline of 0.6058 (its 5-fold MEAN; the same
-# model's POOLED AUC-PR is 0.6055) it was unreachable rather than ambitious. A
-# promotion candidate must be scored under a peptide-grouped splitter
-# (src.ml_utils.PeptideGroupedKFold) for this comparison to be valid.
+# the certified peptide-grouped RF baseline it was unreachable rather than
+# ambitious. A promotion candidate must be scored under a peptide-grouped
+# splitter (src.ml_utils.PeptideGroupedKFold) for this comparison to be valid.
+#
+# WHICH RF FIGURE THAT BASELINE IS. Register row D3 (CLOSED) says "the current
+# production comparator is the RF mode-31 v5 model, whose pooled CV AUC-PR is
+# 0.6055", sourced from results/pooled_cv_metrics_mode31.csv and explicitly NOT
+# from models/v5/training_results_mode31.csv, "which holds the fold-mean 0.6058
+# and contains no 0.6055". So the figure to anchor against is the POOLED 0.6055,
+# which is also the like-for-like one, since the number this gate scores is a
+# POOLED GNN AUC-PR. The fold-mean 0.6058 is a different quantity, not a less
+# precise version of the same one.
+#
+# Say precisely what the RF figure is and is not to this gate. GATE1_AUC_PR_MIN
+# is an ABSOLUTE bar on the GNN's own OOF AUC-PR: nothing here reads an RF
+# number at run time, and gate1_generalization compares against 0.65 alone. The
+# RF baseline is what the bar was ANCHORED against in 2026-08-10, and what the
+# published delta is computed against, not a comparator the gate evaluates.
+#
+# GATE1_AUC_PR_MIN STAYS 0.65, which the retry pre-registration's section 2.1
+# asks to be recorded. Re-derived from both sources: pooled 0.605524, fold-mean
+# 0.605827 (the stored rf_cv_mean cell), a difference of 3.03e-04 - about 7 per
+# cent of the 0.0042 by which the measured GNN misses this threshold. Correcting
+# which figure the anchor names therefore cannot move a bound quoted to two
+# decimals, and no gate verdict changes.
 GATE1_AUC_PR_MIN: float = 0.65
 GATE2_STD_MAX: float = 0.02
 GATE3_LATENCY_FACTOR: float = 2.0  # GNN must be <= 2x RF latency
@@ -169,10 +190,11 @@ GATE5_SENSITIVITY_MIN: float = 0.80
 # generalization estimate, it is a different quantity: mode-31 features are a
 # pure function of the peptide string, so an ungrouped fold boundary leaves a
 # held-out peptide's feature-identical twin in the training set. Comparing such
-# a number against a threshold anchored on the peptide-grouped RF baseline
-# (0.6058 as a 5-fold mean, 0.6055 pooled) is a category error, so the frame must
-# carry positive evidence of its splitter. Absence of the marker fails the gate; it
-# never waives it.
+# a number against a threshold anchored on the peptide-grouped RF baseline (the
+# pooled 0.6055, per D3; the fold-mean 0.6058 is a different quantity from a
+# source D3 excludes) is a category error, so the frame must carry positive
+# evidence of its splitter. Absence of the marker fails the gate; it never
+# waives it.
 SPLITTER_COLUMN: str = "splitter"
 GROUPED_SPLITTERS: frozenset[str] = frozenset({"PeptideGroupedKFold"})
 FOLD_COLUMN: str = "fold"
@@ -207,10 +229,13 @@ _POOL_ROW_SEP: bytes = b"\x1e"
 # retry justified by "the corpus changed". That is a COMPARISON, not a
 # threshold, and four things say a hard assert would be the wrong first move:
 #
-#   1. No expected value is pinned anywhere in this repository, and the
-#      pre-registration that would authorise one is still marked DRAFT / NOT IN
-#      FORCE. Asserting would invent an owner commitment rather than implement
-#      one.
+#   1. No expected value is pinned anywhere in this repository. Asserting one
+#      would invent an owner commitment rather than implement the comparison
+#      section 2.2 actually asks for. (This clause used to add that the
+#      pre-registration was "still marked DRAFT / NOT IN FORCE". That went
+#      stale: docs/gnn_gate_retry_preregistration.md's status line has read IN
+#      FORCE since 2026-09-01, ratified by merging the file. The decision to
+#      leave both constants None does not rest on that clause.)
 #   2. The tracked artifact at OOF_PATH would fail such an assert immediately.
 #      It is the pre-repair frame (columns peptide,label,gnn_oof_score), so an
 #      assert would abort before Gate 1's splitter precondition could report -
