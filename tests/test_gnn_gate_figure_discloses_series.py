@@ -134,7 +134,11 @@ GATE2_STATEMENTS_WITHOUT_THE_FIGURE = (
     ("README.md", r"Gate 2 FAIL"),
     ("ARCHITECTURE.md", r"Gates 1 and 2 FAIL on measured values"),
     ("docs/claims_register.md", r"^\| D3 \|"),
-    ("docs/claims_register.md", r'^\| "GNN structural scorer" \|'),
+    # Pinned by ID and claim text together. The ID cell was added when Sections 2 to 4 of the
+    # register gained one; pinning the claim text alone anchored at the line start, which that
+    # column silently broke, and only the full suite caught it. Matching the ID loosely keeps a
+    # renumbering from breaking the pin, while the claim text still fails on a rewording.
+    ("docs/claims_register.md", r'^\| HD[0-9]+ \| "GNN structural scorer" \|'),
 )
 
 
