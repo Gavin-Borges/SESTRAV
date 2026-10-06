@@ -290,6 +290,8 @@ WORKSTATION_PATTERNS=(
   '[A-Za-z]:[/\]+[U]sers[/\]+[A-Za-z0-9_.-]+'      # drive-letter, either separator
   '/mnt/[a-z]/[U]sers/[A-Za-z0-9_.-]+'             # WSL mount
   '(^|[^A-Za-z0-9_.-])/[U]sers/[A-Za-z0-9_.-]+'    # macOS / bare POSIX
+  '(^|[^A-Za-z0-9_.-])/[A-Za-z]/[U]sers/[A-Za-z0-9_.-]+'  # Git Bash: /c/Users/<name>
+  '/cygdrive/[a-z]/[U]sers/[A-Za-z0-9_.-]+'       # Cygwin mount
 )
 HOME_PATTERN='/home/[A-Za-z0-9_.-]+'
 HOME_ALLOWLIST='/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])'
