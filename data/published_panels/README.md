@@ -136,9 +136,11 @@ python -m scripts.ingest_published_panels \
 - Run the ingest script as a MODULE (`python -m scripts.ingest_published_panels`), not
   as a path (`python scripts/ingest_published_panels.py`): it imports from the `scripts`
   package and the path form fails with ModuleNotFoundError. The module form is validated.
-- The per-panel CSVs here are header-only by design. The script does not handle a
-  zero-data-row input gracefully (it errors during filtering rather than reporting 0
-  rows), so a `--dry-run` only works once you have added at least one valid peptide row.
+- The per-panel CSVs here are header-only by design. On a header-only CSV the `--dry-run`
+  commands above exit 0 and report `final_rows: 0` (the EBV one once its `--latency-program`
+  placeholder is replaced by a value). Without `--dry-run` the script refuses to write an
+  empty panel: it exits 1 with `Aborting: 0 rows survived filtering` and writes nothing.
+  Add at least one valid peptide row before a real ingest.
 - These CSVs are tracked (not gitignored): they are reproducible curation inputs with
   citable provenance, like the proteome `*_provenance.json` files.
 - Keep transcription faithful to the source table; do not infer or pad peptides.
