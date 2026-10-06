@@ -12,6 +12,42 @@ import numpy as np
 import re
 
 
+# PRIME is resolved inside WSL by ABSOLUTE PATH and run through an explicit exec.
+#
+# `wsl.exe CMD ARG...` with no `-e`/`--exec` does not exec CMD. It joins the whole
+# thing into a command line and hands it to the default Linux shell, which re-parses
+# it, so a Python list and `shell=False` buy nothing on the Linux side. Measured on
+# this workstation: `wsl printf "[%s]" "a;b"` prints `[a]` and then fails with
+# `/bin/bash: line 1: b: command not found`, and `wsl printf "[%s]" "$(id -u)"`
+# prints the expanded uid. The same two argv with `-e` inserted print `[a;b]` and
+# `[$(id -u)]` literally. `--output` is not pattern-checked at all and reaches that
+# argv, so the missing `-e` was the whole exposure.
+#
+# A PATH lookup cannot replace it. scripts/install_prime_wsl.sh appends its
+# `export PATH=...` to the END of ~/.bashrc, and Ubuntu's stock ~/.bashrc returns
+# early when the shell is not interactive, so that line is never reached: the shell
+# that `wsl` picks with no `-e` was measured NON-INTERACTIVE, with a PATH
+# byte-identical to the `-e` PATH. Hence the installer's own root, with the same
+# `SESTRAV_TOOL_ROOT` default the installer uses.
+#
+# PRIME_WSL_SCRIPT is a CONSTANT. Every caller-controlled value is passed as a
+# positional argument after it and read back through "$@", so no input is ever
+# interpolated into shell source. PRIME_WSL_PROBE tests the identical path, so
+# detection and execution cannot disagree about which file they mean.
+PRIME_WSL_BIN = '"${SESTRAV_TOOL_ROOT:-$HOME/tools/sestrav_external}/PRIME2.1/PRIME"'
+PRIME_WSL_SCRIPT = f"exec {PRIME_WSL_BIN} " + '"$@"'
+PRIME_WSL_PROBE = f"test -x {PRIME_WSL_BIN}"
+
+# Alleles arrive as a comma-separated list of tokens like `HLA-A*02:01` or `A0201`.
+# Explicit allowlist, and NO whitespace of any kind. The previous class included
+# `\s`, so a bare newline was accepted; Python's `$` also matches just before a
+# trailing newline, so `"A0201\nid -u"` got in two separate ways. `\A`/`\Z` closes
+# the second. Per-token repetition also rejects an empty token, a leading or
+# trailing comma, and a bare comma.
+MAX_ALLELES_CHARS = 500
+ALLELES_RE = re.compile(r"\A[A-Za-z0-9*:_-]+(?:,[A-Za-z0-9*:_-]+)*\Z")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run PRIME or mock it if missing")
     parser.add_argument("--binding-csv", required=True, help="Input MHC binding stage CSV")
@@ -19,9 +55,10 @@ def main():
     parser.add_argument("--alleles", required=True, help="Comma-separated alleles list")
     args = parser.parse_args()
 
-    if not re.match(r"^[A-Za-z0-9*:,\-_\s]+$", args.alleles) or len(args.alleles) > 500:
+    if not ALLELES_RE.match(args.alleles) or len(args.alleles) > MAX_ALLELES_CHARS:
         sys.exit(
-            f"Error: --alleles contains invalid characters or exceeds 500 chars: {args.alleles!r}"
+            f"Error: --alleles contains invalid characters or exceeds "
+            f"{MAX_ALLELES_CHARS} chars: {args.alleles!r}"
         )
 
     # 1. Parse peptides from binding file
@@ -76,9 +113,13 @@ def main():
     run_via_wsl = False
     if sys.platform == "win32" and not prime_found:
         try:
-            # Check if WSL is available
+            # Probe the exact file the run below will exec, through the same `-e`
+            # exec form. The old probe was `wsl which PRIME`, which could not
+            # succeed for an installer-placed PRIME: see the PRIME_WSL_BIN note.
             res = subprocess.run(
-                ["wsl", "which", "PRIME"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                ["wsl", "-e", "bash", "-c", PRIME_WSL_PROBE],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
             if res.returncode == 0:
                 prime_bin = "PRIME"
@@ -102,15 +143,37 @@ def main():
 
             wsl_pep = to_wsl(temp_peptides_file)
             wsl_out = to_wsl(args.output)
-            cmd = ["wsl", "PRIME", "-i", wsl_pep, "-o", wsl_out, "-a", alleles_arg]
+            # Positional arguments only. `prime` is argv[0] for the exec'd binary.
+            cmd = [
+                "wsl",
+                "-e",
+                "bash",
+                "-c",
+                PRIME_WSL_SCRIPT,
+                "prime",
+                "-i",
+                wsl_pep,
+                "-o",
+                wsl_out,
+                "-a",
+                alleles_arg,
+            ]
         else:
             cmd = [prime_bin, "-i", temp_peptides_file, "-o", args.output, "-a", alleles_arg]
 
         try:
             print(f"[PRIME Wrapper] Executing: {' '.join(cmd)}")
-            # alleles validated above (regex + length cap); researcher-only CLI tool, no web
-            # exposure. cmd is a LIST and shell=False, so no shell interpretation occurs and the
-            # rule's command-injection premise does not apply.
+            # CORRECTED: this note used to read "cmd is a LIST and shell=False, so no
+            # shell interpretation occurs". That was FALSE for the WSL branch, which
+            # is the only branch that reaches a shell. `shell=False` stops cmd.exe
+            # from parsing anything, but `wsl.exe` with no `-e` handed its argv to a
+            # Linux shell that re-parsed it, measured above the PRIME_WSL_BIN
+            # constant. What is true now: the native branch execs a list with
+            # shell=False, and the WSL branch passes `-e bash -c` a CONSTANT script
+            # and supplies every caller-controlled value positionally through "$@",
+            # so neither branch lets input reach a shell parser. The alleles are
+            # additionally pattern-checked and length-capped; researcher-only CLI
+            # tool, no web exposure.
             # The bare inline `# nosemgrep` below is deliberate - see the fuller note in
             # run_predig_wrapper.py. The form used here until 2026-08-16 was inert both for its
             # preceding-line placement and for naming the rule path rather than its real id, so
