@@ -59,7 +59,27 @@ from pathlib import Path
 
 import pytest
 
-from snakemake.utils import cmd_exe_quote, format as snakemake_format
+# snakemake lives in the [pipeline] extra, NOT [dev]. A bare module-scope import here
+# aborts COLLECTION of the entire suite on a `pip install -e ".[dev]"` box, and by this
+# repo's rule 3 a collection error means ZERO tests ran - so the failure mode is the
+# whole suite, not this module. tests/test_dev_extra_runs_the_test_suite.py exists to
+# catch exactly that and did catch it, on the composed tree rather than in this module's
+# own green run.
+#
+# importorskip keeps collection safe and skips this module only where snakemake is
+# absent. CI installs the pipeline extra in order to run the two Snakemake battery legs,
+# so coverage there is unchanged. `cmd_exe_quote` cannot be imported lazily inside a
+# test: it is consumed by a @pytest.mark.parametrize decorator, which is evaluated at
+# module scope.
+_snakemake_utils = pytest.importorskip(
+    "snakemake.utils",
+    reason=(
+        "snakemake is in the [pipeline] extra, not [dev]; "
+        'install ".[pipeline]" to exercise the shell-quoting tests'
+    ),
+)
+cmd_exe_quote = _snakemake_utils.cmd_exe_quote
+snakemake_format = _snakemake_utils.format
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ENTRY = REPO_ROOT / "pipeline.smk"
