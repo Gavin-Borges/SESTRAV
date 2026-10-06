@@ -257,6 +257,23 @@ def _normalised(path: str) -> str:
     return normalised[2:] if normalised.startswith("./") else normalised
 
 
+def _is_dotenv(name: str) -> bool:
+    """A dotenv file, including every `.env.<variant>` spelling.
+
+    Matched by PREFIX because a variant carries its name in a SECOND extension:
+    os.path.splitext(".env.production") returns (".env", ".production"), so the
+    suffix is ".production" and no suffix tuple can ever select it. `.env` itself
+    was listed in both suffix tuples and worked; `.env.production`, `.env.local` and
+    `.env.example` were measured as _is_scannable FALSE, so the file was never
+    opened at all.
+
+    One helper, used by both _is_scannable and allows_bare_value, so the two cannot
+    disagree about what a dotenv is. A file that is scanned but not parsed for bare
+    values is the exact shape that made `.def` and `.qmd` unmatchable.
+    """
+    return name == ".env" or name.startswith(".env.")
+
+
 def allows_bare_value(path: str) -> bool:
     normalised = _normalised(path)
     name = normalised.rsplit("/", 1)[-1]
@@ -268,6 +285,7 @@ def allows_bare_value(path: str) -> bool:
     in_hook_dir = any(("/" + normalised).find("/" + d) >= 0 for d in _SCAN_DIRS)
     return (
         name.endswith(_BARE_VALUE_SUFFIXES)
+        or _is_dotenv(name)
         or name.startswith("Dockerfile")
         or (in_hook_dir and "." not in name)
     )
@@ -329,8 +347,21 @@ EXCLUDE_DIRS = {
 # happen.
 EXCLUDE_PATHS = frozenset(
     {
+        # NOTE, measured 2026-10-06: this path does NOT EXIST in the tree, so it
+        # excludes nothing. It is left in place rather than cleaned up here because a
+        # dead entry is a separate finding from this unit, and removing it is not
+        # free: the paragraph above dates its "all three return zero findings"
+        # verification to a day when the file was present. Deleting the entry is
+        # tracked as its own follow-up.
         "scripts/apply-branch-ruleset.ps1",
-        "tools/apply_protection.sh",
+        # `tools/apply_protection.sh` is NO LONGER excluded. It is the admin-token
+        # script, so a REAL token is likelier content there than an example pattern,
+        # which inverts the "guard against a future example credential" rationale
+        # above: that reasoning holds for check_secrets.py, which exists to contain
+        # credential patterns, and not for a script that HANDLES a token. Removing it
+        # is free today, measured before the change rather than assumed: scan_file on
+        # that path returned zero findings, so the gate is green either way and this
+        # only widens what is covered.
         "scripts/check_secrets.py",
     }
 )
@@ -491,6 +522,7 @@ def _is_scannable(rel_path: str) -> bool:
     return (
         name.endswith(_SCAN_SUFFIXES)
         or name in _SCAN_NAMES
+        or _is_dotenv(name)
         or name.startswith("Dockerfile")
     )
 

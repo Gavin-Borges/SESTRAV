@@ -633,10 +633,15 @@ def test_unreadable_paths_does_not_leak_between_runs(tmp_path: Path) -> None:
 
 
 def test_intended_exclusions_are_still_excluded_at_their_real_paths() -> None:
+    """`tools/apply_protection.sh` was REMOVED from this list deliberately, in the
+    commit that stopped excluding it, and that removal is asserted positively by
+    test_the_admin_token_script_is_no_longer_excluded rather than by its absence
+    here. A test that pins a behaviour being changed on purpose is expected to
+    change with it; leaving it would have meant the suite enforcing the exclusion
+    the same commit set out to lift."""
     mod = _load()
     for rel in (
         "scripts/check_secrets.py",
-        "tools/apply_protection.sh",
         "scripts/apply-branch-ruleset.ps1",
     ):
         assert mod._is_scannable(rel) is False, f"{rel} should remain excluded"
@@ -1317,3 +1322,97 @@ def test_notebook_floors_match_the_rest_of_the_scanner(tmp_path: Path) -> None:
         target.write_text(_notebook("%env " + _KEY.upper() + "=" + value + "\n"),
                           encoding="utf-8")
         assert _load().scan_file(str(target)) == [], value
+
+
+# --- SX-U4 part 3: dotenv variants, and one exclusion removed -------------------
+#
+# `.env` worked because it is both a NAME and its own SUFFIX. A variant carries its
+# name in a SECOND extension, so os.path.splitext(".env.production") returns
+# (".env", ".production") and no suffix tuple can ever select it. Measured at
+# 1852983f: `.env.production`, `.env.local` and `.env.example` were all
+# _is_scannable FALSE, so the file was never opened, AND none of them was gitignored,
+# so it was freely committable. Both halves were open at once.
+
+
+_DOTENV_VARIANTS = (".env", ".env.production", ".env.local", ".env.example")
+
+
+def test_every_dotenv_variant_is_scannable() -> None:
+    mod = _load()
+    for name in _DOTENV_VARIANTS:
+        assert mod._is_scannable(name), name
+
+
+def test_every_dotenv_variant_is_parsed_for_bare_values() -> None:
+    """Scannability alone is NOT coverage. A dotenv's right-hand side is unquoted, so
+    a file that is opened and then read with the quoted-value parse only is exactly
+    how `.def` and `.qmd` stayed unmatchable while already being scanned."""
+    mod = _load()
+    for name in _DOTENV_VARIANTS:
+        assert mod.allows_bare_value(name), name
+
+
+def test_the_two_dotenv_questions_are_answered_by_one_helper() -> None:
+    """Scannability and bare-value parsing both route through _is_dotenv. Answered
+    separately they can drift, and the drift is SILENT in the dangerous direction:
+    the file gets scanned and nothing in it can match. The negative cases matter as
+    much as the positive ones, so `.envrc` and a trailing `.env` are pinned too."""
+    mod = _load()
+    expected = {
+        ".env": True,
+        ".env.production": True,
+        ".env.local": True,
+        ".env.example": True,
+        ".envrc": False,
+        ".environment": False,
+        "env": False,
+        "settings.env": False,
+    }
+    for name, want in expected.items():
+        assert mod._is_dotenv(name) is want, name
+
+
+def test_an_unquoted_credential_in_a_dotenv_variant_is_flagged(tmp_path: Path) -> None:
+    for name in _DOTENV_VARIANTS:
+        target = tmp_path / name
+        target.write_text(_KEY.upper() + "=" + _token() + "\n", encoding="utf-8")
+        assert _load().scan_file(str(target)) == [1], name
+
+
+def test_dotenv_variants_are_gitignored() -> None:
+    """The other half of the control, and NOT redundant with scannability.
+
+    Gitignoring stops such a file being committed; scannability catches one that is
+    tracked anyway, which this suite already covers for a force-added path. Before
+    this, `.env` matched only that exact path, so a `.env.production` holding a real
+    secret was both committable and unscannable. `--no-index` is required because no
+    such file exists in the tree: the question is what the RULES say, not what is on
+    disk."""
+    import subprocess
+
+    root = Path(__file__).resolve().parents[1]
+    for name in (".env", ".env.production", ".env.local"):
+        done = subprocess.run(
+            ["git", "check-ignore", "-q", "--no-index", "--", name],
+            cwd=str(root), capture_output=True,
+        )
+        assert done.returncode == 0, name
+    # Negative control, so the test cannot pass by matching everything.
+    done = subprocess.run(
+        ["git", "check-ignore", "-q", "--no-index", "--", "README.md"],
+        cwd=str(root), capture_output=True,
+    )
+    assert done.returncode != 0, "README.md reads as ignored, so the probe is broken"
+
+
+def test_the_admin_token_script_is_no_longer_excluded() -> None:
+    """`tools/apply_protection.sh` was in EXCLUDE_PATHS. The exclusion's rationale is
+    to guard against a file that LEGITIMATELY carries an example credential pattern,
+    which is true of check_secrets.py and is the wrong way round for a script that
+    HANDLES an admin token: there, a real token is the likelier content."""
+    mod = _load()
+    assert "tools/apply_protection.sh" not in mod.EXCLUDE_PATHS
+    assert mod._is_scannable("tools/apply_protection.sh")
+    assert "scripts/check_secrets.py" in mod.EXCLUDE_PATHS, (
+        "the detector must stay excluded: it exists to contain credential patterns"
+    )

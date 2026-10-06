@@ -136,6 +136,13 @@ celerybeat.pid
 
 # Environments
 .env
+# Every variant, not only the bare name. A gitignore entry of `.env` matches that
+# exact path and nothing else, so `.env.production` and `.env.local` were freely
+# committable. Measured 2026-10-06 with `git check-ignore -v --no-index`: `.env`
+# matched this line, both variants matched nothing. No `.env*` file is tracked, so
+# this adds no untracking and needs no negation. `.envrc` below is still required:
+# it carries no dot after `env`, so this pattern does not cover it.
+.env.*
 .envrc
 secrets.*
 .venv
