@@ -222,6 +222,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         py_version="$(grep -m1 '^version = ' <<<"$py_text" | sed 's/^version = "\(.*\)"/\1/')"
         cff_version="$(cff_scalar version "$cff_text")"
         cff_date="$(cff_scalar date-released "$cff_text")"
+        commit_date="$(git show -s --format=%cs "${tag_commit}" 2>/dev/null)"
 
         if [[ "$py_version" != "$tag_version" ]]; then
             block "pyproject.toml version '${py_version}' does not match tag '${tag_name}'."
@@ -236,6 +237,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             tag_fail=1
         elif [[ "$cff_date" > "$today" ]]; then
             block "CITATION.cff date-released '${cff_date}' is in the future (today is ${today})."
+            tag_fail=1
+        elif [[ "$cff_date" < "$commit_date" ]]; then
+            # A release cannot predate the code it ships. Without this bound the only
+            # check was "not in the future", so a date left over from an earlier release
+            # passed: v2.0.2 and v2.0.3 both shipped date-released 2026-06-12 against
+            # commits of 2026-06-16 and 2026-06-17. Compared as ISO strings, as above.
+            block "CITATION.cff date-released '${cff_date}' precedes the commit it tags (${commit_date})."
             tag_fail=1
         fi
 
