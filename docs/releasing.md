@@ -37,7 +37,7 @@ signed with it yet (see the `version_tags_signed` note below).
    |---|---|---|
    | `pyproject.toml` | `[project] version` | Exactly the tag with its leading `v` stripped (tag `v2.0.2` -> `2.0.2`). The build also names the artifacts from this field. |
    | `CITATION.cff` | top-level `version:` | Present, and the same value. A missing field fails just as hard as a wrong one. |
-   | `CITATION.cff` | top-level `date-released:` | Present, parseable as an ISO calendar date (`YYYY-MM-DD`), and not later than the UTC date of the workflow run. |
+   | `CITATION.cff` | top-level `date-released:` | Present, parseable as an ISO calendar date (`YYYY-MM-DD`), not later than the UTC date of the workflow run, and not earlier than the committer date of the commit being tagged. |
 
    `CITATION.cff` is the one that gets forgotten, which is why it is gated: the check
    was added after that file advertised a version and a release date for which no tag
