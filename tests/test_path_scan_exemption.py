@@ -302,7 +302,22 @@ def test_scan_blob_finds_a_path_hidden_inside_a_binary_blob(tmp_path: Path) -> N
     script = _workflow_scan_setup() + f'\nscan_blob "{blob.as_posix()}"\n'
     result = _bash(script, SCAN_WORK=str(work))
     assert result.returncode == 0, result.stdout + result.stderr
-    assert result.stdout.strip(), "scan_blob reported nothing for a path inside a binary blob"
+    # NOT a non-empty check. That is how this test passed for the WRONG REASON, and the
+    # measurement is the whole point: with no -a on scan_blob's final stage, GNU grep 3.0
+    # (Git Bash here) prints "Binary file (standard input) matches" to STDOUT, so a
+    # non-empty assertion passes on grep's NOTICE while the path is silently dropped. GNU
+    # grep 3.12 (Linux, which is what CI runs) puts that notice on STDERR instead, leaving
+    # stdout EMPTY, so the same code fails there. rc is 0 in both cases, so the exit status
+    # gives no signal either. Assert the PATH, and forbid the notice.
+    assert "fakeuser123" in result.stdout, (
+        "scan_blob did not report the matched PATH for a path hidden inside a binary blob. "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert "Binary file" not in result.stdout, (
+        "scan_blob emitted grep's binary-file NOTICE instead of the matched line, which is "
+        "exactly what a missing -a on its final stage produces. "
+        f"stdout={result.stdout!r}"
+    )
 
 
 def test_scan_blob_keeps_dash_capital_i_on_the_looser_home_pattern() -> None:
