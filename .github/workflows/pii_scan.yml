@@ -78,7 +78,7 @@ jobs:
           # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
           # Removing a pre-existing leak must not fail the gate.
           USER_LEAKS=$(grep -E "^\+[^+]" diff.txt \
-            | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+)' || true)
+            | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
@@ -156,7 +156,7 @@ jobs:
           # Windows backslash form (3 of 3 sample forms matched, then 2 of 3)
           # while the job still runs and still reports clean.
           cat > "$WORK/pat_paths.txt" <<'PATEOF'
-          ([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+)
+          ([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)
           PATEOF
           cat > "$WORK/pat_home.txt" <<'PATEOF'
           /home/[A-Za-z0-9_.-]+
@@ -233,13 +233,14 @@ jobs:
           U="U""sers"; H="ho""me"; BS='\'
           printf '%s\n' "x /$U/someone/y" "x C:${BS}${U}${BS}someone${BS}y" \
             "x /mnt/c/$U/someone/y" "x /$H/someone/y" \
+            "x /c/$U/someone/y" "x /cygdrive/c/$U/someone/y" \
             "ok /$H/runner/work" 'no path here' > "$WORK/canary"
           CANARY=$(scan_blob "$WORK/canary" | wc -l)
-          if [ "$CANARY" -ne 4 ]; then
-            echo "::error::Leak-scanner positive control FAILED: expected 4 canary hits, got $CANARY. Do not trust a clean result from this run."
+          if [ "$CANARY" -ne 6 ]; then
+            echo "::error::Leak-scanner positive control FAILED: expected 6 canary hits, got $CANARY. Do not trust a clean result from this run."
             exit 1
           fi
-          echo "Positive control PASSED: 4/4 canary forms detected."
+          echo "Positive control PASSED: 6/6 canary forms detected."
 
           # A second control exercises the Git tree path round-trip itself. Build
           # the UTF-8 filename from bytes so this workflow remains ASCII-only.
