@@ -49,12 +49,20 @@ def _py313_note(version, downloads_dir, custom_downloads_dir=False):
     )
 
 
+# RE-POINTED, not relaxed. This literal used to end "under the working directory",
+# which was an accurate description of a vulnerability rather than of a contract:
+# the DEFAULT conformal calibrator was whatever models/v5/conformal_calibrator.joblib
+# the process working directory happened to supply, and it was verified against the
+# checksum manifest sitting beside it, so a planted pickle shipped with a planted
+# manifest verified clean. The default is now anchored to the installation root and
+# the refusal says so.
 CALIBRATOR_MESSAGE = (
     "freeze mode requires a conformal calibrator and none was found: no "
     "--conformal-calibrator was given, and there is no conformal_calibrator.joblib "
-    "beside the model or at models/v5/conformal_calibrator.joblib under the working "
-    "directory. Pass --conformal-calibrator PATH, --no-conformal to run without "
-    "intervals, or --no-freeze-mode to let Stage 4 continue without them."
+    "beside the model or at models/v5/conformal_calibrator.joblib under the SESTRAV "
+    "installation root. The default is deliberately NOT searched for under the "
+    "working directory. Pass --conformal-calibrator PATH, --no-conformal to run "
+    "without intervals, or --no-freeze-mode to let Stage 4 continue without them."
 )
 
 
@@ -325,20 +333,65 @@ def test_predict_with_model_data_reaches_the_stages(
 
 @pytest.fixture
 def no_canonical_calibrator(monkeypatch, tmp_path):
-    """Run from an empty directory, so models/v5/conformal_calibrator.joblib is absent.
+    """Make the installed default calibrator absent, and plant a decoy in the cwd.
 
-    That artifact is gitignored, so whether it exists under the repository root
-    depends on the checkout; the test must not.
+    RE-POINTED, and STRONGER than what it replaced. It used to chdir into an EMPTY
+    directory, because that was all it took to make the default unresolvable: the
+    default was the relative path models/v5/conformal_calibrator.joblib, so an
+    empty cwd meant no calibrator. That is exactly the defect - the artifact handed
+    to joblib.load was a function of the process working directory, and the
+    checksum manifest beside it was trusted as its anchor, so an attacker supplied
+    both. The default is now anchored to the installation root, where the artifact
+    is gitignored and so present or absent depending on the checkout; the fixture
+    repoints the module constant instead, which is checkout-independent.
+
+    The cwd is still switched, and now carries a DECOY calibrator plus a manifest
+    that validates it. Every test using this fixture therefore also asserts that
+    the decoy is ignored.
     """
+    import functions.stage4_immunogenicity_scoring as s4
+
+    import hashlib
+    import json
+
     workdir = tmp_path / "cwd"
-    workdir.mkdir()
+    decoy = workdir / "models" / "v5" / "conformal_calibrator.joblib"
+    decoy.parent.mkdir(parents=True)
+    payload = b"decoy-stub-not-a-real-pickle"
+    decoy.write_bytes(payload)
+    (decoy.parent / "model_artifact_checksums.json").write_text(
+        json.dumps(
+            {
+                "generated_utc": "2026-01-01T00:00:00+00:00",
+                "artifacts": {
+                    decoy.name: {
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "size_bytes": len(payload),
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.chdir(workdir)
+    monkeypatch.setattr(
+        s4,
+        "DEFAULT_CONFORMAL_CALIBRATOR",
+        str(tmp_path / "absent_install_root" / "models" / "v5" / "conformal_calibrator.joblib"),
+    )
+    return decoy
 
 
 def test_freeze_mode_without_calibrator_fails_before_stage_one(
     mhcflurry_downloads, stage_calls, no_canonical_calibrator, tmp_path, capsys
 ):
+    """Refuse, even though a calibrator sits at models/v5/ in the working directory.
+
+    The decoy the fixture plants is what the old default would have selected and
+    deserialized, so the refusal is now also the proof that it is ignored.
+    """
     mhcflurry_downloads()
+    assert no_canonical_calibrator.is_file(), "the decoy was not planted"
 
     rc = cli.main(_predict_argv(tmp_path, "--freeze-mode", "--conformal"))
     err = capsys.readouterr().err
@@ -380,22 +433,33 @@ def test_missing_explicit_calibrator_fails_before_stage_one(
 def test_calibrator_beside_the_model_satisfies_freeze_mode(
     mhcflurry_downloads, stage_calls, no_canonical_calibrator, tmp_path, capsys
 ):
-    """The precheck must find what Stage 4's resolver finds, not refuse it."""
+    """The precheck must find what Stage 4's resolver finds, not refuse it.
+
+    Also pins that an explicitly NAMED path still wins: --model was given, so the
+    calibrator beside it is the caller's own choice and outranks both the installed
+    default and the decoy the fixture plants in the working directory.
+    """
+    import functions.stage4_immunogenicity_scoring as s4
+
     mhcflurry_downloads()
     argv = _predict_argv(tmp_path, "--freeze-mode", "--conformal")
-    (tmp_path / "conformal_calibrator.joblib").write_bytes(b"stub")
+    beside = tmp_path / "conformal_calibrator.joblib"
+    beside.write_bytes(b"stub")
 
     rc = cli.main(argv)
     capsys.readouterr()
 
     assert rc == 0
     assert stage_calls == ["stage1", "stage2", "stage3", "stage4"]
+    assert s4._resolve_conformal_path(str(tmp_path), None) == str(beside)
 
 
 def test_missing_default_calibrator_without_freeze_mode_still_runs(
     mhcflurry_downloads, stage_calls, no_canonical_calibrator, tmp_path, capsys
 ):
     """Without freeze mode Stage 4 only warns, so the precheck must not refuse either."""
+    import functions.stage4_immunogenicity_scoring as s4
+
     mhcflurry_downloads()
 
     rc = cli.main(_predict_argv(tmp_path, "--no-freeze-mode", "--conformal"))
@@ -403,6 +467,9 @@ def test_missing_default_calibrator_without_freeze_mode_still_runs(
 
     assert rc == 0
     assert stage_calls == ["stage1", "stage2", "stage3", "stage4"]
+    # The run proceeding is not the interesting half: it would proceed on the
+    # planted decoy too. What must hold is that nothing was resolved at all.
+    assert s4._resolve_conformal_path(str(tmp_path), None) is None
 
 
 # ---------------------------------------------------------------------------
