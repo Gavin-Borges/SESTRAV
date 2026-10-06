@@ -107,7 +107,7 @@ rule generate_hard_decoys:
     conda:
         "environment.yml"
     shell:
-        "\"{sys.executable}\" scripts/generate_hard_decoys.py --fasta {input.fasta} --allele {params.allele} --num_decoys {params.num_decoys} --output {output} > {log} 2>&1"
+        "\"{sys.executable}\" scripts/generate_hard_decoys.py --fasta {input.fasta} --alleles {params.allele} --num-decoys {params.num_decoys} --output {output} > {log} 2>&1"
 
 
 rule qc_dataset:
