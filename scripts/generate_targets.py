@@ -10,6 +10,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import logging
 import argparse
@@ -31,10 +32,39 @@ logging.basicConfig(
 )
 
 
+_HPV_TYPE = re.compile(r"HPV[_-]?(\d+)", re.IGNORECASE)
+_EBV = re.compile(r"EBV", re.IGNORECASE)
+
+
+def virus_from_record(record_id: str, fallback: str) -> str:
+    """Name the virus a single FASTA record comes from, falling back to the filename.
+
+    One file can hold more than one virus, so the filename is the wrong unit. The
+    shipped default data/proteomes/HPV16_18_panel8.fasta holds 8 records, 4 from
+    HPV16 and 4 from HPV18, and every UniProt id names its own type
+    (sp|P06463|VE6_HPV18). Reading the filename alone labelled 669 of the 6,588
+    candidates it yields, 10.15 per cent, as HPV16 when they come from HPV18
+    proteins, and 2 of the 20 rows the shipped defaults shortlist.
+
+    The fallback keeps the previous behaviour for a record whose id names no
+    virus. No score moves: FEATURE_COLUMNS_30 holds no virus feature and
+    prepare_features_30 reads only the peptide column, so this changes the
+    reported pathogen and nothing else.
+    """
+    hpv = _HPV_TYPE.search(record_id)
+    if hpv:
+        return f"HPV{hpv.group(1)}"
+    if _EBV.search(record_id):
+        return "EBV"
+    return fallback
+
+
 def slice_fasta_sequences(fasta_path: str, pathogen_name: str) -> list:
     """
     Load a FASTA file and slice sequences into a sliding window of 9-mers.
     Returns a list of dicts with keys: peptide, virus, source_id.
+
+    The virus is taken from each record, with pathogen_name as the fallback.
     """
     if not os.path.exists(fasta_path):
         logging.error(f"FASTA file not found: {fasta_path}")
@@ -47,12 +77,13 @@ def slice_fasta_sequences(fasta_path: str, pathogen_name: str) -> list:
     extracted = []
     for record in records:
         seq = str(record.seq).upper()
+        virus = virus_from_record(record.id, pathogen_name)
         # Slide window of length 9
         for i in range(len(seq) - 8):
             pep = seq[i : i + 9]
             # Verify only standard amino acids
             if all(c in "ACDEFGHIKLMNPQRSTVWY" for c in pep):
-                extracted.append({"peptide": pep, "virus": pathogen_name, "source_id": record.id})
+                extracted.append({"peptide": pep, "virus": virus, "source_id": record.id})
 
     logging.info(f"Extracted {len(extracted)} candidate 9-mers from {fasta_path}")
     return extracted
