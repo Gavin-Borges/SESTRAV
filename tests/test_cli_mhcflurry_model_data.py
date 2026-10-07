@@ -18,22 +18,39 @@ from __future__ import annotations
 
 import os
 
+import sys
+
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from src import cli
 
+# Mirrors src/cli.py's base message. It changed when the hint stopped recommending a
+# bare `mhcflurry-downloads fetch`, which was an arbitrary-write risk: a test that pins
+# a message recommending an unsafe command is expected to change when that stops.
 FETCH_MESSAGE = (
     "MHCflurry model data is absent, and Stage 2 cannot run without it. "
-    "Run `mhcflurry-downloads fetch models_class1_presentation`, then retry."
+    "Install it with the hash-verified two-step route, which is the control on every "
+    "mhcflurry version and OS: first `python scripts/fetch_verified_mhcflurry.py "
+    "--url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> "
+    "--output-dir DIR`, taking both values from config.yaml, then "
+    "`mhcflurry-downloads fetch models_class1_presentation "
+    "--already-downloaded-dir DIR`. Do not run a bare "
+    "`mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a "
+    "tampered archive can write outside the target directory, so it is an arbitrary-write "
+    "risk rather than just an unverified download."
 )
 
 
 def _py313_note(version, downloads_dir, custom_downloads_dir=False):
     head = (
         f" On Python 3.13 and later the mhcflurry {version} downloader cannot run, "
-        "because it imports the 'pipes' module that Python 3.13 removed; run the "
-        "fetch from a Python 3.11 or 3.12 environment that has the same mhcflurry "
+        "because it imports the 'pipes' module that Python 3.13 removed. Step one "
+        "above is unaffected: the verified fetcher imports no mhcflurry and runs on "
+        "any interpreter. Only the second command needs a Python 3.11 or 3.12 "
+        "environment that has the same mhcflurry "
         "version, "
     )
     if custom_downloads_dir:
@@ -562,3 +579,91 @@ def test_predict_survives_an_oserror_from_the_mhcflurry_import(
     )
     assert "Traceback" not in err
     assert "mhcflurry-downloads fetch" not in err
+# --- SX-U9: the hint must name the hash-verified route, and must stay runnable --------
+#
+# The old hint said to run a bare `mhcflurry-downloads fetch`. That is an ARBITRARY-WRITE
+# risk, not merely an unverified download: mhcflurry's extraction was measured to write
+# outside its target for crafted member names on Windows and Linux, and the current
+# release still escapes on Windows for a backslash-separated `..`. Upgrading mhcflurry is
+# therefore NOT the control; the two-step verified route is, on every version and OS.
+
+
+def _hint() -> str:
+    return cli._MHCFLURRY_VERIFIED_FETCH_HINT
+
+
+def test_the_hint_names_both_steps_of_the_verified_route() -> None:
+    hint = _hint()
+    assert "scripts/fetch_verified_mhcflurry.py" in hint, hint
+    assert "--already-downloaded-dir" in hint, (
+        "step two must point mhcflurry at the already-verified directory, or it "
+        f"re-downloads unverified bytes: {hint}"
+    )
+    # Step two names mhcflurry's own command, so the string is present by design. What
+    # must NOT be present is a recommendation to run it BARE.
+    assert "Do not run a bare" in hint, hint
+
+
+def test_the_hint_states_the_risk_as_arbitrary_write() -> None:
+    """Wording is the deliverable here, not decoration. 'Unverified download' invites a
+    reader to accept the risk on a trusted network; 'writes outside the target
+    directory' does not, and it is what was measured."""
+    hint = _hint().lower()
+    assert "arbitrary-write" in hint, hint
+    assert "outside the target directory" in hint, hint
+
+
+def test_the_hint_does_not_duplicate_the_pinned_digest() -> None:
+    """The sha256 must have exactly ONE source. A second copy in a user-facing string is
+    a drift carrier: config.yaml could be re-pinned and this message would keep handing
+    out the old digest, which a reader would then paste into --sha256."""
+    import re
+
+    assert "<mhcflurry_model_archive_sha256>" in _hint()
+    assert re.search(r"\b[0-9a-f]{64}\b", _hint()) is None, (
+        "a literal 64-hex digest appears in the hint; name the config key instead"
+    )
+
+
+def test_every_fetcher_flag_the_hint_names_really_exists() -> None:
+    """Binds the MESSAGE to the TOOL's interface, by running the tool.
+
+    A hint is documentation that rots silently: rename a flag on
+    scripts/fetch_verified_mhcflurry.py and this message keeps telling users to pass the
+    old one, with nothing failing. So the flags are read back out of the fetcher's own
+    --help rather than asserted from memory. Only the STEP ONE flags are checked here;
+    --already-downloaded-dir belongs to mhcflurry's CLI, not to this repo, and is
+    asserted as a string above."""
+    import re
+    import subprocess
+
+    hint = _hint()
+    step_one = hint.split("then `mhcflurry-downloads")[0]
+    flags = sorted(set(re.findall(r"--[a-z0-9][a-z0-9-]*", step_one)))
+    assert flags, f"no flags parsed out of step one: {step_one!r}"
+
+    repo_root = Path(__file__).resolve().parents[1]
+    fetcher = repo_root / "scripts" / "fetch_verified_mhcflurry.py"
+    assert fetcher.is_file(), f"the hint names a script that does not exist: {fetcher}"
+
+    helped = subprocess.run(
+        [sys.executable, str(fetcher), "--help"],
+        capture_output=True, text=True, cwd=str(repo_root),
+    )
+    assert helped.returncode == 0, helped.stdout + helped.stderr
+    for flag in flags:
+        assert flag in helped.stdout, (
+            f"the hint tells users to pass {flag}, which the fetcher's --help does not "
+            f"advertise. Either the flag was renamed or the hint is wrong.\n{helped.stdout}"
+        )
+
+
+def test_the_python_313_note_scopes_the_limit_to_step_two(monkeypatch) -> None:
+    """Step one imports no mhcflurry, so it runs on any interpreter. Saying "run the
+    fetch from 3.11 or 3.12" over-constrained the user into thinking the whole route
+    needed an older environment."""
+    monkeypatch.setattr(cli.sys, "version_info", (3, 13, 0))
+    monkeypatch.setattr(cli, "_mhcflurry_version_tuple", lambda: (2, 2, 1))
+    message = cli._mhcflurry_model_data_message(None)
+    assert "Step one" in message and "unaffected" in message, message
+    assert "Only the second command needs" in message, message
