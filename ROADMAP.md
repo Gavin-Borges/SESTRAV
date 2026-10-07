@@ -166,9 +166,13 @@ _Last updated: 2026-09._
   groups least represented in the training data.
 - **Bias mitigation.** Refresh the data bias audit and recompute sample weights
   for balanced recall across taxa and peptide lengths.
-- **Release automation.** Attach the `src.release_bundle` ZIP to the GitHub
-  Release automatically. Checksum generation (`SHA256SUMS.txt`) and artifact
-  provenance attestation are already automated in `.github/workflows/release.yml`.
+- **Release automation.** Already shipped in `.github/workflows/release.yml`, as of
+  2026-10-04: the tag-triggered workflow builds the `src.release_bundle` ZIP, names it
+  among the subjects of the build-provenance attestation, generates `SHA256SUMS.txt`
+  over every file it uploads, and attaches the ZIP and its manifest to the GitHub
+  Release. **What remains is a release cut with it.** Both published releases, v2.0.2
+  and v2.0.3, predate this form of the workflow, so the end-to-end path is verified by
+  CI and by `--dry-run` only, never yet by a tag.
 
 ## Longer term (9-18 months)
 

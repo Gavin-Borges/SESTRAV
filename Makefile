@@ -18,7 +18,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup hooks \
         lint lint-fix fmt typecheck \
-        hash-pins lockfile-freshness coverage-scope \
+        hash-pins lockfile-freshness coverage-scope version-carriers \
         doc-commit-refs doc-line-citations affiliation secrets \
         bandit semgrep semgrep-custom dco \
         test test-full fuzz \
@@ -38,6 +38,7 @@ help:
 	@echo "  hash-pins           tools/check_hash_pins.py           (ci.yml:lint)"
 	@echo "  lockfile-freshness  tools/check_lockfile_freshness.py  (dependency-lockfile-check.yml)"
 	@echo "  coverage-scope      tools/check_library_coverage.py    (ci.yml:test)"
+	@echo "  version-carriers    tools/check_version_carriers.py    (ci.yml:test)"
 	@echo "  doc-commit-refs     scripts/check_doc_commit_refs.py   (doc_commit_refs.yml)"
 	@echo "  doc-line-citations  scripts/check_doc_line_citations.py(doc_line_citations.yml)"
 	@echo "  affiliation         scripts/check_affiliation_claims.py(affiliation_claims.yml)"
@@ -91,6 +92,9 @@ lockfile-freshness:
 
 coverage-scope:
 	python tools/check_library_coverage.py --check
+
+version-carriers:
+	python tools/check_version_carriers.py
 
 doc-commit-refs:
 	python scripts/check_doc_commit_refs.py
@@ -222,7 +226,7 @@ verify-benchmark:
 # dependent on extras) and semgrep (advisory only) - run those individually.
 # This grouping is a convenience composition, not itself transcribed from
 # any single CI job.
-ci: lint typecheck hash-pins lockfile-freshness coverage-scope \
+ci: lint typecheck hash-pins lockfile-freshness coverage-scope version-carriers \
     doc-commit-refs doc-line-citations affiliation secrets \
     bandit semgrep-custom test
 	@echo "Fast local CI subset passed."

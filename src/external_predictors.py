@@ -134,20 +134,27 @@ def parse_netchop_html(html_content: str, peptide_list: List[str]) -> Dict[str, 
         match = pattern.match(line.strip())
         if match:
             parsed_any = True
-            pos = int(match.group(1))
             aa = match.group(2)
             cleavage = match.group(3)
-            score = float(match.group(4))
             ident = match.group(5)
 
-            # Map identity like "pep_0" to original index
+            # A row the pattern admits can still fail to convert: "[0-9.]+" accepts
+            # "0.1.2" and "..", which float() rejects, and int() refuses a digit
+            # string longer than sys.get_int_max_str_digits(). Skip such a row the
+            # way a malformed identity is skipped, instead of letting ValueError
+            # discard the whole response: query_netchop catches only
+            # RequestException around this call. Found by
+            # fuzz/fuzz_parse_netchop_html.py.
             try:
+                pos = int(match.group(1))
+                score = float(match.group(4))
+                # Map identity like "pep_0" to original index
                 idx = int(ident.split("_")[1])
                 if 0 <= idx < len(peptide_list):
                     pep = peptide_list[idx]
                     results[pep]["scores"].append(score)
                     results[pep]["cleavages"].append(cleavage)
-            except (ValueError, IndexError):  # pragma: no cover
+            except (ValueError, IndexError):
                 continue
 
     # If parsing failed but some text is present, log a warning
@@ -289,7 +296,15 @@ def parse_tapreg_html(html_content: str, peptide_list: List[str]) -> Dict[str, f
         # Look for peptide sequence and the next decimal number representing the score
         # e.g., "pep_0  GLFYTRTGL  0.723" or similar
         escaped_pep = re.escape(pep)
-        pattern = re.compile(rf"{escaped_pep}\s+.*?(-?\d+\.\d+)", re.IGNORECASE)
+        # At most 200 characters may sit between the whitespace run after the peptide
+        # and the score. With the old unbounded ".*?", "\s+" and ".*?" could consume the
+        # same whitespace, so a peptide followed by a long whitespace run and no digit
+        # cost quadratic CPU time (over 1 s at 16,000 spaces on every host measured).
+        # This NARROWS the match: a score more than 200 characters along the line where
+        # the whitespace run ends is no longer found, where ".*?" found it. A gap made
+        # only of whitespace (newlines included) is still matched at any length.
+        # Found by hand-constructing the pattern's worst case, not by corpus mutation.
+        pattern = re.compile(rf"{escaped_pep}\s+.{{0,200}}?(-?\d+\.\d+)", re.IGNORECASE)
         match = pattern.search(text_content)
         if match:
             scores[pep] = float(match.group(1))

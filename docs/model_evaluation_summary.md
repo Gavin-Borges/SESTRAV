@@ -239,7 +239,7 @@ above, so it is withdrawn with it rather than reassigned to another model: the R
 values in this table are themselves described below as representative rather than certified, and
 ranking two representative columns against each other would assert a result none of them supports.
 
-> **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `src/train_classifier.py` and `src/ann_benchmark.py` locally to reproduce; both require `--model-dir`, so point them at a scratch directory such as `models/local` rather than at the published artifacts in `models/`.
+> **Note:** AUC-PR values shown are representative of the 30-feature track. Exact values depend on the training run seed and dataset split. Run `python -m src.train_classifier` and `python -m src.ann_benchmark` locally to reproduce (the module form, from the repository root: the path form fails to import `src` unless the package is installed); both require `--data` and `--model-dir`, so point them at the tracked corpus and at a scratch directory such as `models/local` rather than at the published artifacts in `models/`.
 
 > **Provenance note:** The canonical optional ANN/GNN evidence source is documented in
 > `docs/nn_gnn_optional_module_guide.md`, which defines the optional ANN/GNN benchmark

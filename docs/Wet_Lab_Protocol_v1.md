@@ -135,7 +135,10 @@ model (`models/rf_31feature_integrated.joblib`, `FEATURE_COLUMNS_31` in `src/fea
 enriches for genuinely immunogenic peptides relative to an MHC-binding-affinity-only baseline.
 That `.joblib` is a build output and is **not** in the repository: no model binary is tracked,
 so anyone running this protocol must train it first with
-`python -m src.train_classifier --feature-mode 31`. `FEATURE_COLUMNS_31` in `src/features.py`
+`python -m src.train_classifier --data data/immunogenicity_dataset_v5.csv --model-dir
+models/local --binding-matrix models/peptide_binding_matrix_v5.csv --feature-mode 31`
+(all four arguments are required for mode 31, and `models/local/` is gitignored, so the run
+cannot replace the published artifacts in `models/`). `FEATURE_COLUMNS_31` in `src/features.py`
 IS tracked and defines the exact feature contract that model must satisfy.
 
 **The pre-specified expectation is a null.** The certified computational estimate of this exact

@@ -227,7 +227,7 @@ rule generate_hard_decoys:
         # POSIX-only: snakemake.shell swaps the quote function to a cmd.exe one
         # when no bash is configured, which is the Windows default. The default
         # allele HLA-A*02:01 contains a `*`, so even the shipped value is a glob.
-        "{sys.executable:q} scripts/generate_hard_decoys.py --fasta {input.fasta:q} --allele {params.allele:q} --num_decoys {params.num_decoys:q} --output {output:q} > {log:q} 2>&1"
+        "{sys.executable:q} scripts/generate_hard_decoys.py --fasta {input.fasta:q} --alleles {params.allele:q} --num-decoys {params.num_decoys:q} --output {output:q} > {log:q} 2>&1"
 
 
 rule qc_dataset:

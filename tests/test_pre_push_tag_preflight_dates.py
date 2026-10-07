@@ -72,9 +72,12 @@ HOOK_SOURCE = REPO_ROOT / "scripts" / "hooks" / "pre-push"
 TAG = "v2.0.3"
 VERSION = "2.0.3"
 SUCCESS_BANNER = "version carriers agree, date-released is not future"
+FIXTURE_COMMIT_DATE = "1970-01-01T00:00:00+0000"
+FIXTURE_COMMIT_DAY = "1970-01-01"
 NOT_ISO = "is not an ISO date"
 FUTURE = "is in the future"
 MISMATCH = "does not match tag"
+PRECEDES = "precedes the commit it tags"
 
 # A shape-only check of date-released. Every impossible date below matches it.
 OLD_SHAPE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
@@ -101,8 +104,10 @@ REAL_PAST_DATES = [
     "2000-02-29",  # divisible by 400
     "2026-01-31",
     "1999-12-31",
-    "0001-01-01",
 ]
+
+# Shape-valid and still rejected, now for a different reason: no commit can follow it.
+BEFORE_ANY_COMMIT = "0001-01-01"
 
 # git reads the developer's GLOBAL and SYSTEM config even for a throwaway directory,
 # and both the fixture and the hook make git calls. Pinned so the result depends on the
@@ -121,6 +126,11 @@ BASE_ENV.update(
         "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
         "GIT_COMMITTER_NAME": "fixture",
         "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+        # Pinned to the epoch, and load-bearing since the hook gained a lower bound:
+        # date-released may not precede the committer date of the commit being tagged.
+        # With the commit dated "now", every REAL_PAST_DATE below would precede it.
+        "GIT_AUTHOR_DATE": FIXTURE_COMMIT_DATE,
+        "GIT_COMMITTER_DATE": FIXTURE_COMMIT_DATE,
     }
 )
 
@@ -154,7 +164,8 @@ def _release_workflow_accepts_file(cff_text: str) -> bool:
     if date_text is None or not _release_workflow_accepts(date_text):
         return False
     today = datetime.datetime.now(datetime.timezone.utc).date()
-    return datetime.date.fromisoformat(date_text) <= today
+    released = datetime.date.fromisoformat(date_text)
+    return released <= today and released >= datetime.date.fromisoformat(FIXTURE_COMMIT_DAY)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -382,3 +393,32 @@ def test_a_tag_deletion_is_not_checked(tmp_path: Path) -> None:
     for message in (NOT_ISO, FUTURE, MISMATCH, "does not point at a commit"):
         assert message not in result.stderr, result.stderr
     assert not _passed_check_1b(result), result.stdout
+
+
+def test_a_date_before_the_tagged_commit_is_blocked(tmp_path: Path) -> None:
+    """The bound this file gained: a release cannot predate the code it ships.
+
+    Measured on the published tags when the bound was added: v2.0.2 and v2.0.3 both
+    shipped date-released 2026-06-12 against commits of 2026-06-16 and 2026-06-17, so
+    the upper bound alone let a stale date through twice.
+    """
+    result = _push_tag(_fixture(tmp_path, f"date-released: {BEFORE_ANY_COMMIT}"))
+    assert result.returncode != 0
+    assert PRECEDES in result.stderr, result.stderr
+    assert not _passed_check_1b(result), result.stdout
+
+
+def test_the_commits_own_day_is_accepted(tmp_path: Path) -> None:
+    """The boundary is inclusive: releasing on the day of the commit is normal."""
+    result = _push_tag(_fixture(tmp_path, f"date-released: {FIXTURE_COMMIT_DAY}"))
+    assert _passed_check_1b(result), result.stdout + result.stderr
+    for message in (NOT_ISO, FUTURE, MISMATCH, PRECEDES):
+        assert message not in result.stderr, result.stderr
+
+
+def test_the_lower_bound_is_not_vacuous() -> None:
+    """Shape and future checks alone accept the date the bound rejects."""
+    assert _release_workflow_accepts(BEFORE_ANY_COMMIT), "it is a real calendar date"
+    assert datetime.date.fromisoformat(BEFORE_ANY_COMMIT) < datetime.date.fromisoformat(
+        FIXTURE_COMMIT_DAY
+    )

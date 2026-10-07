@@ -37,7 +37,7 @@ signed with it yet (see the `version_tags_signed` note below).
    |---|---|---|
    | `pyproject.toml` | `[project] version` | Exactly the tag with its leading `v` stripped (tag `v2.0.2` -> `2.0.2`). The build also names the artifacts from this field. |
    | `CITATION.cff` | top-level `version:` | Present, and the same value. A missing field fails just as hard as a wrong one. |
-   | `CITATION.cff` | top-level `date-released:` | Present, parseable as an ISO calendar date (`YYYY-MM-DD`), and not later than the UTC date of the workflow run. |
+   | `CITATION.cff` | top-level `date-released:` | Present, parseable as an ISO calendar date (`YYYY-MM-DD`), not later than the UTC date of the workflow run, and not earlier than the committer date of the commit being tagged. |
 
    `CITATION.cff` is the one that gets forgotten, which is why it is gated: the check
    was added after that file advertised a version and a release date for which no tag
@@ -173,8 +173,10 @@ Trusted Publishers** - no API token or GitHub secret is required.
      permanently refuses a re-upload of a version number that has already been
      published, so a bad upload cannot be replaced under the same number.
    - Set to anything that is not `true` (`false` included), or absent from the
-     repository altogether: the publish job is never scheduled, and the tag produces
-     the GitHub Release with its attestation and checksums and nothing else.
+     repository altogether: the publish job is never scheduled, so the tag produces
+     the GitHub Release, with its attestation and checksums, and does not publish to
+     PyPI. "Does not publish" is the whole of the difference: the Release's own assets
+     are the same either way.
 
    Change it at Settings -> Secrets and variables -> Actions -> Variables, or with
    `gh variable set PYPI_PUBLISH --body false`. The workflow itself never needs
