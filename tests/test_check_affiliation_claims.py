@@ -118,8 +118,26 @@ def test_state_as_an_ordinary_word_is_not_an_institution():
         "The model State dict is saved.",
         "## Current State",
         "Hidden State vectors are cached; see STATE.md",
+        # STATE.md's own title line. The acronym branch of the institution
+        # pattern fires on it because SESTRAV is all-caps, which gave `--all`
+        # a permanent non-zero floor from the primary checkout.
+        "# SESTRAV State Board",
     ):
         assert mod.find_institutions(line) == [], line
+
+
+def test_sestrav_state_suppression_does_not_hide_the_institution_shape():
+    """The suppression is for the board heading, not for the name shape.
+
+    A bare "SESTRAV State" is a section heading. "SESTRAV State University"
+    would be an institution CLAIM, and narrowing the gate must not make the
+    claim form invisible - that is the widening-a-security-allowlist defect
+    this gate exists to prevent.
+    """
+    assert mod.find_institutions("# SESTRAV State Board") == []
+    assert mod.find_institutions("SESTRAV State University") == [
+        "SESTRAV State University"
+    ]
 
 
 def test_retracted_name_is_quotable_only_in_the_retraction_record():
