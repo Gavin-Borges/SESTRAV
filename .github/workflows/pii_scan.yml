@@ -81,10 +81,26 @@ jobs:
           # to .gitattributes in the SAME commit that adds the leak, so the file stays
           # ordinary text that any reader can see while this gate is told to treat it as
           # binary. That makes the blind spot attacker-selectable rather than incidental.
+          # --no-textconv and --no-ext-diff belong with --text, and the reason is measured
+          # rather than precautionary. Each of the two mechanisms below replaces the diff
+          # body wholesale, so `--text` alone still yields a scan with nothing in it:
+          #
+          #   leak lines visible, same repo, same canary
+          #   plain --text (control) ............................ 1
+          #   a diff.<driver>.textconv configured .............. 0   --no-textconv -> 1
+          #   GIT_EXTERNAL_DIFF set ............................ 0   --no-ext-diff -> 1
+          #
+          # NEITHER is reachable from a pull request, and that is why this is hardening and
+          # not a live gap: a PR can commit .gitattributes naming a driver, but the driver
+          # BODY lives in diff.<driver>.textconv in .git/config, which is never committed,
+          # and GIT_EXTERNAL_DIFF is an environment variable. Measured: a committed
+          # attribute naming a driver that is nowhere defined is INERT, 1 line still
+          # visible. So these flags defend against a hostile runner config or a future
+          # workflow step that sets one, not against a contributor.
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff --text "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
           else
-            git diff --text HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="

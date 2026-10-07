@@ -408,3 +408,132 @@ def test_a_minus_diff_attribute_or_a_nul_hides_a_leak_without_text(tmp_path: Pat
         assert visible(carrier, "--text") == 1, (
             f"{carrier} is still invisible WITH --text, so the fix does not work"
         )
+def test_every_diff_construction_ignores_textconv_and_external_diff() -> None:
+    """`--text` is not sufficient on its own, so all three flags are required together.
+
+    textconv and GIT_EXTERNAL_DIFF each replace the diff BODY wholesale, so `--text`
+    still produces a diff.txt with nothing in it for the scan to read. Asserted per
+    construction rather than once, because the pull_request and push branches are
+    separate commands and a fix applied to one is the shape this file keeps catching."""
+    builds = _diff_constructions()
+    assert len(builds) == 2, f"expected the PR and push diff builds, found {builds}"
+    for line in builds:
+        for flag in ("--text", "--no-textconv", "--no-ext-diff"):
+            assert flag in line, f"this git diff does not pass {flag}: {line}"
+
+
+def _leak_canary() -> str:
+    # Assembled at runtime; the Git Bash home form, so no literal workstation path sits
+    # in this file for the very gate under test to refuse.
+    return "see /c/" + ("U" + "sers") + "/someone/private/key here"
+
+
+def _repo_with_leak(where: Path) -> tuple[str, str]:
+    """A two-commit repo whose second commit adds the canary. Returns (base, leak)."""
+    import subprocess as sp
+
+    where.mkdir(parents=True, exist_ok=True)
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(
+            ["git", "-C", str(where), "-c", "user.email=t@example.com",
+             "-c", "user.name=T", "-c", "commit.gpgsign=false", *argv],
+            capture_output=True, text=True, check=False,
+        )
+
+    git("init", "-q")
+    (where / "seed.txt").write_text("seed\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    base = git("rev-parse", "HEAD").stdout.strip()
+    assert base, "fixture repo has no base commit"
+    leak = _leak_canary()
+    (where / "leak.txt").write_text(leak + "\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "add the canary")
+    return base, leak
+
+
+def test_textconv_defeats_text_and_no_textconv_restores_it(tmp_path: Path) -> None:
+    """Measured, in a repo where ONLY textconv is configured.
+
+    The isolation is deliberate and was learned the hard way: a first probe tested
+    GIT_EXTERNAL_DIFF in a repo that still had textconv configured, so `--no-ext-diff`
+    read as STILL BLIND and nearly shipped as "that flag does not help". Two mechanisms
+    that blank the same output cannot share one fixture, because the second reading is
+    the first mechanism's shadow."""
+    import subprocess as sp
+
+    repo = tmp_path / "textconv"
+    base, _ = _repo_with_leak(repo)
+    scrub = repo / "scrub.sh"
+    scrub.write_text("#!/bin/sh\necho SCRUBBED\n", encoding="utf-8", newline="\n")
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(["git", "-C", str(repo), *argv], capture_output=True, text=True,
+                      encoding="utf-8", errors="replace", check=False)
+
+    (repo / ".gitattributes").write_text("leak.txt diff=scrub\n", encoding="utf-8")
+    git("add", "-A")
+    git("-c", "user.email=t@e.com", "-c", "user.name=T", "-c", "commit.gpgsign=false",
+        "commit", "-q", "-m", "name a driver")
+    # The driver BODY lives in config, which a pull request cannot commit.
+    git("config", "diff.scrub.textconv", "sh " + scrub.as_posix())
+
+    def visible(*extra: str) -> int:
+        out = git("diff", *extra, base + "...HEAD", "--", "leak.txt").stdout
+        return sum(1 for line in out.splitlines() if "private/key" in line)
+
+    assert visible("--text") == 0, (
+        "textconv no longer blanks the diff, so this fixture no longer reproduces the "
+        "mechanism and the assertion below would pass for the wrong reason"
+    )
+    assert visible("--text", "--no-textconv") == 1
+
+
+def test_external_diff_defeats_text_and_no_ext_diff_restores_it(tmp_path: Path) -> None:
+    """Measured in a repo with NO textconv configured, for the reason above."""
+    import os
+    import subprocess as sp
+
+    repo = tmp_path / "extdiff"
+    base, _ = _repo_with_leak(repo)
+    ext = repo / "ext.sh"
+    ext.write_text("#!/bin/sh\necho EXTERNAL\n", encoding="utf-8", newline="\n")
+    env = dict(os.environ)
+    env["GIT_EXTERNAL_DIFF"] = "sh " + ext.as_posix()
+
+    def visible(*extra: str) -> int:
+        out = sp.run(["git", "-C", str(repo), "diff", *extra, base + "...HEAD",
+                      "--", "leak.txt"], capture_output=True, text=True,
+                     encoding="utf-8", errors="replace", env=env, check=False).stdout
+        return sum(1 for line in out.splitlines() if "private/key" in line)
+
+    assert visible("--text") == 0, (
+        "GIT_EXTERNAL_DIFF no longer blanks the diff, so this fixture no longer "
+        "reproduces the mechanism"
+    )
+    assert visible("--text", "--no-ext-diff") == 1
+
+
+def test_a_committed_attribute_naming_an_undefined_driver_is_inert(tmp_path: Path) -> None:
+    """Why this unit is HARDENING and not a live PR-reachable gap.
+
+    A pull request can commit `.gitattributes`, but the driver body lives in
+    `diff.<driver>.textconv` in `.git/config`, which is never committed. With the
+    attribute present and the driver undefined, the leak is still visible, so a
+    contributor cannot reach this blind spot. These flags defend against a hostile
+    runner config or a future workflow step that sets one."""
+    import subprocess as sp
+
+    repo = tmp_path / "inert"
+    base, _ = _repo_with_leak(repo)
+    (repo / ".gitattributes").write_text("leak.txt diff=nowhere\n", encoding="utf-8")
+    sp.run(["git", "-C", str(repo), "add", "-A"], capture_output=True, check=False)
+    sp.run(["git", "-C", str(repo), "-c", "user.email=t@e.com", "-c", "user.name=T",
+            "-c", "commit.gpgsign=false", "commit", "-q", "-m", "undefined driver"],
+           capture_output=True, check=False)
+    out = sp.run(["git", "-C", str(repo), "diff", "--text", base + "...HEAD", "--",
+                  "leak.txt"], capture_output=True, text=True, encoding="utf-8",
+                 errors="replace", check=False).stdout
+    assert sum(1 for line in out.splitlines() if "private/key" in line) == 1
