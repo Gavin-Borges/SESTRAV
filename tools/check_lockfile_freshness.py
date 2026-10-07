@@ -300,8 +300,21 @@ def check_pair(in_path: Path, out_path: Path) -> list[str]:
     return problems
 
 
+class GitListingError(RuntimeError):
+    """git could not list the tracked files of a git checkout."""
+
+
 def _git_tracked_in_files() -> list[str] | None:
-    """Tracked requirements*.in paths per git, or None if git cannot answer.
+    """Tracked requirements*.in paths per git; None outside a git checkout.
+
+    Raises GitListingError when REPO_ROOT IS a git checkout (it holds a .git
+    entry: a directory, or the file a linked worktree or submodule uses) and git
+    cannot list it. That used to return None as well, and discovery then fell
+    back to the walk below, which skips results/, _local/ and .claude/ among
+    others, so a tracked .in file under one of those names went unchecked and the
+    gate passed. Measured 2026-10-06: a tracked results/requirements-extra.in was
+    reported as unmapped with git working and silently missed with git exiting
+    128 ("dubious ownership").
 
     Discovery is scoped to *tracked* files because that is what this gate is
     about: a lockfile pair can only drift in a commit, and an untracked or
@@ -321,6 +334,7 @@ def _git_tracked_in_files() -> list[str] | None:
     be ignored in favor of the real one). Both are stripped so -C is the only
     thing that decides which repo is queried.
     """
+    in_work_tree = (REPO_ROOT / ".git").exists()
     env = {
         key: value
         for key, value in os.environ.items()
@@ -344,9 +358,16 @@ def _git_tracked_in_files() -> list[str] | None:
             check=False,
             env=env,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        if in_work_tree:
+            raise GitListingError(f"git could not be run: {exc}") from exc
         return None
     if result.returncode != 0:
+        if in_work_tree:
+            detail = (result.stderr or "").strip().splitlines()
+            raise GitListingError(
+                f"git ls-files exited {result.returncode}" + (f": {detail[0]}" if detail else "")
+            )
         return None
     return [line for line in result.stdout.split("\0") if line]
 
@@ -355,7 +376,8 @@ def discover_unmapped_in_files(mapped: set[str]) -> list[str]:
     """Fail closed: any requirements*.in file not in LOCKFILE_PAIRS is a gap."""
     candidates = _git_tracked_in_files()
     if candidates is None:
-        # Fallback for a non-git context (unpacked sdist, vendored copy).
+        # Fallback for a non-git context ONLY (unpacked sdist, vendored copy):
+        # inside a git checkout _git_tracked_in_files raises instead.
         # Denylist-based, so it is best-effort by construction - see
         # _git_tracked_in_files for why the git path is preferred.
         skip_dirs = {
@@ -391,7 +413,15 @@ def main() -> int:
     mapped_in_files = {pair[0] for pair in LOCKFILE_PAIRS}
     problems: list[str] = []
 
-    unmapped = discover_unmapped_in_files(mapped_in_files)
+    try:
+        unmapped = discover_unmapped_in_files(mapped_in_files)
+    except GitListingError as exc:
+        unmapped = []
+        problems.append(
+            f"could not list the tracked requirements*.in files ({exc}); this checkout is a git "
+            f"work tree, so the gate does not fall back to a filesystem walk that would skip "
+            f"tracked files under excluded directory names"
+        )
     for rel in unmapped:
         problems.append(
             f"{rel}: a requirements*.in file exists with no LOCKFILE_PAIRS mapping in "
