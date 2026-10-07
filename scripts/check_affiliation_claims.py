@@ -529,6 +529,17 @@ NOT_INSTITUTIONS = re.compile(
         |project|session|repo|git|dev|build|clean|dirty|saved|cached|live
         |expected|actual|integrity|end|start|goal|new|old)\s+State\b
     | \bState\b(?=\.md)                       # STATE.md the file
+      # "SESTRAV State Board" is the title line of STATE.md, this repo's own
+      # working board. SESTRAV is this project's NAME, not a place, so it fails
+      # the land-grant discriminator stated above: there is no institution
+      # called "SESTRAV State". Without this entry the acronym branch of the
+      # institution pattern - \b[A-Z]{2,4}\s+State\b, written to catch the
+      # fabricated "NC State" of D35 - fires on the board's own heading, which
+      # gave `--all` a permanent non-zero floor from the primary checkout that
+      # no edit to the board's CONTENT could clear. The negative lookahead
+      # keeps a hypothetical "SESTRAV State University" detectable, so this
+      # suppresses the heading and not the institution SHAPE.
+    | \bSESTRAV\s+State\b(?!\s+University)
     )""",
     re.IGNORECASE | re.VERBOSE,
 )
