@@ -644,6 +644,6 @@ def test_the_shipped_allele_glob_is_quoted_end_to_end(tmp_path):
     ]
     assert printed, "no generate_hard_decoys command was printed"
     for line in printed:
-        assert "--allele 'HLA-A*02:01'" in line or '--allele "HLA-A*02:01"' in line, (
+        assert "--alleles 'HLA-A*02:01'" in line or '--alleles "HLA-A*02:01"' in line, (
             f"the shipped allele glob was not quoted:\n{line}"
         )
