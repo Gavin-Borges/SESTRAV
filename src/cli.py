@@ -112,10 +112,39 @@ def _mhcflurry_version_tuple() -> tuple[int, ...] | None:
     return tuple(int(part or 0) for part in match.groups())
 
 
+# The hash-verified install route, named here rather than in each message so there is
+# ONE carrier. It is two steps on purpose, and the split is where the trust boundary
+# sits: step one is this repo's own fetcher, which refuses any scheme but https and any
+# host outside its allowlist, streams to a `.part` file and renames only after the
+# sha256 pin matches. Step two is mhcflurry's own CLI, pointed at the already-verified
+# directory so it unpacks bytes that have been vouched for.
+#
+# Why the bare `mhcflurry-downloads fetch` is not merely "unverified": its extraction
+# was measured to write OUTSIDE its target directory for crafted member names, on
+# Windows and on Linux, and the current release still escapes on Windows for a
+# backslash-separated `..`. So the risk is ARBITRARY WRITE from a tampered archive, and
+# upgrading mhcflurry is NOT the control - the verified route is, on every version and
+# OS.
+#
+# The two pinned values live in config.yaml and are deliberately NOT duplicated here: a
+# second copy of a sha256 is a drift carrier, and the pin must have exactly one source.
+_MHCFLURRY_VERIFIED_FETCH_HINT = (
+    "Install it with the hash-verified two-step route, which is the control on every "
+    "mhcflurry version and OS: first `python scripts/fetch_verified_mhcflurry.py "
+    "--url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> "
+    "--output-dir DIR`, taking both values from config.yaml, then "
+    f"`mhcflurry-downloads fetch {_MHCFLURRY_MODEL_DOWNLOAD} "
+    "--already-downloaded-dir DIR`. Do not run a bare "
+    "`mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a "
+    "tampered archive can write outside the target directory, so it is an arbitrary-write "
+    "risk rather than just an unverified download."
+)
+
+
 def _mhcflurry_model_data_message(downloads_dir: str | None) -> str:
     message = (
         "MHCflurry model data is absent, and Stage 2 cannot run without it. "
-        f"Run `mhcflurry-downloads fetch {_MHCFLURRY_MODEL_DOWNLOAD}`, then retry."
+        + _MHCFLURRY_VERIFIED_FETCH_HINT
     )
     installed = _mhcflurry_version_tuple()
     if (
@@ -126,9 +155,10 @@ def _mhcflurry_model_data_message(downloads_dir: str | None) -> str:
         version = ".".join(str(part) for part in installed)
         message += (
             f" On Python 3.13 and later the mhcflurry {version} downloader cannot run, "
-            "because it imports the 'pipes' module that Python 3.13 removed; run the "
-            "fetch from a Python 3.11 or 3.12 environment that has the same mhcflurry "
-            "version, "
+            "because it imports the 'pipes' module that Python 3.13 removed. Step one "
+            "above is unaffected: the verified fetcher imports no mhcflurry and runs on "
+            "any interpreter. Only the second command needs a Python 3.11 or 3.12 "
+            "environment that has the same mhcflurry version, "
         )
         # mhcflurry's downloads directory is MHCFLURRY_DOWNLOADS_DIR when that is set,
         # and otherwise MHCFLURRY_DATA_DIR (or a per-user default) joined with the
