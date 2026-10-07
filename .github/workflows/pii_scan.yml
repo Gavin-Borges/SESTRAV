@@ -67,24 +67,64 @@ jobs:
             ':(exclude).github/workflows/pii_scan.yml'
           )
 
+          # --text is load-bearing, and it is the OTHER HALF of the `grep -a` below.
+          # Without it `git diff` emits "Binary files a/x and b/x differ" and NO content
+          # for two carriers, so the leak never reaches the scan at all and no amount of
+          # `-a` on the grep can recover it. Measured in a throwaway repo, per carrier,
+          # with a Git Bash home path as the canary:
+          #
+          #   carrier                              no --text   with --text
+          #   a TEXT file the PR marks `-diff`         0            1
+          #   a binary file holding a NUL              0            1
+          #
+          # The first carrier is the sharp one: a pull request can add `nodiff.txt -diff`
+          # to .gitattributes in the SAME commit that adds the leak, so the file stays
+          # ordinary text that any reader can see while this gate is told to treat it as
+          # binary. That makes the blind spot attacker-selectable rather than incidental.
+          # --no-textconv and --no-ext-diff belong with --text, and the reason is measured
+          # rather than precautionary. Each of the two mechanisms below replaces the diff
+          # body wholesale, so `--text` alone still yields a scan with nothing in it:
+          #
+          #   leak lines visible, same repo, same canary
+          #   plain --text (control) ............................ 1
+          #   a diff.<driver>.textconv configured .............. 0   --no-textconv -> 1
+          #   GIT_EXTERNAL_DIFF set ............................ 0   --no-ext-diff -> 1
+          #
+          # NEITHER is reachable from a pull request, and that is why this is hardening and
+          # not a live gap: a PR can commit .gitattributes naming a driver, but the driver
+          # BODY lives in diff.<driver>.textconv in .git/config, which is never committed,
+          # and GIT_EXTERNAL_DIFF is an environment variable. Measured: a committed
+          # attribute naming a driver that is nowhere defined is INERT, 1 line still
+          # visible. So these flags defend against a hostile runner config or a future
+          # workflow step that sets one, not against a contributor.
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
           else
-            git diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
 
           # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
           # Removing a pre-existing leak must not fail the gate.
-          USER_LEAKS=$(grep -E "^\+[^+]" diff.txt \
-            | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+)' || true)
+          #
+          # -a is load-bearing, not tidiness. git diffs a file holding a NUL as text, so the
+          # NUL lands in diff.txt; without -a grep replaces the matching LINES with the single
+          # message 'Binary file <path> matches'. The verdict is then decided by that message
+          # instead of by the diff, and it fails BOTH ways. Measured on GNU grep 3.0: with the
+          # diff piped in, an unrelated leaked path goes from 1 hit to 0, so real leak lines in
+          # every other file of the diff go unexamined and the step prints PASSED. With the
+          # diff named as an argument instead, the pattern can match the PATH inside grep's own
+          # message and report a leak that is only the scanner quoting itself. -a removes both:
+          # every input is read as text, so no byte can swap the lines for a diagnostic.
+          USER_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
+            | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
           # /Users/ forms above so an allowlisted /home/ token on the same line
           # cannot mask a real /Users/ leak.
-          HOME_LEAKS=$(grep -E "^\+[^+]" diff.txt \
+          HOME_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
             | grep -oE "/home/[A-Za-z0-9_.-]+" \
             | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
@@ -156,7 +196,7 @@ jobs:
           # Windows backslash form (3 of 3 sample forms matched, then 2 of 3)
           # while the job still runs and still reports clean.
           cat > "$WORK/pat_paths.txt" <<'PATEOF'
-          ([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+)
+          ([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)
           PATEOF
           cat > "$WORK/pat_home.txt" <<'PATEOF'
           /home/[A-Za-z0-9_.-]+
@@ -214,10 +254,33 @@ jobs:
           # The single code path that decides "does this blob leak?". The
           # positive control below drives THIS function, not a copy of it.
           scan_blob() {
-            { grep -n -I -i -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
+            # -a, not -I: a path hidden inside a binary blob is invisible to -I (measured 0 hits
+            # against 1 with -a). The PATH patterns are specific enough to read binary bytes
+            # safely - measured over every tracked binary in the tree, 15 files and 1.3 MB, 0
+            # hits in 0.04 s, and the flag change adds no grep invocations. The HOME pattern
+            # below deliberately KEEPS -I: /home/<name> is far looser, so a chance byte run in
+            # a future binary would block a push on noise. It measured 0 hits with -a today
+            # too, which bounds the present tree and not the next binary added to it.
+            { grep -n -a -i -E -f "$WORK/pat_paths.txt" "$1" || true; } > "$WORK/h1"
             { grep -o -I -E -f "$WORK/pat_home.txt" "$1" \
                 | grep -v -E -f "$WORK/pat_home_ok.txt" || true; } > "$WORK/h2"
-            cat "$WORK/h1" "$WORK/h2" | grep -E '.' || true
+            # -a here too, and it is NOT redundant with the -a on h1's grep above.
+            # h1 legitimately CONTAINS binary bytes, because the -a above is what let the
+            # match be found inside a binary blob in the first place. This final stage then
+            # reads a binary-looking stream, and without -a grep refuses to print the line.
+            # Measured on both platforms, same input, stage as shipped vs with -a:
+            #
+            #   GNU grep 3.12 (Linux, what CI runs): STDOUT EMPTY, and the notice
+            #     'grep: (standard input): binary file matches' on STDERR, rc 0.
+            #   GNU grep 3.0 (Git Bash here):        STDOUT 'Binary file (standard input)
+            #     matches', STDERR empty, rc 0.
+            #
+            # So on CI the path was found by the first grep and then SILENTLY DROPPED by this
+            # one, leaving the whole function with no output and rc 0 - a fail-open in the
+            # exact case the -a above was added to catch. On Windows it "worked" only because
+            # that grep version prints its notice to stdout, so a caller testing for
+            # non-empty output passed on the NOTICE rather than on the path.
+            cat "$WORK/h1" "$WORK/h2" | grep -a -E '.' || true
           }
 
           # Positive control. An instrument that cannot detect the thing it is
@@ -233,13 +296,14 @@ jobs:
           U="U""sers"; H="ho""me"; BS='\'
           printf '%s\n' "x /$U/someone/y" "x C:${BS}${U}${BS}someone${BS}y" \
             "x /mnt/c/$U/someone/y" "x /$H/someone/y" \
+            "x /c/$U/someone/y" "x /cygdrive/c/$U/someone/y" \
             "ok /$H/runner/work" 'no path here' > "$WORK/canary"
           CANARY=$(scan_blob "$WORK/canary" | wc -l)
-          if [ "$CANARY" -ne 4 ]; then
-            echo "::error::Leak-scanner positive control FAILED: expected 4 canary hits, got $CANARY. Do not trust a clean result from this run."
+          if [ "$CANARY" -ne 6 ]; then
+            echo "::error::Leak-scanner positive control FAILED: expected 6 canary hits, got $CANARY. Do not trust a clean result from this run."
             exit 1
           fi
-          echo "Positive control PASSED: 4/4 canary forms detected."
+          echo "Positive control PASSED: 6/6 canary forms detected."
 
           # A second control exercises the Git tree path round-trip itself. Build
           # the UTF-8 filename from bytes so this workflow remains ASCII-only.

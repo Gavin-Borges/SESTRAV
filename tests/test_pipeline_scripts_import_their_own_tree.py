@@ -20,9 +20,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SNAKEFILES = ("pipeline.smk", "standardize_outputs.smk", "Snakefile")
 FIRST_PARTY = {"src", "functions", "sestrav"}
-# A rule's shell runs a file by path as `python <path>` or `"{sys.executable}" <path>`.
+# A rule's shell runs a file by path as `python <path>`, `"{sys.executable}" <path>` or
+# `{sys.executable:q} <path>`. The format-spec alternative is not cosmetic: when every
+# interpolation gained Snakemake's `:q` quoting, a pattern without it matched NOTHING,
+# `_scripts_run_by_path()` returned an empty list, and the parametrized test below
+# silently collected zero cases. The floor assertion in the first test is what caught it.
 RUN_BY_PATH = re.compile(
-    r'(?:\bpython3?|\{sys\.executable\}\\?"?)\s+((?:scripts|src|functions)/[\w/]+\.py)'
+    r'(?:\bpython3?|\{sys\.executable(?::[^}]*)?\}\\?"?)\s+((?:scripts|src|functions)/[\w/]+\.py)'
 )
 
 
@@ -59,6 +63,21 @@ def _puts_a_path_on_sys_path_at_module_level(tree: ast.Module) -> bool:
             ):
                 return True
     return False
+
+
+def test_the_pattern_matches_every_spelling_of_the_interpreter():
+    """Premise anchor for the pattern itself, not just for its yield.
+
+    Each spelling has been in this repository's workflow files, so a pattern that
+    drops one reports zero scripts and makes every assertion below vacuous.
+    """
+    for spelling in (
+        '"{sys.executable}" scripts/x.py',
+        "{sys.executable:q} scripts/x.py",
+        "python scripts/x.py",
+        "python3 scripts/x.py",
+    ):
+        assert RUN_BY_PATH.findall(spelling) == ["scripts/x.py"], spelling
 
 
 def test_the_scan_finds_the_scripts_rules_run_by_path():
