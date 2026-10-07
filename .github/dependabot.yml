@@ -128,6 +128,20 @@ updates:
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
       # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
+      # networkx 3.7 requires Python >=3.12, and this project still supports 3.11
+      # (pyproject.toml requires-python ">=3.11"; ci.yml runs a 3.11 compat leg).
+      # The 3.11-compiled locks (requirements.txt, environments/requirements.lock)
+      # cannot resolve it, so a bump reaches only the 3.13 image locks and trips
+      # the cross-file pin-divergence tests: a permanent red PR, as with
+      # jsonschema above. Patch releases on 3.6.x still flow. Remove this when
+      # 3.11 is dropped. The hold is about the Python floor, not model outputs:
+      # on 2026-10-05, compute_wl_features (the only networkx caller) gave
+      # byte-identical vectors under 3.6.1 and 3.7 for 3,000 random 8-11-mers
+      # plus four known epitopes.
+      - dependency-name: "networkx"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   - package-ecosystem: "pip"
     directory: "/environments"
@@ -254,6 +268,20 @@ updates:
       # with ResolutionImpossible, leaving a permanent red Dependabot run. Bump
       # semgrep first, then remove this ignore, to let jsonschema move again.
       - dependency-name: "jsonschema"
+      # networkx 3.7 requires Python >=3.12, and this project still supports 3.11
+      # (pyproject.toml requires-python ">=3.11"; ci.yml runs a 3.11 compat leg).
+      # The 3.11-compiled locks (requirements.txt, environments/requirements.lock)
+      # cannot resolve it, so a bump reaches only the 3.13 image locks and trips
+      # the cross-file pin-divergence tests: a permanent red PR, as with
+      # jsonschema above. Patch releases on 3.6.x still flow. Remove this when
+      # 3.11 is dropped. The hold is about the Python floor, not model outputs:
+      # on 2026-10-05, compute_wl_features (the only networkx caller) gave
+      # byte-identical vectors under 3.6.1 and 3.7 for 3,000 random 8-11-mers
+      # plus four known epitopes.
+      - dependency-name: "networkx"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   # Keep the root Dockerfiles' base image current. Dockerfile, Dockerfile.api
   # and Dockerfile.demo all sit at the repo root and all pin the same
