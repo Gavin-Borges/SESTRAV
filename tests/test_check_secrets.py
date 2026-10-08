@@ -1416,3 +1416,159 @@ def test_the_admin_token_script_is_no_longer_excluded() -> None:
     assert "scripts/check_secrets.py" in mod.EXCLUDE_PATHS, (
         "the detector must stay excluded: it exists to contain credential patterns"
     )
+
+
+# --- SEC-11a: six more shapes the scanner could not see -------------------------
+#
+# Each shape was planted into a file and scanned with the scanner as it stood at
+# d90dee90: every one returned no finding, while the positional
+# `os.getenv("<KEY>", "<v>")` control was flagged. Same conventions as the SX-U4
+# block above: payloads are assembled at runtime, and every template carries the
+# four-character `{v}` placeholder, so the template lines stay quiet under the very
+# patterns they exercise. Each shape has a planted positive and a benign near-miss.
+
+_BASIC_VALUE = _token() + "+/Q=="  # the base64 alphabet, padding included
+
+
+def test_environ_subscript_store_is_flagged(tmp_path: Path) -> None:
+    """The name is closed by a quote AND a `]` before the `=`, and
+    CREDENTIAL_ASSIGNMENT allows only the quote."""
+    for template in ('os.environ["{k}"] = "{v}"', "os.environ['{k}'] = '{v}'"):
+        assert _plant(tmp_path, "case.py", template, _TOKEN_NAME, _token()) == [1], template
+
+
+def test_environ_subscript_compare_or_benign_name_is_not_flagged(tmp_path: Path) -> None:
+    """A comparison is not a store, and a name carrying no credential keyword is not
+    a credential however random its value looks."""
+    compare = 'ok = os.environ["{k}"] == "{v}"'
+    assert _plant(tmp_path, "case.py", compare, _TOKEN_NAME, _token()) == []
+    store = 'os.environ["{k}"] = "{v}"'
+    assert _plant(tmp_path, "case.py", store, "NO_PROXY", _token()) == []
+
+
+def test_getenv_default_passed_by_keyword_is_flagged(tmp_path: Path) -> None:
+    """The positional default was already caught; the same default passed as
+    `default=` was not, through either spelling or a bare imported getenv."""
+    for template in (
+        'DB = os.getenv("DB_{k}", default="{v}")',
+        'DB = os.environ.get("DB_{k}", default="{v}")',
+        'DB = getenv("DB_{k}", default="{v}")',
+    ):
+        assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [1], template
+
+
+def test_getenv_keyword_default_that_is_empty_or_none_is_not_flagged(
+    tmp_path: Path,
+) -> None:
+    for template in (
+        'DB = os.getenv("DB_{k}", default="")',
+        'DB = os.getenv("DB_{k}", default=None)',
+    ):
+        assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [], template
+
+
+def test_environ_setdefault_is_flagged(tmp_path: Path) -> None:
+    """os.environ.setdefault takes the same two arguments as os.environ.get, and the
+    pattern named only the read."""
+    template = 'os.environ.setdefault("DB_{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", template, "PASSWORD", _token()) == [1]
+
+
+def test_setdefault_with_a_benign_name_or_placeholder_is_not_flagged(
+    tmp_path: Path,
+) -> None:
+    benign = 'os.environ.setdefault("{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", benign, "PYTHONHASHSEED", _token()) == []
+    placeholder = 'os.environ.setdefault("DB_{k}", "{v}")'
+    assert _plant(tmp_path, "case.py", placeholder, "PASSWORD", "change" + "me") == []
+
+
+def test_authorization_token_and_basic_schemes_are_flagged(tmp_path: Path) -> None:
+    """Only Bearer was recognised. GitHub's `token` scheme and HTTP Basic carry the
+    credential the same way, after a space, in a dict literal, a raw header string
+    or a subscript store."""
+    for template in (
+        'HEADERS = {{"Authorization": "{k} {v}"}}',
+        'send("Authorization: {k} {v}")',
+        'headers["Authorization"] = "{k} {v}"',
+    ):
+        for scheme, value in (("token", _token()), ("Basic", _BASIC_VALUE)):
+            flagged = _plant(tmp_path, "case.py", template, scheme, value)
+            assert flagged == [1], (template, scheme)
+    curl = 'curl -H "Authorization: {k} {v}" https://x.example'
+    assert _plant(tmp_path, "case.sh", curl, "Basic", _BASIC_VALUE) == [1]
+
+
+def test_bare_scheme_words_and_shell_placeholders_are_not_flagged(
+    tmp_path: Path,
+) -> None:
+    """`token` and `Basic` are reached ONLY through the header name. Bare, both are
+    English words, and a bare alternative was measured to flag 10 lines in 9 tracked
+    files. A shell variable after the scheme is a reference, not a value."""
+    for scheme in ("token", "Basic"):
+        prose = "Pass the {k} {v} along."
+        assert _plant(tmp_path, "case.md", prose, scheme, _token()) == [], scheme
+        ref = 'curl -H "Authorization: {k} $GH_TOKEN" https://x.example'
+        assert _plant(tmp_path, "case.sh", ref, scheme, _token()) == [], scheme
+
+
+def test_triple_quoted_value_is_flagged(tmp_path: Path) -> None:
+    """CREDENTIAL_ASSIGNMENT takes the first quote as the opening one, and its value
+    class then meets the second quote at once and fails. TOML writes the same two
+    delimiters, so both formats are planted."""
+    for name in ("case.py", "case.toml"):
+        for template in ('{k} = """{v}"""', "{k} = '''{v}'''"):
+            flagged = _plant(tmp_path, name, template, _SECRET_NAME, _token())
+            assert flagged == [1], (name, template)
+
+
+def test_triple_quoted_prose_or_an_opening_delimiter_is_not_flagged(
+    tmp_path: Path,
+) -> None:
+    """A multi-line string opened on the line carries no value on it, and prose
+    inside triple quotes is dropped by the same whitespace rule as any value."""
+    opening = '{k}_HELP = """'
+    assert _plant(tmp_path, "case.py", opening, _SECRET_NAME, _token()) == []
+    prose = '{k} = """{v} rotates monthly"""'
+    assert _plant(tmp_path, "case.py", prose, _SECRET_NAME, _token()) == []
+
+
+def test_walrus_assignment_is_flagged(tmp_path: Path) -> None:
+    """CREDENTIAL_ASSIGNMENT reads the `:` of `:=` as the operator and then wants a
+    quote where the `=` is."""
+    assert _plant(tmp_path, "case.py", 'if ({k} := "{v}"):', _TOKEN_NAME, _token()) == [1]
+
+
+def test_walrus_bound_to_an_expression_is_not_flagged(tmp_path: Path) -> None:
+    """In Python an unquoted right-hand side is an expression, even when a literal
+    sits inside it."""
+    template = 'if ({k} := lookup("{v}")):'
+    assert _plant(tmp_path, "case.py", template, _TOKEN_NAME, _token()) == []
+
+
+def test_the_sec11a_shapes_keep_the_entropy_and_length_floors(tmp_path: Path) -> None:
+    """Every SEC-11a pattern captures its value as group 2, so the floors apply."""
+    short = "ab12"
+    repetitive = "a" * 40
+    shapes = [
+        ('os.environ["{k}"] = "{v}"', _TOKEN_NAME),
+        ('DB = os.getenv("DB_{k}", default="{v}")', "PASSWORD"),
+        ('os.environ.setdefault("DB_{k}", "{v}")', "PASSWORD"),
+        ('send("Authorization: {k} {v}")', "token"),
+        ('send("Authorization: {k} {v}")', "Basic"),
+        ('{k} = """{v}"""', _SECRET_NAME),
+        ('if ({k} := "{v}"):', _TOKEN_NAME),
+    ]
+    for template, keyword in shapes:
+        assert _plant(tmp_path, "case.py", template, keyword, short) == [], template
+        assert _plant(tmp_path, "case.py", template, keyword, repetitive) == [], template
+        assert _plant(tmp_path, "case.py", template, keyword, _token()) == [1], template
+
+
+def test_an_assignment_inside_a_walrus_string_is_still_flagged(tmp_path: Path) -> None:
+    """Why the SEC-11a shapes are SEPARATE patterns. Adding `:=` to
+    CREDENTIAL_ASSIGNMENT's operator would match from the walrus, swallow the quoted
+    command, and lose the `--password=` assignment inside it, which is flagged today.
+    This passes before and after the change by design: it guards the choice."""
+    template = "(auth_cmd := \"mysql --{k}='{v}'\")"
+    assert _plant(tmp_path, "case.py", template, "password", _token()) == [1]

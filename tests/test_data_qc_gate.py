@@ -99,6 +99,68 @@ def test_qc_gate_length_outlier(tmp_path, temp_config, valid_df):
     assert "Peptide length 7 outside valid 8-11mer window" in q_df.loc[0, "qc_failure_reason"]
 
 
+@pytest.mark.parametrize(
+    "peptide, admitted",
+    [
+        pytest.param("ACDEFGHI", True, id="8mer_admitted"),
+        pytest.param("ACDEFGHIKLM", True, id="11mer_admitted"),
+        pytest.param("ACDEFGHIKLMN", False, id="12mer_rejected"),
+    ],
+)
+def test_qc_gate_length_window_is_inclusive_at_8_and_11(
+    tmp_path, temp_config, valid_df, peptide, admitted
+):
+    """MUTATION GUARD for both ends of the 8-11mer window.
+
+    test_qc_gate_length_outlier only rejects a 7-mer, and the valid fixture's
+    peptides are 9- and 10-mers, so no test checked either bound. Four
+    one-token edits to `8 <= len(pep_str) <= 11` therefore left the suite
+    green: 8 -> 9 and `8 <=` -> `8 <` refuse an 8-mer, `<= 11` -> `< 11`
+    refuses an 11-mer, and 11 -> 12 admits a 12-mer. The two admitted ids
+    kill the first three and the rejected id kills the fourth.
+
+    An admitted peptide leaves the whole fixture clean, so the gate passes and
+    writes no quarantine file. A rejected one must be quarantined for its
+    length, which is the evidence, not the exit code alone: dropping one of
+    the five rows also fails the yield and class-ratio checks, so rc 1 by
+    itself would not show the length check fired.
+    """
+    df = valid_df.copy()
+    df.loc[0, "peptide"] = peptide
+    dataset_path = tmp_path / "boundary.csv"
+    df.to_csv(dataset_path, index=False)
+    quarantine_path = tmp_path / "quarantine.csv"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/data_qc_gate.py",
+            "--dataset",
+            str(dataset_path),
+            "--config",
+            str(temp_config),
+            "--quarantine",
+            str(quarantine_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout + result.stderr
+
+    if admitted:
+        assert result.returncode == 0, f"{len(peptide)}-mer was refused: {output}"
+        assert not quarantine_path.exists()
+    else:
+        assert result.returncode == 1, f"{len(peptide)}-mer was admitted: {output}"
+        q_df = pd.read_csv(quarantine_path)
+        assert len(q_df) == 1
+        assert q_df.loc[0, "peptide"] == peptide
+        assert (
+            f"Peptide length {len(peptide)} outside valid 8-11mer window"
+            in q_df.loc[0, "qc_failure_reason"]
+        )
+
+
 def test_qc_gate_non_canonical_aa(tmp_path, temp_config, valid_df):
     invalid_df = valid_df.copy()
     invalid_df.loc[0, "peptide"] = "ACDEFGHIX"  # 'X' is invalid

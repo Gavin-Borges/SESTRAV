@@ -24,6 +24,7 @@ behaviour so the cheap-but-wrong fix cannot be reintroduced.
 from __future__ import annotations
 
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -237,3 +238,80 @@ def test_hugging_face_revision_pin_is_treated_as_third_party():
     assert module.EXTERNAL_CONTEXT_RE.search(pinned)
     # A prose citation using the same word must still be examined.
     assert not module.EXTERNAL_CONTEXT_RE.search("see revision abc1234 for the fix")
+
+
+# --- End to end: the verdict, the exit code and the count -------------------
+#
+# Everything above exercises the detector; nothing ran the gate's verdict path
+# on a repository that HAS a bad citation. The CX-F2 mutation campaign measured
+# the cost at 5e1fbe79: making the findings branch unreachable, returning 2
+# instead of 1, starting the citation count at 1, or counting a dead or a
+# resolved citation twice each left this whole file green.
+
+_GIT_ENV = {
+    **os.environ,
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_SYSTEM": os.devnull,
+}
+
+
+def _git(repo: Path, *argv: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), "-c", "user.email=t@example.com", "-c", "user.name=T",
+         "-c", "commit.gpgsign=false", *argv],
+        capture_output=True, text=True, check=True, env=_GIT_ENV,
+    ).stdout.strip()
+
+
+def _repo_citing(where: Path, *, dead: bool, orphaned: bool) -> Path:
+    """A repo whose tracked notes.md cites its own base commit, plus the bad kinds asked for.
+
+    The orphan is a real commit object that no ref reaches (`git commit-tree`), so it
+    resolves but is not reachable from HEAD. The dead token is assembled at runtime and
+    names no object at all.
+    """
+    where.mkdir()
+    _git(where, "init", "-q")
+    (where / "seed.txt").write_text("seed\n", encoding="utf-8")
+    _git(where, "add", "seed.txt")
+    _git(where, "commit", "-q", "-m", "seed")
+    lines = [f"Fixed in commit {_git(where, 'rev-parse', 'HEAD')[:12]}."]
+    if orphaned:
+        orphan = _git(where, "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "never referenced")
+        lines.append(f"Reverted by commit {orphan[:12]}.")
+    if dead:
+        lines.append("See commit " + "feed" + "face" + "cafe" + ".")
+    (where / "notes.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _git(where, "add", "notes.md")
+    _git(where, "commit", "-q", "-m", "cite")
+    return where
+
+
+def _run_gate(repo: Path) -> subprocess.CompletedProcess:
+    env = {k: v for k, v in _GIT_ENV.items() if k != "GITHUB_ACTIONS"}
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), "--reachable-from", "HEAD"],
+        cwd=repo, capture_output=True, text=True, check=False, env=env,
+    )
+
+
+def test_a_dead_and_an_orphaned_citation_fail_with_exit_one_and_an_exact_count(tmp_path):
+    """Three citations: one resolving, one orphaned, one dead. Exit 1, "Checked 3".
+
+    The exit code is asserted EXACTLY, so returning 2 fails; the count is asserted
+    exactly, so starting it at 1 (4) or counting a dead (4) or a resolved (5) citation
+    twice fails; and both findings must be printed, so a findings branch that can never
+    run (exit 0, nothing reported) fails.
+    """
+    result = _run_gate(_repo_citing(tmp_path / "r", dead=True, orphaned=True))
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Checked 3 commit citation(s)" in result.stdout, result.stdout
+    assert "DEAD" in result.stdout and "ORPHANED" in result.stdout, result.stdout
+    assert "2 unresolvable commit citation(s)." in result.stdout, result.stdout
+
+
+def test_a_single_resolving_citation_passes_with_a_count_of_one(tmp_path):
+    """The control: one reachable citation, so exit 0 and a count of exactly 1."""
+    result = _run_gate(_repo_citing(tmp_path / "r", dead=False, orphaned=False))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Checked 1 commit citation(s)" in result.stdout, result.stdout
