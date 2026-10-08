@@ -158,6 +158,31 @@ def test_gate1_fails_on_random_predictions():
     assert isinstance(r.value, float)
 
 
+def test_gate1_passes_an_auc_pr_exactly_at_the_bar():
+    """MUTATION GUARD: the bar is inclusive, so a score AT it passes.
+
+    The module docstring and the gate's own threshold string both say
+    ">= 0.65", but every other Gate 1 test scores a frame well clear of the
+    bar, so rewriting the comparison as `auc_pr > GATE1_AUC_PR_MIN` left the
+    whole suite green. A candidate scoring exactly the bar would then be
+    refused promotion while the scorecard printed a threshold it had met.
+
+    The oracle is arithmetic, not sklearn. Eight positives, eight negatives.
+    Five rows tie at 0.9, four of them positive, so the first threshold
+    reaches recall 4/8 at precision 4/5; the other eleven tie at 0.1, so the
+    second reaches recall 8/8 at precision 8/16. Average precision is
+    0.5 * 0.8 + 0.5 * 0.5 = 0.65, and that sum is exactly the double nearest
+    0.65, so the comparison below is exact rather than within rounding.
+    """
+    assert GATE1_AUC_PR_MIN == 0.65, "this frame is built to score 0.65 exactly"
+    labels = [1, 1, 1, 1, 0] + [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]
+    scores = [0.9] * 5 + [0.1] * 11
+    df = pd.DataFrame({"label": labels, "gnn_oof_score": scores, SPLITTER_COLUMN: GROUPED_MARKER})
+    r = gate1_generalization(df)
+    assert r.value == GATE1_AUC_PR_MIN
+    assert r.passed
+
+
 # ---------------------------------------------------------------------------
 # Gate 2 - Stability (cross-fold AUC-PR std)
 # ---------------------------------------------------------------------------
