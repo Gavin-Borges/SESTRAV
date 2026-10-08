@@ -94,18 +94,29 @@ CREDENTIAL_PREFIXED_STRING = re.compile(
 # 3. A default handed to os.getenv / os.environ.get. There is no assignment operator between
 #    the credential NAME and the value at all: the name is the first argument and the secret
 #    is the second, so every assignment pattern above is blind to it by construction.
+#    Measured on d90dee90: the positional default was caught, but the same default passed
+#    by keyword (`default=`) and os.environ.setdefault, which takes the same two
+#    arguments, were both missed. Widened in place because both new spellings sit inside
+#    the same two quoted arguments, so the match cannot reach past the call.
 CREDENTIAL_ENV_DEFAULT = re.compile(
-    r"(?i)(getenv|environ\.get)\(\s*[bfu]?['\"][^'\"]*"
+    r"(?i)(getenv|environ\.get|environ\.setdefault)\(\s*[bfu]?['\"][^'\"]*"
     r"(?:api[_-]?key|token|secret|password|passwd|pwd|credential|auth|private[_-]?key)"
-    r"[^'\"]*['\"]\s*,\s*[bfu]?['\"]([^'\"]+)['\"]"
+    r"[^'\"]*['\"]\s*,\s*(?:default\s*=\s*)?[bfu]?['\"]([^'\"]+)['\"]"
 )
 
 # 4. An Authorization header. The scheme name is the keyword, and the credential follows a
 #    SPACE rather than an operator, so nothing above reaches it. Quoting is optional because
 #    the header is as often built in a string as assigned.
+#
+#    The `token` and `Basic` schemes were measured as missed on d90dee90. They are reached
+#    ONLY through the header name, never bare the way `bearer` is: both are English words,
+#    and a bare `(token|basic)\s+<value>` alternative flagged 10 lines in 9 tracked files
+#    of prose and code with the floors applied. The header name may be closed by a quote
+#    or a `]` and followed by `:` or `=`, which covers a dict literal, a raw header string
+#    and `headers["Authorization"] = ...` alike.
 CREDENTIAL_BEARER = re.compile(
-    r"(?i)(bearer|authorization\s*:\s*bearer)\s+[bfu]?['\"]?"
-    r"([A-Za-z0-9._~+/=-]{9,})"
+    r"(?i)(bearer|authorization['\"]?\]?\s*[:=]\s*[bfu]?['\"]?(?:bearer|token|basic))"
+    r"\s+[bfu]?['\"]?([A-Za-z0-9._~+/=-]{9,})"
 )
 
 # 5. A credential in a URL query string. `?token=<v>` carries the keyword and the value with
@@ -145,6 +156,40 @@ CREDENTIAL_NOTEBOOK_MAGIC = re.compile(
     r"(?i)%(?:env|set_env)\s+"
     r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
     r"(?:[_-][a-z0-9]+)*\s*(?:=|\s)\s*([^\s'\"\\]+)"
+)
+
+# Three more shapes measured as missed on d90dee90 with an 18-character planted value that
+# the floors pass. Each is a SEPARATE pattern, not a widening of CREDENTIAL_ASSIGNMENT,
+# and that is load-bearing: one pattern's finditer matches cannot overlap, so a widened
+# form that matched EARLIER on a line can swallow an assignment the current form catches
+# later on it. Measured: `(auth_cmd := "mysql --password='<v>'")` is flagged today and
+# stops being flagged if `:=` is added to CREDENTIAL_ASSIGNMENT's operator. Separate
+# patterns run independently, so these stay additive like the rest.
+
+# 8. A store into os.environ by subscript. The name is closed by a quote AND a `]` before
+#    the `=`, and CREDENTIAL_ASSIGNMENT allows only the quote. The name is read the way
+#    CREDENTIAL_ENV_DEFAULT reads it, keyword anywhere inside the quotes.
+CREDENTIAL_ENV_ITEM = re.compile(
+    r"(?i)(environ)\[\s*[bfu]?['\"][^'\"]*"
+    r"(?:api[_-]?key|token|secret|password|passwd|pwd|credential|auth|private[_-]?key)"
+    r"[^'\"]*['\"]\s*\]\s*=\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+
+# 9. A walrus. CREDENTIAL_ASSIGNMENT reads the `:` of `:=` as the operator and then wants a
+#    quote where the `=` is.
+CREDENTIAL_WALRUS = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*:=\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+
+# 10. A triple-quoted value, as Python and TOML both write it. CREDENTIAL_ASSIGNMENT takes
+#     the first quote as the opening one, and its value class then meets the second quote
+#     at once and fails.
+CREDENTIAL_TRIPLE_QUOTED = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*=\s*[bfu]?(?:'''|\"\"\")([^'\"]+)(?:'''|\"\"\")"
 )
 
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
@@ -442,6 +487,9 @@ def scan_file(path: str) -> List[int]:
         CREDENTIAL_QUERY_PARAM,
         CREDENTIAL_ESCAPED_QUOTE,
         CREDENTIAL_NOTEBOOK_MAGIC,
+        CREDENTIAL_ENV_ITEM,
+        CREDENTIAL_WALRUS,
+        CREDENTIAL_TRIPLE_QUOTED,
         URL_EMBEDDED_CREDENTIAL,
     ]
     if allows_bare_value(path):

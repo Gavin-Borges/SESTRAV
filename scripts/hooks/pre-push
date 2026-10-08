@@ -238,6 +238,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         elif [[ "$cff_date" > "$today" ]]; then
             block "CITATION.cff date-released '${cff_date}' is in the future (today is ${today})."
             tag_fail=1
+        elif ! is_calendar_date "$commit_date"; then
+            # Fail closed, as release.yml does when its COMMIT_DATE is not YYYY-MM-DD.
+            # For a commit whose committer line holds no parseable date, git show exits
+            # 0 and prints the placeholder itself, "%cs" (measured 2026-10-07 on Git for
+            # Windows and Linux). '%' sorts before every digit, so the comparison below
+            # was false and the lower bound was skipped while the Release workflow
+            # rejects the same commit.
+            block "The commit '${tag_name}' tags has no readable committer date (git show printed '${commit_date}'), so date-released's lower bound cannot be checked."
+            tag_fail=1
         elif [[ "$cff_date" < "$commit_date" ]]; then
             # A release cannot predate the code it ships. Without this bound the only
             # check was "not in the future", so a date left over from an earlier release
@@ -549,8 +558,16 @@ def commits_for(local_sha: str, remote_sha: str) -> list[str]:
 
 
 def changed_paths(commit: str) -> list[str]:
+    # -z, as in check_secrets.py's _tracked_paths. Without it git applies
+    # core.quotePath, which defaults to true, and a path holding a byte outside
+    # ASCII comes back as "caf\303\251.py", quotes included. _is_scannable then
+    # rejects that string, so the blob was never scanned and the push passed
+    # (measured 2026-10-07 on Git for Windows and Linux;
+    # tests/test_pre_push_blob_scan_keeps_non_ascii_names.py pins it). git()
+    # above already decodes as UTF-8, the other half of that function's fix.
     result = git(
         "diff-tree",
+        "-z",
         "--root",
         "--no-commit-id",
         "--name-only",
@@ -561,7 +578,7 @@ def changed_paths(commit: str) -> list[str]:
     if result.returncode != 0:
         print(f"[UNREADABLE-RANGE] cannot inspect commit {commit}", file=sys.stderr)
         raise SystemExit(1)
-    return result.stdout.splitlines()
+    return [path for path in result.stdout.split("\0") if path]
 
 
 def admitted(path: str) -> bool:
