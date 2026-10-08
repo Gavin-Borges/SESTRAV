@@ -356,6 +356,88 @@ def test_the_shipped_diff_scan_reports_every_leak_despite_binary_bytes(
     assert home_leak in out, f"the /home leak was not reported ({carrier}): {out!r}"
 
 
+def _shipped_diff_scan(tmp_path: Path, files: dict[str, bytes]) -> tuple[int, str]:
+    """The workflow's REAL diff scan on a pull request that adds `files`: (exit code, stdout).
+
+    The harness of the test above: a throwaway repo whose base is refs/remotes/origin/main, the
+    step's own text from PATHSPEC to the verdict, and the environment CI gives it."""
+    import subprocess as sp
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@example.com",
+             "-c", "user.name=T", "-c", "commit.gpgsign=false", *argv],
+            capture_output=True, text=True, check=False, env=GIT_ENV,
+        )
+
+    git("init", "-q")
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    base = git("rev-parse", "HEAD").stdout.strip()
+    assert base, "the fixture repo has no base commit"
+    git("update-ref", "refs/remotes/origin/main", base)
+    for name, data in files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_bytes(data)
+    git("add", "-A")
+    git("commit", "-q", "-m", "the pull request")
+    assert git("rev-parse", "HEAD").stdout.strip() != base, "the pull request commit failed"
+
+    step = _workflow_block("          PATHSPEC=(", '          echo "Path check PASSED."')
+    result = sp.run(
+        ["bash", "-c", step],
+        cwd=repo,
+        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode, result.stdout.decode("utf-8", errors="replace")
+
+
+_PLUS_USER_LEAK = "X:/" + "U" + "sers/fakeuser123/project"
+_PLUS_HOME_LEAK = "/ho" + "me/fakeuser123"
+
+
+@pytest.mark.parametrize(
+    ("content", "leak"),
+    [
+        # Reaches the diff as '++X:/...'.
+        ("+" + _PLUS_USER_LEAK, _PLUS_USER_LEAK),
+        # Reaches the diff as '+++ b/...', byte for byte a file header.
+        ("++ b" + _PLUS_HOME_LEAK + "/x", _PLUS_HOME_LEAK),
+        # The control: an ordinary added leak, which the old filter did catch.
+        (_PLUS_USER_LEAK, _PLUS_USER_LEAK),
+    ],
+    ids=["plus-led", "header-shaped", "ordinary"],
+)
+def test_the_shipped_diff_scan_reads_an_added_line_whatever_it_starts_with(
+    tmp_path: Path, content: str, leak: str
+) -> None:
+    """An added line whose CONTENT starts with '+' is still an added line.
+
+    Measured with this test before the fix, on both platforms: the step exited 0 and reported
+    nothing for the first two cases, because the old filter '^\\+[^+]' required the character
+    after git's '+' indicator to be something other than '+'. The control blocked."""
+    rc, out = _shipped_diff_scan(tmp_path, {"leak.txt": (content + "\n").encode("utf-8")})
+    assert rc == 1, f"the scan did not block: {out!r}"
+    assert leak in out, f"the leak was not reported: {out!r}"
+
+
+def test_the_shipped_diff_scan_does_not_read_the_file_header_as_content(tmp_path: Path) -> None:
+    """The '+++ b/<path>' header is attribution, not added content, so it is not scanned.
+
+    The file sits under a directory shaped like a home path, so its header carries one, while
+    its content is clean. A filter that took every line starting with '+' would block this pull
+    request on its file name."""
+    rc, out = _shipped_diff_scan(tmp_path, {"ho" + "me/fakeuser123/notes.txt": b"nothing here\n"})
+    assert rc == 0, f"the scan blocked a clean file on its header: {out!r}"
+    assert "fakeuser123" not in out, out
+
+
 def _wsl_unc_leaks() -> list[str]:
     """WSL's Windows-side UNC share, one per branch of the path ERE's last alternative.
 
