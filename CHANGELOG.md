@@ -311,8 +311,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   place the gate in `verify`. The artifact is kept for one day, so re-running `verify`
   alone after that fails at the download; re-run the workflow. `release.yml` runs only on
   version tags, so no pull request exercises these jobs; the restructure was checked by
-  parsing the workflow and by those tests, not by a run. Not covered: `publish` still
-  downloads `dist-<tag>` by name with no digest check.
+  parsing the workflow and by those tests, not by a run. Not covered here, and closed
+  since by the publish entry below: `publish` downloaded `dist-<tag>` by name with no
+  digest check.
 - **The Singularity image builds connection-pool against a hash-checked setuptools, and its
   `%post` stops at the first failing command.** `singularity.def` installed
   `environments/requirements.lock` in one `pip install --require-hashes`, so pip built the
@@ -354,6 +355,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `pipx install` or `easy_install` in `%post`, and `|| true` after a `mkdir`. No CI job
   builds the image, so this is checked by those tests and the simulation, not by an
   Apptainer build.
+- **The PyPI publish job checks the distributions against the build job's digests
+  before uploading them, and the tests now fail if either digest check in `release.yml`
+  is disarmed.** `publish` downloads `dist-<tag>`, a second artifact that the `release`
+  job uploads, by name, and handed it straight to `pypa/gh-action-pypi-publish`, so the
+  digest check that the pre-publish-gate entry above added to `release` did not cover
+  what reaches PyPI. `publish` now also needs `build` and, after the download, checks the
+  sdist and wheel against the `dist/` lines of the digests `build` recorded, and that no
+  file was added, before the upload step; `docs/releasing.md` lists the step. Exercised
+  on Linux under `bash -e` and `-eo pipefail`, with both GNU coreutils 9.7 and uutils
+  0.8.0: an intact download passes, and a tampered wheel, an extra file, a missing sdist,
+  an empty digest list and a digest list with no `dist/` lines each fail it.
+  `tests/test_release_workflow_oidc_install_isolation.py` now requires `publish` to need
+  `build` and `release`, and reads both checks, `release`'s existing one and the new one,
+  through one helper, `digest_check_problems`. It fails a check whose `EXPECTED` is not
+  `needs.build.outputs.artifact-sha256`; that runs `sha256sum` without `--check` and
+  `--strict` or with `--ignore-missing`, or checks anything not derived from `"$EXPECTED"`;
+  whose `diff` does not compare `EXPECTED`'s file names with what `find` lists; whose
+  script is anything but plain pipelines of `printf`, `test`, `grep`, `sha256sum`, `awk`,
+  `sort`, `find` and `diff` (so no `exit`, `set +e`, `set +o errexit`, `trap`, `||` or
+  `;`); that can be skipped or ignored (`if:`, `continue-on-error`) or sets its own
+  `shell` or `working-directory`; that runs under a job or workflow `defaults.run.shell`
+  without `-e` or any `defaults.run.working-directory`; or that is not the step
+  immediately before the attestation or the upload it guards. Eighteen such mutants, each
+  applied to both jobs, are part of the test file. Before this change, inserting `exit 0`
+  or `set +o errexit` ahead of the `release` check's first command left its tests
+  passing; now each fails them. A job that holds a token and downloads an artifact must
+  be one the helper reads.
+  `release.yml` runs only on version tags, so no pull request runs these jobs.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit

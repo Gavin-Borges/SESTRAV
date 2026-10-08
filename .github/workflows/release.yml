@@ -398,7 +398,10 @@ jobs:
         # Before anything is attested: every file must match the digest the build
         # job recorded (an output, fixed when that job ended), and no file may have
         # been added. Tested with a tampered wheel, an extra file and an empty
-        # digest list, each of which fails this step.
+        # digest list, each of which fails this step. Keep it a list of plain
+        # pipelines, immediately before the step it guards: digest_check_problems
+        # in tests/test_release_workflow_oidc_install_isolation.py fails anything
+        # that could disarm it.
         env:
           EXPECTED: ${{ needs.build.outputs.artifact-sha256 }}
         run: |
@@ -489,7 +492,8 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: release
+    # build: for the digests it recorded, which the step after the download checks.
+    needs: [build, release]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Gate: set repository variable PYPI_PUBLISH=true (Settings -> Variables -> Actions).
@@ -509,6 +513,22 @@ jobs:
         with:
           name: dist-${{ github.ref_name }}
           path: dist/
+
+      - name: Check the distributions against the build job's digests
+        # This is a second artifact, uploaded by the release job and fetched by
+        # name, so it is checked the same way as the release job's download
+        # before anything reaches PyPI: the sdist and wheel must match the
+        # digests the build job recorded for dist/, and no file may have been
+        # added. The note on keeping the release job's check armed applies here.
+        env:
+          EXPECTED: ${{ needs.build.outputs.artifact-sha256 }}
+        run: |
+          printf '%s\n' "$EXPECTED" | grep -E '^[0-9a-f]{64}  dist/[^/]+$' > "$RUNNER_TEMP/dist.sha256"
+          test -s "$RUNNER_TEMP/dist.sha256"
+          sha256sum --check --strict "$RUNNER_TEMP/dist.sha256"
+          awk '{print $2}' "$RUNNER_TEMP/dist.sha256" | sort > "$RUNNER_TEMP/expected-files.txt"
+          find dist -type f | sort > "$RUNNER_TEMP/downloaded-files.txt"
+          diff "$RUNNER_TEMP/expected-files.txt" "$RUNNER_TEMP/downloaded-files.txt"
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
