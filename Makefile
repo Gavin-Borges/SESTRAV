@@ -17,8 +17,8 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help setup hooks \
-        lint lint-fix fmt typecheck \
-        hash-pins lockfile-freshness coverage-scope \
+        lint lint-fix fmt typecheck typing-ratchet \
+        hash-pins lockfile-freshness coverage-scope version-carriers \
         doc-commit-refs doc-line-citations affiliation secrets \
         bandit semgrep semgrep-custom dco \
         test test-full fuzz \
@@ -34,10 +34,12 @@ help:
 	@echo "  lint-fix            ruff check . --fix   [NOT a CI check - mutates tree]"
 	@echo "  fmt                 ruff format .         [NOT a CI check - mutates tree]"
 	@echo "  typecheck           mypy src/ ...                      (ci.yml:lint)"
+	@echo "  typing-ratchet      tools/check_strict_typing.py       (ci.yml:lint)"
 	@echo ""
 	@echo "  hash-pins           tools/check_hash_pins.py           (ci.yml:lint)"
 	@echo "  lockfile-freshness  tools/check_lockfile_freshness.py  (dependency-lockfile-check.yml)"
 	@echo "  coverage-scope      tools/check_library_coverage.py    (ci.yml:test)"
+	@echo "  version-carriers    tools/check_version_carriers.py    (ci.yml:test)"
 	@echo "  doc-commit-refs     scripts/check_doc_commit_refs.py   (doc_commit_refs.yml)"
 	@echo "  doc-line-citations  scripts/check_doc_line_citations.py(doc_line_citations.yml)"
 	@echo "  affiliation         scripts/check_affiliation_claims.py(affiliation_claims.yml)"
@@ -79,7 +81,10 @@ fmt:
 	ruff format .
 
 typecheck:
-	mypy src/ --ignore-missing-imports --no-error-summary
+	mypy src/ functions/ --ignore-missing-imports --no-error-summary
+
+typing-ratchet:
+	python tools/check_strict_typing.py --check
 
 # --- dependency / coverage-scope / doc-citation gates -----------------------
 
@@ -91,6 +96,9 @@ lockfile-freshness:
 
 coverage-scope:
 	python tools/check_library_coverage.py --check
+
+version-carriers:
+	python tools/check_version_carriers.py
 
 doc-commit-refs:
 	python scripts/check_doc_commit_refs.py
@@ -222,7 +230,7 @@ verify-benchmark:
 # dependent on extras) and semgrep (advisory only) - run those individually.
 # This grouping is a convenience composition, not itself transcribed from
 # any single CI job.
-ci: lint typecheck hash-pins lockfile-freshness coverage-scope \
+ci: lint typecheck hash-pins lockfile-freshness coverage-scope version-carriers \
     doc-commit-refs doc-line-citations affiliation secrets \
     bandit semgrep-custom test
 	@echo "Fast local CI subset passed."

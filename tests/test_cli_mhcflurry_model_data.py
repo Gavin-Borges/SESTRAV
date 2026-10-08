@@ -18,22 +18,39 @@ from __future__ import annotations
 
 import os
 
+import sys
+
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from src import cli
 
+# Mirrors src/cli.py's base message. It changed when the hint stopped recommending a
+# bare `mhcflurry-downloads fetch`, which was an arbitrary-write risk: a test that pins
+# a message recommending an unsafe command is expected to change when that stops.
 FETCH_MESSAGE = (
     "MHCflurry model data is absent, and Stage 2 cannot run without it. "
-    "Run `mhcflurry-downloads fetch models_class1_presentation`, then retry."
+    "Install it with the hash-verified two-step route, which is the control on every "
+    "mhcflurry version and OS: first `python scripts/fetch_verified_mhcflurry.py "
+    "--url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> "
+    "--output-dir DIR`, taking both values from config.yaml, then "
+    "`mhcflurry-downloads fetch models_class1_presentation "
+    "--already-downloaded-dir DIR`. Do not run a bare "
+    "`mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a "
+    "tampered archive can write outside the target directory, so it is an arbitrary-write "
+    "risk rather than just an unverified download."
 )
 
 
 def _py313_note(version, downloads_dir, custom_downloads_dir=False):
     head = (
         f" On Python 3.13 and later the mhcflurry {version} downloader cannot run, "
-        "because it imports the 'pipes' module that Python 3.13 removed; run the "
-        "fetch from a Python 3.11 or 3.12 environment that has the same mhcflurry "
+        "because it imports the 'pipes' module that Python 3.13 removed. Step one "
+        "above is unaffected: the verified fetcher imports no mhcflurry and runs on "
+        "any interpreter. Only the second command needs a Python 3.11 or 3.12 "
+        "environment that has the same mhcflurry "
         "version, "
     )
     if custom_downloads_dir:
@@ -49,12 +66,20 @@ def _py313_note(version, downloads_dir, custom_downloads_dir=False):
     )
 
 
+# RE-POINTED, not relaxed. This literal used to end "under the working directory",
+# which was an accurate description of a vulnerability rather than of a contract:
+# the DEFAULT conformal calibrator was whatever models/v5/conformal_calibrator.joblib
+# the process working directory happened to supply, and it was verified against the
+# checksum manifest sitting beside it, so a planted pickle shipped with a planted
+# manifest verified clean. The default is now anchored to the installation root and
+# the refusal says so.
 CALIBRATOR_MESSAGE = (
     "freeze mode requires a conformal calibrator and none was found: no "
     "--conformal-calibrator was given, and there is no conformal_calibrator.joblib "
-    "beside the model or at models/v5/conformal_calibrator.joblib under the working "
-    "directory. Pass --conformal-calibrator PATH, --no-conformal to run without "
-    "intervals, or --no-freeze-mode to let Stage 4 continue without them."
+    "beside the model or at models/v5/conformal_calibrator.joblib under the SESTRAV "
+    "installation root. The default is deliberately NOT searched for under the "
+    "working directory. Pass --conformal-calibrator PATH, --no-conformal to run "
+    "without intervals, or --no-freeze-mode to let Stage 4 continue without them."
 )
 
 
@@ -325,20 +350,65 @@ def test_predict_with_model_data_reaches_the_stages(
 
 @pytest.fixture
 def no_canonical_calibrator(monkeypatch, tmp_path):
-    """Run from an empty directory, so models/v5/conformal_calibrator.joblib is absent.
+    """Make the installed default calibrator absent, and plant a decoy in the cwd.
 
-    That artifact is gitignored, so whether it exists under the repository root
-    depends on the checkout; the test must not.
+    RE-POINTED, and STRONGER than what it replaced. It used to chdir into an EMPTY
+    directory, because that was all it took to make the default unresolvable: the
+    default was the relative path models/v5/conformal_calibrator.joblib, so an
+    empty cwd meant no calibrator. That is exactly the defect - the artifact handed
+    to joblib.load was a function of the process working directory, and the
+    checksum manifest beside it was trusted as its anchor, so an attacker supplied
+    both. The default is now anchored to the installation root, where the artifact
+    is gitignored and so present or absent depending on the checkout; the fixture
+    repoints the module constant instead, which is checkout-independent.
+
+    The cwd is still switched, and now carries a DECOY calibrator plus a manifest
+    that validates it. Every test using this fixture therefore also asserts that
+    the decoy is ignored.
     """
+    import functions.stage4_immunogenicity_scoring as s4
+
+    import hashlib
+    import json
+
     workdir = tmp_path / "cwd"
-    workdir.mkdir()
+    decoy = workdir / "models" / "v5" / "conformal_calibrator.joblib"
+    decoy.parent.mkdir(parents=True)
+    payload = b"decoy-stub-not-a-real-pickle"
+    decoy.write_bytes(payload)
+    (decoy.parent / "model_artifact_checksums.json").write_text(
+        json.dumps(
+            {
+                "generated_utc": "2026-01-01T00:00:00+00:00",
+                "artifacts": {
+                    decoy.name: {
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "size_bytes": len(payload),
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.chdir(workdir)
+    monkeypatch.setattr(
+        s4,
+        "DEFAULT_CONFORMAL_CALIBRATOR",
+        str(tmp_path / "absent_install_root" / "models" / "v5" / "conformal_calibrator.joblib"),
+    )
+    return decoy
 
 
 def test_freeze_mode_without_calibrator_fails_before_stage_one(
     mhcflurry_downloads, stage_calls, no_canonical_calibrator, tmp_path, capsys
 ):
+    """Refuse, even though a calibrator sits at models/v5/ in the working directory.
+
+    The decoy the fixture plants is what the old default would have selected and
+    deserialized, so the refusal is now also the proof that it is ignored.
+    """
     mhcflurry_downloads()
+    assert no_canonical_calibrator.is_file(), "the decoy was not planted"
 
     rc = cli.main(_predict_argv(tmp_path, "--freeze-mode", "--conformal"))
     err = capsys.readouterr().err
@@ -380,22 +450,33 @@ def test_missing_explicit_calibrator_fails_before_stage_one(
 def test_calibrator_beside_the_model_satisfies_freeze_mode(
     mhcflurry_downloads, stage_calls, no_canonical_calibrator, tmp_path, capsys
 ):
-    """The precheck must find what Stage 4's resolver finds, not refuse it."""
+    """The precheck must find what Stage 4's resolver finds, not refuse it.
+
+    Also pins that an explicitly NAMED path still wins: --model was given, so the
+    calibrator beside it is the caller's own choice and outranks both the installed
+    default and the decoy the fixture plants in the working directory.
+    """
+    import functions.stage4_immunogenicity_scoring as s4
+
     mhcflurry_downloads()
     argv = _predict_argv(tmp_path, "--freeze-mode", "--conformal")
-    (tmp_path / "conformal_calibrator.joblib").write_bytes(b"stub")
+    beside = tmp_path / "conformal_calibrator.joblib"
+    beside.write_bytes(b"stub")
 
     rc = cli.main(argv)
     capsys.readouterr()
 
     assert rc == 0
     assert stage_calls == ["stage1", "stage2", "stage3", "stage4"]
+    assert s4._resolve_conformal_path(str(tmp_path), None) == str(beside)
 
 
 def test_missing_default_calibrator_without_freeze_mode_still_runs(
     mhcflurry_downloads, stage_calls, no_canonical_calibrator, tmp_path, capsys
 ):
     """Without freeze mode Stage 4 only warns, so the precheck must not refuse either."""
+    import functions.stage4_immunogenicity_scoring as s4
+
     mhcflurry_downloads()
 
     rc = cli.main(_predict_argv(tmp_path, "--no-freeze-mode", "--conformal"))
@@ -403,6 +484,9 @@ def test_missing_default_calibrator_without_freeze_mode_still_runs(
 
     assert rc == 0
     assert stage_calls == ["stage1", "stage2", "stage3", "stage4"]
+    # The run proceeding is not the interesting half: it would proceed on the
+    # planted decoy too. What must hold is that nothing was resolved at all.
+    assert s4._resolve_conformal_path(str(tmp_path), None) is None
 
 
 # ---------------------------------------------------------------------------
@@ -495,3 +579,91 @@ def test_predict_survives_an_oserror_from_the_mhcflurry_import(
     )
     assert "Traceback" not in err
     assert "mhcflurry-downloads fetch" not in err
+# --- SX-U9: the hint must name the hash-verified route, and must stay runnable --------
+#
+# The old hint said to run a bare `mhcflurry-downloads fetch`. That is an ARBITRARY-WRITE
+# risk, not merely an unverified download: mhcflurry's extraction was measured to write
+# outside its target for crafted member names on Windows and Linux, and the current
+# release still escapes on Windows for a backslash-separated `..`. Upgrading mhcflurry is
+# therefore NOT the control; the two-step verified route is, on every version and OS.
+
+
+def _hint() -> str:
+    return cli._MHCFLURRY_VERIFIED_FETCH_HINT
+
+
+def test_the_hint_names_both_steps_of_the_verified_route() -> None:
+    hint = _hint()
+    assert "scripts/fetch_verified_mhcflurry.py" in hint, hint
+    assert "--already-downloaded-dir" in hint, (
+        "step two must point mhcflurry at the already-verified directory, or it "
+        f"re-downloads unverified bytes: {hint}"
+    )
+    # Step two names mhcflurry's own command, so the string is present by design. What
+    # must NOT be present is a recommendation to run it BARE.
+    assert "Do not run a bare" in hint, hint
+
+
+def test_the_hint_states_the_risk_as_arbitrary_write() -> None:
+    """Wording is the deliverable here, not decoration. 'Unverified download' invites a
+    reader to accept the risk on a trusted network; 'writes outside the target
+    directory' does not, and it is what was measured."""
+    hint = _hint().lower()
+    assert "arbitrary-write" in hint, hint
+    assert "outside the target directory" in hint, hint
+
+
+def test_the_hint_does_not_duplicate_the_pinned_digest() -> None:
+    """The sha256 must have exactly ONE source. A second copy in a user-facing string is
+    a drift carrier: config.yaml could be re-pinned and this message would keep handing
+    out the old digest, which a reader would then paste into --sha256."""
+    import re
+
+    assert "<mhcflurry_model_archive_sha256>" in _hint()
+    assert re.search(r"\b[0-9a-f]{64}\b", _hint()) is None, (
+        "a literal 64-hex digest appears in the hint; name the config key instead"
+    )
+
+
+def test_every_fetcher_flag_the_hint_names_really_exists() -> None:
+    """Binds the MESSAGE to the TOOL's interface, by running the tool.
+
+    A hint is documentation that rots silently: rename a flag on
+    scripts/fetch_verified_mhcflurry.py and this message keeps telling users to pass the
+    old one, with nothing failing. So the flags are read back out of the fetcher's own
+    --help rather than asserted from memory. Only the STEP ONE flags are checked here;
+    --already-downloaded-dir belongs to mhcflurry's CLI, not to this repo, and is
+    asserted as a string above."""
+    import re
+    import subprocess
+
+    hint = _hint()
+    step_one = hint.split("then `mhcflurry-downloads")[0]
+    flags = sorted(set(re.findall(r"--[a-z0-9][a-z0-9-]*", step_one)))
+    assert flags, f"no flags parsed out of step one: {step_one!r}"
+
+    repo_root = Path(__file__).resolve().parents[1]
+    fetcher = repo_root / "scripts" / "fetch_verified_mhcflurry.py"
+    assert fetcher.is_file(), f"the hint names a script that does not exist: {fetcher}"
+
+    helped = subprocess.run(
+        [sys.executable, str(fetcher), "--help"],
+        capture_output=True, text=True, cwd=str(repo_root),
+    )
+    assert helped.returncode == 0, helped.stdout + helped.stderr
+    for flag in flags:
+        assert flag in helped.stdout, (
+            f"the hint tells users to pass {flag}, which the fetcher's --help does not "
+            f"advertise. Either the flag was renamed or the hint is wrong.\n{helped.stdout}"
+        )
+
+
+def test_the_python_313_note_scopes_the_limit_to_step_two(monkeypatch) -> None:
+    """Step one imports no mhcflurry, so it runs on any interpreter. Saying "run the
+    fetch from 3.11 or 3.12" over-constrained the user into thinking the whole route
+    needed an older environment."""
+    monkeypatch.setattr(cli.sys, "version_info", (3, 13, 0))
+    monkeypatch.setattr(cli, "_mhcflurry_version_tuple", lambda: (2, 2, 1))
+    message = cli._mhcflurry_model_data_message(None)
+    assert "Step one" in message and "unaffected" in message, message
+    assert "Only the second command needs" in message, message

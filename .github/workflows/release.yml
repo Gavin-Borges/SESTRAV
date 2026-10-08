@@ -44,6 +44,12 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Record the tagged commit's date
+        # Read here rather than inside the gate: that step's run body is asserted to be
+        # exactly a `python - <<'PY'` heredoc carrying no workflow expression, so it cannot
+        # shell out first. %cs is the committer date as YYYY-MM-DD.
+        run: echo "COMMIT_DATE=$(git show -s --format=%cs HEAD)" >> "$GITHUB_ENV"
+
       - name: Verify tag matches package version
         # Fail fast (before building) if the pushed tag does not match
         # pyproject.toml [project].version, so release artifacts can never be
@@ -122,6 +128,22 @@ jobs:
                       errors.append(
                           f"CITATION.cff date-released {cff_date} is in the future "
                           f"(today is {today}). A release cannot be dated ahead of itself."
+                      )
+                  # A release cannot predate the code it ships either. Without this the only
+                  # bound was the future one, so a date left from an earlier release passed:
+                  # v2.0.2 and v2.0.3 both shipped date-released 2026-06-12 against commits
+                  # of 2026-06-16 and 2026-06-17.
+                  committed = os.environ.get("COMMIT_DATE", "")
+                  if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", committed):
+                      errors.append(
+                          f"COMMIT_DATE {committed!r} is not a YYYY-MM-DD date. The step "
+                          f"before this one records it; without it the lower bound on "
+                          f"date-released cannot be checked, so this fails closed."
+                      )
+                  elif released < datetime.date.fromisoformat(committed):
+                      errors.append(
+                          f"CITATION.cff date-released {cff_date} precedes the commit it "
+                          f"tags ({committed}). Update it to the release date."
                       )
 
           for e in errors:

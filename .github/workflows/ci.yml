@@ -11,7 +11,8 @@ permissions: read-all
 jobs:
   lint:
     # Coding-standards gate (OpenSSF Silver: coding_standards_enforced).
-    # Ruff enforces PEP 8; mypy enforces type correctness on src/.
+    # Ruff enforces PEP 8; mypy enforces type correctness on src/ and functions/,
+    # and the strict-typing ratchet keeps the strict-clean modules strict.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -62,7 +63,23 @@ jobs:
         run: pip install --require-hashes -r environments/requirements-ci-mypy.txt
 
       - name: mypy type check
-        run: mypy src/ --ignore-missing-imports --no-error-summary
+        # functions/ was never type-checked. It is clean under these flags
+        # (mypy 2.3.1: 0 errors in 65 source files for src/ and functions/
+        # together, measured 2026-09-26 at 26a36521 and again 2026-10-07 at
+        # 1852983f), so it joins src/ here.
+        run: mypy src/ functions/ --ignore-missing-imports --no-error-summary
+
+      - name: Strict-typing ratchet
+        # [tool.mypy] is non-strict, so the step above cannot see a module that is
+        # already strict-clean regress. tools/check_strict_typing.py runs
+        # mypy --strict over the files in docs/strict_typing_ratchet.json and fails
+        # on any error inside them, on a stale or unsorted entry, and closed on a
+        # run that checked a different number of files than were listed.
+        # It belongs in this job because this job installs the pinned mypy; the
+        # test job pins none, so the gate's own live test skips there. With only
+        # mypy installed every third-party import is Any; each listed file is
+        # measured clean both with and without real packages visible.
+        run: python tools/check_strict_typing.py --check
 
   compat:
     # Lightweight Python-version compatibility check (OpenSSF Silver: works_as_advertised).
@@ -199,6 +216,14 @@ jobs:
         # (presence of a __main__ guard). Fail fast if .coveragerc.library has
         # drifted from the source tree.
         run: python tools/check_library_coverage.py --check
+
+      - name: Verify the tracked version carriers agree
+        # tools/check_version_carriers.py shipped with its own tests and no caller, so
+        # nothing ran it: a badge, citation file, model card or API fallback could
+        # disagree with pyproject.toml's version and no gate would say so. It runs here,
+        # in a job that is already a required context, rather than only at a version tag,
+        # because a tag-time check fires after the disagreement has been published.
+        run: python tools/check_version_carriers.py
 
       - name: Run tests with coverage (OpenSSF Silver test_statement_coverage80)
         # Statement + branch coverage on the importable LIBRARY surface, gated at

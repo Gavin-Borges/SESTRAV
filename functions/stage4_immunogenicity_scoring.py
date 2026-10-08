@@ -244,12 +244,54 @@ TARGET_VIRUSES = (
     "SARS-CoV-2",
 )
 
+#: The installation root every DEFAULT artifact path in this module resolves
+#: against: the parent of the `functions/` package, derived from this module's own
+#: __file__ and NEVER from the process working directory.
+#:
+#: WHY. Both defaults below used to be relative strings, so they resolved against
+#: the caller's cwd. `sestrav predict` runs with --conformal ON by default, so
+#: launching it from any directory that happened to contain
+#: models/v5/conformal_calibrator.joblib handed THAT file to joblib.load, i.e. to
+#: pickle deserialization. The checksum gate did not stop it:
+#: `src.artifact_integrity.default_manifest_path_for` takes the manifest from
+#: BESIDE the artifact, so a planted pickle shipped with a planted
+#: model_artifact_checksums.json verified clean. Artifact and trust anchor both
+#: came from the same attacker-chosen directory, which is no anchor at all.
+#:
+#: WHAT CHANGES, and what deliberately does not. A DEFAULT is resolved by this
+#: module, so this module chooses where it points. A path the caller NAMED
+#: (--model, --conformal-calibrator, config's calibration_path/thresholds_path)
+#: stays user-trusted and is used exactly as given: naming a file is an act of
+#: trust, resolving a default is not.
+#:
+#: Repo-root runs are unaffected: the canonical artifacts live under this root, so
+#: the resolved value is byte-identical to what the old relative form produced
+#: there. In an installed wheel `models/` is not packaged (pyproject's
+#: [tool.setuptools.packages.find] include is sestrav*/src*/functions*, and the
+#: sole package-data entry is src.verify's *.json), so the default resolves inside
+#: site-packages, finds nothing and yields None - which is already the fresh-clone
+#: behaviour, since the calibrator itself is gitignored. Conformal intervals then
+#: stay off unless --conformal-calibrator names one.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
 #: Where a promoted set of per-virus calibrators would live. Does not exist by
 #: default - no per-virus calibrator has been promoted (see A1-promote in the
 #: open-item register). Its absence is exactly what makes every virus "unknown/
 #: off-panel" today: the resolver below falls back to the global calibrator
 #: whenever the specific file is missing, with no separate on/off-panel branch.
-DEFAULT_PER_VIRUS_CALIBRATION_DIR = "models/calibration/per_virus"
+#:
+#: models/calibration/per_virus under _PROJECT_ROOT, not under the cwd.
+DEFAULT_PER_VIRUS_CALIBRATION_DIR = os.path.join(
+    _PROJECT_ROOT, "models", "calibration", "per_virus"
+)
+
+#: The canonical conformal calibrator, under _PROJECT_ROOT rather than the cwd.
+#: Named as a module constant so the resolver below reads it at call time: a test
+#: can repoint it, and a reader can see in one place which file a default load
+#: trusts.
+DEFAULT_CONFORMAL_CALIBRATOR = os.path.join(
+    _PROJECT_ROOT, "models", "v5", "conformal_calibrator.joblib"
+)
 
 
 def _resolve_calibrator_path(model_dir, calibration_path=None, virus=None, per_virus_dir=None):
@@ -259,9 +301,12 @@ def _resolve_calibrator_path(model_dir, calibration_path=None, virus=None, per_v
       1. an explicit ``calibration_path`` (from config), if it exists - wins
          regardless of ``virus``, matching the pre-existing override contract;
       2. a per-virus calibrator at ``per_virus_dir/<sanitized virus>.joblib``,
-         if ``virus`` is given and that specific file exists. Whether ``virus``
-         is one of TARGET_VIRUSES is NOT checked here - the fallback below
-         fires from file absence alone, so an unrecognised name behaves
+         if ``virus`` is given and that specific file exists. An omitted
+         ``per_virus_dir`` falls back to ``DEFAULT_PER_VIRUS_CALIBRATION_DIR``,
+         which is anchored to ``_PROJECT_ROOT`` and NOT to the cwd; a
+         ``per_virus_dir`` the caller passed is used exactly as given. Whether
+         ``virus`` is one of TARGET_VIRUSES is NOT checked here - the fallback
+         below fires from file absence alone, so an unrecognised name behaves
          identically to a recognised-but-not-yet-promoted one;
       3. an isotonic calibrator alongside the model (isotonic_calibrator.joblib);
       4. the legacy Platt calibrator (platt_calibrator.joblib).
@@ -373,7 +418,13 @@ def _resolve_conformal_path(model_dir, conformal_path=None):
     Preference order:
       1. an explicit ``conformal_path``, if given: MUST exist, or FileNotFoundError is raised;
       2. ``conformal_calibrator.joblib`` alongside the model in ``model_dir``;
-      3. canonical ``models/v5/conformal_calibrator.joblib``.
+      3. ``DEFAULT_CONFORMAL_CALIBRATOR``, which is anchored to ``_PROJECT_ROOT``.
+
+    Steps 1 and 2 are driven by a path the caller NAMED and are unchanged. Step 3
+    is this module's own default and is therefore cwd-INDEPENDENT: it used to be
+    the relative ``models/v5/conformal_calibrator.joblib``, which made the loaded
+    pickle a function of the process working directory. See the comment on
+    ``_PROJECT_ROOT``.
     """
     if conformal_path:
         if os.path.isfile(conformal_path):
@@ -386,9 +437,8 @@ def _resolve_conformal_path(model_dir, conformal_path=None):
         candidate = os.path.join(model_dir, "conformal_calibrator.joblib")
         if os.path.isfile(candidate):
             return candidate
-    canonical = os.path.join("models", "v5", "conformal_calibrator.joblib")
-    if os.path.isfile(canonical):
-        return canonical
+    if os.path.isfile(DEFAULT_CONFORMAL_CALIBRATOR):
+        return DEFAULT_CONFORMAL_CALIBRATOR
     return None
 
 
@@ -412,9 +462,10 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
         else:
             message = (
                 "[Stage 4] Conformal calibrator artifact not found: no calibrator path "
-                "was given and none is present in the model directory or at "
-                "models/v5/conformal_calibrator.joblib. That artifact is gitignored, so "
-                "it is absent from a fresh clone."
+                "was given, none is present in the model directory, and the installed "
+                f"default {DEFAULT_CONFORMAL_CALIBRATOR} does not exist. That artifact "
+                "is gitignored, so it is absent from a fresh clone, and the default is "
+                "deliberately NOT searched for under the working directory."
             )
         # freeze_mode previously only guarded the explicit-path branch, so the guardrail
         # did not cover the default-resolution case it most needed to cover.

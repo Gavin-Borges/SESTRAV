@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 from pathlib import Path
 import subprocess
 
@@ -103,8 +105,168 @@ def test_allowlisted_home_cannot_mask_another_home_on_same_line(tmp_path: Path) 
 
 def test_false_positive_guidance_names_the_owning_hook() -> None:
     text = _HOOK.read_text(encoding="utf-8")
-    guidance = text.split("Secrets must not be committed", 1)[1].split(
-        "# ---- Gate 3", 1
-    )[0]
+    guidance = text.split("Secrets must not be committed", 1)[1].split("# ---- Gate 3", 1)[0]
     assert "scripts/hooks/pre-commit" in guidance
     assert "scripts/check_secrets.py" not in guidance
+
+
+def _allowed(repo: Path) -> None:
+    result = _run(repo)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _staged(tmp_path: Path, payload: str) -> Path:
+    repo = _repo(tmp_path)
+    (repo / "candidate.txt").write_text(payload + "\n", encoding="utf-8")
+    _git(repo, "add", "candidate.txt")
+    return repo
+
+
+# Every path below is ASSEMBLED FROM FRAGMENTS, as the cases above are. That is load-bearing
+# rather than stylistic: a literal workstation path in a tracked file is exactly what this hook
+# blocks, so writing one here would make this file uncommittable.
+_PROFILE = "U" + "sers"
+_CYGWIN = "cyg" + "drive"
+_WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "pii_scan.yml"
+
+
+def test_git_bash_home_path_is_blocked(tmp_path: Path) -> None:
+    """The form this project's own Git Bash prints, and the one the gate used to miss.
+
+    The bare-POSIX alternative requires a non-path character before the profile directory, and in
+    a Git Bash path that character is the drive letter, so it could never fire. Measured before the
+    fix, on a throwaway repository: the hook exited 0 on this payload while the drive-letter
+    control exited 1.
+    """
+    _blocked(_staged(tmp_path, "see /c/" + _PROFILE + "/developer/private here"))
+
+
+def test_cygwin_home_path_is_blocked(tmp_path: Path) -> None:
+    _blocked(_staged(tmp_path, "see /" + _CYGWIN + "/c/" + _PROFILE + "/developer/private here"))
+
+
+def test_a_url_path_carrying_the_profile_word_is_not_blocked(tmp_path: Path) -> None:
+    """The new drive-letter-shaped alternative must not fire on an ordinary URL path."""
+    _allowed(_staged(tmp_path, "see https://example.org/a/" + _PROFILE + "/b here"))
+
+
+def test_a_ci_home_and_a_system_path_are_not_blocked(tmp_path: Path) -> None:
+    _allowed(_staged(tmp_path, "see /home/runner/work and C:/Program Files/thing here"))
+
+
+def _hook_patterns() -> list[str]:
+    """The hook's WORKSTATION_PATTERNS array, read from the hook rather than restated here."""
+    body = _HOOK.read_text(encoding="utf-8").split("WORKSTATION_PATTERNS=(", 1)[1]
+    body = body.split("\n)", 1)[0]
+    patterns = []
+    for line in body.splitlines():
+        line = line.strip()
+        if line.startswith("'"):
+            patterns.append(line[1 : line.index("'", 1)])
+    return patterns
+
+
+def _balanced(text: str, start: int) -> str:
+    """The substring from text[start] == '(' through its matching ')'."""
+    assert text[start] == "("
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "(":
+            depth += 1
+        elif text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    raise AssertionError("unbalanced parentheses from index %d" % start)
+
+
+def _workflow_eres() -> list[str]:
+    """Both copies in pii_scan.yml: the inline diff scan and the pat_paths heredoc.
+
+    Found by their shared opening alternative and read with a balanced-paren scan, so neither a
+    quoting layer nor a trailing `|| true` can truncate what this test compares.
+    """
+    needle = "([A-Za-z]:[/"
+    found = []
+    for line in _WORKFLOW.read_text(encoding="utf-8").splitlines():
+        index = line.find(needle)
+        if index != -1:
+            found.append(_balanced(line, index))
+    assert len(found) == 2, f"expected two copies of the path ERE, found {len(found)}"
+    return found
+
+
+def _greps(pattern: str, text: str) -> bool:
+    """grep -i -E with the pattern passed in a FILE rather than in argv.
+
+    Measured while writing this test, and the reason it is not the obvious one-liner: handing the
+    pattern to grep as an ARGUMENT makes a bracket expression ending in a backslash unreliable,
+    because Python quotes backslashes for the Windows command line and that escaping does not
+    survive. The hook's own first pattern ends that way, so an argv-based comparison reported the
+    hook missing a form it demonstrably blocks in a real commit. The hook has no such layer, and
+    the workflow's heredoc copy already uses grep -f, so -f is both the faithful and the portable
+    form.
+    """
+    with tempfile.NamedTemporaryFile("w", suffix=".pat", delete=False, newline="\n") as handle:
+        handle.write(pattern + "\n")
+        pattern_file = handle.name
+    try:
+        completed = subprocess.run(
+            ["grep", "-q", "-i", "-E", "-f", pattern_file],
+            input=text + "\n",
+            text=True,
+            check=False,
+        )
+    finally:
+        os.unlink(pattern_file)
+    return completed.returncode == 0
+
+
+_CORPUS_POSITIVE = [
+    "x C:\\" + _PROFILE + "\\someone\\y",
+    "x C:/" + _PROFILE + "/someone/y",
+    "x /mnt/c/" + _PROFILE + "/someone/y",
+    "x /" + _PROFILE + "/someone/y",
+    "x /c/" + _PROFILE + "/someone/y",
+    "x /" + _CYGWIN + "/c/" + _PROFILE + "/someone/y",
+]
+_CORPUS_NEGATIVE = [
+    "/home/runner/work/repo",
+    "C:/Program Files/thing",
+    "https://example.org/a/" + _PROFILE + "/b",
+    "models/v5/rf_oof_predictions.csv",
+    "/usr/share/doc",
+    "C:/Windows/Temp/x",
+]
+
+
+@pytest.mark.skipif(shutil.which("grep") is None, reason="the corpus comparison shells out to grep")
+def test_the_hook_and_both_workflow_copies_agree_on_one_corpus() -> None:
+    """Three copies of one rule cannot be byte-identical, so agreement is the invariant.
+
+    The hook keeps a bash array; the workflow keeps two EREs, one inline and one in a quoted
+    heredoc. Comparing their text would fail by construction, so they are compared on behaviour
+    over a shared corpus. A partial revert - fixing one copy and not the others - fails here.
+    """
+    inline, heredoc = _workflow_eres()
+    readers = {
+        "hook": _hook_patterns(),
+        "workflow-inline": [inline],
+        "workflow-heredoc": [heredoc],
+    }
+    assert len(readers["hook"]) >= 5, f"the hook's pattern array shrank: {readers['hook']}"
+    for payload in _CORPUS_POSITIVE:
+        for name, patterns in readers.items():
+            assert any(_greps(p, payload) for p in patterns), f"{name} missed {payload!r}"
+    for payload in _CORPUS_NEGATIVE:
+        for name, patterns in readers.items():
+            assert not any(_greps(p, payload) for p in patterns), (
+                f"{name} false-positive on {payload!r}"
+            )
+
+
+def test_the_workflow_positive_control_counts_every_scanned_form() -> None:
+    """The control asserts an exact hit count, so a new form without a new canary weakens it."""
+    workflow = _WORKFLOW.read_text(encoding="utf-8")
+    assert "-ne 6 ]" in workflow, "the canary count no longer matches the six scanned forms"
+    assert "6/6 canary forms detected" in workflow

@@ -95,14 +95,22 @@ def _tracked_files(root: Path) -> list[str]:
 
 
 def _read_text(path: Path) -> str | None:
+    """The file's text, or None for a file that cannot be read or is not UTF-8.
+
+    A NUL byte alone does not make a file binary here, and treating it as if it
+    did was a fail-open: a text carrier holding a stale version and one stray NUL
+    used to be skipped, so its version was never compared. NUL bytes are dropped
+    and UTF-8 is still required, so a genuine binary stays skipped. Measured
+    2026-10-06 on this repository: 15 tracked files hold a NUL, only one of them
+    (an SVG) decodes as UTF-8 once its NULs are removed, and the carrier set is
+    the same either way. Failing closed on any NUL would have failed on that SVG.
+    """
     try:
         raw = path.read_bytes()
     except OSError:
         return None
-    if b"\0" in raw:
-        return None
     try:
-        return raw.decode("utf-8")
+        return raw.replace(b"\0", b"").decode("utf-8")
     except UnicodeDecodeError:
         return None
 

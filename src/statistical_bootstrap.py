@@ -101,8 +101,9 @@ def paired_bootstrap_comparison(
         ci_high = float(np.percentile(deltas, 97.5))
 
         # Empirical two-sided p-value: fraction of deltas of opposite sign of base_delta
-        # (or standard test of delta crossing zero)
-        p_val = float(min(np.mean(deltas <= 0), np.mean(deltas >= 0)) * 2)
+        # (or standard test of delta crossing zero). A delta of exactly zero falls in
+        # both tails, so ties can push the doubled tail past 1: cap it there.
+        p_val = float(min(1.0, 2 * min(np.mean(deltas <= 0), np.mean(deltas >= 0))))
         sig = "yes" if ci_low > 0 or ci_high < 0 else "no"
         return {
             "delta_mean": float(np.mean(deltas)),

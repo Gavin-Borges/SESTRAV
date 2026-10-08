@@ -62,7 +62,7 @@ INFLUENZA_CLEAN = os.path.join(PROJECT_ROOT, "data", "external", "influenza_clea
 SARS2_SCORED = os.path.join(PROJECT_ROOT, "results", "sars2_scored.csv")
 INFLUENZA_SCORED = os.path.join(PROJECT_ROOT, "results", "influenza_scored.csv")
 
-# The run log lands under results/, which is gitignored (.gitignore:249), NOT under
+# The run log lands under results/, which is gitignored (the `results/*` rule), NOT under
 # docs/. It carries AUC-PR, AUC-ROC and ISSR to four decimals with bootstrap CIs, plus
 # a YES/NO verdict against an unpublished 0.75 threshold - none of it bound through
 # _local/integrity/claims_manifest.toml or passed by claims-auditor. Writing that to

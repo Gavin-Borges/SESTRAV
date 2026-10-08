@@ -446,7 +446,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "platform": f"{platform.system()} {platform.machine()}",
             "permutation_seeds": list(PERMUTATION_SEEDS),
             "model_seed": MODEL_SEED,
-            "splitter": "PeptideGroupedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "splitter": f"PeptideGroupedKFold(n_splits=5, shuffle=True, random_state={MODEL_SEED})",
             "target_rate_guard": (
                 "held-out encodings use only outer-fold training labels; training encodings "
                 "are leave-one-out"

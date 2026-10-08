@@ -884,9 +884,9 @@ def main(argv: list[str] | None = None) -> int:
         if comparisons:
             print("\n--- Paired bootstrap comparison (primary vs compare) ---")
             for virus, comp in sorted(comparisons.items()):
-                delta_roc = comp.get("delta_auc_roc", {})
+                delta_roc = comp.get("auc_roc", {})
                 print(
-                    f"  {virus:<12}  delta AUC-ROC={delta_roc.get('mean', float('nan')):.4f}"
+                    f"  {virus:<12}  delta AUC-ROC={delta_roc.get('delta_mean', float('nan')):.4f}"
                     f"  p={delta_roc.get('p_value', float('nan')):.3f}"
                 )
 
