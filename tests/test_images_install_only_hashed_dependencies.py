@@ -28,7 +28,12 @@ tests make every image's install sequence a gate:
   requirements.txt at the same version, so every package an image shares with
   requirements.txt runs at the version CI tests, and the specs cannot drift
   from requirements.txt unnoticed;
-- each of those images installs its own lock and no other.
+- each of those images installs its own lock and no other;
+- singularity.def's %post runs the Dockerfile's first three installs (bootstrap,
+  backend, lock), in that order, from files its %files section copies in, under
+  a `set -e` it sets itself and with no command inside an `a && b` list, a
+  pipeline or a `;` list, where a failure would not stop the build; and no
+  section of it runs pip install outside %post or any other installer.
 """
 
 from __future__ import annotations
@@ -290,6 +295,231 @@ def test_every_installed_lock_is_copied_into_the_image(dockerfile: str) -> None:
     for args in pip_installs(_read(dockerfile)):
         for lock in _requirement_files(args) + _constraint_files(args):
             assert lock in sources, f"{dockerfile} installs {lock} without copying it in"
+
+
+# singularity.def builds the HPC image from the same production lock, in %post.
+SINGULARITY = "singularity.def"
+_SIF_APP = "/app/"
+# What could let %post carry on past a failed command: an AND-OR list (sh -e does
+# not apply to a command that fails before the last one of it), a pipeline (its
+# status is the last command's), or a `;` list.
+_COMPOUND = re.compile(r"&&|\|\||[;|]")
+_ERREXIT_ON = re.compile(r"set -[A-Za-z]*e[A-Za-z]*")
+_ERREXIT_OFF = re.compile(r"\bset\s+(?:\+[A-Za-z]*e|\+o\s+errexit)\b")
+# Every other way to fetch or build third-party code, which the `pip install`
+# checks below cannot see: pip wheel and pip download run an sdist's build
+# backend too. The same list as the release workflow's test.
+_PIP_OPTIONS = r"(?:\s+-\S+(?:\s+[^\s-]\S*)?)*?"
+_OTHER_INSTALLERS = re.compile(
+    r"(?:^|\s)(?:uvx|pipx|uv\s+(?:pip|tool|run|add|sync)|conda\s+install|easy_install)\b"
+    rf"|\bpip(?:3(?:\.\d+)?)?{_PIP_OPTIONS}\s+(?:wheel|download)\b"
+)
+
+
+def singularity_section(text: str, name: str) -> list[str]:
+    """The lines of one %section of a Singularity definition file."""
+    lines, inside = [], False
+    for line in text.splitlines():
+        if line.startswith("%"):
+            inside = line.split()[0] == f"%{name}"
+            continue
+        if inside:
+            lines.append(line)
+    return lines
+
+
+def singularity_post_commands(text: str) -> list[str]:
+    """%post's commands: comment lines dropped, continuations joined, whitespace collapsed."""
+    lines = [
+        line for line in singularity_section(text, "post") if not line.lstrip().startswith("#")
+    ]
+    joined = re.sub(r"\\\s*\n", " ", "\n".join(lines))
+    return [" ".join(line.split()) for line in joined.splitlines() if line.strip()]
+
+
+def singularity_pip_installs(text: str) -> list[list[str]]:
+    """The argument list of every `pip install` in %post, exactly as written."""
+    installs = []
+    for command in singularity_post_commands(text):
+        match = _PIP_INSTALL.search(command)
+        if match:
+            installs.append(command[match.end() :].split())
+    return installs
+
+
+def _from_app(args: list[str]) -> list[str]:
+    """%files copies each tracked path to /app/<path>; map the arguments back."""
+    return [arg[len(_SIF_APP) :] if arg.startswith(_SIF_APP) else arg for arg in args]
+
+
+def _top_level(command: str) -> str:
+    """`command` with its quoted text and `$(...)` substitutions removed.
+
+    An operator inside quotes, or inside a command substitution such as
+    `"$(python -c "a; b")"`, belongs to a string or to another shell, so only
+    what is left here can join two commands of this one into a list.
+    """
+    kept: list[str] = []
+    stack: list[str] = []
+    i = 0
+    while i < len(command):
+        char, top = command[i], (stack[-1] if stack else "")
+        if top == "'":
+            if char == "'":
+                stack.pop()
+        elif char == "\\":
+            i += 1
+        elif top == '"' and char == '"':
+            stack.pop()
+        elif command.startswith("$(", i):
+            stack.append("(")
+            i += 1
+        elif top == "(" and char == "(":
+            stack.append("(")
+        elif top == "(" and char == ")":
+            stack.pop()
+        elif char == '"' or (char == "'" and top != '"'):
+            # Inside double quotes a single quote is an ordinary character.
+            stack.append(char)
+        elif not stack:
+            kept.append(char)
+        i += 1
+    return "".join(kept)
+
+
+def post_stop_problems(text: str) -> list[str]:
+    """Why %post could carry on past a failed command.
+
+    Apptainer's user guide says the build halts if any command fails, and that
+    %post runs under sh or bash, but names no shell flag, so the file sets -e
+    itself, before anything else runs. And under sh -e a command that fails
+    before the last one of an `a && b` list does not stop the script, so every
+    command has to stand on its own line, not only the installs.
+    """
+    commands = singularity_post_commands(text)
+    problems = []
+    if not commands or not _ERREXIT_ON.fullmatch(commands[0]):
+        problems.append(f"%post does not start with `set -e`: {commands[:1]}")
+    problems += [f"turns -e off: {c}" for c in commands if _ERREXIT_OFF.search(c)]
+    problems += [f"compound command: {c}" for c in commands if _COMPOUND.search(_top_level(c))]
+    return problems
+
+
+def test_singularity_post_stops_at_the_first_failing_command() -> None:
+    problems = post_stop_problems(_read(SINGULARITY))
+    assert not problems, problems
+
+
+@pytest.mark.parametrize(
+    ("post", "stops"),
+    [
+        ("%post\n    set -e\n    pip install --require-hashes -r /app/x.txt\n", True),
+        ("%post\n    set -eu\n    pip install x\n", True),
+        ("%post\n    pip install --require-hashes -r /app/x.txt\n", False),
+        ("%post\n    pip install x\n    set -e\n", False),
+        ("%post\n    # comment\n    set -e\n    pip install x\n", True),
+        ("%post\n    set -e\n    true && pip install x\n", False),
+        ("%post\n    set -e\n    pip install x && true\n", False),
+        ("%post\n    set -e\n    pip install x | tee log\n", False),
+        ("%post\n    set -e\n    pip install x; true\n", False),
+        ("%post\n    set -e\n    set +e\n    pip install x\n", False),
+        ("%post\n    set -e\n    set +o errexit\n    pip install x\n", False),
+        ("%post\n    set -e\n    pip --log l install x || true\n", False),
+        (
+            "%post\n    set -e\n    pip install \\\n        x\n%test\n    false && pip install y\n",
+            True,
+        ),
+        ("%post\n    set -e\n    pip install \\\n        x || true\n", False),
+        # Not only the installs: an apt line re-joined with && escapes -e the same way.
+        ("%post\n    set -e\n    apt-get update && apt-get install -y gcc\n", False),
+        ("%post\n    set -e\n    apt-get update\n    apt-get install -y gcc\n", True),
+        ("%post\n    set -e\n    cd /app; make\n", False),
+        # An operator inside quotes or a command substitution joins nothing here.
+        ('%post\n    set -e\n    X="$(python -c "import a; print(a.b)")"\n', True),
+        ("%post\n    set -e\n    echo 'a && b | c'\n", True),
+        ('%post\n    set -e\n    echo "it\'s; fine"\n', True),
+        ('%post\n    set -e\n    X="$(false)" && true\n', False),
+        ('%post\n    set -e\n    echo "a" | tee log\n', False),
+    ],
+)
+def test_post_stop_problems_reads_post(post: str, stops: bool) -> None:
+    assert (not post_stop_problems(post)) is stops, post_stop_problems(post)
+
+
+def test_singularity_runs_no_other_installer() -> None:
+    """The `pip install` checks cannot see any other installer, so none may appear."""
+    text = _read(SINGULARITY)
+    live = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+    others = [line for line in live if _OTHER_INSTALLERS.search(line)]
+    assert not others, others
+
+
+@pytest.mark.parametrize(
+    ("command", "matches"),
+    [
+        ("pipx install somepkg", True),
+        ("easy_install somepkg", True),
+        ("uv pip install foo", True),
+        ("uvx build", True),
+        ("conda install -y foo", True),
+        ("pip wheel --no-deps -w w foo", True),
+        ("python -m pip --quiet download foo", True),
+        ("pip install --require-hashes --no-deps -r /app/x.txt", False),
+        ("apt-get install -y --no-install-recommends build-essential", False),
+        ("mhcflurry-downloads fetch models_class1_presentation", False),
+    ],
+)
+def test_other_installers_are_recognised(command: str, matches: bool) -> None:
+    assert bool(_OTHER_INSTALLERS.search(command)) is matches
+
+
+def test_singularity_builds_the_lock_against_the_hashed_backend() -> None:
+    installs = [_from_app(args) for args in singularity_pip_installs(_read(SINGULARITY))]
+    problems = [p for args in installs for p in install_problems(args)]
+    assert not problems, problems
+    bootstrap = [
+        i for i, args in enumerate(installs) if _requirement_files(args) == [PIP_BOOTSTRAP]
+    ]
+    backend = [i for i, args in enumerate(installs) if _constraint_files(args)]
+    builders = [
+        i
+        for i, args in enumerate(installs)
+        if PRODUCTION_LOCK in _requirement_files(args) or "." in args
+    ]
+    assert len(bootstrap) == 1 and len(backend) == 1 and builders, (bootstrap, backend, builders)
+    assert _constraint_files(installs[backend[0]]) == [PRODUCTION_LOCK]
+    assert bootstrap[0] < backend[0] < min(builders), (bootstrap, backend, builders)
+
+
+def test_singularity_runs_pip_install_only_in_post() -> None:
+    text = _read(SINGULARITY)
+    live = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+    everywhere = [line for line in live if _PIP_INSTALL.search(line)]
+    in_post = [line for line in singularity_section(text, "post") if line in everywhere]
+    assert everywhere and everywhere == in_post, everywhere
+
+
+def test_singularity_copies_in_every_file_it_installs_from() -> None:
+    text = _read(SINGULARITY)
+    copies = {}
+    for line in singularity_section(text, "files"):
+        parts = line.split()
+        if len(parts) == 2 and not line.lstrip().startswith("#"):
+            copies[parts[0]] = parts[1]
+    checked = 0
+    for args in singularity_pip_installs(text):
+        for path in _requirement_files(args) + _constraint_files(args):
+            checked += 1
+            assert path.startswith(_SIF_APP), f"{path} is not under {_SIF_APP}"
+            [relative] = _from_app([path])
+            covered = [
+                source
+                for source, destination in copies.items()
+                if destination == _SIF_APP + source
+                and (relative == source or relative.startswith(source + "/"))
+            ]
+            assert covered and (PROJECT_ROOT / relative).is_file(), (path, covered)
+    assert checked >= 3, checked
 
 
 @pytest.mark.parametrize(("dockerfile", "extras"), sorted(IMAGE_EXTRAS.items()))

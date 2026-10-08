@@ -90,10 +90,10 @@ them, find the tier it belongs to.
    instead. Do not convert any of them into a tier 1-3 pair. Note that neither
    CI gate covers `requirements-sbom.txt`, so changes to it are reviewed by hand.
    `requirements-pip-bootstrap.txt` (added 2026-09-06) is the fourth: it carries
-   the single `pip` pin that the three Docker images and `release.yml`'s pre-publish
-   gate install first, and that every CI job taking setuptools from a lock as a
-   constraints file installs before it, because pip never takes a hash as a flag
-   on a bare `pip==X` spec, only from a
+   the single `pip` pin that the three Docker images, `singularity.def` and
+   `release.yml`'s pre-publish gate install first, and that every CI job taking
+   setuptools from a lock as a constraints file installs before it, because pip
+   never takes a hash as a flag on a bare `pip==X` spec, only from a
    requirements file (or, since pip 26.1, a constraints file, which the pip doing
    this install may predate), and `--require-hashes` demands a hash for every
    requirement in that file, so the bootstrap cannot share

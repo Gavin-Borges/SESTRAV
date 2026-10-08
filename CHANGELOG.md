@@ -267,9 +267,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   list the bootstrap lock in `cache-dependency-path`, so their comments' "every file this
   job installs from" holds; that alone would not stop the reuse. `release.yml`'s two
   installs that resolve from PyPI on purpose, to behave like a user's (`pip install
-  dist/*.whl` and
-  `pip install sestrav==...`), are not covered, and neither is `singularity.def`, whose lock
-  install still builds connection-pool in isolation.
+  dist/*.whl` and `pip install sestrav==...`), are not covered. Nor was `singularity.def`,
+  whose lock install built connection-pool in isolation; the Singularity entry below
+  closes that.
   `tests/test_ci_builds_against_hashed_setuptools.py` fails any job that installs one of
   those locks, or the local package in any spelling, without `--no-build-isolation`,
   before the setuptools install, or (in a job that restores pip's cache) before
@@ -313,6 +313,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   version tags, so no pull request exercises these jobs; the restructure was checked by
   parsing the workflow and by those tests, not by a run. Not covered: `publish` still
   downloads `dist-<tag>` by name with no digest check.
+- **The Singularity image builds connection-pool against a hash-checked setuptools, and its
+  `%post` stops at the first failing command.** `singularity.def` installed
+  `environments/requirements.lock` in one `pip install --require-hashes`, so pip built the
+  lock's sdist-only pin, connection-pool 0.0.3, in an isolated environment that resolves
+  `setuptools>=40.8.0` from PyPI with no hash check: the gap the image and CI entries above
+  closed for the Dockerfiles and CI. `%post` now runs the Dockerfile's first three installs:
+  the hash-pinned pip bootstrap, setuptools from the lock used as a constraints file, then
+  the lock with `--no-deps --no-build-isolation`. (The Dockerfile's fourth installs the
+  package itself, which this image never installs: it runs `pipeline.py` from `/app`.) The
+  Apptainer User Guide's "Definition Files" page (1.5, re-read 2026-10-08) says `%post`
+  runs under `sh` or `bash` and that the build halts if any command fails, but not how: it
+  names neither `set -e` nor `errexit`. So the section now opens with `set -e` rather than
+  depend on how Apptainer starts the shell, and every command is on its own line: `-e`
+  does not apply to a command that fails before the last one of an `a && b` list (under
+  dash, Debian's `/bin/sh`, `dash -e -c 'false && true; echo continued'` prints
+  `continued`), so the apt lines are split as well. The header no longer says the
+  Dockerfile installs from pyproject; it now records that the Dockerfile installs this same
+  3.11-compiled lock under 3.13, with `--no-deps`, as an exception to its own rule that
+  moving this image to another Python means recompiling the lock first. The bootstrap
+  lock's header and CONTRIBUTING rule 2 now list `singularity.def` among its installers.
+  Simulated on Linux with CPython 3.11.16 under dash, from the venv's pip 24.0 and
+  setuptools 79.0.1, with `%post`'s pip lines verbatim apart from `/app` and
+  `--no-cache-dir`: exit 0, no isolated build environment, connection-pool built against
+  setuptools 84.0.0, and `pip check` clean. The previous single install, run the same way,
+  built it in one isolated environment whose setuptools came from the index unhashed
+  (84.0.0 when measured, the lock's version, so the defect is the missing hash check, not
+  the version served).
+  `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too:
+  it fails on a missing or late `set -e`, a `set +e` or `set +o errexit`, any `%post`
+  command inside an AND-OR list, a pipeline or a `;` list (operators inside quotes or a
+  `$(...)` substitution aside), a `pip install` of a shape the Dockerfile checks do not
+  permit (a hashed `--no-deps` lock install, the backend from a lock used as constraints,
+  or the package itself with `--no-deps --no-build-isolation`), the three installs missing
+  or out of order, a `pip install` outside `%post`, any installer the release workflow's
+  test already lists (`pipx`, `uvx`, `uv pip`, `uv tool`, `uv run`, `uv add`, `uv sync`,
+  `conda install`, `easy_install`, `pip wheel`, `pip download`) on any uncommented line,
+  and an installed file that `%files` does not copy to `/app`. 22 mutants of
+  `singularity.def` fail it, among them the apt lines re-joined with `&&` under `set -e`,
+  `pipx install` or `easy_install` in `%post`, and `|| true` after a `mkdir`. No CI job
+  builds the image, so this is checked by those tests and the simulation, not by an
+  Apptainer build.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
