@@ -257,7 +257,7 @@
 |                                       |             |    limitations under the License.                                                                   |
 |                                       |             |                                                                                                     |
 | mpmath                                | 1.3.0       | BSD License                                                                                         |
-| multidict                             | 6.7.1       | Apache License 2.0                                                                                  |
+| multidict                             | 6.9.1       | Apache License 2.0                                                                                  |
 | nbformat                              | 5.11.1      | BSD License                                                                                         |
 | networkx                              | 3.6.1       | BSD-3-Clause                                                                                        |
 | numba                                 | 0.66.0      | BSD License                                                                                         |
