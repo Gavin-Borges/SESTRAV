@@ -158,6 +158,31 @@ def test_gate1_fails_on_random_predictions():
     assert isinstance(r.value, float)
 
 
+def test_gate1_passes_an_auc_pr_exactly_at_the_bar():
+    """MUTATION GUARD: the bar is inclusive, so a score AT it passes.
+
+    The module docstring and the gate's own threshold string both say
+    ">= 0.65", but every other Gate 1 test scores a frame well clear of the
+    bar, so rewriting the comparison as `auc_pr > GATE1_AUC_PR_MIN` left the
+    whole suite green. A candidate scoring exactly the bar would then be
+    refused promotion while the scorecard printed a threshold it had met.
+
+    The oracle is arithmetic, not sklearn. Eight positives, eight negatives.
+    Five rows tie at 0.9, four of them positive, so the first threshold
+    reaches recall 4/8 at precision 4/5; the other eleven tie at 0.1, so the
+    second reaches recall 8/8 at precision 8/16. Average precision is
+    0.5 * 0.8 + 0.5 * 0.5 = 0.65, and that sum is exactly the double nearest
+    0.65, so the comparison below is exact rather than within rounding.
+    """
+    assert GATE1_AUC_PR_MIN == 0.65, "this frame is built to score 0.65 exactly"
+    labels = [1, 1, 1, 1, 0] + [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]
+    scores = [0.9] * 5 + [0.1] * 11
+    df = pd.DataFrame({"label": labels, "gnn_oof_score": scores, SPLITTER_COLUMN: GROUPED_MARKER})
+    r = gate1_generalization(df)
+    assert r.value == GATE1_AUC_PR_MIN
+    assert r.passed
+
+
 # ---------------------------------------------------------------------------
 # Gate 2 - Stability (cross-fold AUC-PR std)
 # ---------------------------------------------------------------------------
@@ -298,6 +323,26 @@ def test_gate4_counts_a_score_of_exactly_one():
     r = gate4_calibration(df)
     assert not r.passed
     assert r.value == 0.5
+
+
+def test_gate4_fails_an_ece_exactly_at_the_ceiling():
+    """MUTATION GUARD: the ceiling is exclusive, so an ECE AT it fails.
+
+    The module docstring says "ECE < 0.05" and the gate reports the threshold
+    as "< 0.05", but the other three Gate 4 tests read ECE 0.0056, 0.49 and
+    0.5, none of them at the ceiling, so rewriting the comparison as
+    `ece <= GATE4_ECE_MAX` left the whole suite green. That direction promotes a model the stated
+    contract rejects.
+
+    The oracle is one negative scored 0.05. It falls in the first of the 15
+    bins, whose accuracy is 0.0 and confidence 0.05, so ECE is 1 * |0.0 - 0.05|,
+    which is the literal 0.05 exactly: no sum of rounded terms is involved.
+    """
+    assert GATE4_ECE_MAX == 0.05, "this frame is built to score 0.05 exactly"
+    df = pd.DataFrame({"label": [0], "gnn_oof_score": [0.05]})
+    r = gate4_calibration(df)
+    assert r.value == GATE4_ECE_MAX
+    assert not r.passed
 
 
 # ---------------------------------------------------------------------------
