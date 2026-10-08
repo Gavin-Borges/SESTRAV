@@ -343,15 +343,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the version served).
   `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too.
   It fails on a missing or late `set -e`; a `set` that turns errexit off (`+o errexit`, or
-  a `+` flag group holding `e`, such as `+e`, `+eu` or `+ex`); and, outside quotes and
-  `$(...)` substitutions, a `%post` command inside an AND-OR list, a pipeline or a `;`
-  list, negated with `!`, run in the background with `&` (or `&>`, which dash reads as
-  one), run as an `if`, `elif`, `while` or `until` condition, or using `exit`, `return`,
-  `exec`, `trap` or `eval`. Under dash with `-e`, each of those but `;` can carry on past
-  a failing command or end `%post` at status 0 (`false; true` stops; `;` is refused so
-  that each command stands on its own line, where the tests read it). A failure hidden
-  inside quotes or `$(...)`, such as `sh -c "pip install x || true"` or
-  `export X="$(false)"`, is not caught. It also fails a `pip install` of a shape the
+  a `+` flag group holding `e`, such as `+e`, `+eu` or `+ex`, read with the line's quotes
+  and backslashes removed), a `set` followed by a `$` expansion, a backtick or a `<<`
+  anywhere in a `%post` command; and, outside quotes and `$(...)` substitutions, a
+  `%post` command inside an AND-OR list, a pipeline or a `;` list, negated with `!`, run
+  in the background with `&` (or `&>`, which dash reads as one), run as an `if`, `elif`,
+  `while` or `until` condition, using `exit`, `return`, `exec`, `trap` or `eval`, or
+  running a file with `.` or `source`. Each of those but `;` can carry on past a failing
+  command or end `%post` at status 0, measured under dash with `-e` (and, for `source`,
+  which dash lacks, under bash); `false; true` stops, and `;` is refused so that each
+  command stands on its own line, where the tests read it. A failure hidden inside quotes
+  or `$(...)`, such as `sh -c "pip install x || true"` or `export X="$(false)"`, is not
+  caught. It also fails a `pip install` of a shape the
   Dockerfile checks do not permit (a hashed `--no-deps` lock install, the backend from a
   lock used as constraints, or the package itself with `--no-deps --no-build-isolation`),
   the three installs missing or out of order, a `pip install` outside `%post`, any
@@ -367,7 +370,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `set -o pipefail +o errexit`, `!` before the lock install, `( ! apt-get update )`,
   `&>/dev/null`, `exit 0` at the end of `%post`, `return 0`, `exec true`,
   `trap 'exit 0' EXIT`, `eval "apt-get update || true"` and a multi-line
-  `if apt-get update`; the seventeenth, `set +ue`, failed it already. No CI job builds the
+  `if apt-get update`; the seventeenth, `set +ue`, failed it already. A second review
+  found `set +o "errexit"`, `set '+e'`, a backtick substitution and a here-document into
+  `sh` passing it; those four, `set +\e`, `set $X` after `X=+e`, and a file run with `.`
+  or `source`, 8 mutants, now fail it, and all 8 passed it before. No CI job builds the
   image, so this is checked by those tests and the simulation, not by an Apptainer build.
 - **The PyPI publish job checks the distributions against the build job's digests
   before uploading them, and the tests fail each of the 30 ways to disarm a digest check
