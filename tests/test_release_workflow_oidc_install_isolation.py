@@ -1,7 +1,8 @@
 """Release jobs with OIDC authority must not resolve Python dependencies, the
 job that builds the release artifacts must not run unhashed third-party code,
 and every job that uses a downloaded artifact first checks it against the build
-job's digests, with a check these tests fail if it is disarmed."""
+job's digests, with a check these tests fail if it carries any of the disarmings
+they list."""
 
 import os
 import re
@@ -211,7 +212,7 @@ def test_the_release_job_checks_the_artifact_against_the_build_digests() -> None
     assert 'test -n "$EXPECTED"' in script
     assert "sha256sum --check --strict" in script
     assert "diff " in script
-    # The check must be able to fail the job, and nothing may disarm it.
+    # The check must be able to fail the job, in the shape digest_check_problems allows.
     assert not digest_check_problems(_document(), "release")
 
 
@@ -253,6 +254,10 @@ _FROM_EXPECTED = ["printf", "%s\\n", "$EXPECTED"]
 # the step early or swallow a failure.
 _CHECK_COMMANDS = frozenset({"awk", "diff", "find", "grep", "printf", "sha256sum", "sort", "test"})
 _OPERATOR = re.compile(r"[();<>|&]+")
+# awk's one allowed program: the file name of a `<digest>  <file>` line.
+_PRINT_NAME = "{print $2}"
+# What turns the lines sha256sum checked into the list of their file names.
+_NAMES_OF = [["awk", _PRINT_NAME], ["sort"]]
 _CHECK_ERREXIT_OFF = re.compile(r"\bset\s+(?:-\S*\s+)*\+[A-Za-z]*e|\bset\s+\+o\s+errexit\b")
 _SHELL_HAS_ERREXIT = re.compile(r"(?:^|\s)-[A-Za-z]*e")
 
@@ -286,6 +291,37 @@ def _check_index(job: dict) -> int:
     return _step_index(job, lambda s: "sha256sum --check" in str(s.get("run", "")))
 
 
+def _shape_problem(stage: list[str], position: int, length: int) -> str:
+    """Why one stage of a check's pipeline is outside its command's allowed shape, or "".
+
+    No allowed shape writes a file, runs another command or drops what it reads
+    without a later step noticing: printf prints EXPECTED and nothing else; grep
+    filters its input with one -E pattern (no -o or -v); awk runs only
+    `{print $2}`, on its input or on one $RUNNER_TEMP file (no system(), print >
+    or getline); sort takes no argument (no -o or --output); find takes its
+    directories and then only `-type f` (no -exec, -fprint, -delete or test that
+    skips a file); diff takes its two files and no option (no -I or
+    --ignore-matching-lines); test stands alone. sha256sum is read by the caller.
+    """
+    name, args = stage[0], stage[1:]
+    allowed = {
+        "printf": stage == _FROM_EXPECTED and position == 0,
+        "grep": position > 0 and len(args) == 2 and args[0] == "-E",
+        "awk": args == [_PRINT_NAME]
+        if position
+        else len(args) == 2 and args[0] == _PRINT_NAME and args[1].startswith("$RUNNER_TEMP/"),
+        "sort": position > 0 and not args,
+        "find": position == 0
+        and len(args) >= 3
+        and args[-2:] == ["-type", "f"]
+        and not any(arg.startswith("-") for arg in args[:-2]),
+        "diff": length == 1 and len(args) == 2 and not any(arg.startswith("-") for arg in args),
+        "test": length == 1,
+        "sha256sum": True,
+    }
+    return "" if allowed[name] else f"{name} outside its allowed shape: {stage}"
+
+
 def digest_check_problems(document: dict, job_name: str) -> list[str]:
     """Why a job's digest check could let the step it guards run on unchecked files.
 
@@ -294,6 +330,18 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
     and sit immediately before the step it guards, so nothing changes the files
     in between. Anything that skips the step, ignores its failure, runs it
     without -e, turns errexit off or exits early disarms it.
+
+    Its script may hold only these lines, each a plain pipeline of the allowed
+    shapes (_shape_problem) and writing, if at all, one `> "$RUNNER_TEMP/..."`:
+    `test ...`; `sha256sum --check --strict -` fed by exactly `printf '%s\\n'
+    "$EXPECTED"`, with no stage between (the release job), or
+    `sha256sum --check --strict <file>` alone, on a file made from EXPECTED's
+    lines and not rewritten since (the publish job); a list of the names of
+    every digest that check read, made by `awk '{print $2}' | sort` from the
+    same lines with nothing filtered out; `find <dirs> -type f | sort`; and,
+    as the last line, `diff` of those two lists. These tests fail each
+    disarming in _DISARMING_MUTANTS and _JOB_DISARMING_MUTANTS; that is all
+    they are shown to fail.
     """
     job = document["jobs"][job_name]
     steps = job.get("steps", [])
@@ -321,10 +369,13 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
     if re.search(r"\bexit\b", script):
         problems.append("the check can exit before it fails")
 
-    from_expected: set[str] = set()  # files holding only what EXPECTED said
-    listed: set[str] = set()  # files listing what was downloaded
+    from_expected: set[str] = set()  # files holding only lines of EXPECTED
+    verified: set[str] = set()  # what a sha256sum --check --strict read in full
+    names: set[str] = set()  # files listing the names of every digest verified
+    listed: set[str] = set()  # files listing every file find saw
     checked = compared = False
-    for stages in _pipelines(script):
+    pipelines = _pipelines(script)
+    for stages in pipelines:
         output = None
         if len(stages[-1]) >= 2 and stages[-1][-2] == ">":
             output, stages[-1] = stages[-1][-1], stages[-1][:-2]
@@ -334,35 +385,49 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
         ):
             problems.append(f"not a plain pipeline of {sorted(_CHECK_COMMANDS)}: {stages}")
             continue
+        if output is not None and not output.startswith("$RUNNER_TEMP/"):
+            problems.append(f"the check writes outside $RUNNER_TEMP: {output}")
+        shapes = (_shape_problem(stage, i, len(stages)) for i, stage in enumerate(stages))
+        problems += [shape for shape in shapes if shape]
         first = stages[0]
         reads_expected = first == _FROM_EXPECTED or (
             bool(_temp_files(first)) and _temp_files(first) <= from_expected
         )
-        for position, stage in enumerate(stages):
+        for stage in stages:
             if stage[0] != "sha256sum":
                 continue
-            operands = [word for word in stage[1:] if word == "-" or not word.startswith("-")]
-            if "--check" not in stage or "--strict" not in stage or "--ignore-missing" in stage:
+            if stage[1:-1] != ["--check", "--strict"]:
                 problems.append(f"sha256sum computes digests or checks loosely: {stage}")
-            elif operands == ["-"] and position > 0 and reads_expected:
+            elif stage[-1] == "-" and stages == [_FROM_EXPECTED, stage]:
                 checked = True
-            elif len(operands) == 1 and position == 0 and operands[0] in from_expected:
+                verified.add("$EXPECTED")
+            elif stages == [stage] and stage[-1] in from_expected:
                 checked = True
+                verified.add(stage[-1])
             else:
-                problems.append(f"sha256sum checks digests that are not EXPECTED's: {stage}")
-        if first[0] == "diff":
-            operands = [word for word in first[1:] if not word.startswith("-")]
-            compared = compared or (
-                len(operands) == 2
-                and any(a in from_expected and b in listed for a, b in (operands, operands[::-1]))
-            )
+                problems.append(f"sha256sum checks digests that are not all EXPECTED's: {stage}")
+        if first[0] == "diff" and len(first) == 3:
+            a, b = first[1:]
+            compared = compared or (a in names and b in listed) or (b in names and a in listed)
         if output is not None:
-            (from_expected.add if reads_expected else from_expected.discard)(output)
-            (listed.add if first[0] == "find" else listed.discard)(output)
+            names_of_verified = (
+                stages == [_FROM_EXPECTED, *_NAMES_OF] and "$EXPECTED" in verified
+            ) or (
+                len(first) == 3 and [first[:2], *stages[1:]] == _NAMES_OF and first[2] in verified
+            )
+            for group, member in (
+                (from_expected, reads_expected),
+                (names, names_of_verified),
+                (listed, first[0] == "find" and stages[1:] == [["sort"]]),
+            ):
+                (group.add if member else group.discard)(output)
+            verified.discard(output)
     if not checked:
         problems.append("no sha256sum --check reads the digests EXPECTED holds")
     if not compared:
-        problems.append("no diff compares EXPECTED's file names with what find lists")
+        problems.append("no diff compares the names of every checked digest with what find lists")
+    if not pipelines or pipelines[-1][0][0] != "diff":
+        problems.append("the check's last command is not its diff")
     return problems
 
 
@@ -427,6 +492,45 @@ def _move_check_after_guarded(document: dict, job_name: str) -> None:
     steps.insert(check + 1, steps.pop(check))
 
 
+def _append_to_check(line: str):
+    return _edit_check(lambda script: script.rstrip("\n") + "\n" + line)
+
+
+def _before_the_diff(line: str):
+    """Insert a line after find has listed the download and before diff compares it."""
+
+    def edit(script: str) -> str:
+        lines = script.rstrip("\n").split("\n")
+        assert lines[-1].startswith("diff "), lines[-1]
+        return "\n".join([*lines[:-1], line, lines[-1]])
+
+    return _edit_check(edit)
+
+
+_FROM_EXPECTED_TEXT = "printf '%s\\n' \"$EXPECTED\""
+_DIST_LINES = "grep -E '^[0-9a-f]{64}  dist/[^/]+$'"
+_SDIST_LINES = "grep -E '^[0-9a-f]{64}  dist/[^/]+[.]tar[.]gz$'"
+_PUBLISH_DIGESTS = '"$RUNNER_TEMP/dist.sha256"'
+_LATE = 'sort -o dist/late.whl "$RUNNER_TEMP/expected-files.txt"'
+
+
+def _publish_names_from_expected(script: str) -> str:
+    """Check the sdist's digest only, but list every dist/ name straight from EXPECTED."""
+    narrowed = script.replace(_DIST_LINES + " >", _SDIST_LINES + " >")
+    return narrowed.replace(
+        "awk '{print $2}' " + _PUBLISH_DIGESTS + " | sort",
+        _FROM_EXPECTED_TEXT + " | " + _DIST_LINES + " | awk '{print $2}' | sort",
+    )
+
+
+def _publish_digests_rewritten(script: str) -> str:
+    """Check the sdist's digest only, then rewrite the checked file with every dist/ line."""
+    narrowed = script.replace(_DIST_LINES + " >", _SDIST_LINES + " >")
+    check = "sha256sum --check --strict " + _PUBLISH_DIGESTS
+    rewrite = _FROM_EXPECTED_TEXT + " | " + _DIST_LINES + " > " + _PUBLISH_DIGESTS
+    return narrowed.replace(check, check + "\n" + rewrite)
+
+
 # Each mutant disarms the check, or lets files change after it, without deleting it.
 _DISARMING_MUTANTS = {
     "exit 0 before the first command": _edit_check(lambda s: "exit 0\n" + s),
@@ -457,6 +561,51 @@ _DISARMING_MUTANTS = {
     ),
     "a step between the check and the guarded step": _insert_after_check,
     "the check after the guarded step": _move_check_after_guarded,
+    # Added after review: each passed the earlier helper, and each, run under bash
+    # -e (GNU coreutils 9.7 or uutils 0.8.0 alike), lets a tampered or extra file
+    # through the check or writes a file into dist/ after find has listed it.
+    "diff -I.": _edit_check_line("diff ", lambda line: line.replace("diff ", "diff -I. ")),
+    "diff --ignore-matching-lines=.": _edit_check_line(
+        "diff ", lambda line: line.replace("diff ", "diff --ignore-matching-lines=. ")
+    ),
+    "sort -o into dist/ after the diff": _append_to_check(_LATE),
+    "awk system() copying into dist/ after the diff": _append_to_check(
+        "awk 'BEGIN{system(\"cp /etc/hostname dist/late.whl\")}'"
+    ),
+    "sort -o into dist/ between find and diff": _before_the_diff(_LATE),
+    "a redirection into dist/ between find and diff": _before_the_diff(
+        _FROM_EXPECTED_TEXT + " | awk '{print $2}' | sort > dist/late.whl"
+    ),
+    "find skipping a file with -not -name": _edit_check_line(
+        "find ", lambda line: line.replace("-type f", "-type f -not -name 'late*'")
+    ),
+    "grep -v dropping a file from find's list": _edit_check_line(
+        "find ", lambda line: line.replace("-type f |", "-type f | grep -v late |")
+    ),
+}
+
+# Disarmings that only one job's check can carry.
+_JOB_DISARMING_MUTANTS = {
+    "release": {
+        "grep -v whl between printf and sha256sum": _edit_check(
+            lambda s: s.replace(
+                _FROM_EXPECTED_TEXT + " | sha256sum",
+                _FROM_EXPECTED_TEXT + " | grep -v whl | sha256sum",
+            )
+        ),
+        "grep -E picking the non-wheel lines between printf and sha256sum": _edit_check(
+            lambda s: s.replace(
+                _FROM_EXPECTED_TEXT + " | sha256sum",
+                _FROM_EXPECTED_TEXT + " | grep -E 'gz$|zip$|json$' | sha256sum",
+            )
+        ),
+    },
+    "publish": {
+        "the sdist's digest checked, every name listed from EXPECTED": _edit_check(
+            _publish_names_from_expected
+        ),
+        "the checked digests rewritten after the check": _edit_check(_publish_digests_rewritten),
+    },
 }
 
 
@@ -465,6 +614,18 @@ _DISARMING_MUTANTS = {
 def test_digest_check_problems_catches_each_disarming_mutant(job_name: str, mutant: str) -> None:
     document = _document()
     _DISARMING_MUTANTS[mutant](document, job_name)
+    assert digest_check_problems(document, job_name), f"{mutant} in {job_name} went unnoticed"
+
+
+@pytest.mark.parametrize(
+    ("job_name", "mutant"),
+    [(job, mutant) for job, mutants in _JOB_DISARMING_MUTANTS.items() for mutant in mutants],
+)
+def test_digest_check_problems_catches_each_job_disarming_mutant(
+    job_name: str, mutant: str
+) -> None:
+    document = _document()
+    _JOB_DISARMING_MUTANTS[job_name][mutant](document, job_name)
     assert digest_check_problems(document, job_name), f"{mutant} in {job_name} went unnoticed"
 
 

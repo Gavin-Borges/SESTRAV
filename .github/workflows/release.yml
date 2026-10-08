@@ -398,10 +398,11 @@ jobs:
         # Before anything is attested: every file must match the digest the build
         # job recorded (an output, fixed when that job ended), and no file may have
         # been added. Tested with a tampered wheel, an extra file and an empty
-        # digest list, each of which fails this step. Keep it a list of plain
-        # pipelines, immediately before the step it guards: digest_check_problems
-        # in tests/test_release_workflow_oidc_install_isolation.py fails anything
-        # that could disarm it.
+        # digest list, each of which fails this step. Keep it to the lines that
+        # digest_check_problems in tests/test_release_workflow_oidc_install_isolation.py
+        # allows, immediately before the step it guards. Those tests fail each of
+        # the 28 disarmings they list for this check (30 across this check and
+        # publish's); they are not shown to fail any other edit that disarms it.
         env:
           EXPECTED: ${{ needs.build.outputs.artifact-sha256 }}
         run: |
