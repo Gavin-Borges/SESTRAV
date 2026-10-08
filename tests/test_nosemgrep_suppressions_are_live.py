@@ -1,4 +1,4 @@
-"""Every `# nosemgrep` in the tree suppresses a finding semgrep actually raises.
+"""Every semgrep suppression in the tree is one measured to hide a live finding.
 
 A bare `# nosemgrep` silences EVERY semgrep rule on its line, including rules
 added to the registry after it was written, so one that suppresses nothing does
@@ -17,10 +17,18 @@ planted control that both configs flagged.
   src/model.py, functions/stage4_immunogenicity_scoring.py and
   scripts/install_prime_wsl.py) and were removed.
 
-This test pins that population. Before adding a suppression, measure it the same
-way, with and without `--disable-nosem`, and add the file here with the rule it
-silences. Comments are read with `tokenize`, so the word inside a string literal
-does not count, and a comment that quotes the directive in backticks is prose.
+This test pins that population; it cannot run semgrep, so "live" is the
+measurement above. Before adding a suppression, measure it the same way, with
+and without `--disable-nosem`, and add the file here with the rule it silences.
+
+Lines are matched the way semgrep matches them, not the way a reader would:
+semgrep 1.178.0's NOSEM_INLINE_RE and NOSEM_PREVIOUS_LINE_RE (semgrep/constants.py)
+search raw source lines, case-insensitively, for a space followed by `nosem` or
+`nosemgrep`. So the short form, any casing, and the word inside a string literal
+on a code line all silence that line, while the form with no space after the
+hash does not. A line with no letter or digit before the directive silences the
+line BELOW it too. A comment-only line whose directive follows prose silences
+nothing, which is why the wrappers' explanatory comments do not count.
 """
 
 from __future__ import annotations
@@ -35,6 +43,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# This file spells the directive in its docstring and cases, so it is the one exclusion.
+SELF = "tests/test_nosemgrep_suppressions_are_live.py"
+
 # file -> the rule its one suppression silences (measured 2026-10-08, see above).
 LIVE_SUPPRESSIONS = {
     "scripts/run_predig_batched.py": "dangerous-subprocess-use-tainted-env-args",
@@ -42,10 +53,18 @@ LIVE_SUPPRESSIONS = {
     "scripts/run_prime_wrapper.py": "dangerous-subprocess-use-tainted-env-args",
 }
 
-# The word anywhere in a comment, as in `# nosec B614 nosemgrep`, once any
-# backtick-quoted prose has been dropped from the comment.
-DIRECTIVE = re.compile(r"\bnosemgrep\b")
-QUOTED = re.compile(r"`[^`]*`")
+# semgrep's two patterns without their optional rule-id suffix, which silences the line either way.
+INLINE = re.compile(r" nosem(?:grep)?", re.IGNORECASE)
+PREVIOUS_LINE = re.compile(r"^[^a-zA-Z0-9]* nosem(?:grep)?", re.IGNORECASE)
+
+_NOT_CODE = {
+    tokenize.COMMENT,
+    tokenize.NL,
+    tokenize.NEWLINE,
+    tokenize.INDENT,
+    tokenize.DEDENT,
+    tokenize.ENDMARKER,
+}
 
 
 def _tracked_python_files() -> list[str]:
@@ -59,11 +78,22 @@ def _tracked_python_files() -> list[str]:
     return [p for p in out.decode("utf-8").split("\0") if p]
 
 
+def _code_lines(source: str) -> set[int]:
+    """Line numbers that hold code, every line of a multi-line string included."""
+    lines: set[int] = set()
+    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+        if tok.type not in _NOT_CODE:
+            lines.update(range(tok.start[0], tok.end[0] + 1))
+    return lines
+
+
 def _directive_lines(source: str) -> list[int]:
+    """Lines on which semgrep would honour a suppression."""
+    code = _code_lines(source)
     return [
-        tok.start[0]
-        for tok in tokenize.generate_tokens(io.StringIO(source).readline)
-        if tok.type == tokenize.COMMENT and DIRECTIVE.search(QUOTED.sub("", tok.string))
+        number
+        for number, line in enumerate(source.splitlines(), start=1)
+        if PREVIOUS_LINE.search(line) or (number in code and INLINE.search(line))
     ]
 
 
@@ -72,18 +102,21 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
     assert files, "git ls-files returned no Python files, so this test would pass vacuously"
     found = {}
     for path in files:
+        if path == SELF:
+            continue
         lines = _directive_lines((ROOT / path).read_text(encoding="utf-8"))
         if lines:
             found[path] = lines
     unmeasured = {path: lines for path, lines in found.items() if path not in LIVE_SUPPRESSIONS}
     assert unmeasured == {}, (
-        "these # nosemgrep comments are not on the measured list; run semgrep with and without "
-        "--disable-nosem and either delete the comment (it suppresses nothing) or add the file "
-        f"to LIVE_SUPPRESSIONS with the rule it silences: {unmeasured}"
+        "semgrep would honour a suppression on these lines, and they are not on the measured "
+        "list; run semgrep with and without --disable-nosem and either delete the directive (it "
+        "suppresses nothing) or add the file to LIVE_SUPPRESSIONS with the rule it silences: "
+        f"{unmeasured}"
     )
     for path in LIVE_SUPPRESSIONS:
         assert len(found.get(path, [])) == 1, (
-            f"{path} should carry exactly one # nosemgrep, found lines {found.get(path, [])}; "
+            f"{path} should carry exactly one suppression, found lines {found.get(path, [])}; "
             "update LIVE_SUPPRESSIONS if the suppression was moved or retired"
         )
 
@@ -91,21 +124,39 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
-        ("run(cmd)  # nosemgrep\n", 1),
-        ("run(cmd)  # nosec B603  # nosemgrep\n", 1),
-        ("load(p)  # nosec B614 nosemgrep\n", 1),
-        ("run(cmd)  # nosemgrep: some.rule.id\n", 1),
-        ("# The bare inline `# nosemgrep` below is deliberate.\n", 0),
-        ("text = '# nosemgrep'\n", 0),
+        ("run(cmd)  # nosemgrep\n", [1]),
+        ("run(cmd)  # nosec B603  # nosemgrep\n", [1]),
+        ("load(p)  # nosec B614 nosemgrep\n", [1]),
+        ("run(cmd)  # nosemgrep: some.rule.id\n", [1]),
+        ("run(cmd)  # nosem\n", [1]),
+        ("run(cmd)  # NOSEMGREP\n", [1]),
+        ("run(cmd)  # NoSemGrep: some.rule.id\n", [1]),
+        ("run(cmd)  # nosemantics\n", [1]),
+        ("text = ' nosemgrep'\n", [1]),
+        ('x = """\n nosem\n"""\n', [2]),
+        ("if x:\n    # nosem\n    run(cmd)\n", [2]),
+        ("# nosemgrep is deliberate below\nrun(cmd)\n", [1]),
+        ("run(cmd)  #nosemgrep\n", []),
+        ("# The bare inline `# nosemgrep` below is deliberate.\n", []),
+        ("run(cmd)  # see nosemgrep_docs\n", [1]),
     ],
     ids=[
         "bare",
         "after-a-nosec",
         "word-without-its-own-hash",
         "qualified",
-        "prose-in-backticks",
-        "string-literal",
+        "short-form",
+        "upper-case",
+        "mixed-case-qualified",
+        "prefix-only",
+        "string-literal-on-a-code-line",
+        "inside-a-multi-line-string",
+        "own-line-silences-the-next",
+        "prose-that-starts-with-the-directive",
+        "no-space-after-the-hash-is-not-honoured",
+        "prose-after-words-silences-nothing",
+        "mention-on-a-code-line-still-silences-it",
     ],
 )
-def test_the_detector_reads_directives_not_prose(source: str, expected: int) -> None:
-    assert len(_directive_lines(source)) == expected
+def test_the_detector_matches_what_semgrep_honours(source: str, expected: list[int]) -> None:
+    assert _directive_lines(source) == expected
