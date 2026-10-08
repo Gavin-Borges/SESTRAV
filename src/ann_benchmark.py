@@ -341,7 +341,7 @@ def train_ann(
 
     model_path = os.path.join(model_dir, f"{model_stem}.pt")
     torch.save(
-        {  # nosec  # nosemgrep - internal model weights, trust boundary is local filesystem
+        {  # nosemgrep - internal model weights, trust boundary is local filesystem
             "model_state_dict": final_model.state_dict(),
             "scaler_mean": torch.tensor(final_scaler.mean_),
             "scaler_scale": torch.tensor(final_scaler.scale_),
