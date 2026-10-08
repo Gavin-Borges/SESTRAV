@@ -401,7 +401,7 @@ jobs:
         # digest list, each of which fails this step. Keep it to the lines that
         # digest_check_problems in tests/test_release_workflow_oidc_install_isolation.py
         # allows, immediately before the step it guards. Those tests fail each of
-        # the 28 disarmings they list for this check (30 across this check and
+        # the 38 disarmings they list for this check (40 across this check and
         # publish's); they are not shown to fail any other edit that disarms it.
         env:
           EXPECTED: ${{ needs.build.outputs.artifact-sha256 }}

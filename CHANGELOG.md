@@ -376,35 +376,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   or `source`, 8 mutants, now fail it, and all 8 passed it before. No CI job builds the
   image, so this is checked by those tests and the simulation, not by an Apptainer build.
 - **The PyPI publish job checks the distributions against the build job's digests
-  before uploading them, and the tests fail each of the 30 ways to disarm a digest check
-  in `release.yml` that they list.** `publish` downloads `dist-<tag>`, a second artifact that the `release`
-  job uploads, by name, and handed it straight to `pypa/gh-action-pypi-publish`, so the
-  digest check that the pre-publish-gate entry above added to `release` did not cover
-  what reaches PyPI. `publish` now also needs `build` and, after the download, checks the
-  sdist and wheel against the `dist/` lines of the digests `build` recorded, and that no
-  file was added, before the upload step; `docs/releasing.md` lists the step. Exercised
-  on Linux under `bash -e` and `-eo pipefail`, with both GNU coreutils 9.7 and uutils
-  0.8.0: an intact download passes, and a tampered wheel, an extra file, a missing sdist,
-  an empty digest list and a digest list with no `dist/` lines each fail it.
+  before uploading them, and the tests fail each of the 40 ways to disarm a digest check
+  in `release.yml` that they list.** `publish` downloads `dist-<tag>`, a second artifact
+  that the `release` job uploads, by name, and handed it straight to
+  `pypa/gh-action-pypi-publish`, so the digest check that the pre-publish-gate entry
+  above added to `release` did not cover what reaches PyPI. `publish` now also needs
+  `build` and, after the download, checks the sdist and wheel against the `dist/` lines
+  of the digests `build` recorded, and that no file was added, before the upload step;
+  `docs/releasing.md` lists the step. Exercised on Linux under `bash -e` and
+  `-eo pipefail`, with both GNU coreutils 9.7 and uutils 0.8.0: an intact download
+  passes, and a tampered wheel, an extra file, a missing sdist, an empty digest list and
+  a digest list with no `dist/` lines each fail it.
   `tests/test_release_workflow_oidc_install_isolation.py` now requires `publish` to need
   `build` and `release`, and reads both checks, `release`'s existing one and the new one,
   through one helper, `digest_check_problems`. It fails a check whose `EXPECTED` is not
   `needs.build.outputs.artifact-sha256`; that can be skipped or ignored (`if:`,
-  `continue-on-error`) or sets its own `shell` or `working-directory`; that runs under a
-  job or workflow `defaults.run.shell` without `-e` or any
-  `defaults.run.working-directory`; that is not the step immediately before the
-  attestation or the upload it guards; or whose script holds any line but these, each a
-  plain pipeline (so no `exit`, `set +e`, `set +o errexit`, `trap`, `||` or `;`) writing
-  nothing outside `$RUNNER_TEMP`: `test`; `sha256sum --check --strict -` fed by exactly
-  `printf '%s\n' "$EXPECTED"`, with no stage between (`release`), or
-  `sha256sum --check --strict` alone, on a file made from `EXPECTED`'s lines and not
-  rewritten since (`publish`); the names of every digest that check read, made by
-  `awk '{print $2}' | sort` with nothing filtered out; `find <dirs> -type f | sort`; and,
-  last, a `diff` of those two lists. `grep` may only filter with one `-E` pattern, `awk`
-  may only run `{print $2}`, `sort` takes no argument, `find` takes nothing after its
-  directories but `-type f`, and `diff` takes no option. The test file lists 30
-  disarmings, 26 applied to both jobs and 2 to each job alone (56 cases), and the tests
-  fail every one; they are not shown to fail any other. Review found five that passed the
+  `continue-on-error`), or that guards a step that can (`if: always()` there runs the
+  attestation or the upload after a failed check); that sets its own `shell`,
+  `working-directory` or any `env` but `EXPECTED`; that runs under a job or workflow
+  `env` (which could set `BASH_ENV`, `PATH` or `RUNNER_TEMP`), a job or workflow
+  `defaults.run.shell` without `-e`, or any `defaults.run.working-directory`; that is not
+  the step immediately before the attestation or the upload it guards; whose script
+  expands anything but `$EXPECTED` and `$RUNNER_TEMP` outside single quotes (no other
+  `$`, no backtick); or whose script holds any line but these, each a plain pipeline (so
+  no `exit`, `set +e`, `set +o errexit`, `trap`, `||` or `;`, with `#` read as an
+  ordinary character, not a comment) that writes, if at all, only to
+  `"$RUNNER_TEMP/<name>"` with a plain file name (no `/`, so no `..`): `test`;
+  `sha256sum --check --strict -` fed by exactly `printf '%s\n' "$EXPECTED"`, with no
+  stage between (`release`), or `sha256sum --check --strict` alone, on a file made from
+  `EXPECTED`'s lines and not rewritten since (`publish`); the names of every digest that
+  check read, made by `awk '{print $2}' | sort` with nothing filtered out;
+  `find <dirs> -type f | sort`; and, last, a `diff` of those two lists. `grep` may only
+  filter with one `-E` pattern, `awk` may only run `{print $2}`, `sort` takes no
+  argument, `find` takes nothing after its directories but `-type f`, and `diff` takes no
+  option. A symlink planted in `$RUNNER_TEMP` is out of scope: no allowed command makes
+  one. The test file lists 40 disarmings, 36 applied to both jobs and 2 to each job alone
+  (76 cases), and the tests fail every one; they are not shown to fail any other. Review
+  found five that passed the
   first version of these tests and still disarm a check when run: a `grep -v whl` between
   `printf` and `sha256sum` in `release`, `diff -I.`, `diff --ignore-matching-lines=.`,
   and `sort -o dist/late.whl` or an `awk` `system()` copying into `dist/` after the
@@ -416,8 +424,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   GNU coreutils 9.7 and with uutils 0.8.0 alike, each of those twelve, in each job it
   applies to, exits 0 on a tampered wheel or an extra file, or creates `dist/late.whl`
   after `find` has listed `dist/`; the unchanged checks pass an intact download and fail
-  a tampered, extra-file or empty one. The first version's helper caught 36 of the 56
-  cases and none of those twelve. Before this change, inserting `exit 0` or
+  a tampered, extra-file or empty one. A second review found five more: `if: always()`
+  on the guarded step; a `#` that `shlex` read as a comment while bash does not, hiding
+  `|| true` after `sha256sum` or after the `diff`; and a write through
+  `"$RUNNER_TEMP/../SESTRAV/SESTRAV/dist/"`, over the checked sdist or creating
+  `dist/late.whl`. Five more of the same kinds were added with them: `test -z "$(cp ...)"`
+  or a backtick `cp` into `dist/`, and `BASH_ENV` in the check's, the job's or the
+  workflow's `env`. Run the same way, each of the six of those ten that edit the script
+  exits 0 on a tampered wheel or an extra file, or exits 0 having created `dist/late.whl`
+  or overwritten the sdist, and `BASH_ENV` naming a file in the download that stubs
+  `sha256sum` and `diff` lets a tampered wheel through the unchanged checks;
+  `if: always()` is Actions' documented behaviour and was not run. Over the 76 cases, the
+  first version's helper caught 36 and the second 56. Before this change, inserting `exit 0` or
   `set +o errexit` ahead of the `release` check's first command left its tests passing;
   now each fails them. A job that holds a token and downloads an artifact must be one the
   helper reads.

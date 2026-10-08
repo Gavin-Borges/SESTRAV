@@ -258,19 +258,50 @@ _OPERATOR = re.compile(r"[();<>|&]+")
 _PRINT_NAME = "{print $2}"
 # What turns the lines sha256sum checked into the list of their file names.
 _NAMES_OF = [["awk", _PRINT_NAME], ["sort"]]
+# The one place a check may write: a plain file name directly in $RUNNER_TEMP, so
+# no `..`, `/`, `$` or glob can carry the write elsewhere, into dist/ for one. A
+# symlink planted in $RUNNER_TEMP is out of scope: no allowed command makes one.
+_TEMP_FILE = re.compile(r"\$RUNNER_TEMP/[A-Za-z0-9][A-Za-z0-9._-]*")
+# The only expansions a check may hold outside single quotes. Any other `$` or a
+# backtick could run a command (`test -z "$(cp x dist/y)"`) or change a variable.
+_ALLOWED_EXPANSION = re.compile(r"\$(?:EXPECTED|RUNNER_TEMP)(?![A-Za-z0-9_])")
 _CHECK_ERREXIT_OFF = re.compile(r"\bset\s+(?:-\S*\s+)*\+[A-Za-z]*e|\bset\s+\+o\s+errexit\b")
 _SHELL_HAS_ERREXIT = re.compile(r"(?:^|\s)-[A-Za-z]*e")
+
+
+def _live_expansions(script: str) -> list[str]:
+    """What bash would expand in `script` other than $EXPECTED and $RUNNER_TEMP:
+    every `$` or backtick outside single quotes and not escaped by a backslash."""
+    found, quote, i = [], "", 0
+    while i < len(script):
+        char = script[i]
+        if quote == "'":
+            quote = "" if char == "'" else quote
+        elif char == "\\":
+            i += 1
+        elif char == '"':
+            quote = "" if quote == '"' else '"'
+        elif char == "'" and not quote:
+            quote = "'"
+        elif char == "`" or (char == "$" and not _ALLOWED_EXPANSION.match(script, i)):
+            found.append(script[i : i + 16])
+        i += 1
+    return found
 
 
 def _pipelines(script: str) -> list[list[list[str]]]:
     """Each line of a run script as its pipeline stages, each a list of shell words.
 
-    Continuations are joined and comments dropped, quotes are removed as the
-    shell removes them, and every operator (`||`, `;`, `>`) is a word of its own.
+    Continuations are joined, quotes are removed as the shell removes them, and
+    every operator (`||`, `;`, `>`) is a word of its own. `#` is read as an
+    ordinary character: shlex would start a comment at any `#`, even mid-word
+    where bash does not (`b"#x || true` keeps its `|| true` in bash), so a check
+    holding a comment is refused rather than half-read.
     """
     pipelines = []
     for line in re.sub(r"\\\s*\n", " ", script).splitlines():
         lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
+        lexer.commenters = ""
         lexer.whitespace_split = True
         stages: list[list[str]] = [[]]
         for word in lexer:
@@ -329,10 +360,16 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
     never from the download itself, fail the step on any mismatch or added file,
     and sit immediately before the step it guards, so nothing changes the files
     in between. Anything that skips the step, ignores its failure, runs it
-    without -e, turns errexit off or exits early disarms it.
+    without -e, turns errexit off or exits early disarms it, and so does an `if`
+    on the guarded step (`always()` runs it after a failed check). The check's
+    env holds EXPECTED alone and neither its job nor the workflow sets env, so
+    no BASH_ENV, PATH or RUNNER_TEMP reaches it from there.
 
-    Its script may hold only these lines, each a plain pipeline of the allowed
-    shapes (_shape_problem) and writing, if at all, one `> "$RUNNER_TEMP/..."`:
+    Its script expands nothing but $EXPECTED and $RUNNER_TEMP outside single
+    quotes (no other `$`, no backtick), and may hold only these lines, each a
+    plain pipeline of the allowed shapes (_shape_problem), `#` read as an
+    ordinary character, writing, if at all, one `> "$RUNNER_TEMP/<name>"`
+    with a plain name (no `/`, so no `..`):
     `test ...`; `sha256sum --check --strict -` fed by exactly `printf '%s\\n'
     "$EXPECTED"`, with no stage between (the release job), or
     `sha256sum --check --strict <file>` alone, on a file made from EXPECTED's
@@ -357,8 +394,16 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
         problems.append("EXPECTED is not the build job's artifact-sha256 output")
     if _can_be_skipped_or_ignored(step):
         problems.append("the check can be skipped or its failure ignored")
+    if _can_be_skipped_or_ignored(steps[guarded]):
+        problems.append("the guarded step has an if or continue-on-error")
     problems += [f"the check sets {key}" for key in ("shell", "working-directory") if key in step]
+    if set(step.get("env") or {}) != {"EXPECTED"}:
+        problems.append("the check's env sets more than EXPECTED (BASH_ENV, PATH, RUNNER_TEMP)")
+    if _live_expansions(script):
+        problems.append(f"the check expands more than $EXPECTED and $RUNNER_TEMP: {script!r}")
     for where, node in (("the workflow", document), (f"job {job_name}", job)):
+        if "env" in node:
+            problems.append(f"{where} sets env, which reaches the check")
         run = (node.get("defaults") or {}).get("run") or {}
         if "shell" in run and not _SHELL_HAS_ERREXIT.search(str(run["shell"])):
             problems.append(f"{where} defaults.run.shell {run['shell']!r} carries no -e")
@@ -385,8 +430,8 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
         ):
             problems.append(f"not a plain pipeline of {sorted(_CHECK_COMMANDS)}: {stages}")
             continue
-        if output is not None and not output.startswith("$RUNNER_TEMP/"):
-            problems.append(f"the check writes outside $RUNNER_TEMP: {output}")
+        if output is not None and not _TEMP_FILE.fullmatch(output):
+            problems.append(f"the check writes other than a plain file in $RUNNER_TEMP: {output}")
         shapes = (_shape_problem(stage, i, len(stages)) for i, stage in enumerate(stages))
         problems += [shape for shape in shapes if shape]
         first = stages[0]
@@ -496,6 +541,23 @@ def _append_to_check(line: str):
     return _edit_check(lambda script: script.rstrip("\n") + "\n" + line)
 
 
+def _set_on_guarded(key: str, value):
+    def mutate(document: dict, job_name: str) -> None:
+        job = document["jobs"][job_name]
+        prefix = DIGEST_CHECKS[job_name]
+        guarded = _step_index(job, lambda s: str(s.get("uses", "")).startswith(prefix))
+        job["steps"][guarded][key] = value
+
+    return mutate
+
+
+def _set_env(on_job: bool, env: dict):
+    def mutate(document: dict, job_name: str) -> None:
+        (document["jobs"][job_name] if on_job else document)["env"] = env
+
+    return mutate
+
+
 def _before_the_diff(line: str):
     """Insert a line after find has listed the download and before diff compares it."""
 
@@ -512,6 +574,11 @@ _DIST_LINES = "grep -E '^[0-9a-f]{64}  dist/[^/]+$'"
 _SDIST_LINES = "grep -E '^[0-9a-f]{64}  dist/[^/]+[.]tar[.]gz$'"
 _PUBLISH_DIGESTS = '"$RUNNER_TEMP/dist.sha256"'
 _LATE = 'sort -o dist/late.whl "$RUNNER_TEMP/expected-files.txt"'
+# From $RUNNER_TEMP (/home/runner/work/_temp) up into the workspace's dist/.
+_THROUGH_TEMP = '"$RUNNER_TEMP/../SESTRAV/SESTRAV/dist/'
+_NAMES_INTO = _FROM_EXPECTED_TEXT + " | awk '{print $2}' | sort > " + _THROUGH_TEMP
+# A file in the download that bash sources first and that stubs the checks out.
+_BASH_ENV = {"BASH_ENV": "dist/x.sh"}
 
 
 def _publish_names_from_expected(script: str) -> str:
@@ -582,6 +649,30 @@ _DISARMING_MUTANTS = {
     "grep -v dropping a file from find's list": _edit_check_line(
         "find ", lambda line: line.replace("-type f |", "-type f | grep -v late |")
     ),
+    # Added after a second review: each passed the helper before it. The first
+    # five are the review's own; the other five are the same kinds.
+    "if: always() on the guarded step": _set_on_guarded("if", "${{ always() }}"),
+    "a # hiding || true after sha256sum": _edit_check_line(
+        "sha256sum --check", lambda line: line + "# || true"
+    ),
+    "a # hiding || true after the diff": _edit_check_line(
+        "diff ", lambda line: line + "#x || true"
+    ),
+    "a write through $RUNNER_TEMP/.. creating dist/late.whl": _before_the_diff(
+        _NAMES_INTO + 'late.whl"'
+    ),
+    "a write through $RUNNER_TEMP/.. over the checked sdist": _before_the_diff(
+        _NAMES_INTO + 'sestrav-1.0.tar.gz"'
+    ),
+    "test running $(cp ...) into dist/": _before_the_diff(
+        'test -z "$(cp /etc/hostname dist/late.whl)"'
+    ),
+    "test running a backtick cp into dist/": _before_the_diff(
+        'test -z "`cp /etc/hostname dist/late.whl`"'
+    ),
+    "BASH_ENV in the check's env": _set_on_check("env", {"EXPECTED": _EXPECTED, **_BASH_ENV}),
+    "BASH_ENV in the job's env": _set_env(True, _BASH_ENV),
+    "BASH_ENV in the workflow's env": _set_env(False, _BASH_ENV),
 }
 
 # Disarmings that only one job's check can carry.
