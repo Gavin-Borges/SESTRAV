@@ -40,8 +40,8 @@ jobs:
           # Compare against the PR base (or previous commit on push).
           #
           # Exclusions are applied BY PATH, as git pathspecs, never by matching an added
-          # line's content. This is load-bearing: the added-line filter below ('^\+[^+]')
-          # necessarily strips the '+++ b/<path>' headers, so by the time the lines reach
+          # line's content. This is load-bearing: the added-line filter below ('^>')
+          # necessarily drops the '+++ b/<path>' headers, so by the time the lines reach
           # grep there is no file attribution left to filter on. A content-based exclusion
           # therefore fails in BOTH directions - it let any added line in ANY source file
           # bypass the gate merely by containing the substring "README.md" (a docstring, a
@@ -97,16 +97,29 @@ jobs:
           # attribute naming a driver that is nowhere defined is INERT, 1 line still
           # visible. So these flags defend against a hostile runner config or a future
           # workflow step that sets one, not against a contributor.
+          #
+          # --output-indicator-new='>' is what lets the scan below select every ADDED line and
+          # nothing else. By default git marks an added line with '+', the character that also
+          # opens the '+++ b/<path>' file header, and the filter that used to read diff.txt,
+          # '^\+[^+]', told the two apart by the SECOND character. So every added line whose own
+          # content starts with '+' reached diff.txt as '++...' and was never scanned. No rule on
+          # the second character can be right: an added line reading '++ b/x' is '+++ b/x' in
+          # the diff, byte for byte a header. With the indicator moved, added lines start with
+          # '>' and nothing else does - the header keeps its '+++', and context, removed and
+          # hunk lines start with ' ', '-' and '@'. Measured through this step on a pull
+          # request: a '+'-led user-profile leak and a header-shaped /home leak each exited 0
+          # with nothing reported, on GNU grep 3.0 / git 2.55 and GNU grep 3.12 / git 2.53;
+          # after, both block and are reported.
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff --text --no-textconv --no-ext-diff "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff --output-indicator-new='>' "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
           else
-            git diff --text --no-textconv --no-ext-diff HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff --output-indicator-new='>' HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
 
-          # Only inspect newly ADDED content (a single leading '+', not the '+++' header).
-          # Removing a pre-existing leak must not fail the gate.
+          # Only inspect newly ADDED content: the lines git marked with the '>' indicator set
+          # above, never the '+++' header. Removing a pre-existing leak must not fail the gate.
           #
           # -a is load-bearing, not tidiness. git diffs a file holding a NUL as text, so the
           # NUL lands in diff.txt; without -a grep replaces the matching LINES with the single
@@ -130,14 +143,14 @@ jobs:
           #
           # A NUL is not needed for the second row: grep treats an encoding error as binary
           # too, so a single byte in the leaking line itself was enough.
-          USER_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
+          USER_LEAKS=$(grep -a -E '^>' diff.txt \
             | grep -a -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
           # /Users/ forms above so an allowlisted /home/ token on the same line
           # cannot mask a real /Users/ leak.
-          HOME_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
+          HOME_LEAKS=$(grep -a -E '^>' diff.txt \
             | grep -a -oE "/home/[A-Za-z0-9_.-]+" \
             | grep -a -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
