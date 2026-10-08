@@ -300,6 +300,26 @@ def test_gate4_counts_a_score_of_exactly_one():
     assert r.value == 0.5
 
 
+def test_gate4_fails_an_ece_exactly_at_the_ceiling():
+    """MUTATION GUARD: the ceiling is exclusive, so an ECE AT it fails.
+
+    The module docstring says "ECE < 0.05" and the gate reports the threshold
+    as "< 0.05", but the other three Gate 4 tests read ECE 0.0056, 0.49 and
+    0.5, none of them at the ceiling, so rewriting the comparison as
+    `ece <= GATE4_ECE_MAX` left the whole suite green. That direction promotes a model the stated
+    contract rejects.
+
+    The oracle is one negative scored 0.05. It falls in the first of the 15
+    bins, whose accuracy is 0.0 and confidence 0.05, so ECE is 1 * |0.0 - 0.05|,
+    which is the literal 0.05 exactly: no sum of rounded terms is involved.
+    """
+    assert GATE4_ECE_MAX == 0.05, "this frame is built to score 0.05 exactly"
+    df = pd.DataFrame({"label": [0], "gnn_oof_score": [0.05]})
+    r = gate4_calibration(df)
+    assert r.value == GATE4_ECE_MAX
+    assert not r.passed
+
+
 # ---------------------------------------------------------------------------
 # Gate 5 - Escape Sensitivity
 # ---------------------------------------------------------------------------
