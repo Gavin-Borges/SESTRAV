@@ -238,6 +238,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         elif [[ "$cff_date" > "$today" ]]; then
             block "CITATION.cff date-released '${cff_date}' is in the future (today is ${today})."
             tag_fail=1
+        elif ! is_calendar_date "$commit_date"; then
+            # Fail closed, as release.yml does when its COMMIT_DATE is not YYYY-MM-DD.
+            # For a commit whose committer line holds no parseable date, git show exits
+            # 0 and prints the placeholder itself, "%cs" (measured 2026-10-07 on Git for
+            # Windows and Linux). '%' sorts before every digit, so the comparison below
+            # was false and the lower bound was skipped while the Release workflow
+            # rejects the same commit.
+            block "The commit '${tag_name}' tags has no readable committer date (git show printed '${commit_date}'), so date-released's lower bound cannot be checked."
+            tag_fail=1
         elif [[ "$cff_date" < "$commit_date" ]]; then
             # A release cannot predate the code it ships. Without this bound the only
             # check was "not in the future", so a date left over from an earlier release
