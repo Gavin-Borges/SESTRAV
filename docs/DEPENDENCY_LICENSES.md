@@ -42,7 +42,7 @@
 | greenlet                              | 3.5.4       | MIT AND PSF-2.0                                                                                     |
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.168.1     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.168.3     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
@@ -325,7 +325,7 @@
 | typing-inspection                     | 0.4.2       | MIT                                                                                                 |
 | typing_extensions                     | 4.16.0      | PSF-2.0                                                                                             |
 | urllib3                               | 2.8.0       | MIT                                                                                                 |
-| uvicorn                               | 0.53.0      | BSD-3-Clause                                                                                        |
+| uvicorn                               | 0.54.0      | BSD-3-Clause                                                                                        |
 | wrapt                                 | 2.3.0       | BSD-2-Clause                                                                                        |
 | xgboost                               | 3.2.0       | Apache Software License                                                                             |
 | xxhash                                | 3.8.1       | BSD-2-Clause                                                                                        |
