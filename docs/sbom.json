@@ -162,7 +162,7 @@
   {
     "License": "MIT",
     "Name": "fastapi",
-    "Version": "0.141.1"
+    "Version": "0.142.2"
   },
   {
     "License": "BSD License",
@@ -388,6 +388,11 @@
     "License": "MIT License",
     "Name": "openpyxl",
     "Version": "3.1.5"
+  },
+  {
+    "License": "Apache-2.0",
+    "Name": "opentelemetry-api",
+    "Version": "1.45.1"
   },
   {
     "License": "Apache Software License; BSD License",
