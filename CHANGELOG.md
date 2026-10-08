@@ -340,20 +340,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   built it in one isolated environment whose setuptools came from the index unhashed
   (84.0.0 when measured, the lock's version, so the defect is the missing hash check, not
   the version served).
-  `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too:
-  it fails on a missing or late `set -e`, a `set +e` or `set +o errexit`, any `%post`
-  command inside an AND-OR list, a pipeline or a `;` list (operators inside quotes or a
-  `$(...)` substitution aside), a `pip install` of a shape the Dockerfile checks do not
-  permit (a hashed `--no-deps` lock install, the backend from a lock used as constraints,
-  or the package itself with `--no-deps --no-build-isolation`), the three installs missing
-  or out of order, a `pip install` outside `%post`, any installer the release workflow's
-  test already lists (`pipx`, `uvx`, `uv pip`, `uv tool`, `uv run`, `uv add`, `uv sync`,
-  `conda install`, `easy_install`, `pip wheel`, `pip download`) on any uncommented line,
-  and an installed file that `%files` does not copy to `/app`. 22 mutants of
-  `singularity.def` fail it, among them the apt lines re-joined with `&&` under `set -e`,
-  `pipx install` or `easy_install` in `%post`, and `|| true` after a `mkdir`. No CI job
-  builds the image, so this is checked by those tests and the simulation, not by an
-  Apptainer build.
+  `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too.
+  It fails on a missing or late `set -e`; a `set` that turns errexit off (`+o errexit`, or
+  a `+` flag group holding `e`, such as `+e`, `+eu` or `+ex`); and, outside quotes and
+  `$(...)` substitutions, a `%post` command inside an AND-OR list, a pipeline or a `;`
+  list, negated with `!`, run in the background with `&` (or `&>`, which dash reads as
+  one), run as an `if`, `elif`, `while` or `until` condition, or using `exit`, `return`,
+  `exec`, `trap` or `eval`. Under dash with `-e`, each of those but `;` can carry on past
+  a failing command or end `%post` at status 0 (`false; true` stops; `;` is refused so
+  that each command stands on its own line, where the tests read it). A failure hidden
+  inside quotes or `$(...)`, such as `sh -c "pip install x || true"` or
+  `export X="$(false)"`, is not caught. It also fails a `pip install` of a shape the
+  Dockerfile checks do not permit (a hashed `--no-deps` lock install, the backend from a
+  lock used as constraints, or the package itself with `--no-deps --no-build-isolation`),
+  the three installs missing or out of order, a `pip install` outside `%post`, any
+  installer the release workflow's test already lists (`pipx`, `uvx`, `uv pip`, `uv tool`,
+  `uv run`, `uv add`, `uv sync`, `conda install`, `easy_install`, `pip wheel`,
+  `pip download`) on any uncommented line, and an installed file that `%files` does not
+  copy to `/app`. 22 mutants of `singularity.def` fail it, among them the apt lines
+  re-joined with `&&` under `set -e`, `pipx install` or `easy_install` in `%post`, and
+  `|| true` after a `mkdir`. Review then found `set +eu`, `set +ex`, a `!` prefix, a
+  trailing `&` and an `exit 0` after `set -e` passing it (the errexit pattern needed a
+  word boundary right after the `e`, and nothing read the rest). 17 more mutants now fail
+  it, 16 of which passed it before: those five, `set -u +e`,
+  `set -o pipefail +o errexit`, `!` before the lock install, `( ! apt-get update )`,
+  `&>/dev/null`, `exit 0` at the end of `%post`, `return 0`, `exec true`,
+  `trap 'exit 0' EXIT`, `eval "apt-get update || true"` and a multi-line
+  `if apt-get update`; the seventeenth, `set +ue`, failed it already. No CI job builds the
+  image, so this is checked by those tests and the simulation, not by an Apptainer build.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
