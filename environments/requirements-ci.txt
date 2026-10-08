@@ -183,9 +183,9 @@ gitdb==4.0.12 \
     --hash=sha256:5ef71f855d191a3326fcfbc0d5da835f26b13fbcba60c32c21091c349ffdb571 \
     --hash=sha256:67073e15955400952c6565cc3e707c554a4eea2e428946f7a4c162fab9bd9bcf
     # via gitpython
-gitpython==3.1.62 \
-    --hash=sha256:1791de66309bc0c7cfca40bf8d2e3de7ca091cbf94e6051be1ad0722c61062af \
-    --hash=sha256:7002251225e10e29d2e1f49e6532613fe5d5d9f0b6f1f02997a52b38fe56899e
+gitpython==3.2.0 \
+    --hash=sha256:bd70c5ec05cd2b797423e7eb312147d2458d3cca92085888fba2213f85905537 \
+    --hash=sha256:fb92310af6844d96adc95ca066ed2e617c00e1dbd146a326626c81e72e18cc2e
     # via snakemake
 greenlet==3.5.1 \
     --hash=sha256:001775efe7b8e758861294c7a27c28af87f3f3f1c20468a2bc618c45b346c061 \
@@ -360,7 +360,7 @@ hypothesis==6.168.3 \
     --hash=sha256:f8122cfdd0bc0ba843063effa22ac310bdebdb3a1319bf1e63f14baa119c72ab \
     --hash=sha256:fd7f75a2e23288ee82ee965a952473d9c5447c2cbc1afc94be09d2402201774e \
     --hash=sha256:fd81241f4cd76fb18d481e87b9688b30a0cb5c30841730513323ba1c7aba1837
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 idna==3.16 \
     --hash=sha256:cc246e3a3f89580c3a951b5ad298ca4638078b2cdd4f115654332b5c26daded5 \
     --hash=sha256:d7a6da03db833450fca25d2358ac9ff06cd624577a4aea3a596d5c0f77b8e03d
@@ -710,7 +710,7 @@ pygments==2.20.0 \
 pytest==9.1.1 \
     --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
     --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
     --hash=sha256:0150219816b6a1fa26fb4699fb7daa9caf09eb1999f3b70fb6e786805e80375a \
@@ -930,7 +930,7 @@ smmap==5.0.3 \
 snakemake==9.27.0 \
     --hash=sha256:5e1bde6ef7c418f8b1734347bf143b05402419081bfe184715fe271cb1f26671 \
     --hash=sha256:cd80a66dda92d274af02244a0c861d7de8851402b23caadbcbcc101f4c04a0d6
-    # via -r environments/requirements-ci.in
+    # via -r requirements-ci.in
 snakemake-interface-common==1.23.0 \
     --hash=sha256:43bb10102d07149f27787dfc65a7342b86ff772973e7f9ca4940c89cb412a11e \
     --hash=sha256:6ed14531a461417659364a0dd0acc51b786af4e26fc15cc5e00ff3d9fcaffacc
@@ -1058,7 +1058,6 @@ typing-extensions==4.15.0 \
     # via
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
     #   typing-inspection
 typing-inspection==0.4.2 \
