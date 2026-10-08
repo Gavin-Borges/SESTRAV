@@ -117,18 +117,32 @@ jobs:
           # diff named as an argument instead, the pattern can match the PATH inside grep's own
           # message and report a leak that is only the scanner quoting itself. -a removes both:
           # every input is read as text, so no byte can swap the lines for a diagnostic.
+          #
+          # EVERY grep below needs -a, not only the first. The first one passes NUL-bearing
+          # and non-UTF-8 lines through unchanged, so each later grep reads the same bytes,
+          # and GNU grep 3.12 (what CI runs, LC_ALL=C.UTF-8) then prints NOTHING on stdout
+          # and 'binary file matches' on stderr. Measured through this step's own verdict,
+          # one user-profile and one /home leak in a .py file:
+          #
+          #   the pull request also...           -a on the first grep    -a on every grep
+          #   adds any binary file               PASSED                  blocked, 2 reported
+          #   has a Latin-1 byte on a leak line  blocked, 1 reported     blocked, 2 reported
+          #
+          # A NUL is not needed for the second row: grep treats an encoding error as binary
+          # too, so a single byte in the leaking line itself was enough.
           USER_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
-            | grep -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)' || true)
+            | grep -a -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
           # /Users/ forms above so an allowlisted /home/ token on the same line
           # cannot mask a real /Users/ leak.
           HOME_LEAKS=$(grep -a -E "^\+[^+]" diff.txt \
-            | grep -oE "/home/[A-Za-z0-9_.-]+" \
-            | grep -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
+            | grep -a -oE "/home/[A-Za-z0-9_.-]+" \
+            | grep -a -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
-          LEAKS=$(printf '%s\n%s' "$USER_LEAKS" "$HOME_LEAKS" | grep -E '.' || true)
+          # -a here too: USER_LEAKS holds whole added lines, so it can carry the same bytes.
+          LEAKS=$(printf '%s\n%s' "$USER_LEAKS" "$HOME_LEAKS" | grep -a -E '.' || true)
           if [ -n "$LEAKS" ]; then
             echo "$LEAKS"
             echo "::error::Absolute machine-specific paths detected in added lines! Please use relative paths."

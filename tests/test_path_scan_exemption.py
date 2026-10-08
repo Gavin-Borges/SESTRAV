@@ -231,20 +231,27 @@ def _path_ere() -> str:
 
 
 def _diff_scan_greps() -> list[str]:
-    """Every line in the workflow that greps diff.txt."""
-    return [
-        line.strip()
-        for line in WORKFLOW.read_text(encoding="utf-8").splitlines()
-        if "diff.txt" in line and line.strip().startswith(("USER_LEAKS=", "HOME_LEAKS="))
-    ]
+    """Every grep in the diff scan, from the first read of diff.txt to the LEAKS join.
+
+    Comment lines are dropped first, so a grep that is only quoted in prose is not counted.
+    """
+    block = _workflow_block("          USER_LEAKS=$(grep", '          if [ -n "$LEAKS" ]; then')
+    code = "\n".join(line for line in block.splitlines() if not line.lstrip().startswith("#"))
+    return re.findall(r"\bgrep\b[^|]*", code)
 
 
 def test_every_diff_scan_grep_reads_binary_as_text() -> None:
-    """-a on each grep of diff.txt, or one NUL in the diff silently empties the whole scan."""
+    """-a on EVERY grep of the scan, not only the two that read diff.txt itself.
+
+    The first grep passes NUL-bearing and non-UTF-8 lines through unchanged, so each later grep
+    reads the same bytes; without -a, GNU grep 3.12 prints nothing on stdout for them. An earlier
+    form of this test checked only the lines starting USER_LEAKS= and HOME_LEAKS=, which are the
+    first grep of each pipeline, and passed while the second grep of both dropped every leak in
+    any pull request that also added a binary file."""
     greps = _diff_scan_greps()
-    assert len(greps) == 2, f"expected the two leak scans over diff.txt, found {greps}"
-    for line in greps:
-        assert " -a " in line, f"this grep of diff.txt does not pass -a: {line}"
+    assert len(greps) == 6, f"expected 2 + 3 + 1 greps in the scan, found {len(greps)}: {greps}"
+    for grep in greps:
+        assert re.match(r"grep -a\b", grep), f"this grep in the diff scan does not pass -a: {grep}"
 
 
 def test_a_nul_byte_would_blank_the_added_line_scan_without_dash_a(tmp_path: Path) -> None:
@@ -288,6 +295,65 @@ def test_a_nul_byte_would_blank_the_added_line_scan_without_dash_a(tmp_path: Pat
 
     assert hits("") == 0, "premise: without -a the NUL hides the leak"
     assert hits("-a") == 1, "with -a the leak in the other file is still found"
+
+
+@pytest.mark.parametrize("carrier", ["a binary file beside the leak", "a Latin-1 byte on the leak line"])
+def test_the_shipped_diff_scan_reports_every_leak_despite_binary_bytes(
+    tmp_path: Path, carrier: str
+) -> None:
+    """The workflow's REAL diff scan, run on a pull request, must block AND name both leaks.
+
+    The test above restates the pipeline with `grep -c` as its last stage, and a count survives
+    binary input, so it could not see the second grep of each pipeline dropping its lines. This
+    one runs the step's own text, from PATHSPEC to the verdict. Both carriers were measured on
+    GNU grep 3.12 with -a on the first grep only: the first PASSED the pull request, the second
+    reported 1 of the 2 leaks. It asserts the leaks by CONTENT, because GNU grep 3.0 (Git Bash)
+    prints its 'Binary file (standard input) matches' notice on stdout, so a non-empty LEAKS
+    alone would pass there on the notice rather than on a path. The canaries are assembled at
+    runtime, so no literal workstation path sits in this file."""
+    import subprocess as sp
+
+    user_leak = "X:/" + "U" + "sers/fakeuser123/project"
+    home_leak = "/ho" + "me/fakeuser123"
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@example.com",
+             "-c", "user.name=T", "-c", "commit.gpgsign=false", *argv],
+            capture_output=True, text=True, check=False, env=GIT_ENV,
+        )
+
+    git("init", "-q")
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    base = git("rev-parse", "HEAD").stdout.strip()
+    assert base, "the fixture repo has no base commit"
+    git("update-ref", "refs/remotes/origin/main", base)
+
+    tail = b'\xe9"\n' if carrier.startswith("a Latin-1") else b'"\n'
+    (repo / "leak.py").write_bytes(
+        b'p = "' + user_leak.encode() + tail + b'q = "' + home_leak.encode() + b'/project' + tail
+    )
+    if carrier.startswith("a binary"):
+        (repo / "fig.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00")
+    git("add", "-A")
+    git("commit", "-q", "-m", "the pull request")
+
+    step = _workflow_block("          PATHSPEC=(", '          echo "Path check PASSED."')
+    result = sp.run(
+        ["bash", "-c", step],
+        cwd=repo,
+        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        check=False,
+    )
+    out = result.stdout.decode("utf-8", errors="replace")
+    assert result.returncode == 1, f"the scan did not block ({carrier}): {out!r}"
+    assert user_leak in out, f"the user-profile leak was not reported ({carrier}): {out!r}"
+    assert home_leak in out, f"the /home leak was not reported ({carrier}): {out!r}"
 
 
 def test_scan_blob_finds_a_path_hidden_inside_a_binary_blob(tmp_path: Path) -> None:
