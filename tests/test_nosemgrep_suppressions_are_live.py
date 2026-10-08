@@ -25,12 +25,14 @@ Lines are matched the way semgrep 1.178.0 matches them, measured against the
 semgrep-core that runs, not read from pysemgrep's semgrep/constants.py, which
 differs for the own-line form. It searches raw source lines, case-insensitively,
 for `nosem`, so `nosemgrep`, `NOSEMGREP` and `nosemantics` all qualify:
-- on a code line, after a space, anywhere on the line, a string literal
-  included, it silences that line; `#nosemgrep` with no space does not;
-- with no letter or digit before it, space or none, it silences the line BELOW,
-  so an own-line `#nosemgrep` above a call does silence the call.
-A comment-only line whose directive follows prose silences nothing, which is
-why the wrappers' explanatory comments do not count.
+- on the line where a finding starts, after a space, anywhere on the line, a
+  string literal included, it silences that finding; `#nosemgrep` with no space
+  does not;
+- with no ASCII letter or digit before it, space or none, it silences the line
+  BELOW, so an own-line `#nosemgrep` above a call does silence the call.
+A comment-only line whose directive follows ASCII prose silences nothing, which
+is why the wrappers' explanatory comments do not count. The detector counts a
+directive on any code line, a slight over-count in the safe direction.
 """
 
 from __future__ import annotations
@@ -56,8 +58,10 @@ LIVE_SUPPRESSIONS = {
 }
 
 # A rule-id suffix narrows a directive to the rules it names; it is counted anyway, the safe way.
-INLINE = re.compile(r" nosem", re.IGNORECASE)
-PREVIOUS_LINE = re.compile(r"^[^a-zA-Z0-9]*nosem", re.IGNORECASE)
+# Only the word is case-insensitive: a global re.IGNORECASE would also fold U+0130 and U+0131
+# into [a-zA-Z], and semgrep treats both as non-letters.
+INLINE = re.compile(r" (?i:nosem)")
+PREVIOUS_LINE = re.compile(r"^[^a-zA-Z0-9]*(?i:nosem)")
 
 _NOT_CODE = {
     tokenize.COMMENT,
@@ -108,7 +112,8 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
     for path in files:
         if path == SELF:
             continue
-        lines = _directive_lines((ROOT / path).read_text(encoding="utf-8"))
+        # Raw bytes: read_text() would turn a lone CR into a line break, which semgrep does not.
+        lines = _directive_lines((ROOT / path).read_bytes().decode("utf-8"))
         if lines:
             found[path] = lines
     unmeasured = {path: lines for path, lines in found.items() if path not in LIVE_SUPPRESSIONS}
@@ -146,6 +151,8 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
         ("#nosemgrep\nrun(cmd)\n", [1]),
         ("if x:\n    #\tNOSEM\n    run(cmd)\n", [2]),
         ("x = 1\n\x0c\nrun(cmd)  # nosem\n", [3]),
+        ("# " + chr(0x0130) + " nosem\nrun(cmd)\n", [1]),
+        ("run(cmd)\r# see nosem\n", [1]),
     ],
     ids=[
         "bare",
@@ -166,6 +173,8 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
         "own-line-without-a-space-silences-the-next",
         "own-line-after-a-tab-silences-the-next",
         "a-form-feed-does-not-shift-line-numbers",
+        "dotted-capital-i-is-not-a-letter-to-semgrep",
+        "a-lone-cr-does-not-split-the-line",
     ],
 )
 def test_the_detector_matches_what_semgrep_honours(source: str, expected: list[int]) -> None:
