@@ -30,10 +30,19 @@ tests make every image's install sequence a gate:
   from requirements.txt unnoticed;
 - each of those images installs its own lock and no other;
 - singularity.def's %post runs the Dockerfile's first three installs (bootstrap,
-  backend, lock), in that order, from files its %files section copies in, under
-  a `set -e` it sets itself and with no command inside an `a && b` list, a
-  pipeline or a `;` list, where a failure would not stop the build; and no
-  section of it runs pip install outside %post or any other installer.
+  backend, lock), in that order, from files its %files section copies in, and
+  opens with a `set -e` it sets itself; no section runs pip install outside
+  %post, and no uncommented line runs another installer;
+- no %post line has a `set` that turns errexit off (`+o errexit`, or a `+` flag
+  group holding e, such as `+e`, `+eu` or `+ex`), and, outside quotes and
+  `$(...)` substitutions, no %post command sits in an AND-OR list, a pipeline
+  or a `;` list, is negated with `!`, runs in the background (`&`, or `&>`,
+  which dash reads as one), runs as an `if`, `elif`, `while` or `until`
+  condition, or uses `exit`, `return`, `exec`, `trap` or `eval`. Under dash
+  with -e each of these but `;` can let the build carry on past a failing
+  command or end at status 0 (measured, dash 0.5.12; `false; true` stops).
+  Text inside quotes or `$(...)` is not read for them, so a failure hidden
+  there (`sh -c "pip install x || true"`, `export X="$(false)"`) is not caught.
 """
 
 from __future__ import annotations
@@ -300,12 +309,37 @@ def test_every_installed_lock_is_copied_into_the_image(dockerfile: str) -> None:
 # singularity.def builds the HPC image from the same production lock, in %post.
 SINGULARITY = "singularity.def"
 _SIF_APP = "/app/"
-# What could let %post carry on past a failed command: an AND-OR list (sh -e does
-# not apply to a command that fails before the last one of it), a pipeline (its
-# status is the last command's), or a `;` list.
-_COMPOUND = re.compile(r"&&|\|\||[;|]")
 _ERREXIT_ON = re.compile(r"set -[A-Za-z]*e[A-Za-z]*")
-_ERREXIT_OFF = re.compile(r"\bset\s+(?:\+[A-Za-z]*e|\+o\s+errexit)\b")
+# Every pattern from here to _ENDS_OR_HIDES matches a %post command that, under
+# dash (Debian's sh) with -e, carries on past a failing command or ends the
+# script at status 0 before a later `false` (each measured, dash 0.5.12), with
+# one exception, `;`, noted here.
+# An AND-OR list (sh -e does not apply to a command that fails before the last
+# one of it), a pipeline (its status is the last command's), or a `;` list.
+# `false; true` does stop under -e: `;` is refused so that every command stands
+# on its own line, where the checks below read it from its first word.
+_COMPOUND = re.compile(r"&&|\|\||[;|]")
+# `set` turning errexit off: `+o errexit`, or a `+` flag group holding e (`+e`,
+# `+eu`, `+ue`, `+ex`), wherever it sits among the other options. Not `-e`,
+# `-eu`, `+u`, `+o pipefail` or `set -- +e`, which sets $1.
+_ERREXIT_OFF = re.compile(
+    r"\bset(?:\s+(?:[-+]o\s+\w+|[-+][A-Za-z]*))*?\s+(?:\+[A-Za-z]*e[A-Za-z]*|\+o\s+errexit)(?!\S)"
+)
+# `!` in command position: sh -e ignores a negated command's status, so `! pip
+# install x` carries on whether pip fails or not. As an argument (`[ ! -e x ]`)
+# it negates nothing the shell checks.
+_NEGATED = re.compile(r"(?:^|[({]|\b(?:then|do|else)\b)\s*!(?!\S)")
+# A lone `&`: the command runs in the background, where nothing reads its status.
+# Under dash `cmd &>log` is `cmd &` then `>log`, so that counts. `&&`, `>&2`,
+# `2>&1` and `<&0` do not.
+_BACKGROUND = re.compile(r"(?<![<>&])&(?!&)")
+# A condition, whose status sh -e ignores (a multi-line `if pip install x` carries
+# on when pip fails), and words that end %post early or at status 0 (`exit 0`,
+# `return 0`, `exec true`, `trap 'exit 0' EXIT`) or run text these checks never
+# read (`eval`), matched as whole words anywhere: an innocent `echo exit` fails
+# too, which is the safe direction.
+_CONDITION = re.compile(r"(?<![\w./-])(?:if|elif|while|until)(?![\w./-])")
+_ENDS_OR_HIDES = re.compile(r"(?<![\w./-])(?:exit|return|exec|trap|eval)(?![\w./-])")
 # Every other way to fetch or build third-party code, which the `pip install`
 # checks below cannot see: pip wheel and pip download run an sdist's build
 # backend too. The same list as the release workflow's test.
@@ -388,20 +422,34 @@ def _top_level(command: str) -> str:
 
 
 def post_stop_problems(text: str) -> list[str]:
-    """Why %post could carry on past a failed command.
+    """Why %post could carry on past a failed command, or end early at status 0.
 
     Apptainer's user guide says the build halts if any command fails, and that
     %post runs under sh or bash, but names no shell flag, so the file sets -e
     itself, before anything else runs. And under sh -e a command that fails
     before the last one of an `a && b` list does not stop the script, so every
-    command has to stand on its own line, not only the installs.
+    command has to stand on its own line, not only the installs. The `set +e`
+    check reads the whole line, quotes included; every other check reads only
+    what `_top_level` leaves, so a failure hidden in a string another program
+    runs (`sh -c "pip install x || true"`) or in a `$(...)` substitution
+    (`export X="$(false)"`, which carries on under dash) is not found.
     """
     commands = singularity_post_commands(text)
     problems = []
     if not commands or not _ERREXIT_ON.fullmatch(commands[0]):
         problems.append(f"%post does not start with `set -e`: {commands[:1]}")
-    problems += [f"turns -e off: {c}" for c in commands if _ERREXIT_OFF.search(c)]
-    problems += [f"compound command: {c}" for c in commands if _COMPOUND.search(_top_level(c))]
+    checks = (
+        (_COMPOUND, "compound command"),
+        (_NEGATED, "negated with `!`"),
+        (_BACKGROUND, "runs in the background"),
+        (_CONDITION, "runs a condition, whose failure -e ignores"),
+        (_ENDS_OR_HIDES, "can end %post early or at status 0, or hide a command"),
+    )
+    for command in commands:
+        if _ERREXIT_OFF.search(command):
+            problems.append(f"turns -e off: {command}")
+        top = _top_level(command)
+        problems += [f"{why}: {command}" for pattern, why in checks if pattern.search(top)]
     return problems
 
 
@@ -440,6 +488,38 @@ def test_singularity_post_stops_at_the_first_failing_command() -> None:
         ('%post\n    set -e\n    echo "it\'s; fine"\n', True),
         ('%post\n    set -e\n    X="$(false)" && true\n', False),
         ('%post\n    set -e\n    echo "a" | tee log\n', False),
+        # Errexit off in any spelling, and what must not count as that.
+        ("%post\n    set -e\n    set +eu\n    pip install x\n", False),
+        ("%post\n    set -e\n    set +ex\n    pip install x\n", False),
+        ("%post\n    set -e\n    set +ue\n    pip install x\n", False),
+        ("%post\n    set -e\n    set -u +e\n    pip install x\n", False),
+        ("%post\n    set -e\n    set -o pipefail +o errexit\n    pip install x\n", False),
+        ("%post\n    set -e\n    set -eu\n    set +u\n    set +x\n    pip install x\n", True),
+        ("%post\n    set -e\n    set +o pipefail\n    set -- +e\n    pip install x\n", True),
+        # `!` in command position, alone or in a subshell; not as an argument or quoted.
+        ("%post\n    set -e\n    ! pip install x\n", False),
+        ("%post\n    set -e\n    ! apt-get update\n", False),
+        ("%post\n    set -e\n    ( ! pip install x )\n", False),
+        ("%post\n    set -e\n    [ ! -e /app/x ]\n    test ! -e /app/x\n", True),
+        ("%post\n    set -e\n    echo \"done!\"\n    echo '! x'\n", True),
+        # A background command; not `&&`, a redirection to a descriptor, or a quoted `&`.
+        ("%post\n    set -e\n    apt-get update &\n", False),
+        ("%post\n    set -e\n    pip install x &>/dev/null\n", False),
+        ("%post\n    set -e\n    pip install x >/dev/null 2>&1\n    echo x >&2\n", True),
+        ("%post\n    set -e\n    echo \"a & b\"\n    echo 'a & b'\n    echo a \\& b\n", True),
+        # A condition, or anything that ends %post early, wherever it sits.
+        ("%post\n    set -e\n    if pip install x\n    then\n        true\n    fi\n", False),
+        ("%post\n    set -e\n    while apt-get update\n    do\n        break\n    done\n", False),
+        ("%post\n    set -e\n    pip install x\n    exit 0\n", False),
+        ("%post\n    set -e\n    exit\n    pip install x\n", False),
+        ("%post\n    set -e\n    return 0\n", False),
+        ("%post\n    set -e\n    exec true\n", False),
+        ("%post\n    set -e\n    trap 'exit 0' EXIT\n", False),
+        ('%post\n    set -e\n    eval "pip install x || true"\n', False),
+        (
+            '%post\n    set -e\n    python -c "import sys; sys.exit(0)"\n    rm -f /tmp/exit.log\n',
+            True,
+        ),
     ],
 )
 def test_post_stop_problems_reads_post(post: str, stops: bool) -> None:
