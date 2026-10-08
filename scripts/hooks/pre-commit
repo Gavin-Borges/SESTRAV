@@ -327,11 +327,12 @@ fi
 # maintainer's username and directory layout). Reads staged content from the
 # index, like Gates 2 and 3.
 #
-# Covers all four workstation path forms (see the patterns below):
+# Covers these workstation path forms (see the patterns below):
 #   1. Windows drive-letter profile root, with either separator
 #   2. WSL drive mount under /mnt/<drive>
 #   3. macOS / bare POSIX profile root
 #   4. Linux home root, minus the CI/container accounts allowlisted below
+#   5. WSL's Windows-side UNC share, written with backslashes
 #
 # Two deliberate spelling choices keep this file clean under its own gates:
 #   - the profile-root directory name is written as "[U]sers", so these patterns
@@ -349,6 +350,14 @@ WORKSTATION_PATTERNS=(
   '(^|[^A-Za-z0-9_.-])/[U]sers/[A-Za-z0-9_.-]+'    # macOS / bare POSIX
   '(^|[^A-Za-z0-9_.-])/[A-Za-z]/[U]sers/[A-Za-z0-9_.-]+'  # Git Bash: /c/Users/<name>
   '/cygdrive/[a-z]/[U]sers/[A-Za-z0-9_.-]+'       # Cygwin mount
+  # WSL UNC share: two backslashes, wsl.localhost or wsl$, a distro, then a home
+  # directory or a drive mount's profile root. The forward-slash spelling of the
+  # same share was already caught, by the home and WSL-mount patterns; written
+  # with backslashes it reached none of them, and the hook exited 0 on all three
+  # shapes. '[\]+' also takes the doubled backslashes of an escaped string, as
+  # the drive-letter pattern does. No CI-account allowlist applies: this share
+  # exists only on a Windows workstation, so any name in it is that machine's.
+  '[\][\]+wsl([.]localhost|[$])[\]+[A-Za-z0-9_.-]+[\]+(home|mnt[\]+[a-z][\]+[U]sers)[\]+[A-Za-z0-9_.-]+'
 )
 HOME_PATTERN='/home/[A-Za-z0-9_.-]+'
 HOME_ALLOWLIST='/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])'

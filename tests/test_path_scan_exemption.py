@@ -356,6 +356,77 @@ def test_the_shipped_diff_scan_reports_every_leak_despite_binary_bytes(
     assert home_leak in out, f"the /home leak was not reported ({carrier}): {out!r}"
 
 
+def _wsl_unc_leaks() -> list[str]:
+    """WSL's Windows-side UNC share, one per branch of the path ERE's last alternative.
+
+    Assembled at runtime, like every canary in this file, and spelled with real backslashes, so
+    the YAML, bash single-quote and heredoc layers each have to carry the ERE's bracket
+    expressions intact for these to be found."""
+    bs = chr(92)
+    share = bs * 2 + "wsl"
+    home = "ho" + "me"
+    profile = "U" + "sers"
+    return [
+        f"{share}.localhost{bs}distro{bs}{home}{bs}fakeuser123{bs}project",
+        f"{share}${bs}distro{bs}{home}{bs}fakeuser123{bs}project",
+        f"{share}.localhost{bs}distro{bs}mnt{bs}c{bs}{profile}{bs}fakeuser123{bs}project",
+    ]
+
+
+def test_the_shipped_diff_scan_reports_a_backslash_wsl_unc_path(tmp_path: Path) -> None:
+    """The INLINE copy of the ERE, run as the step runs it on a pull request.
+
+    Measured before the fix: the step exited 0 and reported none of the three."""
+    import subprocess as sp
+
+    leaks = _wsl_unc_leaks()
+    repo = tmp_path / "r"
+    repo.mkdir()
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@example.com",
+             "-c", "user.name=T", "-c", "commit.gpgsign=false", *argv],
+            capture_output=True, text=True, check=False, env=GIT_ENV,
+        )
+
+    git("init", "-q")
+    (repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    base = git("rev-parse", "HEAD").stdout.strip()
+    assert base, "the fixture repo has no base commit"
+    git("update-ref", "refs/remotes/origin/main", base)
+    (repo / "leak.py").write_bytes(b"".join(b'p = r"' + leak.encode() + b'"\n' for leak in leaks))
+    git("add", "-A")
+    git("commit", "-q", "-m", "the pull request")
+
+    step = _workflow_block("          PATHSPEC=(", '          echo "Path check PASSED."')
+    result = sp.run(
+        ["bash", "-c", step],
+        cwd=repo,
+        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        check=False,
+    )
+    out = result.stdout.decode("utf-8", errors="replace")
+    assert result.returncode == 1, f"the scan did not block: {out!r}"
+    for leak in leaks:
+        assert leak in out, f"this WSL UNC leak was not reported: {leak!r} in {out!r}"
+
+
+def test_the_shipped_positive_control_detects_every_canary(tmp_path: Path) -> None:
+    """The HEREDOC copy, through the real scan_blob and the control's own canaries and count.
+
+    The control is the one place a bash quoting slip in a canary would surface, and before this
+    test it surfaced only on CI, as a failed job."""
+    block = _workflow_block('          WORK="$(mktemp -d)"', "          # A second control exercises")
+    script = block.replace('WORK="$(mktemp -d)"', 'WORK="$SCAN_WORK"', 1)
+    result = _bash(script, SCAN_WORK=str(tmp_path))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Positive control PASSED: 9/9 canary forms detected." in result.stdout, result.stdout
+
+
 def test_scan_blob_finds_a_path_hidden_inside_a_binary_blob(tmp_path: Path) -> None:
     """Drives the workflow's REAL scan_blob, so the -I to -a change is proved where it is used."""
     work = tmp_path / "work"
