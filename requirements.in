@@ -39,7 +39,7 @@ torch==2.13.0
 torch-geometric==2.7.0
 
 # API scaffolding
-fastapi==0.141.1
+fastapi==0.142.2
 uvicorn==0.54.0
 pydantic==2.13.5
 
