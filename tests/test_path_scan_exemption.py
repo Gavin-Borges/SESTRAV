@@ -554,6 +554,58 @@ def test_scan_blob_keeps_dash_capital_i_on_the_looser_home_pattern() -> None:
     assert " -I " in home_line and " -a " not in home_line, home_line
 
 
+def _published_ref_scan_greps() -> list[str]:
+    """Every grep in the workflow's scan_ref, comment lines dropped first."""
+    body = _workflow_function("scan_ref")
+    code = "\n".join(line for line in body.splitlines() if not line.lstrip().startswith("#"))
+    return re.findall(r"\bgrep\b[^|]*", code)
+
+
+def test_every_published_ref_scan_grep_reads_binary_as_text() -> None:
+    """-a on the grep of tracked file NAMES as well, not only on the greps of their content.
+
+    files.txt holds every tracked path byte for byte (ls-tree -z, quotePath off), so a name
+    carrying a non-UTF-8 byte reaches this grep raw, and grep treats an encoding error as binary.
+    The count pins the population, so a grep added to scan_ref later is checked too."""
+    greps = _published_ref_scan_greps()
+    assert len(greps) == 1, f"expected the one AI-footprint grep, found {len(greps)}: {greps}"
+    for grep in greps:
+        assert re.match(r"grep -a\b", grep), f"this grep in scan_ref does not pass -a: {grep}"
+
+
+@pytest.mark.parametrize(
+    "name", [b"scratch/a\xe9.md", b"scratch/b.md"], ids=["latin1-name", "ascii-control"]
+)
+def test_the_shipped_ai_path_check_reports_a_name_that_is_not_utf8(
+    tmp_path: Path, name: bytes
+) -> None:
+    """scan_ref's own lines, from files.bin to AI_HITS, on a ref whose ONLY flagged path is `name`.
+
+    files.bin is written as `git ls-tree -r -z --name-only` emits it, so no filesystem has to hold
+    a non-UTF-8 name. The ASCII control proves the harness reaches the real patterns. AI_HITS is
+    asserted by CONTENT: GNU grep 3.0 (Git Bash) puts its binary notice on stdout, which a
+    non-empty check would accept in place of the path."""
+    lines = _workflow_function("scan_ref").splitlines()
+    to_text = [line for line in lines if "files.bin" in line and "files.txt" in line]
+    ai_hits = [line for line in lines if line.lstrip().startswith("AI_HITS=")]
+    assert len(to_text) == 1 and len(ai_hits) == 1, (to_text, ai_hits)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "files.bin").write_bytes(name + b"\0seed.txt\0")
+    script = "\n".join([_workflow_scan_setup(), *to_text, *ai_hits, "printf '%s\\n' \"$AI_HITS\""])
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=ROOT,
+        env={**GIT_ENV, "SCAN_WORK": str(work), "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [name], (
+        f"AI_HITS must name exactly {name!r}: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+
+
 def _diff_constructions() -> list[str]:
     """Every line in the workflow that BUILDS diff.txt with git diff."""
     return [
