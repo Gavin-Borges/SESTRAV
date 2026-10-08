@@ -34,15 +34,18 @@ tests make every image's install sequence a gate:
   opens with a `set -e` it sets itself; no section runs pip install outside
   %post, and no uncommented line runs another installer;
 - no %post line has a `set` that turns errexit off (`+o errexit`, or a `+` flag
-  group holding e, such as `+e`, `+eu` or `+ex`), and, outside quotes and
-  `$(...)` substitutions, no %post command sits in an AND-OR list, a pipeline
-  or a `;` list, is negated with `!`, runs in the background (`&`, or `&>`,
-  which dash reads as one), runs as an `if`, `elif`, `while` or `until`
-  condition, or uses `exit`, `return`, `exec`, `trap` or `eval`. Under dash
-  with -e each of these but `;` can let the build carry on past a failing
-  command or end at status 0 (measured, dash 0.5.12; `false; true` stops).
-  Text inside quotes or `$(...)` is not read for them, so a failure hidden
-  there (`sh -c "pip install x || true"`, `export X="$(false)"`) is not caught.
+  group holding e, such as `+e`, `+eu` or `+ex`, read with the line's quotes and
+  backslashes removed), a `set` followed by a `$` expansion, a backtick or a
+  `<<`; and, outside quotes and `$(...)` substitutions, no %post command sits in
+  an AND-OR list, a pipeline or a `;` list, is negated with `!`, runs in the
+  background (`&`, or `&>`, which dash reads as one), runs as an `if`, `elif`,
+  `while` or `until` condition, uses `exit`, `return`, `exec`, `trap` or
+  `eval`, or runs a file with `.` or `source`. Each of these but `;` can let
+  the build carry on past a failing command or end at status 0: measured under
+  dash 0.5.12, where `false; true` stops, and, for `source`, which dash lacks,
+  under bash. Text inside quotes or `$(...)` is not read for the second group,
+  so a failure hidden there (`sh -c "pip install x || true"`,
+  `export X="$(false)"`) is not caught.
 """
 
 from __future__ import annotations
@@ -320,11 +323,24 @@ _ERREXIT_ON = re.compile(r"set -[A-Za-z]*e[A-Za-z]*")
 # on its own line, where the checks below read it from its first word.
 _COMPOUND = re.compile(r"&&|\|\||[;|]")
 # `set` turning errexit off: `+o errexit`, or a `+` flag group holding e (`+e`,
-# `+eu`, `+ue`, `+ex`), wherever it sits among the other options. Not `-e`,
-# `-eu`, `+u`, `+o pipefail` or `set -- +e`, which sets $1.
+# `+eu`, `+ue`, `+ex`), wherever it sits among the other options, read with the
+# line's quotes and backslashes removed (`set '+e'`, `set +o "errexit"` and
+# `set +\e` all turn it off). Not `-e`, `-eu`, `+u`, `+o pipefail` or
+# `set -- +e`, which sets $1.
 _ERREXIT_OFF = re.compile(
     r"\bset(?:\s+(?:[-+]o\s+\w+|[-+][A-Za-z]*))*?\s+(?:\+[A-Za-z]*e[A-Za-z]*|\+o\s+errexit)(?!\S)"
 )
+_QUOTING = re.compile(r"[\"'\\]")
+# A `set` whose options come from an expansion (`X=+e` then `set $X`), which the
+# pattern above cannot read.
+_SET_EXPANDS = re.compile(r"\bset\s.*\$")
+# Shell text these checks cannot read, refused anywhere in a command: a backtick
+# substitution (`echo \`false\`` carries on) and a here-document (`sh <<EOF` runs
+# its lines without -e).
+_UNREAD = re.compile(r"`|<<")
+# A file run in this shell with `.` or `source`, whose lines these checks never
+# see (a `set +e` in it turns errexit off here).
+_SOURCED = re.compile(r"(?:^|[({]|\b(?:then|do|else)\b)\s*(?:\.|source)(?=\s)")
 # `!` in command position: sh -e ignores a negated command's status, so `! pip
 # install x` carries on whether pip fails or not. As an argument (`[ ! -e x ]`)
 # it negates nothing the shell checks.
@@ -428,11 +444,12 @@ def post_stop_problems(text: str) -> list[str]:
     %post runs under sh or bash, but names no shell flag, so the file sets -e
     itself, before anything else runs. And under sh -e a command that fails
     before the last one of an `a && b` list does not stop the script, so every
-    command has to stand on its own line, not only the installs. The `set +e`
-    check reads the whole line, quotes included; every other check reads only
-    what `_top_level` leaves, so a failure hidden in a string another program
-    runs (`sh -c "pip install x || true"`) or in a `$(...)` substitution
-    (`export X="$(false)"`, which carries on under dash) is not found.
+    command has to stand on its own line, not only the installs. The `set`,
+    backtick and here-document checks read the whole line, quotes included;
+    every other check reads only what `_top_level` leaves, so a failure hidden
+    in a string another program runs (`sh -c "pip install x || true"`) or in a
+    `$(...)` substitution (`export X="$(false)"`, which carries on under dash)
+    is not found.
     """
     commands = singularity_post_commands(text)
     problems = []
@@ -444,10 +461,13 @@ def post_stop_problems(text: str) -> list[str]:
         (_BACKGROUND, "runs in the background"),
         (_CONDITION, "runs a condition, whose failure -e ignores"),
         (_ENDS_OR_HIDES, "can end %post early or at status 0, or hide a command"),
+        (_SOURCED, "runs a file these checks do not read"),
     )
     for command in commands:
-        if _ERREXIT_OFF.search(command):
-            problems.append(f"turns -e off: {command}")
+        if _ERREXIT_OFF.search(_QUOTING.sub("", command)) or _SET_EXPANDS.search(command):
+            problems.append(f"turns -e off, or may: {command}")
+        if _UNREAD.search(command):
+            problems.append(f"backtick or here-document: {command}")
         top = _top_level(command)
         problems += [f"{why}: {command}" for pattern, why in checks if pattern.search(top)]
     return problems
@@ -516,6 +536,18 @@ def test_singularity_post_stops_at_the_first_failing_command() -> None:
         ("%post\n    set -e\n    exec true\n", False),
         ("%post\n    set -e\n    trap 'exit 0' EXIT\n", False),
         ('%post\n    set -e\n    eval "pip install x || true"\n', False),
+        # Errexit off behind quotes, a backslash or an expansion.
+        ('%post\n    set -e\n    set +o "errexit"\n    pip install x\n', False),
+        ("%post\n    set -e\n    set '+e'\n    pip install x\n", False),
+        ("%post\n    set -e\n    set +\\e\n    pip install x\n", False),
+        ("%post\n    set -e\n    X=+e\n    set $X\n    pip install x\n", False),
+        ('%post\n    set -e\n    echo "set -e"\n    set -u\n    pip install x\n', True),
+        # Text these checks cannot read: a backtick, a here-document, a sourced file.
+        ("%post\n    set -e\n    echo `apt-get update`\n", False),
+        ("%post\n    set -e\n    sh <<'EOF'\n    apt-get update\n    true\n    EOF\n", False),
+        ("%post\n    set -e\n    . /app/setup.sh\n", False),
+        ("%post\n    set -e\n    source /app/setup.sh\n", False),
+        ("%post\n    set -e\n    pip install .\n    sh /app/setup.sh\n    ./setup.sh\n", True),
         (
             '%post\n    set -e\n    python -c "import sys; sys.exit(0)"\n    rm -f /tmp/exit.log\n',
             True,
