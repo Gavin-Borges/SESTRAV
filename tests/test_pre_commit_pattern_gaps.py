@@ -145,6 +145,22 @@ def test_cygwin_home_path_is_blocked(tmp_path: Path) -> None:
     _blocked(_staged(tmp_path, "see /" + _CYGWIN + "/c/" + _PROFILE + "/developer/private here"))
 
 
+_HOME = "ho" + "me"
+# WSL's Windows-side UNC share, one per branch of the hook's alternative: the wsl.localhost and
+# wsl$ host names, and a home directory or a drive mount's profile root. Measured before the
+# fix: the hook exited 0 on all three, and both workflow copies of the path ERE matched none.
+_WSL_UNC_LEAKS = [
+    "x \\\\wsl.localhost\\distro\\" + _HOME + "\\someone\\y",
+    "x \\\\wsl$\\distro\\" + _HOME + "\\someone\\y",
+    "x \\\\wsl.localhost\\distro\\mnt\\c\\" + _PROFILE + "\\someone\\y",
+]
+
+
+@pytest.mark.parametrize("payload", _WSL_UNC_LEAKS, ids=["localhost-home", "dollar-home", "mnt-profile"])
+def test_a_backslash_wsl_unc_path_is_blocked(tmp_path: Path, payload: str) -> None:
+    _blocked(_staged(tmp_path, payload))
+
+
 def test_a_url_path_carrying_the_profile_word_is_not_blocked(tmp_path: Path) -> None:
     """The new drive-letter-shaped alternative must not fire on an ordinary URL path."""
     _allowed(_staged(tmp_path, "see https://example.org/a/" + _PROFILE + "/b here"))
@@ -229,6 +245,9 @@ _CORPUS_POSITIVE = [
     "x /" + _PROFILE + "/someone/y",
     "x /c/" + _PROFILE + "/someone/y",
     "x /" + _CYGWIN + "/c/" + _PROFILE + "/someone/y",
+    *_WSL_UNC_LEAKS,
+    # The same share as it appears inside an escaped string literal, every backslash doubled.
+    _WSL_UNC_LEAKS[0].replace("\\", "\\\\"),
 ]
 _CORPUS_NEGATIVE = [
     "/home/runner/work/repo",
@@ -237,6 +256,10 @@ _CORPUS_NEGATIVE = [
     "models/v5/rf_oof_predictions.csv",
     "/usr/share/doc",
     "C:/Windows/Temp/x",
+    # A WSL share that names no user: the alternative is scoped to a home or a profile root.
+    "\\\\wsl.localhost\\distro\\etc\\hosts",
+    "\\\\wsl$\\distro",
+    "\\\\wsl.localhost\\distro\\mnt\\c\\Windows\\Temp",
 ]
 
 
@@ -268,5 +291,5 @@ def test_the_hook_and_both_workflow_copies_agree_on_one_corpus() -> None:
 def test_the_workflow_positive_control_counts_every_scanned_form() -> None:
     """The control asserts an exact hit count, so a new form without a new canary weakens it."""
     workflow = _WORKFLOW.read_text(encoding="utf-8")
-    assert "-ne 6 ]" in workflow, "the canary count no longer matches the six scanned forms"
-    assert "6/6 canary forms detected" in workflow
+    assert "-ne 9 ]" in workflow, "the canary count no longer matches the nine canary forms"
+    assert "9/9 canary forms detected" in workflow
