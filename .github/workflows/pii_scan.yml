@@ -361,7 +361,11 @@ jobs:
             git -c core.quotePath=false ls-tree -r -z --name-only "$REF" > "$WORK/files.bin"
             tr '\0' '\n' < "$WORK/files.bin" > "$WORK/files.txt"
 
-            AI_HITS=$(grep -E -f "$WORK/pat_ai.txt" "$WORK/files.txt" || true)
+            # -a because files.txt holds each tracked name byte for byte, and grep reads a
+            # single non-UTF-8 byte as binary. Measured without -a, GNU grep 3.12
+            # in a UTF-8 locale dropped that name from stdout ('binary file matches' on
+            # stderr), so a ref whose only AI-footprint path was such a name printed PASSED.
+            AI_HITS=$(grep -a -E -f "$WORK/pat_ai.txt" "$WORK/files.txt" || true)
             TRACKED=$(tr -cd '\0' < "$WORK/files.bin" | wc -c)
 
             SCANNED=0
