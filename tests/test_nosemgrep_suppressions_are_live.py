@@ -21,14 +21,16 @@ This test pins that population; it cannot run semgrep, so "live" is the
 measurement above. Before adding a suppression, measure it the same way, with
 and without `--disable-nosem`, and add the file here with the rule it silences.
 
-Lines are matched the way semgrep matches them, not the way a reader would:
-semgrep 1.178.0's NOSEM_INLINE_RE and NOSEM_PREVIOUS_LINE_RE (semgrep/constants.py)
-search raw source lines, case-insensitively, for a space followed by `nosem` or
-`nosemgrep`. So the short form, any casing, and the word inside a string literal
-on a code line all silence that line, while the form with no space after the
-hash does not. A line with no letter or digit before the directive silences the
-line BELOW it too. A comment-only line whose directive follows prose silences
-nothing, which is why the wrappers' explanatory comments do not count.
+Lines are matched the way semgrep 1.178.0 matches them, measured against the
+semgrep-core that runs, not read from pysemgrep's semgrep/constants.py, which
+differs for the own-line form. It searches raw source lines, case-insensitively,
+for `nosem`, so `nosemgrep`, `NOSEMGREP` and `nosemantics` all qualify:
+- on a code line, after a space, anywhere on the line, a string literal
+  included, it silences that line; `#nosemgrep` with no space does not;
+- with no letter or digit before it, space or none, it silences the line BELOW,
+  so an own-line `#nosemgrep` above a call does silence the call.
+A comment-only line whose directive follows prose silences nothing, which is
+why the wrappers' explanatory comments do not count.
 """
 
 from __future__ import annotations
@@ -53,9 +55,9 @@ LIVE_SUPPRESSIONS = {
     "scripts/run_prime_wrapper.py": "dangerous-subprocess-use-tainted-env-args",
 }
 
-# semgrep's two patterns without their optional rule-id suffix, which silences the line either way.
-INLINE = re.compile(r" nosem(?:grep)?", re.IGNORECASE)
-PREVIOUS_LINE = re.compile(r"^[^a-zA-Z0-9]* nosem(?:grep)?", re.IGNORECASE)
+# A rule-id suffix narrows a directive to the rules it names; it is counted anyway, the safe way.
+INLINE = re.compile(r" nosem", re.IGNORECASE)
+PREVIOUS_LINE = re.compile(r"^[^a-zA-Z0-9]*nosem", re.IGNORECASE)
 
 _NOT_CODE = {
     tokenize.COMMENT,
@@ -90,9 +92,11 @@ def _code_lines(source: str) -> set[int]:
 def _directive_lines(source: str) -> list[int]:
     """Lines on which semgrep would honour a suppression."""
     code = _code_lines(source)
+    # split("\n"), not splitlines(): splitlines() also breaks on form feeds and Unicode line
+    # separators, which tokenize and semgrep do not, so every later line number would drift.
     return [
         number
-        for number, line in enumerate(source.splitlines(), start=1)
+        for number, line in enumerate(source.split("\n"), start=1)
         if PREVIOUS_LINE.search(line) or (number in code and INLINE.search(line))
     ]
 
@@ -139,6 +143,9 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
         ("run(cmd)  #nosemgrep\n", []),
         ("# The bare inline `# nosemgrep` below is deliberate.\n", []),
         ("run(cmd)  # see nosemgrep_docs\n", [1]),
+        ("#nosemgrep\nrun(cmd)\n", [1]),
+        ("if x:\n    #\tNOSEM\n    run(cmd)\n", [2]),
+        ("x = 1\n\x0c\nrun(cmd)  # nosem\n", [3]),
     ],
     ids=[
         "bare",
@@ -153,9 +160,12 @@ def test_every_nosemgrep_is_a_measured_live_suppression() -> None:
         "inside-a-multi-line-string",
         "own-line-silences-the-next",
         "prose-that-starts-with-the-directive",
-        "no-space-after-the-hash-is-not-honoured",
+        "inline-without-a-space-is-not-honoured",
         "prose-after-words-silences-nothing",
         "mention-on-a-code-line-still-silences-it",
+        "own-line-without-a-space-silences-the-next",
+        "own-line-after-a-tab-silences-the-next",
+        "a-form-feed-does-not-shift-line-numbers",
     ],
 )
 def test_the_detector_matches_what_semgrep_honours(source: str, expected: list[int]) -> None:
