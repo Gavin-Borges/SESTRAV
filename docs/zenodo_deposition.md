@@ -70,8 +70,9 @@ EOF
 > remaining rows are flagged `is_quarantined = true` (virus with fewer than 50 rows or fewer than
 > 10 real tested negatives) and kept in the file for traceability. Positives are experimentally
 > annotated CD8+ T-cell epitopes drawn from IEDB T-cell assays and VDJdb; negatives include
-> central-tolerance "hard decoy" self-proteome peptides (MHC class I binders) that decouple
-> binding affinity from immunogenicity, plus a large IEDB tested-negative expansion. v5 extends
+> central-tolerance "hard decoy" self-proteome peptides selected as MHC class I strong binders
+> (MHCflurry presentation_score >= 0.5) and labeled negative, plus a large IEDB tested-negative
+> expansion. v5 extends
 > v4 (6,687 positives, 5,000 hard decoys, 3,012 other negatives) with 36,689 IEDB negatives and
 > 9,206 published-panel rows; 6,397 duplicate rows were dropped on merge and 1,331 label conflicts
 > were resolved by quality-weighted majority vote. Each record carries peptide, HLA allele, label,
