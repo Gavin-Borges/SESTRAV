@@ -154,7 +154,7 @@ peptide length, which acts as a critical mediating variable.
 | Legacy (`mode_30`) | 30 | 20 physicochemical + 10 binding (no length) | Historical comparator |
 | Legacy (`mode_21`) | 21 | Sequence-only physicochemical (binding excluded) | Historical comparator |
 | Expanded (`mode_50`) | 50 | 40 physicochemical + 10 binding | Extended evaluation |
-| Allele-aware (166) | 166 | Canonical + 136 HLA pocket pseudo-sequence features | Pan-allele modeling |
+| Allele-aware (166) | 166 | Legacy `mode_30` base + 136 HLA pocket pseudo-sequence features (no length) | Pan-allele modeling |
 
 **Class-imbalance and bias handling.** IEDB-derived data is taxonomically and length
 skewed (EBV and 9-mers dominate). `compute_sample_weights()` up-weights minority taxa and

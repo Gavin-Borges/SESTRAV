@@ -71,8 +71,8 @@ on:
 # pull request pending rather than passing. The doc-citation gates already
 # required on this repository (doc_commit_refs.yml, doc_line_citations.yml)
 # carry no paths: filter for that reason. Nor does any other workflow backing a
-# required context: the only paths: filter in the tree is at
-# dependency-lockfile-check.yml:27, on a workflow that is not required.
+# required context: the only paths: filter in the tree is the one in
+# dependency-lockfile-check.yml, on a workflow that is not required.
 # Deliberately not stating how many required contexts there are - that count has
 # already moved from five to seven, so quoting it would stale this comment.
 

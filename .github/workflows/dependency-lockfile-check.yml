@@ -4,10 +4,9 @@ name: Dependency Lockfile Freshness
 # lockfile (requirements*.txt / environments/requirements.lock) has drifted
 # from its .in source, or contains an entry with no --hash pin.
 #
-# Deliberately a plain `pull_request` trigger with no write permission - see
-# _local/notes/dependabot-relock-design-review-2026-07-27.md for why the
-# alternative (auto-regenerate and push the lockfile onto the PR branch) was
-# rejected: it needs pull_request_target/workflow_run to get a write token,
+# Deliberately a plain `pull_request` trigger with no write permission. The
+# alternative (auto-regenerate and push the lockfile onto the PR branch) needs
+# pull_request_target/workflow_run to get a write token,
 # which regresses OpenSSF Scorecard's Dangerous-Workflow check, and a
 # GITHUB_TOKEN-authored push does not re-trigger this repo's required status
 # checks, so the relocked commit would sit at head with none of the required
