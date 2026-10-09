@@ -95,8 +95,10 @@ updates:
       # #312 bumped it there and had to be closed for editing a tier-4 file.
       # Adding a name here is necessary and is NOT the fix: this list is keyed
       # by package name, so it can only ever be reactive, one name behind. The
-      # path-scoped guard in dependency-lockfile-check.yml is the actual
-      # protection.
+      # path-scoped step in dependency-lockfile-check.yml that fails any
+      # Dependabot PR editing environments/requirements-ci-render.txt is the
+      # structural fix, but it is advisory: that workflow is not a required
+      # context, so it turns such a PR red without blocking its merge.
       - dependency-name: "platformdirs"
       - dependency-name: "pyzmq"
       # The predicted next ones arrived on 2026-09-07, and there were three, not
@@ -235,8 +237,10 @@ updates:
       # #312 bumped it there and had to be closed for editing a tier-4 file.
       # Adding a name here is necessary and is NOT the fix: this list is keyed
       # by package name, so it can only ever be reactive, one name behind. The
-      # path-scoped guard in dependency-lockfile-check.yml is the actual
-      # protection.
+      # path-scoped step in dependency-lockfile-check.yml that fails any
+      # Dependabot PR editing environments/requirements-ci-render.txt is the
+      # structural fix, but it is advisory: that workflow is not a required
+      # context, so it turns such a PR red without blocking its merge.
       - dependency-name: "platformdirs"
       - dependency-name: "pyzmq"
       # The predicted next ones arrived on 2026-09-07, and there were three, not

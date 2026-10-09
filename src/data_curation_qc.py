@@ -25,6 +25,41 @@ from src.artifact_integrity import sha256_file
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+# Allele column names, most specific first, and the cell values that mean "no
+# allele recorded". Both mirror ALLELE_COL_PRIORITY and NULL_ALLELE_TOKENS in
+# scripts/data_qc_gate.py, so the strict --check-dataset gate below resolves the
+# same column and treats the same cells as missing as that QC gate does.
+# tests/test_data_curation_qc.py pins the two copies together.
+ALLELE_COL_PRIORITY = ("hla_allele", "allele", "mhc_allele")
+NULL_ALLELE_TOKENS = frozenset({"", "nan", "none", "null", "na", "n/a", "unknown", "-"})
+_MISSING_ALLELE_KEY = "<MISSING>"
+
+
+def resolve_allele_column(columns: pd.Index) -> str | None:
+    """Return the allele column to key duplicates on, or None when there is none.
+
+    Exact names only, compared case-insensitively after stripping whitespace,
+    taken in ALLELE_COL_PRIORITY order.
+    """
+    by_name = {str(c).lower().strip(): str(c) for c in columns}
+    for name in ALLELE_COL_PRIORITY:
+        if name in by_name:
+            return by_name[name]
+    return None
+
+
+def _allele_key(value: object) -> str:
+    """Normalise one allele cell into a grouping key.
+
+    NaN and every NULL_ALLELE_TOKENS sentinel map to one shared key rather than
+    to NaN: pandas groupby drops NaN keys by default, which would silently leave
+    every missing-allele row out of the conflict check.
+    """
+    if pd.isna(value):
+        return _MISSING_ALLELE_KEY
+    text = str(value).strip()
+    return _MISSING_ALLELE_KEY if text.lower() in NULL_ALLELE_TOKENS else text
+
 
 class IEDBDataCurator:
     """
@@ -200,12 +235,43 @@ if __name__ == "__main__":
                 )
 
             # 2. Strict Deduplication & Conflicts
-            if df.duplicated(subset=["peptide", "label"]).any():
-                raise ValueError("Dataset contains identical peptide-label duplicates.")
+            # An allele-aware corpus lists a peptide once per HLA allele it was
+            # assayed against, and its label can legitimately differ by allele,
+            # so there a duplicate or a conflict is the same (peptide, allele)
+            # pair appearing twice. A corpus with no allele column is still keyed
+            # on the peptide alone. Zero tolerance in both cases.
+            allele_col = resolve_allele_column(df.columns)
+            if allele_col is None:
+                logger.info("No allele column; duplicate and conflict checks key on peptide.")
+                if df.duplicated(subset=["peptide", "label"]).any():
+                    raise ValueError("Dataset contains identical peptide-label duplicates.")
 
-            label_counts = df.groupby("peptide")["label"].nunique()
-            if (label_counts > 1).any():
-                raise ValueError("Dataset contains conflicting labels for the same peptide.")
+                label_counts = df.groupby("peptide")["label"].nunique()
+                if (label_counts > 1).any():
+                    raise ValueError("Dataset contains conflicting labels for the same peptide.")
+            else:
+                logger.info(
+                    f"Duplicate and conflict checks key on peptide + allele column '{allele_col}'."
+                )
+                keyed = pd.DataFrame(
+                    {
+                        "peptide": df["peptide"],
+                        "allele": df[allele_col].map(_allele_key),
+                        "label": df["label"],
+                    }
+                )
+                if keyed.duplicated(subset=["peptide", "allele", "label"]).any():
+                    raise ValueError(
+                        "Dataset contains identical peptide-allele-label duplicates "
+                        f"(allele column '{allele_col}')."
+                    )
+
+                label_counts = keyed.groupby(["peptide", "allele"])["label"].nunique()
+                if (label_counts > 1).any():
+                    raise ValueError(
+                        "Dataset contains conflicting labels for the same peptide and allele "
+                        f"(allele column '{allele_col}')."
+                    )
 
             # 3. Class Imbalance
             pos_count = (df["label"] == 1).sum()

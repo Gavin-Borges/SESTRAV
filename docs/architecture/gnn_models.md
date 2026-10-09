@@ -159,7 +159,7 @@ returned Gate 1 FAIL at 0.6458 against >= 0.65, Gate 2 FAIL at 0.0234 against <=
 the absence of a scoreable frame. Its out-of-fold frame lives under gitignored
 `models/scratch/`, which is why the tracked artifact above is unchanged.
 
-## [PENDING]
+## Known architectural limitations
 - `max_len=11` is hard-coded in `GraphBuilder`; a future shift to MHC-II 15-mers
   will require architectural patches to both `build_chain_adj` and
   `sequence_to_node_features`.

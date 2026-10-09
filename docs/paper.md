@@ -713,8 +713,12 @@ EBV 0.790, HBV 0.708, SARS-CoV-2 0.699, HCV 0.575, HPV 0.561.
 The per-virus within-CV values above are computed against each virus's full negative set,
 which for several viruses is dominated by synthetic viral-proteome and allele-matched
 non-binding decoys rather than assay-confirmed negatives. Because these decoys are
-trivially separable by the MHCflurry-dominated feature set, within-CV AUC-ROC can be
-inflated for viruses with large decoy populations. To provide a decoy-free estimate of
+separable from the positive class under the mode-31 feature set, within-CV AUC-ROC can be
+inflated for viruses with large decoy populations. What makes them separable is not
+established here: the low-affinity explanation is empirically excluded
+(`docs/claims_register.md` D21), and Section 3.3 records a binding-matrix coverage
+asymmetry that is one candidate channel without settling the question. To provide a
+decoy-free estimate of
 within-virus discrimination, we recomputed each per-virus AUC-ROC restricting the negative
 class to real IEDB-tested negatives only (negative_origin in {tested_negative, iedb_api}),
 reported in Table 2b alongside the within-CV value and the count of real negatives.
@@ -852,7 +856,7 @@ binders because binding features dominate the 31-feature set, inverting the
 positive-to-negative rank ordering for HIV-1. This result is the clearest evidence in the
 v5 evaluation that binding-score features are insufficient for cross-virus immunogenicity
 discrimination when the non-immunogenic class consists of assay-characterized strong
-binders rather than binding-negative decoys.
+binders rather than allele_matched_nonbinder decoys.
 
 DENV has only 12 real IEDB-tested negatives after quarantine and allele_nb exclusion; the
 corrected AUC-ROC of 0.372 carries a wide confidence interval at this negative count and
@@ -938,7 +942,7 @@ quantitatively by evaluating the same model under three nested regimes that each
 one source of non-immunogenic signal (Table 3b, re-baselined 2026-08-10). Regime 1 is
 within-virus cross-validation scored against all negatives, real and decoy (mean AUC-ROC
 0.658). Regime 2 restricts the within-virus negatives to real IEDB assay-confirmed
-negatives, removing the trivially separable binding-negative decoys (mean 0.551). Regime 3
+negatives, removing the allele_matched_nonbinder decoys (mean 0.551). Regime 3
 is the corrected cross-virus LOO protocol, which additionally removes the target pathogen
 from training (mean 0.463, unaffected by this re-baseline - see Table 3). The decline is
 monotone for every pathogen. The regime 1 to regime 2 drop - the decoy-inflation term (mean
