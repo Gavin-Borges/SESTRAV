@@ -315,7 +315,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   since by the publish entry below: `publish` downloaded `dist-<tag>` by name with no
   digest check.
 - **The Singularity image builds connection-pool against a hash-checked setuptools, and its
-  `%post` stops at the first failing command.** `singularity.def` installed
+  `%post` opens with `set -e`.** `singularity.def` installed
   `environments/requirements.lock` in one `pip install --require-hashes`, so pip built the
   lock's sdist-only pin, connection-pool 0.0.3, in an isolated environment that resolves
   `setuptools>=40.8.0` from PyPI with no hash check: the gap the image and CI entries above
@@ -341,40 +341,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   built it in one isolated environment whose setuptools came from the index unhashed
   (84.0.0 when measured, the lock's version, so the defect is the missing hash check, not
   the version served).
-  `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too.
-  It fails on a missing or late `set -e`; a `set` that turns errexit off (`+o errexit`, or
-  a `+` flag group holding `e`, such as `+e`, `+eu` or `+ex`, read with the line's quotes
-  and backslashes removed), a `set` followed by a `$` expansion, a backtick or a `<<`
-  anywhere in a `%post` command; and, outside quotes and `$(...)` substitutions, a
-  `%post` command inside an AND-OR list, a pipeline or a `;` list, negated with `!`, run
-  in the background with `&` (or `&>`, which dash reads as one), run as an `if`, `elif`,
-  `while` or `until` condition, using `exit`, `return`, `exec`, `trap` or `eval`, or
-  running a file with `.` or `source`. Each of those but `;` can carry on past a failing
-  command or end `%post` at status 0, measured under dash with `-e` (and, for `source`,
-  which dash lacks, under bash); `false; true` stops, and `;` is refused so that each
-  command stands on its own line, where the tests read it. A failure hidden inside quotes
-  or `$(...)`, such as `sh -c "pip install x || true"` or `export X="$(false)"`, is not
-  caught. It also fails a `pip install` of a shape the
-  Dockerfile checks do not permit (a hashed `--no-deps` lock install, the backend from a
-  lock used as constraints, or the package itself with `--no-deps --no-build-isolation`),
+  `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too,
+  as a regression ratchet: it refuses the spellings listed here, the list is not exhaustive,
+  and nothing in it runs `%post` or builds the image. It fails on a missing or late `set -e`;
+  a `set` that turns errexit off (`+o errexit`, or a `+` flag group holding `e`, such as
+  `+e`, `+eu` or `+ex`, read with the line's quotes and backslashes removed), or a `set`
+  followed by a `$` expansion (`set $X`, `set${IFS}+e`); a backtick or a `<<` anywhere in a
+  `%post` command; and, outside quotes and `$(...)` substitutions, a `%post` command inside
+  an AND-OR list, a pipeline or a `;` list, negated with `!`, run in the background with `&`
+  (or `&>`, which dash reads as one), run as an `if`, `elif`, `while` or `until` condition,
+  the words `exit`, `return`, `exec`, `trap` or `eval`, or a `.` or `source` command. Those
+  words are also read with their quotes and backslashes removed, so `e\xit 0`, `tr\ap`,
+  `ex\ec`, `\. ./f`, `"." ./f` and `sour\ce ./f` count as the words themselves. Lines are
+  joined the way `sh` joins them: only a backslash that ends the line continues it, so a
+  blank line, trailing spaces or a comment line after a backslash do not hide the next
+  command, which is read on its own line. A command word that is a `$` expansion
+  (`P=pip` then `$P install x`) and a `#` comment that starts inside a command are refused
+  too, because these checks cannot read what the first runs or where a continuation
+  ends. The carry-on behaviour of the first group was measured under dash with `-e` (and,
+  for `source`, which dash lacks, under bash); `false; true` stops, and `;` is refused so
+  that each command stands on its own line, where the tests read it. A failure hidden inside
+  quotes or `$(...)`, such as `sh -c "pip install x || true"` or `export X="$(false)"`, is
+  not caught. It also fails a `pip install` of a shape the Dockerfile checks do not permit
+  (a hashed `--no-deps` lock install, the backend from a lock used as constraints, or the
+  package itself with `--no-deps --no-build-isolation`), including `python -mpip install`,
   the three installs missing or out of order, a `pip install` outside `%post`, any
   installer the release workflow's test already lists (`pipx`, `uvx`, `uv pip`, `uv tool`,
   `uv run`, `uv add`, `uv sync`, `conda install`, `easy_install`, `pip wheel`,
   `pip download`) on any uncommented line, and an installed file that `%files` does not
-  copy to `/app`. 22 mutants of `singularity.def` fail it, among them the apt lines
-  re-joined with `&&` under `set -e`, `pipx install` or `easy_install` in `%post`, and
-  `|| true` after a `mkdir`. Review then found `set +eu`, `set +ex`, a `!` prefix, a
-  trailing `&` and an `exit 0` after `set -e` passing it (the errexit pattern needed a
-  word boundary right after the `e`, and nothing read the rest). 17 more mutants now fail
-  it, 16 of which passed it before: those five, `set -u +e`,
-  `set -o pipefail +o errexit`, `!` before the lock install, `( ! apt-get update )`,
-  `&>/dev/null`, `exit 0` at the end of `%post`, `return 0`, `exec true`,
-  `trap 'exit 0' EXIT`, `eval "apt-get update || true"` and a multi-line
-  `if apt-get update`; the seventeenth, `set +ue`, failed it already. A second review
-  found `set +o "errexit"`, `set '+e'`, a backtick substitution and a here-document into
-  `sh` passing it; those four, `set +\e`, `set $X` after `X=+e`, and a file run with `.`
-  or `source`, 8 mutants, now fail it, and all 8 passed it before. No CI job builds the
-  image, so this is checked by those tests and the simulation, not by an Apptainer build.
+  copy to `/app`. The evidence is two tables: 72 inline `%post` cases, and 23 spellings
+  applied to the shipped `singularity.def`, each asserted to be refused. They include the
+  apt lines re-joined with `&&`, `set +eu` and `set '+e'`, a `!` prefix, a trailing `&`,
+  `exit 0`, `trap 'exit 0' EXIT`, a file run with `.` or `source`, and the spellings that
+  review found passing an earlier version of these checks. No CI job builds the image, so
+  this is checked by those tests and the simulation above, not by an Apptainer build.
 - **The PyPI publish job checks the distributions against the build job's digests
   before uploading them, and the tests fail each of the 40 ways to disarm a digest check
   in `release.yml` that they list.** `publish` downloads `dist-<tag>`, a second artifact
