@@ -169,18 +169,19 @@ formally declined on `bus_factor` / `two_person_review` grounds as of 2026-08-17
 Noted here because a reader of the enumeration above, without this paragraph, would
 conclude owner merges are human-reviewed. They are CI-reviewed.
 
-**It is satisfied automatically for two dependency bots as well.** The same workflow
+**It is satisfied automatically for one dependency bot as well.** The same workflow
 returns success, again before reading any review, when the pull request author's login
-is exactly one of the entries in its `TRUSTED_BOTS` list: `dependabot[bot]` and
-`renovate[bot]`. Its own comment rests that bypass on the CI suite enforcing
-correctness, so a bot pull request, like an owner one, is CI-reviewed rather than
-human-reviewed. For every
+is exactly the one entry in its `TRUSTED_BOTS` list, `dependabot[bot]`. Its own comment
+rests that bypass on the CI suite enforcing correctness, so a Dependabot pull request,
+like an owner one, is CI-reviewed rather than human-reviewed. Until 2026-10-09 the list
+also named Renovate's bot login, an author that has never opened a pull request here;
+that entry was removed. For every
 other author the check counts only each reviewer's latest non-comment review, and
 passes only on an `APPROVED` one from an account whose `author_association` is `OWNER`,
 `MEMBER` or `COLLABORATOR` and which is not the pull request author. A second required
 check has a wider exemption: `.github/workflows/dco.yml` exits 0 before checking any
 sign-off when the author's login ends in `[bot]`, so `check_dco` passes for any bot
-account, not only these two.
+account, not only Dependabot.
 
 **Corrected 2026-09-13.** The opening paragraph of this section read "its five required
 status checks" and enumerated five, omitting `Bandit Security Scan` and

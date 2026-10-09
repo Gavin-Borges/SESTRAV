@@ -3,7 +3,7 @@ name: PR Review Enforcement
 # Runs on every pull request targeting the main branch.
 # This workflow acts as the mandatory status check that the branch ruleset requires.
 # It enforces an approving human review for EXTERNAL contributors ONLY. Pull requests
-# from the repository owner (the sole maintainer) and from trusted dependency bots
+# from the repository owner (the sole maintainer) and from the trusted dependency bot
 # bypass the requirement - see the bypass branches below. It therefore does NOT
 # establish independent review for owner-authored changes, which are the large
 # majority of merges. SESTRAV is solo-maintained; the required CI checks, not a second
@@ -51,9 +51,12 @@ jobs:
               return;
             }
 
-            // Trusted bots (Dependabot, Renovate) cannot be assigned as reviewers and
-            // their PRs are gated by 15+ CI checks. Bypass the human-review requirement.
-            const TRUSTED_BOTS = ['dependabot[bot]', 'renovate[bot]'];
+            // Dependabot cannot be assigned as a reviewer and its PRs are gated by
+            // 15+ CI checks. Bypass the human-review requirement for it alone. The
+            // list also exempted renovate[bot] until 2026-10-09; this repository has
+            // no Renovate configuration and Renovate has never opened a pull request
+            // here, so that entry exempted an author that never appears here.
+            const TRUSTED_BOTS = ['dependabot[bot]'];
             if (TRUSTED_BOTS.includes(prAuthor)) {
               core.info(
                 `ℹ️ PR created by trusted dependency bot (${prAuthor}). ` +

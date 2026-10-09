@@ -17,6 +17,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # Keep the job token out of the checkout's git credential configuration.
+          # The only network call below is `git fetch origin "$BASE_REF"`, which
+          # this public repository serves without credentials.
+          # tests/test_workflow_checkouts_drop_credentials.py requires this on
+          # every checkout.
+          persist-credentials: false
 
       - name: Check Developer Certificate of Origin (DCO)
         env:
