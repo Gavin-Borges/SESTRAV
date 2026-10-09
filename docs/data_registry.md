@@ -59,16 +59,16 @@ accompanied by a `_provenance.json` sidecar next to the output artifact.
 |---|---|---|---|---|---|---|
 | Superseded | - | - | - | - | - | v4 was never built standalone; v5 (commit e6aafe2, 2026-07-04) is the active dataset |
 
-### Component artifact row counts (fill in after build)
+### Component artifact row counts
 
 | Script | Output | Rows | HLA alleles |
 |---|---|---|---|
-| `ingest_vdjdb.py` | `data/vdjdb_v4.csv` | - | - |
+| `ingest_vdjdb.py` | `data/vdjdb_v4.csv` | 1,081 | 35 |
 | `ingest_tsnadb.py` | `data/tsnadb_v4.csv` | 365,282 | multi-allele (all TSNAdb) |
 | `sample_tsnadb_cohort.py` | `data/tsnadb_crossdomain_cohort.csv` | 5,000 | canonical-10 |
 | `eval_tsnadb_crossdomain.py` | `results/tsnadb_crossdomain_benchmark.json` | 9,903 pool (4,998 pos / 4,905 neg) | canonical-10. Original metrics **retracted 2026-08-12** (D24-class; train-on-test leakage). **Regenerated honestly against v5 the same day: AUC-ROC 0.6503 / AUC-PR 0.6030. See AD-4.** |
-| `generate_hard_decoys.py` | `data/hard_decoys.csv` | - | - |
-| `build_dataset_v4.py` | `data/immunogenicity_dataset_v4.csv` | - | - |
+| `generate_hard_decoys.py` | `data/hard_decoys.csv` | 5,000 | canonical-10 |
+| `build_dataset_v4.py` | `data/immunogenicity_dataset_v4.csv` | 14,699 | 177 |
 
 ---
 
