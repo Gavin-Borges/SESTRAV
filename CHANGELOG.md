@@ -311,8 +311,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   place the gate in `verify`. The artifact is kept for one day, so re-running `verify`
   alone after that fails at the download; re-run the workflow. `release.yml` runs only on
   version tags, so no pull request exercises these jobs; the restructure was checked by
-  parsing the workflow and by those tests, not by a run. Not covered: `publish` still
-  downloads `dist-<tag>` by name with no digest check.
+  parsing the workflow and by those tests, not by a run. Not covered here, and closed
+  since by the publish entry below: `publish` downloaded `dist-<tag>` by name with no
+  digest check.
 - **The Singularity image builds connection-pool against a hash-checked setuptools, and its
   `%post` opens with `set -e`.** `singularity.def` installed
   `environments/requirements.lock` in one `pip install --require-hashes`, so pip built the
@@ -374,6 +375,67 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `exit 0`, `trap 'exit 0' EXIT`, a file run with `.` or `source`, and the spellings that
   review found passing an earlier version of these checks. No CI job builds the image, so
   this is checked by those tests and the simulation above, not by an Apptainer build.
+- **The PyPI publish job checks the distributions against the build job's digests
+  before uploading them, and the tests refuse 64 listed spellings that disarm such a
+  check.** `publish` downloads `dist-<tag>`, a second artifact
+  that the `release` job uploads, by name, and handed it straight to
+  `pypa/gh-action-pypi-publish`, so the digest check that the pre-publish-gate entry
+  above added to `release` did not cover what reaches PyPI. `publish` now also needs
+  `build` and, after the download, checks the sdist and wheel against the `dist/` lines
+  of the digests `build` recorded, and that no file was added, before the upload step;
+  `docs/releasing.md` lists the step. Exercised on Linux under `bash -e` and
+  `-eo pipefail`, with both GNU coreutils 9.7 and uutils 0.8.0: an intact download
+  passes, and a tampered wheel, an extra file, a missing sdist, an empty digest list and
+  a digest list with no `dist/` lines each fail it.
+  `tests/test_release_workflow_oidc_install_isolation.py` now requires `publish` to need
+  `build` and `release`, and reads both checks, `release`'s existing one and the new one,
+  through one helper, `digest_check_problems`. It is a regression ratchet: it refuses the
+  spellings listed below, the list is not exhaustive, no other disarming is shown to be
+  refused, and nothing in it runs the workflow. The helper refuses a check whose
+  `EXPECTED` is not `needs.build.outputs.artifact-sha256`; that can be skipped or ignored
+  (`if:`, `continue-on-error`), or that guards a step that can (`if: always()` there runs
+  the attestation or the upload after a failed check); that sets its own
+  `working-directory` or any `env` but `EXPECTED`; that runs under a job or workflow `env`
+  (which could set `BASH_ENV`, `PATH` or `RUNNER_TEMP`) or any
+  `defaults.run.working-directory`; that sets a `shell:` key (on the check, or in a job's
+  or the workflow's `defaults.run`) other than exactly `bash -e {0}` or
+  `bash --noprofile --norc -eo pipefail {0}`, the two spellings GitHub documents for
+  errexit on (`release.yml` sets none); that sits in a job with `continue-on-error`,
+  `container`, `services` or `strategy` (neither job sets one); whose guarded step has a
+  `with:` other than the workflow's own (the attestation's `subject-path`, and no input for
+  the PyPI upload); that is not the step immediately before the step it guards; whose
+  script expands anything but `$EXPECTED` and `$RUNNER_TEMP` outside single quotes (no
+  other `$`, no backtick); or whose script holds any line but these, each a plain
+  pipeline (so no `exit`, `set +e`, `set +o errexit`, `trap`, `||` or `;`, with `#` read
+  as an ordinary character, not a comment) that writes, if at all, only to
+  `"$RUNNER_TEMP/<name>"` with a plain file name (no `/`, so no `..`): `test -n "$EXPECTED"`
+  or `test -s` of such a file, and no other `test`; `sha256sum --check --strict -` fed by
+  exactly `printf '%s\n' "$EXPECTED"`, with no stage between (`release`), or
+  `sha256sum --check --strict` alone, on a file made from `EXPECTED`'s lines and not
+  rewritten since (`publish`); the names of every digest that check read, made by
+  `awk '{print $2}' | sort` with nothing filtered out; `find` of exactly the directories
+  the job downloads into (`dist` and `dist_release_bundle` in `release`, `dist` in
+  `publish`) and then `-type f`, with no glob and no further path, `| sort`; and, last, a
+  `diff` of those two lists. `grep` may only filter with the one `-E` pattern `publish`
+  uses, `awk` may only run `{print $2}`, `sort` takes no argument, and `diff` takes no
+  option. Lines are joined as `sh` joins them, only where a backslash is the last
+  character of the line, so a blank line or spaces after a backslash start a new command.
+  A symlink planted in `$RUNNER_TEMP` is out of scope: no allowed command makes one. The
+  test file lists 64 distinct spellings, 55 applied to both jobs and 9 to one job alone
+  (119 cases), and each case is shown to be refused. Reviews found spellings that passed
+  earlier versions of the helper, among them a `grep -v` between `printf` and `sha256sum`,
+  `diff -I.`, a `sort -o` into `dist/` after the `diff`, a `#` that `shlex` read as a
+  comment while bash does not, a write through `"$RUNNER_TEMP/../"`, `BASH_ENV` in an `env`,
+  a backslash and a blank line before `e''xit 0`, `bash -e +e {0}` as a `shell:`, a `find`
+  narrowed to globs beside a decoy `test -n "find dist -type f"`, and a `with:` pointed
+  elsewhere on the guarded step; each is a case now. Before the first version of the
+  helper, inserting `exit 0` or `set +o errexit` ahead of the `release` check's first
+  command left its tests passing; both are cases now. Not covered: the other steps of
+  these jobs, the download steps' own `with:`, and the pip-install scan of the `build`
+  job, which still joins a backslash followed by spaces to the next line. A job that sets
+  `id-token: write` in its own `permissions:` and downloads an artifact must be one the
+  helper reads; a token inherited from workflow-level `permissions:` is not looked for.
+  `release.yml` runs only on version tags, so no pull request runs these jobs.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit

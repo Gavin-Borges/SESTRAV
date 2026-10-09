@@ -195,7 +195,8 @@ Trusted Publishers** - no API token or GitHub secret is required.
 After the `build` job (build and package-data checks), the `verify` job (the pre-publish
 install-and-import gate) and the `release` job (artifact digest check, attest ->
 GitHub Release) complete, the `publish` job is triggered, pauses for reviewer
-approval, then runs
+approval, checks the sdist and wheel it downloads against the `build` job's digests,
+then runs
 `pypa/gh-action-pypi-publish` which exchanges a short-lived GitHub OIDC token for
 a PyPI upload credential automatically. No static credentials are involved.
 
