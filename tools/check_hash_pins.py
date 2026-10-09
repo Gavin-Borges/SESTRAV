@@ -10,9 +10,14 @@ no `--hash=` attached.
 It also rejects requirement-file options that add or swap a package source, or
 exempt a host from TLS verification: `--extra-index-url`, `--trusted-host`,
 `--find-links` / `-f`, and `--index-url` / `-i` naming anything but PyPI's default
-index. Hashes would still refuse a substituted artifact, but these manifests are
-compiled against PyPI, so such a line means the file no longer describes how it was
-built. Until 2026-10-09 every option line was skipped silently.
+index. Hashes would still refuse a substituted artifact, but these manifests take
+their index from the install command, never from the file: the CPU torch lock is
+installed with `--index-url https://download.pytorch.org/whl/cpu` on the command
+line. Options are read the way pip reads them (its line joining, comment rule,
+option/argument split and optparse table, abbreviations included), so a spelling
+pip honours cannot slip past. `-r` / `-c` includes are not followed; no
+hash-pinned manifest uses one. Until 2026-10-09 every option line was skipped
+silently.
 
 Usage:
     python tools/check_hash_pins.py               # check the default manifests
@@ -22,9 +27,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import optparse
 import pathlib
+import re
+import shlex
 import sys
 from dataclasses import dataclass
+from typing import NoReturn
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -48,13 +57,14 @@ DEFAULT_TARGETS: tuple[str, ...] = (
 )
 
 
-# Options that change where packages come from. `--index-url` / `-i` pointing at
-# PyPI's own default index is allowed, so an explicitly PyPI-pinned compile step
-# cannot fail this gate.
-INDEX_OPTIONS = frozenset(
-    {"--index-url", "-i", "--extra-index-url", "--trusted-host", "--find-links", "-f"}
-)
+# `--index-url` / `-i` pointing at PyPI's own default index is allowed, so an
+# explicitly PyPI-pinned compile step cannot fail this gate. Compared verbatim, as
+# pip does not normalise it either.
 PYPI_DEFAULT_INDEX = frozenset({"https://pypi.org/simple", "https://pypi.org/simple/"})
+
+# pip's requirement-file comment rule: `#` opens a comment only at the start of a
+# line or after whitespace, so `https://host/simple#frag` keeps its fragment.
+_PIP_COMMENT_RE = re.compile(r"(^|\s+)#.*$")
 
 
 @dataclass(frozen=True)
@@ -112,25 +122,107 @@ def iter_requirements(text: str) -> list[tuple[int, str]]:
     return [(number, req) for number, req in _logical_lines(text) if not req.startswith("-")]
 
 
-def _option_name_and_value(line: str) -> tuple[str, str]:
-    """Split `--opt value`, `--opt=value` or `-o value` into (name, value)."""
-    head, _, rest = line.partition(" ")
-    if head.startswith("--") and "=" in head:
-        name, _, value = head.partition("=")
-        return name, (value or rest).strip()
-    return head, rest.strip()
+class _OptionError(Exception):
+    pass
+
+
+class _RequirementFileOptionParser(optparse.OptionParser):
+    def error(self, msg: str) -> NoReturn:  # optparse's default calls sys.exit
+        raise _OptionError(msg)
+
+
+def _option_parser() -> optparse.OptionParser:
+    """Every option pip accepts in a requirement file, with pip's flags and arity.
+
+    Transcribed from pip 26.2.1's `req_file.SUPPORTED_OPTIONS` plus
+    `SUPPORTED_OPTIONS_REQ`. optparse resolves an unambiguous abbreviation such as
+    `--extra=URL` exactly as pip's parser does. No list default is shared: an
+    `append` option starts at None on every parse. tests/test_dependency_tooling.py
+    compares this table's verdicts with pip's own parser.
+    """
+    parser = _RequirementFileOptionParser(add_help_option=False, usage=optparse.SUPPRESS_USAGE)
+    parser.add_option("-i", "--index-url", "--pypi-url", dest="index_url")
+    parser.add_option("--extra-index-url", dest="extra_index_urls", action="append")
+    parser.add_option("--no-index", action="store_true")
+    parser.add_option("-c", "--constraint", action="append")
+    parser.add_option("-r", "--requirement", action="append")
+    parser.add_option("-e", "--editable", action="append")
+    parser.add_option("-f", "--find-links", dest="find_links", action="append")
+    parser.add_option("--no-binary", action="append")
+    parser.add_option("--only-binary", action="append")
+    parser.add_option("--prefer-binary", action="store_true")
+    parser.add_option("--require-hashes", action="store_true")
+    parser.add_option("--no-require-hashes", action="store_true")
+    parser.add_option("--pre", action="store_true")
+    parser.add_option("--all-releases", action="append")
+    parser.add_option("--only-final", action="append")
+    parser.add_option("--trusted-host", dest="trusted_hosts", action="append")
+    parser.add_option("--use-feature", action="append")
+    parser.add_option("--hash", action="append")
+    parser.add_option("-C", "--config-settings", action="append")
+    return parser
+
+
+def _pip_logical_lines(text: str) -> list[tuple[int, str]]:
+    """pip's `join_lines` then `ignore_comments`, so a line reads as pip reads it."""
+    joined: list[tuple[int, str]] = []
+    primary = 0
+    pending: list[str] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.endswith("\\") or _PIP_COMMENT_RE.match(line):
+            if _PIP_COMMENT_RE.match(line):
+                line = " " + line
+            if pending:
+                pending.append(line)
+                joined.append((primary, "".join(pending)))
+                pending = []
+            else:
+                joined.append((number, line))
+        else:
+            if not pending:
+                primary = number
+            pending.append(line.strip("\\"))
+    if pending:
+        joined.append((primary, "".join(pending)))
+    stripped = ((number, _PIP_COMMENT_RE.sub("", line).strip()) for number, line in joined)
+    return [(number, line) for number, line in stripped if line]
+
+
+def _options_part(line: str) -> str:
+    """pip's `break_args_options`: the options start at the first token led by `-`."""
+    tokens = line.split(" ")
+    for index, token in enumerate(tokens):
+        if token.startswith("-"):
+            return " ".join(tokens[index:])
+    return ""
 
 
 def iter_index_options(text: str) -> list[tuple[int, str]]:
-    """Yield (1-based start line, joined line) for every option that changes the package source."""
+    """Yield (1-based start line, line) for every option that changes the package source.
+
+    A line whose options pip itself could not parse is reported too, marked as such:
+    failing closed is the safe direction for a supply-chain gate.
+    """
+    parser = _option_parser()
     found: list[tuple[int, str]] = []
-    for number, line in _logical_lines(text):
-        name, value = _option_name_and_value(line)
-        if name not in INDEX_OPTIONS:
+    for number, line in _pip_logical_lines(text):
+        options = _options_part(line)
+        if not options:
             continue
-        if name in ("--index-url", "-i") and value in PYPI_DEFAULT_INDEX:
+        shown = " ".join(line.split())  # pip joins continuations without a separator
+        try:
+            values, _args = parser.parse_args(shlex.split(options))
+        except (_OptionError, ValueError) as error:
+            found.append((number, f"{shown}  [unparseable options: {error}]"))
             continue
-        found.append((number, line))
+        index_url = values.index_url
+        if (
+            (index_url is not None and index_url not in PYPI_DEFAULT_INDEX)
+            or values.extra_index_urls
+            or values.find_links
+            or values.trusted_hosts
+        ):
+            found.append((number, shown))
     return found
 
 
@@ -200,7 +292,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {violation.path}:{violation.line}: {violation.text}", file=sys.stderr)
     if redirects:
         print(
-            "ERROR: index-redirecting options found (these manifests are compiled against PyPI):",
+            "ERROR: index-redirecting options found (a hash-pinned manifest never chooses its own"
+            " index; pass one on the install command, as the CPU torch lock's installs do):",
             file=sys.stderr,
         )
         for violation in redirects:
@@ -208,7 +301,10 @@ def main(argv: list[str] | None = None) -> int:
     if violations or redirects:
         return 1
 
-    print(f"All requirements hash-pinned across {len(paths)} manifest(s), with no index-redirecting options.")
+    print(
+        f"All requirements hash-pinned across {len(paths)} manifest(s), "
+        "with no index-redirecting options."
+    )
     return 0
 
 

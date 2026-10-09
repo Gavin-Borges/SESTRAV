@@ -576,6 +576,78 @@ def test_pypi_default_and_non_index_options_are_allowed(tmp_path, monkeypatch, l
     assert check_hash_pins.check_index_options(path) == []
 
 
+# Spellings pip 26.2.1's own requirement-file parser honours. The first version of
+# this gate split each line on its first space and missed every one of these.
+PIP_HONOURED_REDIRECTS = [
+    "--index-url\thttps://mirror.example/simple",
+    "-ihttps://mirror.example/simple",
+    "-f./wheels",
+    "-fhttps://mirror.example/wheels",
+    "--extra-index=https://mirror.example/simple",
+    "--extra https://mirror.example/simple",
+    "--index=https://mirror.example/simple",
+    "--find=./wheels",
+    "--trusted mirror.example",
+    "--pre --extra-index-url https://mirror.example/simple",
+    "--index-url=https://pypi.org/simple --extra-index-url https://mirror.example/simple",
+    "--index-url=https://pypi.org/simple --trusted-host mirror.example",
+    "--only-binary :all: --find-links ./wheels",
+    "--no-index --find-links ./wheels",
+    "--index-url https://pypi.org/simple#fragment",
+    "--pypi-url https://mirror.example/simple",
+]
+
+PIP_HONOURED_ALLOWED = [
+    "--index-url https://pypi.org/simple  # PyPI",
+    "--index-url=https://pypi.org/simple/",
+    "--pre --only-binary :all:",
+    "numpy==2.4.6 --hash=sha256:aaa --hash=sha256:bbb",
+    'colorama==0.4.6 ; sys_platform == "win32" --hash=sha256:aaa',
+    "--require-hashes",
+]
+
+
+@pytest.mark.parametrize("line", PIP_HONOURED_REDIRECTS)
+def test_every_spelling_pip_honours_is_caught(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(line + "\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_index_options(path)] == [1]
+
+
+@pytest.mark.parametrize("line", PIP_HONOURED_ALLOWED)
+def test_pip_honoured_allowed_spellings_pass(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(line + "\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.check_index_options(path) == []
+
+
+def test_a_line_pip_cannot_parse_fails_closed(tmp_path, monkeypatch):
+    path = tmp_path / "requirements.txt"
+    path.write_text("--no-such-option x\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    [violation] = check_hash_pins.check_index_options(path)
+    assert "unparseable options" in violation.text
+
+
+def test_verdicts_match_pips_own_parser():
+    # The gate stays dependency-free, so it transcribes pip's parsing rather than
+    # importing it. This holds the transcription to the real thing wherever pip's
+    # internals are importable.
+    req_file = pytest.importorskip("pip._internal.req.req_file")
+    parse_line = req_file.get_line_parser(None)
+    for line in PIP_HONOURED_REDIRECTS + PIP_HONOURED_ALLOWED:
+        _args, values = parse_line(req_file.COMMENT_RE.sub("", line).strip())
+        pip_redirects = bool(
+            (values.index_url and values.index_url not in check_hash_pins.PYPI_DEFAULT_INDEX)
+            or values.extra_index_urls
+            or values.find_links
+            or values.trusted_hosts
+        )
+        assert bool(check_hash_pins.iter_index_options(line)) is pip_redirects, line
+
+
 def test_index_option_split_by_a_continuation_is_still_caught(tmp_path, monkeypatch):
     path = tmp_path / "requirements.txt"
     path.write_text("--extra-index-url \\\n    https://mirror.example/simple\n", encoding="utf-8")
