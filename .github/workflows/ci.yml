@@ -66,7 +66,8 @@ jobs:
         # functions/ was never type-checked. It is clean under these flags
         # (mypy 2.3.1: 0 errors in 65 source files for src/ and functions/
         # together, measured 2026-09-26 at 26a36521 and again 2026-10-07 at
-        # 1852983f), so it joins src/ here.
+        # 1852983f; mypy 2.4.0: the same, measured 2026-10-09 at 7669c9ca),
+        # so it joins src/ here.
         run: mypy src/ functions/ --ignore-missing-imports --no-error-summary
 
       - name: Strict-typing ratchet
