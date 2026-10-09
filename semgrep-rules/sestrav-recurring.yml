@@ -18,9 +18,10 @@ rules:
     pattern-regex: >-
       (?m)^(?!\s*#)[^\n]*(?:pytest|ruff|mypy|bandit|semgrep|pip-audit|[A-Za-z0-9_./-]*gate\.py)[^\n|]*(?<!\|)\|(?!\|)[^\n]+
 
-  # Matches a shell-string `git [-C dir] ls-files|grep ...` and a one-line Python list
-  # such as ["git", "-C", str(ROOT), "ls-files", "--", "a/**/b"]. A list split across
-  # lines is not matched.
+  # Matches a shell-string `git [-C dir] ls-files|grep ...` and a Python list such as
+  # ["git", "-C", str(ROOT), "ls-files", "--", "a/**/b"], but only when `git`, the
+  # subcommand and the pathspec share one line. Known false positive: a `git grep`
+  # PATTERN containing `**` (not a pathspec) is flagged too.
   - id: sestrav-require-git-glob-pathspec
     message: "Git's default pathspec gives ** no meaning and lets * cross '/', so 'dir/**/x' misses direct children; prefix :(glob)."
     languages: [generic]
