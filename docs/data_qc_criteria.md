@@ -62,9 +62,28 @@ CSV without changing any label and the quality-weighted majority vote that
 `scripts/build_dataset_v4.py` applies to the same key runs only in the v4 build. Measured on
 the shipped corpus against the tracked `data/iedb_negatives_v5_merged.csv`, 1,367 rows carry
 label=1 on a pair that also appears as an IEDB tested negative, 1,271 of them inside the
-active non-quarantined pool, and the class is two-part rather than flat: 948 pairs (853
-active) have at least one T-cell-functional negative readout, while 419 pairs (418 active)
+active non-quarantined pool, and the class is two-part rather than flat: 945 pairs (850
+active) have at least one T-cell-functional negative readout, while 422 pairs (421 active)
 carry only a binding-assay negative, which measures non-binding rather than non-immunogenicity.
+
+**The split is a classification boundary, so the rule is stated rather than implied.** A
+readout counts as T-cell-functional only if it measures a T-cell response, T-cell recognition
+or an effector product, read from the `assay_type` column of
+`data/iedb_negatives_v5_merged.csv`. That excludes every biochemical binding readout the
+corpus actually contains, which is exactly three: `dissociation constant KD`, `qualitative
+binding` and `surface plasmon resonance (SPR)`. No IC50 or EC50 readout appears anywhere in
+the contested class. The seventeen types on the functional side are `51 chromium`, `ELISA`,
+`ELISPOT`, `ICS`, `IFNg release`, `IL-10 release`, `IL-2 release`, `IL-5 release`, `TNF
+release`, `TNFa release`, `activation`, `cytotoxicity`, `degranulation`, `granzyme B release`,
+`in vitro assay`, `multimer/tetramer` and `proliferation`.
+
+**Sensitivity to that boundary, because the figure moves and a reader should be able to check
+it.** Moving `dissociation constant KD` alone to the functional side gives 948 (853) / 419
+(418); moving `surface plasmon resonance (SPR)` alone gives the same 948 (853) / 419 (418);
+moving both gives 951 (856) / 416 (415). **The two single moves reach an identical total over
+disjoint sets of three pairs, so 948 does not identify the rule that produced it** - which is
+why this section names its rule instead of only its number. An earlier draft of this paragraph
+carried 948 / 419 without one.
 
 ### Derivation of `class_ratio_bounds` for the v5 corpus
 
