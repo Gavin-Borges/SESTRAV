@@ -1,7 +1,7 @@
 | Name                                  | Version     | License                                                                                             |
 |---------------------------------------|-------------|-----------------------------------------------------------------------------------------------------|
 | ConfigArgParse                        | 1.7.5       | MIT License                                                                                         |
-| GitPython                             | 3.1.62      | BSD-3-Clause                                                                                        |
+| GitPython                             | 3.2.0       | BSD-3-Clause                                                                                        |
 | Jinja2                                | 3.1.6       | BSD License                                                                                         |
 | MarkupSafe                            | 3.0.3       | BSD-3-Clause                                                                                        |
 | PuLP                                  | 3.3.2       | MIT                                                                                                 |
@@ -32,7 +32,7 @@
 | docutils                              | 0.22.4      | BSD License; GNU General Public License (GPL); Public Domain                                        |
 | dpath                                 | 2.2.0       | MIT License                                                                                         |
 | et_xmlfile                            | 2.0.0       | MIT License                                                                                         |
-| fastapi                               | 0.141.1     | MIT                                                                                                 |
+| fastapi                               | 0.142.2     | MIT                                                                                                 |
 | fastjsonschema                        | 2.22.1      | BSD License                                                                                         |
 | filelock                              | 3.32.0      | MIT                                                                                                 |
 | fonttools                             | 4.63.0      | MIT                                                                                                 |
@@ -279,6 +279,7 @@
 | nvidia-nvshmem-cu13                   | 3.4.5       | LicenseRef-NVIDIA-Proprietary                                                                       |
 | nvidia-nvtx                           | 13.0.85     | Other/Proprietary License                                                                           |
 | openpyxl                              | 3.1.5       | MIT License                                                                                         |
+| opentelemetry-api                     | 1.45.1      | Apache-2.0                                                                                          |
 | packaging                             | 25.0        | Apache Software License; BSD License                                                                |
 | pandas                                | 3.0.3       | BSD License                                                                                         |
 | pillow                                | 12.3.0      | MIT-CMU                                                                                             |
