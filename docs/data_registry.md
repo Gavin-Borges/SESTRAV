@@ -111,7 +111,7 @@ DISCLOSURE under "v4 Schema (Frozen)" above.
 | HPV16 | 208 | 73.1% | Thin; label fragmented |
 | HPV | 144 | 28.5% | Fragmented (HPV/HPV16/HPV18 are separate labels) |
 | RSV | 123 | 14.6% | Near-no positives |
-| HPV18 | 36 | - | Too thin |
+| HPV18 | 36 | 52.8% | Too thin |
 | ~17 singleton viruses | 1-6 each | ~100% | Unusable noise; quarantined in v5 |
 
 **Peptide length distribution:** 8mer 621, 9mer 9,158, 10mer 3,674, 11mer 1,246.
