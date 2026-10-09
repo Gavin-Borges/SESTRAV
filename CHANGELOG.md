@@ -56,6 +56,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   keeping the floor half of the check the override's test used to make.
 
 ### Fixed
+- **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
+  no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
+  separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
+  from each validation fold. Within a fold, dropping only negatives lowers AUC-ROC exactly
+  when the model ranked the dropped negatives below positives more often than the ones
+  that remain, so the fall in the fold mean shows those rows were easier than average on
+  balance, not that they separate almost perfectly. Both sites now say only that. Wording
+  only: no number changes. The same kind of claim had already failed once for the
+  out-of-panel rows these belong to, when the manuscript called them trivially easy to
+  calibrate and their own calibration row refuted it. They are genuine IEDB negatives, not
+  decoys, so this is outside claims-register row D21.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
