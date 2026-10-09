@@ -1,10 +1,13 @@
 Bootstrap: docker
-# Pinned to Python 3.11 to match environments/requirements.lock, which is
-# compiled under 3.11 by tools/update_dependencies.py and installed below with --require-hashes. Keep this image
-# in lockstep with that lock: bumping it (e.g. to 3.13, which the Dockerfile uses)
-# requires regenerating requirements.lock under the same Python version first. The
-# Dockerfile can target 3.13 independently because it installs from pyproject, not
-# this hash-pinned lock.
+# Pinned to Python 3.11 to match environments/requirements.lock, which
+# tools/update_dependencies.py compiles for 3.11 (--python-version 3.11 in the
+# lock's header) and which is installed below with --require-hashes. Keep this
+# image in lockstep with that lock: moving it to another Python (e.g. 3.13)
+# requires recompiling requirements.lock for that version first, because a lock
+# resolved for one Python can carry a package another does not need, or miss one
+# it does. The Dockerfile is an exception to this rule, not a precedent for it: it
+# installs this same 3.11 lock under 3.13, with --no-deps, so nothing in that build
+# resolves the lock for 3.13.
 From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083137e0e98ccf227236fcc438
 
 %labels
@@ -29,10 +32,28 @@ From: python:3.11-slim-bookworm@sha256:8dca233de9f3d9bb410665f00a4da6dd06f331083
     models /app/models
 
 %post
-    apt-get update && apt-get install -y --no-install-recommends build-essential
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    # Stop the build at the first failing command. Apptainer's user guide says a
+    # failing command halts the build, but names no shell flag that does it, so
+    # %post sets -e itself rather than depend on how Apptainer starts the shell.
+    # Each command is on its own line because -e does not apply to a command
+    # that fails before the last one of an `a && b` list.
+    set -e
+    apt-get update
+    apt-get install -y --no-install-recommends build-essential
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
-    pip install --no-cache-dir --require-hashes -r /app/environments/requirements.lock
+    # The Dockerfile's first three installs, which it explains in full; its fourth,
+    # the package itself, has no counterpart here, since this image runs
+    # pipeline.py from /app. The lock pins connection-pool as an sdist only, and
+    # building it in pip's default isolated environment fetches setuptools from
+    # PyPI with no hash. So: the hash-pinned pip bootstrap (hashes from a
+    # constraints file need pip 26.1 or later), then setuptools with its version
+    # and hashes from the lock used as a constraints file, then the lock built
+    # against that setuptools.
+    pip install --no-cache-dir --require-hashes --no-deps -r /app/environments/requirements-pip-bootstrap.txt
+    pip install --no-cache-dir --require-hashes --no-deps -c /app/environments/requirements.lock setuptools
+    pip install --no-cache-dir --require-hashes --no-deps --no-build-isolation -r /app/environments/requirements.lock
     MHCFLURRY_MODEL_URL="$(python -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))['mhcflurry_model_archive_url'])")"
     MHCFLURRY_MODEL_SHA256="$(python -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))['mhcflurry_model_archive_sha256'])")"
     MHCFLURRY_ARCHIVE_DIR=/tmp/mhcflurry-models

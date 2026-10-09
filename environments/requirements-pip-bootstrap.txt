@@ -1,10 +1,10 @@
 # Hash-locked pip bootstrap. Installed first by the three Docker images (see
-# Dockerfile) and release.yml's pre-publish gate, and by every CI job that takes
-# setuptools from a lock as a constraints file (the jobs installing
-# requirements-ci.txt or requirements.lock), ahead of that setuptools install:
-# taking hashes from a constraints file for an unpinned requirement arrived in
-# pip 26.1 (24.0 and 25.0.1 refuse it, measured), and the pip a job starts with
-# is not pinned.
+# Dockerfile), singularity.def and release.yml's pre-publish gate, and by every
+# CI job that takes setuptools from a lock as a constraints file (the jobs
+# installing requirements-ci.txt or requirements.lock), ahead of that setuptools
+# install: taking hashes from a constraints file for an unpinned requirement
+# arrived in pip 26.1 (24.0 and 25.0.1 refuse it, measured), and the pip a job
+# starts with is not pinned.
 #
 # WHY THIS FILE EXISTS. pip never takes a hash as a flag on a bare `pip==X`
 # spec, only from a requirements file (or, since 26.1, a constraints file, which
