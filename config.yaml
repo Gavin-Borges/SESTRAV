@@ -154,6 +154,12 @@ dataset_governance:
     # exactly this defect in nine files and did not reach config.yaml.
     timestamp: "2026-07-05T04:31:30Z"
     source_databases: ["IEDB", "VDJdb", "self_proteome_decoys"]
+    # SCOPE: this names ONE negative stream, not the corpus. The self-proteome decoys it
+    # describes are 5,000 rows, 11.8% of the 42,473 negatives, and 0% of the ACTIVE pool,
+    # because all 5,000 are quarantined out before training and scoring. Active negatives
+    # are 81.6% IEDB tested_negative, 11.3% allele_matched_nonbinder and 7.1% iedb_api.
+    # Reading this key as a description of the negative class is the exact misreading that
+    # docs/claims_register.md D19 had to retract, so it is scoped here rather than reworded.
     negative_sampling_strategy: "high-binding_decoy_proteome"
     checksum: "6928cba8bc2de66128adba3358be26a41353b18010b502979eff36111132b0c4"
     # Per-stream row counts, pinned by hard equality against
