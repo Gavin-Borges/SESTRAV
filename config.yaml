@@ -97,7 +97,9 @@ model_path: models/rf_31feature_integrated.joblib
 
 # Freeze mode turns usability guardrails into hard errors for release-grade runs.
 # Keep false for exploratory development; enable true before evidence freeze.
-# Currently true: external validation prep phase (see 00_Active/SESTRAV_External_Validation_PRIME_PredIG_Plan.md).
+# Currently true: external validation prep phase. The plan document is
+# docs/external_testing/SESTRAV_External_Validation_PRIME_PredIG_Plan.md, which is
+# gitignored, so a clone does not receive it and the reference is maintainer-only.
 # Set to false for day-to-day development, or override per-run: snakemake --config freeze_mode=true
 freeze_mode: true
 
