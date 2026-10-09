@@ -24,8 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   hash-pin step. Lines are read the way pip reads them: its continuation joining, its rule
   that `#` opens a comment only after whitespace, its split between a requirement and its
   options, and its optparse table, so attached values (`-fURL`), abbreviations
-  (`--extra=URL`), tabs and a second option on one line are all caught; a test compares the
-  verdicts with pip's own parser, and a line pip could not parse fails closed. Hashes would
+  (`--extra=URL`), tabs and a second option on one line are all caught, and a byte-order
+  mark is stripped as pip strips it; a test compares the verdicts with pip's own line
+  parser. A line this table cannot parse, a PEP 263 coding declaration and a `${VAR}`
+  reference, which pip would re-decode or expand at install time, fail closed. Hashes would
   still refuse a substituted artifact, but these manifests take their index from the
   install command, never from the file (the CPU torch lock is installed with
   `--index-url https://download.pytorch.org/whl/cpu` on the command line). Includes

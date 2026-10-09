@@ -623,6 +623,24 @@ def test_pip_honoured_allowed_spellings_pass(tmp_path, monkeypatch, line):
     assert check_hash_pins.check_index_options(path) == []
 
 
+@pytest.mark.parametrize(
+    "data, expected",
+    [
+        # A UTF-8 byte-order mark: pip strips it, so the gate must too.
+        (b"\xef\xbb\xbf--extra-index-url https://mirror.example/simple --hash=sha256:a\n", 1),
+        # A coding declaration: pip re-decodes the file, which turns +AC0ALQ- into --.
+        (b"# coding: utf-7\n+AC0ALQ-extra-index-url https://mirror.example/simple --hash=sha256:a\n", 1),
+        # An environment variable: pip expands it from the installing environment.
+        (b"${EVIL} --hash=sha256:a\n", 1),
+    ],
+)
+def test_pip_decoding_and_expansion_steps_fail_closed(tmp_path, monkeypatch, data, expected):
+    path = tmp_path / "requirements.txt"
+    path.write_bytes(data)
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_index_options(path)] == [expected]
+
+
 def test_a_line_pip_cannot_parse_fails_closed(tmp_path, monkeypatch):
     path = tmp_path / "requirements.txt"
     path.write_text("--no-such-option x\n", encoding="utf-8")

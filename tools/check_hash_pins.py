@@ -13,11 +13,13 @@ exempt a host from TLS verification: `--extra-index-url`, `--trusted-host`,
 index. Hashes would still refuse a substituted artifact, but these manifests take
 their index from the install command, never from the file: the CPU torch lock is
 installed with `--index-url https://download.pytorch.org/whl/cpu` on the command
-line. Options are read the way pip reads them (its line joining, comment rule,
-option/argument split and optparse table, abbreviations included), so a spelling
-pip honours cannot slip past. `-r` / `-c` includes are not followed; no
-hash-pinned manifest uses one. Until 2026-10-09 every option line was skipped
-silently.
+line. Options are read the way pip reads them: its byte-order-mark handling,
+line joining, comment rule, option/argument split and optparse table,
+abbreviations included. Two pip steps the gate cannot reproduce fail closed
+instead: a PEP 263 coding declaration (pip would re-decode the file) and a
+`${VAR}` reference (pip expands it from the installing environment). `-r` / `-c`
+includes are not followed; no hash-pinned manifest uses one. Until 2026-10-09
+every option line was skipped silently.
 
 Usage:
     python tools/check_hash_pins.py               # check the default manifests
@@ -65,6 +67,17 @@ PYPI_DEFAULT_INDEX = frozenset({"https://pypi.org/simple", "https://pypi.org/sim
 # pip's requirement-file comment rule: `#` opens a comment only at the start of a
 # line or after whitespace, so `https://host/simple#frag` keeps its fragment.
 _PIP_COMMENT_RE = re.compile(r"(^|\s+)#.*$")
+
+# pip 26.2.1's req_file.BOMS, PEP263_ENCODING_RE and ENV_VAR_RE.
+_PIP_BOMS = (
+    (b"\xef\xbb\xbf", "utf-8"),
+    (b"\xff\xfe\x00\x00", "utf-32"),
+    (b"\x00\x00\xfe\xff", "utf-32-be"),
+    (b"\xff\xfe", "utf-16"),
+    (b"\xfe\xff", "utf-16-be"),
+)
+_PIP_CODING_RE = re.compile(rb"coding[:=]\s*([-\w.]+)")
+_PIP_ENV_VAR_RE = re.compile(r"\$\{[A-Z0-9_]+\}")
 
 
 @dataclass(frozen=True)
@@ -200,12 +213,16 @@ def _options_part(line: str) -> str:
 def iter_index_options(text: str) -> list[tuple[int, str]]:
     """Yield (1-based start line, line) for every option that changes the package source.
 
-    A line whose options pip itself could not parse is reported too, marked as such:
-    failing closed is the safe direction for a supply-chain gate.
+    A line whose options this table cannot parse, or that holds a `${VAR}` reference
+    pip would expand at install time, is reported too, marked as such: failing
+    closed is the safe direction for a supply-chain gate.
     """
     parser = _option_parser()
     found: list[tuple[int, str]] = []
     for number, line in _pip_logical_lines(text):
+        if _PIP_ENV_VAR_RE.search(line):
+            found.append((number, f"{' '.join(line.split())}  [expands an environment variable]"))
+            continue
         options = _options_part(line)
         if not options:
             continue
@@ -241,13 +258,30 @@ def check_file(path: pathlib.Path) -> list[Violation]:
     ]
 
 
+def _decode_like_pip(data: bytes) -> tuple[str, str | None]:
+    """pip's `_decode_req_file`, except that a coding declaration fails closed.
+
+    Returns (text, problem). A byte-order mark is stripped and its encoding used,
+    as pip does. A PEP 263 declaration in the first two lines would make pip
+    re-decode the whole file (`# coding: utf-7` turns `+AC0ALQ-` into `--`), so it
+    is reported rather than trusted; no compiled lock carries one.
+    """
+    for bom, encoding in _PIP_BOMS:
+        if data.startswith(bom):
+            return data[len(bom) :].decode(encoding), None
+    for line in data.split(b"\n")[:2]:
+        if line[0:1] == b"#" and _PIP_CODING_RE.search(line):
+            return data.decode("utf-8", errors="replace"), "declares its own encoding"
+    return data.decode("utf-8"), None
+
+
 def check_index_options(path: pathlib.Path) -> list[Violation]:
     """Return every option line in `path` that adds or swaps a package source."""
     relative = _relative(path)
-    return [
-        Violation(relative, number, line)
-        for number, line in iter_index_options(path.read_text(encoding="utf-8"))
-    ]
+    text, problem = _decode_like_pip(path.read_bytes())
+    violations = [Violation(relative, 1, f"[{problem}]")] if problem else []
+    violations.extend(Violation(relative, number, line) for number, line in iter_index_options(text))
+    return violations
 
 
 def resolve_targets(patterns: list[str]) -> list[pathlib.Path]:
