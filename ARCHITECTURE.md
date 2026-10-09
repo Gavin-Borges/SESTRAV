@@ -475,15 +475,16 @@ trained model binaries or runtime caches; training must run before production sc
   cannot express (a CPU-only torch index, single-platform closures), the
   `pyproject.toml` extras, and `environment.yml`. All compiled tiers are
   regenerated through `tools/update_dependencies.py` (`uv pip compile
-  --generate-hashes`). Two tiers are special-cased: the `semgrep` tool tier, which
-  compiles with `--overrides environments/semgrep-overrides.txt` to lift pyjwt past
-  semgrep's own pin and is therefore installed with `--no-deps`, and the two image
+  --generate-hashes`). One case is special-cased: the two image
   locks, which compile in a scratch copy with `requirements.txt` as uv's version
   preference (`SEEDED_SPECS`). The runtime and production lockfiles used to require
   an extra `--overrides overrides.txt` pass to resolve
   at all, because this repo's `setuptools>=83.0.0` security floor collided with
   torch 2.12.0's `setuptools<82` build-metadata cap; torch 2.13.0 raised that
-  cap, so the override was retired. Every install path **that resolves from a lockfile** is
+  cap, so the override was retired. The `semgrep` tool tier likewise compiled with
+  `--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
+  `~=2.13.0` pin, until semgrep 1.179.0 required `pyjwt[crypto]>=2.15.0,<3` itself and
+  that override was retired too. Every install path **that resolves from a lockfile** is
   `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
   `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
   neither `--require-hashes` nor the CPU torch wheel index. Three CI jobs route torch through

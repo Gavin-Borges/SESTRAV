@@ -28,6 +28,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `downstream_status` block of `data/iedb_negatives_v5_provenance.json` and pinned by
   `tests/test_iedb_negatives_v5_composition_guard.py::test_downstream_merge_lag_is_pinned_not_silent`,
   which fails if the lag is closed or widened without the sidecar being updated with it.
+- **The semgrep tool lock moves to semgrep 1.179.0, and the pyjwt override it needed is
+  retired.** semgrep 1.178.0 declared a pyjwt requirement admitting only 2.13.x, which is
+  why the `semgrep` spec compiled through `environments/semgrep-overrides.txt` to reach pyjwt
+  2.15.1. semgrep 1.179.0 itself requires `pyjwt[crypto]>=2.15.0,<3` (uv resolves it to
+  2.15.1 with no override, and refuses a `pyjwt<2.15` constraint citing that
+  requirement), which is the override's recorded exit condition. So the override file is
+  deleted, `tools/update_dependencies.py` no longer passes `--overrides` for the spec, and
+  both semgrep installs in `security.yml` drop `--no-deps`. Recompiled, the lock keeps all
+  66 pins and all 841 hashes; only its header command and pyjwt's `# via` annotation
+  change. A resolving install of it (no `--no-deps`) on Linux with Python 3.11 exits 0 and
+  `pip check` is clean, while the same install of the previous lock, semgrep 1.178.0 with
+  the overridden pyjwt, fails with ResolutionImpossible. Removing the override also
+  removes its `<2.16` upper bound, so a future recompile may move pyjwt anywhere in
+  semgrep's own `<3` range; the scan comparisons recorded when the override was adopted
+  cover pyjwt 2.15.1 only. `tests/test_dependency_tooling.py` now fails if any spec
+  compiles with an override, and a new test fails if the semgrep lock pins pyjwt below
+  2.15.0 (pip-audit reports advisories against 2.13.0 and 2.14.0 and none against 2.15.0),
+  keeping the floor half of the check the override's test used to make.
 
 ### Fixed
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
