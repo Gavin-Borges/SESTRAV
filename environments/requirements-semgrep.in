@@ -14,12 +14,7 @@ semgrep==1.179.0
 # cryptography>=50.0.1 without help, then recompile and re-verify hashes.
 cryptography>=50.0.1
 
-# pyjwt has NO floor here, because a floor cannot reach a patched release:
-# semgrep 1.178.0 (pinned above, the latest on 2026-09-30) declares
-# pyjwt[crypto]~=2.13.0, so a >=2.14.0 floor makes this spec unsatisfiable
-# (ResolutionImpossible). A hand-edited pin in the .txt failed the same way at
-# install time, taking down both semgrep jobs in security.yml. pyjwt is instead
-# lifted by the uv override file environments/semgrep-overrides.txt, which
-# tools/update_dependencies.py passes for this spec. That file records the scan
-# equivalence measured before adopting it, why the lock must now be installed
-# with --no-deps, and the exit condition.
+# pyjwt needs no floor and no override here: semgrep 1.179.0 itself requires
+# pyjwt[crypto]>=2.15.0,<3. pip-audit reports advisories against pyjwt 2.13.0
+# and 2.14.0 and none against 2.15.0, and tests/test_dependency_tooling.py
+# fails if the lock ever pins pyjwt below 2.15.0.

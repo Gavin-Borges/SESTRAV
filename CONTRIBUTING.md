@@ -138,11 +138,11 @@ torch 2.13.0 declares `setuptools>=77.0.3`, meeting that override's documented
 exit condition, so `overrides.txt` was deleted and the tool no longer passes
 `--overrides` for either of them. `tests/test_dependency_tooling.py` asserts both halves of the
 retirement, so the workaround cannot quietly return and mask a real resolution
-conflict. One tool tier is a deliberate, named exception: the `semgrep` spec compiles
-with `--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
-`~=2.13.0` declaration, so `environments/requirements-semgrep.txt` must be installed
-with `--no-deps`. That file records the measurement behind it and its exit condition,
-and the same test module fails if any other tier gains an override.
+conflict. The `semgrep` spec was a later, named exception: it compiled with
+`--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
+`~=2.13.0` declaration, until semgrep 1.179.0 required `pyjwt[crypto]>=2.15.0,<3`
+itself. That met the override's exit condition, so it was deleted too, and the same
+test module now fails if any tier gains an override.
 
 ## Development Guidelines
 
