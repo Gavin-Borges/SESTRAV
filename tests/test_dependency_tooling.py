@@ -233,11 +233,14 @@ def test_every_install_of_an_overridden_lock_skips_resolution():
     # exited 1 against the overridden lock and 0 with --no-deps added. Dormant
     # while no spec sets `overrides` (see the test above); it applies again to
     # any spec that does.
+    overridden = [spec for spec in LOCK_SPECS if spec.overrides]
+    if not overridden:
+        # Report the dormancy instead of passing on an empty loop, so a run that
+        # checked nothing reads as SKIPPED rather than as a green guard.
+        pytest.skip("no LockSpec sets overrides; this guard applies again when one does")
     root = pathlib.Path(update_dependencies.REPO_ROOT)
     surfaces = _install_surfaces(root)
-    for spec in LOCK_SPECS:
-        if not spec.overrides:
-            continue
+    for spec in overridden:
         lock_name = pathlib.PurePosixPath(spec.output).name
         texts = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8") for p in surfaces}
         installs = [c for t in texts.values() for c in _install_commands(t) if lock_name in c]
