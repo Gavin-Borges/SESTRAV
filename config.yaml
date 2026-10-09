@@ -108,6 +108,8 @@ freeze_mode: true
 # The RF mode-31 model uses a global isotonic calibrator fit on OOF predictions
 # (reproduce with scripts/fit_calibrator.py). Stage 4 dispatches on calibrator
 # type: isotonic uses .predict on the raw score, Platt uses .predict_proba on logits.
+# Gitignored (.gitignore models/*.joblib), so it is absent from every fresh clone.
+# Regenerate with scripts/fit_calibrator.py before Stage 4 calibration is available.
 calibration_path: models/isotonic_calibrator.joblib
 thresholds_path: models/optimal_thresholds.json
 
@@ -191,9 +193,16 @@ output_dir: results
 # GNN verification parameters
 mock_ingestion: false
 mock_evaluation: false
+# Gitignored (.gitignore models/**/*.pth), so it is absent from every fresh clone.
+# GNN verification cannot run against a clone until this checkpoint is rebuilt locally.
 gnn_checkpoint: models/gnn/structural_gnn_v2.pth
 
 # GNN dynamic and spatial integration settings
 max_peptide_length: 11
+# Generated on demand by scripts/run_pandora_structures.py --output-dir data/structural_cache/.
+# It is neither tracked nor gitignored and is absent from this tree, so nothing explains its
+# absence to a reader who goes looking. It is unused while use_spatial_adj is false: on a
+# cache miss GraphBuilder falls back to build_chain_adj, and that fallback is SILENT, which
+# is what report_structural_cache_coverage in src/gnn/graph_builder.py exists to surface.
 structural_cache_dir: data/structural_cache
 use_spatial_adj: false
