@@ -61,12 +61,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
   from each validation fold. Within a fold, dropping only negatives lowers AUC-ROC exactly
   when the model ranked the dropped negatives below positives more often than the ones
-  that remain, so the fall in the fold mean shows those rows were easier than average on
-  balance, not that they separate almost perfectly. Both sites now say only that. Wording
-  only: no number changes. The same kind of claim had already failed once for the
-  out-of-panel rows these belong to, when the manuscript called them trivially easy to
-  calibrate and their own calibration row refuted it. They are genuine IEDB negatives, not
-  decoys, so this is outside claims-register row D21.
+  that remain, so the fall in the fold mean shows those rows were, on balance, easier than
+  average to rank below positives, not that they separate almost perfectly. Both sites now
+  say only that, and claims-register row D19, which had judged the phrase sound, carries a
+  dated note saying so while its original text stays as the record. Wording only: no
+  number changes. The same kind of claim had already failed once for the out-of-panel
+  rows these belong to, when the manuscript called them trivially easy to calibrate and
+  their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
+  this is outside claims-register row D21.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
