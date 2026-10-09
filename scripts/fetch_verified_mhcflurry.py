@@ -82,8 +82,9 @@ def download_archive(url: str, output_dir: Path, expected_sha256: str) -> Path:
         # outside ALLOWED_ARCHIVE_HOSTS. Bandit cannot follow that call; the
         # guard is what makes the suppression honest, not a claim that urlopen
         # is safe in general.
-        with urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response, partial.open("wb") as output:  # nosec B310
-            shutil.copyfileobj(response, output)
+        with urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:  # nosec B310
+            with partial.open("wb") as output:
+                shutil.copyfileobj(response, output)
         verify_archive(partial, expected_sha256)
         partial.replace(destination)
     except BaseException:

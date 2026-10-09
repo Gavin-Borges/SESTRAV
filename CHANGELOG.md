@@ -493,15 +493,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   --already-downloaded-dir`, reads from that directory. `download_archive()` now takes the
   expected digest, hashes the `.part` file, and renames only a match; any failure,
   including a mismatch, deletes the `.part`, so the run leaves nothing behind. `urlopen` now
-  gets `timeout=60`, which bounds the connect and each read rather than the whole
-  transfer, so a stalled server can no longer hang an image build. The command line is
-  unchanged. `singularity.def` was already protected by `set -e`, which stops before step
-  two; the exposure was the manual two-step route that the CLI's model-data hint gives.
-  `tests/test_fetch_verified_mhcflurry.py` adds the cases. Checked on a throwaway copy:
-  each of five mutants fails at least one of them (renaming before verifying, keeping the
-  `.part` on failure, dropping the timeout, dropping the digest lowercasing, and a no-op
-  digest check). Not covered: an unverified archive left in that directory by an earlier
-  run of the old script is not removed.
+  gets `timeout=60`, which bounds the connect, the TLS handshake and each socket read
+  rather than the whole transfer, so a server that stops responding can no longer hang an
+  image build indefinitely; a DNS lookup, and a server that keeps sending a trickle of
+  data, are not bounded by it. The command line is unchanged. `singularity.def` was
+  already protected by `set -e`, which stops before step two; the exposure was the manual
+  two-step route that the CLI's model-data hint gives.
+  `tests/test_fetch_verified_mhcflurry.py` adds the cases, including one that pins the
+  ORDER (the digest is checked on the `.part` while the final name does not yet exist)
+  and one that interrupts a download with `KeyboardInterrupt`. Checked on a throwaway
+  copy: each of eight mutants fails at least one of them (renaming before verifying;
+  renaming, verifying the final file and deleting it on a mismatch; keeping the `.part`
+  on failure; cleaning up on `Exception` only; dropping the timeout; dropping the digest
+  lowercasing in either mode; and a no-op digest check). Not covered: an unverified
+  archive left in that directory by an earlier run of the old script is not removed.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit

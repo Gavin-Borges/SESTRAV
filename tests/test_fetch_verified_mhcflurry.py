@@ -162,6 +162,40 @@ def test_a_mismatched_download_never_reaches_its_final_name(tmp_path, fake_downl
     assert list(output_dir.iterdir()) == []
 
 
+def test_the_digest_is_checked_on_the_part_file_before_the_rename(tmp_path, fake_download, monkeypatch):
+    """Pin the ORDER, not just the end state: a fetcher that renamed first and then
+    deleted a bad archive would pass the end-state test above while still exposing
+    the unverified file under its final name in between."""
+    output_dir = tmp_path / "out"
+    destination = output_dir / "models.tar.bz2"
+    seen: list[tuple[Path, bool]] = []
+    real_verify = fetcher.verify_archive
+
+    def _spy(path, expected):
+        seen.append((Path(path), destination.exists()))
+        return real_verify(path, expected)
+
+    monkeypatch.setattr(fetcher, "verify_archive", _spy)
+    fetcher.download_archive(ALLOWED_URL, output_dir, GOOD_SHA256)
+
+    assert seen == [(output_dir / "models.tar.bz2.part", False)]
+    assert destination.read_bytes() == PAYLOAD
+
+
+def test_an_interrupted_download_removes_its_part_file(tmp_path, monkeypatch):
+    """Cleanup must cover BaseException too, so Ctrl-C mid-download leaves no .part."""
+
+    class _Interrupting(io.BytesIO):
+        def read(self, *args, **kwargs):
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(fetcher, "urlopen", lambda url, *a, **k: _Interrupting(PAYLOAD))
+    output_dir = tmp_path / "out"
+    with pytest.raises(KeyboardInterrupt):
+        fetcher.download_archive(ALLOWED_URL, output_dir, GOOD_SHA256)
+    assert list(output_dir.iterdir()) == []
+
+
 def test_urlopen_is_given_a_finite_timeout(tmp_path, fake_download):
     """Without a timeout a stalled server hangs the image build indefinitely."""
     fetcher.download_archive(ALLOWED_URL, tmp_path / "out", GOOD_SHA256)
@@ -196,6 +230,17 @@ def test_cli_url_mode_accepts_an_uppercase_digest(tmp_path, fake_download, monke
     )
     assert fetcher.main() == 0
     assert (output_dir / "models.tar.bz2").read_bytes() == PAYLOAD
+
+
+def test_cli_archive_mode_accepts_an_uppercase_digest(tmp_path, monkeypatch):
+    archive = tmp_path / "models.tar.bz2"
+    archive.write_bytes(PAYLOAD)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["fetch_verified_mhcflurry.py", "--archive", str(archive), "--sha256", GOOD_SHA256.upper()],
+    )
+    assert fetcher.main() == 0
 
 
 def test_verify_archive_reports_a_mismatch(tmp_path):
