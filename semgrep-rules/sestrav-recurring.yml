@@ -9,7 +9,7 @@ rules:
       (?m)(?:\[\s*["']python3?["']|shell\s*:\s*(?:#[^\n]*\s*)*(?:r|f|rf)?(?:["']{3}|["'])\s*python3?\s+|cmd\s*=\s*f?["']python3?\s+)
 
   - id: sestrav-preserve-pipeline-status
-    message: "pytest or a gate piped into a filter reports the filter's exit status; redirect to a file and read $?."
+    message: "Without pipefail, a pipeline reports its last command's status, so a failing pytest or gate piped into a filter reads as success; with pipefail, a filter that exits early can fail it instead (head gives 141). Redirect to a file and read $?."
     languages: [generic]
     severity: ERROR
     paths:
@@ -18,6 +18,9 @@ rules:
     pattern-regex: >-
       (?m)^(?!\s*#)[^\n]*(?:pytest|ruff|mypy|bandit|semgrep|pip-audit|[A-Za-z0-9_./-]*gate\.py)[^\n|]*(?<!\|)\|(?!\|)[^\n]+
 
+  # Matches a shell-string `git [-C dir] ls-files|grep ...` and a one-line Python list
+  # such as ["git", "-C", str(ROOT), "ls-files", "--", "a/**/b"]. A list split across
+  # lines is not matched.
   - id: sestrav-require-git-glob-pathspec
     message: "Git's default pathspec gives ** no meaning and lets * cross '/', so 'dir/**/x' misses direct children; prefix :(glob)."
     languages: [generic]
@@ -26,7 +29,7 @@ rules:
       include: ["*.py", "*.sh", "*.yml", "*.yaml", "/scripts/hooks/*"]
       exclude: ["/semgrep-rules/*.yml"]
     pattern-regex: >-
-      (?m)^(?!\s*#)[^\n]*git\s+(?:ls-files|grep)[^\n]*["'](?!:\(glob\))[^"'\n]*\*\*
+      (?m)^(?!\s*#)[^\n]*(?:git(?:\s+-[Cc]\s+\S+)*\s+(?:ls-files|grep)[^\n]*["']|["']git["']\s*,(?:[^,\]\n]+,)*?\s*["'](?:ls-files|grep)["'](?:\s*,[^,\]\n]+)*?\s*,\s*["'])(?!:\(glob\))[^"'\n]*\*\*
 
   - id: sestrav-count-cr-bytes-not-lines
     message: grep -c counts matching lines, not carriage-return bytes; use tr -cd followed by wc -c.
@@ -36,4 +39,4 @@ rules:
       include: ["*.py", "*.sh", "*.yml", "*.yaml", "/scripts/hooks/*"]
       exclude: ["/semgrep-rules/*.yml"]
     pattern-regex: >-
-      (?m)^(?!\s*#)[^\n]*grep\s+-c\s+(?:\$)?["']\\r["']
+      (?m)^(?!\s*#)[^\n]*grep(?:\s+-[A-Za-z]+)*?\s+(?:-[A-Za-z]*c[A-Za-z]*|--count)(?:\s+-[A-Za-z]+)*\s+\$?["']\\r["']
