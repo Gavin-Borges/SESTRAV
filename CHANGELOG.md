@@ -436,6 +436,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `id-token: write` in its own `permissions:` and downloads an artifact must be one the
   helper reads; a token inherited from workflow-level `permissions:` is not looked for.
   `release.yml` runs only on version tags, so no pull request runs these jobs.
+- **The install docs give the hash-verified MHCflurry route and a hashed snakemake install,
+  and the security and test texts below now say what their checks actually cover.** Text and
+  comments only: no gate, workflow step, pattern or test logic changes. README, USAGE,
+  CONTRIBUTING and `docs/data_registry.md` told readers to run a bare
+  `mhcflurry-downloads fetch`, which `sestrav`'s own missing-data hint warns against: it
+  unpacks about 135 MB with no integrity check, and a tampered archive can write outside
+  the target directory. They now give the two-step route that hint names
+  (`scripts/fetch_verified_mhcflurry.py` with the URL and sha256 pinned in `config.yaml`,
+  then `mhcflurry-downloads fetch ... --already-downloaded-dir`), say to run the second
+  step only after the first succeeds, because on a mismatch the fetcher exits 1 but leaves
+  the downloaded file in place, and scope their Python 3.13 notes to the second step,
+  since the fetcher imports no mhcflurry. README's venv recipe followed its hashed install
+  with an unpinned `pip install snakemake`; it now runs the commands of the
+  `Install dependencies` step of CI's `test` and `compat` jobs, which take snakemake and
+  its closure hashed from `environments/requirements-ci.txt` and build connection-pool
+  against a hash-checked setuptools. CONTRIBUTING's dependency rule 3 said every install
+  path is hash-verified; the developer installs (`pip install .`, `pip install -e
+  ".[dev]"` and the extras), `environment.yml`'s conda packages and `release.yml`'s two
+  installs that resolve dependencies from PyPI on purpose are not, and the rule now says
+  so. `SECURITY.md`'s secret-scan row said `.env`, `.cfg` and `.ini` were never opened and
+  tracked `pytest.ini` was not scanned, which stopped being true at `89112f3f`; it now
+  lists what the scanner opens and parses, measured with the script's own helpers. Its
+  PII row said both `pii_scan.yml` jobs ran over the tracked tree, but the diff job checks
+  added lines only for workstation paths (its placeholder grep is the one whole-checkout
+  read, and the row now names it) and the published-refs job reads the published `main`,
+  `release/*` and tags, not a pull request's head. `pii_scan.yml` called v2.0.2 and v2.0.3 "legacy
+  unreleased tags"; both back published GitHub Releases. The docstring of
+  `tests/test_torch_load_weights_only.py` claimed every tracked Python file and now names
+  what it does not parse (notebooks, Snakemake and Quarto files, aliased calls), and
+  `tests/test_check_lockfile_freshness.py` said "all 10 pairs" while the gate maps 12, so
+  that docstring now states the invariant instead of a count.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
