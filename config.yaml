@@ -51,7 +51,9 @@ binding_backend: mhcflurry
 # Pin the exact MHCflurry presentation model version used for training.
 # Binding features change across MHCflurry releases; version drift silently invalidates checksums.
 # Verify installed version: python -c "import mhcflurry; print(mhcflurry.__version__)"
-# Update this value after running: mhcflurry-downloads fetch models_class1_presentation
+# Update this value after installing the model data by the verified route (README, "MHCflurry model data"):
+#   python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> --output-dir DIR
+#   mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR
 # DO NOT change without rebuilding the training dataset and updating all model provenance files.
 mhcflurry_model_version: "2.2.1"
 # The URL is not guessed: it is read from the download table installed by the

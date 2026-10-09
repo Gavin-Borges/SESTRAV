@@ -64,6 +64,19 @@ CANONICAL_ALLELES = [
 # Minimum MHCflurry presentation_score to qualify as a strong binder
 PRESENTATION_THRESHOLD = 0.5
 
+# How to install the presentation model data: the hash-verified two-step route
+# README's "MHCflurry model data" gives. A bare `mhcflurry-downloads fetch`
+# unpacks the archive with no integrity check, so this message never offers one.
+MHCFLURRY_MODEL_DATA_ROUTE = (
+    "Install the MHCflurry model data by the verified route "
+    "(README, 'MHCflurry model data'):\n"
+    "  python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> "
+    "--sha256 <mhcflurry_model_archive_sha256> --output-dir DIR\n"
+    "  mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR\n"
+    "with the URL and sha256 from config.yaml. Run the second command only if the "
+    "first exits 0."
+)
+
 # Valid standard amino acids
 _VALID_AA = frozenset("ACDEFGHIKLMNPQRSTVWY")
 
@@ -165,7 +178,7 @@ def generate_decoys(
         predictor = Class1PresentationPredictor.load()
     except Exception as exc:
         print(f"Error loading MHCflurry: {exc}")
-        print("Run: mhcflurry-downloads fetch models_class1_presentation")
+        print(MHCFLURRY_MODEL_DATA_ROUTE)
         sys.exit(1)
 
     # Load training positives to exclude from decoys
@@ -303,9 +316,10 @@ def main(argv: list[str] | None = None) -> int:
         description="Generate hard-decoy negatives from the human self-proteome for SESTRAV v4.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Prerequisite: download human proteome FASTA first:\n"
+            "Prerequisites: download the human proteome FASTA first:\n"
             "  python scripts/fetch_human_proteome.py\n"
-            "  mhcflurry-downloads fetch models_class1_presentation\n"
+            + MHCFLURRY_MODEL_DATA_ROUTE
+            + "\n"
         ),
     )
     parser.add_argument(
