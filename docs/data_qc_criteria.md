@@ -49,6 +49,23 @@ Enforced by `scripts/data_qc_gate.py` against the single file named by `--datase
 | Peptide yield | `>= min_peptide_yield` (500) | Guards against a build that filtered away its own corpus |
 | Per-stream row counts | hard equality against `dataset_governance.provenance.source_counts` | Enforced by `tools/check_dataset_provenance.py`, not by the QC gate. Catches the composition failures a ratio cannot see |
 
+### Cross-label precedence in the v5 merge
+
+**Keep-first over the merge order makes a curated v4 positive beat an assay-confirmed IEDB
+negative unconditionally:** `scripts/build_dataset_v5.py` concatenates its parts in the fixed
+order curated v4 positives, published panels, self-proteome decoys, IEDB negatives and then
+deduplicates on (peptide, hla_allele) with keep-first, so a pair that is both a curated
+positive and an IEDB tested negative resolves to the positive on source order alone, with no
+reference to `assay_quality_weight`, no evidence weighting and no column left on the surviving
+row to mark it as contested, while `audit_label_conflicts` writes the collisions to a review
+CSV without changing any label and the quality-weighted majority vote that
+`scripts/build_dataset_v4.py` applies to the same key runs only in the v4 build. Measured on
+the shipped corpus against the tracked `data/iedb_negatives_v5_merged.csv`, 1,367 rows carry
+label=1 on a pair that also appears as an IEDB tested negative, 1,271 of them inside the
+active non-quarantined pool, and the class is two-part rather than flat: 948 pairs (853
+active) have at least one T-cell-functional negative readout, while 419 pairs (418 active)
+carry only a binding-assay negative, which measures non-binding rather than non-immunogenicity.
+
 ### Derivation of `class_ratio_bounds` for the v5 corpus
 
 **The previous bound `[1.5, 4.0]` was never derived for v5 and does not describe it.** It was
