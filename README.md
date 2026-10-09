@@ -287,7 +287,7 @@ At each TCR contact position, SESTRAV computes the following physicochemical pro
 | Legacy (30-feature) | 20 physicochemical + 10 binding | 0.825 | Historical comparator |
 | Legacy (21-feature) | Sequence-only (binding excluded) | 0.784 | Historical comparator |
 | Expanded (50-feature) | 40 physicochemical + 10 binding | - | Extended evaluation |
-| Allele-aware (166) | Canonical + 136 HLA pocket pseudo-sequences | - | Pan-allele modeling |
+| Allele-aware (166) | Legacy 30-feature base + 136 HLA pocket pseudo-sequences (no length) | - | Pan-allele modeling |
 
 **None of the figures in this table are the Tier A field benchmark (0.828, External Benchmark
 Results above).** This table's numbers are an unweighted feature-ablation cross-validation study
