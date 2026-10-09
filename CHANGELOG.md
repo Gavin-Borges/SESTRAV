@@ -267,9 +267,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   list the bootstrap lock in `cache-dependency-path`, so their comments' "every file this
   job installs from" holds; that alone would not stop the reuse. `release.yml`'s two
   installs that resolve from PyPI on purpose, to behave like a user's (`pip install
-  dist/*.whl` and
-  `pip install sestrav==...`), are not covered, and neither is `singularity.def`, whose lock
-  install still builds connection-pool in isolation.
+  dist/*.whl` and `pip install sestrav==...`), are not covered. Nor was `singularity.def`,
+  whose lock install built connection-pool in isolation; the Singularity entry below
+  closes that.
   `tests/test_ci_builds_against_hashed_setuptools.py` fails any job that installs one of
   those locks, or the local package in any spelling, without `--no-build-isolation`,
   before the setuptools install, or (in a job that restores pip's cache) before
@@ -311,8 +311,131 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   place the gate in `verify`. The artifact is kept for one day, so re-running `verify`
   alone after that fails at the download; re-run the workflow. `release.yml` runs only on
   version tags, so no pull request exercises these jobs; the restructure was checked by
-  parsing the workflow and by those tests, not by a run. Not covered: `publish` still
-  downloads `dist-<tag>` by name with no digest check.
+  parsing the workflow and by those tests, not by a run. Not covered here, and closed
+  since by the publish entry below: `publish` downloaded `dist-<tag>` by name with no
+  digest check.
+- **The Singularity image builds connection-pool against a hash-checked setuptools, and its
+  `%post` opens with `set -e`.** `singularity.def` installed
+  `environments/requirements.lock` in one `pip install --require-hashes`, so pip built the
+  lock's sdist-only pin, connection-pool 0.0.3, in an isolated environment that resolves
+  `setuptools>=40.8.0` from PyPI with no hash check: the gap the image and CI entries above
+  closed for the Dockerfiles and CI. `%post` now runs the Dockerfile's first three installs:
+  the hash-pinned pip bootstrap, setuptools from the lock used as a constraints file, then
+  the lock with `--no-deps --no-build-isolation`. (The Dockerfile's fourth installs the
+  package itself, which this image never installs: it runs `pipeline.py` from `/app`.) The
+  Apptainer User Guide's "Definition Files" page (1.5, re-read 2026-10-08) says `%post`
+  runs under `sh` or `bash` and that the build halts if any command fails, but not how: it
+  names neither `set -e` nor `errexit`. So the section now opens with `set -e` rather than
+  depend on how Apptainer starts the shell, and every command is on its own line: `-e`
+  does not apply to a command that fails before the last one of an `a && b` list (under
+  dash, Debian's `/bin/sh`, `dash -e -c 'false && true; echo continued'` prints
+  `continued`), so the apt lines are split as well. The header no longer says the
+  Dockerfile installs from pyproject; it now records that the Dockerfile installs this same
+  3.11-compiled lock under 3.13, with `--no-deps`, as an exception to its own rule that
+  moving this image to another Python means recompiling the lock first. The bootstrap
+  lock's header and CONTRIBUTING rule 2 now list `singularity.def` among its installers.
+  Simulated on Linux with CPython 3.11.16 under dash, from the venv's pip 24.0 and
+  setuptools 79.0.1, with `%post`'s pip lines verbatim apart from `/app` and
+  `--no-cache-dir`: exit 0, no isolated build environment, connection-pool built against
+  setuptools 84.0.0, and `pip check` clean. The previous single install, run the same way,
+  built it in one isolated environment whose setuptools came from the index unhashed
+  (84.0.0 when measured, the lock's version, so the defect is the missing hash check, not
+  the version served).
+  `tests/test_images_install_only_hashed_dependencies.py` now reads `singularity.def` too,
+  as a regression ratchet: it refuses the spellings listed here, the list is not exhaustive,
+  and nothing in it runs `%post` or builds the image. It fails on a missing or late `set -e`;
+  a `set` that turns errexit off (`+o errexit`, or a `+` flag group holding `e`, such as
+  `+e`, `+eu` or `+ex`, read with the line's quotes and backslashes removed), or a `set`
+  followed by a `$` expansion (`set $X`, `set${IFS}+e`); a backtick or a `<<` anywhere in a
+  `%post` command; and, outside quotes and `$(...)` substitutions, a `%post` command inside
+  an AND-OR list, a pipeline or a `;` list, negated with `!`, run in the background with `&`
+  (or `&>`, which dash reads as one), run as an `if`, `elif`, `while` or `until` condition,
+  the words `exit`, `return`, `exec`, `trap` or `eval`, or a `.` or `source` command. Those
+  words are also read with their quotes and backslashes removed, so `e\xit 0`, `tr\ap`,
+  `ex\ec`, `\. ./f`, `"." ./f` and `sour\ce ./f` count as the words themselves. Lines are
+  joined the way `sh` joins them: only a backslash that ends the line continues it, so a
+  blank line, trailing spaces or a comment line after a backslash do not hide the next
+  command, which is read on its own line. A command word that is a `$` expansion
+  (`P=pip` then `$P install x`) and a `#` comment that starts inside a command are refused
+  too, because these checks cannot read what the first runs or where a continuation
+  ends. The carry-on behaviour of the first group was measured under dash with `-e` (and,
+  for `source`, which dash lacks, under bash); `false; true` stops, and `;` is refused so
+  that each command stands on its own line, where the tests read it. A failure hidden inside
+  quotes or `$(...)`, such as `sh -c "pip install x || true"` or `export X="$(false)"`, is
+  not caught. It also fails a `pip install` of a shape the Dockerfile checks do not permit
+  (a hashed `--no-deps` lock install, the backend from a lock used as constraints, or the
+  package itself with `--no-deps --no-build-isolation`), including `python -mpip install`,
+  the three installs missing or out of order, a `pip install` outside `%post`, any
+  installer the release workflow's test already lists (`pipx`, `uvx`, `uv pip`, `uv tool`,
+  `uv run`, `uv add`, `uv sync`, `conda install`, `easy_install`, `pip wheel`,
+  `pip download`) on any uncommented line, and an installed file that `%files` does not
+  copy to `/app`. The evidence is two tables: 72 inline `%post` cases, and 23 spellings
+  applied to the shipped `singularity.def`, each asserted to be refused. They include the
+  apt lines re-joined with `&&`, `set +eu` and `set '+e'`, a `!` prefix, a trailing `&`,
+  `exit 0`, `trap 'exit 0' EXIT`, a file run with `.` or `source`, and the spellings that
+  review found passing an earlier version of these checks. No CI job builds the image, so
+  this is checked by those tests and the simulation above, not by an Apptainer build.
+- **The PyPI publish job checks the distributions against the build job's digests
+  before uploading them, and the tests refuse 64 listed spellings that disarm such a
+  check.** `publish` downloads `dist-<tag>`, a second artifact
+  that the `release` job uploads, by name, and handed it straight to
+  `pypa/gh-action-pypi-publish`, so the digest check that the pre-publish-gate entry
+  above added to `release` did not cover what reaches PyPI. `publish` now also needs
+  `build` and, after the download, checks the sdist and wheel against the `dist/` lines
+  of the digests `build` recorded, and that no file was added, before the upload step;
+  `docs/releasing.md` lists the step. Exercised on Linux under `bash -e` and
+  `-eo pipefail`, with both GNU coreutils 9.7 and uutils 0.8.0: an intact download
+  passes, and a tampered wheel, an extra file, a missing sdist, an empty digest list and
+  a digest list with no `dist/` lines each fail it.
+  `tests/test_release_workflow_oidc_install_isolation.py` now requires `publish` to need
+  `build` and `release`, and reads both checks, `release`'s existing one and the new one,
+  through one helper, `digest_check_problems`. It is a regression ratchet: it refuses the
+  spellings listed below, the list is not exhaustive, no other disarming is shown to be
+  refused, and nothing in it runs the workflow. The helper refuses a check whose
+  `EXPECTED` is not `needs.build.outputs.artifact-sha256`; that can be skipped or ignored
+  (`if:`, `continue-on-error`), or that guards a step that can (`if: always()` there runs
+  the attestation or the upload after a failed check); that sets its own
+  `working-directory` or any `env` but `EXPECTED`; that runs under a job or workflow `env`
+  (which could set `BASH_ENV`, `PATH` or `RUNNER_TEMP`) or any
+  `defaults.run.working-directory`; that sets a `shell:` key (on the check, or in a job's
+  or the workflow's `defaults.run`) other than exactly `bash -e {0}` or
+  `bash --noprofile --norc -eo pipefail {0}`, the two spellings GitHub documents for
+  errexit on (`release.yml` sets none); that sits in a job with `continue-on-error`,
+  `container`, `services` or `strategy` (neither job sets one); whose guarded step has a
+  `with:` other than the workflow's own (the attestation's `subject-path`, and no input for
+  the PyPI upload); that is not the step immediately before the step it guards; whose
+  script expands anything but `$EXPECTED` and `$RUNNER_TEMP` outside single quotes (no
+  other `$`, no backtick); or whose script holds any line but these, each a plain
+  pipeline (so no `exit`, `set +e`, `set +o errexit`, `trap`, `||` or `;`, with `#` read
+  as an ordinary character, not a comment) that writes, if at all, only to
+  `"$RUNNER_TEMP/<name>"` with a plain file name (no `/`, so no `..`): `test -n "$EXPECTED"`
+  or `test -s` of such a file, and no other `test`; `sha256sum --check --strict -` fed by
+  exactly `printf '%s\n' "$EXPECTED"`, with no stage between (`release`), or
+  `sha256sum --check --strict` alone, on a file made from `EXPECTED`'s lines and not
+  rewritten since (`publish`); the names of every digest that check read, made by
+  `awk '{print $2}' | sort` with nothing filtered out; `find` of exactly the directories
+  the job downloads into (`dist` and `dist_release_bundle` in `release`, `dist` in
+  `publish`) and then `-type f`, with no glob and no further path, `| sort`; and, last, a
+  `diff` of those two lists. `grep` may only filter with the one `-E` pattern `publish`
+  uses, `awk` may only run `{print $2}`, `sort` takes no argument, and `diff` takes no
+  option. Lines are joined as `sh` joins them, only where a backslash is the last
+  character of the line, so a blank line or spaces after a backslash start a new command.
+  A symlink planted in `$RUNNER_TEMP` is out of scope: no allowed command makes one. The
+  test file lists 64 distinct spellings, 55 applied to both jobs and 9 to one job alone
+  (119 cases), and each case is shown to be refused. Reviews found spellings that passed
+  earlier versions of the helper, among them a `grep -v` between `printf` and `sha256sum`,
+  `diff -I.`, a `sort -o` into `dist/` after the `diff`, a `#` that `shlex` read as a
+  comment while bash does not, a write through `"$RUNNER_TEMP/../"`, `BASH_ENV` in an `env`,
+  a backslash and a blank line before `e''xit 0`, `bash -e +e {0}` as a `shell:`, a `find`
+  narrowed to globs beside a decoy `test -n "find dist -type f"`, and a `with:` pointed
+  elsewhere on the guarded step; each is a case now. Before the first version of the
+  helper, inserting `exit 0` or `set +o errexit` ahead of the `release` check's first
+  command left its tests passing; both are cases now. Not covered: the other steps of
+  these jobs, the download steps' own `with:`, and the pip-install scan of the `build`
+  job, which still joins a backslash followed by spaces to the next line. A job that sets
+  `id-token: write` in its own `permissions:` and downloads an artifact must be one the
+  helper reads; a token inherited from workflow-level `permissions:` is not looked for.
+  `release.yml` runs only on version tags, so no pull request runs these jobs.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
