@@ -17,14 +17,21 @@ planted control that both configs flagged.
   src/model.py, functions/stage4_immunogenicity_scoring.py and
   scripts/install_prime_wsl.py) and were removed.
 
-This test pins that population; it cannot run semgrep, so "live" is the
-measurement above. Before adding a suppression, measure it the same way, with
+Re-measured 2026-10-09 when the pin moved to semgrep 1.179.0, with the same two
+configs (Python 3.11, Windows): the same three findings, on the same three calls,
+appear only under `--disable-nosem`, and a planted control for each config is
+flagged by it.
+
+This test pins that population; it cannot run semgrep, so "live" means the
+measurements above. Before adding a suppression, measure it the same way, with
 and without `--disable-nosem`, and add the file here with the rule it silences.
 
 Lines are matched the way semgrep 1.178.0 matches them, measured against the
 semgrep-core that runs, not read from pysemgrep's semgrep/constants.py, which
-differs for the own-line form. It searches raw source lines, case-insensitively,
-for `nosem`, so `nosemgrep`, `NOSEMGREP` and `nosemantics` all qualify:
+differs for the own-line form (re-checked on 1.179.0: eight probe lines covering
+every behaviour below, plus an unsuppressed control, all agree). It searches raw
+source lines, case-insensitively, for `nosem`, so `nosemgrep`, `NOSEMGREP` and
+`nosemantics` all qualify:
 - on the line where a finding starts, after a space, anywhere on the line, a
   string literal included, it silences that finding; `#nosemgrep` with no space
   does not;
