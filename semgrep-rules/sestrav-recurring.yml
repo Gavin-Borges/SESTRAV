@@ -1,0 +1,39 @@
+rules:
+  - id: sestrav-prefer-sys-executable
+    message: Use sys.executable instead of a bare python or python3 child interpreter.
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.py", "*.smk"]
+    pattern-regex: >-
+      (?m)(?:\[\s*["']python3?["']|shell\s*:\s*(?:#[^\n]*\s*)*(?:r|f|rf)?(?:["']{3}|["'])\s*python3?\s+|cmd\s*=\s*f?["']python3?\s+)
+
+  - id: sestrav-preserve-pipeline-status
+    message: "pytest or a gate piped into a filter reports the filter's exit status; redirect to a file and read $?."
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.sh", "*.yml", "*.yaml", "/scripts/hooks/*"]
+      exclude: ["/semgrep-rules/*.yml"]
+    pattern-regex: >-
+      (?m)^(?!\s*#)[^\n]*(?:pytest|ruff|mypy|bandit|semgrep|pip-audit|[A-Za-z0-9_./-]*gate\.py)[^\n|]*(?<!\|)\|(?!\|)[^\n]+
+
+  - id: sestrav-require-git-glob-pathspec
+    message: "Git's default pathspec gives ** no meaning and lets * cross '/', so 'dir/**/x' misses direct children; prefix :(glob)."
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.py", "*.sh", "*.yml", "*.yaml", "/scripts/hooks/*"]
+      exclude: ["/semgrep-rules/*.yml"]
+    pattern-regex: >-
+      (?m)^(?!\s*#)[^\n]*git\s+(?:ls-files|grep)[^\n]*["'](?!:\(glob\))[^"'\n]*\*\*
+
+  - id: sestrav-count-cr-bytes-not-lines
+    message: grep -c counts matching lines, not carriage-return bytes; use tr -cd followed by wc -c.
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.py", "*.sh", "*.yml", "*.yaml", "/scripts/hooks/*"]
+      exclude: ["/semgrep-rules/*.yml"]
+    pattern-regex: >-
+      (?m)^(?!\s*#)[^\n]*grep\s+-c\s+(?:\$)?["']\\r["']
