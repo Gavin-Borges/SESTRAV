@@ -306,7 +306,7 @@ jobs:
         # that equality holds today by coincidence, not by mechanism, since this
         # job's real target set is git-tracked files minus semgrep's own default
         # ignores, language-filtered - a different filter shape entirely). That is
-        # why `tests/test_train_classifier.py:611,614` calling `joblib.load` does
+        # why the two `joblib.load` calls in `tests/test_train_classifier.py` do
         # not trip this gate. If the pinned semgrep version is ever bumped,
         # re-check that default, because those two call sites would start
         # failing here.
@@ -314,13 +314,20 @@ jobs:
         # venv running this step's exact argv: "Ran 3 rules on 169 files: 0
         # findings", exit 0, identical to the 1.176.1 baseline, and a --json run
         # reports 0 files under tests/ in the scanned set. The default still
-        # excludes them. Note the anchors above were `:608,611` until that
-        # re-check: the call sites had drifted two lines and nothing pins them,
-        # so re-derive with `grep -n 'joblib.load'` rather than trusting them.
+        # excludes them. This comment once cited the two call sites by line
+        # (`:608,611`, then `:611,614`); they drift and nothing pins them, so
+        # re-derive with `grep -n 'joblib.load'` rather than trusting a number.
         # Re-checked 2026-09-30 for the 1.177.0 -> 1.178.0 bump with this step's
         # exact argv: "Ran 3 rules on 189 files: 0 findings" under both
         # versions, and a --json run reports 0 files under tests/ in either
         # scanned set.
+        # Re-checked 2026-10-09 for the 1.178.0 -> 1.179.0 bump with this step's
+        # exact argv on a git-initialised export of the branch tree: "Ran 3
+        # rules on 190 files: 0 findings" under both versions, and a --json run
+        # reports 0 files under tests/ in either scanned set. Control: the same
+        # rules pointed at tests/test_train_classifier.py explicitly flag both
+        # joblib.load calls under both versions, so the zero is the default
+        # ignore, not the rules.
         # Local rules only - no registry fetch - so this gate has no network
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off
