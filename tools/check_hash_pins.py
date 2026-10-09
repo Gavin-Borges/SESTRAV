@@ -7,6 +7,13 @@ to install. This is the cheap, dependency-free gate: it parses the manifests
 that are contractually hash-pinned and reports every requirement line that has
 no `--hash=` attached.
 
+It also rejects requirement-file options that add or swap a package source, or
+exempt a host from TLS verification: `--extra-index-url`, `--trusted-host`,
+`--find-links` / `-f`, and `--index-url` / `-i` naming anything but PyPI's default
+index. Hashes would still refuse a substituted artifact, but these manifests are
+compiled against PyPI, so such a line means the file no longer describes how it was
+built. Until 2026-10-09 every option line was skipped silently.
+
 Usage:
     python tools/check_hash_pins.py               # check the default manifests
     python tools/check_hash_pins.py path/to.txt   # check specific files
@@ -41,6 +48,15 @@ DEFAULT_TARGETS: tuple[str, ...] = (
 )
 
 
+# Options that change where packages come from. `--index-url` / `-i` pointing at
+# PyPI's own default index is allowed, so an explicitly PyPI-pinned compile step
+# cannot fail this gate.
+INDEX_OPTIONS = frozenset(
+    {"--index-url", "-i", "--extra-index-url", "--trusted-host", "--find-links", "-f"}
+)
+PYPI_DEFAULT_INDEX = frozenset({"https://pypi.org/simple", "https://pypi.org/simple/"})
+
+
 @dataclass(frozen=True)
 class Violation:
     path: str
@@ -54,13 +70,11 @@ def _strip_comment(line: str) -> str:
     return line if index < 0 else line[:index]
 
 
-def iter_requirements(text: str) -> list[tuple[int, str]]:
-    """Yield (1-based start line, joined requirement) for real requirement lines.
+def _logical_lines(text: str) -> list[tuple[int, str]]:
+    """(1-based start line, joined text) for every non-blank, non-comment logical line.
 
-    Skips blanks, comments, `-r`/`-c` includes and any other option-only line
-    (`--index-url`, `--extra-index-url`, `--find-links`, ...). Backslash
-    continuations are joined into a single logical requirement so that the
-    `--hash=` entries the compiler puts on following lines still count.
+    Backslash continuations are joined into one logical line, so the `--hash=`
+    entries the compiler puts on following lines stay with their requirement.
     """
     requirements: list[tuple[int, str]] = []
     buffer = ""
@@ -85,17 +99,62 @@ def iter_requirements(text: str) -> list[tuple[int, str]]:
             buffer = ""
     if buffer:
         requirements.append((start, buffer.strip()))
-    return [(number, req) for number, req in requirements if not req.startswith("-")]
+    return requirements
+
+
+def iter_requirements(text: str) -> list[tuple[int, str]]:
+    """Yield (1-based start line, joined requirement) for real requirement lines.
+
+    Skips blanks, comments, `-r`/`-c` includes and any other option-only line
+    (`--index-url`, `--extra-index-url`, `--find-links`, ...); the options that
+    change the package source are checked separately by `iter_index_options`.
+    """
+    return [(number, req) for number, req in _logical_lines(text) if not req.startswith("-")]
+
+
+def _option_name_and_value(line: str) -> tuple[str, str]:
+    """Split `--opt value`, `--opt=value` or `-o value` into (name, value)."""
+    head, _, rest = line.partition(" ")
+    if head.startswith("--") and "=" in head:
+        name, _, value = head.partition("=")
+        return name, (value or rest).strip()
+    return head, rest.strip()
+
+
+def iter_index_options(text: str) -> list[tuple[int, str]]:
+    """Yield (1-based start line, joined line) for every option that changes the package source."""
+    found: list[tuple[int, str]] = []
+    for number, line in _logical_lines(text):
+        name, value = _option_name_and_value(line)
+        if name not in INDEX_OPTIONS:
+            continue
+        if name in ("--index-url", "-i") and value in PYPI_DEFAULT_INDEX:
+            continue
+        found.append((number, line))
+    return found
+
+
+def _relative(path: pathlib.Path) -> str:
+    return path.relative_to(REPO_ROOT).as_posix() if path.is_relative_to(REPO_ROOT) else str(path)
 
 
 def check_file(path: pathlib.Path) -> list[Violation]:
     """Return every requirement in `path` that carries no --hash."""
     text = path.read_text(encoding="utf-8")
-    relative = path.relative_to(REPO_ROOT).as_posix() if path.is_relative_to(REPO_ROOT) else str(path)
+    relative = _relative(path)
     return [
         Violation(relative, number, requirement)
         for number, requirement in iter_requirements(text)
         if "--hash=" not in requirement
+    ]
+
+
+def check_index_options(path: pathlib.Path) -> list[Violation]:
+    """Return every option line in `path` that adds or swaps a package source."""
+    relative = _relative(path)
+    return [
+        Violation(relative, number, line)
+        for number, line in iter_index_options(path.read_text(encoding="utf-8"))
     ]
 
 
@@ -130,16 +189,26 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     violations: list[Violation] = []
+    redirects: list[Violation] = []
     for path in paths:
         violations.extend(check_file(path))
+        redirects.extend(check_index_options(path))
 
     if violations:
         print("ERROR: un-hashed requirements found (breaks pip --require-hashes):", file=sys.stderr)
         for violation in violations:
             print(f"  {violation.path}:{violation.line}: {violation.text}", file=sys.stderr)
+    if redirects:
+        print(
+            "ERROR: index-redirecting options found (these manifests are compiled against PyPI):",
+            file=sys.stderr,
+        )
+        for violation in redirects:
+            print(f"  {violation.path}:{violation.line}: {violation.text}", file=sys.stderr)
+    if violations or redirects:
         return 1
 
-    print(f"All requirements hash-pinned across {len(paths)} manifest(s).")
+    print(f"All requirements hash-pinned across {len(paths)} manifest(s), with no index-redirecting options.")
     return 0
 
 

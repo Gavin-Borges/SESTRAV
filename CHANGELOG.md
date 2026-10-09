@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Changed
+- **`tools/check_hash_pins.py` now rejects options that change where packages come from,
+  instead of skipping every option line.** `--extra-index-url`, `--trusted-host`,
+  `--find-links` / `-f`, and `--index-url` / `-i` naming anything but PyPI's default index
+  (`https://pypi.org/simple`, with or without the trailing slash) now fail the `lint` job's
+  hash-pin step, in `=` and space-separated forms and across a backslash continuation.
+  Hashes would still refuse a substituted artifact, but these manifests are compiled
+  against PyPI, so such a line means a manifest no longer describes how it was built.
+  Includes (`-r`, `-c`) and other options are still skipped. No current manifest carries
+  any of these options, so the gate's verdict on the tree is unchanged.
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
   `assay_type == "biological activity"` rows by editing the finished file in place, after

@@ -529,6 +529,63 @@ def test_editable_install_ignored():
     assert _requirements("-e .\n") == []
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "--extra-index-url https://download.pytorch.org/whl/cpu",
+        "--extra-index-url=https://download.pytorch.org/whl/cpu",
+        "--index-url https://mirror.example/simple",
+        "--index-url=https://mirror.example/simple",
+        "-i https://mirror.example/simple",
+        "--trusted-host mirror.example",
+        "--find-links ./wheels",
+        "--find-links=https://mirror.example/wheels",
+        "-f ./wheels",
+    ],
+)
+def test_index_redirecting_option_is_a_violation(tmp_path, monkeypatch, line):
+    # A hash-pinned lock resolves from PyPI. An option that adds or swaps a package
+    # source, or exempts a host from TLS verification, is a violation even though
+    # every requirement in the file still carries a hash.
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\nnumpy==2.4.6 \\\n    --hash=sha256:aaa\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    violations = check_hash_pins.check_index_options(path)
+    assert [(v.line, v.text) for v in violations] == [(1, line)]
+    assert check_hash_pins.check_file(path) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "--index-url https://pypi.org/simple",
+        "--index-url https://pypi.org/simple/",
+        "--index-url=https://pypi.org/simple",
+        "-i https://pypi.org/simple",
+        "-r ../requirements.in",
+        "-c constraints.txt",
+        "--only-binary :all:",
+        "--pre",
+        "-e .",
+    ],
+)
+def test_pypi_default_and_non_index_options_are_allowed(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.check_index_options(path) == []
+
+
+def test_index_option_split_by_a_continuation_is_still_caught(tmp_path, monkeypatch):
+    path = tmp_path / "requirements.txt"
+    path.write_text("--extra-index-url \\\n    https://mirror.example/simple\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    violations = check_hash_pins.check_index_options(path)
+    assert [(v.line, v.text) for v in violations] == [
+        (1, "--extra-index-url https://mirror.example/simple")
+    ]
+
+
 def test_environment_marker_survives_joining():
     text = 'colorama==0.4.6 ; sys_platform == "win32" \\\n    --hash=sha256:aaa\n'
     assert [req for _, req in _requirements(text)] == [
@@ -580,6 +637,22 @@ def test_cli_fails_on_an_unhashed_manifest(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
     assert check_hash_pins.main(["bad.txt"]) == 1
     assert "un-hashed requirements" in capsys.readouterr().err
+
+
+def test_cli_fails_on_an_index_redirecting_option(tmp_path, monkeypatch, capsys):
+    manifest = tmp_path / "bad.txt"
+    manifest.write_text(
+        "--extra-index-url https://mirror.example/simple\nnumpy==2.4.6 \\\n    --hash=sha256:aaa\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.main(["bad.txt"]) == 1
+    err = capsys.readouterr().err
+    assert "index-redirecting options" in err
+    # Assembled from two pieces: the contiguous file-colon-line form would be read by
+    # scripts/check_doc_line_citations.py as an unpinned citation.
+    assert "bad.txt" + ":1: --extra-index-url https://mirror.example/simple" in err
+    assert "un-hashed requirements" not in err
 
 
 def test_cli_passes_on_a_fully_hashed_manifest(tmp_path, monkeypatch):
