@@ -54,7 +54,7 @@ def download_zip(
     if not (url.startswith("http://") or url.startswith("https://")):
         raise ValueError(f"URL must start with http:// or https://: {url}")
     print(f"[install-prime] Downloading {url}")
-    data = urllib.request.urlopen(url, timeout=120).read()  # nosec B310 # nosemgrep
+    data = urllib.request.urlopen(url, timeout=120).read()  # nosec B310
     _verify_expected_hash(data, expected_sha256, rename_to)
     tmp_dir = dest_dir / "_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
