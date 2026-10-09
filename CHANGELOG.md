@@ -510,7 +510,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   README, USAGE, CONTRIBUTING and `docs/data_registry.md`, which the entry above taught to
   warn that a mismatch leaves the download in place, now say the fetcher deletes it and
   that an archive from an earlier run stays, so step two still waits for step one.
-- **No tracked file tells a reader to run a bare MHCflurry model fetch any more.** Four
+- **No tracked file offers the unverified `mhcflurry-downloads fetch models_class1_presentation`
+  any more.** Four
   places still offered `mhcflurry-downloads fetch models_class1_presentation` on its own,
   which unpacks the archive with no integrity check: both of
   `scripts/generate_hard_decoys.py`'s messages (the error printed when the presentation
@@ -522,8 +523,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   that limit to its second step, since the fetcher imports no mhcflurry.
   `tests/test_no_bare_mhcflurry_fetch_advice.py` fails on any tracked command that names
   `models_class1_presentation` without `--already-downloaded-dir` (backslash continuations
-  joined; `tests/` and this file exempt); on main it named exactly those four lines. It is a
-  ratchet over that spelling, not a proof: a command assembled from variables is not seen.
+  joined; `tests/` and this file exempt); on main it named exactly those four lines. It also
+  fails if the walk finds fewer than three verified-route commands, so it cannot pass on an
+  empty scan. It is a ratchet over that spelling, not a proof: it does not see a command
+  assembled from variables or split across string literals, the argument-less
+  `mhcflurry-downloads fetch` (every current mention of that form is a warning against it),
+  or `python -m mhcflurry.downloads_command fetch`.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit

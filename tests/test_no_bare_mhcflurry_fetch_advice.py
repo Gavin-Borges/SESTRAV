@@ -89,12 +89,21 @@ def test_the_detector_sees_each_spelling(text: str, expected: list[int]) -> None
 
 def test_no_tracked_file_advises_a_bare_model_fetch() -> None:
     offenders: list[str] = []
+    verified_routes = 0
     for path in _tracked_text_files():
         try:
             text = (REPO_ROOT / path).read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
         offenders.extend(f"{path}:{number}" for number in bare_fetches(text))
+        verified_routes += sum(
+            1
+            for _, line in _logical_lines(text)
+            if FETCH.search(line) and "--already-downloaded-dir" in line
+        )
+    # Not vacuous: the walk must reach real content, so it must find the verified route that
+    # README, USAGE and singularity.def spell out. An empty file list would pass silently.
+    assert verified_routes >= 3, f"the scan found only {verified_routes} verified-route commands"
     assert not offenders, (
         "these lines tell a reader to run an unverified MHCflurry fetch; give the "
         "verified two-step route instead (README, 'MHCflurry model data'):\n"
