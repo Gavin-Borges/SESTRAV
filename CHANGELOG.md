@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+> **Why the subsection headings repeat in this section.** `[Unreleased]` holds several
+> runs of `### Added`, `### Changed`, `### Fixed` and `### Security` headings, each opened
+> at a different time, so a heading marks where a block of entries was opened rather than
+> being the one home for its category. They are deliberately left unconsolidated: a divider
+> further down, explained by the note beside it, marks where everything below was staged as
+> `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
+> relabel which batch an entry belonged to. Entries inside a block are not in date order.
+
 ### Changed
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
