@@ -2,8 +2,14 @@
 
 This document defines how SESTRAV is governed: who makes decisions, how decisions
 are made, the roles people hold, and how the project continues if a maintainer
-becomes unavailable. It satisfies the OpenSSF Best Practices "project oversight"
-criteria (`governance`, `roles_responsibilities`, `access_continuity`).
+becomes unavailable. It addresses three of the six OpenSSF Best Practices Silver
+"project oversight" criteria: `governance` and `roles_responsibilities`, which
+sections 1 to 3 document, and `access_continuity`, which the project does **not**
+meet. That criterion requires the project to be able to "create and close issues,
+accept proposed changes, and release versions of software, within a week of
+confirmation of the loss of support from any one individual". With no backup
+maintainer and no arranged access recovery (section 5), SESTRAV cannot. The
+project's badge entry leaves all three criteria unanswered (read 2026-10-03).
 
 ## 1. Governance model
 

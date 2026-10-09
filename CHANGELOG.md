@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+> **Why the subsection headings repeat in this section.** `[Unreleased]` holds several
+> runs of `### Added`, `### Changed`, `### Fixed` and `### Security` headings, each opened
+> at a different time, so a heading marks where a block of entries was opened rather than
+> being the one home for its category. They are deliberately left unconsolidated: a divider
+> further down, explained by the note beside it, marks where everything below was staged as
+> `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
+> relabel which batch an entry belonged to. Entries inside a block are not in date order.
+
 ### Changed
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
@@ -95,6 +103,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 ### Security
+- **The PII scan writes its diff outside the checkout, so a pull request that removes or
+  fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
+  `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
+  step greps the whole checkout for the unfilled email placeholder. The diff carries removed
+  lines as well as added ones, so a pull request that removed or filled a placeholder its
+  base still carried failed that step on the diff file alone. An added mention is in the
+  checkout itself and still fails, as it should. The diff now goes to
+  `$RUNNER_TEMP/pii_scan_diff.txt`; with `RUNNER_TEMP` unset the step stops rather than
+  writing it elsewhere. `tests/test_path_scan_exemption.py` adds two cases: the shipped diff
+  step followed by the shipped placeholder step, on a pull request that fills the
+  placeholder, must leave nothing in the checkout and pass (on main it left `diff.txt` and
+  failed); and an unset `RUNNER_TEMP` must stop the step. The three tests that run the
+  shipped step now pass a `RUNNER_TEMP`. Mutation-checked on a throwaway copy: a diff file
+  inside the checkout and a dropped `:?` guard each fail at least one case.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only

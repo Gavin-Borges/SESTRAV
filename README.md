@@ -181,7 +181,7 @@ The canonical same-pathogen (within-virus) discrimination metric is the per-viru
 
 ### Paradigm 3 - Leave-One-Virus-Out (LOO) Cross-Virus Transfer (Amendment 7)
 
-Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely from training, then testing on its IEDB-confirmed positives and IEDB assay-confirmed negatives only. An earlier analysis included synthetic decoy rows (`allele_matched_nonbinder`) in the test partition; because RF mode-31 binding features trivially discriminate these decoys, those figures were inflated by approximately 0.25-0.50 AUC-ROC. Amendment 7 restricts the test partition to rows where `negative_origin in {tested_negative, iedb_api}`. The corrected results are the ones reported here and in [`results/loo_cross_virus_v5_clean.csv`](results/loo_cross_virus_v5_clean.csv). The LOO AUC-ROC column is unaffected by the D15 peptide-grouping repair below - it never used `MultiStratifiedKFold` in the first place (each virus is held out of training entirely, which is already peptide-disjoint by construction) - only the Within-CV comparison column changed.
+Cross-virus transfer was evaluated by holding out each of the 9 viruses entirely from training, then testing on its IEDB-confirmed positives and IEDB assay-confirmed negatives only. An earlier analysis included synthetic decoy rows (`allele_matched_nonbinder`) in the test partition; those figures were inflated by approximately 0.25-0.50 AUC-ROC. The mechanism of that inflation is deliberately not asserted here (`docs/claims_register.md` D21): these decoys are not low-affinity, and `docs/paper.md` Section 3.3 records that the large majority of them are absent from the tracked binding matrix and so receive a zero-imputed binding vector rather than a measured one. Amendment 7 restricts the test partition to rows where `negative_origin in {tested_negative, iedb_api}`. The corrected results are the ones reported here and in [`results/loo_cross_virus_v5_clean.csv`](results/loo_cross_virus_v5_clean.csv). The LOO AUC-ROC column is unaffected by the D15 peptide-grouping repair below - it never used `MultiStratifiedKFold` in the first place (each virus is held out of training entirely, which is already peptide-disjoint by construction) - only the Within-CV comparison column changed.
 
 | Virus | LOO AUC-ROC | Within-CV AUC-ROC | n_test_pos | n_test_neg | Note |
 |-------|-------------|-------------------|------------|------------|------|
@@ -287,7 +287,7 @@ At each TCR contact position, SESTRAV computes the following physicochemical pro
 | Legacy (30-feature) | 20 physicochemical + 10 binding | 0.825 | Historical comparator |
 | Legacy (21-feature) | Sequence-only (binding excluded) | 0.784 | Historical comparator |
 | Expanded (50-feature) | 40 physicochemical + 10 binding | - | Extended evaluation |
-| Allele-aware (166) | Canonical + 136 HLA pocket pseudo-sequences | - | Pan-allele modeling |
+| Allele-aware (166) | Legacy 30-feature base + 136 HLA pocket pseudo-sequences (no length) | - | Pan-allele modeling |
 
 **None of the figures in this table are the Tier A field benchmark (0.828, External Benchmark
 Results above).** This table's numbers are an unweighted feature-ablation cross-validation study

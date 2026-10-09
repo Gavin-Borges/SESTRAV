@@ -269,6 +269,35 @@ _Last updated: 2026-09._
     import ordering and `__future__` semantics are unaffected.
   - Verify with `reuse lint` in CI before merging the headers commit.
 
+- **Study/assay-grouped cross-validation - not pursued, declined 2026-09-16.** The
+  corpus metadata cannot support the split, and the blockers below are each sufficient
+  on their own. Measured over the 35,597 active rows of
+  `data/immunogenicity_dataset_v5.csv`: `reference_pmid` is 29.1% non-null across 918
+  distinct values and is confounded with label; `iedb_assay_id` is 63.1% non-null with
+  22,467 distinct values over 22,467 non-null rows, an exactly one-to-one mapping that
+  makes it a row identifier rather than a group key; `assay_context` carries a single
+  value on 6.1% of rows; and `infection_phase`, `antigen_latency_program` and
+  `cross_reactivity_tested` are entirely empty. `assay_type` is 90.0% non-null but its
+  107 values are dominated by ELISPOT alone at 60.6% of active rows. Grouping by
+  peptide, which the released cross-validation already enforces, remains the split.
+- **Antigen-processing proxy replacement by a local NetChop container - not pursued,
+  declined 2026-09-16.** The values in `data/antigen_processing_cache.csv` are locally
+  generated placeholders, disclosed as **D18** in `docs/claims_register.md`. A real
+  NetChop deployment carries a DTU academic licence whose output is not redistributable,
+  so that cache could no longer be a tracked file: the trade is a tracked, reproducible,
+  openly disclosed mock for an untracked, licence-encumbered dependency. The measured
+  gain does not justify it. In `models/v5/training_results_ablation.csv`, feature mode 33
+  reports AUC-PR 0.6085 with a standard deviation of 0.0089, against mode 31's 0.6058
+  with 0.0045 - a difference of +0.0027, which sits inside mode 33's own standard
+  deviation, in a feature mode that is not the production track. Disclosure is the
+  remedy here, not replacement.
+- **mode-166 featurization repair - not pursued, declined 2026-09-16.** The `data/iedb/`
+  inputs needed to rebuild the allele-aware artifacts are not tracked, so no clone can
+  rebuild them; mode 166 is not the production track, and it backs no number reported in
+  `docs/paper.md` (**D30**). Repairing the featurization would also leave the
+  "pan-allele" description inaccurate, so the work worth doing is the descriptive
+  language D30 gates, not the featurization itself.
+
 ## How to help
 
 Contributions are welcome - see `CONTRIBUTING.md` for the workflow and for the
