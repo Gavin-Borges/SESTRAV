@@ -142,10 +142,7 @@ def test_ci_env_cannot_select_the_application_lockfiles():
         assert update_dependencies.select_specs(ci_env=name) == []
 
 
-OVERRIDDEN_SPECS = {"semgrep": "environments/semgrep-overrides.txt"}
-
-
-def test_only_the_semgrep_spec_compiles_with_a_uv_override_file():
+def test_no_spec_compiles_with_a_uv_override_file():
     # History: requirements.in / requirements-lock.in floor setuptools>=83.0.0
     # for GHSA-h35f-9h28-mq5c, which collided with torch 2.12.0's declared
     # `setuptools<82` build-metadata cap and made both specs unsatisfiable for
@@ -154,58 +151,39 @@ def test_only_the_semgrep_spec_compiles_with_a_uv_override_file():
     # retired. This asserts the workaround does not creep back in: a
     # reintroduced override would silently mask a genuine resolution conflict.
     #
-    # One exception is deliberate, and named here so that any other is not:
-    # semgrep 1.178.0 (pinned, the latest on 2026-09-30) declares
-    # pyjwt[crypto]~=2.13.0 and 2.13.0 carries thirteen advisories, so the semgrep
-    # spec overrides pyjwt and nothing else.
-    # environments/semgrep-overrides.txt records the measurement and exit condition.
+    # The semgrep spec was a deliberate exception while semgrep declared
+    # pyjwt[crypto]~=2.13.0: it compiled with environments/semgrep-overrides.txt
+    # to lift pyjwt. semgrep 1.179.0 declares pyjwt[crypto]>=2.15.0,<3, so that
+    # override was retired too.
     for spec in LOCK_SPECS:
-        command = build_command(spec)
-        expected = OVERRIDDEN_SPECS.get(spec.name)
-        if expected is None:
-            assert "--overrides" not in command, spec.name
-        else:
-            assert command[command.index("--overrides") + 1] == expected, spec.name
+        assert spec.overrides is None, spec.name
+        assert "--overrides" not in build_command(spec), spec.name
 
 
-def _requirement_lines(path: pathlib.Path) -> list[str]:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+# pip-audit reports advisories against pyjwt 2.13.0 and 2.14.0 and none against
+# 2.15.0. semgrep 1.179.0 itself requires pyjwt[crypto]>=2.15.0,<3, so this holds
+# without help today; it fails a lock that walks pyjwt back by any route, a hand
+# edit or an older semgrep among them.
+PYJWT_ADVISORY_FLOOR = "2.15.0"
 
 
-def test_the_semgrep_override_lifts_pyjwt_only_and_states_its_exit_condition():
-    path = pathlib.Path(update_dependencies.REPO_ROOT) / OVERRIDDEN_SPECS["semgrep"]
-    requirements = _requirement_lines(path)
-    assert len(requirements) == 1, requirements
-    assert requirements[0].lower().startswith("pyjwt"), requirements
-    assert "EXIT CONDITION" in path.read_text(encoding="utf-8")
-
-
-def test_every_overridden_lock_pins_a_version_its_override_admits():
-    # Any recompile that does not read the override file, whether a hand-run
-    # `uv pip compile` without --overrides or another tool, walks pyjwt back to
-    # 2.13.0 without an error.
+def test_the_semgrep_lock_pins_pyjwt_at_or_above_its_advisory_floor():
     from packaging.requirements import Requirement
     from packaging.version import Version
 
-    root = pathlib.Path(update_dependencies.REPO_ROOT)
-    for spec in LOCK_SPECS:
-        if not spec.overrides:
+    semgrep = next(spec for spec in LOCK_SPECS if spec.name == "semgrep")
+    lock = pathlib.Path(update_dependencies.REPO_ROOT) / semgrep.output
+    pins = []
+    for pin_line in lock.read_text(encoding="utf-8").splitlines():
+        if pin_line.startswith((" ", "#")) or "==" not in pin_line:
             continue
-        pinned: dict[str, list[str]] = {}
-        for pin_line in (root / spec.output).read_text(encoding="utf-8").splitlines():
-            if pin_line.startswith((" ", "#")) or "==" not in pin_line:
-                continue
-            name, rest = pin_line.split("==", 1)
-            pinned.setdefault(Requirement(name).name.lower(), []).append(rest.split()[0])
-        for line in _requirement_lines(root / spec.overrides):
-            requirement = Requirement(line)
-            pins = pinned.get(requirement.name.lower(), [])
-            assert len(pins) == 1, f"{spec.output}: {requirement.name} pinned {pins}"
-            assert Version(pins[0]) in requirement.specifier, (
-                f"{spec.output} pins {requirement.name}=={pins[0]}, "
-                f"outside its override {requirement.specifier}"
-            )
+        name, rest = pin_line.split("==", 1)
+        if Requirement(name).name.lower() == "pyjwt":
+            pins.append(rest.split()[0])
+    assert len(pins) == 1, f"{semgrep.output}: pyjwt pinned {pins}"
+    assert Version(pins[0]) >= Version(PYJWT_ADVISORY_FLOOR), (
+        f"{semgrep.output} pins pyjwt=={pins[0]}, below {PYJWT_ADVISORY_FLOOR}"
+    )
 
 
 _PIP_INSTALL = re.compile(r"\bpip(?:3(?:\.\d+)?)?\s+install\b")
@@ -248,15 +226,21 @@ def _install_surfaces(root: pathlib.Path) -> list[pathlib.Path]:
 
 
 def test_every_install_of_an_overridden_lock_skips_resolution():
-    # The override makes the lock disagree with the overridden package's own
-    # metadata, so a resolving install dies with ResolutionImpossible. Measured:
+    # An override makes the lock disagree with the overridden package's own
+    # metadata, so a resolving install dies with ResolutionImpossible. Measured
+    # while the semgrep spec had one:
     # `pip install --require-hashes -r environments/requirements-semgrep.txt`
-    # exits 1 against the overridden lock and 0 with --no-deps added.
+    # exited 1 against the overridden lock and 0 with --no-deps added. Dormant
+    # while no spec sets `overrides` (see the test above); it applies again to
+    # any spec that does.
+    overridden = [spec for spec in LOCK_SPECS if spec.overrides]
+    if not overridden:
+        # Report the dormancy instead of passing on an empty loop, so a run that
+        # checked nothing reads as SKIPPED rather than as a green guard.
+        pytest.skip("no LockSpec sets overrides; this guard applies again when one does")
     root = pathlib.Path(update_dependencies.REPO_ROOT)
     surfaces = _install_surfaces(root)
-    for spec in LOCK_SPECS:
-        if not spec.overrides:
-            continue
+    for spec in overridden:
         lock_name = pathlib.PurePosixPath(spec.output).name
         texts = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8") for p in surfaces}
         installs = [c for t in texts.values() for c in _install_commands(t) if lock_name in c]
@@ -306,10 +290,11 @@ def test_the_no_deps_guard_scans_every_install_surface(tmp_path):
     assert found == set(expected)
 
 
-def test_the_retired_override_file_is_gone():
-    # Guards the other half of the retirement: the file itself must not return.
+def test_the_retired_override_files_are_gone():
+    # Guards the other half of each retirement: the files themselves must not return.
     root = pathlib.Path(update_dependencies.REPO_ROOT)
     assert not (root / "overrides.txt").exists()
+    assert not (root / "environments" / "semgrep-overrides.txt").exists()
 
 
 # The release that first closed GHSA-h35f-9h28-mq5c. Any setuptools at or above

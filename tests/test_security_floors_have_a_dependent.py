@@ -206,7 +206,7 @@ def test_an_override_or_constraint_entry_is_not_a_dependent() -> None:
         pyjwt==2.15.1 \\
             --hash=sha256:ff
             # via
-            #   --override environments/semgrep-overrides.txt
+            #   --override environments/example-overrides.txt
             #   -c environments/constraints.txt
             #   -r environments/requirements-lock.in
         """
