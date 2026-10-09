@@ -400,9 +400,11 @@ jobs:
         # been added. Tested with a tampered wheel, an extra file and an empty
         # digest list, each of which fails this step. Keep it to the lines that
         # digest_check_problems in tests/test_release_workflow_oidc_install_isolation.py
-        # allows, immediately before the step it guards. Those tests fail each of
-        # the 38 disarmings they list for this check (40 across this check and
-        # publish's); they are not shown to fail any other edit that disarms it.
+        # allows, immediately before the step it guards. Those tests are a
+        # regression ratchet: they refuse each of the 59 spellings they list for
+        # this check (64 distinct across this check and publish's, 119 cases).
+        # The list is not exhaustive, no other disarming is shown to be refused,
+        # and nothing there runs this workflow.
         env:
           EXPECTED: ${{ needs.build.outputs.artifact-sha256 }}
         run: |

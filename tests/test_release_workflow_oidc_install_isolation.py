@@ -1,8 +1,10 @@
 """Release jobs with OIDC authority must not resolve Python dependencies, the
 job that builds the release artifacts must not run unhashed third-party code,
 and every job that uses a downloaded artifact first checks it against the build
-job's digests, with a check these tests fail if it carries any of the disarmings
-they list."""
+job's digests, with a check these tests fail if it carries one of the disarmings
+they list. The digest-check tests are a regression ratchet: they refuse the
+listed spellings, the list is not exhaustive, and nothing here runs the
+workflow."""
 
 import os
 import re
@@ -208,10 +210,12 @@ def test_the_release_job_checks_the_artifact_against_the_build_digests() -> None
         release, lambda s: str(s.get("uses", "")).startswith("actions/attest-build-provenance@")
     )
     assert download == 0 and check == 1 and attest > check, (download, check, attest)
-    script = release["steps"][check]["run"]
-    assert 'test -n "$EXPECTED"' in script
-    assert "sha256sum --check --strict" in script
-    assert "diff " in script
+    # Read as parsed pipelines, so a decoy in another command cannot satisfy a pin.
+    pipelines = _pipelines(release["steps"][check]["run"])
+    assert [["test", "-n", "$EXPECTED"]] in pipelines
+    assert [_FROM_EXPECTED, ["sha256sum", "--check", "--strict", "-"]] in pipelines
+    assert [["find", *_FIND_ARGS["release"]], ["sort", ">", _DOWNLOADED]] in pipelines
+    assert pipelines[-1] == [["diff", _EXPECTED_FILES, _DOWNLOADED]]
     # The check must be able to fail the job, in the shape digest_check_problems allows.
     assert not digest_check_problems(_document(), "release")
 
@@ -231,11 +235,14 @@ def test_the_publish_job_checks_the_distributions_against_the_build_digests() ->
         publish, lambda s: str(s.get("uses", "")).startswith("pypa/gh-action-pypi-publish@")
     )
     assert download == 0 and check == 1 and upload == 2, (download, check, upload)
-    script = publish["steps"][check]["run"]
-    assert "grep -E '^[0-9a-f]{64}  dist/[^/]+$'" in script
-    assert 'test -s "$RUNNER_TEMP/dist.sha256"' in script
-    assert 'sha256sum --check --strict "$RUNNER_TEMP/dist.sha256"' in script
-    assert "find dist -type f" in script and "diff " in script
+    # Read as parsed pipelines, so a decoy in another command cannot satisfy a pin.
+    pipelines = _pipelines(publish["steps"][check]["run"])
+    digests = "$RUNNER_TEMP/dist.sha256"
+    assert [_FROM_EXPECTED, ["grep", "-E", _DIST_PATTERN, ">", digests]] in pipelines
+    assert [["test", "-s", digests]] in pipelines
+    assert [["sha256sum", "--check", "--strict", digests]] in pipelines
+    assert [["find", *_FIND_ARGS["publish"]], ["sort", ">", _DOWNLOADED]] in pipelines
+    assert pipelines[-1] == [["diff", _EXPECTED_FILES, _DOWNLOADED]]
     assert not digest_check_problems(_document(), "publish")
 
 
@@ -266,7 +273,31 @@ _TEMP_FILE = re.compile(r"\$RUNNER_TEMP/[A-Za-z0-9][A-Za-z0-9._-]*")
 # backtick could run a command (`test -z "$(cp x dist/y)"`) or change a variable.
 _ALLOWED_EXPANSION = re.compile(r"\$(?:EXPECTED|RUNNER_TEMP)(?![A-Za-z0-9_])")
 _CHECK_ERREXIT_OFF = re.compile(r"\bset\s+(?:-\S*\s+)*\+[A-Za-z]*e|\bset\s+\+o\s+errexit\b")
-_SHELL_HAS_ERREXIT = re.compile(r"(?:^|\s)-[A-Za-z]*e")
+# A `shell:` key, wherever it sits (workflow or job `defaults.run`, or the check
+# step), must be one of GitHub's two documented spellings of errexit on: the
+# default for a `run:` step with no `shell:`, and what `shell: bash` expands to.
+# release.yml sets none today. Anything else (`bash -e +e {0}`, `env
+# BASH_ENV=... bash -e {0}`) could turn errexit off or run a planted file first.
+_ALLOWED_SHELLS = frozenset({"bash -e {0}", "bash --noprofile --norc -eo pipefail {0}"})
+# Keys that, on the release or publish job, could make a failed check not fail
+# the job or run it somewhere else. release.yml sets none of them on either job.
+_FORBIDDEN_JOB_KEYS = ("continue-on-error", "container", "services", "strategy")
+# What `find` lists in each job: exactly the directories the job downloads into,
+# then `-type f`; no glob, no further path, no other test.
+_FIND_ARGS = {
+    "release": ["dist", "dist_release_bundle", "-type", "f"],
+    "publish": ["dist", "-type", "f"],
+}
+# publish's one `grep -E` pattern: the `dist/` lines of the build job's digests.
+_DIST_PATTERN = "^[0-9a-f]{64}  dist/[^/]+$"
+_EXPECTED_FILES = "$RUNNER_TEMP/expected-files.txt"
+_DOWNLOADED = "$RUNNER_TEMP/downloaded-files.txt"
+# The `with:` of the step each check guards, exactly as release.yml has it: the
+# attestation's subjects and, for the PyPI upload, no input at all.
+GUARDED_WITH = {
+    "release": {"subject-path": "dist/*.tar.gz,dist/*.whl,dist_release_bundle/*.zip"},
+    "publish": {},
+}
 
 
 def _live_expansions(script: str) -> list[str]:
@@ -289,17 +320,26 @@ def _live_expansions(script: str) -> list[str]:
     return found
 
 
+def _join_continuations(script: str) -> str:
+    """Join a line to the next only where a backslash is the LAST character before
+    the newline (an odd run of them), removing both, as sh does. A backslash
+    followed by spaces, or by a blank line, joins nothing: the next line is a
+    command of its own."""
+    return re.sub(r"(?<!\\)((?:\\\\)*)\\\n", r"\1", script)
+
+
 def _pipelines(script: str) -> list[list[list[str]]]:
     """Each line of a run script as its pipeline stages, each a list of shell words.
 
-    Continuations are joined, quotes are removed as the shell removes them, and
+    Continuations are joined as sh joins them (_join_continuations), quotes are
+    removed as the shell removes them, and
     every operator (`||`, `;`, `>`) is a word of its own. `#` is read as an
     ordinary character: shlex would start a comment at any `#`, even mid-word
     where bash does not (`b"#x || true` keeps its `|| true` in bash), so a check
     holding a comment is refused rather than half-read.
     """
     pipelines = []
-    for line in re.sub(r"\\\s*\n", " ", script).splitlines():
+    for line in _join_continuations(script).splitlines():
         lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
         lexer.commenters = ""
         lexer.whitespace_split = True
@@ -322,32 +362,36 @@ def _check_index(job: dict) -> int:
     return _step_index(job, lambda s: "sha256sum --check" in str(s.get("run", "")))
 
 
-def _shape_problem(stage: list[str], position: int, length: int) -> str:
+def _shape_problem(stage: list[str], position: int, length: int, job_name: str) -> str:
     """Why one stage of a check's pipeline is outside its command's allowed shape, or "".
 
     No allowed shape writes a file, runs another command or drops what it reads
     without a later step noticing: printf prints EXPECTED and nothing else; grep
-    filters its input with one -E pattern (no -o or -v); awk runs only
-    `{print $2}`, on its input or on one $RUNNER_TEMP file (no system(), print >
-    or getline); sort takes no argument (no -o or --output); find takes its
-    directories and then only `-type f` (no -exec, -fprint, -delete or test that
+    filters its input with the one -E pattern release.yml uses (_DIST_PATTERN);
+    awk runs only `{print $2}`, on its input or on one $RUNNER_TEMP file (no
+    system(), print > or getline); sort takes no argument (no -o or --output);
+    find takes exactly the directories its job downloads into and then `-type f`
+    (_FIND_ARGS: no glob, no further path, no -exec, -fprint, -delete or test that
     skips a file); diff takes its two files and no option (no -I or
-    --ignore-matching-lines); test stands alone. sha256sum is read by the caller.
+    --ignore-matching-lines); test stands alone and is one of the two forms
+    release.yml has, `test -n "$EXPECTED"` or `test -s <$RUNNER_TEMP file>`.
+    sha256sum is read by the caller.
     """
     name, args = stage[0], stage[1:]
     allowed = {
         "printf": stage == _FROM_EXPECTED and position == 0,
-        "grep": position > 0 and len(args) == 2 and args[0] == "-E",
+        "grep": position > 0 and args == ["-E", _DIST_PATTERN],
         "awk": args == [_PRINT_NAME]
         if position
         else len(args) == 2 and args[0] == _PRINT_NAME and args[1].startswith("$RUNNER_TEMP/"),
         "sort": position > 0 and not args,
-        "find": position == 0
-        and len(args) >= 3
-        and args[-2:] == ["-type", "f"]
-        and not any(arg.startswith("-") for arg in args[:-2]),
+        "find": position == 0 and args == _FIND_ARGS[job_name],
         "diff": length == 1 and len(args) == 2 and not any(arg.startswith("-") for arg in args),
-        "test": length == 1,
+        "test": length == 1
+        and (
+            stage == ["test", "-n", "$EXPECTED"]
+            or (len(args) == 2 and args[0] == "-s" and bool(_TEMP_FILE.fullmatch(args[1])))
+        ),
         "sha256sum": True,
     }
     return "" if allowed[name] else f"{name} outside its allowed shape: {stage}"
@@ -363,22 +407,30 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
     without -e, turns errexit off or exits early disarms it, and so does an `if`
     on the guarded step (`always()` runs it after a failed check). The check's
     env holds EXPECTED alone and neither its job nor the workflow sets env, so
-    no BASH_ENV, PATH or RUNNER_TEMP reaches it from there.
+    no BASH_ENV, PATH or RUNNER_TEMP reaches it from there. A `shell:` key on
+    the check or in a job's or the workflow's defaults.run must be exactly
+    `bash -e {0}` or `bash --noprofile --norc -eo pipefail {0}`; the job sets
+    none of continue-on-error, container, services or strategy; and the guarded
+    step's `with:` is exactly release.yml's (GUARDED_WITH).
 
     Its script expands nothing but $EXPECTED and $RUNNER_TEMP outside single
     quotes (no other `$`, no backtick), and may hold only these lines, each a
     plain pipeline of the allowed shapes (_shape_problem), `#` read as an
     ordinary character, writing, if at all, one `> "$RUNNER_TEMP/<name>"`
     with a plain name (no `/`, so no `..`):
-    `test ...`; `sha256sum --check --strict -` fed by exactly `printf '%s\\n'
-    "$EXPECTED"`, with no stage between (the release job), or
-    `sha256sum --check --strict <file>` alone, on a file made from EXPECTED's
-    lines and not rewritten since (the publish job); a list of the names of
-    every digest that check read, made by `awk '{print $2}' | sort` from the
-    same lines with nothing filtered out; `find <dirs> -type f | sort`; and,
-    as the last line, `diff` of those two lists. These tests fail each
-    disarming in _DISARMING_MUTANTS and _JOB_DISARMING_MUTANTS; that is all
-    they are shown to fail.
+    `test -n "$EXPECTED"` or `test -s <file>`; `sha256sum --check --strict -`
+    fed by exactly `printf '%s\\n' "$EXPECTED"`, with no stage between (the
+    release job), or `sha256sum --check --strict <file>` alone, on a file made
+    from EXPECTED's lines and not rewritten since (the publish job); a list of
+    the names of every digest that check read, made by `awk '{print $2}' |
+    sort` from the same lines with nothing filtered out; `find` of exactly the
+    job's _FIND_ARGS, `| sort`; and, as the last line, `diff` of those two
+    lists.
+
+    This is a regression ratchet: it refuses the spellings in
+    _DISARMING_MUTANTS and _JOB_DISARMING_MUTANTS, each of which a test shows
+    it refusing. The list is not exhaustive, it is not shown to refuse any
+    other disarming, and nothing here runs the workflow.
     """
     job = document["jobs"][job_name]
     steps = job.get("steps", [])
@@ -396,7 +448,13 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
         problems.append("the check can be skipped or its failure ignored")
     if _can_be_skipped_or_ignored(steps[guarded]):
         problems.append("the guarded step has an if or continue-on-error")
-    problems += [f"the check sets {key}" for key in ("shell", "working-directory") if key in step]
+    if "working-directory" in step:
+        problems.append("the check sets working-directory")
+    if "shell" in step and str(step["shell"]) not in _ALLOWED_SHELLS:
+        problems.append(f"the check's shell {step['shell']!r} is not one of {sorted(_ALLOWED_SHELLS)}")
+    problems += [f"job {job_name} sets {key}" for key in _FORBIDDEN_JOB_KEYS if key in job]
+    if (steps[guarded].get("with") or {}) != GUARDED_WITH[job_name]:
+        problems.append(f"the guarded step's with: is not {GUARDED_WITH[job_name]}")
     if set(step.get("env") or {}) != {"EXPECTED"}:
         problems.append("the check's env sets more than EXPECTED (BASH_ENV, PATH, RUNNER_TEMP)")
     if _live_expansions(script):
@@ -405,8 +463,8 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
         if "env" in node:
             problems.append(f"{where} sets env, which reaches the check")
         run = (node.get("defaults") or {}).get("run") or {}
-        if "shell" in run and not _SHELL_HAS_ERREXIT.search(str(run["shell"])):
-            problems.append(f"{where} defaults.run.shell {run['shell']!r} carries no -e")
+        if "shell" in run and str(run["shell"]) not in _ALLOWED_SHELLS:
+            problems.append(f"{where} defaults.run.shell {run['shell']!r} is not an allowed shell")
         if "working-directory" in run:
             problems.append(f"{where} defaults.run.working-directory moves the check")
     if _CHECK_ERREXIT_OFF.search(script):
@@ -432,7 +490,7 @@ def digest_check_problems(document: dict, job_name: str) -> list[str]:
             continue
         if output is not None and not _TEMP_FILE.fullmatch(output):
             problems.append(f"the check writes other than a plain file in $RUNNER_TEMP: {output}")
-        shapes = (_shape_problem(stage, i, len(stages)) for i, stage in enumerate(stages))
+        shapes = (_shape_problem(stage, i, len(stages), job_name) for i, stage in enumerate(stages))
         problems += [shape for shape in shapes if shape]
         first = stages[0]
         reads_expected = first == _FROM_EXPECTED or (
@@ -551,6 +609,17 @@ def _set_on_guarded(key: str, value):
     return mutate
 
 
+def _set_on_job(key: str, value):
+    return lambda document, job_name: document["jobs"][job_name].__setitem__(key, value)
+
+
+def _set_shell(where: str, shell: str):
+    """Put `shell:` on the check step, a job's defaults.run or the workflow's."""
+    if where == "step":
+        return _set_on_check("shell", shell)
+    return _set_defaults(where == "job", {"shell": shell})
+
+
 def _set_env(on_job: bool, env: dict):
     def mutate(document: dict, job_name: str) -> None:
         (document["jobs"][job_name] if on_job else document)["env"] = env
@@ -598,7 +667,10 @@ def _publish_digests_rewritten(script: str) -> str:
     return narrowed.replace(check, check + "\n" + rewrite)
 
 
-# Each mutant disarms the check, or lets files change after it, without deleting it.
+# Each mutant is a spelling the helper must refuse, applied without deleting the
+# check. Most disarm it or let a file change after it; a few (an extra `find`
+# directory, a widened `grep`, an unrelated `with:`) only widen what it allows.
+# The table is a regression ratchet, not a list of every way to disarm a check.
 _DISARMING_MUTANTS = {
     "exit 0 before the first command": _edit_check(lambda s: "exit 0\n" + s),
     "set +o errexit before the first command": _edit_check(lambda s: "set +o errexit\n" + s),
@@ -673,6 +745,38 @@ _DISARMING_MUTANTS = {
     "BASH_ENV in the check's env": _set_on_check("env", {"EXPECTED": _EXPECTED, **_BASH_ENV}),
     "BASH_ENV in the job's env": _set_env(True, _BASH_ENV),
     "BASH_ENV in the workflow's env": _set_env(False, _BASH_ENV),
+    # Added after a third review: each passed the helper before it.
+    # A backslash joins the next line only when it ends the line (sh), so a blank
+    # line or trailing spaces after one do not hide the command that follows.
+    "a backslash and a blank line before e''xit 0": _edit_check(
+        lambda s: 'test -n "$EXPECTED" \\\n\ne\'\'xit 0\n' + s
+    ),
+    "a backslash and a trailing space before e''xit 0": _edit_check(
+        lambda s: 'test -n "$EXPECTED" \\ \ne\'\'xit 0\n' + s
+    ),
+    # A `test` takes one of the two forms release.yml has, and `find` lists exactly
+    # its job's directories, so a decoy `test -n "find dist -type f"` pins nothing.
+    "test with further arguments": _before_the_diff('test -n "$EXPECTED" -o -z "$EXPECTED"'),
+    "find narrowed to globs, with a decoy test": _edit_check(
+        lambda s: s.replace("find dist", "find dist/*.tar.gz dist/*.whl").replace(
+            "diff ", 'test -n "find dist -type f"\ndiff ', 1
+        )
+    ),
+    "find with an extra directory": _edit_check_line(
+        "find ", lambda line: line.replace("-type f", "/srv -type f")
+    ),
+    # A shell: key, wherever it sits, is one of GitHub's two spellings or nothing.
+    **{
+        f"shell {shell!r} at the {where}": _set_shell(where, shell)
+        for where in ("workflow", "job", "step")
+        for shell in ("bash -e +e {0}", "bash -e +o errexit {0}", "env BASH_ENV=dist/x.sh bash -e {0}")
+    },
+    # Job keys that could stop a failed check failing the job.
+    "job continue-on-error": _set_on_job("continue-on-error", True),
+    "job container": _set_on_job("container", "python:3"),
+    "job services": _set_on_job("services", {"x": {"image": "y"}}),
+    "job strategy": _set_on_job("strategy", {"matrix": {"a": [1]}}),
+    "an unrelated with: on the guarded step": _set_on_guarded("with", {"x": "y"}),
 }
 
 # Disarmings that only one job's check can carry.
@@ -690,12 +794,25 @@ _JOB_DISARMING_MUTANTS = {
                 _FROM_EXPECTED_TEXT + " | grep -E 'gz$|zip$|json$' | sha256sum",
             )
         ),
+        "the attestation's subject-path pointed elsewhere": _set_on_guarded(
+            "with", {"subject-path": "other/*.whl"}
+        ),
+        "the attestation's subject-path narrowed to the wheels": _set_on_guarded(
+            "with", {"subject-path": "dist/*.whl"}
+        ),
     },
     "publish": {
         "the sdist's digest checked, every name listed from EXPECTED": _edit_check(
             _publish_names_from_expected
         ),
         "the checked digests rewritten after the check": _edit_check(_publish_digests_rewritten),
+        "grep -E widened to the dist/ prefix": _edit_check(
+            lambda s: s.replace("dist/[^/]+$'", "dist/'")
+        ),
+        "the upload's packages-dir pointed elsewhere": _set_on_guarded(
+            "with", {"packages-dir": "other/"}
+        ),
+        "the upload told to skip existing files": _set_on_guarded("with", {"skip-existing": True}),
     },
 }
 
@@ -718,6 +835,37 @@ def test_digest_check_problems_catches_each_job_disarming_mutant(
     document = _document()
     _JOB_DISARMING_MUTANTS[job_name][mutant](document, job_name)
     assert digest_check_problems(document, job_name), f"{mutant} in {job_name} went unnoticed"
+
+
+@pytest.mark.parametrize("job_name", sorted(DIGEST_CHECKS))
+@pytest.mark.parametrize("shell", sorted(_ALLOWED_SHELLS))
+@pytest.mark.parametrize("where", ["workflow", "job", "step"])
+def test_the_two_documented_errexit_shells_are_allowed(job_name: str, shell: str, where: str) -> None:
+    """Negative control for the shell mutants: the same keys with an allowed value pass."""
+    document = _document()
+    _set_shell(where, shell)(document, job_name)
+    assert not digest_check_problems(document, job_name)
+
+
+@pytest.mark.parametrize(
+    ("script", "joined"),
+    [
+        ("a \\\nb", "a b"),
+        ("a\\\nb", "ab"),
+        ("a \\\n\nb", "a \nb"),
+        ("a \\ \nb", "a \\ \nb"),
+        ("a \\  \n\nb", "a \\  \n\nb"),
+        ("a \\\\\nb", "a \\\\\nb"),
+        ("a \\\\\\\nb", "a \\\\b"),
+    ],
+)
+def test_continuations_join_only_where_a_backslash_ends_the_line(script: str, joined: str) -> None:
+    assert _join_continuations(script) == joined
+
+
+def test_a_blank_line_after_a_backslash_starts_a_new_command() -> None:
+    script = 'test -n "$EXPECTED" \\\n\ne\'\'xit 0\n'
+    assert _pipelines(script) == [[["test", "-n", "$EXPECTED"]], [["exit", "0"]]]
 
 
 @pytest.mark.parametrize(
