@@ -37,8 +37,9 @@ We recommend using Conda to manage environment dependencies.
    mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR
    ```
    Run the second command only if the first exits 0 and prints `Verified
-   MHCflurry archive sha256`: on a mismatch the fetcher exits 1 but leaves the
-   downloaded file in `DIR`. Do not run a bare `mhcflurry-downloads fetch`: it
+   MHCflurry archive sha256`: on a mismatch the fetcher exits 1 and deletes its
+   download, but an archive already in `DIR` from an earlier run stays there. Do
+   not run a bare `mhcflurry-downloads fetch`: it
    unpacks about 135 MB with no integrity check, and a tampered archive can write
    outside the target directory. The step 3 environment (Python 3.11.15) runs
    both commands as written. With MHCflurry 2.2.1, the version

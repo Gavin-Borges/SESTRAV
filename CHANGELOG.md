@@ -507,6 +507,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   on failure; cleaning up on `Exception` only; dropping the timeout; dropping the digest
   lowercasing in either mode; and a no-op digest check). Not covered: an unverified
   archive left in that directory by an earlier run of the old script is not removed.
+  README, USAGE, CONTRIBUTING and `docs/data_registry.md`, which the entry above taught to
+  warn that a mismatch leaves the download in place, now say the fetcher deletes it and
+  that an archive from an earlier run stays, so step two still waits for step one.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
