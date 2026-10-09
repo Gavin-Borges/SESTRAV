@@ -369,8 +369,9 @@ mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DI
 The first command is this repository's own fetcher: it refuses any scheme but https and
 any host outside its allowlist, and checks the download against the sha256 pin. The second
 unpacks the archive the first verified. Run it only if the first exits 0 and prints
-`Verified MHCflurry archive sha256`: on a mismatch the fetcher exits 1 but leaves the
-downloaded file in `DIR`, where the second command would unpack it. Do not run a bare
+`Verified MHCflurry archive sha256`: on a mismatch the fetcher exits 1 and deletes its
+download, but an archive already in `DIR` from an earlier run stays there, where the
+second command would unpack it. Do not run a bare
 `mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a
 tampered archive can write outside the target directory, so it is an arbitrary-write risk
 rather than just an unverified download.

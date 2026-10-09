@@ -234,8 +234,9 @@ python scripts/build_dataset_v4.py
 
 That two-step route is the one `sestrav` itself names when the model data is absent.
 The fetcher refuses any scheme but https and any host outside its allowlist and checks
-the download against the sha256 pin; on a mismatch it exits 1 but leaves the downloaded
-file in `DIR`, which is why the second command must wait for it to succeed. Do not run a
+the download against the sha256 pin; on a mismatch it exits 1 and deletes its download,
+but an archive already in `DIR` from an earlier run stays there, which is why the second
+command must still wait for it to succeed. Do not run a
 bare `mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a
 tampered archive can write outside the target directory.
 
