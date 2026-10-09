@@ -540,8 +540,9 @@ def test_every_digest_check_is_armed(job_name: str) -> None:
 
 
 def test_every_token_holding_job_that_downloads_has_a_digest_check() -> None:
-    """A job that holds a token and downloads an artifact must be one the armed-check
-    test above reads, so a new such job cannot slip past it."""
+    """A job that sets id-token: write in its own permissions and downloads an artifact
+    must be one the armed-check test above reads. A token inherited from workflow-level
+    permissions is not looked for."""
     for name, job in _jobs().items():
         downloads = any(
             str(step.get("uses", "")).startswith("actions/download-artifact@")

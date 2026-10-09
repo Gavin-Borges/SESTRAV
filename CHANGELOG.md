@@ -432,8 +432,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   helper, inserting `exit 0` or `set +o errexit` ahead of the `release` check's first
   command left its tests passing; both are cases now. Not covered: the other steps of
   these jobs, the download steps' own `with:`, and the pip-install scan of the `build`
-  job, which still joins a backslash followed by spaces to the next line. A job that holds
-  a token and downloads an artifact must be one the helper reads.
+  job, which still joins a backslash followed by spaces to the next line. A job that sets
+  `id-token: write` in its own `permissions:` and downloads an artifact must be one the
+  helper reads; a token inherited from workflow-level `permissions:` is not looked for.
   `release.yml` runs only on version tags, so no pull request runs these jobs.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
