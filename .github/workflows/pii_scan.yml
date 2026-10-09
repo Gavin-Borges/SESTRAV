@@ -110,10 +110,18 @@ jobs:
           # request: a '+'-led user-profile leak and a header-shaped /home leak each exited 0
           # with nothing reported, on GNU grep 3.0 / git 2.55 and GNU grep 3.12 / git 2.53;
           # after, both block and are reported.
+          #
+          # The diff is written OUTSIDE the checkout. The next step greps the whole checkout
+          # for the unfilled email placeholder, and a diff file inside it carried the lines a
+          # pull request REMOVED as well as those it added, so a pull request that removed or
+          # filled a placeholder its base still carried failed that step on the diff file
+          # alone. An ADDED mention is in the checkout itself and still fails, as it should. An
+          # unset RUNNER_TEMP stops this step rather than writing the file somewhere else.
+          DIFF_FILE="${RUNNER_TEMP:?RUNNER_TEMP must be set}/pii_scan_diff.txt"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            git diff --text --no-textconv --no-ext-diff --output-indicator-new='>' "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff --output-indicator-new='>' "origin/$BASE_REF...HEAD" -- "${PATHSPEC[@]}" > "$DIFF_FILE"
           else
-            git diff --text --no-textconv --no-ext-diff --output-indicator-new='>' HEAD~1...HEAD -- "${PATHSPEC[@]}" > diff.txt
+            git diff --text --no-textconv --no-ext-diff --output-indicator-new='>' HEAD~1...HEAD -- "${PATHSPEC[@]}" > "$DIFF_FILE"
           fi
 
           echo "=== Scanning ADDED lines for machine-specific absolute paths ==="
@@ -122,7 +130,7 @@ jobs:
           # above, never the '+++' header. Removing a pre-existing leak must not fail the gate.
           #
           # -a is load-bearing, not tidiness. git diffs a file holding a NUL as text, so the
-          # NUL lands in diff.txt; without -a grep replaces the matching LINES with the single
+          # NUL lands in the diff file; without -a grep replaces the matching LINES with the single
           # message 'Binary file <path> matches'. The verdict is then decided by that message
           # instead of by the diff, and it fails BOTH ways. Measured on GNU grep 3.0: with the
           # diff piped in, an unrelated leaked path goes from 1 hit to 0, so real leak lines in
@@ -147,14 +155,14 @@ jobs:
           # The last alternative is WSL's UNC share spelled with backslashes; its forward-slash
           # spelling was already caught. scripts/hooks/pre-commit Gate 4 carries the same form,
           # and the pat_paths heredoc below holds this ERE byte for byte: change both or neither.
-          USER_LEAKS=$(grep -a -E '^>' diff.txt \
+          USER_LEAKS=$(grep -a -E '^>' "$DIFF_FILE" \
             | grep -a -iE '([A-Za-z]:[/\\]+Users[/\\]+[A-Za-z0-9_.-]+|/mnt/[a-z]/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/Users/[A-Za-z0-9_.-]+|(^|[^A-Za-z0-9_.-])/[A-Za-z]/Users/[A-Za-z0-9_.-]+|/cygdrive/[a-z]/Users/[A-Za-z0-9_.-]+|[\\][\\]+wsl([.]localhost|[$])[\\]+[A-Za-z0-9_.-]+[\\]+(home|mnt[\\]+[a-z][\\]+Users)[\\]+[A-Za-z0-9_.-]+)' || true)
 
           # Linux home directories, minus the CI/container accounts that are
           # legitimate in Dockerfiles and workflows. Scanned separately from the
           # /Users/ forms above so an allowlisted /home/ token on the same line
           # cannot mask a real /Users/ leak.
-          HOME_LEAKS=$(grep -a -E '^>' diff.txt \
+          HOME_LEAKS=$(grep -a -E '^>' "$DIFF_FILE" \
             | grep -a -oE "/home/[A-Za-z0-9_.-]+" \
             | grep -a -v -E "/home/(sestrav_user|runner|ubuntu|vscode|node|appuser|app)($|[^A-Za-z0-9_.-])" || true)
 
