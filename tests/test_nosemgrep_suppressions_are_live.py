@@ -28,10 +28,11 @@ and without `--disable-nosem`, and add the file here with the rule it silences.
 
 Lines are matched the way semgrep 1.178.0 matches them, measured against the
 semgrep-core that runs, not read from pysemgrep's semgrep/constants.py, which
-differs for the own-line form (re-checked on 1.179.0: eight probe lines covering
-every behaviour below, plus an unsuppressed control, all agree). It searches raw
-source lines, case-insensitively, for `nosem`, so `nosemgrep`, `NOSEMGREP` and
-`nosemantics` all qualify:
+differs for the own-line form (re-checked on 1.179.0: eight probe lines and an
+unsuppressed control all agree; no probe covered a directive after non-ASCII prose
+or a finding spanning several lines). It searches raw source lines,
+case-insensitively, for `nosem`, so `nosemgrep`, `NOSEMGREP` and `nosemantics` all
+qualify:
 - on the line where a finding starts, after a space, anywhere on the line, a
   string literal included, it silences that finding; `#nosemgrep` with no space
   does not;
