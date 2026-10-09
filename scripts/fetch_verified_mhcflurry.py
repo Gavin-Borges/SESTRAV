@@ -16,6 +16,10 @@ from urllib.request import urlopen
 # what vouches for the bytes that arrive.
 ALLOWED_ARCHIVE_HOSTS = frozenset({"github.com"})
 
+# Seconds urlopen may wait on the connect and on each socket read. It bounds a
+# stalled server, not the total transfer time of the archive.
+DOWNLOAD_TIMEOUT_SECONDS = 60
+
 
 def validate_archive_url(url: str) -> str:
     """Refuse any archive URL that is not HTTPS on an allowed host.
@@ -60,7 +64,13 @@ def verify_archive(path: Path, expected_sha256: str) -> None:
     print(f"Verified MHCflurry archive sha256: {actual}")
 
 
-def download_archive(url: str, output_dir: Path) -> Path:
+def download_archive(url: str, output_dir: Path, expected_sha256: str) -> Path:
+    """Download to a .part file, verify it, and only then give it its final name.
+
+    Step two (`mhcflurry-downloads fetch --already-downloaded-dir`) reads the
+    final name from output_dir, so an archive that fails its digest must never
+    appear under it. Any failure, including a mismatch, removes the .part file.
+    """
     filename = validate_archive_url(url)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -72,8 +82,9 @@ def download_archive(url: str, output_dir: Path) -> Path:
         # outside ALLOWED_ARCHIVE_HOSTS. Bandit cannot follow that call; the
         # guard is what makes the suppression honest, not a claim that urlopen
         # is safe in general.
-        with urlopen(url) as response, partial.open("wb") as output:  # nosec B310
+        with urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response, partial.open("wb") as output:  # nosec B310
             shutil.copyfileobj(response, output)
+        verify_archive(partial, expected_sha256)
         partial.replace(destination)
     except BaseException:
         partial.unlink(missing_ok=True)
@@ -96,12 +107,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    archive = (
-        download_archive(args.url, args.output_dir)
-        if args.url
-        else args.archive
-    )
-    verify_archive(archive, args.sha256.lower())
+    expected_sha256 = args.sha256.lower()
+    if args.url:
+        download_archive(args.url, args.output_dir, expected_sha256)
+    else:
+        verify_archive(args.archive, expected_sha256)
     return 0
 
 
