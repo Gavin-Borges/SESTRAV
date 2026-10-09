@@ -429,11 +429,13 @@ jobs:
           done
 
           # Tags are REPORTED, not enforced. A tag is immutable published
-          # provenance; whether the two legacy unreleased tags are retired is
-          # an owner decision that is not this workflow's to force, and wiring
+          # provenance: v2.0.2 and v2.0.3 each back a published GitHub
+          # Release (measured 2026-10-08 with `gh release view`), and wiring
           # them to `exit 1` would wedge the job red on history no push can
-          # change. Promoting them to enforced is a one-word edit here once
-          # that decision is made.
+          # change. Whether those tags are kept is an open owner decision that
+          # is not this workflow's to force. The mode is the `report` argument
+          # the loop below passes to scan_ref; enforcing tags is a one-word
+          # edit there once that decision is made.
           echo "===== TAGS (reported, not enforced) ====="
           for REF in $(git for-each-ref --format='%(refname)' refs/scantags/ | sort); do
             scan_ref "$REF" report

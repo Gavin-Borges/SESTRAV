@@ -445,9 +445,11 @@ def test_current_repo_hash_completeness_for_all_pairs():
     data. requirements.txt and environments/requirements.lock used to be
     excluded here because they carried accumulated drift from several
     Dependabot .in bumps; PR #177's relock cleared it, so the exclusion is
-    retired and all 10 pairs are covered. Driving this off LOCKFILE_PAIRS
-    rather than a hand-copied list means a newly mapped pair is covered
-    automatically instead of silently escaping the check.
+    retired and every pair in LOCKFILE_PAIRS is covered. No count is stated
+    here on purpose: the mapping grows, and `--check` prints the current one.
+    Driving this off LOCKFILE_PAIRS rather than a hand-copied list means a
+    newly mapped pair is covered automatically instead of silently escaping
+    the check.
     """
     from tools.check_lockfile_freshness import LOCKFILE_PAIRS, REPO_ROOT
 

@@ -216,8 +216,11 @@ python scripts/ingest_vdjdb.py --output data/vdjdb_v4.csv
 # 2. Provide TSNAdb file manually:
 python scripts/ingest_tsnadb.py --input <tsnadb_path> --output data/tsnadb_v4.csv
 
-# 3. Generate hard decoys (requires MHCflurry models):
-mhcflurry-downloads fetch models_class1_presentation
+# 3. Generate hard decoys (requires MHCflurry models). Install the model data with
+#    the hash-verified two-step route, both values taken from config.yaml, and run
+#    the second command only if the first exits 0 (see the note below):
+python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> --output-dir DIR
+mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR
 python scripts/fetch_human_proteome.py  # download UP000005640 (~100 MB, once only)
 python scripts/generate_hard_decoys.py \
     --fasta data/proteomes/human_uniprot_UP000005640.fasta \
@@ -229,9 +232,17 @@ python scripts/generate_hard_decoys.py \
 python scripts/build_dataset_v4.py
 ```
 
-On Python 3.13, MHCflurry 2.2.1's fetch command fails before downloading because
-it imports the removed standard-library `pipes` module. Fetch the presentation
-models under Python 3.11 or 3.12, then reuse that data directory from an
+That two-step route is the one `sestrav` itself names when the model data is absent.
+The fetcher refuses any scheme but https and any host outside its allowlist and checks
+the download against the sha256 pin; on a mismatch it exits 1 but leaves the downloaded
+file in `DIR`, which is why the second command must wait for it to succeed. Do not run a
+bare `mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a
+tampered archive can write outside the target directory.
+
+On Python 3.13, MHCflurry 2.2.1's `mhcflurry-downloads` command cannot run because
+it imports the removed standard-library `pipes` module; the verified fetcher imports
+no mhcflurry and runs on any supported interpreter. Run only the `mhcflurry-downloads` step
+under Python 3.11 or 3.12, then reuse that data directory from an
 environment with the same MHCflurry data release. Only the `mhcflurry-downloads`
 command imports `pipes`; importing and loading `Class1PresentationPredictor`
 does not.

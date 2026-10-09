@@ -23,16 +23,30 @@ pip install ".[demo]"
 pip install -e ".[dev]"
 ```
 
-After installing, download the MHCflurry presentation models (required for binding prediction):
+After installing, download the MHCflurry presentation models (required for binding
+prediction) with the hash-verified two-step route that `sestrav` itself names when the
+data is absent, taking both values from `config.yaml` (`mhcflurry_model_archive_url` and
+`mhcflurry_model_archive_sha256`):
 ```bash
-mhcflurry-downloads fetch models_class1_presentation
+python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> --output-dir DIR
+mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR
 ```
 
+The first command refuses any scheme but https and any host outside its allowlist, and
+checks the download against the sha256 pin; the second unpacks what the first verified.
+Run the second only if the first exits 0 and prints `Verified MHCflurry archive sha256`:
+on a mismatch the fetcher exits 1 but leaves the downloaded file in `DIR`. Do not run a
+bare `mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a
+tampered archive can write outside the target directory, so it is an arbitrary-write risk
+rather than just an unverified download.
+
 > **Python 3.13:** with MHCflurry 2.2.1, the version `requirements.txt` pins,
-> this fetch command fails before downloading because 2.2.1 imports the
-> standard-library `pipes` module, which Python 3.13 removed. Run the fetch
-> under Python 3.11 or 3.12; an environment using the same MHCflurry data
-> release can then reuse the downloaded model directory. MHCflurry 2.3.0,
+> the second command cannot run, because 2.2.1's downloader imports the
+> standard-library `pipes` module, which Python 3.13 removed. The first command
+> is unaffected: the verified fetcher imports no mhcflurry and runs on any
+> interpreter. Run only the second command under Python 3.11 or 3.12 with the
+> same MHCflurry version; an environment using the same MHCflurry data release
+> can then reuse the model directory it unpacks. MHCflurry 2.3.0,
 > released 2026-09-28, no longer imports `pipes`; the unpinned `pip install .`
 > above can resolve it.
 >

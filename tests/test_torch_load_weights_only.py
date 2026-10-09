@@ -1,4 +1,4 @@
-"""SEC-13: `torch.load(...)` must pin `weights_only=True` in every tracked Python file.
+"""SEC-13: `torch.load(...)` must pin `weights_only=True` in every tracked `.py` file.
 
 The original sweep (STATE.md 2026-07-xx security-ci-sweep: "torch.load audit: all runtime
 paths enforce weights_only=True (only 2 dev-only checkpoint-inspect scripts use False,
@@ -13,8 +13,12 @@ invocation passes `-x ./tests/`, so a `torch.load` without `weights_only=True` u
 exists. Corrected 2026-09-13; this docstring previously said B614 "is Advisory and does
 not gate the merge", citing `SECURITY.md`'s CI gate map, which says the opposite.
 
-Scope: the enforced surface is exactly what `git ls-files` reports, because that is the
-only code the repository actually ships. The two checkpoint-inspection scripts named in
+Scope: the enforced surface is exactly the `.py` files `git ls-files '*.py'` reports, and
+within them only a call spelled `torch.load(...)` on the name `torch`. Python held in other
+tracked files - a notebook (`.ipynb`), `Snakefile` and `*.smk` rules, Quarto (`.qmd`)
+cells - is never parsed, and neither is an aliased call (`from torch import load`, or
+`t.load` after `import torch as t`), so a `torch.load` there is outside this test's reach.
+The two checkpoint-inspection scripts named in
 that audit are gitignored local dev tools, so they fall outside the surface entirely and
 need no exemption; see ALLOWED_WEIGHTS_ONLY_FALSE below for why that distinction matters.
 """

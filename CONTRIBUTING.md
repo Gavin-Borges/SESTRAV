@@ -28,16 +28,26 @@ We recommend using Conda to manage environment dependencies.
    conda activate sestrav
    ```
 
-4. **Download MHCflurry Presentation Models:**
+4. **Download MHCflurry Presentation Models** with the hash-verified two-step
+   route that `sestrav` itself names when the data is absent, taking both values
+   from `config.yaml` (`mhcflurry_model_archive_url` and
+   `mhcflurry_model_archive_sha256`):
    ```bash
-   mhcflurry-downloads fetch models_class1_presentation
+   python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> --output-dir DIR
+   mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR
    ```
-   The step 3 environment (Python 3.11.15) runs it as written. With MHCflurry
-   2.2.1, the version `requirements.txt` pins, it fails on Python 3.13 before
-   downloading, because 2.2.1 imports the standard-library `pipes` module that
-   Python 3.13 removed; MHCflurry 2.3.0 and later do not import it. In a 3.13
-   environment with 2.2.1, run only the fetch under Python 3.11 or 3.12 with the
-   same MHCflurry version, so the data release matches. The canonical mode-31
+   Run the second command only if the first exits 0 and prints `Verified
+   MHCflurry archive sha256`: on a mismatch the fetcher exits 1 but leaves the
+   downloaded file in `DIR`. Do not run a bare `mhcflurry-downloads fetch`: it
+   unpacks about 135 MB with no integrity check, and a tampered archive can write
+   outside the target directory. The step 3 environment (Python 3.11.15) runs
+   both commands as written. With MHCflurry 2.2.1, the version
+   `requirements.txt` pins, the second command fails on Python 3.13, because
+   2.2.1 imports the standard-library `pipes` module that Python 3.13 removed;
+   MHCflurry 2.3.0 and later do not import it. The first command imports no
+   mhcflurry and runs on any supported interpreter, so in a 3.13 environment with 2.2.1
+   run only the second command under Python 3.11 or 3.12 with the same
+   MHCflurry version, so the data release matches. The canonical mode-31
    training command in step 5 does not need this download: it reads the tracked
    dataset and tracked pre-built binding matrix named there.
 
@@ -98,9 +108,20 @@ them, find the tier it belongs to.
    this install may predate), and `--require-hashes` demands a hash for every
    requirement in that file, so the bootstrap cannot share
    `environments/requirements.lock`. Keep it to one requirement.
-3. **Every install path in this repo is hash-verified**
-   (`pip install --no-deps --require-hashes -r ...`). This matters when adding a
-   manifest: pip enables `--require-hashes` automatically as soon as *any*
+3. **Every install from these manifests is hash-verified**
+   (`pip install --require-hashes -r ...`, usually with `--no-deps`). The CI
+   workflows, the three Docker images and `singularity.def` take their pip
+   dependencies from hash-pinned manifests this way, with two exceptions in
+   `release.yml` named below. Not every install path in the repo does. Among
+   those that do not: the developer installs (`pip install .`,
+   `pip install -e ".[dev]"` and the other extras) resolve `pyproject.toml`'s
+   floors from PyPI with no hashes; `environment.yml`'s conda packages are not
+   hash-pinned (its `pip:` block installs the hashed `requirements.txt`); and
+   `release.yml` installs the built wheel WITH its dependencies on purpose, to
+   prove `[project].dependencies` is sufficient, and after publishing installs
+   the PyPI release the same way to confirm PyPI serves it, so those
+   dependencies resolve unhashed too. Hashing matters when adding a manifest:
+   pip enables `--require-hashes` automatically as soon as *any*
    requirement carries a hash, so a file that pulls in a hashed manifest via `-r`
    and then adds an unhashed pin fails to install entirely. Either hash everything
    in the file or include nothing hashed.

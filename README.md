@@ -315,28 +315,37 @@ To prevent machine learning models from over-indexing on EBV-specific anchor mot
 ```bash
 conda env create -f environment.yml
 conda activate sestrav
-mhcflurry-downloads fetch models_class1_presentation
+# then install the MHCflurry model data: see "MHCflurry model data" below
 ```
 
 **pip (editable/dev):**
 ```bash
 pip install -e ".[dev]"          # lint + test tools
-mhcflurry-downloads fetch models_class1_presentation
+# then install the MHCflurry model data: see "MHCflurry model data" below
 ```
 
 **venv (LINUX x86-64 only, see the note below):**
 ```bash
 python -m venv .venv
 source .venv/bin/activate      # Linux
-pip install --no-deps --require-hashes -r requirements.txt
-pip install snakemake
-mhcflurry-downloads fetch models_class1_presentation
+# The same commands as the "Install dependencies" step of CI's test and compat
+# jobs: a hash-pinned pip, then setuptools with its hashes taken from
+# requirements.txt, then both locks with --no-build-isolation, so the one sdist
+# (connection-pool, via snakemake) builds against that setuptools rather than an
+# unhashed one, and not from a wheel an earlier isolated build left in pip's
+# cache. snakemake and its whole closure come hashed from requirements-ci.txt.
+pip install --no-deps --require-hashes -r environments/requirements-pip-bootstrap.txt
+pip install --no-deps --require-hashes -c requirements.txt setuptools
+pip cache remove connection_pool
+pip install --no-deps --require-hashes --no-build-isolation -r requirements.txt
+pip install --no-deps --require-hashes --no-build-isolation -r environments/requirements-ci.txt
+# then install the MHCflurry model data: see "MHCflurry model data" below
 ```
 
 > **`requirements.txt` is a Linux x86-64 lock and does not resolve elsewhere.** It pins
 > 17 CUDA packages (`triton` plus 16 `nvidia-*`) and carries **zero environment markers**,
 > so pip attempts every pin on every platform. Measured on Windows:
-> the command above exits 1 with `No matching distribution found for nvidia-nccl-cu12`,
+> the `-r requirements.txt` install above exits 1 with `No matching distribution found for nvidia-nccl-cu12`,
 > while a cross-platform pin from the same file resolves normally, so the failure is
 > specific to those CUDA pins. Only one of the seventeen is markered in the source
 > (the `nvidia-nccl-cu12` pin in `requirements.in`); the other sixteen arrive transitively
@@ -349,6 +358,22 @@ mhcflurry-downloads fetch models_class1_presentation
 > resolves per-platform from the `pyproject.toml` floors and never reads this lock.
 > **The conda path is not an alternative**: `environment.yml` installs `-r requirements.txt`
 > inside its `pip:` block, so `conda env create` fails off Linux for the same reason.
+
+**MHCflurry model data (every path above):** install it with the hash-verified two-step
+route that `sestrav` itself names when the data is absent, taking both values from
+`config.yaml` (`mhcflurry_model_archive_url` and `mhcflurry_model_archive_sha256`):
+```bash
+python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> --output-dir DIR
+mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir DIR
+```
+The first command is this repository's own fetcher: it refuses any scheme but https and
+any host outside its allowlist, and checks the download against the sha256 pin. The second
+unpacks the archive the first verified. Run it only if the first exits 0 and prints
+`Verified MHCflurry archive sha256`: on a mismatch the fetcher exits 1 but leaves the
+downloaded file in `DIR`, where the second command would unpack it. Do not run a bare
+`mhcflurry-downloads fetch`: it unpacks about 135 MB with no integrity check, and a
+tampered archive can write outside the target directory, so it is an arbitrary-write risk
+rather than just an unverified download.
 
 ### 2. Install and Train Models
 
