@@ -85,6 +85,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   rows these belong to, when the manuscript called them trivially easy to calibrate and
   their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
   this is outside claims-register row D21.
+- **`scripts/check_panel_duplicates.py`'s delimiter docstring now matches the code, and its
+  tab path is tested.** The docstring said a panel is read with `,` for `.csv` and a tab for
+  everything else; the code reads a tab only for `.tsv` and `.txt` (any case) and `,` for
+  everything else. The code is unchanged. Every existing test used a `.csv` panel, so the tab
+  branch never ran under test; new tests check the detected delimiter per extension, and that
+  a `.tsv` or `.txt` panel with a comma in a header name is read by tab and reports its one
+  overlapping peptide. Read comma-first, that header splits into two columns, the one-column
+  tab fallback never fires, and no `peptide` column is found. That fallback (a comma-first
+  read that comes back as one column is re-read by tab) was untested too: a further test runs
+  a comma-free tab-separated panel named `.dat`, and one with no extension, and checks that
+  each reports its one overlapping peptide, which only the fallback makes possible.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
