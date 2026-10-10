@@ -72,6 +72,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   keeping the floor half of the check the override's test used to make.
 
 ### Fixed
+- **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
+  no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
+  separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
+  from each validation fold. Within a fold, dropping only negatives lowers AUC-ROC exactly
+  when the model ranked the dropped negatives below positives more often than the ones
+  that remain, so the fall in the fold mean shows those rows were, on balance, easier than
+  average to rank below positives, not that they separate almost perfectly. Both sites now
+  say only that, and claims-register row D19, which had judged the phrase sound, carries a
+  dated note saying so while its original text stays as the record. Wording only: no
+  number changes. The same kind of claim had already failed once for the out-of-panel
+  rows these belong to, when the manuscript called them trivially easy to calibrate and
+  their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
+  this is outside claims-register row D21.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
@@ -119,6 +132,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 ### Security
+- **Three low-severity hardening items: the DCO job's checkout token, a dead review
+  bypass, and the Docker build context.**
+  - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
+    longer left configured for git in the checkout. It was the only one of the 29
+    `actions/checkout` steps in `.github/workflows/` without it, and its one network call,
+    a `git fetch` of the base branch, needs no token on this public repository: an
+    anonymous fetch of `main` with no credential helper succeeds. A new test,
+    `tests/test_workflow_checkouts_drop_credentials.py`, requires the setting on every
+    checkout, with an explicit, justified allowlist for any that must push. This reverses
+    the 2026-08-22 decision, recorded further down, to leave that one step at the default.
+  - `pr-review-check.yml`'s `TRUSTED_BOTS` drops `renovate[bot]`, which skipped the required
+    `Require human review` check for an author that has opened none of this repository's
+    pull requests and has no configuration here. `dependabot[bot]` keeps its bypass, and
+    `SECURITY.md` now describes one exempt bot, not two. The test that checks that
+    paragraph now also fails when it names a bot the workflow no longer exempts.
+  - `.dockerignore` now keeps `.env` and `.env.*` files and `*.pem` files out of the build
+    context at any depth, along with the `.agents`, `.cursor` and `.codex` directories and
+    the gitignored `.mcp.json`. No Dockerfile copies any of them; the change is about what
+    is uploaded to the builder.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
@@ -637,7 +669,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   for `git (push|fetch|pull|clone|ls-remote|submodule|tag|commit|remote)` across every
   workflow returns exactly one credential-needing call. That call is the deliberate exception:
   `dco.yml`'s `check_dco` job runs `git fetch origin "$BASE_REF"` after checkout and is a
-  required status check, so it keeps the default. Operations on already-fetched local refs
+  required status check, so it keeps the default. **Corrected 2026-10-09:** that fetch needs
+  no credential, because the repository is public (an anonymous fetch of `main` with no
+  credential helper succeeds), so `dco.yml` now sets the option too and all 29 checkout
+  steps are explicit; see the newer `### Security` entry. Operations on already-fetched local refs
   (`git diff`, `git log` in `pii_scan.yml` and `doc_commit_refs.yml`) are unaffected, because
   the setting removes the stored credential rather than any ref. Closes the `GITHUB_TOKEN`
   exposure window flagged alongside SEC-14/F1, which was `.github/workflows/release.yml`'s
