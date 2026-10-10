@@ -184,6 +184,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_security_floors_have_a_dependent.py` fails on any floor, in any lockfile
   spec, whose package nothing but the spec requires; against the previous spec it names
   exactly these four.
+- **The monthly IEDB benchmark's `issues: write` token is held by one small job instead of
+  the whole workflow.** `.github/workflows/iedb_benchmark.yml` granted `issues: write` at
+  workflow level, so the steps that install the locked dependencies and this package and
+  query IEDB all ran holding it, although only the final step, which files a regression
+  alert, needs it. The workflow now grants `contents: read` alone; the benchmark job reports
+  whether there was a regression and, when there was, uploads the regression message, and a
+  new `alert` job, which runs only then, holds `issues: write`, checks nothing out and runs no
+  shell step: it downloads the message and opens the issue as before. A new test,
+  `tests/test_iedb_benchmark_permissions.py`, pins the split and the hand-offs between the
+  two jobs: the output key the record step writes and the job output reads, the artifact
+  name both jobs use, the upload's condition, the alert job's exact `if:`, and the file the
+  issue step reads. The workflow runs only on its monthly schedule and on manual dispatch, so
+  no pull request exercises it. Found as SX-U12 item 1 of the security review.
 - **`keras` and `protobuf`, pinned as security fixes in `requirements.in` and
   `environments/requirements-ci.in`, are removed along with eight packages beneath them,
   because nothing in the closure of `requirements.in` or `environments/requirements-ci.in`
