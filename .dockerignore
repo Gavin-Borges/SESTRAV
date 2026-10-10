@@ -61,7 +61,17 @@ docs/
 # Environments and secrets
 _local/
 .env
+**/.env
+**/.env.*
+**/*.pem
 .venv
+
+# Other assistants' local configuration (.claude is listed above). .mcp.json is
+# gitignored MCP client configuration, which can carry tokens.
+.agents
+.cursor
+.codex
+.mcp.json
 # Environments: copy only the three image locks and the pip bootstrap manifest
 # (see Dockerfile, Dockerfile.api, Dockerfile.demo). `environments/` as a
 # directory exclusion would make a later negation a no-op, because an excluded
