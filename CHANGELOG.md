@@ -70,6 +70,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   compiles with an override, and a new test fails if the semgrep lock pins pyjwt below
   2.15.0 (pip-audit reports advisories against 2.13.0 and 2.14.0 and none against 2.15.0),
   keeping the floor half of the check the override's test used to make.
+- **`scripts/check_doc_commit_refs.py` drops a branch that could never run, and tests now
+  pin what actually keeps SHA-256 digests out.** The scan skipped any 64-character token as
+  a digest, but its pattern matches 7 to 40 hex characters between boundary assertions, so a
+  64-character run never reaches that line; the docstring credited the skip. It now credits
+  the pattern: its `{7,40}` length cap refuses the whole run, and its boundary assertions
+  refuse every shorter piece. A new test checks that hex runs of 41, 50, 64 and 128
+  characters produce no candidate; removing either assertion, or widening the cap to
+  `{7,64}`, fails it. A second checks an uppercase digest, whose leading and trailing digit
+  runs only the assertions' refusal of capital letters keeps out; narrowing either
+  assertion to `[0-9a-f]` fails it. No verdict changes: the gate exits 0 on the tree before
+  and after.
 
 ### Fixed
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`

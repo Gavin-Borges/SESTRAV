@@ -29,8 +29,10 @@ Deliberate exclusions
 ---------------------
 ``.github/`` is skipped wholesale: workflow files pin third-party actions to
 *upstream* SHAs that intentionally do not exist in this repository. Lock files
-are skipped for the same reason. 64-character tokens are treated as SHA-256
-digests, not commit hashes.
+are skipped for the same reason. A SHA-256 digest, or any hex run longer than 40
+characters, never matches ``SHA_RE``: its ``{7,40}`` length cap refuses the whole
+run, and its boundary assertions refuse every shorter piece of it, since each such
+piece has a letter or digit of the run beside it.
 
 A bare hex token that does not resolve is only an error when it appears in an
 explicit commit-citation context (near the word "commit", or under a
@@ -263,9 +265,6 @@ def main() -> int:
                 continue
             for match in SHA_RE.finditer(line):
                 token = match.group(1)
-                if len(token) == 64:
-                    continue  # sha256 digest, not a commit hash
-
                 has_context = has_commit_context(line, match.start(), match.end())
                 if token not in resolved_cache:
                     resolved_cache[token] = resolve_commit(token)
