@@ -17,6 +17,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Changed
+- **`tools/check_hash_pins.py` now rejects options that change where packages come from,
+  instead of skipping every option line.** `--extra-index-url`, `--trusted-host`,
+  `--find-links` / `-f`, and `--index-url` / `-i` naming anything but PyPI's default index
+  (`https://pypi.org/simple`, with or without the trailing slash) now fail the `lint` job's
+  hash-pin step. Lines are read the way pip reads them: its continuation joining, its rule
+  that `#` opens a comment only after whitespace, its split between a requirement and its
+  options, and its optparse table, so attached values (`-fURL`), abbreviations
+  (`--extra=URL`), tabs and a second option on one line are all caught, and a byte-order
+  mark is stripped as pip strips it; a test compares the verdicts with pip's own line
+  parser. A line this table cannot parse, a PEP 263 coding declaration and a `${VAR}`
+  reference, which pip would re-decode or expand at install time, fail closed. Hashes would
+  still refuse a substituted artifact, but these manifests take their index from the
+  install command, never from the file (the CPU torch lock is installed with
+  `--index-url https://download.pytorch.org/whl/cpu` on the command line). Includes
+  (`-r`, `-c`) are not followed; no hash-pinned manifest uses one. No current manifest
+  carries any of these options, so the gate's verdict on the tree is unchanged.
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
   `assay_type == "biological activity"` rows by editing the finished file in place, after
