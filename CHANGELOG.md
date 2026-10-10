@@ -208,6 +208,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `absl-py` entries no longer apply; with those four entries removed, as committed, that
   test passes. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` were rebuilt using the
   `python-sbom` job's argv and lose the same ten, with no drift in the 130 that remain.
+- **The GNN retraining notebook loads its checkpoint with `weights_only=True`, and the
+  `torch.load` guard now reads notebooks.** `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb`
+  called `torch.load` on `models/gnn/structural_gnn_v2.pth` without `weights_only`, which
+  left the choice to the runtime: the notebook pins no torch version, and even the locked
+  torch 2.13.0, which refuses a pickled object when `weights_only` is unset, fully unpickles
+  it once `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1` is set; with `weights_only=True` passed, it
+  refuses either way. The checkpoint is a plain `state_dict` (saved by `src/train_gnn.py` as
+  `model_final.state_dict()`, and loaded with `weights_only=True` by
+  `src/verify/promote_gnn.py`), so the pin changes nothing for the real file.
+  `tests/test_torch_load_weights_only.py` scanned only tracked `.py` files and said so; it now
+  also parses the code cells of every tracked notebook, with IPython magic lines read as
+  `pass`, and fails on a cell that still does not parse, so an unparseable cell cannot hide a
+  call. A second test fails unless that AST scan finds at least one `torch.load` call in a
+  tracked notebook, so a scan that has gone blind fails instead of passing over nothing. Still
+  out of reach, and said so in the test's docstring: the text of a magic line itself, so a
+  `torch.load` inside `%time ...` or `!python -c "..."` is never seen. Found as SX-U11 item 8
+  of the security review's low-severity batch.
 - **`Dockerfile.api` and `Dockerfile.demo` install minimal hash-pinned locks, and all three
   images build the package without an unhashed build-backend download.** Both images used
   to finish with `pip install ".[api]"` / `pip install ".[demo]"`, which resolved the
