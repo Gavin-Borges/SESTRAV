@@ -14,10 +14,12 @@ command verbatim. The defect is in released v2.0.3.
 
 No scanner covers this. Bandit skips both files even when they are named on its
 command line (it reports a syntax error parsing the AST, because `rule x:` blocks
-are not Python), and nothing in `.github/`, `semgrep-rules/` or `pyproject.toml`
-opts a `.smk` extension into semgrep or CodeQL. The only CI coverage of these
-files is two Snakemake dry-run legs, which resolve file names and never inspect
-quoting. A test is therefore the only available gate.
+are not Python), and nothing in `.github/` or `pyproject.toml` opts a `.smk`
+extension into CodeQL. The one semgrep rule that reads `.smk` files,
+`sestrav-prefer-sys-executable` in `semgrep-rules/sestrav-recurring.yml`, looks for
+a bare `python` child interpreter, not for unquoted interpolation. The only other
+CI coverage of these files is two Snakemake dry-run legs, which resolve file names
+and never inspect quoting. A test is therefore the only available gate.
 
 Three independent instruments are used here deliberately, because they have
 different traversal policies and can disagree:

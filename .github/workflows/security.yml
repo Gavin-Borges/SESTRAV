@@ -269,13 +269,16 @@ jobs:
         run: pip install --require-hashes -r environments/requirements-semgrep.txt
 
       - name: Run SESTRAV custom rules
-        # BLOCKING - deliberately no `continue-on-error`. Scans ONLY
-        # `semgrep-rules/sestrav-custom.yml`: the three repo-authored ERROR rules
-        # (unsafe `pickle.load`, raw `joblib.load` bypassing `load_verified_joblib`,
-        # `subprocess(..., shell=True)`). The registry ruleset `p/python` stays in
-        # the advisory job below, unchanged, because ITS error rules do produce
+        # BLOCKING - deliberately no `continue-on-error`. Scans every rule file in
+        # `semgrep-rules/`: the three repo-authored ERROR rules in
+        # `sestrav-custom.yml` (unsafe `pickle.load`, raw `joblib.load` bypassing
+        # `load_verified_joblib`, `subprocess(..., shell=True)`) and the four
+        # recurring-defect rules in `sestrav-recurring.yml`. `--error` fails on any
+        # severity, WARNING included. The registry ruleset `p/python` stays in
+        # the advisory job above, unchanged, because ITS error rules do produce
         # false positives here - alerts #40/#41/#42 were triaged and dismissed.
-        # These three have never raised one: every finding was a real defect.
+        # The three `sestrav-custom.yml` rules have never raised one: every
+        # finding was a real defect.
         #
         # Added 2026-09-12 after PR #418 merged two `joblib.load` violations that
         # this exact rule had already flagged. The advisory job reported them and
@@ -291,25 +294,40 @@ jobs:
         #      "26 commits out of 30". An advisory SARIF failure is therefore not
         #      free; it silently costs a Scorecard point for 30 commits.
         #
-        # Scope note: this inherits semgrep's DEFAULT ignore list, which excludes
-        # `tests/`. CORRECTED 2026-09-20: this cited "Ran 154 rules on 166 files"
+        # Scope note: the repo-root `.semgrepignore` REPLACES semgrep's default
+        # ignore list instead of adding to it, so `tests/` stays out of this job
+        # only because that file lists it again. Measured 2026-10-09 on 1.179.0
+        # with `sestrav-custom.yml` alone: a `.semgrepignore` that omits `tests/`
+        # puts 265 files under `tests/` into the scanned set and flags both
+        # `joblib.load` calls named below.
+        # CORRECTED 2026-09-20: this cited "Ran 154 rules on 166 files"
         # as THIS job's verdict at 529c5bc. That is the ADVISORY job's figure.
         # 154 is the p/python registry ruleset plus this repo's own, and the
         # advisory step is the only one that passes `--config p/python`. THIS
-        # step runs `--config semgrep-rules/` alone, and semgrep-rules/ holds a
-        # single file with exactly THREE rule ids - at 529c5bc as well as today,
-        # so the figure was never right for this job. The bad number entered via
+        # step runs `--config semgrep-rules/` alone, and semgrep-rules/ held a
+        # single file with exactly THREE rule ids at 529c5bc (seven across two
+        # rule files since the recurring-defect rules were added), so the figure
+        # was never right for this job. The bad number entered via
         # PR #440 and is corrected here because the re-measurement two paragraphs
         # down is the instrument that disproves it. The FILE count is a specific
         # run's count, not a formula to re-derive (it is NOT simply
         # "tracked non-test .py files";
-        # that equality holds today by coincidence, not by mechanism, since this
-        # job's real target set is git-tracked files minus semgrep's own default
-        # ignores, language-filtered - a different filter shape entirely). That is
-        # why the two `joblib.load` calls in `tests/test_train_classifier.py` do
-        # not trip this gate. If the pinned semgrep version is ever bumped,
-        # re-check that default, because those two call sites would start
-        # failing here.
+        # that equality held while this job ran only the three Python rules, by
+        # coincidence, not by mechanism: the target set was then git-tracked
+        # files minus semgrep's default ignores, language-filtered, and is now
+        # git-tracked files minus the paths `.semgrepignore` lists, filtered by
+        # each rule's languages and path globs - a different filter shape
+        # entirely). That is why the two `joblib.load` calls in
+        # `tests/test_train_classifier.py` do not trip this gate. If
+        # `.semgrepignore` stops listing `tests/`, those two call sites would
+        # start failing here, along with three other lines under `tests/` on
+        # 2026-10-09 (an expected-input literal and two redundant `**`
+        # pathspecs); re-derive that list with a --json run, since it drifts.
+        # The 1.177.0, 1.178.0 and 1.179.0 re-checks below predate
+        # `.semgrepignore`, so each one measured semgrep's DEFAULT list and
+        # stays as history. With the file present a version bump no longer
+        # rests on that default; re-check instead that a --json run still
+        # scans 0 files under `tests/` and 0 under `semgrep-rules/`.
         # Re-checked 2026-09-20 for the 1.176.1 -> 1.177.0 bump, in an isolated
         # venv running this step's exact argv: "Ran 3 rules on 169 files: 0
         # findings", exit 0, identical to the 1.176.1 baseline, and a --json run
@@ -328,6 +346,18 @@ jobs:
         # rules pointed at tests/test_train_classifier.py explicitly flag both
         # joblib.load calls under both versions, so the zero is the default
         # ignore, not the rules.
+        # Re-checked 2026-10-09 when `.semgrepignore` and `sestrav-recurring.yml`
+        # were added, on 1.179.0 with this step's exact argv on a
+        # git-initialised export of the branch tree: "Ran 7 rules on 236 files:
+        # 0 findings", exit 0, and a --json run reports 0 files under `tests/`.
+        # Controls, each exit 1: the three fixture files named explicitly give
+        # 9 findings covering all four new rule ids; the WARNING-only `.smk`
+        # fixture alone still fails, so `--error` does not filter by severity;
+        # deleting `.semgrepignore` brings the default list back, which skips
+        # `tests/` but not the fixtures, so the same 9 findings fail the job;
+        # and a planted `pytest -q | tail` line in `scripts/hooks/pre-push` is
+        # flagged, so the anchored `/scripts/hooks/*` include still reaches
+        # the hooks.
         # Local rules only - no registry fetch - so this gate has no network
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off
