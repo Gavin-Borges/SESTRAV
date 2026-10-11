@@ -684,14 +684,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   substituted one. Pinning a digest is left as an open decision. The host's redirect
   behaviour was not observed; if it redirects to another host, the download fails closed
   naming the refused URL, and `--input` remains the route. Not changed: a damaged ZIP given
-  with `--input` still raises `zipfile.BadZipFile` out of `main()`, and the provenance
-  sidecar of an auto-downloaded run records the deleted temporary archive's absolute path
-  as its source. `tests/test_ingest_immunecode_fetch.py` adds 49 cases that open no
+  with `--input` still raises `zipfile.BadZipFile` out of `main()`. (The provenance
+  sidecar's path is the next entry.) `tests/test_ingest_immunecode_fetch.py` adds 49 cases that open no
   socket, serving redirects with each of 301, 302, 303, 307 and 308; 39 of them fail on the
   previous code. Of 23 mutants run against an earlier revision of this change and its 48
   cases, each breaking one protection or the refusal reason in place, all 23 were killed.
   Three re-run on this revision are each killed: the `.part` cleanup removed, run on an
   `Exception` only, or replacing the download's failure with its own error.
+- **`scripts/ingest_immunecode.py`'s provenance sidecar records no absolute path.** Its
+  `sources` field held the raw source path: with no `--input`, the downloaded archive inside
+  a temporary directory that is gone by the end of the run, a path that on Windows carries
+  the user's home directory; and an `--input` exactly as typed, an absolute one verbatim.
+  The auto-download is now recorded by its download URL, as `scripts/fetch_iedb_tcell.py`
+  records its API base. An `--input` is resolved, then recorded by its repo-relative POSIX
+  path when it lies inside the checkout, else by its basename alone prefixed `external:`.
+  Every other sidecar field, and the sidecar's location, are unchanged.
+  `tests/test_ingest_immunecode_provenance.py` adds 12 tests that open no socket; on
+  Windows 11 of them fail on the previous script.
 - **No tracked file offers the unverified `mhcflurry-downloads fetch models_class1_presentation`
   any more.** Four
   places still offered `mhcflurry-downloads fetch models_class1_presentation` on its own,
