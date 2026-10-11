@@ -9,10 +9,16 @@ Usage - default (t6, 320-dim, v2.1):
 Usage - larger model (t12, 480-dim, v2.2):
     python scripts/precompute_esm2_embeddings.py \
         --model facebook/esm2_t12_35M_UR50D \
+        --revision <full 40-character commit SHA of that model repository> \
         --output data/esm2_embeddings_t12.pt
+
+The model loads from one Hugging Face Hub commit, never from whatever the model
+repository's main branch holds today. Only the default model has a pinned
+commit (src/features.py), so every other model needs --revision.
 """
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -22,6 +28,8 @@ import pandas as pd
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+from src.features import _ESM_MODEL_NAME, _ESM_MODEL_REVISION
 
 MAX_LEN = 11
 
@@ -33,6 +41,35 @@ ESM_MODEL_DIMS: dict[str, int] = {
     "facebook/esm2_t33_650M_UR50D": 1280,
 }
 
+# Hugging Face Hub commits used when no revision is given. A revision names a commit
+# of ONE model repository, so src/features.py's pin covers its own model and no other.
+# Imported rather than copied, so the two cannot drift.
+PINNED_REVISIONS: dict[str, str] = {_ESM_MODEL_NAME: _ESM_MODEL_REVISION}
+
+_FULL_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def resolve_revision(model_name: str, revision: str | None) -> str:
+    """Return the Hub commit to load ``model_name`` from, refusing anything mutable.
+
+    Without a revision, from_pretrained loads the repository's main branch, so
+    the weights can change between runs with no error. A branch or tag name can move
+    too, so only a full commit SHA is accepted.
+    """
+    if revision is None:
+        revision = PINNED_REVISIONS.get(model_name)
+        if revision is None:
+            raise ValueError(
+                f"No pinned Hugging Face Hub revision for '{model_name}'. Pass the full "
+                "40-character commit SHA to load it from (--revision)."
+            )
+    if not _FULL_COMMIT_SHA.fullmatch(revision):
+        raise ValueError(
+            f"Revision {revision!r} is not a full 40-character lowercase commit SHA; "
+            "a branch, tag or short SHA does not name fixed content."
+        )
+    return revision
+
 
 def precompute_esm2(
     data_path: str,
@@ -40,17 +77,19 @@ def precompute_esm2(
     model_name: str = "facebook/esm2_t6_8M_UR50D",
     batch_size: int = 64,
     incremental: bool = False,
+    revision: str | None = None,
 ) -> None:
     if model_name not in ESM_MODEL_DIMS:
         raise ValueError(f"Unknown model '{model_name}'. Known models: {list(ESM_MODEL_DIMS)}")
+    revision = resolve_revision(model_name, revision)
 
     from transformers import EsmModel, EsmTokenizer
 
     esm_dim = ESM_MODEL_DIMS[model_name]
 
-    print(f"Loading {model_name} (dim={esm_dim}) ...")
-    tokenizer = EsmTokenizer.from_pretrained(model_name)  # nosec B615 -- offline precompute; ESM-2 is a pinned stable model whose identity is enforced by hash in the lockfile
-    model = EsmModel.from_pretrained(model_name)  # nosec B615
+    print(f"Loading {model_name} at revision {revision} (dim={esm_dim}) ...")
+    tokenizer = EsmTokenizer.from_pretrained(model_name, revision=revision)
+    model = EsmModel.from_pretrained(model_name, revision=revision)
     model.eval()
 
     df = pd.read_csv(data_path)
@@ -58,7 +97,7 @@ def precompute_esm2(
 
     existing: dict = {}
     if incremental and Path(output_path).exists():
-        existing = torch.load(output_path, map_location="cpu", weights_only=True)  # nosec B614 -- loading our own previously saved embeddings
+        existing = torch.load(output_path, map_location="cpu", weights_only=True)
         print(f"Incremental mode: {len(existing)} peptides already cached, skipping.")
         peptides = [p for p in all_peptides if p not in existing]
     else:
@@ -94,7 +133,7 @@ def precompute_esm2(
     if existing:
         embeddings.update(existing)
     print(f"Saving {len(embeddings)} embeddings to {output_path}")
-    torch.save(embeddings, output_path)  # nosec B614
+    torch.save(embeddings, output_path)
     print("Done.")
 
 
@@ -110,6 +149,14 @@ if __name__ == "__main__":
         default="facebook/esm2_t6_8M_UR50D",
         choices=list(ESM_MODEL_DIMS),
         help="ESM-2 model variant to use",
+    )
+    parser.add_argument(
+        "--revision",
+        default=None,
+        help=(
+            "Full 40-character Hugging Face Hub commit SHA to load the model from. "
+            f"Defaults to the pinned commit for {_ESM_MODEL_NAME}; required for any other model."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -136,4 +183,5 @@ if __name__ == "__main__":
         model_name=args.model,
         batch_size=args.batch_size,
         incremental=args.incremental,
+        revision=args.revision,
     )

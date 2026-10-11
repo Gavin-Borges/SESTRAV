@@ -8,6 +8,7 @@ from src.external_predictors import (
     generate_fasta,
     parse_netchop_html,
     parse_tapreg_html,
+    PredictorUnavailableError,
     query_netchop,
     query_tapreg,
     get_predictor_dataframe,
@@ -105,11 +106,12 @@ def test_get_predictor_dataframe():
 def _assert_live_scores_are_not_in_process_mocks(df, peptides, tap_model="blosum"):
     """Fail if either predictor's column equals this process's mock generator.
 
-    mock_fallback does not mean 'allow fallback'. It means 'skip the network'.
-    Three return sites in query_netchop / query_tapreg emit mock scores without
-    consulting it, so a live call can silently degrade. Both predictors fall
-    back independently, so a NetChop-only check would still pass when only
-    TAPreg degraded. Values are compared to generators called in-process:
+    mock_fallback=True means 'skip the network'. Until 2026-10-10 three return
+    sites in query_netchop / query_tapreg also emitted mock scores when it was
+    False, so a live call could silently degrade; they now raise
+    PredictorUnavailableError, and this check stays as a second line. Both
+    predictors could degrade independently, so a NetChop-only check would still
+    pass when only TAPreg degraded. Values are compared to generators called in-process:
     both mocks are seeded by the builtin hash() of a str, which is stable
     within a process and not across processes, so literals would be flaky.
     """
@@ -184,32 +186,30 @@ def test_get_predictor_dataframe_empty_list():
     assert "netchop_cterm_score" in df.columns
 
 
-def test_query_netchop_request_exception_falls_back_to_mock():
-    """Connection error on POST → all-mock fallback scores returned."""
+def test_query_netchop_request_exception_raises():
+    """Connection error on every POST -> PredictorUnavailableError, never mock scores."""
     peptides = ["GLFYTRTGL"]
     with patch(
         "src.external_predictors.requests.post",
         side_effect=requests.exceptions.ConnectionError("no network"),
     ):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-    assert "GLFYTRTGL" in results
-    assert len(results["GLFYTRTGL"]["scores"]) == len("GLFYTRTGL")
+        with pytest.raises(PredictorUnavailableError, match="NetChop job submission failed"):
+            query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
 
-def test_query_netchop_no_job_id_in_response_falls_back_to_mock():
-    """Server responds OK but no job ID is parseable → mock fallback."""
+def test_query_netchop_no_job_id_in_response_raises():
+    """Server responds OK but no job ID is parseable -> PredictorUnavailableError."""
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None
     mock_resp.text = "<html>No useful content here</html>"
     with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-    assert "GLFYTRTGL" in results
-    assert isinstance(results["GLFYTRTGL"]["scores"], list)
+        with pytest.raises(PredictorUnavailableError, match="NetChop job submission failed"):
+            query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
 
-def test_query_netchop_polling_empty_result_falls_back_to_mock():
-    """Job ID parsed, but polling always returns empty table → mock fallback."""
+def test_query_netchop_polling_empty_result_raises():
+    """Job ID parsed, but polling always returns empty table -> PredictorUnavailableError."""
     peptides = ["GLFYTRTGL"]
     submit_resp = MagicMock()
     submit_resp.raise_for_status.return_value = None
@@ -223,12 +223,12 @@ def test_query_netchop_polling_empty_result_falls_back_to_mock():
         patch("src.external_predictors.requests.post", return_value=submit_resp),
         patch("src.external_predictors.requests.get", return_value=poll_resp),
     ):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-    assert "GLFYTRTGL" in results
+        with pytest.raises(PredictorUnavailableError, match="NetChop job polling failed"):
+            query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
 
-def test_query_netchop_polling_request_exception_falls_back_to_mock():
-    """Job ID obtained, but every poll raises a network error → mock fallback."""
+def test_query_netchop_polling_request_exception_raises():
+    """Job ID obtained, but every poll raises a network error -> PredictorUnavailableError."""
     peptides = ["GLFYTRTGL"]
     submit_resp = MagicMock()
     submit_resp.raise_for_status.return_value = None
@@ -241,32 +241,159 @@ def test_query_netchop_polling_request_exception_falls_back_to_mock():
             side_effect=requests.exceptions.Timeout("timed out"),
         ),
     ):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-    assert "GLFYTRTGL" in results
+        with pytest.raises(PredictorUnavailableError, match="NetChop job polling failed") as info:
+            query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
+    assert isinstance(info.value.__cause__, requests.exceptions.Timeout)
 
 
-def test_query_tapreg_request_exception_falls_back_to_mock():
-    """Connection error → automatic mock fallback for TAPreg."""
+def test_a_submission_error_is_not_chained_onto_a_polling_failure():
+    """Submission fails once then succeeds; polling then fails with no network error."""
+    peptides = ["GLFYTRTGL"]
+    submit_resp = MagicMock()
+    submit_resp.raise_for_status.return_value = None
+    submit_resp.text = "jobid=abc123"
+    poll_resp = MagicMock()
+    poll_resp.raise_for_status.return_value = None
+    poll_resp.text = "<html>done</html>"  # no tabular rows, no exception
+    with (
+        patch(
+            "src.external_predictors.requests.post",
+            side_effect=[requests.exceptions.ConnectionError("blip"), submit_resp],
+        ),
+        patch("src.external_predictors.requests.get", return_value=poll_resp),
+        patch("src.external_predictors.time.sleep"),
+    ):
+        with pytest.raises(PredictorUnavailableError, match="NetChop job polling failed") as info:
+            query_netchop(peptides, mock_fallback=False, max_retries=2, initial_backoff=0)
+    assert info.value.__cause__ is None
+
+
+def test_query_netchop_returns_a_partial_answer_without_raising():
+    """Scores for one of two peptides is a result: the other comes back empty."""
+    peptides = ["GLFYTRTGL", "AAYSDQWAL"]
+    submit_resp = MagicMock()
+    submit_resp.raise_for_status.return_value = None
+    submit_resp.text = "jobid=abc123"
+    poll_resp = MagicMock()
+    poll_resp.raise_for_status.return_value = None
+    poll_resp.text = "<html>done</html>"
+    partial = {
+        "GLFYTRTGL": {"scores": [0.9], "cleavages": ["S"]},
+        "AAYSDQWAL": {"scores": [], "cleavages": []},
+    }
+    with (
+        patch("src.external_predictors.requests.post", return_value=submit_resp),
+        patch("src.external_predictors.requests.get", return_value=poll_resp),
+        patch("src.external_predictors.parse_netchop_html", return_value=partial),
+    ):
+        result = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
+    assert result == partial
+
+
+def test_query_tapreg_returns_a_partial_answer_without_raising():
+    """A score for one of two peptides is a result: the other is absent."""
+    page = MagicMock()
+    page.raise_for_status.return_value = None
+    page.text = "<html>results</html>"
+    with (
+        patch("src.external_predictors.requests.post", return_value=page),
+        patch("src.external_predictors.parse_tapreg_html", return_value={"GLFYTRTGL": 1.5}),
+    ):
+        result = query_tapreg(
+            ["GLFYTRTGL", "AAYSDQWAL"], mock_fallback=False, max_retries=1, initial_backoff=0
+        )
+    assert result == {"GLFYTRTGL": 1.5}
+
+
+def test_the_vpn_error_chains_an_earlier_network_error():
+    """Attempt 1 drops the connection, attempt 2 gets the VPN page."""
+    vpn = MagicMock()
+    vpn.raise_for_status.return_value = None
+    vpn.text = "acceso restringido - please use UCM VPN"
+    with (
+        patch(
+            "src.external_predictors.requests.post",
+            side_effect=[requests.exceptions.ConnectionError("blip"), vpn],
+        ),
+        patch("src.external_predictors.time.sleep"),
+    ):
+        with pytest.raises(PredictorUnavailableError, match="VPN restriction page") as info:
+            query_tapreg(["GLFYTRTGL"], mock_fallback=False, max_retries=3, initial_backoff=0)
+    assert isinstance(info.value.__cause__, requests.exceptions.ConnectionError)
+
+
+def test_query_tapreg_request_exception_raises():
+    """Connection error on every POST -> PredictorUnavailableError for TAPreg."""
     peptides = ["GLFYTRTGL"]
     with patch(
         "src.external_predictors.requests.post",
         side_effect=requests.exceptions.ConnectionError("no network"),
     ):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-    assert "GLFYTRTGL" in results
-    assert isinstance(results["GLFYTRTGL"], float)
+        with pytest.raises(PredictorUnavailableError, match="TAPreg query failed"):
+            query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
 
-def test_query_tapreg_vpn_restriction_falls_back_to_mock():
-    """VPN restriction page detected → break and fall back to mock."""
+def test_query_tapreg_vpn_restriction_raises():
+    """VPN restriction page detected -> stop retrying and raise PredictorUnavailableError."""
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None
     mock_resp.text = "acceso restringido - please use UCM VPN"
-    with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-    assert "GLFYTRTGL" in results
-    assert isinstance(results["GLFYTRTGL"], float)
+    with patch("src.external_predictors.requests.post", return_value=mock_resp) as mock_post:
+        with pytest.raises(PredictorUnavailableError, match="VPN restriction page"):
+            query_tapreg(peptides, mock_fallback=False, max_retries=3, initial_backoff=0)
+    assert mock_post.call_count == 1  # the VPN page ends the retries at once
+
+
+def test_dataframe_raises_when_both_servers_are_down():
+    """With mock_fallback=False and no network, NetChop's submission raises first."""
+    peptides = ["GLFYTRTGL", "AAYSDQWAL"]
+    with (
+        patch(
+            "src.external_predictors.requests.post",
+            side_effect=requests.exceptions.ConnectionError("no network"),
+        ),
+        patch("src.external_predictors.time.sleep"),  # skip the 2+4+8+16+32 s back-off
+    ):
+        with pytest.raises(
+            PredictorUnavailableError, match="NetChop job submission failed"
+        ) as info:
+            get_predictor_dataframe(peptides, mock_fallback=False)
+    assert isinstance(info.value.__cause__, requests.exceptions.ConnectionError)
+
+
+def test_dataframe_raises_when_only_tapreg_is_down():
+    """NetChop answers and TAPreg does not: the frame must not carry mock TAP scores."""
+    peptides = ["GLFYTRTGL", "AAYSDQWAL"]
+    netchop = {pep: {"scores": [0.9], "cleavages": []} for pep in peptides}
+    with (
+        patch("src.external_predictors.query_netchop", return_value=netchop),
+        patch(
+            "src.external_predictors.requests.post",
+            side_effect=requests.exceptions.ConnectionError("no network"),
+        ),
+        patch("src.external_predictors.time.sleep"),
+    ):
+        with pytest.raises(PredictorUnavailableError, match="TAPreg query failed") as info:
+            get_predictor_dataframe(peptides, mock_fallback=False)
+    assert isinstance(info.value.__cause__, requests.exceptions.ConnectionError)
+
+
+def test_a_partial_live_answer_is_returned_not_raised():
+    """A server that answers for some peptides is a result, not an outage."""
+    peptides = ["GLFYTRTGL", "AAYSDQWAL"]
+    netchop = {
+        "GLFYTRTGL": {"scores": [0.9], "cleavages": []},
+        "AAYSDQWAL": {"scores": [], "cleavages": []},
+    }
+    with (
+        patch("src.external_predictors.query_netchop", return_value=netchop),
+        patch("src.external_predictors.query_tapreg", return_value={"GLFYTRTGL": 1.5}),
+    ):
+        frame = get_predictor_dataframe(peptides, mock_fallback=False)
+    assert frame.loc["GLFYTRTGL", "tap_score"] == 1.5
+    assert pd.isna(frame.loc["AAYSDQWAL", "tap_score"])
+    assert pd.isna(frame.loc["AAYSDQWAL", "netchop_cterm_score"])
 
 
 def test_parse_netchop_html_warns_on_unparseable_content(caplog):
@@ -412,10 +539,13 @@ def test_query_tapreg_threshold_populates_payload():
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None
-    mock_resp.text = "VPN"  # triggers break → mock fallback; POST still fires
+    mock_resp.text = "VPN"  # the VPN page raises PredictorUnavailableError; POST still fires
 
     with patch("src.external_predictors.requests.post", return_value=mock_resp) as mock_post:
-        query_tapreg(peptides, threshold=0.5, mock_fallback=False, max_retries=1, initial_backoff=0)
+        with pytest.raises(PredictorUnavailableError):
+            query_tapreg(
+                peptides, threshold=0.5, mock_fallback=False, max_retries=1, initial_backoff=0
+            )
 
     sent_data = mock_post.call_args[1]["data"]
     assert sent_data["threshold"] == "0.5"
@@ -423,8 +553,8 @@ def test_query_tapreg_threshold_populates_payload():
 
 
 # query_netchop - polling detects "Job is running" → wait path exercised
-def test_query_netchop_polling_job_running_falls_back_after_exhaustion():
-    """Every poll returns 'Job is running' → polling exhausts → mock fallback."""
+def test_query_netchop_polling_job_running_raises_after_exhaustion():
+    """Every poll returns 'Job is running' -> polling exhausts -> PredictorUnavailableError."""
     peptides = ["GLF"]
     submit_resp = MagicMock()
     submit_resp.raise_for_status.return_value = None
@@ -438,24 +568,21 @@ def test_query_netchop_polling_job_running_falls_back_after_exhaustion():
         patch("src.external_predictors.requests.post", return_value=submit_resp),
         patch("src.external_predictors.requests.get", return_value=running_resp),
     ):
-        results = query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-
-    assert "GLF" in results  # mock fallback fires after polling exhausted
+        with pytest.raises(PredictorUnavailableError, match="NetChop job polling failed"):
+            query_netchop(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
 
 # query_tapreg - server responds but parse finds no scores → warning logged
-def test_query_tapreg_empty_parse_logs_warning_and_falls_back():
-    """Response contains no parseable peptide scores → warning; mock fallback fires."""
+def test_query_tapreg_empty_parse_raises():
+    """Response contains no parseable peptide scores -> PredictorUnavailableError."""
     peptides = ["GLFYTRTGL"]
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None
     mock_resp.text = "no scores here at all"  # parse_tapreg_html returns {}
 
     with patch("src.external_predictors.requests.post", return_value=mock_resp):
-        results = query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
-
-    assert "GLFYTRTGL" in results
-    assert isinstance(results["GLFYTRTGL"], float)
+        with pytest.raises(PredictorUnavailableError, match="TAPreg query failed"):
+            query_tapreg(peptides, mock_fallback=False, max_retries=1, initial_backoff=0)
 
 
 # query_tapreg - successful parse returns real scores (no mock fallback)

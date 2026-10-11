@@ -130,6 +130,27 @@ def test_make_stratification_key_iedb_api_bins_as_real() -> None:
     assert key.iloc[0] == key.iloc[1]
 
 
+def test_make_stratification_key_names_each_origin_and_length_bin() -> None:
+    """Pin the key STRINGS, not just which rows compare equal.
+
+    Inequality checks cannot see a bin swap: relabelling real as "unk" and
+    decoy plus unknown as "real" still keeps a real and a decoy row apart,
+    while silently merging decoy negatives with unknown-origin rows, which
+    changes the fold partition the origin bin exists to balance. Swapping the
+    "9mer" and "other" length labels likewise passes every inequality test.
+    """
+    labels = pd.Series([0, 0, 0, 0])
+    origins = pd.Series(["tested_negative", "self_proteome_decoy", None, "not_a_known_origin"])
+    peptides = pd.Series(["GILGFVFTL", "GILGFVFTLA", "GILGFVFTL", ""])
+    key = make_stratification_key(labels, negative_origin=origins, peptides=peptides)
+    assert key.tolist() == [
+        "0|real|unk|9mer",
+        "0|decoy|unk|other",
+        "0|unk|unk|9mer",
+        "0|unk|unk|other",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # MultiStratifiedKFold - basic properties
 # ---------------------------------------------------------------------------

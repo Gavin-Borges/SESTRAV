@@ -32,7 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   install command, never from the file (the CPU torch lock is installed with
   `--index-url https://download.pytorch.org/whl/cpu` on the command line). Includes
   (`-r`, `-c`) are not followed; no hash-pinned manifest uses one. No current manifest
-  carries any of these options, so the gate's verdict on the tree is unchanged.
+  carries any of these options, so the gate's verdict on the tree is unchanged. (Since
+  2026-10-10 an include fails closed instead; see the entry under Security below.)
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
   `assay_type == "biological activity"` rows by editing the finished file in place, after
@@ -70,8 +71,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   compiles with an override, and a new test fails if the semgrep lock pins pyjwt below
   2.15.0 (pip-audit reports advisories against 2.13.0 and 2.14.0 and none against 2.15.0),
   keeping the floor half of the check the override's test used to make.
+- **`scripts/check_doc_commit_refs.py` drops a branch that could never run, and tests now
+  pin what actually keeps SHA-256 digests out.** The scan skipped any 64-character token as
+  a digest, but its pattern matches 7 to 40 hex characters between boundary assertions, so a
+  64-character run never reaches that line; the docstring credited the skip. It now credits
+  the pattern: its `{7,40}` length cap refuses the whole run, and its boundary assertions
+  refuse every shorter piece. A new test checks that hex runs of 41, 50, 64 and 128
+  characters produce no candidate; removing either assertion, or widening the cap to
+  `{7,64}`, fails it. A second checks an uppercase digest, whose leading and trailing digit
+  runs only the assertions' refusal of capital letters keeps out; narrowing either
+  assertion to `[0-9a-f]` fails it. No verdict changes: the gate exits 0 on the tree before
+  and after.
 
 ### Fixed
+- **`api/main.py` no longer reloads the MHCflurry presentation predictor on every `/score`
+  request.** `_score_peptide` called `Class1PresentationPredictor.load()` for each request
+  that passed the readiness check and the binding-panel lookup, although the module
+  docstring promised models "loaded once at startup via ModelManager singleton (no
+  per-request I/O)". Measured on one workstation with mhcflurry 2.2.1, the version
+  `environments/requirements-api.txt` pins, a fresh load plus its first predict took 3.2 s,
+  then about 1.1 s on each repeat, against 0.044 to 0.048 s for a predict on a reused
+  predictor. The new `ModelManager.presentation_score` loads the predictor on the first
+  call that needs it and reuses it. A failed import or load is not retried, just as a
+  failed RF load is not: later calls re-raise the same message without touching the disk.
+  That holds for a transient failure too, so **restart the server after installing
+  MHCflurry or its model data by the verified route in `README.md` ("MHCflurry model
+  data")**: until then `binding_score` stays null. An error raised by `predict()` itself,
+  such as mhcflurry's `ValueError` for an allele it has no sequence for, is not cached:
+  that request still returns 200 with `binding_score` null, and later requests score
+  normally.
+  A lock serializes the load and every `predict()`, because FastAPI runs sync routes on a
+  thread pool and MHCflurry's `predict()` mutates the shared predictor, building each
+  network on first use and rewriting its allele embedding for each call's alleles. An
+  unavailable MHCflurry, not installed or installed without its model data (the container
+  case, since `Dockerfile.api` never fetches the weights), still answers 200 with
+  `binding_score: null` and logs the same INFO line on each request. The module docstring
+  now says when each model loads and when a restart is needed.
+  `tests/test_api_presentation_predictor.py` (new, 7 test cases) counts `load()` calls
+  through a stand-in `mhcflurry` module: five fail on the previous code, each because
+  `load()` ran once per request, and the two failure-path cases pass before and after.
+  One case fails the load with an exception whose message is empty, so a cached failure
+  is recognised by being set, not by its text. Eleven mutants of the new code each fail
+  at least one API test.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
@@ -85,6 +126,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   rows these belong to, when the manuscript called them trivially easy to calibrate and
   their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
   this is outside claims-register row D21.
+- **`scripts/check_panel_duplicates.py`'s delimiter docstring now matches the code, and its
+  tab path is tested.** The docstring said a panel is read with `,` for `.csv` and a tab for
+  everything else; the code reads a tab only for `.tsv` and `.txt` (any case) and `,` for
+  everything else. The code is unchanged. Every existing test used a `.csv` panel, so the tab
+  branch never ran under test; new tests check the detected delimiter per extension, and that
+  a `.tsv` or `.txt` panel with a comma in a header name is read by tab and reports its one
+  overlapping peptide. Read comma-first, that header splits into two columns, the one-column
+  tab fallback never fires, and no `peptide` column is found. That fallback (a comma-first
+  read that comes back as one column is re-read by tab) was untested too: a further test runs
+  a comma-free tab-separated panel named `.dat`, and one with no extension, and checks that
+  each reports its one overlapping peptide, which only the fallback makes possible.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
@@ -131,7 +183,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every guard and every fallback-flag site was individually mutation-tested by reverting
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
+- **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
+  peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
+  measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
+  against under 0.05 s each on a reused predictor. One holder, kept by `st.cache_resource`
+  and so shared by every session and rerun, now loads the predictor on first use and holds
+  a lock around the load and every `predict()`, which mutates the shared predictor. A
+  failed import or load is not retried, so **restart the demo after installing MHCflurry
+  or its model data by the verified route in `README.md` ("MHCflurry model data")**; the
+  demo's N/A warning now says so. `_get_binding_score` still returns `None` on any failure.
+  All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
+  code.
 ### Security
+- **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
+  references, which it used to pass.** Each hands pip something the gate never inspects, and
+  each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included
+  file carried `--extra-index-url` passed; an `-e` editable was skipped as an option line,
+  although pip cannot hash-check one; and a `name @ URL` reference, a bare or `file:` URL, a
+  VCS reference, a path or an archive filename passed because it carried a `--hash=`, while
+  pip fetches it from that location rather than the index the install command names. A
+  requirement must now be a plain `name[extras] specifier`, with an optional `;` marker,
+  matched as an allowlist so a spelling not listed here fails closed too. A requirement
+  whose whole text ends in one of pip's archive extensions also fails, because pip tests the
+  whole string, not the project name: `numpy==2.4.6.tar.gz` installs a same-named local
+  file, resolved from the directory pip runs in. pip also strips a trailing `[extras]` and
+  then every kind of whitespace before testing, so `pkg-1.0-py3-none-any.whl[x]` is a file
+  too; the gate strips the extras the same way, accepts only the ASCII space as whitespace
+  in a requirement (a tab or a Unicode space there fails closed), and drops trailing dots
+  and spaces, as Windows path handling drops them for pip. A requirement left empty in
+  front of a `;` marker fails too. Two tests compare the verdict with pip 26.2.1's own
+  requirement parser, one over a fixed list and one over generated cross products of names,
+  extras, specifiers, archive suffixes and separators. Separately, the hash check now
+  decodes a manifest the way the option check and pip do, so a UTF-16 or UTF-32 byte-order
+  mark is read rather than raised as a traceback, and bytes that do not decode are reported
+  as a clean failure. Found by the security review of the composed #727-#731 diff (its
+  LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
+  tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
+  rejection or check or dropping one archive extension, all make the tests fail.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
@@ -151,6 +239,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     context at any depth, along with the `.agents`, `.cursor` and `.codex` directories and
     the gitignored `.mcp.json`. No Dockerfile copies any of them; the change is about what
     is uploaded to the builder.
+- **`scripts/precompute_esm2_embeddings.py` loads ESM-2 from a pinned Hugging Face Hub
+  commit, not from whatever the model repository's `main` branch holds.** It loaded the
+  tokenizer and weights with `from_pretrained(model_name)` and no `revision=`, and
+  transformers defaults `revision` to the `main` branch, so a moved or compromised branch
+  would change the embeddings with no error. The `# nosec B615` on those two calls said the
+  model's identity "is enforced by hash in the lockfile", which was false: no tracked
+  requirements or lock file mentions ESM-2 or the Hub, and `transformers` itself is in none
+  of them. It is declared only in `pyproject.toml`'s `gnn` extra, as `transformers>=4.30.0`.
+  - The script now passes the commit `src/features.py` already pinned for
+    `facebook/esm2_t6_8M_UR50D`. That commit is now one constant, `_ESM_MODEL_REVISION`,
+    used by both `src/features.py` calls and imported by the script, so the two cannot drift.
+  - A Hub revision belongs to one model repository, and the script's other three models
+    (`esm2_t12_35M_UR50D`, `esm2_t30_150M_UR50D` and `esm2_t33_650M_UR50D`) have no pinned
+    commit here, so the script refuses them unless the new `--revision` option gives one. A
+    revision that is not 40 lowercase hex characters, such as a branch, a tag or a short SHA,
+    is refused for every model. This covers `facebook/esm2_t12_35M_UR50D`, the model
+    `models/gnn/gnn_config.json` names, so rebuilding the GNN's embedding cache with this
+    script now needs that model's commit stated.
+  - All four `# nosec` comments in the script are removed: the two B615 ones, and two B614
+    ones that suppressed nothing, since bandit's B614 check does not flag a `torch.load` that
+    sets `weights_only=True` and never looks at `torch.save`. bandit 1.9.4 reports no issue on the
+    file with or without `--ignore-nosec`. It does not read a revision passed by name, so the
+    new tests check the value instead.
+  - `tests/test_esm2_revision_pin.py` (17 tests) puts a fake `transformers` in
+    `sys.modules` that records every `from_pretrained` call, so nothing is downloaded. On
+    main all 17 fail; with only the shared constant added, 11 of the first 14 fail against
+    the unchanged script. 21 mutants are each killed, among them a dropped `revision=` and a different
+    literal commit at each of the four call sites, a copied hash in place of the import,
+    and the t6 pin applied to another model.
+  - Not changed: `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb` still loads
+    `facebook/esm2_t12_35M_UR50D` with no revision, and no commit of that model is pinned
+    anywhere in this repository to pin it to.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
@@ -165,6 +285,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   failed); and an unset `RUNNER_TEMP` must stop the step. The three tests that run the
   shipped step now pass a `RUNNER_TEMP`. Mutation-checked on a throwaway copy: a diff file
   inside the checkout and a dropped `:?` guard each fail at least one case.
+- **`scripts/ingest_vdjdb.py` verifies the VDJdb archive it downloads, checks every redirect
+  before following it, and replaces a damaged archive only with a verified one.** The latest
+  release's `.zip` asset was downloaded with `urllib.request.urlretrieve`, with no timeout,
+  no host check and no integrity check, straight to `vdjdb.zip`. An interrupted transfer left
+  a partial `vdjdb.zip` behind, and later runs then skipped the download because that file
+  existed and, finding no extracted `vdjdb.txt`, returned no input instead of fetching again.
+  The asset URL must now be https, on the netloc `github.com` exactly, under this
+  repository's release downloads, with no `..` segment, encoded or not, and no control,
+  space or non-ASCII character. Every redirect target is checked before urllib requests it,
+  and must pass the same check or be https on `objects.githubusercontent.com` or
+  `release-assets.githubusercontent.com`, so an http or ftp hop, any other host, and
+  user-content hosts such as `raw.githubusercontent.com` are refused. The transfer has a
+  60-second socket timeout, stops once it exceeds the size the GitHub release API reports for
+  the asset, streams to `vdjdb.zip.part`, is checked against the sha256 digest the API
+  reports, is extracted, and only then takes the name `vdjdb.zip`; any failure removes the
+  `.part` file. An asset without a 64-hex sha256 digest or a positive integer size is refused
+  before it is downloaded. A `vdjdb.zip` already on disk that does not open as an archive, or
+  has a member that fails its CRC-32 check, is kept until extraction of a verified download
+  starts. If the fetch fails before then (no network, a refused URL, a transfer over the
+  reported size, a digest mismatch), the archive is kept and any table already beside it is
+  still used, as the previous code did. When extraction of the replacement starts, the
+  damaged archive is removed before anything is written, because extraction writes into the
+  same directory and may overwrite that table: an error then returns no table, an interrupt
+  propagates, and no later run has the damaged archive to fall back on, including after a
+  process killed outright mid-extraction or a failure to remove `vdjdb.zip.part`.
+  Extraction counts as started before its zip-slip check, so a refusal there takes the same
+  path though nothing was written. An intact
+  `vdjdb.zip` is still reused with no network access, and is extracted again when neither
+  `vdjdb.txt` nor `vdjdb_full.txt` is found; that extraction can now raise, for example on a
+  member that would land outside the directory, where the previous code printed a warning
+  and returned no input. A truncated `vdjdb.txt` beside an intact archive, which an
+  interrupted re-extraction or an earlier version of this script could leave, is not
+  detected. The digest arrives in the same API response as the URL, so a match shows the
+  bytes are the asset that response describes, not that the release itself is trustworthy.
+  Pinning a release and its digest would close that gap but would replace "latest" with a
+  fixed version, so it is left as an open decision. `pyproject.toml`'s comment on the global
+  ruff `S310` ignore said all URLs are HTTPS and scheme-validated. With that ignore lifted,
+  `S310` flags 13 lines in 9 files: 5 have no runtime scheme check, and the check at one
+  more, in `scripts/install_prime_wsl.py`, also admits `http://`. The comment now says not
+  every site checks the scheme. `tests/test_ingest_vdjdb_fetch.py` adds 110 cases, 95 of which
+  fail on the previous code; the refused-redirect cases run for each of 301, 302, 303, 307 and
+  308. Of 55 mutants run against an earlier revision of this change and its 70 cases, each
+  reverting one protection in place, 54 were killed; the survivor compares the digest with
+  `startswith`, which is equivalent here because the expected digest is always exactly 64 hex
+  characters. Three mutants re-run on this revision are each killed: the redirect check
+  applied to 302 only, the damaged archive removed only after extraction, and the failure
+  cleanup no longer removing a member extracted onto `vdjdb.zip`.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
@@ -184,6 +351,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_security_floors_have_a_dependent.py` fails on any floor, in any lockfile
   spec, whose package nothing but the spec requires; against the previous spec it names
   exactly these four.
+- **The monthly IEDB benchmark's `issues: write` token is held by one small job instead of
+  the whole workflow.** `.github/workflows/iedb_benchmark.yml` granted `issues: write` at
+  workflow level, so the steps that install the locked dependencies and this package and
+  query IEDB all ran holding it, although only the final step, which files a regression
+  alert, needs it. The workflow now grants `contents: read` alone; the benchmark job reports
+  whether there was a regression and, when there was, uploads the regression message, and a
+  new `alert` job, which runs only then, holds `issues: write`, checks nothing out and runs no
+  shell step: it downloads the message and opens the issue as before. A new test,
+  `tests/test_iedb_benchmark_permissions.py`, pins the split and the hand-offs between the
+  two jobs: the output key the record step writes and the job output reads, the artifact
+  name both jobs use, the upload's condition, the alert job's exact `if:`, and the file the
+  issue step reads. The workflow runs only on its monthly schedule and on manual dispatch, so
+  no pull request exercises it. Found as SX-U12 item 1 of the security review.
 - **`keras` and `protobuf`, pinned as security fixes in `requirements.in` and
   `environments/requirements-ci.in`, are removed along with eight packages beneath them,
   because nothing in the closure of `requirements.in` or `environments/requirements-ci.in`
@@ -208,6 +388,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `absl-py` entries no longer apply; with those four entries removed, as committed, that
   test passes. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` were rebuilt using the
   `python-sbom` job's argv and lose the same ten, with no drift in the 130 that remain.
+- **The GNN retraining notebook loads its checkpoint with `weights_only=True`, and the
+  `torch.load` guard now reads notebooks.** `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb`
+  called `torch.load` on `models/gnn/structural_gnn_v2.pth` without `weights_only`, which
+  left the choice to the runtime: the notebook pins no torch version, and even the locked
+  torch 2.13.0, which refuses a pickled object when `weights_only` is unset, fully unpickles
+  it once `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1` is set; with `weights_only=True` passed, it
+  refuses either way. The checkpoint is a plain `state_dict` (saved by `src/train_gnn.py` as
+  `model_final.state_dict()`, and loaded with `weights_only=True` by
+  `src/verify/promote_gnn.py`), so the pin changes nothing for the real file.
+  `tests/test_torch_load_weights_only.py` scanned only tracked `.py` files and said so; it now
+  also parses the code cells of every tracked notebook, with IPython magic lines read as
+  `pass`, and fails on a cell that still does not parse, so an unparseable cell cannot hide a
+  call. A second test fails unless that AST scan finds at least one `torch.load` call in a
+  tracked notebook, so a scan that has gone blind fails instead of passing over nothing. Still
+  out of reach, and said so in the test's docstring: the text of a magic line itself, so a
+  `torch.load` inside `%time ...` or `!python -c "..."` is never seen. Found as SX-U11 item 8
+  of the security review's low-severity batch.
 - **`Dockerfile.api` and `Dockerfile.demo` install minimal hash-pinned locks, and all three
   images build the package without an unhashed build-backend download.** Both images used
   to finish with `pip install ".[api]"` / `pip install ".[demo]"`, which resolved the
@@ -580,6 +777,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   README, USAGE, CONTRIBUTING and `docs/data_registry.md`, which the entry above taught to
   warn that a mismatch leaves the download in place, now say the fetcher deletes it and
   that an archive from an earlier run stays, so step two still waits for step one.
+- **`scripts/ingest_immunecode.py` checks every redirect of the ImmuneCODE MIRA download
+  before following it, gives it a socket timeout, and refuses a damaged archive before
+  giving it its name.** With no `--input`, the script fetched `MIRA_DOWNLOAD_URL`
+  with `urllib.request.urlretrieve`, which sets no timeout and follows a redirect to any
+  http, https or ftp location, straight to the archive's final name, and then checked only
+  `zipfile.is_zipfile`. An archive with a damaged member passed that check, and extracting
+  it raised `zipfile.BadZipFile` out of `main()` as a traceback instead of the script's
+  download error. The start URL, and every redirect target before urllib requests it, must
+  now be https on the netloc `clients.adaptivebiotech.com` exactly, with no control, space
+  or non-ASCII character, so an http or ftp hop, a port, userinfo, a look-alike and any
+  other host are refused; the refusal message names which of the two rules failed and
+  drops the query string. The transfer has a 60-second socket timeout, which bounds the
+  connect and each read rather than the whole transfer. It streams to
+  `immuneCODE-MIRA-release002.1.zip.part` and takes the final name only once that opens as
+  a ZIP archive whose every member passes its CRC-32 check (`ZipFile.testzip`). Any
+  failure, a `KeyboardInterrupt` included, removes the `.part` file; that removal is best
+  effort, so an error from it (a Windows sharing violation, for example) does not replace
+  the failure itself. A refused download, a network error during the transfer (such as a
+  timeout or a reset connection) or a damaged archive makes `main()` return 1 with the
+  reason logged; a `KeyboardInterrupt` still propagates. If another process still holds the
+  `.part` file open when the run ends, the temporary directory's own cleanup raises
+  `PermissionError` out of `main()`; that is not changed. As before, the download goes into
+  a `tempfile.TemporaryDirectory` that `_load_csv` removes when the run ends. The new tests check, for a successful run and for
+  four failed ones, that `main()` downloads into a directory under tempfile's root that no
+  longer exists when it returns, and that nothing is left in that root. No sha256 is
+  pinned: the file name carries a release number, but no tracked file records the
+  archive's digest and computing one needs the archive itself, so the check catches an
+  archive whose members or directory were cut short or damaged in transit, not a
+  substituted one. Pinning a digest is left as an open decision. The host's redirect
+  behaviour was not observed; if it redirects to another host, the download fails closed
+  naming the refused URL, and `--input` remains the route. Not changed: a damaged ZIP given
+  with `--input` still raises `zipfile.BadZipFile` out of `main()`. (The provenance
+  sidecar's path is the next entry.) `tests/test_ingest_immunecode_fetch.py` adds 49 cases that open no
+  socket, serving redirects with each of 301, 302, 303, 307 and 308; 39 of them fail on the
+  previous code. Of 23 mutants run against an earlier revision of this change and its 48
+  cases, each breaking one protection or the refusal reason in place, all 23 were killed.
+  Three re-run on this revision are each killed: the `.part` cleanup removed, run on an
+  `Exception` only, or replacing the download's failure with its own error.
+- **`scripts/ingest_immunecode.py`'s provenance sidecar records no absolute path.** Its
+  `sources` field held the raw source path: with no `--input`, the downloaded archive inside
+  a temporary directory that is gone by the end of the run, a path that on Windows carries
+  the user's home directory; and an `--input` exactly as typed, an absolute one verbatim.
+  The auto-download is now recorded by its download URL, as `scripts/fetch_iedb_tcell.py`
+  records its API base. An `--input` is resolved, then recorded by its repo-relative POSIX
+  path when it lies inside the checkout, else by its basename alone prefixed `external:`.
+  Every other sidecar field, and the sidecar's location, are unchanged.
+  `tests/test_ingest_immunecode_provenance.py` adds 12 tests that open no socket; on
+  Windows 11 of them fail on the previous script.
 - **No tracked file offers the unverified `mhcflurry-downloads fetch models_class1_presentation`
   any more.** Four
   places still offered `mhcflurry-downloads fetch models_class1_presentation` on its own,
@@ -923,6 +1168,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   target one of the matrix versions. Against the previous tool settings it fails exactly
   these seven.
 
+- **`tools/check_dismissal_justifications.py` no longer forwards its bearer token across
+  an HTTP redirect, and no longer accepts a response served from any host but
+  `https://api.github.com`.** The `GITHUB_TOKEN` / `GH_TOKEN` route set `Authorization` as
+  an ordinary request header, which urllib's redirect handler copies into the follow-up
+  request for whatever host the `Location` names. A test replaying the gate's own request
+  through urllib's real redirect handler, against two loopback servers on different ports,
+  showed the token arriving at the second one. It is now an unredirected header: the first
+  hop still carries it and the second does not. The existing guard refused any URL but
+  `https://api.github.com` before the first request, but urllib still followed a redirect
+  and the tool parsed whatever came back, so a redirect to another host answering `200 []`
+  would have read as a clean census of zero alerts. The URL the response was finally served
+  from is now held to the same scheme and host, and anything else exits 2 (could not run).
+  One consequence: a same-host redirect, such as GitHub's 301 for a renamed repository, is
+  also followed without the token, so the follow-up request is unauthenticated and any
+  error it draws exits 2. The advisory workflow passes `--repo "${GITHUB_REPOSITORY}"`, the
+  canonical name, so it does not depend on such a redirect.
 ### Added
 - **All seven custom semgrep rules now prove in CI that they still fire, and
   `.semgrepignore`'s scope is pinned.** The fixture files that exercise
@@ -1050,6 +1311,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **`query_netchop`, `query_tapreg` and `get_predictor_dataframe` raise
+  `PredictorUnavailableError` when `mock_fallback=False` and the live server returns no score
+  for any peptide, instead of returning mock scores.** Three return sites, NetChop's failed
+  submission, NetChop's exhausted polling and TAPreg's exhausted retries (including the UCM
+  VPN restriction page), emitted generated mock scores although the caller had asked for live
+  ones, so a request for live predictions could not tell an outage from a result. The error
+  chains the last network exception as its cause, and the VPN page gets its own message. A
+  partial answer is still returned, not raised: peptides a server omits come back empty, or
+  NaN in the data frame. `mock_fallback=True` is unchanged: it skips the network entirely,
+  as before, and the docstrings now say so instead of "if the query fails". The default
+  values are unchanged, but `query_netchop`'s default is `mock_fallback=False`, so **a bare
+  `query_netchop(peptides)` call now raises on an outage where it used to return mock
+  scores**; `query_tapreg` and `get_predictor_dataframe` default to `True`. The only
+  production caller, `scripts/precompute_antigen_processing.py`, passes `True` to both
+  queries, and its comment no longer says the live paths fall back to mock scores. Eleven
+  tests that asserted or relied on the silent fallback now expect the error; three new tests
+  drive `get_predictor_dataframe` with both servers down, with only TAPreg down, and with a
+  partial answer, and four more pin, at the query level, a partial answer from each server,
+  the VPN error's cause, and that a submission error is not chained onto a later polling
+  failure.
 - **`immunogenicity_score` had no range check between a model's `predict_proba` output and
   everything downstream that treats it as a `[0, 1]` probability - calibration, thresholding,
   the ranked CSV, and (once promoted) `api/main.py`'s response model (LRF-1).** A model loaded

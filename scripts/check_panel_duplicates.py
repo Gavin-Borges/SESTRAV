@@ -34,7 +34,7 @@ HLA_COL = "hla_allele"
 
 
 def _detect_delimiter(path: str) -> str:
-    """Return ',' for .csv files and '\\t' for everything else."""
+    """Return '\\t' for .tsv and .txt files (any case) and ',' for everything else."""
     _, ext = os.path.splitext(path.lower())
     if ext == ".csv":
         return ","
