@@ -67,22 +67,36 @@ rather than just an unverified download.
 sestrav info
 ```
 
-Expected output:
+Expected output from a clone installed editable (`pip install -e .`) with the versions
+`requirements.txt` pins, on a machine without a GPU. The version, `mhcflurry data` and
+`CUDA` lines describe your own environment; `mhcflurry data` reads `absent` until the
+download above has run.
 ```
 ============================================================
 SESTRAV Environment Info
 ============================================================
   sestrav version : 2.0.3
   mhcflurry       : 2.2.1
-  torch           : 2.13.0
+  mhcflurry data  : present
+  torch           : 2.13.0+cu130
   CUDA            : not available
   feature_mode    : 31
   model_path      : models/rf_31feature_integrated.joblib
   mhcflurry_pin   : 2.2.1
   allele panel    : 10 alleles (HLA-A*02:01, HLA-A*01:01, HLA-A*03:01...)
-  viruses/panels  : HPV16_18_panel8, EBV_B95_8_panel8, HBV_ayw_panel4, HCV_1a_panel4
+  viruses/panels  : HPV16_18_panel8, EBV_B95_8_panel8, HBV_ayw_panel4, HCV_1a_panel4, HIV1_HXB2_panel4, SARSCOV2_wuhan1_panel4, IAV_PR8_panel4, CMV_AD169_panel4
 ============================================================
 ```
+
+After the non-editable `pip install .` at the top of this page, the five lines from
+`feature_mode` to `viruses/panels` are replaced by `config : config.yaml not found` and a
+warning that the MHCflurry pin was not verified. `sestrav info` reads `config.yaml` from
+its installation, never from the working directory, so running it inside the clone does
+not change this; the editable install shows the five lines. The non-editable install also
+resolves dependencies without the lock, so it can report a newer MHCflurry than the 2.2.1
+that `config.yaml` pins (see the Python 3.13 note above). The Docker image installs the
+package non-editable too, so `sestrav info` there prints the same warning, although its
+MHCflurry comes from the hash-pinned `environments/requirements.lock`, which pins 2.2.1.
 
 ### 2. Score a viral proteome
 
