@@ -1,3 +1,4 @@
+semgrep-rules/sestrav-custom.py
 semgrep-rules/sestrav-recurring.py
 semgrep-rules/sestrav-recurring.sh
 semgrep-rules/sestrav-recurring.smk

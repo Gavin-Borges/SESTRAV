@@ -194,6 +194,51 @@ def test_paired_bootstrap_none_result_handled():
 
 
 # ---------------------------------------------------------------------------
+# paired_bootstrap_comparison - the minimum sample size
+# ---------------------------------------------------------------------------
+
+
+def _frame_with_clean_rows(n_clean: int) -> pd.DataFrame:
+    """``n_clean`` complete rows of both classes, plus two rows missing one score each."""
+    n_pos = n_clean - n_clean // 2
+    n_neg = n_clean // 2
+    clean = pd.DataFrame(
+        {
+            "label": [1] * n_pos + [0] * n_neg,
+            "ref": np.concatenate([np.linspace(0.6, 0.9, n_pos), np.linspace(0.1, 0.4, n_neg)]),
+            "comp": np.concatenate([np.linspace(0.3, 0.8, n_pos), np.linspace(0.2, 0.7, n_neg)]),
+        }
+    )
+    dirty = pd.DataFrame({"label": [1, 0], "ref": [np.nan, 0.5], "comp": [0.5, np.nan]})
+    return pd.concat([clean, dirty], ignore_index=True)
+
+
+def test_bootstrap_runs_at_exactly_ten_clean_rows_and_refuses_nine():
+    """The refusal is for fewer than ten clean rows, so ten must run and nine must not.
+
+    test_paired_bootstrap_none_result_handled already feeds exactly ten rows,
+    but it accepts an error dict, so a refusal moved to ten rows or fewer
+    passed it. Each frame here also carries two rows missing one score, so
+    the count is of CLEAN rows: twelve raw rows run and eleven are refused.
+    """
+    ten = _frame_with_clean_rows(10)
+    nine = _frame_with_clean_rows(9)
+    assert (len(ten), len(nine)) == (12, 11)
+
+    with patch("src.statistical_bootstrap.Parallel", _inline_parallel):
+        at_minimum = paired_bootstrap_comparison(ten, "ref", "comp", n_resamples=50, seed=0)
+        below = paired_bootstrap_comparison(nine, "ref", "comp", n_resamples=50, seed=0)
+
+    assert below == {"error": "Too few clean samples for bootstrapping"}
+    assert "error" not in at_minimum
+    assert at_minimum["n_samples"] == 10
+    clean = ten.dropna()
+    y, ref, comp = clean["label"].to_numpy(), clean["ref"].to_numpy(), clean["comp"].to_numpy()
+    expected = roc_auc_score(y, ref) - roc_auc_score(y, comp)
+    assert at_minimum["auc_roc"]["delta_base"] == pytest.approx(expected)
+
+
+# ---------------------------------------------------------------------------
 # paired_bootstrap_comparison - happy path with inline parallel
 # (ensures _bootstrap_iter body is covered in the same process)
 # ---------------------------------------------------------------------------

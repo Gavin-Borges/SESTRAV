@@ -113,6 +113,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   One case fails the load with an exception whose message is empty, so a cached failure
   is recognised by being set, not by its text. Eleven mutants of the new code each fail
   at least one API test.
+- **`sestrav info` now says when it could not check the MHCflurry pin, and `USAGE.md`'s
+  expected output matches what it prints.** `sestrav info` reads `config.yaml` only from its
+  installation root, never from the working directory, and that stays: a `config.yaml` in
+  the working directory could otherwise switch `sestrav predict`'s `freeze_mode` off or
+  change `sestrav validate`'s default feature mode and binding matrix. A non-editable
+  install, which is what `README.md`'s and `USAGE.md`'s `pip install .` and the Docker image
+  make, has no `config.yaml` there. After such an install `sestrav info` printed
+  `config.yaml not found` and skipped the MHCflurry pin check without a word, while the
+  unpinned `pip install .` had resolved a newer MHCflurry (2.3.14 when measured on
+  2026-10-11) than the 2.2.1 that `config.yaml` pins. Found by running the documented
+  commands from a clean clone. It now prints a warning that the pin was not verified and
+  says how to check it by hand. The lookup is unchanged, and two new tests pin that a
+  `config.yaml` in the working directory is never read, whether or not the installation
+  root has one. `USAGE.md`'s quickstart output gains the `mhcflurry data` line, lists all
+  eight antigen panels that `config.yaml` names instead of four, shows torch's version as a
+  real wheel reports it, and says what changes after a non-editable install, including in
+  the Docker image.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
@@ -228,6 +245,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
+  `--no-require-hashes` line fails closed.** The check that every requirement carries a
+  hash had its own line reader, separate from the pip-faithful one the option check uses. It
+  cut a comment at any `#`, where pip cuts only after whitespace, so `--pre \#` (to pip,
+  `--pre` and an escaped `#`) ended in a backslash and folded the next requirement into an
+  option line that was never checked. It also took any `--hash=` text for a hash, so
+  `pkg -C--hash=x`, whose `--hash=` is a config setting's value, passed. And it accepted
+  `--no-require-hashes`, after which one hashed requirement no longer makes pip demand
+  hashes on the rest. A manifest of `--no-require-hashes`, `--pre \#`, `evilpkg` and a
+  hashed `goodpkg` therefore exited 0, while pip 26.2.1 (`pip install --dry-run --no-index
+  --find-links <wheels> -r <file>`) reported "Would install evilpkg-1.0 goodpkg-1.0", with
+  evilpkg unpinned and unhashed. CI's installs were not exposed, since each passes
+  `--require-hashes` and pip then refuses the file, but an install without it was. The hash
+  check now uses the option check's reader and takes the hash from the parsed options, and a
+  new test holds its verdict to pip's own reading over 2,744 generated three-line manifests,
+  on 1,280 of which the old check disagreed with pip. Found by an independent review of
+  #733. The 16 default manifests still pass: rc 0 before and after. Three mutants, one per
+  change, all make the tests fail.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
@@ -1193,6 +1228,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   error it draws exits 2. The advisory workflow passes `--repo "${GITHUB_REPOSITORY}"`, the
   canonical name, so it does not depend on such a redirect.
 ### Added
+- **All seven custom semgrep rules now prove in CI that they still fire, and
+  `.semgrepignore`'s scope is pinned.** The fixture files that exercise
+  `semgrep-rules/sestrav-recurring.yml` are listed in `.semgrepignore`, so the blocking
+  `Semgrep Custom Rules (blocking)` job never scanned them and stayed green whether or not a
+  rule still matched anything; the three security rules in `semgrep-rules/sestrav-custom.yml`
+  (unsafe `pickle.load`, raw `joblib.load`, `shell=True`) had no fixture at all. A new
+  fixture, `semgrep-rules/sestrav-custom.py`, gives each of those three positive and negative
+  lines, with constant inputs only, never imported or executed. A new step runs
+  `scripts/check_semgrep_rule_fixtures.py`, which names the fixtures explicitly (bypassing
+  `.semgrepignore`) and fails unless semgrep reports exactly the lines their `# ruleid:`
+  annotations name and none of their `# ok:` lines, and every rule semgrep ran against the
+  fixtures (its `--time` rule list) has a `# ruleid:` fixture. It also fails, as could not
+  run, when semgrep skips a rule or reports an error. The step runs even when the blocking
+  scan fails. A rule in a language no fixture uses never runs there, so
+  `tests/test_check_semgrep_rule_fixtures.py`, which runs in the required `test (3.13)` job,
+  parses every rule file under `semgrep-rules/`, at any depth, and fails on a duplicate rule
+  id or on a rule with no `# ruleid:` line. The `.sh` fixture now carries commented-out
+  copies of three bad lines, so the comment exclusion those rules share is tested too. A new
+  test, `tests/test_semgrepignore_scope.py`, fails if `.semgrepignore` hides anything but
+  `tests/` and annotated fixtures, or if a second, nested `.semgrepignore` appears, since
+  semgrep honours those as well. Raised as LOW-2 and LOW-3 by the security review of the
+  composed #727-#731 diff. The new step does not block a merge by itself: `Semgrep Custom
+  Rules (blocking)` is not one of the ruleset's required contexts.
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
   them.** Nineteen commits made between 2026-08-16 and 2026-08-17 carry the author and committer
   identity `Test <test@example.com>`, left by a git identity that was misconfigured for that

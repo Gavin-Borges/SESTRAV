@@ -13,6 +13,9 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import sys
+
+import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 TOOL = REPO_ROOT / "tools" / "check_dataset_provenance.py"
@@ -183,6 +186,69 @@ def test_unresolvable_output_file_is_caught(tmp_path):
     root, _rows, _ = _write_fixture(tmp_path, output_file="data/does_not_exist.csv")
     problems = TOOL_MOD.check(root)
     assert any("does not resolve to a file" in p for p in problems), problems
+
+
+# --- main(): the verdict CI acts on -------------------------------------------
+#
+# Every test above calls check(). CI runs `check_dataset_provenance.py --check`,
+# so the exit code and message come from main(), which maps the problem list to
+# a verdict. An inverted mapping would fail a consistent tree loudly and pass a
+# drifted one silently, and no check() assertion can see it.
+
+
+def _run_main(monkeypatch, *args):
+    monkeypatch.setattr(sys, "argv", ["check_dataset_provenance.py", *args])
+    return TOOL_MOD.main()
+
+
+def test_main_check_passes_a_consistent_fixture(tmp_path, monkeypatch, capsys):
+    root, _rows, _ = _write_fixture(tmp_path)
+    assert TOOL_MOD.check(root) == []
+
+    rc = _run_main(monkeypatch, "--check", "--repo-root", str(root))
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "sidecar, corpus and config.yaml agree on every pinned count" in captured.out
+    assert "problem(s)" not in captured.err
+
+
+def test_main_check_fails_a_drifted_fixture(tmp_path, monkeypatch, capsys):
+    root, _rows, _ = _write_fixture(tmp_path, pins={"v4_hard_decoys": 6})
+    assert len(TOOL_MOD.check(root)) == 1
+
+    rc = _run_main(monkeypatch, "--check", "--repo-root", str(root))
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "Dataset provenance: found 1 problem(s):" in captured.err
+    assert "ERROR:" in captured.err and "v4_hard_decoys" in captured.err
+    assert "agree on every pinned count" not in captured.out
+
+
+def test_main_without_check_reports_drift_but_exits_zero(tmp_path, monkeypatch, capsys):
+    """The documented report-only mode: same findings, exit 0."""
+    root, _rows, _ = _write_fixture(tmp_path, pins={"v4_hard_decoys": 6})
+
+    rc = _run_main(monkeypatch, "--repo-root", str(root))
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "Dataset provenance: found 1 problem(s):" in captured.err
+    assert "agree on every pinned count" not in captured.out
+
+
+def test_main_help_shows_the_docstring_summary(monkeypatch, capsys):
+    """--help describes the tool with the docstring's first line. Whitespace is
+    collapsed because argparse wraps the description to the terminal width."""
+    with pytest.raises(SystemExit) as excinfo:
+        _run_main(monkeypatch, "--help")
+    out = " ".join(capsys.readouterr().out.split())
+    summary = TOOL_MOD.__doc__.splitlines()[0]
+
+    assert excinfo.value.code == 0
+    assert summary.strip(), "an empty summary would make the next assertion vacuous"
+    assert summary in out
 
 
 def test_the_live_repository_is_consistent():

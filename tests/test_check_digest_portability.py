@@ -4,6 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 import scripts.check_digest_portability as cdp
 from scripts.check_digest_portability import (
     EXEMPT_DIGESTS,
@@ -58,6 +60,28 @@ def test_extracts_manifest_relative_artifacts_and_unresolved(tmp_path):
     assert records[0]["relative"] is True
     assert records[1]["path"] is None
     assert records[1]["reason"] == "no subject path paired with orphan_sha256"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    ["pending", {"size": 1}, {"sha256": 5}],
+    ids=["not-a-dict", "no-sha256-key", "sha256-not-a-string"],
+)
+def test_artifact_entries_without_a_string_digest_are_skipped(entry):
+    """An ``artifacts`` entry carrying no string sha256 is not a record.
+
+    It is skipped and its well-formed sibling is still extracted. The two
+    isinstance checks are joined by ``and`` so neither ``.get`` on a non-dict
+    nor ``DIGEST.fullmatch`` on a missing or non-string digest is ever
+    reached; the extraction tests above use well-formed entries only.
+    """
+    payload = {"artifacts": {"odd.bin": entry, "ok.bin": {"sha256": DIGEST_B}}}
+
+    records = extract_records("model_artifact_checksums.json", payload)
+
+    assert [(r["path"], r["recorded"], r["relative"]) for r in records] == [
+        ("ok.bin", DIGEST_B, True)
+    ]
 
 
 def test_classifies_all_comparison_outcomes(tmp_path):
@@ -235,6 +259,64 @@ def test_strict_failing_set_matches_the_consuming_workflow():
         f"workflow FAILING={sorted(declared)} but tool STRICT_FAILING="
         f"{sorted(cdp.STRICT_FAILING)}; the two must agree or a hand-run of the "
         "tool means something different from the gate"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Output: the JSON the workflow parses and the report a person reads
+# ---------------------------------------------------------------------------
+
+
+def test_json_mode_prints_the_counts_and_rows_the_workflow_parses(monkeypatch, capsys):
+    """``--json`` prints one JSON document, and the default prints the human report.
+
+    .github/workflows/digest_portability.yml runs the tool with --json and
+    reads "counts" and "rows" from stdout. The strict tests above assert only
+    the exit code, which does not depend on the output mode, so swapping the
+    two modes passed all of them.
+    """
+    rows = [_portable_row(), _unresolved_row()]
+    monkeypatch.setattr(cdp, "scan_repository", lambda root: rows)
+
+    assert cdp.main(["--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report == {
+        "counts": {
+            "PORTABLE": 1,
+            "WINDOWS_ONLY": 0,
+            "MISMATCH": 0,
+            "MISSING": 0,
+            "UNRESOLVED": 1,
+            "EXEMPT": 0,
+        },
+        "rows": rows,
+    }
+
+    assert cdp.main([]) == 0
+    human = capsys.readouterr().out.splitlines()
+    assert human[0] == (
+        "SUMMARY PORTABLE=1 WINDOWS_ONLY=0 MISMATCH=0 MISSING=0 UNRESOLVED=1 EXEMPT=0"
+    )
+
+
+def test_human_report_names_the_exempt_count_only_when_one_is_exempt(capsys):
+    """The exemption line follows SUMMARY when a row is EXEMPT, and only then.
+
+    The only other print_human test asserts line width, so inverting the
+    condition, which prints "0 digest(s) exempt ..." on a run with no
+    exemption and drops the line when a digest is exempt, passed it.
+    """
+    exempt_row = {**_portable_row(), "verdict": "EXEMPT", "reason": EXEMPT_REASON}
+
+    print_human([_portable_row()])
+    without = capsys.readouterr().out.splitlines()
+    print_human([_portable_row(), exempt_row])
+    with_one = capsys.readouterr().out.splitlines()
+
+    assert without[1].startswith("PORTABLE ")
+    assert not any("digest(s) exempt" in line for line in without)
+    assert with_one[1] == (
+        "1 digest(s) exempt by exact (manifest, source) pair; see EXEMPT_DIGESTS."
     )
 
 
