@@ -13,7 +13,7 @@ Contract, from the function's code and docstring:
   out of range, are skipped.
 * No exception is documented, and the only caller (``query_netchop``) catches
   ``requests.exceptions.RequestException`` alone, so any exception raised here
-  escapes the network client and its mock fallback. Every exception is therefore
+  escapes the network client uncaught. Every exception is therefore
   outside the contract: a finding to triage, not an expected outcome.
 * More than 1 s of CPU on one input is also a finding.
 

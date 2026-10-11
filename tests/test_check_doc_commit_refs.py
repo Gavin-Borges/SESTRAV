@@ -107,6 +107,34 @@ def test_all_digit_sha_is_still_detected(sha_re):
     assert sha_re.findall("commit 1234567 is cited here") == ["1234567"]
 
 
+@pytest.mark.parametrize("length", [41, 50, 64, 128])
+def test_hex_runs_longer_than_a_commit_hash_never_match(sha_re, length):
+    """A SHA-256 digest, or any hex run past 40 characters, is not a commit hash.
+
+    SHA_RE alone keeps such a run out, and nothing downstream filters by length:
+    its {7,40} length cap refuses the run whole, and its boundary assertions
+    refuse every shorter piece of it, each of which has a hex neighbour on at
+    least one side.
+    """
+    token = ("0123456789abcdef" * 8)[:length]
+    assert sha_re.findall(f"sha256 {token}") == []
+    assert sha_re.findall(f"commit {token} is cited here") == []
+
+
+def test_an_uppercase_digest_never_matches(sha_re):
+    """An uppercase digest's runs of digits are not commit hashes either.
+
+    SHA_RE takes only [0-9a-f], so in an uppercase digest its only candidates are
+    the runs of digits. The boundary assertions refuse a capital letter on either
+    side, which keeps the leading and trailing digit runs here out; an assertion
+    narrowed to [0-9a-f] would let one of them through.
+    """
+    digest = "1234567" + "ABCDEF" * 8 + "AB" + "7654321"
+    assert len(digest) == 64
+    assert sha_re.findall(f"sha256 {digest}") == []
+    assert sha_re.findall(f"commit {digest} is cited here") == []
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -227,17 +255,38 @@ def test_the_gate_and_its_own_tests_are_exempt():
 def test_hugging_face_revision_pin_is_treated_as_third_party():
     """src/features.py pins the ESM-2 weights by upstream repository revision.
 
-    That is a third-party SHA, but spelled as a keyword argument rather than the
-    org/repo@sha form, so it reached the gate once ".py" was scanned. The
+    That is a third-party SHA, not written in the org/repo@sha form, so it reached
+    the gate once ".py" was scanned. Since 2026-10-10 it is one assignment,
+    `_ESM_MODEL_REVISION = "<sha>"`, matched because REVISION is followed directly
+    by `=`; the keyword form `revision="<sha>"` matches the same way. The
     suppression is anchored to the ASSIGNMENT: "revision" is itself a
     COMMIT_CONTEXT_RE trigger, so suppressing the bare word would blind the gate
     to any real citation written "revision abc1234".
     """
     module = _load_module()
-    pinned = '_esm_model = EsmModel.from_pretrained(name, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a")'
-    assert module.EXTERNAL_CONTEXT_RE.search(pinned)
+    sha = "8c576d2aba1b27317e9321c8491d72f00d1b110a"
+    assert module.EXTERNAL_CONTEXT_RE.search(f'_ESM_MODEL_REVISION = "{sha}"')
+    assert module.EXTERNAL_CONTEXT_RE.search(f'EsmModel.from_pretrained(name, revision="{sha}")')
     # A prose citation using the same word must still be examined.
     assert not module.EXTERNAL_CONTEXT_RE.search("see revision abc1234 for the fix")
+
+
+def test_other_spellings_of_the_pin_fall_to_the_generic_rules():
+    """What scripts/check_doc_commit_refs.py's comment says about other spellings.
+
+    Annotated, the name's own REVISION is commit context, so the pin would be read
+    as a citation (and fail, since it is not one of this repository's commits).
+    Renamed with no context word nearby, it is not examined at all.
+    """
+    module = _load_module()
+    sha = "8c576d2aba1b27317e9321c8491d72f00d1b110a"
+    annotated = f'_ESM_MODEL_REVISION: str = "{sha}"'
+    renamed = f'_ESM_MODEL_PIN = "{sha}"'
+    for line, context in ((annotated, True), (renamed, False)):
+        assert not module.EXTERNAL_CONTEXT_RE.search(line)
+        match = module.SHA_RE.search(line)
+        assert match is not None
+        assert module.has_commit_context(line, match.start(), match.end()) is context
 
 
 # --- End to end: the verdict, the exit code and the count -------------------
