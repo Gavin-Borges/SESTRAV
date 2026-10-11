@@ -296,8 +296,19 @@ def cmd_info(args: argparse.Namespace) -> int:
     else:
         print("  config          : config.yaml not found")
 
-    # MHCflurry pin verification
-    if cfg:
+    # MHCflurry pin verification. _read_config reads config.yaml only from the installation
+    # root, never from the working directory, and must stay that way: a config.yaml in the
+    # working directory could otherwise switch `predict`'s freeze_mode off or change
+    # `validate`'s default feature mode and binding matrix. A non-editable install (the
+    # README's `pip install .`, and the Docker image) therefore has no config, and the
+    # check used to skip silently there while an unpinned install could hold a different
+    # MHCflurry, so say that it was skipped and how to check by hand.
+    if not cfg:
+        print("\n  [WARNING] MHCflurry pin not verified: no config.yaml was read.")
+        print("    sestrav reads config.yaml from its installation root, never from the")
+        print("    working directory, so a non-editable install has none. Compare the")
+        print("    mhcflurry line above with mhcflurry_model_version in config.yaml.")
+    else:
         pinned = cfg.get("mhcflurry_model_version")
         try:
             import mhcflurry

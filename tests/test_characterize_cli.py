@@ -443,8 +443,11 @@ def test_info_warns_on_a_pin_mismatch_and_truncates_the_allele_panel(monkeypatch
     assert "    installed     : 0.0.0+fake" in out
 
 
-def test_info_without_config_skips_the_pin_check(monkeypatch, capsys):
-    # pins behaviour, not correctness
+def test_info_without_config_says_the_pin_was_not_verified(monkeypatch, capsys):
+    # A non-editable install (the README's `pip install .`, and the Docker image) carries
+    # no config.yaml. This check used to skip silently there while an unpinned install
+    # could hold a different MHCflurry from the pin. There is still nothing to compare
+    # against, so it still skips; it now says so, with advice that holds in either install.
     _fake_modules(monkeypatch, "0.0.0+fake")
     monkeypatch.setattr(cli, "_read_config", lambda: {})
 
@@ -454,3 +457,42 @@ def test_info_without_config_skips_the_pin_check(monkeypatch, capsys):
     assert "  config          : config.yaml not found" in out
     assert "feature_mode" not in out
     assert "mismatch" not in out
+    assert "[WARNING] MHCflurry pin not verified: no config.yaml was read." in out
+    assert "mhcflurry_model_version in config.yaml" in out
+    assert "pip install -e" not in out, "the Docker image cannot follow editable-install advice"
+
+
+def test_info_with_a_matching_pin_prints_no_warning(monkeypatch, capsys):
+    _fake_modules(monkeypatch, "2.2.1")
+    monkeypatch.setattr(cli, "_read_config", lambda: {"mhcflurry_model_version": "2.2.1"})
+
+    assert cli.cmd_info(argparse.Namespace()) == 0
+    out = capsys.readouterr().out
+
+    assert "[WARNING]" not in out
+
+
+def test_read_config_never_reads_the_working_directory(monkeypatch, tmp_path):
+    # _read_config feeds `predict`'s freeze_mode and `validate`'s default feature mode and
+    # binding matrix, so a config.yaml in whatever directory the user runs from must never
+    # be read. That is why the warning above does not suggest changing directory.
+    (tmp_path / "config.yaml").write_text("planted_by_test: true\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    cfg = cli._read_config()
+
+    assert "planted_by_test" not in cfg
+    assert "mhcflurry_model_version" in cfg, "the checkout's own config.yaml should still be read"
+
+
+def test_read_config_does_not_fall_back_to_the_working_directory(monkeypatch, tmp_path):
+    # The non-editable case: no config.yaml at the installation root. A fallback to the
+    # working directory there would be the same planted-file route as above, reached only
+    # in the installs that lack a config.
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    (workdir / "config.yaml").write_text("planted_by_test: true\n", encoding="utf-8")
+    monkeypatch.chdir(workdir)
+    monkeypatch.setattr(cli, "__file__", str(tmp_path / "site-packages" / "src" / "cli.py"))
+
+    assert cli._read_config() == {}
