@@ -1185,6 +1185,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   error it draws exits 2. The advisory workflow passes `--repo "${GITHUB_REPOSITORY}"`, the
   canonical name, so it does not depend on such a redirect.
 ### Added
+- **All seven custom semgrep rules now prove in CI that they still fire, and
+  `.semgrepignore`'s scope is pinned.** The fixture files that exercise
+  `semgrep-rules/sestrav-recurring.yml` are listed in `.semgrepignore`, so the blocking
+  `Semgrep Custom Rules (blocking)` job never scanned them and stayed green whether or not a
+  rule still matched anything; the three security rules in `semgrep-rules/sestrav-custom.yml`
+  (unsafe `pickle.load`, raw `joblib.load`, `shell=True`) had no fixture at all. A new
+  fixture, `semgrep-rules/sestrav-custom.py`, gives each of those three positive and negative
+  lines, with constant inputs only, never imported or executed. A new step runs
+  `scripts/check_semgrep_rule_fixtures.py`, which names the fixtures explicitly (bypassing
+  `.semgrepignore`) and fails unless semgrep reports exactly the lines their `# ruleid:`
+  annotations name and none of their `# ok:` lines, and every rule semgrep ran against the
+  fixtures (its `--time` rule list) has a `# ruleid:` fixture. It also fails, as could not
+  run, when semgrep skips a rule or reports an error. The step runs even when the blocking
+  scan fails. A rule in a language no fixture uses never runs there, so
+  `tests/test_check_semgrep_rule_fixtures.py`, which runs in the required `test (3.13)` job,
+  parses every rule file under `semgrep-rules/`, at any depth, and fails on a duplicate rule
+  id or on a rule with no `# ruleid:` line. The `.sh` fixture now carries commented-out
+  copies of three bad lines, so the comment exclusion those rules share is tested too. A new
+  test, `tests/test_semgrepignore_scope.py`, fails if `.semgrepignore` hides anything but
+  `tests/` and annotated fixtures, or if a second, nested `.semgrepignore` appears, since
+  semgrep honours those as well. Raised as LOW-2 and LOW-3 by the security review of the
+  composed #727-#731 diff. The new step does not block a merge by itself: `Semgrep Custom
+  Rules (blocking)` is not one of the ruleset's required contexts.
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
   them.** Nineteen commits made between 2026-08-16 and 2026-08-17 carry the author and committer
   identity `Test <test@example.com>`, left by a git identity that was misconfigured for that
