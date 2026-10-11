@@ -247,7 +247,7 @@ ignore = [
     "S603",  # subprocess without shell=True - all uses list-form, safe (nosec B603)
     "S607",  # partial executable path - all executables are fixed constants (nosec B607)
     "S110",  # try/except/pass - all uses reviewed (nosec B110)
-    "S310",  # urllib urlopen - all URLs are HTTPS and scheme-validated (nosec B310)
+    "S310",  # urllib urlopen - uses reviewed (nosec B310); not every site checks the URL scheme at runtime
 ]
 
 [tool.ruff.lint.per-file-ignores]
