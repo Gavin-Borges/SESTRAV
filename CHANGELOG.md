@@ -73,6 +73,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   keeping the floor half of the check the override's test used to make.
 
 ### Fixed
+- **`api/main.py` no longer reloads the MHCflurry presentation predictor on every `/score`
+  request.** `_score_peptide` called `Class1PresentationPredictor.load()` for each request
+  that passed the readiness check and the binding-panel lookup, although the module
+  docstring promised models "loaded once at startup via ModelManager singleton (no
+  per-request I/O)". Measured on one workstation with mhcflurry 2.2.1, the version
+  `environments/requirements-api.txt` pins, a fresh load plus its first predict took 3.2 s,
+  then about 1.1 s on each repeat, against 0.044 to 0.048 s for a predict on a reused
+  predictor. The new `ModelManager.presentation_score` loads the predictor on the first
+  call that needs it and reuses it. A failed import or load is not retried, just as a
+  failed RF load is not: later calls re-raise the same message without touching the disk.
+  That holds for a transient failure too, so **restart the server after installing
+  MHCflurry or its model data by the verified route in `README.md` ("MHCflurry model
+  data")**: until then `binding_score` stays null. An error raised by `predict()` itself,
+  such as mhcflurry's `ValueError` for an allele it has no sequence for, is not cached:
+  that request still returns 200 with `binding_score` null, and later requests score
+  normally.
+  A lock serializes the load and every `predict()`, because FastAPI runs sync routes on a
+  thread pool and MHCflurry's `predict()` mutates the shared predictor, building each
+  network on first use and rewriting its allele embedding for each call's alleles. An
+  unavailable MHCflurry, not installed or installed without its model data (the container
+  case, since `Dockerfile.api` never fetches the weights), still answers 200 with
+  `binding_score: null` and logs the same INFO line on each request. The module docstring
+  now says when each model loads and when a restart is needed.
+  `tests/test_api_presentation_predictor.py` (new, 7 test cases) counts `load()` calls
+  through a stand-in `mhcflurry` module: five fail on the previous code, each because
+  `load()` ran once per request, and the two failure-path cases pass before and after.
+  One case fails the load with an exception whose message is empty, so a cached failure
+  is recognised by being set, not by its text. Eleven mutants of the new code each fail
+  at least one API test.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
@@ -177,6 +206,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     context at any depth, along with the `.agents`, `.cursor` and `.codex` directories and
     the gitignored `.mcp.json`. No Dockerfile copies any of them; the change is about what
     is uploaded to the builder.
+- **`scripts/precompute_esm2_embeddings.py` loads ESM-2 from a pinned Hugging Face Hub
+  commit, not from whatever the model repository's `main` branch holds.** It loaded the
+  tokenizer and weights with `from_pretrained(model_name)` and no `revision=`, and
+  transformers defaults `revision` to the `main` branch, so a moved or compromised branch
+  would change the embeddings with no error. The `# nosec B615` on those two calls said the
+  model's identity "is enforced by hash in the lockfile", which was false: no tracked
+  requirements or lock file mentions ESM-2 or the Hub, and `transformers` itself is in none
+  of them. It is declared only in `pyproject.toml`'s `gnn` extra, as `transformers>=4.30.0`.
+  - The script now passes the commit `src/features.py` already pinned for
+    `facebook/esm2_t6_8M_UR50D`. That commit is now one constant, `_ESM_MODEL_REVISION`,
+    used by both `src/features.py` calls and imported by the script, so the two cannot drift.
+  - A Hub revision belongs to one model repository, and the script's other three models
+    (`esm2_t12_35M_UR50D`, `esm2_t30_150M_UR50D` and `esm2_t33_650M_UR50D`) have no pinned
+    commit here, so the script refuses them unless the new `--revision` option gives one. A
+    revision that is not 40 lowercase hex characters, such as a branch, a tag or a short SHA,
+    is refused for every model. This covers `facebook/esm2_t12_35M_UR50D`, the model
+    `models/gnn/gnn_config.json` names, so rebuilding the GNN's embedding cache with this
+    script now needs that model's commit stated.
+  - All four `# nosec` comments in the script are removed: the two B615 ones, and two B614
+    ones that suppressed nothing, since bandit's B614 check does not flag a `torch.load` that
+    sets `weights_only=True` and never looks at `torch.save`. bandit 1.9.4 reports no issue on the
+    file with or without `--ignore-nosec`. It does not read a revision passed by name, so the
+    new tests check the value instead.
+  - `tests/test_esm2_revision_pin.py` (17 tests) puts a fake `transformers` in
+    `sys.modules` that records every `from_pretrained` call, so nothing is downloaded. On
+    main all 17 fail; with only the shared constant added, 11 of the first 14 fail against
+    the unchanged script. 21 mutants are each killed, among them a dropped `revision=` and a different
+    literal commit at each of the four call sites, a copied hash in place of the import,
+    and the t6 pin applied to another model.
+  - Not changed: `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb` still loads
+    `facebook/esm2_t12_35M_UR50D` with no revision, and no commit of that model is pinned
+    anywhere in this repository to pin it to.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
