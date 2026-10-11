@@ -684,6 +684,12 @@ def compute_erap_trimming_score(peptide: str, flanking_seq: Optional[str] = None
 # ---------------------------------------------------------------------------
 
 _ESM_MODEL_NAME = "facebook/esm2_t6_8M_UR50D"
+# The Hugging Face Hub commit of the _ESM_MODEL_NAME repository that the tokenizer and
+# weights load from. Without it from_pretrained loads the repository's main branch,
+# so a moved branch would change the weights with no error. A revision names a commit of
+# one model repository, so this pins _ESM_MODEL_NAME and no other model.
+# scripts/precompute_esm2_embeddings.py imports it rather than repeating the hash.
+_ESM_MODEL_REVISION = "8c576d2aba1b27317e9321c8491d72f00d1b110a"
 _esm_model = None
 _esm_tokenizer = None
 _esm_fallback_count = 0
@@ -735,11 +741,9 @@ def get_esm_cls_token(peptide: str) -> np.ndarray:
             from transformers import AutoTokenizer, EsmModel
 
             _esm_tokenizer = AutoTokenizer.from_pretrained(
-                _ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a"
+                _ESM_MODEL_NAME, revision=_ESM_MODEL_REVISION
             )
-            _esm_model = EsmModel.from_pretrained(
-                _ESM_MODEL_NAME, revision="8c576d2aba1b27317e9321c8491d72f00d1b110a"
-            )
+            _esm_model = EsmModel.from_pretrained(_ESM_MODEL_NAME, revision=_ESM_MODEL_REVISION)
             _esm_model.eval()
 
         import torch
