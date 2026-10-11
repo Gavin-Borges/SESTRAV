@@ -1,16 +1,69 @@
 import argparse
 import os
+import re
 import sys
 import urllib.request
 import zipfile
+from urllib.parse import unquote, urlsplit
 
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
-from _dataset_utils import normalize_peptides, validate_against_schema, write_provenance
+from _dataset_utils import (
+    normalize_peptides,
+    sha256_file,
+    validate_against_schema,
+    write_provenance,
+)
 
 VDJDB_RELEASES_API = "https://api.github.com/repos/antigenomics/vdjdb-db/releases/latest"
+
+# The asset URL comes from the release API response, so it is checked against
+# literals before it is opened: https, the netloc github.com exactly (no port,
+# no userinfo, no look-alike host) and a path under this repository's release
+# downloads with no ".." segment, encoded or not. Every redirect target is
+# checked before urllib follows it, and must pass the same check or be https on
+# one of VDJDB_ASSET_HOSTS. The sha256 digest the release API reports for the
+# asset, not this allowlist, is what vouches for the bytes that arrive.
+VDJDB_DOWNLOAD_PATH_PREFIX = "/antigenomics/vdjdb-db/releases/download/"
+
+# The hosts GitHub is known to redirect release-asset downloads to. Other
+# githubusercontent.com hosts, such as raw. and gist., serve user-writable
+# content and are refused; so is any host GitHub moves to that is not listed.
+VDJDB_ASSET_HOSTS = frozenset(
+    {"objects.githubusercontent.com", "release-assets.githubusercontent.com"}
+)
+
+# Seconds the opener may wait on the connect and on each socket read. It bounds
+# a stalled server, not the total transfer time of the archive.
+DOWNLOAD_TIMEOUT_SECONDS = 60
+
+
+def _check_asset_url(url: str, *, redirect: bool = False) -> None:
+    """Refuse a URL outside the allowlist above; redirect=True adds VDJDB_ASSET_HOSTS."""
+    parts = urlsplit(url)
+    segments = unquote(parts.path).replace("\\", "/").split("/")
+    on_repo = (
+        parts.netloc == "github.com"
+        and parts.path.startswith(VDJDB_DOWNLOAD_PATH_PREFIX)
+        and ".." not in segments
+    )
+    allowed = on_repo or (redirect and parts.netloc in VDJDB_ASSET_HOSTS)
+    # urlsplit drops tab, CR and LF, but urllib.request keeps them, so a URL
+    # with any control, space or non-ASCII character is refused outright.
+    printable = all(32 < ord(ch) < 127 for ch in url)
+    if parts.scheme != "https" or not allowed or not printable:
+        shown = url.split("?", 1)[0].split("#", 1)[0]  # a query may hold a signed token
+        raise RuntimeError(f"Refusing VDJdb download URL {shown!r}: not an allowed https location")
+
+
+class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Check each redirect target with _check_asset_url before urllib requests it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_asset_url(newurl, redirect=True)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
@@ -23,8 +76,8 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
     zip_ref.extractall(dest_dir)
 
 
-def _resolve_vdjdb_asset_url() -> str:
-    """Resolve the latest VDJdb release asset URL via GitHub API."""
+def _resolve_vdjdb_asset() -> tuple[str, str, int]:
+    """Resolve the latest VDJdb release's .zip asset: its URL, sha256 and size."""
     import json
 
     req = urllib.request.Request(VDJDB_RELEASES_API)
@@ -35,25 +88,134 @@ def _resolve_vdjdb_asset_url() -> str:
     # Find the first .zip asset (e.g. vdjdb-2026-06-03.zip)
     for asset in assets:
         if asset["name"].endswith(".zip"):
-            return asset["browser_download_url"]
+            # GitHub reports these as "sha256:<64 hex>" and a byte count. Without
+            # them the download cannot be verified or bounded, so it is refused.
+            algorithm, _, expected = str(asset.get("digest") or "").partition(":")
+            expected = expected.lower()
+            if algorithm != "sha256" or not re.fullmatch(r"[0-9a-f]{64}", expected):
+                raise RuntimeError(f"VDJdb asset {asset['name']} has no valid sha256 digest")
+            size = asset.get("size")
+            if type(size) is not int or size <= 0:
+                raise RuntimeError(f"VDJdb asset {asset['name']} has no usable size")
+            return asset["browser_download_url"], expected, size
     raise RuntimeError(f"No .zip asset found in VDJdb latest release (tag: {data.get('tag_name')})")
+
+
+class _ExtractionFailed(RuntimeError):
+    """Extracting a verified download began and did not finish."""
+
+
+def _download_verified(
+    url: str, zip_path: str, expected_sha256: str, max_bytes: int, extract_to: str
+) -> None:
+    """Download to a .part file, verify and extract it, and only then rename it to zip_path.
+
+    Any failure removes the .part file, so this only ever puts an archive at
+    zip_path once it has been verified and fully extracted. A failure before
+    extraction starts leaves zip_path as it was. Extraction may overwrite files
+    in extract_to, so zip_path (absent or damaged whenever this runs) is removed
+    as extraction starts, before anything is written: no later failure, an
+    interrupt or a process killed outright included, leaves it for a later run
+    to fall back on. After a failure once extraction has started, zip_path is
+    removed again, in case a member was extracted onto it. An Exception raised
+    by extraction itself is re-raised as _ExtractionFailed.
+    """
+    _check_asset_url(url)
+    partial = zip_path + ".part"
+    opener = urllib.request.build_opener(_CheckedRedirectHandler)
+    extracting = False
+    try:
+        # The start URL was checked above, and _CheckedRedirectHandler checks
+        # each redirect target before it is requested, so nothing is read from,
+        # and no .part file is opened for, a URL outside the allowlist.
+        with (
+            opener.open(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response,
+            open(partial, "wb") as output,
+        ):
+            written = 0
+            while chunk := response.read(1024 * 1024):
+                written += len(chunk)
+                if written > max_bytes:
+                    raise RuntimeError(f"VDJdb archive exceeds the {max_bytes} bytes reported")
+                output.write(chunk)
+        actual = sha256_file(partial)
+        if actual != expected_sha256:
+            raise RuntimeError(
+                f"VDJdb archive checksum mismatch: expected {expected_sha256}, got {actual}"
+            )
+        with zipfile.ZipFile(partial, "r") as zip_ref:
+            extracting = True
+            # Extraction may overwrite the table beside the damaged archive, so
+            # the archive goes first: even a kill mid-extraction, which runs no
+            # cleanup, then leaves no archive for a later run to fall back on.
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            try:
+                _safe_extract_zip(zip_ref, extract_to)
+            except Exception as exc:
+                raise _ExtractionFailed(f"extracting the verified archive failed: {exc}") from exc
+        os.replace(partial, zip_path)
+    except BaseException:
+        if os.path.exists(partial):
+            os.remove(partial)
+        if extracting and os.path.exists(zip_path):
+            os.remove(zip_path)
+        raise
+
+
+def _zip_is_intact(zip_path: str) -> bool:
+    """True when zip_path opens as an archive and every member passes its CRC-32."""
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            return zip_ref.testzip() is None
+    except Exception:  # any failure to open or read it means it cannot be used
+        return False
 
 
 def fetch_vdjdb(output_dir: str = "data") -> str | None:
     os.makedirs(output_dir, exist_ok=True)
     zip_path = os.path.join(output_dir, "vdjdb.zip")
-    if not os.path.exists(zip_path):
+    cached = os.path.exists(zip_path) and _zip_is_intact(zip_path)
+    if not cached:
+        if os.path.exists(zip_path):
+            # A truncated or corrupt archive (for example one left by an
+            # interrupted download before downloads went through a .part file)
+            # is kept until extraction of a verified download starts, so a fetch
+            # that fails before then still falls back to the table beside it.
+            # _download_verified removes it when extraction starts, so no later
+            # failure, a process killed outright included, leaves it behind.
+            print(f"{zip_path} is truncated or corrupt; fetching a verified replacement.")
         try:
-            url = _resolve_vdjdb_asset_url()
+            url, expected_sha256, size = _resolve_vdjdb_asset()
             print(f"Downloading VDJdb from {url}...")
-            urllib.request.urlretrieve(url, zip_path)  # nosec B310
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                _safe_extract_zip(zip_ref, output_dir)
+            _download_verified(url, zip_path, expected_sha256, size, output_dir)
             print("Downloaded and extracted VDJdb.")
+        except _ExtractionFailed as e:
+            # Extraction writes into output_dir, so a table found there now may
+            # be one this run half wrote. Do not fall back to it. (Extraction
+            # counts as started on entering _safe_extract_zip, so a refusal from
+            # its member check, which writes nothing, also lands here.)
+            print(f"Failed to fetch VDJdb: {e}")
+            print(f"Files in {output_dir} may have been partly overwritten; not using them.")
+            return None
         except Exception as e:
             print(f"Failed to fetch VDJdb: {e}")
-            print("Please manually download VDJdb and provide the TSV path.")
-            return None
+            if not os.path.exists(zip_path):
+                print("Please manually download VDJdb and provide the TSV path.")
+                return None
+    found = _find_vdjdb_tsv(output_dir)
+    if found is None and cached:
+        # An intact archive with no vdjdb.txt beside it (it was removed, or an
+        # earlier extraction stopped before writing it): extract it again.
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            _safe_extract_zip(zip_ref, output_dir)
+        found = _find_vdjdb_tsv(output_dir)
+    if found is None:
+        print("Warning: could not find vdjdb.txt in extracted archive.")
+    return found
+
+
+def _find_vdjdb_tsv(output_dir: str) -> str | None:
     # Find vdjdb.txt (may be at top level or in a subdirectory)
     for candidate in [
         os.path.join(output_dir, "vdjdb.txt"),
@@ -66,7 +228,6 @@ def fetch_vdjdb(output_dir: str = "data") -> str | None:
         for f in files:
             if f == "vdjdb.txt" or f == "vdjdb_full.txt":
                 return os.path.join(root, f)
-    print("Warning: could not find vdjdb.txt in extracted archive.")
     return None
 
 

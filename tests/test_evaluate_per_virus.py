@@ -234,6 +234,41 @@ def test_evaluate_virus_auc_roc_in_range() -> None:
     assert r["auc_roc_lower"] <= r["auc_roc"] <= r["auc_roc_upper"]
 
 
+@pytest.mark.parametrize(
+    ("n_pos", "n_neg_real", "n_neg_decoy", "bootstrapped"),
+    [(40, 30, 20, True), (10, 5, 3, False)],
+)
+def test_evaluate_virus_auc_pr_is_the_pr_curve_area(
+    n_pos: int, n_neg_real: int, n_neg_decoy: int, bootstrapped: bool
+) -> None:
+    # Pins the auc_pr VALUE, not just its key. A two-class guard in _safe_auc_pr
+    # that misfires (inverted, or "< 2" widened to "<= 2") returns NaN for every
+    # two-class virus, and the key-presence tests above cannot see that. The
+    # module computes the trapezoidal area under precision_recall_curve
+    # (sklearn.metrics.auc), not average_precision_score, which gives a different
+    # number, so the reference is computed the same way here.
+    from sklearn.metrics import auc, precision_recall_curve
+
+    df = _make_df(n_pos=n_pos, n_neg_real=n_neg_real, n_neg_decoy=n_neg_decoy)
+    assert (len(df) >= MIN_SAMPLES_DEFAULT) is bootstrapped
+    y_true = df["label"].to_numpy(dtype=float)
+    y_score = df["score"].to_numpy(dtype=float)
+    prec, rec, _ = precision_recall_curve(y_true, y_score)
+    expected = float(auc(rec, prec))
+
+    r = evaluate_virus(df, "score", n_bootstrap=20)
+
+    assert math.isfinite(r["auc_pr"])
+    assert r["auc_pr"] == pytest.approx(expected, rel=0, abs=1e-12)
+    assert 0.0 <= r["auc_pr"] <= 1.0
+    if bootstrapped:
+        assert math.isfinite(r["auc_pr_lower"]) and math.isfinite(r["auc_pr_upper"])
+        assert r["auc_pr_lower"] <= r["auc_pr"] <= r["auc_pr_upper"]
+    else:
+        # Below MIN_SAMPLES_DEFAULT rows the point is computed but no CI is.
+        assert math.isnan(r["auc_pr_lower"]) and math.isnan(r["auc_pr_upper"])
+
+
 def test_evaluate_virus_real_neg_only_differs() -> None:
     # Real-neg-only AUC must differ from full AUC when decoys look like positives.
     # Using the full y_true/y_score pair for both keys is the mutation this
