@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import io
 import sys
+import threading
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 
@@ -81,6 +83,65 @@ def _load_binding_matrix() -> dict[str, dict[str, float]]:
     return binding_df.set_index("peptide")[BINDING_ALLELE_COLUMNS].to_dict(orient="index")
 
 
+class _PresentationPredictorUnavailable(RuntimeError):
+    """Re-raised, with the original message, after the one-time MHCflurry load failed."""
+
+
+class _PresentationPredictor:
+    """The MHCflurry presentation predictor, loaded on first use and then reused.
+
+    Class1PresentationPredictor.load() reads the predictor's model files from
+    MHCflurry's downloaded models directory, so it runs on the first score only.
+    A failed import or load is not retried: later calls re-raise its message
+    without touching the disk, until the Streamlit server restarts or its
+    resource cache is cleared. That is the expected path in the demo image,
+    since Dockerfile.demo never fetches MHCflurry's model data. An error from
+    predict() itself is not cached: it fails that call only.
+
+    One instance serves every session (see _presentation_predictor), and
+    Streamlit runs each session's script on its own thread. predict() is not
+    safe to run concurrently on one predictor, since in mhcflurry 2.2.1 it
+    rewrites the network's allele embedding on each call, so the lock
+    serializes every predict() as well as the load.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._predictor: Any = None
+        self._load_error: str | None = None
+
+    def score(self, sequence: str, allele: str) -> float:
+        with self._lock:
+            if self._load_error is not None:
+                raise _PresentationPredictorUnavailable(self._load_error)
+            if self._predictor is None:
+                try:
+                    from mhcflurry import Class1PresentationPredictor
+
+                    self._predictor = Class1PresentationPredictor.load()
+                except Exception as exc:
+                    self._load_error = str(exc)
+                    raise
+            result = self._predictor.predict(
+                peptides=[sequence],
+                alleles=[allele],
+                include_affinity_percentile=False,
+            )
+        return float(result["presentation_score"].iloc[0])
+
+
+@st.cache_resource(show_spinner=False)
+def _presentation_predictor() -> _PresentationPredictor:
+    """One holder for every session and rerun.
+
+    Streamlit re-executes this script in a fresh module on each rerun, so a
+    module-level holder would be rebuilt on every rerun. st.cache_resource
+    stores nothing when the function raises, which is why the load and its
+    failure live in the holder rather than in this function.
+    """
+    return _PresentationPredictor()
+
+
 # ---------------------------------------------------------------------------
 # Feature computation helpers
 # ---------------------------------------------------------------------------
@@ -88,15 +149,7 @@ def _load_binding_matrix() -> dict[str, dict[str, float]]:
 
 def _get_binding_score(sequence: str, allele: str) -> float | None:
     try:
-        from mhcflurry import Class1PresentationPredictor
-
-        predictor = Class1PresentationPredictor.load()
-        result = predictor.predict(
-            peptides=[sequence],
-            alleles=[allele],
-            include_affinity_percentile=False,
-        )
-        return float(result["presentation_score"].iloc[0])
+        return _presentation_predictor().score(sequence, allele)
     except Exception:
         return None
 
@@ -364,7 +417,8 @@ def main() -> None:
                 "Score metric below is N/A. Possible causes include MHCflurry not "
                 "being installed, its downloadable model data not being present, "
                 "or the prediction call failing. The immunogenicity score does not "
-                "use this value."
+                "use this value. A failed MHCflurry load is not retried, so restart "
+                "the demo after installing MHCflurry or its model data."
             )
 
         # Feature vector (31-feature aligned to rf_31feature_integrated)
