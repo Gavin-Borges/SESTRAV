@@ -177,6 +177,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     context at any depth, along with the `.agents`, `.cursor` and `.codex` directories and
     the gitignored `.mcp.json`. No Dockerfile copies any of them; the change is about what
     is uploaded to the builder.
+- **`scripts/precompute_esm2_embeddings.py` loads ESM-2 from a pinned Hugging Face Hub
+  commit, not from whatever the model repository's `main` branch holds.** It loaded the
+  tokenizer and weights with `from_pretrained(model_name)` and no `revision=`, and
+  transformers defaults `revision` to the `main` branch, so a moved or compromised branch
+  would change the embeddings with no error. The `# nosec B615` on those two calls said the
+  model's identity "is enforced by hash in the lockfile", which was false: no tracked
+  requirements or lock file mentions ESM-2 or the Hub, and `transformers` itself is in none
+  of them. It is declared only in `pyproject.toml`'s `gnn` extra, as `transformers>=4.30.0`.
+  - The script now passes the commit `src/features.py` already pinned for
+    `facebook/esm2_t6_8M_UR50D`. That commit is now one constant, `_ESM_MODEL_REVISION`,
+    used by both `src/features.py` calls and imported by the script, so the two cannot drift.
+  - A Hub revision belongs to one model repository, and the script's other three models
+    (`esm2_t12_35M_UR50D`, `esm2_t30_150M_UR50D` and `esm2_t33_650M_UR50D`) have no pinned
+    commit here, so the script refuses them unless the new `--revision` option gives one. A
+    revision that is not 40 lowercase hex characters, such as a branch, a tag or a short SHA,
+    is refused for every model. This covers `facebook/esm2_t12_35M_UR50D`, the model
+    `models/gnn/gnn_config.json` names, so rebuilding the GNN's embedding cache with this
+    script now needs that model's commit stated.
+  - All four `# nosec` comments in the script are removed: the two B615 ones, and two B614
+    ones that suppressed nothing, since bandit's B614 check does not flag a `torch.load` that
+    sets `weights_only=True` and never looks at `torch.save`. bandit 1.9.4 reports no issue on the
+    file with or without `--ignore-nosec`. It does not read a revision passed by name, so the
+    new tests check the value instead.
+  - `tests/test_esm2_revision_pin.py` (17 tests) puts a fake `transformers` in
+    `sys.modules` that records every `from_pretrained` call, so nothing is downloaded. On
+    main all 17 fail; with only the shared constant added, 11 of the first 14 fail against
+    the unchanged script. 21 mutants are each killed, among them a dropped `revision=` and a different
+    literal commit at each of the four call sites, a copied hash in place of the import,
+    and the t6 pin applied to another model.
+  - Not changed: `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb` still loads
+    `facebook/esm2_t12_35M_UR50D` with no revision, and no commit of that model is pinned
+    anywhere in this repository to pin it to.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
