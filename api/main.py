@@ -13,7 +13,12 @@ Security
 --------
 - Pydantic schemas enforce IUPAC amino acid regex and length 8-11.
 - HLA allele validated against the canonical NetMHCpan 4.1 format.
-- Models loaded once at startup via ModelManager singleton (no per-request I/O).
+- Models loaded once via the ModelManager singleton: the RF model, feature config and
+  binding panel at startup, and the MHCflurry presentation predictor on the first /score
+  that needs it. No request reloads a model from disk, and a failed load is not retried,
+  even a transient one. After a failed MHCflurry load, binding_score stays null until the
+  server restarts, so restart it after installing MHCflurry or its model data by the
+  verified route in README.md ("MHCflurry model data").
 - No shell=True, no eval()/exec(), no arbitrary code paths.
 
 Performance
@@ -26,6 +31,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -199,6 +205,9 @@ class ModelManager:
     _loaded: bool = False
     _configured_model_path: Path | None = None
     _load_error: str | None = None
+    _presentation_lock: threading.Lock
+    _presentation_predictor: Any = None
+    _presentation_load_error: str | None = None
 
     def __new__(cls) -> "ModelManager":
         if cls._instance is None:
@@ -206,6 +215,9 @@ class ModelManager:
             obj._loaded = False
             obj._configured_model_path = None
             obj._load_error = None
+            obj._presentation_lock = threading.Lock()
+            obj._presentation_predictor = None
+            obj._presentation_load_error = None
             cls._instance = obj
         return cls._instance
 
@@ -285,6 +297,43 @@ class ModelManager:
                 f"{type(exc).__name__} while loading configured model path {path!r}"
             )
 
+    def presentation_score(self, sequence: str, allele: str) -> float:
+        """MHCflurry presentation_score for one peptide-allele pair.
+
+        Class1PresentationPredictor.load() deserializes the predictor from MHCflurry's
+        downloaded models directory, so it runs on the first call only and the predictor
+        is reused. A failed import or load is not retried: every later call re-raises its
+        message, so the caller logs the same line without touching the disk again. That is
+        the expected path in the container, since Dockerfile.api never fetches the weights.
+        A transient failure is cached the same way, so only a restart picks up a repaired
+        install. An error from predict() itself is not cached: it fails that call only.
+
+        The lock also serializes predict(), because predict() mutates the shared
+        predictor: in mhcflurry 2.2.1 it builds each network on first use, publishing
+        it before its weights are set, and rewrites the allele embedding on every call.
+        """
+        with self._presentation_lock:
+            if self._presentation_load_error is not None:
+                raise PresentationPredictorUnavailable(self._presentation_load_error)
+            if self._presentation_predictor is None:
+                try:
+                    from mhcflurry import Class1PresentationPredictor
+
+                    self._presentation_predictor = Class1PresentationPredictor.load()
+                except Exception as exc:
+                    self._presentation_load_error = str(exc)
+                    raise
+            result = self._presentation_predictor.predict(
+                peptides=[sequence],
+                alleles=[allele],
+                include_affinity_percentile=False,
+            )
+        return float(result["presentation_score"].iloc[0])
+
+
+class PresentationPredictorUnavailable(RuntimeError):
+    """Re-raised, with the original message, after the one-time MHCflurry load failed."""
+
 
 _manager = ModelManager()
 
@@ -340,15 +389,7 @@ def _score_peptide(sequence: str, allele: str) -> tuple[float, float | None]:
     # here does not affect the feature vector below.
     binding_score: float | None = None
     try:
-        from mhcflurry import Class1PresentationPredictor
-
-        predictor = Class1PresentationPredictor.load()
-        result = predictor.predict(
-            peptides=[sequence],
-            alleles=[allele],
-            include_affinity_percentile=False,
-        )
-        binding_score = float(result["presentation_score"].iloc[0])
+        binding_score = _manager.presentation_score(sequence, allele)
     except Exception as exc:
         # Same CWE-117 path as the /score handler: `sequence` and `allele` are
         # this call's arguments, so a predictor error message can quote them

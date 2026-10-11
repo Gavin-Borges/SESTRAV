@@ -72,6 +72,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   keeping the floor half of the check the override's test used to make.
 
 ### Fixed
+- **`api/main.py` no longer reloads the MHCflurry presentation predictor on every `/score`
+  request.** `_score_peptide` called `Class1PresentationPredictor.load()` for each request
+  that passed the readiness check and the binding-panel lookup, although the module
+  docstring promised models "loaded once at startup via ModelManager singleton (no
+  per-request I/O)". Measured on one workstation with mhcflurry 2.2.1, the version
+  `environments/requirements-api.txt` pins, a fresh load plus its first predict took 3.2 s,
+  then about 1.1 s on each repeat, against 0.044 to 0.048 s for a predict on a reused
+  predictor. The new `ModelManager.presentation_score` loads the predictor on the first
+  call that needs it and reuses it. A failed import or load is not retried, just as a
+  failed RF load is not: later calls re-raise the same message without touching the disk.
+  That holds for a transient failure too, so **restart the server after installing
+  MHCflurry or its model data by the verified route in `README.md` ("MHCflurry model
+  data")**: until then `binding_score` stays null. An error raised by `predict()` itself,
+  such as mhcflurry's `ValueError` for an allele it has no sequence for, is not cached:
+  that request still returns 200 with `binding_score` null, and later requests score
+  normally.
+  A lock serializes the load and every `predict()`, because FastAPI runs sync routes on a
+  thread pool and MHCflurry's `predict()` mutates the shared predictor, building each
+  network on first use and rewriting its allele embedding for each call's alleles. An
+  unavailable MHCflurry, not installed or installed without its model data (the container
+  case, since `Dockerfile.api` never fetches the weights), still answers 200 with
+  `binding_score: null` and logs the same INFO line on each request. The module docstring
+  now says when each model loads and when a restart is needed.
+  `tests/test_api_presentation_predictor.py` (new, 7 test cases) counts `load()` calls
+  through a stand-in `mhcflurry` module: five fail on the previous code, each because
+  `load()` ran once per request, and the two failure-path cases pass before and after.
+  One case fails the load with an exception whose message is empty, so a cached failure
+  is recognised by being set, not by its text. Eleven mutants of the new code each fail
+  at least one API test.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
