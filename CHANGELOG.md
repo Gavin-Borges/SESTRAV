@@ -1069,6 +1069,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **`query_netchop`, `query_tapreg` and `get_predictor_dataframe` raise
+  `PredictorUnavailableError` when `mock_fallback=False` and the live server returns no score
+  for any peptide, instead of returning mock scores.** Three return sites, NetChop's failed
+  submission, NetChop's exhausted polling and TAPreg's exhausted retries (including the UCM
+  VPN restriction page), emitted generated mock scores although the caller had asked for live
+  ones, so a request for live predictions could not tell an outage from a result. The error
+  chains the last network exception as its cause, and the VPN page gets its own message. A
+  partial answer is still returned, not raised: peptides a server omits come back empty, or
+  NaN in the data frame. `mock_fallback=True` is unchanged: it skips the network entirely,
+  as before, and the docstrings now say so instead of "if the query fails". The default
+  values are unchanged, but `query_netchop`'s default is `mock_fallback=False`, so **a bare
+  `query_netchop(peptides)` call now raises on an outage where it used to return mock
+  scores**; `query_tapreg` and `get_predictor_dataframe` default to `True`. The only
+  production caller, `scripts/precompute_antigen_processing.py`, passes `True` to both
+  queries, and its comment no longer says the live paths fall back to mock scores. Eleven
+  tests that asserted or relied on the silent fallback now expect the error; three new tests
+  drive `get_predictor_dataframe` with both servers down, with only TAPreg down, and with a
+  partial answer, and four more pin, at the query level, a partial answer from each server,
+  the VPN error's cause, and that a submission error is not chained onto a later polling
+  failure.
 - **`immunogenicity_score` had no range check between a model's `predict_proba` output and
   everything downstream that treats it as a `[0, 1]` probability - calibration, thresholding,
   the ranked CSV, and (once promoted) `api/main.py`'s response model (LRF-1).** A model loaded
