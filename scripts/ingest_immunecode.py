@@ -284,13 +284,15 @@ def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
       3. input_path is a CSV -> read directly.
 
     Returns (DataFrame, source_description) where source_description is used
-    only for the provenance sidecar.
+    only for the provenance sidecar: MIRA_DOWNLOAD_URL for the auto-download,
+    whose archive is deleted with its temporary directory, else input_path.
     """
     if input_path is None:
         log.info("No --input given; attempting auto-download.")
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = _download_mira(tmp)
-            return _load_from_zip(zip_path)
+            df, _zip_path = _load_from_zip(zip_path)
+            return df, MIRA_DOWNLOAD_URL
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"--input path not found: {input_path}")
@@ -535,6 +537,37 @@ def _build_output_df(records: list[dict[str, object]]) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Provenance
+# ---------------------------------------------------------------------------
+
+# The checkout holding this script. An --input inside it is recorded in the
+# provenance sidecar relative to it.
+_REPO_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _provenance_source(source: str) -> str:
+    """Return how the provenance sidecar records a source: never as an absolute path.
+
+    The auto-download is recorded by MIRA_DOWNLOAD_URL, a path inside the repo
+    by its repo-relative POSIX path, and any other path by its basename alone,
+    prefixed "external:", so no home, temporary or drive path is written.
+    """
+    if source == MIRA_DOWNLOAD_URL:
+        return source
+    # Both sides in one resolved form, so a symlinked or dotted spelling of
+    # either cannot move a file in or out of the repo.
+    path = os.path.realpath(source)
+    root = os.path.realpath(_REPO_ROOT)
+    try:
+        inside = os.path.commonpath([root, path]) == root
+    except ValueError:  # on Windows, a path on a different drive from the repo
+        inside = False
+    if inside:
+        return os.path.relpath(path, root).replace(os.sep, "/")
+    return "external:" + os.path.basename(path)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -639,7 +672,7 @@ def main(argv: list[str] | None = None) -> int:
     # Write provenance sidecar.
     write_provenance(
         args.output,
-        sources=[source_path],
+        sources=[_provenance_source(source_path)],
         row_count=len(df_out),
         extra={
             "database": "ImmuneCODE MIRA",
