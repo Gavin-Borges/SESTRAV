@@ -45,10 +45,12 @@ import logging
 import os
 import random
 import re
+import shutil
 import sys
 import tempfile
 import urllib.request
 import zipfile
+from urllib.parse import urlsplit
 
 import numpy as np
 import pandas as pd
@@ -64,6 +66,18 @@ from _dataset_utils import write_provenance  # noqa: E402
 MIRA_DOWNLOAD_URL = (
     "https://clients.adaptivebiotech.com/pub/covid-2020/immuneCODE-MIRA-release002.1.zip"
 )
+
+# The start URL and every redirect target are checked before urllib opens them:
+# each must be https on this netloc exactly (no port, no userinfo, no look-alike
+# host), so a redirect anywhere else fails closed. No sha256 is pinned for the
+# archive; it is checked structurally (it opens as a ZIP and every member passes
+# its CRC-32), which catches a member or directory cut short or damaged in
+# transit, but not a substituted archive.
+MIRA_DOWNLOAD_HOST = "clients.adaptivebiotech.com"
+
+# Seconds the opener may wait on the connect and on each socket read. It bounds
+# a stalled server, not the total transfer time of the archive.
+DOWNLOAD_TIMEOUT_SECONDS = 60
 
 # Preferred CSV filenames inside the ZIP archive, tried in order.
 _CANDIDATE_CSVS: list[str] = [
@@ -166,18 +180,64 @@ def _find_csv_in_dir(search_dir: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _check_download_url(url: str) -> None:
+    """Refuse a URL that is not https on MIRA_DOWNLOAD_HOST exactly."""
+    parts = urlsplit(url)
+    # urlsplit drops tab, CR and LF, but urllib.request keeps them, so a URL
+    # with any control, space or non-ASCII character is refused outright.
+    if not all(32 < ord(ch) < 127 for ch in url):
+        reason = "it holds a control, space or non-ASCII character"
+    elif parts.scheme != "https" or parts.netloc != MIRA_DOWNLOAD_HOST:
+        reason = f"not https on {MIRA_DOWNLOAD_HOST}"
+    else:
+        return
+    shown = url.split("?", 1)[0].split("#", 1)[0]  # a query may hold a signed token
+    raise RuntimeError(f"Refusing ImmuneCODE download URL {shown!r}: {reason}")
+
+
+class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Check each redirect target with _check_download_url before urllib requests it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_download_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _zip_is_intact(path: str) -> bool:
+    """True when path opens as a ZIP archive and every member passes its CRC-32."""
+    try:
+        with zipfile.ZipFile(path, "r") as zf:
+            return zf.testzip() is None
+    except Exception:  # any failure to open or read it means it cannot be used
+        return False
+
+
 def _download_mira(dest_dir: str) -> str:
     """Download the MIRA ZIP from Adaptive Biotechnologies.
 
+    The bytes stream to a .part file, which takes the archive's name only once
+    _zip_is_intact passes; any failure, KeyboardInterrupt included, removes it.
+    That removal is best effort: if it raises (a Windows sharing violation, for
+    example), the error is dropped, so it never replaces the failure itself.
     Returns the local path of the downloaded file.
     Raises RuntimeError with an actionable message if the download fails.
     """
     os.makedirs(dest_dir, exist_ok=True)
     zip_name = "immuneCODE-MIRA-release002.1.zip"
     zip_path = os.path.join(dest_dir, zip_name)
+    partial = zip_path + ".part"
     log.info("Downloading ImmuneCODE MIRA from %s", MIRA_DOWNLOAD_URL)
+    opener = urllib.request.build_opener(_CheckedRedirectHandler)
     try:
-        urllib.request.urlretrieve(MIRA_DOWNLOAD_URL, zip_path)  # nosec B310
+        _check_download_url(MIRA_DOWNLOAD_URL)
+        with (
+            opener.open(MIRA_DOWNLOAD_URL, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response,
+            open(partial, "wb") as output,
+        ):
+            shutil.copyfileobj(response, output, 1024 * 1024)
+        if not _zip_is_intact(partial):
+            raise RuntimeError("the downloaded file is not a complete, undamaged ZIP archive")
+        os.replace(partial, zip_path)
     except Exception as exc:
         raise RuntimeError(
             f"Download failed: {exc}\n"
@@ -185,8 +245,12 @@ def _download_mira(dest_dir: str) -> str:
             f"  {MIRA_DOWNLOAD_URL}\n"
             "Then pass it via --input PATH."
         ) from exc
-    if not zipfile.is_zipfile(zip_path):
-        raise RuntimeError(f"Downloaded file is not a valid ZIP archive: {zip_path}")
+    finally:
+        if os.path.exists(partial):
+            try:
+                os.remove(partial)
+            except OSError:
+                pass  # best effort: a locked .part must not replace the download's own outcome
     return zip_path
 
 

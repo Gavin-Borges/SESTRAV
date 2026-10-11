@@ -146,13 +146,19 @@ CONTEXT_WINDOW = 60
 #   "revision=" is the Hugging Face Hub pin form, reached once ".py" joined
 #               SCAN_SUFFIXES. src/features.py pins the ESM-2 weights by their
 #               upstream repository revision, which is a third-party SHA of
-#               exactly the kind this rule exists for, but it is spelled as a
-#               keyword argument rather than the org/repo@sha form above. It is
-#               anchored to the ASSIGNMENT, not to the bare word: "revision" is
-#               also a COMMIT_CONTEXT_RE trigger, so suppressing the word would
-#               blind the gate to any citation written "revision abc1234".
-#               Measured on this tree: the assignment form matches 2 lines, the
-#               bare word 29.
+#               exactly the kind this rule exists for, but it is not written in
+#               the org/repo@sha form above: since 2026-10-10 it is one constant,
+#               `_ESM_MODEL_REVISION = "<sha>"`, which this pattern matches
+#               only because it ignores case and REVISION is followed directly
+#               by `=`. Spelled otherwise, the line falls to the generic rules:
+#               annotated (`_ESM_MODEL_REVISION: str = "<sha>"`) the name's own
+#               "REVISION" is a commit-context word, so the pin is reported as
+#               an unresolved commit and the gate fails; renamed with no context
+#               word within 60 characters (`_ESM_MODEL_PIN`) it is skipped
+#               silently. It is anchored to the ASSIGNMENT, not
+#               to the bare word: "revision" is also a COMMIT_CONTEXT_RE trigger,
+#               so suppressing the word would blind the gate to any citation
+#               written "revision abc1234".
 EXTERNAL_CONTEXT_RE = re.compile(
     r"""(
       uses:                                          # workflow step calling an action
