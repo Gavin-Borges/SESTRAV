@@ -10,7 +10,7 @@ Contract, from the function's code and docstring:
   to a float transport score. A peptide with no nearby decimal is simply absent.
 * No exception is documented, and the only caller (``query_tapreg``) catches
   ``requests.exceptions.RequestException`` alone, so any exception raised here
-  escapes the network client and its mock fallback. Every exception is therefore
+  escapes the network client uncaught. Every exception is therefore
   a finding to triage.
 * More than 1 s of CPU on one input is also a finding. The text pattern puts a
   whitespace run and a lazy wildcard between the peptide and its score, so run time
