@@ -357,3 +357,72 @@ def test_update_records_line_hash_and_measured_ceiling(tmp_path: Path):
     assert binding["violation_ceiling"] == 1
     assert binding["carriers"][0]["observed"]["line"] == 1
     assert len(binding["carriers"][0]["observed"]["window_sha256"]) == 64
+
+
+# --- A malformed config is a CONFIG ERROR, never a pass ----------------------
+# main() turns only ConfigError into "CONFIG ERROR: ..." and exit 1, which is
+# what pre-push Check 7 and the qualifier_bindings workflow see. Each case
+# below asserts the exit code AND the guard's own reason, so the refusal cannot
+# be satisfied by some later, unrelated failure.
+
+
+def _run_main(tmp_path: Path, config_path: Path, capsys) -> tuple[int, str, str]:
+    rc = gate.main(["--root", str(tmp_path), "--config", str(config_path)])
+    captured = capsys.readouterr()
+    return rc, captured.out, captured.err
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        pytest.param({"version": 2, "bindings": []}, id="wrong_version"),
+        pytest.param({"version": 1, "bindings": {}}, id="bindings_not_a_list"),
+    ],
+)
+def test_a_config_of_the_wrong_shape_is_refused_not_audited(tmp_path: Path, capsys, config):
+    """A config the gate cannot vouch for must not report zero violations.
+
+    Both configs here would audit zero bindings and exit 0 if the shape guard
+    were skipped, which is a vacuous pass of a merge-path gate.
+    """
+    config_path = tmp_path / "bindings.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    rc, out, err = _run_main(tmp_path, config_path, capsys)
+
+    assert rc == 1
+    assert "CONFIG ERROR: config must have version 1 and a bindings array" in err
+    assert "Checked " not in out
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("{not json", id="invalid_json"),
+        pytest.param(None, id="missing_file"),
+    ],
+)
+def test_an_unreadable_config_is_a_config_error(tmp_path: Path, capsys, content):
+    config_path = tmp_path / "bindings.json"
+    if content is not None:
+        config_path.write_text(content, encoding="utf-8")
+
+    rc, out, err = _run_main(tmp_path, config_path, capsys)
+
+    assert rc == 1
+    assert "CONFIG ERROR: cannot read " in err
+    assert "Checked " not in out
+
+
+def test_a_binding_missing_required_keys_names_them(tmp_path: Path, capsys):
+    binding = _binding()
+    del binding["carriers"]
+    del binding["exemptions"]
+    config_path = tmp_path / "bindings.json"
+    config_path.write_text(json.dumps({"version": 1, "bindings": [binding]}), encoding="utf-8")
+
+    rc, out, err = _run_main(tmp_path, config_path, capsys)
+
+    assert rc == 1
+    assert "CONFIG ERROR: binding missing required keys: carriers, exemptions" in err
+    assert "Checked " not in out

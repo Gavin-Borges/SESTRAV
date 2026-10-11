@@ -17,9 +17,27 @@ line. Options are read the way pip reads them: its byte-order-mark handling,
 line joining, comment rule, option/argument split and optparse table,
 abbreviations included. Two pip steps the gate cannot reproduce fail closed
 instead: a PEP 263 coding declaration (pip would re-decode the file) and a
-`${VAR}` reference (pip expands it from the installing environment). `-r` / `-c`
-includes are not followed; no hash-pinned manifest uses one. Until 2026-10-09
-every option line was skipped silently.
+`${VAR}` reference (pip expands it from the installing environment). Until
+2026-10-09 every option line was skipped silently.
+
+Three more line shapes fail closed, because each hands pip something this gate
+never inspects: an `-r` / `-c` include (the gate does not follow it, so a
+redirect or an unhashed requirement inside it would pass), an `-e` editable
+(pip cannot hash-check one), and any requirement that is not a plain
+`name[extras] specifier ; marker`, such as a `name @ URL` direct reference, a
+bare URL, a VCS reference, a path, or text ending in an archive extension, which
+pip checks on the whole string (`numpy==2.4.6.tar.gz` is a local file). Each takes
+its artifact from somewhere other than the index the install command names. The
+default manifests carry none of them (measured 2026-10-10); until then all of
+them exited 0.
+
+The hash check reads lines the same way, and a `--no-require-hashes` line fails
+closed: pip treats one hashed requirement as a demand for hashes on all of them,
+and that option turns the demand off. Until 2026-10-11 the hash check used its own
+line reader, which cut a comment at any `#` rather than only after whitespace, so
+`--pre \\#` read as a continuation and folded the next requirement into an option
+line that was never checked; and it took any `--hash=` text for a hash, so
+`pkg -C--hash=x`, whose `--hash=` is a config setting's value, passed.
 
 Usage:
     python tools/check_hash_pins.py               # check the default manifests
@@ -79,60 +97,56 @@ _PIP_BOMS = (
 _PIP_CODING_RE = re.compile(rb"coding[:=]\s*([-\w.]+)")
 _PIP_ENV_VAR_RE = re.compile(r"\$\{[A-Z0-9_]+\}")
 
+# The only requirement shape a hash-pinned manifest may use: a PEP 508 project
+# name, optional extras, optional version specifiers (bare or parenthesised).
+# Matched against the text before any `;` marker. An allowlist rather than a list
+# of URL and path forms, so a spelling nobody thought of fails closed. The only
+# whitespace it admits is the ASCII space, the only one a compiled lock contains:
+# pip strips every Unicode space before an [extras] suffix, so a tab or U+3000
+# there would otherwise hide an archive suffix from the check below.
+_PLAIN_REQUIREMENT_RE = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?"
+    r" *(?:\[[A-Za-z0-9._, -]*\])?"
+    r" *(?:\( *[<>=!~][<>=!~A-Za-z0-9.*+,_ -]*\)|[<>=!~][<>=!~A-Za-z0-9.*+,_ -]*)?"
+)
+
+# pip 26.2.1's ARCHIVE_EXTENSIONS (utils/filetypes.py), same members. pip's
+# parse_req_from_line tests the WHOLE requirement for them, not the project name:
+# it takes os.path.abspath of the marker-free string (which on Windows drops
+# trailing dots and spaces), strips a trailing [extras] and rstrip()s what is left,
+# and treats a result ending in one of these as a local file, resolved from the
+# directory pip runs in. So `numpy==2.4.6.tar.gz` and `pkg-1.0-py3-none-any.whl`,
+# both accepted by the pattern above, are local files. (pip folds a preceding .tar
+# into the extension, so in a few harmless cases this check is stricter than pip.)
+_PIP_ARCHIVE_EXTENSIONS = (
+    ".zip",
+    ".whl",
+    ".tar.bz2",
+    ".tbz",
+    ".tar.xz",
+    ".txz",
+    ".tlz",
+    ".tar.lz",
+    ".tar.lzma",
+    ".tar.gz",
+    ".tgz",
+    ".tar",
+)
+
+
+def _is_plain_requirement(requirement: str) -> bool:
+    """True for `name[extras] specifier`; False for a URL, path, VCS ref or archive."""
+    if not _PLAIN_REQUIREMENT_RE.fullmatch(requirement):
+        return False
+    tail = re.sub(r"\[[^\]]*\]$", "", requirement.rstrip(". ")).rstrip(". ")
+    return not tail.lower().endswith(_PIP_ARCHIVE_EXTENSIONS)
+
 
 @dataclass(frozen=True)
 class Violation:
     path: str
     line: int
     text: str
-
-
-def _strip_comment(line: str) -> str:
-    """Drop a trailing comment. Requirement lines here never contain a URL fragment."""
-    index = line.find("#")
-    return line if index < 0 else line[:index]
-
-
-def _logical_lines(text: str) -> list[tuple[int, str]]:
-    """(1-based start line, joined text) for every non-blank, non-comment logical line.
-
-    Backslash continuations are joined into one logical line, so the `--hash=`
-    entries the compiler puts on following lines stay with their requirement.
-    """
-    requirements: list[tuple[int, str]] = []
-    buffer = ""
-    start = 0
-    for number, raw in enumerate(text.splitlines(), start=1):
-        stripped = _strip_comment(raw).strip()
-        if not buffer:
-            if not stripped:
-                continue
-            start = number
-        elif not stripped:
-            # A blank/comment-only line terminates an unterminated continuation.
-            requirements.append((start, buffer.strip()))
-            buffer = ""
-            continue
-        continued = stripped.endswith("\\")
-        if continued:
-            stripped = stripped[:-1].rstrip()
-        buffer = f"{buffer} {stripped}".strip() if buffer else stripped
-        if not continued:
-            requirements.append((start, buffer))
-            buffer = ""
-    if buffer:
-        requirements.append((start, buffer.strip()))
-    return requirements
-
-
-def iter_requirements(text: str) -> list[tuple[int, str]]:
-    """Yield (1-based start line, joined requirement) for real requirement lines.
-
-    Skips blanks, comments, `-r`/`-c` includes and any other option-only line
-    (`--index-url`, `--extra-index-url`, `--find-links`, ...); the options that
-    change the package source are checked separately by `iter_index_options`.
-    """
-    return [(number, req) for number, req in _logical_lines(text) if not req.startswith("-")]
 
 
 class _OptionError(Exception):
@@ -201,36 +215,92 @@ def _pip_logical_lines(text: str) -> list[tuple[int, str]]:
     return [(number, line) for number, line in stripped if line]
 
 
-def _options_part(line: str) -> str:
+def _break_args_options(line: str) -> tuple[str, str]:
     """pip's `break_args_options`: the options start at the first token led by `-`."""
     tokens = line.split(" ")
     for index, token in enumerate(tokens):
         if token.startswith("-"):
-            return " ".join(tokens[index:])
-    return ""
+            return " ".join(tokens[:index]), " ".join(tokens[index:])
+    return line, ""
+
+
+def iter_requirements(text: str) -> list[tuple[int, str]]:
+    """Yield (1-based start line, line) for every line pip reads as a requirement.
+
+    Lines are joined and stripped of comments as pip does it (`_pip_logical_lines`),
+    and a line is a requirement when text precedes its first option, as in pip's
+    `break_args_options`. Option-only lines, `-r`/`-c` includes and `-e` editables
+    among them, are left to `iter_index_options`.
+    """
+    return [
+        (number, line) for number, line in _pip_logical_lines(text) if _break_args_options(line)[0]
+    ]
+
+
+def _carries_a_hash(parser: optparse.OptionParser, line: str) -> bool:
+    """True when pip would attach a `--hash` to this requirement line.
+
+    Read from the parsed options, not the text: in `pkg -C--hash=x` the `--hash=` is
+    the value of a config setting. Options this table cannot parse count as no hash;
+    `iter_index_options` reports them.
+    """
+    try:
+        values, _args = parser.parse_args(shlex.split(_break_args_options(line)[1]))
+    except (_OptionError, ValueError):
+        return False
+    return bool(values.hash)
+
+
+def iter_unhashed_requirements(text: str) -> list[tuple[int, str]]:
+    """Yield (1-based start line, line) for every requirement pip attaches no --hash to."""
+    parser = _option_parser()
+    return [
+        (number, line)
+        for number, line in iter_requirements(text)
+        if not _carries_a_hash(parser, line)
+    ]
 
 
 def iter_index_options(text: str) -> list[tuple[int, str]]:
-    """Yield (1-based start line, line) for every option that changes the package source.
+    """Yield (1-based start line, line) for every line that changes the package source.
 
-    A line whose options this table cannot parse, or that holds a `${VAR}` reference
-    pip would expand at install time, is reported too, marked as such: failing
-    closed is the safe direction for a supply-chain gate.
+    That is an option adding or swapping an index, an include the gate does not
+    follow, an editable, a requirement that is not a plain project name, or a
+    `--no-require-hashes`, after which one hashed requirement no longer makes pip
+    demand hashes on the rest. A line
+    whose options this table cannot parse, or that holds a `${VAR}` reference pip
+    would expand at install time, is reported too, marked as such: failing closed is
+    the safe direction for a supply-chain gate.
     """
     parser = _option_parser()
     found: list[tuple[int, str]] = []
     for number, line in _pip_logical_lines(text):
+        shown = " ".join(line.split())  # pip joins continuations without a separator
         if _PIP_ENV_VAR_RE.search(line):
-            found.append((number, f"{' '.join(line.split())}  [expands an environment variable]"))
+            found.append((number, f"{shown}  [expands an environment variable]"))
             continue
-        options = _options_part(line)
+        args, options = _break_args_options(line)
+        requirement = args.split(";", 1)[0].strip()
+        # Tested whenever the line has any argument at all, so a bare `;marker` with
+        # an empty requirement in front of it fails closed too.
+        if args.strip() and not _is_plain_requirement(requirement):
+            found.append((number, f"{shown}  [not a plain project-name requirement]"))
+            continue
         if not options:
             continue
-        shown = " ".join(line.split())  # pip joins continuations without a separator
         try:
             values, _args = parser.parse_args(shlex.split(options))
         except (_OptionError, ValueError) as error:
             found.append((number, f"{shown}  [unparseable options: {error}]"))
+            continue
+        if values.requirement or values.constraint:
+            found.append((number, f"{shown}  [includes another requirement file, not followed]"))
+            continue
+        if values.editable:
+            found.append((number, f"{shown}  [editable, which pip cannot hash-check]"))
+            continue
+        if values.no_require_hashes:
+            found.append((number, f"{shown}  [turns off the hash checking pip implies]"))
             continue
         index_url = values.index_url
         if (
@@ -248,13 +318,12 @@ def _relative(path: pathlib.Path) -> str:
 
 
 def check_file(path: pathlib.Path) -> list[Violation]:
-    """Return every requirement in `path` that carries no --hash."""
-    text = path.read_text(encoding="utf-8")
+    """Return every requirement in `path` that carries no --hash, read as pip reads it."""
+    text, _problem = _decode_like_pip(path.read_bytes())  # reported by check_index_options
     relative = _relative(path)
     return [
-        Violation(relative, number, requirement)
-        for number, requirement in iter_requirements(text)
-        if "--hash=" not in requirement
+        Violation(relative, number, " ".join(line.split()))  # as iter_index_options shows it
+        for number, line in iter_unhashed_requirements(text)
     ]
 
 
@@ -264,19 +333,32 @@ def _decode_like_pip(data: bytes) -> tuple[str, str | None]:
     Returns (text, problem). A byte-order mark is stripped and its encoding used,
     as pip does. A PEP 263 declaration in the first two lines would make pip
     re-decode the whole file (`# coding: utf-7` turns `+AC0ALQ-` into `--`), so it
-    is reported rather than trusted; no compiled lock carries one.
+    is reported rather than trusted; no compiled lock carries one. Bytes that do not
+    decode are reported too, rather than raised as a traceback.
     """
     for bom, encoding in _PIP_BOMS:
         if data.startswith(bom):
-            return data[len(bom) :].decode(encoding), None
+            body = data[len(bom) :]
+            try:
+                return body.decode(encoding), None
+            except UnicodeDecodeError:
+                return body.decode(encoding, errors="replace"), f"is not valid {encoding}"
     for line in data.split(b"\n")[:2]:
         if line[0:1] == b"#" and _PIP_CODING_RE.search(line):
             return data.decode("utf-8", errors="replace"), "declares its own encoding"
-    return data.decode("utf-8"), None
+    try:
+        return data.decode("utf-8"), None
+    except UnicodeDecodeError:
+        return data.decode("utf-8", errors="replace"), "is not valid UTF-8"
 
 
 def check_index_options(path: pathlib.Path) -> list[Violation]:
-    """Return every option line in `path` that adds or swaps a package source."""
+    """Return every line in `path` that changes the package source, plus any decode problem.
+
+    That is an index-redirecting option, an include, an editable, or a requirement that
+    is not a plain project name (see `iter_index_options`); a byte sequence the gate
+    cannot decode the way pip would is reported on line 1.
+    """
     relative = _relative(path)
     text, problem = _decode_like_pip(path.read_bytes())
     violations = [Violation(relative, 1, f"[{problem}]")] if problem else []
@@ -326,8 +408,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {violation.path}:{violation.line}: {violation.text}", file=sys.stderr)
     if redirects:
         print(
-            "ERROR: index-redirecting options found (a hash-pinned manifest never chooses its own"
-            " index; pass one on the install command, as the CPU torch lock's installs do):",
+            "ERROR: index-redirecting options, includes, editables or non-index requirements"
+            " found (a hash-pinned manifest never chooses its own index or artifact source;"
+            " pass an index on the install command, as the CPU torch lock's installs do):",
             file=sys.stderr,
         )
         for violation in redirects:

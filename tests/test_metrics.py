@@ -230,6 +230,38 @@ def test_band_rejects_nan_scores_rather_than_inverting():
         evaluate(np.array([0, 1, 1]), np.array([0.5, np.nan, 0.9]), with_bands=True)
 
 
+def test_band_helper_refuses_nan_with_its_own_reason():
+    """The band's NaN guard, reached directly and through evaluate().
+
+    The test above passes before the guard runs: evaluate() calls
+    roc_auc_score first, and sklearn's own "Input contains NaN." matches
+    "NaN". Without the guard the band for those scores comes back inverted,
+    (1.0, 0.0). Through evaluate() only a one-row input reaches the guard;
+    with two classes roc_auc_score rejects the NaN first, and with one class
+    and two or more rows ndcg_score does.
+    """
+    from src.evaluate_metrics import _achievable_band_at_k
+
+    reason = "y_scores contains NaN; the achievable band is undefined"
+    with pytest.raises(ValueError, match=reason):
+        _achievable_band_at_k(np.array([0, 1, 1]), np.array([0.5, np.nan, 0.9]), 10, "issr")
+    with pytest.raises(ValueError, match=reason):
+        evaluate(np.array([1]), np.array([np.nan]), with_bands=True)
+
+
+def test_band_helper_rejects_an_unknown_mode_by_name():
+    """A mode other than "issr" or "recall" is a ValueError that names it.
+
+    Every caller passes one of the two literals, so no test had passed
+    another; without the else branch the helper fails on the unset
+    denominator with UnboundLocalError instead.
+    """
+    from src.evaluate_metrics import _achievable_band_at_k
+
+    with pytest.raises(ValueError, match="Unknown mode: 'bogus'"):
+        _achievable_band_at_k(np.array([0, 1]), np.array([0.2, 0.8]), 50, "bogus")
+
+
 def test_issr_at_k_empty():
     assert issr_at_k([], [], 10) == 0.0
 
@@ -377,6 +409,17 @@ def test_ndcg_at_k_perfect_and_degenerate():
     assert 0.0 < ndcg_at_k(y_true, y_scores, 100) <= 1.0
     # Fewer than two items -> NaN.
     assert np.isnan(ndcg_at_k([1], [0.5], 10))
+
+
+def test_ndcg_at_k_scores_a_two_item_list():
+    """Two items is the shortest list ndcg_at_k scores rather than calling NaN.
+
+    The test above uses one item and four, so moving the cutoff to two
+    items or fewer passed it. One relevant item ranked second has DCG
+    1 / log2(3) against an ideal DCG of 1.
+    """
+    assert ndcg_at_k([0, 1], [0.2, 0.8], 100) == 1.0
+    assert ndcg_at_k([0, 1], [0.8, 0.2], 100) == pytest.approx(1 / np.log2(3))
 
 
 def test_evaluate_empty_raises():

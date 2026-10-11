@@ -3,15 +3,23 @@
 Every case but one builds a synthetic source tree under ``tmp_path``, and that
 one passes an inline string, so none of these touch the real ``src/`` or
 ``functions/`` and none of them import a first-party module.
-``reachable_modules`` is pure AST work, which is what makes that possible: the
-import half of the gate is exercised by the release workflow against a real
-installed distribution, not here.
+``reachable_modules`` is pure AST work, which is what makes that possible.
+The ``main()`` cases replace the gate's ``importlib`` with a recorder, so they
+prove WHICH modules each mode asks to import (every reachable one for the
+default run, none for ``--list`` and ``--list-commands``) without importing
+anything real. Whether those imports succeed against a real installed
+distribution is exercised by the release workflow, not here.
 """
 
 from __future__ import annotations
 
+import sys
+import types
+from pathlib import Path
+
 from scripts.check_consumer_install import (
     declared_subcommands,
+    main,
     reachable_modules,
     subcommands,
 )
@@ -192,3 +200,124 @@ def test_subcommands_flags_a_parser_with_no_implementation(tmp_path):
     names, errors = subcommands(tmp_path)
     assert names == {"info", "benchmark"}
     assert any("benchmark" in message and "no cmd_benchmark" in message for message in errors)
+
+
+# ---------------------------------------------------------------------------
+# main(): the modes release.yml runs
+# ---------------------------------------------------------------------------
+
+ONE_COMMAND_CLI = (
+    "def cmd_predict(args):\n"
+    "    from src import scorer\n"
+    "    return 0\n"
+    "def build():\n"
+    "    subparsers.add_parser('predict')\n"
+)
+REACHABLE = ["src.cli", "src.scorer"]
+
+
+def record_imports(monkeypatch, origin_root: Path, fail: dict | None = None) -> list[str]:
+    """Swap the gate's importlib for a recorder; nothing real is imported.
+
+    Each recorded module reports a ``__file__`` under ``origin_root``, so a
+    caller chooses whether the imports look installed or in-tree. A name in
+    ``fail`` raises that exception instead.
+    """
+    calls: list[str] = []
+
+    def import_module(name: str) -> types.ModuleType:
+        calls.append(name)
+        if fail and name in fail:
+            raise fail[name]
+        module = types.ModuleType(name)
+        module.__file__ = str(origin_root / (name.replace(".", "/") + ".py"))
+        return module
+
+    monkeypatch.setattr(
+        "scripts.check_consumer_install.importlib",
+        types.SimpleNamespace(import_module=import_module),
+    )
+    return calls
+
+
+def run_main(monkeypatch, *args: str) -> int:
+    monkeypatch.setattr(sys, "argv", ["check_consumer_install.py", *args])
+    return main()
+
+
+def test_main_release_import_step_imports_every_reachable_module(tmp_path, monkeypatch, capsys):
+    """release.yml's import step passes --root and --require-installed and no
+    list flag. If either list branch fired here, the step would print a list
+    and pass having imported nothing, so the recorded calls are the point."""
+    repo = tmp_path / "repo"
+    build_tree(repo, ONE_COMMAND_CLI, modules={"src.scorer": "value = 1\n"})
+    calls = record_imports(monkeypatch, tmp_path / "site-packages")
+
+    rc = run_main(monkeypatch, "--root", str(repo), "--require-installed")
+    out = capsys.readouterr().out
+
+    assert sorted(calls) == REACHABLE
+    assert rc == 0
+    assert "reachable first-party modules: 2" in out
+    assert "import failures: 0" in out
+    assert "IN-TREE" not in out
+    assert "OK every module reachable from a shipped command imports" in out
+
+
+def test_main_fails_when_a_reachable_module_does_not_import(tmp_path, monkeypatch, capsys):
+    repo = tmp_path / "repo"
+    build_tree(repo, ONE_COMMAND_CLI, modules={"src.scorer": "value = 1\n"})
+    missing = ModuleNotFoundError("No module named 'pulp'", name="pulp")
+    calls = record_imports(monkeypatch, tmp_path / "site-packages", fail={"src.scorer": missing})
+
+    rc = run_main(monkeypatch, "--root", str(repo), "--require-installed")
+    out = capsys.readouterr().out
+
+    assert sorted(calls) == REACHABLE
+    assert rc == 1
+    assert "import failures: 1" in out
+    assert "FAIL module=src.scorer error=ModuleNotFoundError missing=pulp" in out
+    assert "OK every module" not in out
+
+
+def test_main_require_installed_refuses_imports_from_the_tree(tmp_path, monkeypatch, capsys):
+    """The vacuous case --require-installed exists to catch: every module
+    resolved inside --root, so the run certified the checkout, not an install."""
+    repo = tmp_path / "repo"
+    build_tree(repo, ONE_COMMAND_CLI, modules={"src.scorer": "value = 1\n"})
+    calls = record_imports(monkeypatch, repo.resolve())
+
+    rc = run_main(monkeypatch, "--root", str(repo), "--require-installed")
+    out = capsys.readouterr().out
+
+    assert sorted(calls) == REACHABLE
+    assert rc == 1
+    assert "IN-TREE 2 module(s) imported from" in out
+    assert "OK every module" not in out
+
+
+def test_main_list_prints_the_modules_without_importing(tmp_path, monkeypatch, capsys):
+    repo = tmp_path / "repo"
+    build_tree(repo, ONE_COMMAND_CLI, modules={"src.scorer": "value = 1\n"})
+    calls = record_imports(monkeypatch, tmp_path / "site-packages")
+
+    rc = run_main(monkeypatch, "--root", str(repo), "--list")
+    out = capsys.readouterr().out
+
+    assert calls == []
+    assert rc == 0
+    assert out.splitlines() == REACHABLE
+
+
+def test_main_list_commands_prints_the_names_without_importing(tmp_path, monkeypatch, capsys):
+    """release.yml's --help loop is driven by exactly this output."""
+    repo = tmp_path / "repo"
+    build_tree(repo, ONE_COMMAND_CLI, modules={"src.scorer": "value = 1\n"})
+    calls = record_imports(monkeypatch, tmp_path / "site-packages")
+
+    rc = run_main(monkeypatch, "--root", str(repo), "--list-commands")
+    out = capsys.readouterr().out
+
+    assert calls == []
+    assert rc == 0
+    assert out.splitlines() == ["predict"]

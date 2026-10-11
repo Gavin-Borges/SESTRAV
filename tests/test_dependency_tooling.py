@@ -6,6 +6,7 @@ invocation here is mocked), plus the false-positive surface of
 tools/check_hash_pins.py.
 """
 
+import itertools
 import pathlib
 import re
 import subprocess
@@ -484,7 +485,10 @@ def test_build_command_accepts_unknown_spec_shape():
 
 
 def _requirements(text):
-    return check_hash_pins.iter_requirements(text)
+    # pip joins a continuation without a separator, so compare on single spaces.
+    return [
+        (number, " ".join(req.split())) for number, req in check_hash_pins.iter_requirements(text)
+    ]
 
 
 def test_hashed_requirement_accepted():
@@ -562,11 +566,8 @@ def test_index_redirecting_option_is_a_violation(tmp_path, monkeypatch, line):
         "--index-url https://pypi.org/simple/",
         "--index-url=https://pypi.org/simple",
         "-i https://pypi.org/simple",
-        "-r ../requirements.in",
-        "-c constraints.txt",
         "--only-binary :all:",
         "--pre",
-        "-e .",
     ],
 )
 def test_pypi_default_and_non_index_options_are_allowed(tmp_path, monkeypatch, line):
@@ -574,6 +575,232 @@ def test_pypi_default_and_non_index_options_are_allowed(tmp_path, monkeypatch, l
     path.write_text(f"{line}\n", encoding="utf-8")
     monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
     assert check_hash_pins.check_index_options(path) == []
+
+
+# Lines that hand pip a file or an artifact the gate never sees. Until 2026-10-10
+# every one of these exited 0: an include was parsed and dropped, an editable was
+# skipped as an option line, and a direct reference passed because it carried a hash.
+UNVERIFIABLE_LINES = [
+    "-r extra.txt",
+    "-rextra.txt",
+    "--requirement extra.txt",
+    "--requirement=extra.txt",
+    "-c constraints.txt",
+    "--constraint=constraints.txt",
+    "-e .",
+    "--editable git+https://mirror.example/x.git#egg=x",
+    "evilpkg @ https://mirror.example/evilpkg-1.0.tar.gz --hash=sha256:aaa",
+    "evilpkg@https://mirror.example/evilpkg-1.0.tar.gz --hash=sha256:aaa",
+    "evilpkg[extra] @ file:///opt/evilpkg-1.0.tar.gz --hash=sha256:aaa",
+    "https://mirror.example/evilpkg-1.0-py3-none-any.whl --hash=sha256:aaa",
+    "file:///opt/evilpkg-1.0-py3-none-any.whl --hash=sha256:aaa",
+    "git+https://mirror.example/x.git#egg=x",
+    "./vendor/evilpkg-1.0-py3-none-any.whl --hash=sha256:aaa",
+    "vendor/evilpkg-1.0.tar.gz --hash=sha256:aaa",
+    "evilpkg-1.0-py3-none-any.whl --hash=sha256:aaa",
+    # pip tests the WHOLE string for an archive extension, not the project name, so
+    # an innocent-looking pin with a suffix is a local file, resolved from the
+    # directory pip runs in.
+    "numpy==2.4.6.tar.gz --hash=sha256:aaa",
+    "foo>=1.0.tar --hash=sha256:aaa",
+    "foo==1.0.TAR.GZ --hash=sha256:aaa",
+    "foo[bar]==1.0.zip --hash=sha256:aaa",
+    "foo===1.0+cpu.tgz --hash=sha256:aaa",
+    # pip strips a trailing [extras] and then rstrip()s every kind of whitespace, so
+    # neither the extras nor a tab before them hides the suffix.
+    "evilpkg-1.0-py3-none-any.whl [x] --hash=sha256:aaa",
+    "evilpkg-1.0-py3-none-any.whl\t[x] --hash=sha256:aaa",
+    "numpy-2.4.6.tar.gz\t[x] --hash=sha256:aaa",
+]
+
+# pip 26.2.1's ARCHIVE_EXTENSIONS, written out so that dropping one from the gate fails.
+ARCHIVE_EXTENSIONS = [
+    ".zip", ".whl", ".tar.bz2", ".tbz", ".tar.xz", ".txz",
+    ".tlz", ".tar.lz", ".tar.lzma", ".tar.gz", ".tgz", ".tar",
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("extension", ARCHIVE_EXTENSIONS)
+def test_every_pip_archive_extension_fails_closed(extension):
+    assert check_hash_pins.iter_index_options(f"foo==1.0{extension} --hash=sha256:aaa")
+
+
+def test_the_archive_extension_table_is_pips():
+    filetypes = pytest.importorskip("pip._internal.utils.filetypes")
+    assert set(ARCHIVE_EXTENSIONS) == set(filetypes.ARCHIVE_EXTENSIONS)
+    assert set(check_hash_pins._PIP_ARCHIVE_EXTENSIONS) == set(filetypes.ARCHIVE_EXTENSIONS)
+
+
+# Whitespace pip strips before an [extras] suffix that is not an ASCII space. Built
+# with chr() because the repo's AST gate rejects a non-ASCII string literal, escaped
+# or not (tests/test_encoding_ascii_output.py).
+WIDE_SPACES = [chr(0x09), chr(0xA0), chr(0x2009), chr(0x3000)]
+
+
+@pytest.mark.parametrize("space", WIDE_SPACES, ids=["tab", "nbsp", "thin", "ideographic"])
+def test_whitespace_other_than_a_space_fails_closed(space):
+    line = f"evilpkg-1.0-py3-none-any.whl{space}[x] --hash=sha256:aaa"
+    assert check_hash_pins.iter_index_options(line)
+
+
+@pytest.mark.parametrize("line", UNVERIFIABLE_LINES)
+def test_includes_editables_and_direct_references_fail_closed(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_index_options(path)] == [1]
+
+
+PLAIN_REQUIREMENT_LINES = [
+    "numpy==2.4.6 --hash=sha256:aaa",
+    "torch==2.13.0+cpu --hash=sha256:aaa",
+    "Foo.Bar_baz-qux==1.0 --hash=sha256:aaa",
+    "uvicorn[standard]==0.54.0 --hash=sha256:aaa",
+    "pkg[a, b]==1.0 --hash=sha256:aaa",
+    "pkg>=1.0,<2 --hash=sha256:aaa",
+    "pkg~=1.4.2 --hash=sha256:aaa",
+    "pkg (==1.0) --hash=sha256:aaa",
+    'colorama==0.4.6 ; sys_platform == "win32" --hash=sha256:aaa',
+    'nvidia-nccl-cu12==2.28.3 ; platform_machine == "x86_64" and sys_platform == "linux" --hash=sha256:aaa',
+]
+
+
+@pytest.mark.parametrize("line", PLAIN_REQUIREMENT_LINES)
+def test_plain_name_requirements_are_allowed(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.check_index_options(path) == []
+
+
+def test_requirement_verdicts_match_pips_own_parser():
+    # The plain-name test is a transcription of pip's rule for when a requirement is
+    # fetched from somewhere other than the index (a link, or a PEP 508 URL). Held to
+    # pip itself wherever its internals are importable, as the option table is above.
+    constructors = pytest.importorskip("pip._internal.req.constructors")
+    for line in PLAIN_REQUIREMENT_LINES + UNVERIFIABLE_LINES:
+        requirement = line.split(" --", 1)[0]
+        if requirement.startswith("-"):
+            continue  # an option line: its verdicts are pinned against pip's option parser
+        parts = constructors.parse_req_from_line(requirement, None)
+        pip_direct = parts.link is not None or (
+            parts.requirement is not None and parts.requirement.url is not None
+        )
+        assert bool(check_hash_pins.iter_index_options(requirement)) is pip_direct, line
+
+
+def test_generated_requirement_verdicts_match_pips_own_parser():
+    # A fixed list could not see the archive-suffix bypass; a cross product of names,
+    # extras, specifiers and suffixes can. A shape pip itself refuses to parse is
+    # skipped: pip would install nothing from it, so neither verdict is unsafe.
+    constructors = pytest.importorskip("pip._internal.req.constructors")
+    names = ["numpy", "Foo.Bar_baz-qux", "pkg-1.0-py3-none-any"]
+    extras = ["", "[x]"]
+    specifiers = ["", "==1.0", " >=1,<2", "===1.0+cpu", "~=1.4"]
+    suffixes = ["", ".tar.gz", ".zip", ".whl", ".TGZ", ".tar", ".tar.xz"]
+    compared = 0
+    for name in names:
+        for extra in extras:
+            for specifier in specifiers:
+                for suffix in suffixes:
+                    requirement = f"{name}{extra}{specifier}{suffix}"
+                    try:
+                        parts = constructors.parse_req_from_line(requirement, None)
+                    except Exception:  # noqa: S112 - a shape pip refuses installs nothing
+                        continue
+                    pip_direct = parts.link is not None or (
+                        parts.requirement is not None and parts.requirement.url is not None
+                    )
+                    gate_rejects = bool(check_hash_pins.iter_index_options(requirement))
+                    assert gate_rejects is pip_direct, requirement
+                    compared += 1
+    assert compared >= 185  # 190 of the 210 parse under pip 26.2.1
+    # The order the v2 gate missed: an archive filename, a separator, then extras.
+    # Where pip says "local file" the gate must reject; the gate may also reject a
+    # shape pip reads as an index requirement, since only an ASCII space is allowed.
+    linked = 0
+    for name in ["evilpkg-1.0-py3-none-any.whl", "numpy-2.4.6.tar.gz", "pkg-1.0.zip"]:
+        for separator in ["", " ", "  ", *WIDE_SPACES]:
+            for extra in ["[x]", "[x,y]"]:
+                requirement = f"{name}{separator}{extra}"
+                try:
+                    parts = constructors.parse_req_from_line(requirement, None)
+                except Exception:  # noqa: S112 - a shape pip refuses installs nothing
+                    continue
+                if parts.link is not None:
+                    linked += 1
+                    assert check_hash_pins.iter_index_options(requirement), requirement
+    assert linked >= 40  # 3 names x 7 separators x 2 extras = 42 shapes; all 42 link
+
+
+@pytest.mark.parametrize(
+    "line", [';python_version>"0" --hash=sha256:aaa', "; python_version>'0' --hash=sha256:aaa"]
+)
+def test_an_empty_requirement_before_a_marker_fails_closed(line):
+    # pip refuses it in most directories, but in one named like an archive (evil.tar.gz)
+    # it reads the line as that directory. Not a plain requirement, so it fails here.
+    assert check_hash_pins.iter_index_options(line)
+
+
+@pytest.mark.parametrize("line", ["foo==1.0.tar.gz.", "foo==1.0.tar.gz. .", "foo==1.0.zip.."])
+def test_a_trailing_dot_after_an_archive_suffix_fails_closed(tmp_path, monkeypatch, line):
+    # On Windows os.path.abspath drops trailing dots and spaces, so pip there sees
+    # the archive suffix. Rejected everywhere, which is stricter than pip on Linux.
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line} --hash=sha256:aaa\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_index_options(path)] == [1]
+
+
+def test_a_truncated_wide_bom_manifest_fails_cleanly(tmp_path, monkeypatch, capsys):
+    body = "numpy==2.4.6 --hash=sha256:aaa\n".encode("utf-16-le")
+    (tmp_path / "bad.txt").write_bytes(b"\xff\xfe" + body + b"\x00")  # odd byte count
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.main(["bad.txt"]) == 1
+    err = capsys.readouterr().err
+    assert "is not valid utf-16" in err
+    assert "Traceback" not in err
+
+
+def test_an_include_that_redirects_the_index_fails_the_cli(tmp_path, monkeypatch, capsys):
+    # The security review's reproduction: the manifest itself is clean, and the
+    # redirect sits in a file it includes, which the gate does not follow.
+    (tmp_path / "extra.txt").write_text(
+        "--extra-index-url https://mirror.example/simple\nevilpkg==1.0 \\\n    --hash=sha256:aaa\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "bad.txt").write_text(
+        "-r extra.txt\nnumpy==2.4.6 \\\n    --hash=sha256:aaa\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.main(["bad.txt"]) == 1
+    assert "includes another requirement file" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "bom, codec",
+    [(b"\xff\xfe", "utf-16-le"), (b"\xfe\xff", "utf-16-be"), (b"\xff\xfe\x00\x00", "utf-32-le")],
+)
+def test_a_wide_bom_manifest_is_read_as_pip_reads_it(tmp_path, monkeypatch, bom, codec):
+    # pip strips a UTF-16 or UTF-32 byte-order mark and decodes the rest. The hash
+    # check used to read every file as UTF-8 and died in a traceback instead.
+    good = tmp_path / "good.txt"
+    good.write_bytes(bom + "numpy==2.4.6 --hash=sha256:aaa\n".encode(codec))
+    bad = tmp_path / "bad.txt"
+    bad.write_bytes(bom + "numpy==2.4.6\n".encode(codec))
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.check_file(good) == []
+    assert check_hash_pins.check_index_options(good) == []
+    assert [v.text for v in check_hash_pins.check_file(bad)] == ["numpy==2.4.6"]
+
+
+def test_an_undecodable_manifest_fails_cleanly(tmp_path, monkeypatch, capsys):
+    (tmp_path / "bad.txt").write_bytes(b"numpy==2.4.6 --hash=sha256:aaa\n\xff\xfe\xfd\n")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.main(["bad.txt"]) == 1
+    err = capsys.readouterr().err
+    assert "not valid UTF-8" in err
+    assert "Traceback" not in err
 
 
 # Spellings pip 26.2.1's own requirement-file parser honours. The first version of
@@ -627,18 +854,22 @@ def test_pip_honoured_allowed_spellings_pass(tmp_path, monkeypatch, line):
     "data, expected",
     [
         # A UTF-8 byte-order mark: pip strips it, so the gate must too.
-        (b"\xef\xbb\xbf--extra-index-url https://mirror.example/simple --hash=sha256:a\n", 1),
+        (b"\xef\xbb\xbf--extra-index-url https://mirror.example/simple --hash=sha256:a\n", [1]),
         # A coding declaration: pip re-decodes the file, which turns +AC0ALQ- into --.
-        (b"# coding: utf-7\n+AC0ALQ-extra-index-url https://mirror.example/simple --hash=sha256:a\n", 1),
+        # Line 2 also fails on its own: read as UTF-8 it is not a plain requirement.
+        (
+            b"# coding: utf-7\n+AC0ALQ-extra-index-url https://mirror.example/simple --hash=sha256:a\n",
+            [1, 2],
+        ),
         # An environment variable: pip expands it from the installing environment.
-        (b"${EVIL} --hash=sha256:a\n", 1),
+        (b"${EVIL} --hash=sha256:a\n", [1]),
     ],
 )
 def test_pip_decoding_and_expansion_steps_fail_closed(tmp_path, monkeypatch, data, expected):
     path = tmp_path / "requirements.txt"
     path.write_bytes(data)
     monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
-    assert [v.line for v in check_hash_pins.check_index_options(path)] == [expected]
+    assert [v.line for v in check_hash_pins.check_index_options(path)] == expected
 
 
 def test_a_line_pip_cannot_parse_fails_closed(tmp_path, monkeypatch):
@@ -705,6 +936,100 @@ def test_unterminated_continuation_at_eof_is_still_checked():
     assert [req for _, req in _requirements("numpy==2.4.6 \\\n")] == ["numpy==2.4.6"]
 
 
+# Lines that end in a backslash only once a comment is cut at ANY `#`. pip cuts one
+# only after whitespace, so to pip neither continues: the first is `--pre` and an
+# escaped `#`, the second `--pre` and an escaped backslash before a comment. Until
+# 2026-10-11 the hash check used its own line reader, joined the next requirement
+# into the option line and never checked it.
+LINES_THAT_ONLY_LOOK_CONTINUED = ["--pre \\#", "--pre \\\\ # comment"]
+
+
+@pytest.mark.parametrize("line", LINES_THAT_ONLY_LOOK_CONTINUED)
+def test_a_line_pip_does_not_continue_hides_no_requirement(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\nevilpkg\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [(v.line, v.text) for v in check_hash_pins.check_file(path)] == [(2, "evilpkg")]
+    assert check_hash_pins.check_index_options(path) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["evilpkg -C--hash=x", "evilpkg --config-settings=--hash=x", "evilpkg -C --hash=sha256:aaa"],
+)
+def test_hash_text_in_another_options_value_is_not_a_hash(tmp_path, monkeypatch, line):
+    # optparse hands -C the next token whatever it starts with, so pip attaches no
+    # hash to any of these and installs evilpkg unchecked. The check used to accept
+    # any `--hash=` text.
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_file(path)] == [1]
+
+
+def test_a_requirement_whose_options_cannot_be_parsed_counts_as_unhashed(tmp_path, monkeypatch):
+    path = tmp_path / "requirements.txt"
+    path.write_text("numpy==2.4.6 --hash=sha256:aaa --no-such-option\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_file(path)] == [1]
+    [violation] = check_hash_pins.check_index_options(path)
+    assert "unparseable options" in violation.text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # `#` after a quote is not a comment to pip, so the backslash still continues
+        # onto the hash. Linux platform_version strings start with `#`.
+        'numpy==2.4.6 ; platform_version != "#1 SMP" \\\n    --hash=sha256:aaa\n',
+        # optparse takes an option's value from the next token too.
+        "numpy==2.4.6 --hash sha256:aaa\n",
+    ],
+    ids=["hash-inside-a-marker", "space-separated-hash"],
+)
+def test_a_hash_pip_attaches_is_accepted(tmp_path, monkeypatch, text):
+    path = tmp_path / "requirements.txt"
+    path.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.check_file(path) == []
+    assert check_hash_pins.check_index_options(path) == []
+
+
+def test_unhashed_requirement_lines_match_pips_own_reading():
+    # Every three-line manifest built from lines that probe pip's line joining,
+    # comment rule and option split, held to pip's own reading wherever its internals
+    # are importable. A manifest pip refuses to parse installs nothing, so it is skipped.
+    req_file = pytest.importorskip("pip._internal.req.req_file")
+    parse_line = req_file.get_line_parser(None)
+    pool = [
+        "",
+        "evilpkg",
+        "numpy==2.4.6 --hash=sha256:aaa",
+        "numpy==2.4.6 \\",
+        "    --hash=sha256:aaa",
+        "# --hash=sha256:aaa",
+        "evilpkg #--hash=sha256:aaa",
+        "evilpkg#--hash=sha256:aaa",
+        "evilpkg -C--hash=x",
+        "numpy==2.4.6 --hash sha256:aaa",
+        'numpy==2.4.6 ; platform_version != "#1 SMP" \\',
+        "--pre \\",
+        *LINES_THAT_ONLY_LOOK_CONTINUED,
+    ]
+    compared = 0
+    for lines in itertools.product(pool, repeat=3):
+        text = "\n".join(lines) + "\n"
+        try:
+            parsed = [(number, *parse_line(line)) for number, line in req_file.preprocess(text)]
+        except req_file.OptionParsingError:
+            continue
+        pip_unhashed = [number for number, args, values in parsed if args and not values.hashes]
+        gate_unhashed = [number for number, _ in check_hash_pins.iter_unhashed_requirements(text)]
+        assert gate_unhashed == pip_unhashed, text
+        compared += 1
+    assert compared >= 2700  # all 2,744 parse under pip 26.2.1
+
+
 # ---------------------------------------------------------------------------
 # check_hash_pins - CLI
 # ---------------------------------------------------------------------------
@@ -743,6 +1068,49 @@ def test_cli_fails_on_an_index_redirecting_option(tmp_path, monkeypatch, capsys)
     # scripts/check_doc_line_citations.py as an unpinned citation.
     assert "bad.txt" + ":1: --extra-index-url https://mirror.example/simple" in err
     assert "un-hashed requirements" not in err
+
+
+def test_the_review_reproduction_fails_the_cli(tmp_path, monkeypatch, capsys):
+    # An independent review's reproduction, which exited 0. pip 26.2.1 installs
+    # evilpkg from it unpinned and unhashed wherever the install command omits
+    # --require-hashes: line 1 turns off the hash checking goodpkg's hash implies,
+    # and line 2 is, to pip, `--pre` and an escaped `#`, so it does not continue.
+    manifest = tmp_path / "bad.txt"
+    manifest.write_text(
+        "--no-require-hashes\n--pre \\#\nevilpkg\ngoodpkg==1.0 --hash=sha256:" + "0" * 64 + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert check_hash_pins.main(["bad.txt"]) == 1
+    err = capsys.readouterr().err
+    # Assembled from two pieces, for the reason given in the test above.
+    assert "bad.txt" + ":3: evilpkg\n" in err
+    assert "bad.txt" + ":1: --no-require-hashes" in err
+
+
+NO_REQUIRE_HASHES_LINES = [
+    "--no-require-hashes",
+    "--no-req",
+    "--pre --no-require-hashes",
+    "--only-binary :all: --no-require-hashes",
+]
+
+
+@pytest.mark.parametrize("line", NO_REQUIRE_HASHES_LINES)
+def test_turning_off_pips_implied_hash_checking_fails_closed(tmp_path, monkeypatch, line):
+    path = tmp_path / "requirements.txt"
+    path.write_text(f"{line}\nnumpy==2.4.6 --hash=sha256:aaa\n", encoding="utf-8")
+    monkeypatch.setattr(check_hash_pins, "REPO_ROOT", tmp_path)
+    assert [v.line for v in check_hash_pins.check_index_options(path)] == [1]
+    assert check_hash_pins.check_file(path) == []
+
+
+def test_no_require_hashes_spellings_are_pips():
+    req_file = pytest.importorskip("pip._internal.req.req_file")
+    parse_line = req_file.get_line_parser(None)
+    for line in NO_REQUIRE_HASHES_LINES:
+        _args, values = parse_line(line)
+        assert values.no_require_hashes is True, line
 
 
 def test_cli_passes_on_a_fully_hashed_manifest(tmp_path, monkeypatch):
