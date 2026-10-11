@@ -29,3 +29,9 @@ grep -c -P '\r' artifact.txt
 
 # ok: sestrav-count-cr-bytes-not-lines
 tr -cd '\r' < artifact.txt | wc -c
+
+# Commented-out commands must not fire. Three rules above exclude comment lines,
+# and the fixture checker fails on any finding these lines draw.
+#   pytest -q | tail -n 10
+#   git ls-files 'tests/**/test_*.py'
+#   grep -c $'\r' artifact.txt

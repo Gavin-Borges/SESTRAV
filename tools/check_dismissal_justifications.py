@@ -390,11 +390,17 @@ def _fetch_page_http(repo: str, state: str, page: int, token: str) -> list[dict]
         url,
         headers={
             "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
             "X-GitHub-Api-Version": "2022-11-28",
             "User-Agent": "sestrav-dismissal-justification-gate",
         },
     )
+    # The token goes on as an UNREDIRECTED header. urllib's redirect handler
+    # copies a request's ordinary headers into the follow-up request, to
+    # whatever host the Location names, and leaves these out, so no other
+    # host ever receives the token. urllib still FOLLOWS the redirect, so the
+    # URL the response was finally served from is held to the same literals
+    # below: a page from any other host is refused, never parsed as a census.
+    request.add_unredirected_header("Authorization", f"Bearer {token}")
     try:
         # The B310 suppression on the next line rests on the guard above,
         # which compares the parsed URL with the literals "https" and
@@ -402,6 +408,12 @@ def _fetch_page_http(repo: str, state: str, page: int, token: str) -> list[dict]
         # host before urlopen is reached. It is not a claim that urlopen is
         # safe in general.
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:  # nosec B310
+            served = urllib.parse.urlparse(response.geturl())
+            if served.scheme != "https" or served.netloc != "api.github.com":
+                raise CouldNotRun(
+                    f"refusing a response redirected to {response.geturl()}: "
+                    "only https://api.github.com is allowed"
+                )
             raw = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         raise CouldNotRun(f"API request rejected with HTTP {exc.code}") from exc

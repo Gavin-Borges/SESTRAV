@@ -5,14 +5,18 @@ on:
     - cron: '0 8 1 * *'   # first of every month at 08:00 UTC
   workflow_dispatch:        # allow manual trigger for testing
 
+# Read-only for every job. Only `alert` below adds `issues: write`, so the benchmark
+# job's dependency installs and live IEDB queries never hold an issues token.
+# tests/test_iedb_benchmark_permissions.py pins this split.
 permissions:
   contents: read
-  issues: write            # open regression alerts as GitHub Issues
 
 jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      regression: ${{ steps.regression.outputs.detected }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -93,8 +97,43 @@ jobs:
           # this change closes.
           if-no-files-found: error
 
+      - name: Record whether a regression was detected
+        # src/continuous_validation.py writes REGRESSION_DETECTED and still exits 0
+        # when it finds a regression, so this step is reached exactly when the
+        # issue step used to be.
+        id: regression
+        run: |
+          if [ -f REGRESSION_DETECTED ]; then
+            echo "detected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "detected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the regression message for the alert job
+        if: steps.regression.outputs.detected == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: iedb-regression-${{ github.run_id }}
+          path: REGRESSION_DETECTED
+          if-no-files-found: error
+
+  alert:
+    # The only job that can write. It checks nothing out and runs no repository
+    # code: it downloads the message the benchmark job uploaded and opens the issue.
+    needs: benchmark
+    if: needs.benchmark.outputs.regression == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write            # open regression alerts as GitHub Issues
+
+    steps:
+      - name: Download the regression message
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: iedb-regression-${{ github.run_id }}
+
       - name: Open GitHub Issue on regression
-        if: hashFiles('REGRESSION_DETECTED') != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         with:
           script: |
