@@ -217,6 +217,11 @@ def test_binding_helper_cannot_tell_a_missing_package_from_missing_model_data(
     """Why the demo's warning must not name a cause: _get_binding_score catches
     every Exception, so MHCflurry being unimportable and MHCflurry importing
     without its model data both come back as the same None."""
+    # The demo caches one predictor holder, and with it a failed load, for the whole
+    # process. Each call below must start fresh, so hand out a new holder per call;
+    # with real streamlit installed the shared holder would otherwise keep the first
+    # call's import failure and the later calls would never reach load().
+    monkeypatch.setattr(demo, "_presentation_predictor", demo._PresentationPredictor)
     monkeypatch.setitem(sys.modules, "mhcflurry", None)  # the import raises ImportError
     assert demo._get_binding_score(PANEL_PEPTIDE, "HLA-A*02:01") is None
 

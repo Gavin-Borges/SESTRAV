@@ -161,6 +161,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every guard and every fallback-flag site was individually mutation-tested by reverting
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
+- **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
+  peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
+  measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
+  against under 0.05 s each on a reused predictor. One holder, kept by `st.cache_resource`
+  and so shared by every session and rerun, now loads the predictor on first use and holds
+  a lock around the load and every `predict()`, which mutates the shared predictor. A
+  failed import or load is not retried, so **restart the demo after installing MHCflurry
+  or its model data by the verified route in `README.md` ("MHCflurry model data")**; the
+  demo's N/A warning now says so. `_get_binding_score` still returns `None` on any failure.
+  All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
+  code.
 ### Security
 - **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
   references, which it used to pass.** Each hands pip something the gate never inspects, and
