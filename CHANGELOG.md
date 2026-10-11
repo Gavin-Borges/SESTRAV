@@ -113,6 +113,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   One case fails the load with an exception whose message is empty, so a cached failure
   is recognised by being set, not by its text. Eleven mutants of the new code each fail
   at least one API test.
+- **`sestrav info` now says when it could not check the MHCflurry pin, and `USAGE.md`'s
+  expected output matches what it prints.** `sestrav info` reads `config.yaml` only from its
+  installation root, never from the working directory, and that stays: a `config.yaml` in
+  the working directory could otherwise switch `sestrav predict`'s `freeze_mode` off or
+  change `sestrav validate`'s default feature mode and binding matrix. A non-editable
+  install, which is what `README.md`'s and `USAGE.md`'s `pip install .` and the Docker image
+  make, has no `config.yaml` there. After such an install `sestrav info` printed
+  `config.yaml not found` and skipped the MHCflurry pin check without a word, while the
+  unpinned `pip install .` had resolved a newer MHCflurry (2.3.14 when measured on
+  2026-10-11) than the 2.2.1 that `config.yaml` pins. Found by running the documented
+  commands from a clean clone. It now prints a warning that the pin was not verified and
+  says how to check it by hand. The lookup is unchanged, and two new tests pin that a
+  `config.yaml` in the working directory is never read, whether or not the installation
+  root has one. `USAGE.md`'s quickstart output gains the `mhcflurry data` line, lists all
+  eight antigen panels that `config.yaml` names instead of four, shows torch's version as a
+  real wheel reports it, and says what changes after a non-editable install, including in
+  the Docker image.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
