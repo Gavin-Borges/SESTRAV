@@ -180,6 +180,40 @@ def test_rejects_malformed_input() -> None:
         fit_venn_abers(scores, labels, np.zeros_like(groups), n_folds=5)
 
 
+@pytest.mark.parametrize(
+    "relabel",
+    [
+        pytest.param(lambda y: y * 2.0, id="zero_two"),
+        pytest.param(lambda y: y * 2.0 - 1.0, id="minus_one_plus_one"),
+    ],
+)
+def test_two_class_labels_that_are_not_0_1_are_refused_by_the_guard(relabel) -> None:
+    """Labels must be 0/1 themselves, not merely two-valued.
+
+    StratifiedGroupKFold accepts {0, 2} and {-1, 1} as an ordinary binary
+    target, so the folds would be assigned without complaint and isotonic
+    calibration would then fit the wrong targets. Only this guard stands in the
+    way, so match its own message rather than the word "binary", which
+    sklearn's continuous-target error also contains.
+    """
+    scores, labels, groups = _exchangeable_data(3, n=200)
+    with pytest.raises(ValueError, match="labels must be binary 0/1"):
+        fit_venn_abers(scores, relabel(labels), groups)
+
+
+@pytest.mark.parametrize("n_folds", [1, 0])
+def test_fewer_than_two_folds_is_refused_with_the_guard_message(n_folds: int) -> None:
+    scores, labels, groups = _exchangeable_data(3, n=200)
+    with pytest.raises(ValueError, match="n_folds must be at least 2"):
+        fit_venn_abers(scores, labels, groups, n_folds=n_folds)
+
+
+def test_empty_input_is_refused_as_empty() -> None:
+    empty = np.array([], dtype=np.float64)
+    with pytest.raises(ValueError, match="scores must be non-empty"):
+        fit_venn_abers(empty, empty, empty)
+
+
 # --------------------------------------------------------------------------
 # Property 3: validity signal, and its degradation without grouping
 # --------------------------------------------------------------------------
