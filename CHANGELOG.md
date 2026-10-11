@@ -220,6 +220,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
+  `--no-require-hashes` line fails closed.** The check that every requirement carries a
+  hash had its own line reader, separate from the pip-faithful one the option check uses. It
+  cut a comment at any `#`, where pip cuts only after whitespace, so `--pre \#` (to pip,
+  `--pre` and an escaped `#`) ended in a backslash and folded the next requirement into an
+  option line that was never checked. It also took any `--hash=` text for a hash, so
+  `pkg -C--hash=x`, whose `--hash=` is a config setting's value, passed. And it accepted
+  `--no-require-hashes`, after which one hashed requirement no longer makes pip demand
+  hashes on the rest. A manifest of `--no-require-hashes`, `--pre \#`, `evilpkg` and a
+  hashed `goodpkg` therefore exited 0, while pip 26.2.1 (`pip install --dry-run --no-index
+  --find-links <wheels> -r <file>`) reported "Would install evilpkg-1.0 goodpkg-1.0", with
+  evilpkg unpinned and unhashed. CI's installs were not exposed, since each passes
+  `--require-hashes` and pip then refuses the file, but an install without it was. The hash
+  check now uses the option check's reader and takes the hash from the parsed options, and a
+  new test holds its verdict to pip's own reading over 2,744 generated three-line manifests,
+  on 1,280 of which the old check disagreed with pip. Found by an independent review of
+  #733. The 16 default manifests still pass: rc 0 before and after. Three mutants, one per
+  change, all make the tests fail.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
