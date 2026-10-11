@@ -407,6 +407,51 @@ def test_unquoted_value_in_an_extensionless_hook_is_flagged(tmp_path: Path) -> N
     assert mod.scan_file(str(target)) == [1]
 
 
+def test_hook_paths_relative_to_the_repo_root_allow_bare_values() -> None:
+    """The test above passes an ABSOLUTE path, where the hook directory sits at a
+    positive offset. main() scans ".", so the walk builds the hook's path as
+    ./scripts/hooks/pre-push (backslashes on Windows) and _normalised strips the
+    leading "./": the directory then matches at offset 0, which a `> 0` test misses.
+    """
+    mod = _load()
+    for path in (
+        "scripts/hooks/pre-push",
+        "./scripts/hooks/pre-push",
+        ".\\scripts\\hooks\\pre-push",
+    ):
+        assert mod.allows_bare_value(path) is True, path
+
+
+def test_main_from_the_repo_root_flags_an_unquoted_value_in_a_hook(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """End to end through main(), which is what security.yml runs: scan_tree(".")
+    from the repository root. The value is unquoted, so only the bare-value pattern
+    can catch it; the CODEOWNERS test below shows the same line passes under
+    quoted-only rules. The twelve clean .py files clear MIN_SCANNED_FILES, so a
+    non-zero exit here cannot come from the file-count floor.
+    """
+    mod = _load()
+    hooks = tmp_path / "scripts" / "hooks"
+    hooks.mkdir(parents=True)
+    _bare(hooks / "pre-push", "API_" + "TOKEN=" + _token())
+    for i in range(12):
+        (tmp_path / f"mod{i}.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    try:
+        mod.main()
+    except SystemExit as exc:
+        code = exc.code
+    else:
+        code = None
+    output = capsys.readouterr().out
+
+    assert code == 1
+    assert "[FLAGGED]" in output
+    assert "Potential secrets detected" in output
+
+
 def test_unquoted_value_in_a_makefile_is_flagged(tmp_path: Path) -> None:
     """Every Make assignment operator, including `:=`, which `[=:]` alone missed."""
     mod = _load()
