@@ -45,10 +45,12 @@ import logging
 import os
 import random
 import re
+import shutil
 import sys
 import tempfile
 import urllib.request
 import zipfile
+from urllib.parse import urlsplit
 
 import numpy as np
 import pandas as pd
@@ -64,6 +66,18 @@ from _dataset_utils import write_provenance  # noqa: E402
 MIRA_DOWNLOAD_URL = (
     "https://clients.adaptivebiotech.com/pub/covid-2020/immuneCODE-MIRA-release002.1.zip"
 )
+
+# The start URL and every redirect target are checked before urllib opens them:
+# each must be https on this netloc exactly (no port, no userinfo, no look-alike
+# host), so a redirect anywhere else fails closed. No sha256 is pinned for the
+# archive; it is checked structurally (it opens as a ZIP and every member passes
+# its CRC-32), which catches a member or directory cut short or damaged in
+# transit, but not a substituted archive.
+MIRA_DOWNLOAD_HOST = "clients.adaptivebiotech.com"
+
+# Seconds the opener may wait on the connect and on each socket read. It bounds
+# a stalled server, not the total transfer time of the archive.
+DOWNLOAD_TIMEOUT_SECONDS = 60
 
 # Preferred CSV filenames inside the ZIP archive, tried in order.
 _CANDIDATE_CSVS: list[str] = [
@@ -166,18 +180,64 @@ def _find_csv_in_dir(search_dir: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _check_download_url(url: str) -> None:
+    """Refuse a URL that is not https on MIRA_DOWNLOAD_HOST exactly."""
+    parts = urlsplit(url)
+    # urlsplit drops tab, CR and LF, but urllib.request keeps them, so a URL
+    # with any control, space or non-ASCII character is refused outright.
+    if not all(32 < ord(ch) < 127 for ch in url):
+        reason = "it holds a control, space or non-ASCII character"
+    elif parts.scheme != "https" or parts.netloc != MIRA_DOWNLOAD_HOST:
+        reason = f"not https on {MIRA_DOWNLOAD_HOST}"
+    else:
+        return
+    shown = url.split("?", 1)[0].split("#", 1)[0]  # a query may hold a signed token
+    raise RuntimeError(f"Refusing ImmuneCODE download URL {shown!r}: {reason}")
+
+
+class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Check each redirect target with _check_download_url before urllib requests it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_download_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _zip_is_intact(path: str) -> bool:
+    """True when path opens as a ZIP archive and every member passes its CRC-32."""
+    try:
+        with zipfile.ZipFile(path, "r") as zf:
+            return zf.testzip() is None
+    except Exception:  # any failure to open or read it means it cannot be used
+        return False
+
+
 def _download_mira(dest_dir: str) -> str:
     """Download the MIRA ZIP from Adaptive Biotechnologies.
 
+    The bytes stream to a .part file, which takes the archive's name only once
+    _zip_is_intact passes; any failure, KeyboardInterrupt included, removes it.
+    That removal is best effort: if it raises (a Windows sharing violation, for
+    example), the error is dropped, so it never replaces the failure itself.
     Returns the local path of the downloaded file.
     Raises RuntimeError with an actionable message if the download fails.
     """
     os.makedirs(dest_dir, exist_ok=True)
     zip_name = "immuneCODE-MIRA-release002.1.zip"
     zip_path = os.path.join(dest_dir, zip_name)
+    partial = zip_path + ".part"
     log.info("Downloading ImmuneCODE MIRA from %s", MIRA_DOWNLOAD_URL)
+    opener = urllib.request.build_opener(_CheckedRedirectHandler)
     try:
-        urllib.request.urlretrieve(MIRA_DOWNLOAD_URL, zip_path)  # nosec B310
+        _check_download_url(MIRA_DOWNLOAD_URL)
+        with (
+            opener.open(MIRA_DOWNLOAD_URL, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response,
+            open(partial, "wb") as output,
+        ):
+            shutil.copyfileobj(response, output, 1024 * 1024)
+        if not _zip_is_intact(partial):
+            raise RuntimeError("the downloaded file is not a complete, undamaged ZIP archive")
+        os.replace(partial, zip_path)
     except Exception as exc:
         raise RuntimeError(
             f"Download failed: {exc}\n"
@@ -185,8 +245,12 @@ def _download_mira(dest_dir: str) -> str:
             f"  {MIRA_DOWNLOAD_URL}\n"
             "Then pass it via --input PATH."
         ) from exc
-    if not zipfile.is_zipfile(zip_path):
-        raise RuntimeError(f"Downloaded file is not a valid ZIP archive: {zip_path}")
+    finally:
+        if os.path.exists(partial):
+            try:
+                os.remove(partial)
+            except OSError:
+                pass  # best effort: a locked .part must not replace the download's own outcome
     return zip_path
 
 
@@ -220,13 +284,15 @@ def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
       3. input_path is a CSV -> read directly.
 
     Returns (DataFrame, source_description) where source_description is used
-    only for the provenance sidecar.
+    only for the provenance sidecar: MIRA_DOWNLOAD_URL for the auto-download,
+    whose archive is deleted with its temporary directory, else input_path.
     """
     if input_path is None:
         log.info("No --input given; attempting auto-download.")
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = _download_mira(tmp)
-            return _load_from_zip(zip_path)
+            df, _zip_path = _load_from_zip(zip_path)
+            return df, MIRA_DOWNLOAD_URL
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"--input path not found: {input_path}")
@@ -471,6 +537,37 @@ def _build_output_df(records: list[dict[str, object]]) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Provenance
+# ---------------------------------------------------------------------------
+
+# The checkout holding this script. An --input inside it is recorded in the
+# provenance sidecar relative to it.
+_REPO_ROOT: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _provenance_source(source: str) -> str:
+    """Return how the provenance sidecar records a source: never as an absolute path.
+
+    The auto-download is recorded by MIRA_DOWNLOAD_URL, a path inside the repo
+    by its repo-relative POSIX path, and any other path by its basename alone,
+    prefixed "external:", so no home, temporary or drive path is written.
+    """
+    if source == MIRA_DOWNLOAD_URL:
+        return source
+    # Both sides in one resolved form, so a symlinked or dotted spelling of
+    # either cannot move a file in or out of the repo.
+    path = os.path.realpath(source)
+    root = os.path.realpath(_REPO_ROOT)
+    try:
+        inside = os.path.commonpath([root, path]) == root
+    except ValueError:  # on Windows, a path on a different drive from the repo
+        inside = False
+    if inside:
+        return os.path.relpath(path, root).replace(os.sep, "/")
+    return "external:" + os.path.basename(path)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -575,7 +672,7 @@ def main(argv: list[str] | None = None) -> int:
     # Write provenance sidecar.
     write_provenance(
         args.output,
-        sources=[source_path],
+        sources=[_provenance_source(source_path)],
         row_count=len(df_out),
         extra={
             "database": "ImmuneCODE MIRA",
