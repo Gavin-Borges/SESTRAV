@@ -910,3 +910,59 @@ def test_qc_gate_reports_which_duplicate_column_it_dropped(tmp_path, temp_config
         f"the dropped column was not reported:\n{output}"
     )
     assert "'hla_allele'" in output
+
+
+# --- Which column each field is read from -----------------------------------
+# The duplicate-column cases above copy IDENTICAL data into both spellings, so
+# they pass whichever spelling the mapper picks. The two cases below make the
+# choice observable: the fuzzy spellings hold different content, or are the
+# only spellings present (the raw IEDB export shape, "Description" and
+# "Qualitative Measure").
+
+
+def test_qc_gate_reads_the_exact_columns_when_fuzzy_spellings_hold_other_text(
+    tmp_path, temp_config, valid_df
+):
+    """An exact "peptide"/"label" column must win over a fuzzy one placed first.
+
+    Here "description" and "qualitative measure" hold free-text notes. If the
+    fuzzy column won, the gate would QC the notes as peptides and labels and
+    fail a valid corpus.
+    """
+    df = valid_df.copy()
+    df["description"] = [f"assay note for row {i}" for i in range(len(df))]
+    df["qualitative measure"] = ["see lab notebook"] * len(df)
+    df = df[["description", "qualitative measure", "peptide", "label", "allele"]]
+
+    dataset_path = tmp_path / "exact_and_fuzzy.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_qc_gate(dataset_path, temp_config)
+
+    assert "Mapped columns: peptide->'peptide', label->'label', allele->'allele'" in output, output
+    assert result.returncode == 0, output
+    assert "All dataset QC gates passed successfully." in output
+
+
+def test_qc_gate_maps_a_fuzzy_only_corpus_by_its_fuzzy_names(tmp_path, temp_config, valid_df):
+    """With no exact names, the fuzzy spellings are the columns that get QC'd."""
+    df = pd.DataFrame(
+        {
+            "Description": valid_df["peptide"],
+            "Qualitative Measure": valid_df["label"].map({1: "Positive", 0: "Negative"}),
+            "allele": valid_df["allele"],
+        }
+    )
+
+    dataset_path = tmp_path / "fuzzy_only.csv"
+    df.to_csv(dataset_path, index=False)
+
+    result, output = _run_qc_gate(dataset_path, temp_config)
+
+    assert "Traceback" not in output, output
+    assert (
+        "Mapped columns: peptide->'Description', label->'Qualitative Measure', allele->'allele'"
+        in output
+    ), output
+    assert result.returncode == 0, output
+    assert "All dataset QC gates passed successfully." in output
