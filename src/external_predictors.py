@@ -20,6 +20,20 @@ NETCHOP_CONFIG = "/var/www/services/services/NetChop-3.1/webface.cf"
 
 TAPREG_URL = "https://imed.med.ucm.es/cgi-bin/tapreg.pl"
 
+
+class PredictorUnavailableError(RuntimeError):
+    """A live NetChop or TAPreg query returned no real scores for any peptide.
+
+    Raised whenever mock_fallback is False and the live query fails. False is
+    query_netchop's default, so a bare query_netchop(...) call raises on an
+    outage; query_tapreg and get_predictor_dataframe default to True. Until
+    2026-10-10 the live paths returned mock scores on failure instead, so a
+    caller that had asked for live predictions could not tell a server outage
+    from a result. A partial answer is not an error: peptides the server omits
+    come back with empty scores.
+    """
+
+
 DEFAULT_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -181,10 +195,17 @@ def query_netchop(
         threshold (float): Prediction cleavage threshold.
         max_retries (int): Maximum retry attempts.
         initial_backoff (float): Initial backoff time in seconds.
-        mock_fallback (bool): If True, returns generated mock scores if the query fails.
+        mock_fallback (bool): If True, skip the network and return generated mock
+            scores. If False (the default), query the live server and raise
+            PredictorUnavailableError when no peptide's scores can be obtained;
+            peptides the server omits come back with empty scores.
 
     Returns:
         Dict[str, Dict[str, Any]]: Cleaned scores keyed by peptide.
+
+    Raises:
+        PredictorUnavailableError: mock_fallback is False and the job could not be
+            submitted, or polling ended without scores for any peptide.
     """
     if not peptide_list:
         return {}
@@ -206,6 +227,7 @@ def query_netchop(
 
     backoff = initial_backoff
     job_id = None
+    last_error: Optional[requests.exceptions.RequestException] = None
 
     # Phase 1: Submit job and get job ID
     for attempt in range(max_retries):
@@ -229,18 +251,22 @@ def query_netchop(
                 logger.warning("Server responded, but could not parse Job ID.")
 
         except requests.exceptions.RequestException as e:
+            last_error = e
             logger.warning(f"NetChop submission error: {e}. Retrying...")
 
         time.sleep(backoff)
         backoff *= 2
 
     if not job_id:
-        logger.error("NetChop job submission failed. Falling back to mock scores.")
-        return {pep: _generate_mock_netchop_scores(pep) for pep in peptide_list}
+        raise PredictorUnavailableError(
+            f"NetChop job submission failed after {max_retries} attempt(s); "
+            "pass mock_fallback=True to use mock scores instead"
+        ) from last_error
 
     # Phase 2: Poll for results
     poll_url = f"https://services.healthtech.dtu.dk/cgi-bin/webface2.cgi?jobid={job_id}"
     backoff = initial_backoff
+    last_error = None
 
     for attempt in range(max_retries * 2):
         try:
@@ -266,13 +292,16 @@ def query_netchop(
                 logger.warning("NetChop polling returned empty result table.")
 
         except requests.exceptions.RequestException as e:
+            last_error = e
             logger.warning(f"NetChop polling error: {e}")
 
         time.sleep(backoff)
         backoff = min(30.0, backoff * 1.5)
 
-    logger.error("NetChop job polling failed or timed out. Falling back to mock scores.")
-    return {pep: _generate_mock_netchop_scores(pep) for pep in peptide_list}
+    raise PredictorUnavailableError(
+        f"NetChop job polling failed or timed out for job {job_id}; "
+        "pass mock_fallback=True to use mock scores instead"
+    ) from last_error
 
 
 def parse_tapreg_html(html_content: str, peptide_list: List[str]) -> Dict[str, float]:
@@ -338,10 +367,17 @@ def query_tapreg(
         threshold (Optional[float]): Cutoff threshold to display scores.
         max_retries (int): Maximum retry attempts.
         initial_backoff (float): Initial backoff time.
-        mock_fallback (bool): If True, returns high-fidelity mock scores when connection fails.
+        mock_fallback (bool): If True (the default), skip the network and return
+            generated mock scores. If False, query the live server and raise
+            PredictorUnavailableError when no peptide's score can be obtained;
+            peptides the server omits are absent from the result.
 
     Returns:
         Dict[str, float]: Predictions keyed by peptide sequence.
+
+    Raises:
+        PredictorUnavailableError: mock_fallback is False and every attempt failed,
+            returned no parseable scores, or hit the UCM VPN restriction page.
     """
     if not peptide_list:
         return {}
@@ -369,6 +405,7 @@ def query_tapreg(
         payload["thresh"] = str(threshold)
 
     backoff = initial_backoff
+    last_error: Optional[requests.exceptions.RequestException] = None
     for attempt in range(max_retries):
         try:
             logger.info(f"Querying TAPreg server (attempt {attempt + 1}/{max_retries})...")
@@ -379,7 +416,10 @@ def query_tapreg(
             # Check if UCM restricted access/VPN error is present
             if "VPN" in response.text or "acceso restringido" in response.text.lower():
                 logger.warning("TAPreg query returned UCM VPN restriction page.")
-                break
+                raise PredictorUnavailableError(
+                    "TAPreg returned the UCM VPN restriction page; "
+                    "pass mock_fallback=True to use mock scores instead"
+                ) from last_error
 
             scores = parse_tapreg_html(response.text, peptide_list)
             if scores:
@@ -388,14 +428,16 @@ def query_tapreg(
                 logger.warning("TAPreg returned page but no peptide scores were parsed.")
 
         except requests.exceptions.RequestException as e:
+            last_error = e
             logger.warning(f"TAPreg communication error: {e}")
 
         time.sleep(backoff)
         backoff *= 2
 
-    # Return mock fallback if query fails (either due to VPN or network error)
-    logger.error("TAPreg query failed or is unreachable. Falling back to mock scores.")
-    return {pep: _generate_mock_tapreg_score(pep, model) for pep in peptide_list}
+    raise PredictorUnavailableError(
+        f"TAPreg query failed after {max_retries} attempt(s) (network error or no "
+        "parseable scores); pass mock_fallback=True to use mock scores instead"
+    ) from last_error
 
 
 def get_predictor_dataframe(
@@ -412,10 +454,17 @@ def get_predictor_dataframe(
         peptide_list (List[str]): List of peptide sequences.
         netchop_method (str): NetChop prediction method ('cterm' or '20s').
         tap_model (str): TAPreg prediction model ('blosum' or 'sparse').
-        mock_fallback (bool): If True, allow mock scores on connection timeouts or VPN block.
+        mock_fallback (bool): If True (the default), skip both servers and use
+            generated mock scores. If False, query both live and raise
+            PredictorUnavailableError if either returns no score for any peptide;
+            peptides a server omits get NaN or empty columns.
 
     Returns:
         pd.DataFrame: Cleaned predictions DataFrame.
+
+    Raises:
+        PredictorUnavailableError: mock_fallback is False and NetChop or TAPreg
+            returned no score for any peptide.
     """
     if not peptide_list:
         return pd.DataFrame(columns=["netchop_cterm_score", "netchop_all_scores", "tap_score"])

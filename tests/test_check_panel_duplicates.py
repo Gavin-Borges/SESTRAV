@@ -10,6 +10,7 @@ the script used to certify all of them as new and safe for held-out use.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -84,3 +85,65 @@ def test_header_only_panel_is_not_an_error(tmp_path: Path, dataset: Path) -> Non
     result = _run(panel, dataset, tmp_path)
 
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _detect_delimiter():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("check_panel_duplicates", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module._detect_delimiter
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("panel.csv", ","),
+        ("panel.tsv", "\t"),
+        ("panel.txt", "\t"),
+        ("PANEL.TSV", "\t"),
+        ("panel.dat", ","),
+        ("panel", ","),
+    ],
+)
+def test_delimiter_follows_the_extension(name: str, expected: str) -> None:
+    """Tab for .tsv and .txt (any case), comma for everything else."""
+    assert _detect_delimiter()(name) == expected
+
+
+@pytest.mark.parametrize("suffix", [".tsv", ".txt"])
+def test_tab_panel_with_a_comma_in_its_header_is_read_by_tab(
+    tmp_path: Path, dataset: Path, suffix: str
+) -> None:
+    """Read comma-first, this header splits into two columns, so the one-column tab
+    fallback never fires and no `peptide` column is found. A comma only in a data field
+    is not enough: pandas then reads one column and the fallback rescues it."""
+    panel = tmp_path / f"overlap{suffix}"
+    panel.write_text(
+        "peptide\thla_allele\tnotes, free text\nSIINFEKL\tHLA-A*02:01\tseen, twice\n",
+        encoding="utf-8",
+    )
+
+    result = _run(panel, dataset, tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert re.search(r"Already in dataset:\s+1\n", result.stdout), result.stdout
+
+
+@pytest.mark.parametrize("name", ["overlap.dat", "overlap"])
+def test_tab_panel_without_a_tab_extension_is_read_by_the_one_column_fallback(
+    tmp_path: Path, dataset: Path, name: str
+) -> None:
+    """A tab-separated panel that is neither .tsv nor .txt is read comma-first. With no
+    comma anywhere in it that yields a single column, so _load_file re-reads it by tab,
+    and only then is the `peptide` column, and so the overlap, found."""
+    panel = tmp_path / name
+    panel.write_text("peptide\thla_allele\nSIINFEKL\tHLA-A*02:01\n", encoding="utf-8")
+    assert _detect_delimiter()(str(panel)) == ","
+
+    result = _run(panel, dataset, tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert re.search(r"Already in dataset:\s+1\n", result.stdout), result.stdout

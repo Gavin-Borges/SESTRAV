@@ -1,8 +1,9 @@
 """Tests for the dismissed-alert justification gate.
 
-NO NETWORK. Every test here feeds `evaluate` / `run` a hand-built fixture list
+NO EXTERNAL NETWORK. The tests feed `evaluate` / `run` a hand-built fixture list
 shaped like the GitHub code-scanning alert payload, which is why the module
-keeps fetching and judging in separate functions.
+keeps fetching and judging in separate functions, or replace `urlopen` with a
+fake. One redirect test opens two servers on 127.0.0.1 and nothing else.
 
 The load-bearing test is `test_auth_failure_is_not_a_clean_census`: a gate that
 silently passes when it could not run is the exact failure this repository
@@ -330,11 +331,17 @@ def test_fetch_raises_when_no_auth_route_exists(monkeypatch):
 class _FakeResponse:
     """The slice of an ``urlopen`` response that the HTTP fetcher reads."""
 
-    def __init__(self, body: str):
+    def __init__(
+        self, body: str, url: str = "https://api.github.com/repos/owner/name/code-scanning/alerts"
+    ):
         self._body = body.encode("utf-8")
+        self._url = url
 
     def read(self) -> bytes:
         return self._body
+
+    def geturl(self) -> str:
+        return self._url
 
     def __enter__(self):
         return self
@@ -398,6 +405,126 @@ def test_http_route_fetches_past_a_full_page_and_stops_after_a_short_one(monkeyp
     alerts = gate.fetch_dismissed_alerts("owner/name")
     assert requested == [1, 2]
     assert [alert["number"] for alert in alerts] == list(range(1, gate.PER_PAGE + 2))
+
+
+# A deliberately low-entropy stand-in, so scripts/check_secrets.py, which flags a quoted
+# high-entropy value beside a credential keyword, does not read these tests as a leak.
+_FAKE_BEARER_VALUE = "x" * 20
+
+
+def _request_built_by_the_http_route(monkeypatch) -> "urllib.request.Request":
+    """The exact Request object _fetch_page_http hands to urlopen."""
+    captured = []
+
+    def fake_urlopen(request, timeout=None):
+        captured.append(request)
+        return _FakeResponse(json.dumps([]))
+
+    monkeypatch.setattr(gate.urllib.request, "urlopen", fake_urlopen)
+    gate._fetch_page_http("owner/name", "dismissed", 1, _FAKE_BEARER_VALUE)
+    [request] = captured
+    return request
+
+
+def test_bearer_token_is_sent_but_not_marked_for_redirects(monkeypatch):
+    # urllib's HTTPRedirectHandler copies Request.headers into the follow-up
+    # request and leaves out headers added with add_unredirected_header, so the
+    # token must live only in the second set.
+    request = _request_built_by_the_http_route(monkeypatch)
+    sent = {name.lower(): value for name, value in request.header_items()}
+    redirectable = {name.lower() for name in request.headers}
+    assert sent["authorization"] == "Bearer " + _FAKE_BEARER_VALUE
+    assert "authorization" not in redirectable
+
+
+@pytest.mark.parametrize(
+    "served_from",
+    [
+        "https://mirror.example/repos/owner/name/code-scanning/alerts",
+        "http://api.github.com/repos/owner/name/code-scanning/alerts",
+        "https://api.github.com.example.org/repos/owner/name/code-scanning/alerts",
+    ],
+)
+def test_a_response_redirected_off_the_api_host_is_refused(monkeypatch, served_from):
+    # urllib follows a redirect on its own. A page served from anywhere but
+    # https://api.github.com must not be parsed: "[]" from another host would
+    # otherwise read as a clean census of zero dismissed alerts.
+    monkeypatch.setattr(
+        gate.urllib.request,
+        "urlopen",
+        lambda request, timeout=None: _FakeResponse("[]", served_from),
+    )
+    with pytest.raises(gate.CouldNotRun, match="redirected"):
+        gate._fetch_page_http("owner/name", "dismissed", 1, _FAKE_BEARER_VALUE)
+
+
+def test_bearer_token_does_not_follow_a_redirect_to_another_origin(monkeypatch):
+    # The request the gate builds, replayed through urllib's real redirect
+    # handler against two local servers: one answers 302 to the other, on
+    # another port and so another origin. urllib's redirect handler applies no
+    # host rule, so this is the same test as a redirect to a foreign host. The
+    # target is 127.0.0.1 rather than localhost, which on Windows resolves to
+    # ::1 first and costs about two seconds to refuse. The first hop must carry
+    # the token (the control) and the second must not.
+    import http.server
+    import threading
+    import urllib.request
+
+    seen: dict[str, str | None] = {}
+
+    class Landing(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen["landing"] = self.headers.get("Authorization")
+            body = b"[]"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    landing = http.server.HTTPServer(("127.0.0.1", 0), Landing)
+    landing_port = landing.server_address[1]
+
+    class Redirect(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen["first_hop"] = self.headers.get("Authorization")
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{landing_port}/landing")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    try:
+        first = http.server.HTTPServer(("127.0.0.1", 0), Redirect)
+    except BaseException:
+        landing.server_close()
+        raise
+    # A short poll interval: shutdown() waits up to one interval per server.
+    threads = [
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
+        for server in (first, landing)
+    ]
+    for thread in threads:
+        thread.start()
+    try:
+        request = _request_built_by_the_http_route(monkeypatch)
+        request.full_url = f"http://127.0.0.1:{first.server_address[1]}/start"
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(request, timeout=10) as response:
+            assert response.read() == b"[]"
+    finally:
+        first.shutdown()
+        landing.shutdown()
+        first.server_close()
+        landing.server_close()
+    assert seen["first_hop"] == "Bearer " + _FAKE_BEARER_VALUE
+    assert "landing" in seen, "the redirect was not followed"
+    assert seen["landing"] is None, "the bearer token was forwarded across the redirect"
 
 
 # ---------------------------------------------------------------------------

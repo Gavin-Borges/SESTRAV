@@ -162,9 +162,10 @@ def main():
 
         try:
             # mock_fallback=True: DTU NetChop webface2 response format changed (parser finds no
-            # tabular data) and TAPreg requires UCM institutional VPN. Both real-API paths fall
-            # back to mock scores anyway after exhausting retries (~154s/peptide).
-            # Using mock_fallback=True takes the fast path directly and is honest about the source.
+            # tabular data) and TAPreg requires UCM institutional VPN. Both real-API paths
+            # retry with back-off and then raise PredictorUnavailableError (until 2026-10-10
+            # they returned mock scores at that point instead). Using mock_fallback=True takes
+            # the mock path directly and is honest about the source.
             result = query_netchop([peptide], mock_fallback=True)
             pep_scores = result.get(peptide, {}).get("scores", [])
             netchop_score = float(sum(pep_scores) / len(pep_scores)) if pep_scores else float("nan")
