@@ -362,6 +362,20 @@ jobs:
         # dependency, and `--metrics=off` keeps it that way.
         run: semgrep scan --config semgrep-rules/ --error --metrics=off
 
+      - name: Prove the custom rules still fire on their fixtures
+        # `.semgrepignore` keeps the fixture files out of the scan above, so a
+        # rule that stopped matching (an edit, or a semgrep version that reads
+        # its pattern differently) would leave that scan green. This step names
+        # the fixtures explicitly, which bypasses `.semgrepignore`, and fails
+        # unless semgrep reports exactly the lines their `ruleid:` annotations
+        # name and none of the `ok:` lines, and every rule semgrep ran against
+        # the fixtures has a `ruleid:` fixture. A rule in a language no fixture
+        # uses never runs here; tests/test_check_semgrep_rule_fixtures.py, in the
+        # required test job, parses every rule file and catches that case. This
+        # step runs even when the scan above fails, so both results show.
+        if: ${{ !cancelled() }}
+        run: python scripts/check_semgrep_rule_fixtures.py
+
   pip-audit:
     name: pip-audit Dependency Scan (advisory)
     runs-on: ubuntu-latest

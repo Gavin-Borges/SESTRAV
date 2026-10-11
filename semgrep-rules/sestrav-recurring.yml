@@ -1,3 +1,9 @@
+# Every rule here needs a `# ruleid:` line in a fixture under semgrep-rules/; the
+# semgrep-custom job's fixture step (scripts/check_semgrep_rule_fixtures.py) and
+# tests/test_check_semgrep_rule_fixtures.py fail otherwise.
+# Known limit: semgrep can miss a match that follows a very long line in the same
+# file. A 2026-10-10 review probe hid one behind a line of about 7 KB; the longest
+# line the blocking scan read that day was 397 characters.
 rules:
   - id: sestrav-prefer-sys-executable
     message: Use sys.executable instead of a bare python or python3 child interpreter.
