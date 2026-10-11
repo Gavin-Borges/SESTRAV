@@ -126,6 +126,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   rows these belong to, when the manuscript called them trivially easy to calibrate and
   their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
   this is outside claims-register row D21.
+- **`docs/model_evaluation_summary.md`'s rebuild command now runs as written.** Its reader
+  disclosure said to rebuild a model with `python -m src.train_classifier --feature-mode <N>`,
+  which exits 2 before training because `--data` and `--model-dir` are required. It now
+  gives the complete mode-31 command, which exits 0 from a clone using only tracked inputs,
+  with `models/local/` (gitignored) as the destination, and says that a second run into the
+  same directory needs `--allow-overwrite` (without it the run exits 1 rather than replace
+  what the first wrote). It no longer offers a command for mode 33, which also reads an
+  antigen-processing score cache: no mode-33 rebuild has been checked from a clone.
 - **`scripts/check_panel_duplicates.py`'s delimiter docstring now matches the code, and its
   tab path is tested.** The docstring said a panel is read with `,` for `.csv` and a tab for
   everything else; the code reads a tab only for `.tsv` and `.txt` (any case) and `,` for
