@@ -949,6 +949,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   target one of the matrix versions. Against the previous tool settings it fails exactly
   these seven.
 
+- **`tools/check_dismissal_justifications.py` no longer forwards its bearer token across
+  an HTTP redirect, and no longer accepts a response served from any host but
+  `https://api.github.com`.** The `GITHUB_TOKEN` / `GH_TOKEN` route set `Authorization` as
+  an ordinary request header, which urllib's redirect handler copies into the follow-up
+  request for whatever host the `Location` names. A test replaying the gate's own request
+  through urllib's real redirect handler, against two loopback servers on different ports,
+  showed the token arriving at the second one. It is now an unredirected header: the first
+  hop still carries it and the second does not. The existing guard refused any URL but
+  `https://api.github.com` before the first request, but urllib still followed a redirect
+  and the tool parsed whatever came back, so a redirect to another host answering `200 []`
+  would have read as a clean census of zero alerts. The URL the response was finally served
+  from is now held to the same scheme and host, and anything else exits 2 (could not run).
+  One consequence: a same-host redirect, such as GitHub's 301 for a renamed repository, is
+  also followed without the token, so the follow-up request is unauthenticated and any
+  error it draws exits 2. The advisory workflow passes `--repo "${GITHUB_REPOSITORY}"`, the
+  canonical name, so it does not depend on such a redirect.
 ### Added
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
   them.** Nineteen commits made between 2026-08-16 and 2026-08-17 carry the author and committer
