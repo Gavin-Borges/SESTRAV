@@ -17,6 +17,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -225,6 +226,69 @@ def test_the_shipped_ratchet_file_is_well_formed_and_current():
     assert listed, "an empty ratchet certifies nothing"
     missing = [f for f in listed if not (_REPO_ROOT / f).is_file()]
     assert not missing, f"stale ratchet entries: {missing}"
+
+
+# --- run_mypy's command line, without mypy ------------------------------------
+#
+# The tests above that reach run_mypy do so through check() with run_mypy
+# replaced by a canned result, and the ones below that run it for real need mypy,
+# which CI's test job does not install. These record the subprocess call instead,
+# so the command the lint job runs is pinned in every job that runs this file.
+
+
+def test_mypy_base_args_are_the_pinned_flags():
+    # A literal, so changing the flags means editing this test as well: without
+    # it, dropping --strict leaves every test here passing in CI's test job while
+    # the lint job's gate certifies a run that is not strict.
+    assert gate.MYPY_BASE_ARGS == (
+        "--strict",
+        "--follow-imports=silent",
+        "--no-pretty",
+        "--no-color-output",
+        "--show-error-codes",
+    )
+
+
+class _RecordingRun:
+    def __init__(self, returncode: int = 0, stdout: str = "", stderr: str = "") -> None:
+        self.calls: list[tuple[list[str], dict]] = []
+        self._result = subprocess.CompletedProcess([], returncode, stdout, stderr)
+
+    def __call__(self, argv, **kwargs):
+        self.calls.append((list(argv), kwargs))
+        return self._result
+
+
+def test_run_mypy_runs_strict_mypy_under_this_interpreter(tmp_path, monkeypatch):
+    fake = _RecordingRun(returncode=1, stdout="out\n", stderr="err\n")
+    monkeypatch.setattr(gate, "subprocess", types.SimpleNamespace(run=fake))
+
+    result = gate.run_mypy(["pkg/a.py", "pkg/b.py"], tmp_path)
+
+    assert fake.calls == [
+        (
+            [sys.executable, "-m", "mypy", *gate.MYPY_BASE_ARGS, "pkg/a.py", "pkg/b.py"],
+            {"cwd": tmp_path, "capture_output": True, "text": True, "check": False},
+        )
+    ]
+    assert result == gate.MypyResult(1, "out\nerr\n")
+
+
+def test_run_mypy_passes_another_interpreter_to_mypy(tmp_path, monkeypatch):
+    fake = _RecordingRun()
+    monkeypatch.setattr(gate, "subprocess", types.SimpleNamespace(run=fake))
+
+    gate.run_mypy(["pkg/a.py"], tmp_path, "venv/bin/python")
+
+    argv, _ = fake.calls[0]
+    assert argv == [
+        sys.executable,
+        "-m",
+        "mypy",
+        *gate.MYPY_BASE_ARGS,
+        "--python-executable=venv/bin/python",
+        "pkg/a.py",
+    ]
 
 
 # --- the real mypy -----------------------------------------------------------
