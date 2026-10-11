@@ -191,6 +191,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   failed); and an unset `RUNNER_TEMP` must stop the step. The three tests that run the
   shipped step now pass a `RUNNER_TEMP`. Mutation-checked on a throwaway copy: a diff file
   inside the checkout and a dropped `:?` guard each fail at least one case.
+- **`scripts/ingest_vdjdb.py` verifies the VDJdb archive it downloads, checks every redirect
+  before following it, and replaces a damaged archive only with a verified one.** The latest
+  release's `.zip` asset was downloaded with `urllib.request.urlretrieve`, with no timeout,
+  no host check and no integrity check, straight to `vdjdb.zip`. An interrupted transfer left
+  a partial `vdjdb.zip` behind, and later runs then skipped the download because that file
+  existed and, finding no extracted `vdjdb.txt`, returned no input instead of fetching again.
+  The asset URL must now be https, on the netloc `github.com` exactly, under this
+  repository's release downloads, with no `..` segment, encoded or not, and no control,
+  space or non-ASCII character. Every redirect target is checked before urllib requests it,
+  and must pass the same check or be https on `objects.githubusercontent.com` or
+  `release-assets.githubusercontent.com`, so an http or ftp hop, any other host, and
+  user-content hosts such as `raw.githubusercontent.com` are refused. The transfer has a
+  60-second socket timeout, stops once it exceeds the size the GitHub release API reports for
+  the asset, streams to `vdjdb.zip.part`, is checked against the sha256 digest the API
+  reports, is extracted, and only then takes the name `vdjdb.zip`; any failure removes the
+  `.part` file. An asset without a 64-hex sha256 digest or a positive integer size is refused
+  before it is downloaded. A `vdjdb.zip` already on disk that does not open as an archive, or
+  has a member that fails its CRC-32 check, is kept until extraction of a verified download
+  starts. If the fetch fails before then (no network, a refused URL, a transfer over the
+  reported size, a digest mismatch), the archive is kept and any table already beside it is
+  still used, as the previous code did. When extraction of the replacement starts, the
+  damaged archive is removed before anything is written, because extraction writes into the
+  same directory and may overwrite that table: an error then returns no table, an interrupt
+  propagates, and no later run has the damaged archive to fall back on, including after a
+  process killed outright mid-extraction or a failure to remove `vdjdb.zip.part`.
+  Extraction counts as started before its zip-slip check, so a refusal there takes the same
+  path though nothing was written. An intact
+  `vdjdb.zip` is still reused with no network access, and is extracted again when neither
+  `vdjdb.txt` nor `vdjdb_full.txt` is found; that extraction can now raise, for example on a
+  member that would land outside the directory, where the previous code printed a warning
+  and returned no input. A truncated `vdjdb.txt` beside an intact archive, which an
+  interrupted re-extraction or an earlier version of this script could leave, is not
+  detected. The digest arrives in the same API response as the URL, so a match shows the
+  bytes are the asset that response describes, not that the release itself is trustworthy.
+  Pinning a release and its digest would close that gap but would replace "latest" with a
+  fixed version, so it is left as an open decision. `pyproject.toml`'s comment on the global
+  ruff `S310` ignore said all URLs are HTTPS and scheme-validated. With that ignore lifted,
+  `S310` flags 13 lines in 9 files: 5 have no runtime scheme check, and the check at one
+  more, in `scripts/install_prime_wsl.py`, also admits `http://`. The comment now says not
+  every site checks the scheme. `tests/test_ingest_vdjdb_fetch.py` adds 110 cases, 95 of which
+  fail on the previous code; the refused-redirect cases run for each of 301, 302, 303, 307 and
+  308. Of 55 mutants run against an earlier revision of this change and its 70 cases, each
+  reverting one protection in place, 54 were killed; the survivor compares the digest with
+  `startswith`, which is equivalent here because the expected digest is always exactly 64 hex
+  characters. Three mutants re-run on this revision are each killed: the redirect check
+  applied to 302 only, the damaged archive removed only after extraction, and the failure
+  cleanup no longer removing a member extracted onto `vdjdb.zip`.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
