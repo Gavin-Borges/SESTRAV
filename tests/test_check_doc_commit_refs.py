@@ -107,6 +107,34 @@ def test_all_digit_sha_is_still_detected(sha_re):
     assert sha_re.findall("commit 1234567 is cited here") == ["1234567"]
 
 
+@pytest.mark.parametrize("length", [41, 50, 64, 128])
+def test_hex_runs_longer_than_a_commit_hash_never_match(sha_re, length):
+    """A SHA-256 digest, or any hex run past 40 characters, is not a commit hash.
+
+    SHA_RE alone keeps such a run out, and nothing downstream filters by length:
+    its {7,40} length cap refuses the run whole, and its boundary assertions
+    refuse every shorter piece of it, each of which has a hex neighbour on at
+    least one side.
+    """
+    token = ("0123456789abcdef" * 8)[:length]
+    assert sha_re.findall(f"sha256 {token}") == []
+    assert sha_re.findall(f"commit {token} is cited here") == []
+
+
+def test_an_uppercase_digest_never_matches(sha_re):
+    """An uppercase digest's runs of digits are not commit hashes either.
+
+    SHA_RE takes only [0-9a-f], so in an uppercase digest its only candidates are
+    the runs of digits. The boundary assertions refuse a capital letter on either
+    side, which keeps the leading and trailing digit runs here out; an assertion
+    narrowed to [0-9a-f] would let one of them through.
+    """
+    digest = "1234567" + "ABCDEF" * 8 + "AB" + "7654321"
+    assert len(digest) == 64
+    assert sha_re.findall(f"sha256 {digest}") == []
+    assert sha_re.findall(f"commit {digest} is cited here") == []
+
+
 @pytest.mark.parametrize(
     "text",
     [
