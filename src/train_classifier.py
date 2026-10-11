@@ -809,8 +809,10 @@ def _excluded_bloc_cv_metrics(
     differ materially: on v5 the Orthopoxvirus vaccinia bloc is 77.8% of
     active negatives. Dropping it RAISES AUC-PR partly mechanically (the
     validation base rate goes from 0.226 to 0.568) and LOWERS AUC-ROC,
-    because those trivially separable negatives leave the negative set - AUC-ROC
-    is prevalence-invariant, so the base rate does not explain that fall.
+    because those negatives leave the negative set and, on average across
+    folds, the model ranked them below positives more often than it ranked
+    the negatives that remain - AUC-ROC is prevalence-invariant, so the base
+    rate does not explain that fall.
     Those rows are NOT decoys, as this docstring called them until 2026-08-10:
     all 21,432 are genuine IEDB assay-confirmed negatives (database_source =
     IEDB), so the honest description is "out-of-panel". See claims_register D19.

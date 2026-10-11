@@ -6,10 +6,14 @@ tier is not evidence for the next.
 ## Install and import
 
 The repository declares its Python dependencies and optional extras. A clean
-environment can install the package and import the library. On Python 3.13,
-MHCflurry 2.2.1's `mhcflurry-downloads fetch` command fails because it imports
-the removed standard-library `pipes` module. This is a downloader limitation,
-not an import failure: fetch the model data under Python 3.11 or 3.12 when live
+environment can install the package and import the library. The model data is
+installed by the hash-verified two-step route in README's "MHCflurry model
+data". On Python 3.13, MHCflurry 2.2.1's `mhcflurry-downloads fetch`, the
+route's second step, fails because it imports the removed standard-library
+`pipes` module (MHCflurry 2.3.0 and later do not). The first step,
+`scripts/fetch_verified_mhcflurry.py`, imports no mhcflurry and runs on any
+supported interpreter. This is a downloader limitation, not an import failure:
+run the second step under Python 3.11 or 3.12 when live
 binding prediction is needed.
 
 The documented mode-31 RF training path does not need that fetch. It consumes

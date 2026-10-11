@@ -346,7 +346,8 @@ def test_the_shipped_diff_scan_reports_every_leak_despite_binary_bytes(
     result = sp.run(
         ["bash", "-c", step],
         cwd=repo,
-        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8"},
+        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8",
+             "RUNNER_TEMP": str(tmp_path)},
         capture_output=True,
         check=False,
     )
@@ -391,7 +392,8 @@ def _shipped_diff_scan(tmp_path: Path, files: dict[str, bytes]) -> tuple[int, st
     result = sp.run(
         ["bash", "-c", step],
         cwd=repo,
-        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8"},
+        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8",
+             "RUNNER_TEMP": str(tmp_path)},
         capture_output=True,
         check=False,
     )
@@ -487,7 +489,8 @@ def test_the_shipped_diff_scan_reports_a_backslash_wsl_unc_path(tmp_path: Path) 
     result = sp.run(
         ["bash", "-c", step],
         cwd=repo,
-        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8"},
+        env={**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main", "LC_ALL": "C.UTF-8",
+             "RUNNER_TEMP": str(tmp_path)},
         capture_output=True,
         check=False,
     )
@@ -607,11 +610,11 @@ def test_the_shipped_ai_path_check_reports_a_name_that_is_not_utf8(
 
 
 def _diff_constructions() -> list[str]:
-    """Every line in the workflow that BUILDS diff.txt with git diff."""
+    """Every line in the workflow that BUILDS the diff file with git diff."""
     return [
         line.strip()
         for line in WORKFLOW.read_text(encoding="utf-8").splitlines()
-        if line.strip().startswith("git diff") and "> diff.txt" in line
+        if line.strip().startswith("git diff") and '> "$DIFF_FILE"' in line
     ]
 
 
@@ -808,3 +811,83 @@ def test_a_committed_attribute_naming_an_undefined_driver_is_inert(tmp_path: Pat
                   "leak.txt"], capture_output=True, text=True, encoding="utf-8",
                  errors="replace", check=False).stdout
     assert sum(1 for line in out.splitlines() if "private/key" in line) == 1
+
+
+def test_the_diff_file_is_written_outside_the_checkout(tmp_path: Path) -> None:
+    """The diff the path scan builds must not land inside the checkout.
+
+    The job's next step greps the WHOLE checkout for the unfilled email placeholder. A diff
+    file written into the checkout carries the lines a pull request REMOVED as well as those
+    it added, so a pull request that removed or filled a placeholder its base still carried
+    failed that step on the diff file alone. Here the base carries the token in SECURITY.md and the pull
+    request fills it in. The shipped diff step runs, then the shipped placeholder step, in
+    that order and in the same checkout, as the job runs them: the diff step must leave
+    nothing in the checkout, and the placeholder step must pass.
+    """
+    import subprocess as sp
+
+    # Assembled at runtime: the placeholder step greps every tracked file, this one too.
+    token = "TODO: " + "USER TO FILL"
+    repo = tmp_path / "r"
+    repo.mkdir()
+    runner_temp = tmp_path / "runner_temp"
+    runner_temp.mkdir()
+
+    def git(*argv: str) -> sp.CompletedProcess:
+        return sp.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@example.com",
+             "-c", "user.name=T", "-c", "commit.gpgsign=false", *argv],
+            capture_output=True, text=True, check=False, env=GIT_ENV,
+        )
+
+    git("init", "-q")
+    (repo / "SECURITY.md").write_text(f"Contact: [{token}]\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "seed")
+    base = git("rev-parse", "HEAD").stdout.strip()
+    assert base, "the fixture repo has no base commit"
+    git("update-ref", "refs/remotes/origin/main", base)
+    (repo / "SECURITY.md").write_text("Contact: maintainer@example.org\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "fill the placeholder")
+
+    env = {**GIT_ENV, "EVENT_NAME": "pull_request", "BASE_REF": "main",
+           "LC_ALL": "C.UTF-8", "RUNNER_TEMP": str(runner_temp)}
+    diff_step = _workflow_block("          PATHSPEC=(", '          echo "Path check PASSED."')
+    first = sp.run(["bash", "-c", diff_step], cwd=repo, env=env, capture_output=True, check=False)
+    assert first.returncode == 0, first.stdout + first.stderr
+    left = git("status", "--porcelain", "--untracked-files=all").stdout
+    assert left == "", f"the diff step left files in the checkout: {left!r}"
+
+    placeholder_step = _workflow_block(
+        "          # Exclude VCS internals and this workflow file",
+        '          echo "Placeholder check PASSED."',
+    )
+    second = sp.run(
+        ["bash", "-c", placeholder_step], cwd=repo, env=env, capture_output=True, check=False
+    )
+    assert second.returncode == 0, (
+        "the placeholder step failed on a pull request that FILLS the placeholder: "
+        + second.stdout.decode("utf-8", errors="replace")
+    )
+
+
+def test_the_diff_step_stops_when_runner_temp_is_unset(tmp_path: Path) -> None:
+    """Without RUNNER_TEMP the step must fail, not write its diff file somewhere else.
+
+    `${RUNNER_TEMP:?...}` is what makes an unset variable an error; a plain
+    `$RUNNER_TEMP/...` would expand to `/pii_scan_diff.txt` and the scan would carry on.
+    """
+    import subprocess as sp
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+    sp.run(["git", "init", "-q", str(repo)], check=True, env=GIT_ENV)
+    env = {**GIT_ENV, "EVENT_NAME": "push", "LC_ALL": "C.UTF-8"}
+    env.pop("RUNNER_TEMP", None)
+    step = _workflow_block("          PATHSPEC=(", '          echo "Path check PASSED."')
+    result = sp.run(["bash", "-c", step], cwd=repo, env=env, capture_output=True, check=False)
+    err = result.stderr.decode("utf-8", errors="replace")
+    assert result.returncode != 0, "the diff step ran on with RUNNER_TEMP unset"
+    assert "RUNNER_TEMP must be set" in err, err
+    assert b"Path check PASSED." not in result.stdout

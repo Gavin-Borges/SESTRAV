@@ -92,3 +92,11 @@ def test_review_gate_bot_bypass_is_documented() -> None:
         "pr-review-check.yml passes the required `Require human review` check without "
         f"a review for these authors, and SECURITY.md does not say so: {missing}"
     )
+    # And the other direction: a bot the paragraph names as exempt must still be in the
+    # list, or a reader is told a bypass exists that the workflow no longer grants.
+    named = set(re.findall(r"`([A-Za-z0-9][A-Za-z0-9-]*\[bot\])`", paragraphs[0]))
+    stale = sorted(named - set(bots))
+    assert not stale, (
+        "SECURITY.md says these bots bypass `Require human review`, but "
+        f"pr-review-check.yml's TRUSTED_BOTS no longer lists them: {stale}"
+    )

@@ -976,6 +976,27 @@ def test_copy_sources_and_dockerignore_follow_docker_rules() -> None:
     assert dockerignore_excludes("a/b/x.pyc", ["**/*.pyc"])
 
 
+def test_dockerignore_keeps_secrets_and_assistant_config_out_of_the_context() -> None:
+    # No Dockerfile COPYs these today; the build context is still uploaded whole to
+    # the builder, so a stray key or an assistant's config must not travel with it.
+    rules = _read(".dockerignore").splitlines()
+    kept_out = [
+        ".env",
+        ".env.local",
+        "deploy/.env",
+        "deploy/.env.production",
+        "server.pem",
+        "certs/client.pem",
+        ".agents/rules/x.md",
+        ".cursor/rules/x.mdc",
+        ".codex/config.toml",
+        ".claude/settings.json",
+        ".mcp.json",
+    ]
+    leaked = [path for path in kept_out if not dockerignore_excludes(path, rules)]
+    assert not leaked, f".dockerignore lets these into the build context: {leaked}"
+
+
 def test_preference_text_prefers_the_seed_and_keeps_the_rest(tmp_path: Path) -> None:
     (tmp_path / "requirements.txt").write_text("numpy==2.4.6 \\\n    --hash=sha256:a\nfoo==1.0\n")
     lock = tmp_path / "environments" / "requirements-demo.txt"

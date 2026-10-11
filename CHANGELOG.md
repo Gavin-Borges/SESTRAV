@@ -17,6 +17,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Changed
+- **`tools/check_hash_pins.py` now rejects options that change where packages come from,
+  instead of skipping every option line.** `--extra-index-url`, `--trusted-host`,
+  `--find-links` / `-f`, and `--index-url` / `-i` naming anything but PyPI's default index
+  (`https://pypi.org/simple`, with or without the trailing slash) now fail the `lint` job's
+  hash-pin step. Lines are read the way pip reads them: its continuation joining, its rule
+  that `#` opens a comment only after whitespace, its split between a requirement and its
+  options, and its optparse table, so attached values (`-fURL`), abbreviations
+  (`--extra=URL`), tabs and a second option on one line are all caught, and a byte-order
+  mark is stripped as pip strips it; a test compares the verdicts with pip's own line
+  parser. A line this table cannot parse, a PEP 263 coding declaration and a `${VAR}`
+  reference, which pip would re-decode or expand at install time, fail closed. Hashes would
+  still refuse a substituted artifact, but these manifests take their index from the
+  install command, never from the file (the CPU torch lock is installed with
+  `--index-url https://download.pytorch.org/whl/cpu` on the command line). Includes
+  (`-r`, `-c`) are not followed; no hash-pinned manifest uses one. No current manifest
+  carries any of these options, so the gate's verdict on the tree is unchanged.
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
   `assay_type == "biological activity"` rows by editing the finished file in place, after
@@ -56,6 +72,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   keeping the floor half of the check the override's test used to make.
 
 ### Fixed
+- **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
+  no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
+  separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
+  from each validation fold. Within a fold, dropping only negatives lowers AUC-ROC exactly
+  when the model ranked the dropped negatives below positives more often than the ones
+  that remain, so the fall in the fold mean shows those rows were, on balance, easier than
+  average to rank below positives, not that they separate almost perfectly. Both sites now
+  say only that, and claims-register row D19, which had judged the phrase sound, carries a
+  dated note saying so while its original text stays as the record. Wording only: no
+  number changes. The same kind of claim had already failed once for the out-of-panel
+  rows these belong to, when the manuscript called them trivially easy to calibrate and
+  their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
+  this is outside claims-register row D21.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
@@ -103,6 +132,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 ### Security
+- **Three low-severity hardening items: the DCO job's checkout token, a dead review
+  bypass, and the Docker build context.**
+  - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
+    longer left configured for git in the checkout. It was the only one of the 29
+    `actions/checkout` steps in `.github/workflows/` without it, and its one network call,
+    a `git fetch` of the base branch, needs no token on this public repository: an
+    anonymous fetch of `main` with no credential helper succeeds. A new test,
+    `tests/test_workflow_checkouts_drop_credentials.py`, requires the setting on every
+    checkout, with an explicit, justified allowlist for any that must push. This reverses
+    the 2026-08-22 decision, recorded further down, to leave that one step at the default.
+  - `pr-review-check.yml`'s `TRUSTED_BOTS` drops `renovate[bot]`, which skipped the required
+    `Require human review` check for an author that has opened none of this repository's
+    pull requests and has no configuration here. `dependabot[bot]` keeps its bypass, and
+    `SECURITY.md` now describes one exempt bot, not two. The test that checks that
+    paragraph now also fails when it names a bot the workflow no longer exempts.
+  - `.dockerignore` now keeps `.env` and `.env.*` files and `*.pem` files out of the build
+    context at any depth, along with the `.agents`, `.cursor` and `.codex` directories and
+    the gitignored `.mcp.json`. No Dockerfile copies any of them; the change is about what
+    is uploaded to the builder.
+- **The PII scan writes its diff outside the checkout, so a pull request that removes or
+  fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
+  `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
+  step greps the whole checkout for the unfilled email placeholder. The diff carries removed
+  lines as well as added ones, so a pull request that removed or filled a placeholder its
+  base still carried failed that step on the diff file alone. An added mention is in the
+  checkout itself and still fails, as it should. The diff now goes to
+  `$RUNNER_TEMP/pii_scan_diff.txt`; with `RUNNER_TEMP` unset the step stops rather than
+  writing it elsewhere. `tests/test_path_scan_exemption.py` adds two cases: the shipped diff
+  step followed by the shipped placeholder step, on a pull request that fills the
+  placeholder, must leave nothing in the checkout and pass (on main it left `diff.txt` and
+  failed); and an unset `RUNNER_TEMP` must stop the step. The three tests that run the
+  shipped step now pass a `RUNNER_TEMP`. Mutation-checked on a throwaway copy: a diff file
+  inside the checkout and a dropped `:?` guard each fail at least one case.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
@@ -518,6 +580,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   README, USAGE, CONTRIBUTING and `docs/data_registry.md`, which the entry above taught to
   warn that a mismatch leaves the download in place, now say the fetcher deletes it and
   that an archive from an earlier run stays, so step two still waits for step one.
+- **No tracked file offers the unverified `mhcflurry-downloads fetch models_class1_presentation`
+  any more.** Four
+  places still offered `mhcflurry-downloads fetch models_class1_presentation` on its own,
+  which unpacks the archive with no integrity check: both of
+  `scripts/generate_hard_decoys.py`'s messages (the error printed when the presentation
+  model will not load, and its `--help` prerequisites), the comment above
+  `mhcflurry_model_version` in `config.yaml`, and a commented cell of
+  `notebooks/SESTRAV_Colab_Pipeline.py`. Each now gives the verified two-step route, the
+  script's two messages from one shared constant. `docs/reproducibility.md` told readers to
+  "fetch the model data under Python 3.11 or 3.12"; it now names the route and scopes
+  that limit to its second step, since the fetcher imports no mhcflurry.
+  `tests/test_no_bare_mhcflurry_fetch_advice.py` fails on any tracked command that names
+  `models_class1_presentation` without `--already-downloaded-dir` (backslash continuations
+  joined; `tests/` and this file exempt); on main it named exactly those four lines. It also
+  fails if the walk finds fewer than three verified-route commands, so it cannot pass on an
+  empty scan. It is a ratchet over that spelling, not a proof: it does not see a command
+  assembled from variables or split across string literals, the argument-less
+  `mhcflurry-downloads fetch` (every current mention of that form is a warning against it),
+  or `python -m mhcflurry.downloads_command fetch`.
 - **A1: the release workflow now attaches its SLSA build-provenance attestation as a
   release asset, closing the reason OpenSSF Scorecard's Signed-Releases check scores 0.**
   Live-measured 2026-08-26 (Scorecard v5.5.0, `ossf/scorecard@c395761`, repo commit
@@ -588,7 +669,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   for `git (push|fetch|pull|clone|ls-remote|submodule|tag|commit|remote)` across every
   workflow returns exactly one credential-needing call. That call is the deliberate exception:
   `dco.yml`'s `check_dco` job runs `git fetch origin "$BASE_REF"` after checkout and is a
-  required status check, so it keeps the default. Operations on already-fetched local refs
+  required status check, so it keeps the default. **Corrected 2026-10-09:** that fetch needs
+  no credential, because the repository is public (an anonymous fetch of `main` with no
+  credential helper succeeds), so `dco.yml` now sets the option too and all 29 checkout
+  steps are explicit; see the newer `### Security` entry. Operations on already-fetched local refs
   (`git diff`, `git log` in `pii_scan.yml` and `doc_commit_refs.yml`) are unaffected, because
   the setting removes the stored credential rather than any ref. Closes the `GITHUB_TOKEN`
   exposure window flagged alongside SEC-14/F1, which was `.github/workflows/release.yml`'s

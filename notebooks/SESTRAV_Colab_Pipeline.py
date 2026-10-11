@@ -26,8 +26,11 @@ Repository: https://github.com/Gavin-Borges/SESTRAV
 # Install torch-geometric for GNN benchmarks (optional)
 # !pip install torch-geometric -q
 
-# Download MHCflurry models (only needed if running Stage 2 from scratch)
-# !mhcflurry-downloads fetch models_class1_presentation
+# Download MHCflurry models (only needed if running Stage 2 from scratch), after Cell 2
+# has cloned the repository, by the hash-verified route (README, "MHCflurry model data"),
+# with the URL and sha256 from config.yaml; run the second only if the first exits 0:
+# !python scripts/fetch_verified_mhcflurry.py --url <mhcflurry_model_archive_url> --sha256 <mhcflurry_model_archive_sha256> --output-dir /content/mhcflurry-archive
+# !mhcflurry-downloads fetch models_class1_presentation --already-downloaded-dir /content/mhcflurry-archive
 
 # =============================================================================
 # Cell 2: Clone Repository & Setup Paths
