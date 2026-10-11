@@ -32,7 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   install command, never from the file (the CPU torch lock is installed with
   `--index-url https://download.pytorch.org/whl/cpu` on the command line). Includes
   (`-r`, `-c`) are not followed; no hash-pinned manifest uses one. No current manifest
-  carries any of these options, so the gate's verdict on the tree is unchanged.
+  carries any of these options, so the gate's verdict on the tree is unchanged. (Since
+  2026-10-10 an include fails closed instead; see the entry under Security below.)
 - **`data/iedb_negatives_v5.csv` is now the generator's own output rather than a post-hoc
   edit of it: 32,470 -> 32,506 rows.** Commit `58bbc15` had dropped the 1,888
   `assay_type == "biological activity"` rows by editing the finished file in place, after
@@ -132,6 +133,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
 ### Security
+- **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
+  references, which it used to pass.** Each hands pip something the gate never inspects, and
+  each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included
+  file carried `--extra-index-url` passed; an `-e` editable was skipped as an option line,
+  although pip cannot hash-check one; and a `name @ URL` reference, a bare or `file:` URL, a
+  VCS reference, a path or an archive filename passed because it carried a `--hash=`, while
+  pip fetches it from that location rather than the index the install command names. A
+  requirement must now be a plain `name[extras] specifier`, with an optional `;` marker,
+  matched as an allowlist so a spelling not listed here fails closed too. A requirement
+  whose whole text ends in one of pip's archive extensions also fails, because pip tests the
+  whole string, not the project name: `numpy==2.4.6.tar.gz` installs a same-named local
+  file, resolved from the directory pip runs in. pip also strips a trailing `[extras]` and
+  then every kind of whitespace before testing, so `pkg-1.0-py3-none-any.whl[x]` is a file
+  too; the gate strips the extras the same way, accepts only the ASCII space as whitespace
+  in a requirement (a tab or a Unicode space there fails closed), and drops trailing dots
+  and spaces, as Windows path handling drops them for pip. A requirement left empty in
+  front of a `;` marker fails too. Two tests compare the verdict with pip 26.2.1's own
+  requirement parser, one over a fixed list and one over generated cross products of names,
+  extras, specifiers, archive suffixes and separators. Separately, the hash check now
+  decodes a manifest the way the option check and pip do, so a UTF-16 or UTF-32 byte-order
+  mark is read rather than raised as a traceback, and bytes that do not decode are reported
+  as a clean failure. Found by the security review of the composed #727-#731 diff (its
+  LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
+  tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
+  rejection or check or dropping one archive extension, all make the tests fail.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
@@ -165,6 +191,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   failed); and an unset `RUNNER_TEMP` must stop the step. The three tests that run the
   shipped step now pass a `RUNNER_TEMP`. Mutation-checked on a throwaway copy: a diff file
   inside the checkout and a dropped `:?` guard each fail at least one case.
+- **`scripts/ingest_vdjdb.py` verifies the VDJdb archive it downloads, checks every redirect
+  before following it, and replaces a damaged archive only with a verified one.** The latest
+  release's `.zip` asset was downloaded with `urllib.request.urlretrieve`, with no timeout,
+  no host check and no integrity check, straight to `vdjdb.zip`. An interrupted transfer left
+  a partial `vdjdb.zip` behind, and later runs then skipped the download because that file
+  existed and, finding no extracted `vdjdb.txt`, returned no input instead of fetching again.
+  The asset URL must now be https, on the netloc `github.com` exactly, under this
+  repository's release downloads, with no `..` segment, encoded or not, and no control,
+  space or non-ASCII character. Every redirect target is checked before urllib requests it,
+  and must pass the same check or be https on `objects.githubusercontent.com` or
+  `release-assets.githubusercontent.com`, so an http or ftp hop, any other host, and
+  user-content hosts such as `raw.githubusercontent.com` are refused. The transfer has a
+  60-second socket timeout, stops once it exceeds the size the GitHub release API reports for
+  the asset, streams to `vdjdb.zip.part`, is checked against the sha256 digest the API
+  reports, is extracted, and only then takes the name `vdjdb.zip`; any failure removes the
+  `.part` file. An asset without a 64-hex sha256 digest or a positive integer size is refused
+  before it is downloaded. A `vdjdb.zip` already on disk that does not open as an archive, or
+  has a member that fails its CRC-32 check, is kept until extraction of a verified download
+  starts. If the fetch fails before then (no network, a refused URL, a transfer over the
+  reported size, a digest mismatch), the archive is kept and any table already beside it is
+  still used, as the previous code did. When extraction of the replacement starts, the
+  damaged archive is removed before anything is written, because extraction writes into the
+  same directory and may overwrite that table: an error then returns no table, an interrupt
+  propagates, and no later run has the damaged archive to fall back on, including after a
+  process killed outright mid-extraction or a failure to remove `vdjdb.zip.part`.
+  Extraction counts as started before its zip-slip check, so a refusal there takes the same
+  path though nothing was written. An intact
+  `vdjdb.zip` is still reused with no network access, and is extracted again when neither
+  `vdjdb.txt` nor `vdjdb_full.txt` is found; that extraction can now raise, for example on a
+  member that would land outside the directory, where the previous code printed a warning
+  and returned no input. A truncated `vdjdb.txt` beside an intact archive, which an
+  interrupted re-extraction or an earlier version of this script could leave, is not
+  detected. The digest arrives in the same API response as the URL, so a match shows the
+  bytes are the asset that response describes, not that the release itself is trustworthy.
+  Pinning a release and its digest would close that gap but would replace "latest" with a
+  fixed version, so it is left as an open decision. `pyproject.toml`'s comment on the global
+  ruff `S310` ignore said all URLs are HTTPS and scheme-validated. With that ignore lifted,
+  `S310` flags 13 lines in 9 files: 5 have no runtime scheme check, and the check at one
+  more, in `scripts/install_prime_wsl.py`, also admits `http://`. The comment now says not
+  every site checks the scheme. `tests/test_ingest_vdjdb_fetch.py` adds 110 cases, 95 of which
+  fail on the previous code; the refused-redirect cases run for each of 301, 302, 303, 307 and
+  308. Of 55 mutants run against an earlier revision of this change and its 70 cases, each
+  reverting one protection in place, 54 were killed; the survivor compares the digest with
+  `startswith`, which is equivalent here because the expected digest is always exactly 64 hex
+  characters. Three mutants re-run on this revision are each killed: the redirect check
+  applied to 302 only, the damaged archive removed only after extraction, and the failure
+  cleanup no longer removing a member extracted onto `vdjdb.zip`.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
@@ -962,6 +1035,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   target one of the matrix versions. Against the previous tool settings it fails exactly
   these seven.
 
+- **`tools/check_dismissal_justifications.py` no longer forwards its bearer token across
+  an HTTP redirect, and no longer accepts a response served from any host but
+  `https://api.github.com`.** The `GITHUB_TOKEN` / `GH_TOKEN` route set `Authorization` as
+  an ordinary request header, which urllib's redirect handler copies into the follow-up
+  request for whatever host the `Location` names. A test replaying the gate's own request
+  through urllib's real redirect handler, against two loopback servers on different ports,
+  showed the token arriving at the second one. It is now an unredirected header: the first
+  hop still carries it and the second does not. The existing guard refused any URL but
+  `https://api.github.com` before the first request, but urllib still followed a redirect
+  and the tool parsed whatever came back, so a redirect to another host answering `200 []`
+  would have read as a clean census of zero alerts. The URL the response was finally served
+  from is now held to the same scheme and host, and anything else exits 2 (could not run).
+  One consequence: a same-host redirect, such as GitHub's 301 for a renamed repository, is
+  also followed without the token, so the follow-up request is unauthenticated and any
+  error it draws exits 2. The advisory workflow passes `--repo "${GITHUB_REPOSITORY}"`, the
+  canonical name, so it does not depend on such a redirect.
 ### Added
 - **`.mailmap`, correcting the recorded authorship of nineteen commits without rewriting any of
   them.** Nineteen commits made between 2026-08-16 and 2026-08-17 carry the author and committer
@@ -1066,6 +1155,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   per attempt.
 
 ### Fixed
+- **`query_netchop`, `query_tapreg` and `get_predictor_dataframe` raise
+  `PredictorUnavailableError` when `mock_fallback=False` and the live server returns no score
+  for any peptide, instead of returning mock scores.** Three return sites, NetChop's failed
+  submission, NetChop's exhausted polling and TAPreg's exhausted retries (including the UCM
+  VPN restriction page), emitted generated mock scores although the caller had asked for live
+  ones, so a request for live predictions could not tell an outage from a result. The error
+  chains the last network exception as its cause, and the VPN page gets its own message. A
+  partial answer is still returned, not raised: peptides a server omits come back empty, or
+  NaN in the data frame. `mock_fallback=True` is unchanged: it skips the network entirely,
+  as before, and the docstrings now say so instead of "if the query fails". The default
+  values are unchanged, but `query_netchop`'s default is `mock_fallback=False`, so **a bare
+  `query_netchop(peptides)` call now raises on an outage where it used to return mock
+  scores**; `query_tapreg` and `get_predictor_dataframe` default to `True`. The only
+  production caller, `scripts/precompute_antigen_processing.py`, passes `True` to both
+  queries, and its comment no longer says the live paths fall back to mock scores. Eleven
+  tests that asserted or relied on the silent fallback now expect the error; three new tests
+  drive `get_predictor_dataframe` with both servers down, with only TAPreg down, and with a
+  partial answer, and four more pin, at the query level, a partial answer from each server,
+  the VPN error's cause, and that a submission error is not chained onto a later polling
+  failure.
 - **`immunogenicity_score` had no range check between a model's `predict_proba` output and
   everything downstream that treats it as a `[0, 1]` probability - calibration, thresholding,
   the ranked CSV, and (once promoted) `api/main.py`'s response model (LRF-1).** A model loaded
