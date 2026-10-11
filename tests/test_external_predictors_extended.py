@@ -22,6 +22,7 @@ from src.external_predictors import (
     _generate_mock_netchop_scores,
     _generate_mock_tapreg_score,
     parse_netchop_html,
+    PredictorUnavailableError,
     query_netchop,
     query_tapreg,
 )
@@ -151,21 +152,20 @@ _TAPREG_RESP_NO_SCORES = "<html>No matching content</html>"
 
 
 class TestQueryTapregThresholdAndParse:
-    def test_threshold_kwarg_accepted_with_mock_connection_error(self):
+    def test_threshold_kwarg_accepted_then_connection_error_raises(self):
         peptides = ["GLFYTRTGL"]
         with patch(
             "src.external_predictors.requests.post",
             side_effect=requests.exceptions.ConnectionError("no net"),
         ):
-            results = query_tapreg(
-                peptides,
-                threshold=0.5,
-                mock_fallback=False,
-                max_retries=1,
-                initial_backoff=0,
-            )
-        assert "GLFYTRTGL" in results
-        assert isinstance(results["GLFYTRTGL"], float)
+            with pytest.raises(PredictorUnavailableError):
+                query_tapreg(
+                    peptides,
+                    threshold=0.5,
+                    mock_fallback=False,
+                    max_retries=1,
+                    initial_backoff=0,
+                )
 
     def test_successful_post_with_parseable_scores_returns_early(self):
         peptides = ["GLFYTRTGL"]
@@ -183,7 +183,7 @@ class TestQueryTapregThresholdAndParse:
         assert "GLFYTRTGL" in results
         assert results["GLFYTRTGL"] == pytest.approx(1.2345)
 
-    def test_successful_post_empty_parse_logs_warning_and_falls_back(self, caplog):
+    def test_successful_post_empty_parse_logs_warning_then_raises(self, caplog):
         import logging
 
         peptides = ["GLFYTRTGL"]
@@ -194,12 +194,12 @@ class TestQueryTapregThresholdAndParse:
         with (
             patch("src.external_predictors.requests.post", return_value=mock_resp),
             caplog.at_level(logging.WARNING, logger="src.external_predictors"),
+            pytest.raises(PredictorUnavailableError),
         ):
-            results = query_tapreg(
+            query_tapreg(
                 peptides,
                 mock_fallback=False,
                 max_retries=1,
                 initial_backoff=0,
             )
-        assert "GLFYTRTGL" in results
         assert any("no peptide scores" in m.lower() for m in caplog.messages)

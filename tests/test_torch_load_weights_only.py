@@ -1,4 +1,4 @@
-"""SEC-13: `torch.load(...)` must pin `weights_only=True` in every tracked `.py` file.
+"""SEC-13: `torch.load(...)` must pin `weights_only=True` in tracked `.py` and notebook code.
 
 The original sweep (STATE.md 2026-07-xx security-ci-sweep: "torch.load audit: all runtime
 paths enforce weights_only=True (only 2 dev-only checkpoint-inspect scripts use False,
@@ -13,11 +13,16 @@ invocation passes `-x ./tests/`, so a `torch.load` without `weights_only=True` u
 exists. Corrected 2026-09-13; this docstring previously said B614 "is Advisory and does
 not gate the merge", citing `SECURITY.md`'s CI gate map, which says the opposite.
 
-Scope: the enforced surface is exactly the `.py` files `git ls-files '*.py'` reports, and
-within them only a call spelled `torch.load(...)` on the name `torch`. Python held in other
-tracked files - a notebook (`.ipynb`), `Snakefile` and `*.smk` rules, Quarto (`.qmd`)
-cells - is never parsed, and neither is an aliased call (`from torch import load`, or
-`t.load` after `import torch as t`), so a `torch.load` there is outside this test's reach.
+Scope: the enforced surface is the `.py` files `git ls-files '*.py'` reports and, since
+2026-10-10, the code cells of the notebooks `git ls-files '*.ipynb'` reports, and within
+them only a call spelled `torch.load(...)` on the name `torch`. A notebook cell is parsed
+with each IPython magic line (`%...` or `!...`) replaced by `pass` at its indent, and a
+cell that still does not parse fails the test, so an unparseable cell cannot hide a call.
+Outside this test's reach: the text of a magic line itself, since it becomes `pass` -
+so `%time sd = torch.load(...)` or `!python -c "...torch.load(...)..."` is never seen;
+Python held in other tracked files - `Snakefile` and `*.smk` rules, Quarto (`.qmd`)
+cells; and an aliased call (`from torch import load`, or `t.load` after
+`import torch as t`).
 The two checkpoint-inspection scripts named in
 that audit are gitignored local dev tools, so they fall outside the surface entirely and
 need no exemption; see ALLOWED_WEIGHTS_ONLY_FALSE below for why that distinction matters.
@@ -26,6 +31,7 @@ need no exemption; see ALLOWED_WEIGHTS_ONLY_FALSE below for why that distinction
 from __future__ import annotations
 
 import ast
+import json
 import pathlib
 import subprocess
 
@@ -152,4 +158,78 @@ def test_the_weights_only_scan_actually_covers_the_repository():
         "no tracked file contained a torch.load(...) call, so the enforcement test above "
         "asserted over an empty set; either every call site was removed or the AST matcher "
         "no longer recognises how torch.load is invoked"
+    )
+
+
+def _tracked_notebooks() -> list[pathlib.Path]:
+    out = subprocess.run(
+        ["git", "ls-files", "*.ipynb"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return [REPO_ROOT / line for line in out.splitlines() if line]
+
+
+def _notebook_code_cells(path: pathlib.Path) -> list[str]:
+    """Each code cell's source, with IPython magic lines replaced by `pass` at their indent."""
+    notebook = json.loads(path.read_text(encoding="utf-8"))
+    cells = []
+    for cell in notebook.get("cells", []):
+        if cell.get("cell_type") != "code":
+            continue
+        source = cell.get("source", [])
+        lines = ("".join(source) if isinstance(source, list) else source).splitlines()
+        cells.append(
+            "\n".join(
+                line[: len(line) - len(line.lstrip())] + "pass"
+                if line.lstrip().startswith(("%", "!"))
+                else line
+                for line in lines
+            )
+        )
+    return cells
+
+
+def _notebook_torch_load_calls() -> tuple[list[tuple[str, ast.Call]], list[str]]:
+    """Every torch.load call in a tracked notebook's code cells, and every unparseable cell."""
+    calls: list[tuple[str, ast.Call]] = []
+    unparseable: list[str] = []
+    for path in _tracked_notebooks():
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        for index, cell in enumerate(_notebook_code_cells(path)):
+            where = f"{relative} code cell {index}"
+            try:
+                tree = ast.parse(cell, filename=where)
+            except SyntaxError as error:
+                unparseable.append(f"{where}: does not parse ({error.msg})")
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and _is_torch_load_call(node):
+                    calls.append((where, node))
+    return calls, unparseable
+
+
+def test_torch_load_in_notebook_code_cells_pins_weights_only_true():
+    calls, violations = _notebook_torch_load_calls()
+    for where, node in calls:
+        value = _weights_only_value(node)
+        if value is not True:
+            violations.append(f"{where}, cell line {node.lineno}: weights_only={value!r}")
+    assert not violations, (
+        "torch.load(...) in a tracked notebook does not pin weights_only=True, or a code "
+        "cell could not be parsed to check it:\n" + "\n".join(violations)
+    )
+
+
+def test_the_notebook_scan_finds_a_torch_load_call():
+    # The test above passes over whatever calls the AST walk returns, so a scan that has
+    # gone blind (no notebook found, a walk that stops at top-level statements, a matcher
+    # that no longer fires) would pass it while checking nothing. The tracked GNN notebook
+    # holds a torch.load call; if that stops being true, drop or retarget this guard.
+    calls, _ = _notebook_torch_load_calls()
+    assert calls, (
+        "the AST scan found no torch.load(...) call in any tracked notebook code cell, so "
+        "the notebook enforcement test asserted over an empty set"
     )
