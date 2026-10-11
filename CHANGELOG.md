@@ -580,6 +580,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   README, USAGE, CONTRIBUTING and `docs/data_registry.md`, which the entry above taught to
   warn that a mismatch leaves the download in place, now say the fetcher deletes it and
   that an archive from an earlier run stays, so step two still waits for step one.
+- **`scripts/ingest_immunecode.py` checks every redirect of the ImmuneCODE MIRA download
+  before following it, gives it a socket timeout, and refuses a damaged archive before
+  giving it its name.** With no `--input`, the script fetched `MIRA_DOWNLOAD_URL`
+  with `urllib.request.urlretrieve`, which sets no timeout and follows a redirect to any
+  http, https or ftp location, straight to the archive's final name, and then checked only
+  `zipfile.is_zipfile`. An archive with a damaged member passed that check, and extracting
+  it raised `zipfile.BadZipFile` out of `main()` as a traceback instead of the script's
+  download error. The start URL, and every redirect target before urllib requests it, must
+  now be https on the netloc `clients.adaptivebiotech.com` exactly, with no control, space
+  or non-ASCII character, so an http or ftp hop, a port, userinfo, a look-alike and any
+  other host are refused; the refusal message names which of the two rules failed and
+  drops the query string. The transfer has a 60-second socket timeout, which bounds the
+  connect and each read rather than the whole transfer. It streams to
+  `immuneCODE-MIRA-release002.1.zip.part` and takes the final name only once that opens as
+  a ZIP archive whose every member passes its CRC-32 check (`ZipFile.testzip`). Any
+  failure, a `KeyboardInterrupt` included, removes the `.part` file; that removal is best
+  effort, so an error from it (a Windows sharing violation, for example) does not replace
+  the failure itself. A refused download, a network error during the transfer (such as a
+  timeout or a reset connection) or a damaged archive makes `main()` return 1 with the
+  reason logged; a `KeyboardInterrupt` still propagates. If another process still holds the
+  `.part` file open when the run ends, the temporary directory's own cleanup raises
+  `PermissionError` out of `main()`; that is not changed. As before, the download goes into
+  a `tempfile.TemporaryDirectory` that `_load_csv` removes when the run ends. The new tests check, for a successful run and for
+  four failed ones, that `main()` downloads into a directory under tempfile's root that no
+  longer exists when it returns, and that nothing is left in that root. No sha256 is
+  pinned: the file name carries a release number, but no tracked file records the
+  archive's digest and computing one needs the archive itself, so the check catches an
+  archive whose members or directory were cut short or damaged in transit, not a
+  substituted one. Pinning a digest is left as an open decision. The host's redirect
+  behaviour was not observed; if it redirects to another host, the download fails closed
+  naming the refused URL, and `--input` remains the route. Not changed: a damaged ZIP given
+  with `--input` still raises `zipfile.BadZipFile` out of `main()`, and the provenance
+  sidecar of an auto-downloaded run records the deleted temporary archive's absolute path
+  as its source. `tests/test_ingest_immunecode_fetch.py` adds 49 cases that open no
+  socket, serving redirects with each of 301, 302, 303, 307 and 308; 39 of them fail on the
+  previous code. Of 23 mutants run against an earlier revision of this change and its 48
+  cases, each breaking one protection or the refusal reason in place, all 23 were killed.
+  Three re-run on this revision are each killed: the `.part` cleanup removed, run on an
+  `Exception` only, or replacing the download's failure with its own error.
 - **No tracked file offers the unverified `mhcflurry-downloads fetch models_class1_presentation`
   any more.** Four
   places still offered `mhcflurry-downloads fetch models_class1_presentation` on its own,
