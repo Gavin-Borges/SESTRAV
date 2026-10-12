@@ -4,11 +4,15 @@ With no --input, the script downloads one fixed URL, MIRA_DOWNLOAD_URL, into a
 temporary directory. These tests pin five properties of that download:
 
 * the start URL, and every redirect target (301, 302, 303, 307 and 308) before
-  urllib requests it, must be https on clients.adaptivebiotech.com exactly;
+  urllib requests it, must be https on one of the two allowed hosts exactly:
+  adaptivepublic.blob.core.windows.net, where the publisher's listing page links
+  the archive, or clients.adaptivebiotech.com;
 * every request has a bounded socket timeout;
 * the bytes go to a ``.part`` file, which takes the archive's name only once it
-  opens as a ZIP whose every member passes its CRC-32 check, and any failure,
-  KeyboardInterrupt included, removes the ``.part`` file;
+  opens as a ZIP whose every member passes its CRC-32 check and matches the
+  pinned size and sha256, and any failure, KeyboardInterrupt included, removes
+  the ``.part`` file. The pin itself is tested in test_immunecode_archive_pin.py;
+  here it points at the synthetic archive each test serves;
 * a refused download, a network error mid-transfer or a damaged archive makes
   main() return 1 with the reason logged, instead of raising out of it, and an
   error removing the ``.part`` file does not replace that outcome;
@@ -24,6 +28,7 @@ runs, and any socket connect is recorded, refused and fails the test.
 from __future__ import annotations
 
 import errno
+import hashlib
 import http.client
 import io
 import logging
@@ -40,9 +45,11 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import ingest_immunecode  # noqa: E402
 
-URL = "https://clients.adaptivebiotech.com/pub/covid-2020/immuneCODE-MIRA-release002.1.zip"
-ZIP_NAME = "immuneCODE-MIRA-release002.1.zip"
-HOST_URL = "https://clients.adaptivebiotech.com/"
+HOST_URL = "https://adaptivepublic.blob.core.windows.net/"
+OTHER_HOST_URL = "https://clients.adaptivebiotech.com/"
+ZIP_NAME = "ImmuneCODE-MIRA-Release002.1.zip"
+URL = HOST_URL + "publishedproject-supplements/covid-2020/" + ZIP_NAME
+ALLOWED = "not https on adaptivepublic.blob.core.windows.net or clients.adaptivebiotech.com"
 MIRA_CSV = (
     "Peptide,HLA Restrictions,Amino Acids\n"
     "YLQPRTFLL,HLA-A*02:01,\n"
@@ -65,6 +72,7 @@ def _damaged_member(payload: bytes) -> bytes:
 
 
 PAYLOAD = _zip_bytes()
+PAYLOAD_SHA256 = hashlib.sha256(PAYLOAD).hexdigest()
 TRUNCATED = PAYLOAD[: len(PAYLOAD) // 2]
 BAD_CRC = _damaged_member(_zip_bytes(zipfile.ZIP_STORED))
 
@@ -148,6 +156,12 @@ def network(monkeypatch):
     records (url, timeout) for every request opened.
     """
     state: dict = {"routes": {}, "calls": [], "connects": []}
+    # The synthetic PAYLOAD stands in for the pinned release-002.1 archive, so
+    # the pin points at it for the duration of each test. The pin's real literals
+    # live in test_immunecode_archive_pin.py; these tests are about the transfer,
+    # the URL allowlist and the .part staging, not about which bytes are pinned.
+    monkeypatch.setattr(ingest_immunecode, "MIRA_PINNED_SHA256", PAYLOAD_SHA256)
+    monkeypatch.setattr(ingest_immunecode, "MIRA_PINNED_SIZE_BYTES", len(PAYLOAD))
     real_build_opener = urllib.request.build_opener
 
     def _build_opener(*handlers):
@@ -171,6 +185,18 @@ def network(monkeypatch):
 
 def _route(state: dict, url: str, body: bytes = PAYLOAD, **body_kw) -> None:
     state["routes"][url] = lambda: _response(url, 200, body, **body_kw)
+
+
+def _pin_size_to(body: bytes) -> None:
+    """Admit `body` past the pinned-size cap, so a later check is what rejects it.
+
+    The ``network`` fixture monkeypatched MIRA_PINNED_SIZE_BYTES, so it restores
+    the real value at teardown. BAD_CRC is STORED, so it is longer than PAYLOAD
+    and would otherwise be cut off by the cap rather than failing the structural
+    check it was written to exercise. The cap is tested in
+    test_immunecode_archive_pin.py.
+    """
+    ingest_immunecode.MIRA_PINNED_SIZE_BYTES = len(body)
 
 
 def _redirect(state: dict, url: str, location: str, code: int = 302) -> None:
@@ -216,6 +242,13 @@ REFUSED_START_URLS = [
     # A space or a non-ASCII character has no place in this URL.
     HOST_URL + "pub/covid-2020/immuneCODE MIRA.zip",
     HOST_URL + "pub/covid-2020/immuneCODE-MIRA-r" + chr(0xE9) + "lease.zip",
+    # The blob host the archive moved to, spelled any other way.
+    "http://adaptivepublic.blob.core.windows.net/publishedproject-supplements/m.zip",
+    "https://adaptivepublic.blob.core.windows.net.attacker.example/m.zip",
+    "https://adaptivepublic.blob.core.windows.net:8443/m.zip",
+    "https://user@adaptivepublic.blob.core.windows.net/m.zip",
+    "https://otheraccount.blob.core.windows.net/publishedproject-supplements/m.zip",
+    "https://blob.core.windows.net/publishedproject-supplements/m.zip",
 ]
 
 
@@ -232,12 +265,13 @@ def test_off_allowlist_start_url_is_never_opened(url, tmp_path, network, monkeyp
 @pytest.mark.parametrize(
     ("url", "reason"),
     [
-        (REFUSED_START_URLS[0], "not https on clients.adaptivebiotech.com"),
-        (REFUSED_START_URLS[3], "not https on clients.adaptivebiotech.com"),
+        (REFUSED_START_URLS[0], ALLOWED),
+        (REFUSED_START_URLS[3], ALLOWED),
         (REFUSED_START_URLS[8], "it holds a control, space or non-ASCII character"),
         (REFUSED_START_URLS[10], "it holds a control, space or non-ASCII character"),
+        (REFUSED_START_URLS[16], ALLOWED),
     ],
-    ids=["http", "look-alike", "tab", "space"],
+    ids=["http", "look-alike", "tab", "space", "other-storage-account"],
 )
 def test_the_refusal_names_its_reason(url, reason, tmp_path, network, monkeypatch):
     monkeypatch.setattr(ingest_immunecode, "MIRA_DOWNLOAD_URL", url)
@@ -255,7 +289,18 @@ REFUSED_REDIRECT_TARGETS = [
     "https://clients.adaptivebiotech.com.attacker.example/m.zip",
     "https://clients.adaptivebiotech.com:8443/pub/covid-2020/m.zip",
     "https://user@clients.adaptivebiotech.com/pub/covid-2020/m.zip",
+    "http://adaptivepublic.blob.core.windows.net/publishedproject-supplements/m.zip",
+    "https://otheraccount.blob.core.windows.net/publishedproject-supplements/m.zip",
+    "https://adaptivepublic.blob.core.windows.net.attacker.example/m.zip",
 ]
+
+
+def test_the_allowlist_is_exactly_the_two_publisher_hosts():
+    assert ingest_immunecode.MIRA_DOWNLOAD_HOSTS == {
+        "adaptivepublic.blob.core.windows.net",
+        "clients.adaptivebiotech.com",
+    }
+    assert ingest_immunecode.MIRA_DOWNLOAD_URL.startswith(HOST_URL)
 
 
 @pytest.mark.parametrize("target", REFUSED_REDIRECT_TARGETS)
@@ -292,8 +337,9 @@ def test_a_downgrade_is_refused_whatever_the_redirect_status(code, tmp_path, net
 
 
 @pytest.mark.parametrize("code", REDIRECT_CODES)
-def test_a_redirect_within_the_host_is_followed(code, tmp_path, network):
-    target = HOST_URL + "pub/covid-2020/renamed.zip?sig=abc"
+@pytest.mark.parametrize("host", [HOST_URL, OTHER_HOST_URL], ids=["same-host", "other-allowed"])
+def test_a_redirect_to_an_allowed_host_is_followed(code, host, tmp_path, network):
+    target = host + "pub/covid-2020/renamed.zip?sig=abc"
     _redirect(network, URL, target, code=code)
     _route(network, target)
     path = ingest_immunecode._download_mira(str(tmp_path))
@@ -329,6 +375,7 @@ def test_every_request_has_a_bounded_socket_timeout(tmp_path, network):
 )
 def test_a_damaged_download_is_refused_and_leaves_nothing(body, tmp_path, network):
     _route(network, URL, body=body)
+    _pin_size_to(body)
     with pytest.raises(RuntimeError, match="ZIP archive"):
         ingest_immunecode._download_mira(str(tmp_path))
     assert _listing(tmp_path) == []
@@ -407,7 +454,10 @@ def test_auto_download_writes_negatives_and_leaves_no_temporary_file(
 @pytest.mark.parametrize(
     ("serve", "reason"),
     [
-        (lambda state: _route(state, URL, body=BAD_CRC), "not a complete, undamaged ZIP archive"),
+        (
+            lambda state: (_route(state, URL, body=BAD_CRC), _pin_size_to(BAD_CRC)),
+            "not a complete, undamaged ZIP archive",
+        ),
         (lambda state: _route(state, URL, fail_after=1), "simulated stalled transfer"),
         (
             lambda state: _route(
@@ -443,6 +493,7 @@ def test_a_part_file_that_cannot_be_removed_still_returns_1(
     temporary directory is cleaned up makes that cleanup raise too, which this
     test does not cover."""
     _route(network, URL, body=BAD_CRC)
+    _pin_size_to(BAD_CRC)
     real_remove = os.remove
 
     def _remove(path, *args, **kwargs):

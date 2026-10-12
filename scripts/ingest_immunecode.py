@@ -17,8 +17,9 @@ is ambiguous which pool member drove the response.
 Source: Nolan S, et al. A large-scale database of T-cell receptor beta
   sequences and binding associations from natural and synthetic exposure to
   SARS-CoV-2. Research Square (2020). PMID 32665443.
-Download:
-  https://clients.adaptivebiotech.com/pub/covid-2020/immuneCODE-MIRA-release002.1.zip
+Download (release 002.1, as linked from the publisher's listing page
+https://clients.adaptivebiotech.com/pub/covid-2020 on 2026-10-12):
+  https://adaptivepublic.blob.core.windows.net/publishedproject-supplements/covid-2020/ImmuneCODE-MIRA-Release002.1.zip
 
 Usage
 -----
@@ -26,7 +27,7 @@ Usage
     python scripts/ingest_immunecode.py
 
   Pre-downloaded ZIP:
-    python scripts/ingest_immunecode.py --input path/to/immuneCODE-MIRA-release002.1.zip
+    python scripts/ingest_immunecode.py --input path/to/ImmuneCODE-MIRA-Release002.1.zip
 
   Pre-extracted CSV:
     python scripts/ingest_immunecode.py --input path/to/peptide-detail-cov2.csv
@@ -45,7 +46,6 @@ import logging
 import os
 import random
 import re
-import shutil
 import sys
 import tempfile
 import urllib.request
@@ -57,23 +57,42 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _ssl_fix  # noqa: F401, E402 - patch SSL before any network calls
-from _dataset_utils import write_provenance  # noqa: E402
+
+# sha256_file is src.artifact_integrity.sha256_file, which reads to end of file.
+from _dataset_utils import sha256_file, write_provenance  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
+# Release 002.1 as the publisher's listing page, MIRA_LISTING_URL, linked it on
+# 2026-10-12. The URL this script held before, on clients.adaptivebiotech.com,
+# answered HTTP 404 to both HEAD and GET that day.
 MIRA_DOWNLOAD_URL = (
-    "https://clients.adaptivebiotech.com/pub/covid-2020/immuneCODE-MIRA-release002.1.zip"
+    "https://adaptivepublic.blob.core.windows.net/publishedproject-supplements/"
+    "covid-2020/ImmuneCODE-MIRA-Release002.1.zip"
 )
+MIRA_LISTING_URL = "https://clients.adaptivebiotech.com/pub/covid-2020"
 
 # The start URL and every redirect target are checked before urllib opens them:
-# each must be https on this netloc exactly (no port, no userinfo, no look-alike
-# host), so a redirect anywhere else fails closed. No sha256 is pinned for the
-# archive; it is checked structurally (it opens as a ZIP and every member passes
-# its CRC-32), which catches a member or directory cut short or damaged in
-# transit, but not a substituted archive.
-MIRA_DOWNLOAD_HOST = "clients.adaptivebiotech.com"
+# each must be https on one of these netlocs exactly (no port, no userinfo, no
+# look-alike host), so a redirect anywhere else fails closed. The first is the
+# host the listing page links the archive to; the second hosts the listing page
+# and the URL this script held before. The structural check (it opens as a ZIP
+# and every member passes its CRC-32) catches a transfer cut short or damaged in
+# transit; the sha256 pin below is what rules out a SUBSTITUTED archive.
+MIRA_DOWNLOAD_HOSTS = frozenset(
+    {"adaptivepublic.blob.core.windows.net", "clients.adaptivebiotech.com"}
+)
+
+# ImmuneCODE MIRA release 002.1, the one release this script attributes rows to.
+# Measured 2026-10-12 by streaming MIRA_DOWNLOAD_URL and hashing the bytes. The
+# MD5 of those bytes equalled the Content-MD5 header the same server sent, which
+# shows the transfer arrived as served; coming from the same host, it says
+# nothing about authenticity. Every member also passed its CRC-32. If the bytes
+# served there ever change, this pin turns that into a refusal.
+MIRA_PINNED_SHA256 = "ad0b0476f6e2c07aaec9e38cdb7f79e16c2b14e01f2ea706a2b2d86cb4667d9f"
+MIRA_PINNED_SIZE_BYTES = 3856733
 
 # Seconds the opener may wait on the connect and on each socket read. It bounds
 # a stalled server, not the total transfer time of the archive.
@@ -181,14 +200,14 @@ def _find_csv_in_dir(search_dir: str) -> str | None:
 
 
 def _check_download_url(url: str) -> None:
-    """Refuse a URL that is not https on MIRA_DOWNLOAD_HOST exactly."""
+    """Refuse a URL that is not https on one of MIRA_DOWNLOAD_HOSTS exactly."""
     parts = urlsplit(url)
     # urlsplit drops tab, CR and LF, but urllib.request keeps them, so a URL
     # with any control, space or non-ASCII character is refused outright.
     if not all(32 < ord(ch) < 127 for ch in url):
         reason = "it holds a control, space or non-ASCII character"
-    elif parts.scheme != "https" or parts.netloc != MIRA_DOWNLOAD_HOST:
-        reason = f"not https on {MIRA_DOWNLOAD_HOST}"
+    elif parts.scheme != "https" or parts.netloc not in MIRA_DOWNLOAD_HOSTS:
+        reason = f"not https on {' or '.join(sorted(MIRA_DOWNLOAD_HOSTS))}"
     else:
         return
     shown = url.split("?", 1)[0].split("#", 1)[0]  # a query may hold a signed token
@@ -213,17 +232,19 @@ def _zip_is_intact(path: str) -> bool:
 
 
 def _download_mira(dest_dir: str) -> str:
-    """Download the MIRA ZIP from Adaptive Biotechnologies.
+    """Download the MIRA ZIP from Adaptive Biotechnologies and verify it against the pin.
 
-    The bytes stream to a .part file, which takes the archive's name only once
-    _zip_is_intact passes; any failure, KeyboardInterrupt included, removes it.
-    That removal is best effort: if it raises (a Windows sharing violation, for
-    example), the error is dropped, so it never replaces the failure itself.
+    The bytes stream to a .part file, bounded at MIRA_PINNED_SIZE_BYTES so an
+    endless body cannot fill the disk, and that file takes the archive's name only
+    once it opens as an undamaged ZIP AND its size and sha256 equal the pinned
+    values. Any failure, KeyboardInterrupt included, removes it. That removal is
+    best effort: if it raises (a Windows sharing violation, for example), the
+    error is dropped, so it never replaces the failure itself.
     Returns the local path of the downloaded file.
     Raises RuntimeError with an actionable message if the download fails.
     """
     os.makedirs(dest_dir, exist_ok=True)
-    zip_name = "immuneCODE-MIRA-release002.1.zip"
+    zip_name = MIRA_DOWNLOAD_URL.rsplit("/", 1)[1]
     zip_path = os.path.join(dest_dir, zip_name)
     partial = zip_path + ".part"
     log.info("Downloading ImmuneCODE MIRA from %s", MIRA_DOWNLOAD_URL)
@@ -234,9 +255,29 @@ def _download_mira(dest_dir: str) -> str:
             opener.open(MIRA_DOWNLOAD_URL, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response,
             open(partial, "wb") as output,
         ):
-            shutil.copyfileobj(response, output, 1024 * 1024)
+            written = 0
+            while chunk := response.read(1024 * 1024):
+                written += len(chunk)
+                if written > MIRA_PINNED_SIZE_BYTES:
+                    raise RuntimeError(
+                        f"the transfer exceeds the pinned {MIRA_PINNED_SIZE_BYTES} bytes"
+                    )
+                output.write(chunk)
         if not _zip_is_intact(partial):
             raise RuntimeError("the downloaded file is not a complete, undamaged ZIP archive")
+        # Structural integrity says the bytes arrived whole; only the digest says
+        # they are the release this script attributes its rows to.
+        if written != MIRA_PINNED_SIZE_BYTES:
+            raise RuntimeError(
+                f"the downloaded archive is {written} bytes, not the pinned "
+                f"{MIRA_PINNED_SIZE_BYTES}"
+            )
+        actual = sha256_file(partial)
+        if actual != MIRA_PINNED_SHA256:
+            raise RuntimeError(
+                "the downloaded archive does not match the pinned release 002.1: "
+                f"expected sha256 {MIRA_PINNED_SHA256}, got {actual}"
+            )
         os.replace(partial, zip_path)
     except Exception as exc:
         raise RuntimeError(

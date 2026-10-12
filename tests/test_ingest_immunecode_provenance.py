@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts import ingest_immunecode as ingest
 
-ZIP_NAME = "immuneCODE-MIRA-release002.1.zip"
+ZIP_NAME = "ImmuneCODE-MIRA-Release002.1.zip"
 CSV_NAME = "peptide-detail-cov2.csv"
 MIRA_CSV = (
     "Peptide,HLA Restrictions,Amino Acids\n"
