@@ -19,7 +19,9 @@ These tests pin what makes it a pin instead:
   open - an intact archive of another release already on disk, a release
   republished under another tag, one republished with another digest, and no
   network - `ingest_vdjdb` raises and writes neither the CSV nor its sidecar,
-  where it used to ingest a stale table and record the pinned release.
+  where it used to ingest a stale table and record the pinned release;
+* the sidecar names the pinned release only when THIS run verified the bytes
+  against the pin, and otherwise records that nothing did.
 
 No test opens a socket: the API call is routed through an in-memory
 urllib.request.urlopen, socket connects are refused, and `_download_verified` is
@@ -28,6 +30,7 @@ replaced by a fake that fails the test if a pin mismatch ever reaches it.
 
 from __future__ import annotations
 
+import hashlib
 import http.client
 import io
 import json
@@ -262,3 +265,68 @@ def test_a_refused_or_unverified_archive_is_fatal_and_nothing_is_written(
     assert not (tmp_path / "out_provenance.json").exists()
     assert (data / "vdjdb.txt").read_text() == STALE_TSV  # untouched, and unused
     assert sorted(os.listdir(data)) == ["vdjdb.txt", "vdjdb.zip"]
+
+
+# --------------------------------------------------------------------------
+# The provenance sidecar
+# --------------------------------------------------------------------------
+
+
+def _sidecar(output) -> dict:
+    with open(os.path.splitext(str(output))[0] + "_provenance.json", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _ingest_a_verified_cached_archive(tmp_path, monkeypatch) -> dict:
+    """Run the real fetcher on an archive that matches the (repointed) pin."""
+    archive = _archive(TSV_TEXT)
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SHA256", hashlib.sha256(archive).hexdigest())
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SIZE_BYTES", len(archive))
+    data = tmp_path / "data"
+    data.mkdir(parents=True)
+    (data / "vdjdb.zip").write_bytes(archive)
+    monkeypatch.chdir(tmp_path)
+    output = tmp_path / "out.csv"
+    ingest_vdjdb.ingest_vdjdb(None, str(output), SCHEMA_PATH)
+    return _sidecar(output)
+
+
+def _ingest_a_local_input(tmp_path) -> dict:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    tsv = tmp_path / "vdjdb.txt"
+    tsv.write_text(TSV_TEXT)
+    output = tmp_path / "out.csv"
+    ingest_vdjdb.ingest_vdjdb(str(tsv), str(output), SCHEMA_PATH)
+    return _sidecar(output)
+
+
+def test_the_sidecar_names_the_pinned_release_when_this_run_verified_it(tmp_path, api, monkeypatch):
+    prov = _ingest_a_verified_cached_archive(tmp_path, monkeypatch)
+    assert prov["archive_verified_against_pin"] is True
+    assert prov["pinned_release_tag"] == ingest_vdjdb.VDJDB_PINNED_RELEASE_TAG
+    assert prov["pinned_asset_name"] == ingest_vdjdb.VDJDB_PINNED_ASSET_NAME
+    assert prov["pinned_asset_sha256"] == ingest_vdjdb.VDJDB_PINNED_SHA256
+    assert prov["url"] == ingest_vdjdb.VDJDB_RELEASES_API
+    assert prov["row_count"] == 2
+    assert api["calls"] == []  # the archive on disk matched, so nothing was fetched
+
+
+def test_a_local_input_is_recorded_as_unverified_with_no_release(tmp_path):
+    prov = _ingest_a_local_input(tmp_path)
+    assert prov["archive_verified_against_pin"] is False
+    assert prov["pinned_release_tag"] is None
+    assert prov["pinned_asset_name"] is None
+    assert prov["pinned_asset_sha256"] is None
+    assert prov["url"] is None
+
+
+def test_the_sidecar_carries_neither_retired_fetch_flag(tmp_path, api, monkeypatch):
+    """`fetched_latest_release` was meaningless under a pin, and a flag set merely
+    because the fetcher RAN is what the review found claiming a release no run
+    had verified."""
+    for prov in (
+        _ingest_a_local_input(tmp_path / "local"),
+        _ingest_a_verified_cached_archive(tmp_path / "cached", monkeypatch),
+    ):
+        assert "fetched_latest_release" not in prov
+        assert "fetched_pinned_release" not in prov

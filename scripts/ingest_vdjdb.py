@@ -285,12 +285,15 @@ def fetch_vdjdb(output_dir: str = "data") -> str | None:
 
 
 def ingest_vdjdb(input_path, output_path, schema_path):
-    fetched = False
+    # True only for a table fetch_vdjdb returned, which it does only for one
+    # extracted in this run from an archive whose bytes matched the pin. A local
+    # --input is not checked against the pin, and is recorded as unverified.
+    verified = False
     if not input_path or not os.path.exists(input_path):
         input_path = fetch_vdjdb()
-        fetched = True
         if not input_path or not os.path.exists(input_path):
             raise FileNotFoundError(f"Could not find or fetch VDJdb input: {input_path}")
+        verified = True
 
     print(f"Ingesting VDJdb from {input_path}")
     df = pd.read_csv(input_path, sep="\t")
@@ -490,8 +493,14 @@ def ingest_vdjdb(input_path, output_path, schema_path):
         row_count=len(df_v4),
         extra={
             "database": "VDJdb",
-            "fetched_latest_release": fetched,
-            "url": VDJDB_RELEASES_API if fetched else None,
+            # Which release the rows came from, recorded only when this run
+            # verified the archive's bytes against the pin. Otherwise the release
+            # fields are None, because nothing checked which release it was.
+            "archive_verified_against_pin": verified,
+            "pinned_release_tag": VDJDB_PINNED_RELEASE_TAG if verified else None,
+            "pinned_asset_name": VDJDB_PINNED_ASSET_NAME if verified else None,
+            "pinned_asset_sha256": VDJDB_PINNED_SHA256 if verified else None,
+            "url": VDJDB_RELEASES_API if verified else None,
             "tcr_alpha_cdr3_populated": cdr3_alpha_count,
             "tcr_beta_cdr3_populated": cdr3_beta_count,
         },
