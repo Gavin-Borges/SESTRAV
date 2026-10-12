@@ -295,13 +295,46 @@ def _download_mira(dest_dir: str) -> str:
     return zip_path
 
 
+# A ZIP local file header. Every archive starts with one, including a truncated one
+# that has lost the end-of-central-directory record `zipfile.is_zipfile` looks for.
+_ZIP_LOCAL_FILE_HEADER = b"PK\x03\x04"
+
+
+class DamagedArchive(zipfile.BadZipFile):
+    """An --input that begins as a ZIP archive but cannot be opened as one."""
+
+
+def _refuse_a_damaged_archive(input_path: str) -> None:
+    """Name a damaged archive as one, rather than letting it reach the CSV reader.
+
+    `zipfile.is_zipfile` reads the end-of-central-directory record, so a truncated
+    archive answers False and used to fall through to `pandas.read_csv`. What the
+    reader then reported depended on the FILENAME, not on the bytes: pandas infers
+    zip compression from a `.zip` extension and raised `BadZipFile`, while the same
+    bytes under any other name raised `UnicodeDecodeError` on a compressed byte,
+    which says nothing about the real problem. This makes the verdict depend on the
+    bytes instead.
+    """
+    with open(input_path, "rb") as handle:
+        signature = handle.read(len(_ZIP_LOCAL_FILE_HEADER))
+    if signature == _ZIP_LOCAL_FILE_HEADER:
+        raise DamagedArchive(
+            f"{input_path} starts as a ZIP archive but cannot be opened as one: it is "
+            "truncated or damaged. Download the ImmuneCODE MIRA archive again, or pass "
+            "the extracted peptide-detail CSV instead."
+        )
+
+
 def _load_from_zip(zip_path: str) -> tuple[pd.DataFrame, str]:
     """Extract a MIRA ZIP, locate the peptide-detail CSV, and load it.
 
     Returns (DataFrame, zip_path_for_provenance).
     """
     log.info("Extracting ZIP: %s", zip_path)
-    with tempfile.TemporaryDirectory() as tmp:
+    # ignore_cleanup_errors: a handle still open on an extracted member makes the
+    # cleanup raise on Windows, and that error would replace whatever this function
+    # was already failing with - a missing peptide-detail CSV, say - on the way out.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         with zipfile.ZipFile(zip_path, "r") as zf:
             _safe_extract_zip(zf, tmp)
         csv_path = _find_csv_in_dir(tmp)
@@ -330,7 +363,11 @@ def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
     """
     if input_path is None:
         log.info("No --input given; attempting auto-download.")
-        with tempfile.TemporaryDirectory() as tmp:
+        # ignore_cleanup_errors: _download_mira removes its .part file only best
+        # effort, because on Windows a second handle on it makes the removal raise.
+        # A file left behind that way makes this directory's cleanup raise too, and
+        # that PermissionError would escape in place of the download's own message.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             zip_path = _download_mira(tmp)
             df, _zip_path = _load_from_zip(zip_path)
             return df, MIRA_DOWNLOAD_URL
@@ -340,6 +377,8 @@ def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
 
     if zipfile.is_zipfile(input_path):
         return _load_from_zip(input_path)
+
+    _refuse_a_damaged_archive(input_path)
 
     # Direct CSV path.
     log.info("Loading CSV: %s", input_path)
@@ -665,10 +704,12 @@ def main(argv: list[str] | None = None) -> int:
     random.seed(42)
     np.random.seed(42)
 
-    # Load raw data.
+    # Load raw data. A damaged archive is reported like every other refusal here:
+    # DamagedArchive, or a BadZipFile from an archive whose member fails its CRC-32
+    # while it is extracted, is logged and exits 1 rather than escaping as a traceback.
     try:
         df_raw, source_path = _load_csv(args.input)
-    except (FileNotFoundError, RuntimeError) as exc:
+    except (FileNotFoundError, RuntimeError, zipfile.BadZipFile) as exc:
         log.error("%s", exc)
         return 1
 
