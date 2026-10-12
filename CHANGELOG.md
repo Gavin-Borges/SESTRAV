@@ -336,6 +336,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Not changed: `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb` still loads
     `facebook/esm2_t12_35M_UR50D` with no revision, and no commit of that model is pinned
     anywhere in this repository to pin it to.
+- **The ESM-2 t12 model now has a pinned Hugging Face Hub commit, and the v2.3 notebook
+  loads it at that commit.** `scripts/precompute_esm2_embeddings.py` was already fail-closed
+  for t12: `resolve_revision` accepts only a full 40-character lowercase commit SHA, and
+  with no pin for the model it refused a t12 run before `transformers` was imported unless
+  `--revision` was given. This adds the missing value, not a new refusal. `PINNED_REVISIONS`
+  now maps `facebook/esm2_t12_35M_UR50D` to the upstream commit
+  `6fbf070e65b0b7291e7bbcd451118c216cff79d8` (upstream Hub commit, not a commit of this repo).
+  On 2026-10-12 the Hub's model API reported it as that repository's current commit, its
+  revision endpoint resolved it, and the `config.json` at it gives `hidden_size` 480, the
+  dimension the script's registry records for t12, and `num_hidden_layers` 12. The t30 and
+  t33 variants stay unpinned and are still refused without `--revision`.
+  `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb`, which the entry above records as
+  loading t12 with no revision, now imports `resolve_revision` from the script and passes
+  its result to both `from_pretrained` calls, so it holds no copy of the pin. Its Step 4
+  note no longer says the cell mirrors the script "exactly"; it names what the two share
+  (the pinned commit, batches of 64 over the sorted unique peptides, the residue slice and
+  the zero padding) and where they differ (the CUDA forward pass, and no incremental mode).
+  The notebook was edited as JSON, checked with `nbformat.validate`, and not executed. In
+  `tests/test_esm2_revision_pin.py`, the test that asserted the script holds no 40-hex
+  constant now asserts the property it stood in for: the script imports the t6 pin and
+  never holds its value, and every 40-hex constant it does hold is the pin of another
+  model. It does not assert that the t6 value appears only once in the tree, which would be
+  false: `tests/test_check_doc_commit_refs.py` also carries it, twice, as a fixture. The three
+  tests that used t12 as their unpinned example now use t30, and two new tests read the
+  notebook's code cells. Against main, 5 of the file's 23 tests fail (three on the t12 pin,
+  two on the notebook); with the script change alone, the notebook's revision test still
+  fails. Eight mutants (removing the t12 entry; pinning it to the t6 revision, to `main` or
+  to a short SHA; copying the t6 pin into the script as a literal; dropping `revision=`
+  from the notebook's model load; passing the literal `main` to its tokenizer load; taking
+  `resolve_revision` from another module) all make the tests fail.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
