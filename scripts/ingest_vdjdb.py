@@ -17,15 +17,35 @@ from _dataset_utils import (
     write_provenance,
 )
 
-VDJDB_RELEASES_API = "https://api.github.com/repos/antigenomics/vdjdb-db/releases/latest"
+# The ONE VDJdb release this pipeline ingests. Resolving "latest" instead meant
+# that when upstream published a new release the URL, the digest and the size all
+# moved together, so the corpus changed with no error and the sidecar recorded
+# only that a fetch had happened. Pinning the tag, the asset name, the archive's
+# sha256 and its byte count makes an upstream change a loud failure instead.
+#
+# Read 2026-10-12 from the release API for this tag:
+#   GET https://api.github.com/repos/antigenomics/vdjdb-db/releases/tags/2026-06-03-ZENODO
+# which reports digest "sha256:9ae7724a..." and size 41017409 for the asset below.
+# To move the pin, re-run that request for the new tag and copy the asset's
+# reported digest and size. The API's values are compared with these literals
+# before any byte is downloaded, and the downloaded bytes are then compared with
+# the literal sha256.
+VDJDB_PINNED_RELEASE_TAG = "2026-06-03-ZENODO"
+VDJDB_PINNED_ASSET_NAME = "vdjdb-2026-06-03.zip"
+VDJDB_PINNED_SHA256 = "9ae7724ab2ce9fdb09b1fb82a90c7462f75269f14f669238f8c154a80239cfc1"
+VDJDB_PINNED_SIZE_BYTES = 41017409
+
+VDJDB_RELEASES_API = (
+    "https://api.github.com/repos/antigenomics/vdjdb-db/releases/tags/" + VDJDB_PINNED_RELEASE_TAG
+)
 
 # The asset URL comes from the release API response, so it is checked against
 # literals before it is opened: https, the netloc github.com exactly (no port,
 # no userinfo, no look-alike host) and a path under this repository's release
 # downloads with no ".." segment, encoded or not. Every redirect target is
 # checked before urllib follows it, and must pass the same check or be https on
-# one of VDJDB_ASSET_HOSTS. The sha256 digest the release API reports for the
-# asset, not this allowlist, is what vouches for the bytes that arrive.
+# one of VDJDB_ASSET_HOSTS. VDJDB_PINNED_SHA256, not this allowlist, is what
+# vouches for the bytes that arrive.
 VDJDB_DOWNLOAD_PATH_PREFIX = "/antigenomics/vdjdb-db/releases/download/"
 
 # The hosts GitHub is known to redirect release-asset downloads to. Other
@@ -77,17 +97,30 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
 
 
 def _resolve_vdjdb_asset() -> tuple[str, str, int]:
-    """Resolve the latest VDJdb release's .zip asset: its URL, sha256 and size."""
+    """Resolve the PINNED VDJdb release's .zip asset: its URL, sha256 and size.
+
+    The endpoint names VDJDB_PINNED_RELEASE_TAG, so "latest" is never consulted,
+    and the response is checked against the pin on four axes - the tag it
+    reports (a response with no tag fails it), the asset's name, its digest and
+    its size - before any byte is downloaded. The values RETURNED are the pinned
+    literals rather than the API's, so an API that misreports a digest cannot
+    choose which bytes this pipeline accepts.
+    """
     import json
 
     req = urllib.request.Request(VDJDB_RELEASES_API)
     req.add_header("Accept", "application/vnd.github+json")
     with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
         data = json.loads(resp.read())
+    tag = data.get("tag_name")
+    if tag != VDJDB_PINNED_RELEASE_TAG:
+        raise RuntimeError(
+            f"VDJdb release endpoint reported tag {tag!r}, not the pinned "
+            f"{VDJDB_PINNED_RELEASE_TAG!r}; refusing to ingest an unpinned release"
+        )
     assets = data.get("assets", [])
-    # Find the first .zip asset (e.g. vdjdb-2026-06-03.zip)
     for asset in assets:
-        if asset["name"].endswith(".zip"):
+        if asset.get("name") == VDJDB_PINNED_ASSET_NAME:
             # GitHub reports these as "sha256:<64 hex>" and a byte count. Without
             # them the download cannot be verified or bounded, so it is refused.
             algorithm, _, expected = str(asset.get("digest") or "").partition(":")
@@ -97,8 +130,22 @@ def _resolve_vdjdb_asset() -> tuple[str, str, int]:
             size = asset.get("size")
             if type(size) is not int or size <= 0:
                 raise RuntimeError(f"VDJdb asset {asset['name']} has no usable size")
-            return asset["browser_download_url"], expected, size
-    raise RuntimeError(f"No .zip asset found in VDJdb latest release (tag: {data.get('tag_name')})")
+            if expected != VDJDB_PINNED_SHA256:
+                raise RuntimeError(
+                    f"VDJdb asset {asset['name']} digest {expected} does not match the pinned "
+                    f"{VDJDB_PINNED_SHA256}; the release this pipeline ingests has been "
+                    "republished, or the response is not authentic"
+                )
+            if size != VDJDB_PINNED_SIZE_BYTES:
+                raise RuntimeError(
+                    f"VDJdb asset {asset['name']} size {size} does not match the pinned "
+                    f"{VDJDB_PINNED_SIZE_BYTES} bytes"
+                )
+            return asset["browser_download_url"], VDJDB_PINNED_SHA256, VDJDB_PINNED_SIZE_BYTES
+    found = sorted(str(a.get("name")) for a in assets)
+    raise RuntimeError(
+        f"No asset named {VDJDB_PINNED_ASSET_NAME} in VDJdb release {tag}; it carries {found}"
+    )
 
 
 class _ExtractionFailed(RuntimeError):
@@ -136,7 +183,7 @@ def _download_verified(
             while chunk := response.read(1024 * 1024):
                 written += len(chunk)
                 if written > max_bytes:
-                    raise RuntimeError(f"VDJdb archive exceeds the {max_bytes} bytes reported")
+                    raise RuntimeError(f"VDJdb archive exceeds the expected {max_bytes} bytes")
                 output.write(chunk)
         actual = sha256_file(partial)
         if actual != expected_sha256:

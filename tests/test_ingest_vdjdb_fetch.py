@@ -1,6 +1,6 @@
 """Tests for the VDJdb archive download in scripts/ingest_vdjdb.py.
 
-fetch_vdjdb() resolves the latest release through the GitHub API and downloads
+fetch_vdjdb() resolves the pinned release through the GitHub API and downloads
 its .zip asset. These tests pin five properties of that download:
 
 * the asset URL is refused before it is opened unless it is https on
@@ -8,10 +8,10 @@ its .zip asset. These tests pin five properties of that download:
   target (301, 302, 303, 307 and 308) is checked the same way BEFORE urllib
   follows it, with only GitHub's release-asset hosts added for redirects;
 * the transfer has a bounded socket timeout and reads no more bytes than the
-  release API reports for the asset;
-* the bytes go to a ``.part`` file, are checked against the sha256 digest the
-  release API reports, are extracted, and only then take the name
-  ``vdjdb.zip``, so no failed download leaves its archive under that name;
+  pinned size;
+* the bytes go to a ``.part`` file, are checked against the pinned sha256, are
+  extracted, and only then take the name ``vdjdb.zip``, so no failed download
+  leaves its archive under that name;
 * a damaged ``vdjdb.zip`` already on disk is replaced by a verified download.
   If that download fails before extraction starts, the damaged archive is
   kept and any table already beside it is still used; once extraction starts,
@@ -172,6 +172,12 @@ def network(monkeypatch):
     API call fail as it would with no network.
     """
     state: dict = {"release": _release(), "routes": {}, "calls": [], "offline": False}
+    # The synthetic PAYLOAD stands in for the pinned archive, so the pin points at
+    # it for the duration of each test. The pin's real literals, and the refusals
+    # that compare a release against them, live in test_ingest_vdjdb_release_pin.py;
+    # these tests are about the transfer, not about which release is pinned.
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SHA256", PAYLOAD_SHA256)
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SIZE_BYTES", len(PAYLOAD))
     real_build_opener = urllib.request.build_opener
 
     def _build_opener(*handlers):
@@ -216,6 +222,28 @@ def _serve_via_cdn(state: dict, **kw) -> None:
 
 def _asset_urls(state: dict) -> list[str]:
     return [url for url, _ in state["calls"] if url != ingest_vdjdb.VDJDB_RELEASES_API]
+
+
+def _pin(sha256: str | None = None, size: int | None = None) -> None:
+    """Move the pin a test is measured against.
+
+    The ``network`` fixture monkeypatches both pin constants, so it has already
+    recorded their real values and restores them at teardown; reassigning them
+    here is undone with the rest. A test that serves its own archive, or that
+    drives a code path reached only once the API agrees with the pin, points the
+    pin at what it serves, so the resolve-time comparison is not what it measures.
+    """
+    if sha256 is not None:
+        ingest_vdjdb.VDJDB_PINNED_SHA256 = sha256
+    if size is not None:
+        ingest_vdjdb.VDJDB_PINNED_SIZE_BYTES = size
+
+
+def _repin_to(state: dict, body: bytes) -> None:
+    """Point the release AND the pin at ``body``."""
+    digest = hashlib.sha256(body).hexdigest()
+    state["release"] = _release(digest="sha256:" + digest, size=len(body))
+    _pin(sha256=digest, size=len(body))
 
 
 def _out(tmp_path) -> str:
@@ -361,6 +389,7 @@ def test_every_asset_request_has_a_bounded_socket_timeout(tmp_path, network):
 def test_digest_mismatch_leaves_no_archive_and_no_part_file(wrong, tmp_path, network, capsys):
     assert wrong != PAYLOAD_SHA256
     network["release"] = _release(digest="sha256:" + wrong)
+    _pin(sha256=wrong)  # the API agrees with the pin; the BYTES are what differ
     _serve_via_cdn(network)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     assert sorted(os.listdir(_out(tmp_path))) == []
@@ -396,6 +425,7 @@ def test_uppercase_hex_digest_from_the_api_is_accepted(tmp_path, network):
 
 def test_transfer_longer_than_the_reported_size_is_cut_off(tmp_path, network, capsys):
     network["release"] = _release(size=len(PAYLOAD) - 1)
+    _pin(size=len(PAYLOAD) - 1)  # so the cap, not the pin comparison, is measured
     _serve_via_cdn(network)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     assert sorted(os.listdir(_out(tmp_path))) == []
@@ -558,9 +588,7 @@ def test_table_half_written_by_a_failed_extraction_is_not_returned(
 def _serve_corrupt_member_with_its_own_digest(state: dict) -> None:
     """An upstream archive whose member fails its CRC still matches its digest."""
     corrupt = DAMAGED[1]
-    state["release"] = _release(
-        digest="sha256:" + hashlib.sha256(corrupt).hexdigest(), size=len(corrupt)
-    )
+    _repin_to(state, corrupt)
     _serve_via_cdn(state, body=corrupt)
 
 
@@ -635,9 +663,7 @@ def test_a_member_extracted_onto_the_archive_name_is_removed_after_a_failure(
         archive.writestr("vdjdb.txt", TSV_TEXT)
     payload = buffer.getvalue()
     _place(tmp_path, DAMAGED[0], tsv=OLD_TSV)
-    network["release"] = _release(
-        digest="sha256:" + hashlib.sha256(payload).hexdigest(), size=len(payload)
-    )
+    _repin_to(network, payload)
     _serve_via_cdn(network, body=payload)
     real_copy = shutil.copyfileobj
     copies: list[int] = []
@@ -667,6 +693,7 @@ def test_damaged_archive_is_kept_when_the_fetch_fails_before_extraction(failure,
         _redirect(network, ASSET_URL, "https://attacker.example/vdjdb.zip")
     else:
         network["release"] = _release(size=len(PAYLOAD) - 1)
+        _pin(size=len(PAYLOAD) - 1)  # so this leg still fails on the cap
         _serve_via_cdn(network)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
     with open(_zip(tmp_path), "rb") as handle:
