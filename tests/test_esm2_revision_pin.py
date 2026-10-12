@@ -229,6 +229,22 @@ def test_t12_without_a_revision_loads_at_its_own_pin(tmp_path, monkeypatch):
 
 
 def test_unpinned_model_with_an_explicit_commit_loads_at_that_commit(tmp_path, monkeypatch):
+    """T30 has no pin, so the explicit commit is the only revision it can load at.
+    This used T12 until T12 gained a pin, after which it no longer exercised an
+    unpinned model at all."""
+    assert T30 not in precompute.PINNED_REVISIONS
+    calls: list = []
+    monkeypatch.setitem(sys.modules, "transformers", _fake_transformers(calls, 640))
+
+    precompute.precompute_esm2(
+        str(_dataset(tmp_path)), str(tmp_path / "out.pt"), model_name=T30, revision=OTHER_SHA
+    )
+
+    explicit = {"revision": OTHER_SHA}
+    assert calls == [("tokenizer", T30, explicit), ("model", T30, explicit)]
+
+
+def test_a_pinned_model_with_an_explicit_commit_loads_at_that_commit(tmp_path, monkeypatch):
     calls: list = []
     monkeypatch.setitem(sys.modules, "transformers", _fake_transformers(calls, 480))
 
@@ -378,3 +394,31 @@ def test_the_notebooks_model_is_t12_and_the_script_resolves_it_to_its_pin():
     ]
     assert models == [T12]
     assert precompute.resolve_revision(T12, None) == precompute.PINNED_REVISIONS[T12]
+
+
+def test_the_notebook_resolves_the_pin_for_the_model_it_loads():
+    """The revision is ``resolve_revision(MODEL, None)``, and both loads take MODEL.
+
+    The test above checks only that ``revision=`` names a variable assigned from
+    some resolve_revision call. Its arguments matter as much: another model's name
+    resolves that model's pin, a literal hash in place of None bypasses the pin, and
+    a different first argument to from_pretrained loads a model the revision was not
+    resolved for."""
+    loads = _notebook_hub_loads()
+    trees = {id(tree) for _, tree in loads}
+    assert len(trees) == 1, "the two loads and the resolution must share one cell"
+    tree = loads[0][1]
+    resolutions = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "resolve_revision"
+    ]
+    assert len(resolutions) == 1
+    assert [ast.unparse(arg) for arg in resolutions[0].args] == ["MODEL", "None"]
+    assert resolutions[0].keywords == []
+    for call, _ in loads:
+        assert [ast.unparse(arg) for arg in call.args] == ["MODEL"], ast.unparse(call)
+        assert [k.arg for k in call.keywords] == ["revision"], ast.unparse(call)
