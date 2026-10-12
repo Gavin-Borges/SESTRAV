@@ -222,6 +222,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every guard and every fallback-flag site was individually mutation-tested by reverting
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
+- **Installing the git hooks no longer modifies tracked files.** `CONTRIBUTING.md` step 2
+  runs `bash scripts/hooks/install.sh`, which marks the four hooks executable. Three of
+  them, `commit-msg`, `pre-commit` and `pre-push`, were tracked as non-executable, so on a
+  file system that records file modes a fresh clone showed those three files as modified
+  straight after setup, and nothing in the step said so. They are now tracked as
+  executable, as `prepare-commit-msg` already was. File contents are unchanged, and
+  `tests/test_hooks_install_script.py`'s account of why the installer's `chmod` matters
+  now says the modes changed.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
   peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
   measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
