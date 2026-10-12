@@ -19,10 +19,17 @@ Each excluded release below is named with its reason, which is one of four:
 - jsonschema 4.0.1 and 4.17.3 were run on CPython 3.14.4, which requires-python
   admits, and each fails 15 of 27 tests across the three dataset-schema test
   files with TypeError: unhashable type: 'dict'; 4.18.0 passes all 27.
-- fastapi 0.116.1 declares starlette<0.48.0, and 0.48.0 is the first starlette
-  whose status module has HTTP_422_UNPROCESSABLE_CONTENT. That case applies only
-  while code under api/ uses the name, so the test scans for it rather than
-  assuming it, and stops asking for the floor if that code ever goes.
+- A fixed advisory in the starlette a fastapi release admits. fastapi 0.132.1
+  declares starlette<1.0.0, and OSV lists CVE-2026-48710 (GHSA-86qp-5c8j-p5mr,
+  fixed in 1.0.1) against every starlette before 1.0.1, so every starlette that
+  release admits is affected. 0.133.0, the next release, is the first since
+  0.100.0 whose metadata admits starlette 1.3.1, the lowest starlette clear of
+  every OSV starlette record that gives a fixed release.
+
+That fastapi floor admits every starlette from 0.40.0 on, and starlette 0.48.0
+renamed four status constants. Each of the eight spellings is missing on one side
+of that rename or a deprecated alias on the other, so code under api/ must read
+none of them; the last test below checks it.
 
 Every release named is a SENTINEL, not a range: each case asks whether one release
 is admitted. A plain `>=` floor that excludes a sentinel also excludes everything
@@ -141,6 +148,14 @@ EXCLUDED_RELEASES = [
     ),
     pytest.param(
         FASTAPI_EXTRAS,
+        "fastapi",
+        "0.132.1",
+        "declares starlette<1.0.0, and every starlette below 1.0.1 is affected by "
+        "CVE-2026-48710 (GHSA-86qp-5c8j-p5mr), fixed in 1.0.1",
+        id="fastapi-0.132.1-admits-only-starlette-affected-by-cve-2026-48710",
+    ),
+    pytest.param(
+        FASTAPI_EXTRAS,
         "pydantic",
         "2.3.0",
         "is affected by CVE-2024-3772 (GHSA-mr82-8j83-vxmv), fixed in 2.4.0",
@@ -184,8 +199,23 @@ EXCLUDED_RELEASES = [
     ),
 ]
 
-# The attribute api/main.py reads from fastapi's re-export of starlette.status.
-STARLETTE_422_NAME = "HTTP_422_UNPROCESSABLE_CONTENT"
+# starlette 0.48.0 renamed four status constants to their RFC 9110 names and kept
+# the old ones only as deprecated aliases that warn when read. Measured from
+# starlette/status.py in all 41 starlette wheels from 0.40.0 to 1.7.0: these eight
+# are the only HTTP_ names not assigned in every one of them, the old four assigned
+# through 0.47.3 and the new four from 0.48.0.
+STARLETTE_RENAMED_STATUS_NAMES = frozenset(
+    {
+        "HTTP_413_REQUEST_ENTITY_TOO_LARGE",
+        "HTTP_413_CONTENT_TOO_LARGE",
+        "HTTP_414_REQUEST_URI_TOO_LONG",
+        "HTTP_414_URI_TOO_LONG",
+        "HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE",
+        "HTTP_416_RANGE_NOT_SATISFIABLE",
+        "HTTP_422_UNPROCESSABLE_ENTITY",
+        "HTTP_422_UNPROCESSABLE_CONTENT",
+    }
+)
 
 
 def _canonical(name: str) -> str:
@@ -222,24 +252,31 @@ def _specifier(section: str, package: str) -> SpecifierSet:
     return declared[section][name]
 
 
-def name_attribute_lines(source: str, attribute: str) -> list[int]:
-    """Lines where `source` reads `<anything>.<attribute>` as an attribute.
+def name_reference_lines(source: str, names: frozenset[str]) -> list[int]:
+    """Lines where `source` reads one of `names` as `<anything>.<name>` or imports it.
 
     Parsed, not grepped, so a comment or a string holding the name does not count.
+    The import form covers `from starlette.status import <name>`, after which the
+    name is read bare.
     """
-    return sorted(
-        node.lineno
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Attribute) and node.attr == attribute
-    )
+    lines: set[int] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Attribute) and node.attr in names:
+            lines.add(node.lineno)
+        elif isinstance(node, ast.ImportFrom) and any(a.name in names for a in node.names):
+            lines.add(node.lineno)
+    return sorted(lines)
 
 
-def _api_sites_using_422_content() -> list[str]:
+def _api_python_files() -> list[Path]:
+    return [p for p in sorted(API_TREE.rglob("*.py")) if "__pycache__" not in p.parts]
+
+
+def _api_sites_reading_renamed_status_names() -> list[str]:
     sites: list[str] = []
-    for path in sorted(API_TREE.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        for lineno in name_attribute_lines(path.read_text(encoding="utf-8"), STARLETTE_422_NAME):
+    for path in _api_python_files():
+        source = path.read_text(encoding="utf-8")
+        for lineno in name_reference_lines(source, STARLETTE_RENAMED_STATUS_NAMES):
             sites.append(f"{path.relative_to(PROJECT_ROOT).as_posix()}:{lineno}")
     return sites
 
@@ -251,17 +288,19 @@ def test_every_section_this_file_checks_is_declared() -> None:
         assert declared.get(section), f"pyproject.toml declares nothing in {section}"
 
 
-def test_attribute_scanner_counts_code_and_ignores_comments_and_strings() -> None:
-    """The fastapi case below is only as good as this detector, so pin its policy."""
+def test_name_scanner_counts_code_and_ignores_comments_and_strings() -> None:
+    """The api/ test below is only as good as this detector, so pin its policy."""
     source = (
         "from fastapi import status\n"  # 1
         "a = status.HTTP_422_UNPROCESSABLE_CONTENT\n"  # 2  counted
         "# status.HTTP_422_UNPROCESSABLE_CONTENT\n"  # 3  comment, ignored
         'b = "status.HTTP_422_UNPROCESSABLE_CONTENT"\n'  # 4  string, ignored
-        "c = status.HTTP_422_UNPROCESSABLE_ENTITY\n"  # 5  other name, ignored
-        "d = f(x).HTTP_422_UNPROCESSABLE_CONTENT\n"  # 6  counted
+        "c = status.HTTP_404_NOT_FOUND\n"  # 5  name not renamed, ignored
+        "d = f(x).HTTP_422_UNPROCESSABLE_ENTITY\n"  # 6  counted
+        "from starlette.status import HTTP_413_CONTENT_TOO_LARGE as big\n"  # 7  counted
+        "e = 422\n"  # 8  the integer, ignored
     )
-    assert name_attribute_lines(source, STARLETTE_422_NAME) == [2, 6]
+    assert name_reference_lines(source, STARLETTE_RENAMED_STATUS_NAMES) == [2, 6, 7]
 
 
 @pytest.mark.parametrize(("sections", "package", "release", "reason"), EXCLUDED_RELEASES)
@@ -276,14 +315,16 @@ def test_floor_excludes_release(
         )
 
 
-def test_fastapi_floor_admits_a_starlette_with_the_422_content_name_while_api_uses_it() -> None:
-    sites = _api_sites_using_422_content()
-    if not sites:
-        pytest.skip(f"nothing under api/ reads {STARLETTE_422_NAME}, so no starlette floor is needed")
-    for section in FASTAPI_EXTRAS:
-        specifier = _specifier(section, "fastapi")
-        assert not specifier.contains("0.116.1", prereleases=True), (
-            f"pyproject.toml {section} declares fastapi{specifier}, which admits fastapi "
-            f"0.116.1; that release declares starlette<0.48.0, and starlette added "
-            f"{STARLETTE_422_NAME} in 0.48.0, which {len(sites)} site(s) read: {', '.join(sites)}"
-        )
+def test_api_reads_no_status_name_that_only_part_of_the_admitted_starlette_defines() -> None:
+    """The fastapi floor admits starlette before and after its 0.48.0 rename.
+
+    So a renamed name raises AttributeError on one side (the 422 handler in
+    api/main.py did, on starlette 0.47.3) or warns on the other. Use the integer.
+    """
+    assert _api_python_files(), "api/ holds no Python files, so this test would pass vacuously"
+    sites = _api_sites_reading_renamed_status_names()
+    assert not sites, (
+        "code under api/ reads a starlette status name that starlette 0.48.0 renamed, "
+        "while the fastapi floor admits starlette from 0.40.0 on, before and after that "
+        f"rename: {', '.join(sites)}. Use the integer status code instead."
+    )

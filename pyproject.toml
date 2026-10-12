@@ -238,27 +238,34 @@ dev = [
     # pyproject.toml mentions it somewhere. Gated by
     # tests/test_dev_extra_runs_the_test_suite.py. Versions match [api]/[demo]
     # deliberately, so the three extras cannot drift into a resolver conflict.
-    # Both raised 2026-10-12 (see requests above for the conditions), and both
-    # for further reasons that lift them above the advisory fixes, 0.109.1 for
-    # fastapi (CVE-2024-24762, PYSEC-2024-38) and 2.4.0 for pydantic
-    # (CVE-2024-3772, GHSA-mr82-8j83-vxmv).
-    # fastapi 0.116.2: api/main.py uses status.HTTP_422_UNPROCESSABLE_CONTENT, which
-    # starlette added in 0.48.0 (0.47.3's status.py has only the _ENTITY name), and
-    # 0.116.2 is the first fastapi release whose metadata admits starlette 0.48.0:
-    # 0.116.1 declares starlette<0.48.0, and each release from 0.100.0 to 0.116.0 a
-    # lower cap. That makes the name reachable, not guaranteed. No fastapi release
-    # from 0.100.0 to 0.143.0 requires starlette 0.48.0 or later (the highest lower
-    # bound any of them declares is 0.46.0). A guarantee would need starlette
-    # declared here and in [api] and [demo], or api/main.py not to use the name, and
-    # declaring it would make tests/test_images_install_only_hashed_dependencies.py
-    # require the api and demo image specs to list it: a lock change, not made here.
+    # Both raised 2026-10-12 (see requests above for the conditions), and both sit
+    # above their own advisory fixes, 0.109.1 for fastapi (CVE-2024-24762,
+    # PYSEC-2024-38) and 2.4.0 for pydantic (CVE-2024-3772, GHSA-mr82-8j83-vxmv),
+    # because of a package each one's metadata constrains.
+    # fastapi 0.133.0: the advisories bind through starlette. fastapi ships a
+    # py3-none-any wheel, and each release declares a starlette range; every release
+    # from 0.100.0 to 0.132.1 caps starlette below 1.0.0, and OSV lists
+    # CVE-2026-48710 (GHSA-86qp-5c8j-p5mr, fixed 1.0.1) against every starlette
+    # before 1.0.1, so installing any of them installs an affected starlette. 0.133.0,
+    # the next release, is the first since 0.100.0 whose metadata admits starlette
+    # 1.3.1, the lowest release clear of every OSV starlette record that gives a fix
+    # (the highest fix is 1.3.1, for CVE-2026-54283), and it requires
+    # pydantic>=2.7.0, which the floor below meets.
+    # Admitting is not requiring: no fastapi release from 0.100.0 to 0.143.0
+    # requires a starlette above 0.46.0, so a resolver may still pick an affected
+    # one. A guarantee would need starlette declared here and in [api] and [demo],
+    # which would make tests/test_images_install_only_hashed_dependencies.py require
+    # the api and demo image specs to list it: a lock change, not made here. The
+    # same range admits starlette on both sides of its 0.48.0 rename of
+    # HTTP_422_UNPROCESSABLE_ENTITY to HTTP_422_UNPROCESSABLE_CONTENT, which is why
+    # api/main.py answers 422 with the integer rather than either name.
     # pydantic 2.8.0: pydantic ships a py3-none-any wheel, but each release pins one
     # pydantic-core release exactly, and 2.8.0 is the first whose pin (2.20.0) has
     # CPython 3.13 wheels for Linux x86_64 and win_amd64; 2.4.0 pins 2.10.0 and 2.7.4
     # pins 2.18.4, and neither has one. Measured on Linux 3.13 with pip 26.2.1 and no
     # C compiler, pydantic 2.4.0 and 2.7.4 each fail building pydantic-core from its
     # sdist, and 2.8.0 installs from wheels.
-    "fastapi>=0.116.2",
+    "fastapi>=0.133.0",
     "pydantic>=2.8.0",
     # pulp, pyahocorasick and mhcgnomes added 2026-09-13. Same class as the
     # fastapi/pydantic move above, one level further out: no test imports any of
@@ -303,7 +310,7 @@ dev = [
 ]
 # fastapi and pydantic in [api] and [demo] match [dev]; see the comment there.
 api = [
-    "fastapi>=0.116.2",
+    "fastapi>=0.133.0",
     "uvicorn>=0.23.0",
     "pydantic>=2.8.0",
 ]
@@ -319,7 +326,7 @@ demo = [
     # hard requirement of the core predict path, not demo-specific. Listing it
     # here too would be a harmless duplicate; omitted so this extra only
     # names packages genuinely exclusive to it.
-    "fastapi>=0.116.2",
+    "fastapi>=0.133.0",
     "uvicorn>=0.23.0",
     "pydantic>=2.8.0",
 ]

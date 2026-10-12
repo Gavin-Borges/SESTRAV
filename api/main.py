@@ -511,7 +511,10 @@ def score_peptide(body: PeptideInput) -> ScoreResponse:
         imm_score, bind_score = _score_peptide(body.sequence, body.allele)
     except PeptideNotInPanelError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            # The integer, not a status name: starlette 0.48.0 renamed
+            # HTTP_422_UNPROCESSABLE_ENTITY to HTTP_422_UNPROCESSABLE_CONTENT, and the
+            # fastapi floor in pyproject.toml admits starlette on both sides of that.
+            status_code=422,
             detail=(
                 f"Peptide {body.sequence!r} has no row in the ten-allele binding panel "
                 "(models/peptide_binding_matrix_v5.csv), so its immunogenicity score "
