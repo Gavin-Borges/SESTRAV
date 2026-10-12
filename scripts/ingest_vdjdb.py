@@ -59,6 +59,14 @@ VDJDB_ASSET_HOSTS = frozenset(
 # a stalled server, not the total transfer time of the archive.
 DOWNLOAD_TIMEOUT_SECONDS = 60
 
+# Total uncompressed bytes a VDJdb archive may extract to. fetch_vdjdb extracts
+# only an archive whose bytes matched VDJDB_PINNED_SHA256, so the pin, not this
+# bound, is what keeps an arbitrary archive out; the bound caps what extraction
+# can write if the pin is ever moved to an archive nobody measured. The pinned
+# archive's central directory, read 2026-10-12, declares 11 members totalling
+# 425,297,801 bytes uncompressed, which this admits with room to spare.
+VDJDB_MAX_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024
+
 
 def _check_asset_url(url: str, *, redirect: bool = False) -> None:
     """Refuse a URL outside the allowlist above; redirect=True adds VDJDB_ASSET_HOSTS."""
@@ -87,12 +95,28 @@ class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
-    """Extract with a zip-slip guard: reject any member that escapes dest_dir."""
+    """Extract with a zip-slip guard and a bound on total uncompressed size.
+
+    Both checks run over the whole member list BEFORE anything is written, so a
+    refusal leaves the destination untouched. The size bound is on the TOTAL,
+    because many small members can exceed any per-member limit between them.
+
+    A member cannot write more than the size its own header declares: ZipExtFile
+    stops at that count and then verifies the CRC, so summing the declared sizes
+    is a sound bound and needs no streaming.
+    """
     dest_root = os.path.realpath(dest_dir)
+    total = 0
     for member in zip_ref.infolist():
         target = os.path.realpath(os.path.join(dest_dir, member.filename))
         if target != dest_root and not target.startswith(dest_root + os.sep):
             raise RuntimeError(f"Unsafe zip member path (path traversal): {member.filename}")
+        total += member.file_size
+    if total > VDJDB_MAX_EXTRACTED_BYTES:
+        raise RuntimeError(
+            f"VDJdb archive would extract {total} bytes, over the "
+            f"{VDJDB_MAX_EXTRACTED_BYTES} byte limit; refusing to extract it"
+        )
     zip_ref.extractall(dest_dir)
 
 
@@ -485,6 +509,17 @@ def ingest_vdjdb(input_path, output_path, schema_path):
             df_v4[col] = df_v4[col].where(df_v4[col].notna(), other=None)
 
     validate_against_schema(df_v4, schema_path)
+    # An empty result used to be written out: an empty CSV plus a sidecar recording
+    # row_count 0, at exit 0. That is exactly the shape a truncated extraction leaves
+    # behind - a vdjdb.txt holding only its header reaches here with zero rows - and a
+    # downstream build reading that sidecar cannot tell it from a release that
+    # genuinely contributed nothing. Refuse before either file is written.
+    if len(df_v4) == 0:
+        raise ValueError(
+            f"VDJdb ingest produced no rows from {os.path.basename(input_path)}: the table "
+            "is truncated, or every row was filtered out. Refusing to write an empty "
+            "artifact and its provenance sidecar."
+        )
     print(f"Extracted {len(df_v4)} unique positive epitopes from VDJdb.")
     df_v4.to_csv(output_path, index=False)
     write_provenance(
