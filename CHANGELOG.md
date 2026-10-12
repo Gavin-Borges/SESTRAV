@@ -67,6 +67,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   extra, gains `<4` as a guard against an untested next major release; 3.3.2 still
   resolves, as before. No lock changes: every lock already pins versions inside both
   bounds. The `artifact_integrity` docstring that quoted the old floor now quotes the range.
+- **`pyproject.toml` raises six core floors: numpy to 2.0.0, four that numpy 2 forces up
+  with it, and mhcflurry for a reason of its own.**
+  numpy 1.24.0 -> 2.0.0, pandas 2.0.0 -> 2.2.2, scikit-learn 1.3.0 -> 1.5.0 (the `<1.9`
+  bound stays), scipy 1.11.0 -> 1.13.0, matplotlib 3.8.0 -> 3.9.0 and mhcflurry 2.1.0 ->
+  2.2.0. Four packaged modules reach `numpy._core.multiarray.scalar` when they load a
+  PyTorch checkpoint, and on numpy 1.26.4 that lookup raises AttributeError. That release
+  does ship `numpy/_core/`, but its `__init__.py` is a docstring-only stub importing none
+  of its submodules, so the chain resolves only once something has imported
+  `numpy._core.multiarray` by name, and measured on 1.26.4 neither `import numpy` nor
+  `import torch` does. Which attribute is reported missing depends on the process:
+  `numpy._core` itself in a bare one, and `.multiarray` once `numpy._core` but not its
+  multiarray submodule has been imported, which is what `import torch` leaves behind.
+  All four sites import torch before the lookup, so `.multiarray` is what fails there.
+  The four do not fail alike, and the comment in `pyproject.toml` now says which:
+  `src/baseline_comparison.py` lets the AttributeError out raw, its `except` naming only
+  `FileNotFoundError`, `ValueError` and `KeyError`; `src/core/model_registry.py` and
+  `src/verify/sestrav_evaluator.py` each list `AttributeError` in their own `except` tuple
+  and convert it to a `RuntimeError` that refuses the checkpoint; and
+  `functions/stage4_immunogenicity_scoring.py` swallows it in `except Exception: pass` and
+  calls `torch.load` outside that block, so there the failed lookup raises nothing: the
+  `add_safe_globals` registration is silently skipped and `torch.load` runs without it. So
+  the old floor admitted a numpy on which those lookups fail unless some other import has
+  happened to load that submodule first.
+  pandas 2.2.1, scikit-learn 1.4.1.post1, scipy 1.12.0 and matplotlib 3.8.3 each cap numpy
+  below 2.0 in their metadata, so none of them installs beside the new numpy floor. The
+  pandas floor has a second reason, executed rather than read off metadata:
+  `scripts/build_dataset_v4.py` passes `include_groups=False` to `groupby().apply()`, a
+  parameter pandas added in 2.2.0; on 2.1.4 `apply()` has no such parameter, so the
+  keyword reaches the applied lambda and raises TypeError. `scripts/` is not packaged, so
+  that reason binds whoever runs the v4 build rather than an installed consumer.
+  scikit-learn 1.5.0 is also the release that fixes CVE-2024-5206 (GHSA-jw8x-6495-233v), in
+  `TfidfVectorizer`, which SESTRAV does not use. Every mhcflurry 2.1.x release requires
+  TensorFlow and imports `pkg_resources` at module level, which setuptools has not shipped
+  since 82.0.0 and which this repo is already past: `[build-system]` requires
+  `setuptools>=83.0.0` and `requirements.in` pins 84.0.0, and the 83.0.0 and 84.0.0
+  wheels carry no `pkg_resources` member. mhcflurry 2.2.0 requires torch instead. Two
+  floors are sufficient rather than minimal: matplotlib 3.8.4 already drops the numpy cap,
+  and for numpy 2 alone scikit-learn 1.4.2 would do. No lock changes: every requirements
+  file and lock that pins these six already pins numpy 2.4.6, pandas 3.0.3, scikit-learn
+  1.8.0, scipy 1.17.1, matplotlib 3.11.2 and mhcflurry 2.2.1. The new
+  `tests/test_declared_floors_exclude_incompatible_releases.py` fails on the old floors and
+  fails again if a floor is lowered far enough to admit numpy 1.26.4, pandas 2.2.1,
+  scikit-learn 1.4.2, scipy 1.12.0, matplotlib 3.8.3, or either of the two mhcflurry
+  releases it names, 2.1.0 and 2.1.5. Those two are sentinels and not a range: the 2.1.x
+  series is 2.1.0, 2.1.1, 2.1.2, 2.1.4 and 2.1.5, with no 2.1.3, and a floor admitting
+  only the releases between the sentinels, such as `>=2.1.2,<2.1.5`, still passes. Its
+  numpy check applies only while packaged code still reaches `numpy._core`. In a Linux Python
+  3.11 environment holding exactly numpy 2.0.0, pandas 2.2.2, scikit-learn 1.5.0, scipy
+  1.13.0, matplotlib 3.9.0 and mhcflurry 2.2.0, with torch 2.13.0 on CPU, seven existing
+  test files (model registry, evaluator, API, v4 dataset build, metrics, the predict
+  command's freeze-mode forwarding, and the floor-versus-pin check) pass, 133 of 133. The
+  scikit-learn bound's comment now says that 1.9.1, not 1.9.0, publishes CPython 3.15
+  wheels, the `artifact_integrity` docstring quotes the new range, and the `packaging`
+  comment's matplotlib evidence moves off 3.8.0, which the new floor no longer admits,
+  onto 3.9.0 and the pinned 3.11.2, both of which declare `packaging>=20.0`
+  unconditionally.
 - **The semgrep tool lock moves to semgrep 1.179.0, and the pyjwt override it needed is
   retired.** semgrep 1.178.0 declared a pyjwt requirement admitting only 2.13.x, which is
   why the `semgrep` spec compiled through `environments/semgrep-overrides.txt` to reach pyjwt
