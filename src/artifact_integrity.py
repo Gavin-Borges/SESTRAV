@@ -177,6 +177,10 @@ def verify_artifact_checksum(
     Returns True when verification was performed and passed.
     Returns False when no applicable manifest entry exists and verification was optional.
     Raises ArtifactIntegrityError on mismatch or when verification is required but unavailable.
+
+    The answer describes the file as it was when hashed. A caller that then
+    opens the path again to deserialize it reads bytes this check never saw;
+    `read_verified_bytes` reads once and returns the bytes it checked.
     """
     artifact = Path(path)
     if not artifact.is_file():
@@ -213,9 +217,11 @@ def _expected_sha256(
             raise ArtifactIntegrityError(
                 f"Checksum manifest required for '{artifact}', but '{manifest}' was not found or is empty."
             )
-        # Optional verification did NOT happen. Say so: no caller in this
-        # repository inspects the return value, so without this line a sensitive
-        # load proceeds completely unverified and leaves no trace that it did.
+        # Optional verification did NOT happen. Say so: read_verified_bytes
+        # returns the bytes either way, and no production caller acts on
+        # verify_artifact_checksum's False (ModelRegistry.validate_signature
+        # returns it, but passes required=True, where False cannot occur), so
+        # without this line a load proceeds unverified and leaves no trace.
         logger.warning(
             "Checksum verification SKIPPED for '%s': manifest '%s' is missing or empty.",
             artifact,
@@ -295,9 +301,18 @@ def read_verified_bytes(
 def load_verified_joblib(
     path: str | Path,
     manifest_path: str | Path | None = None,
-    required_checksum: bool = False,
+    required_checksum: bool = True,
 ):
-    """Verify a joblib artifact when possible, then load it.
+    """Verify a joblib artifact, then load the bytes that were verified.
+
+    The file is read ONCE, by `read_verified_bytes`, and the buffer that was
+    hashed is the buffer that is unpickled. Hashing the path and then loading
+    it by path reads the file twice, so a file replaced between the two reads
+    would be deserialized unchecked.
+
+    `required_checksum` defaults to True: a missing manifest or entry raises
+    ArtifactIntegrityError. False loads an artifact with no manifest entry and
+    logs the skip; a mismatch against an entry that does exist still raises.
 
     Two independent properties are checked before the load, and they answer
     different questions. The checksum answers "are these the bytes we recorded";

@@ -3,6 +3,7 @@ to hash the artifact by path and then reopen the path to unpickle it, so a file
 replaced between the two opens was loaded without being checked."""
 
 import builtins
+import inspect
 import io
 import json
 import os
@@ -60,6 +61,38 @@ def test_the_artifact_is_opened_exactly_once(tmp_path, monkeypatch):
     monkeypatch.setattr(builtins, "open", _counting_open)
     assert ai.load_verified_joblib(artifact, manifest, required_checksum=True) == GOOD
     assert len(opens) == 1, f"artifact opened {len(opens)} times"
+
+
+def test_the_default_requires_a_checksum(tmp_path):
+    artifact = tmp_path / "model.joblib"
+    joblib.dump(GOOD, artifact)  # and no manifest at all
+    default = inspect.signature(ai.load_verified_joblib).parameters["required_checksum"].default
+    assert default is True
+    with pytest.raises(ai.ArtifactIntegrityError, match="Checksum manifest required"):
+        ai.load_verified_joblib(artifact)
+
+
+def test_an_explicit_opt_out_still_loads_and_logs_the_skip(tmp_path, caplog):
+    artifact = tmp_path / "model.joblib"
+    joblib.dump(GOOD, artifact)
+    with caplog.at_level("WARNING", logger="src.artifact_integrity"):
+        assert ai.load_verified_joblib(artifact, required_checksum=False) == GOOD
+    assert "Checksum verification SKIPPED" in caplog.text
+
+
+@pytest.mark.parametrize("required", [True, False])
+def test_a_tampered_artifact_is_refused(tmp_path, required):
+    artifact, manifest = _fixture(tmp_path)
+    joblib.dump(EVIL, artifact)
+    with pytest.raises(ai.ArtifactIntegrityError, match="Checksum verification failed"):
+        ai.load_verified_joblib(artifact, manifest, required_checksum=required)
+
+
+def test_a_missing_artifact_is_an_integrity_error(tmp_path):
+    artifact, manifest = _fixture(tmp_path)
+    artifact.unlink()  # its manifest entry survives
+    with pytest.raises(ai.ArtifactIntegrityError, match="Artifact not found"):
+        ai.load_verified_joblib(artifact, manifest, required_checksum=True)
 
 
 @pytest.mark.parametrize("entry", [{"size_bytes": 1}, {"sha256": None}, "not-a-dict"])
