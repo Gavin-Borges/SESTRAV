@@ -9,6 +9,7 @@ artifacts are created, and verify them again before sensitive loads.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 from datetime import datetime, timezone
@@ -180,7 +181,30 @@ def verify_artifact_checksum(
     artifact = Path(path)
     if not artifact.is_file():
         raise ArtifactIntegrityError(f"Artifact not found for checksum verification: {artifact}")
+    expected = _expected_sha256(artifact, manifest_path, required)
+    if expected is None:
+        return False
+    actual = sha256_file(artifact)
+    if expected != actual:
+        raise ArtifactIntegrityError(
+            f"Checksum verification failed for '{artifact}'. Expected {expected}, got {actual}."
+        )
+    return True
 
+
+def _expected_sha256(
+    artifact: Path,
+    manifest_path: str | Path | None,
+    required: bool,
+) -> str | None:
+    """Return the sha256 that `artifact`'s checksum manifest records for it.
+
+    Returns None, after logging the skip, when verification is optional and
+    nothing describes the artifact. Raises ArtifactIntegrityError when it is
+    required and nothing does, and, whatever `required` says, when an entry
+    names the artifact but records no sha256 string: that is a malformed
+    record, not an absent one, so it fails closed.
+    """
     manifest = Path(manifest_path) if manifest_path else default_manifest_path_for(artifact)
     payload = load_checksum_manifest(manifest)
     artifacts = payload.get("artifacts", {})
@@ -197,7 +221,7 @@ def verify_artifact_checksum(
             artifact,
             manifest,
         )
-        return False
+        return None
 
     # An artifact is only ever matched against its canonical manifest-relative key.
     # Basenames are not unique across the repo (models/, models/v5/ and
@@ -230,15 +254,42 @@ def verify_artifact_checksum(
             manifest,
             key,
         )
-        return False
+        return None
 
-    expected = entry.get("sha256")
-    actual = sha256_file(artifact)
-    if expected != actual:
+    expected = entry.get("sha256") if isinstance(entry, dict) else None
+    if not isinstance(expected, str):
         raise ArtifactIntegrityError(
-            f"Checksum verification failed for '{artifact}'. Expected {expected}, got {actual}."
+            f"Checksum entry for '{artifact}' in manifest '{manifest}' records no sha256."
         )
-    return True
+    return expected
+
+
+def read_verified_bytes(
+    path: str | Path,
+    manifest_path: str | Path | None = None,
+    required: bool = True,
+) -> bytes:
+    """Read an artifact once and return those bytes, checked against its manifest.
+
+    The digest is computed over the returned buffer, so a caller that
+    deserializes the buffer gets exactly the bytes that were checked, whatever
+    happens to the file afterwards. Raises ArtifactIntegrityError where
+    `verify_artifact_checksum` does; when `required` is False and the manifest
+    has no entry for the artifact, the bytes are returned unchecked and the
+    skip is logged.
+    """
+    artifact = Path(path)
+    if not artifact.is_file():
+        raise ArtifactIntegrityError(f"Artifact not found for checksum verification: {artifact}")
+    expected = _expected_sha256(artifact, manifest_path, required)
+    data = artifact.read_bytes()
+    if expected is not None:
+        actual = hashlib.sha256(data).hexdigest()
+        if expected != actual:
+            raise ArtifactIntegrityError(
+                f"Checksum verification failed for '{artifact}'. Expected {expected}, got {actual}."
+            )
+    return data
 
 
 def load_verified_joblib(
@@ -261,9 +312,9 @@ def load_verified_joblib(
     """
     from joblib import load as joblib_load
 
-    verify_artifact_checksum(path, manifest_path=manifest_path, required=required_checksum)
+    data = read_verified_bytes(path, manifest_path=manifest_path, required=required_checksum)
     verify_artifact_library_versions(path, required=required_checksum)
-    return joblib_load(path)
+    return joblib_load(io.BytesIO(data))
 
 
 def _relative_to_project_root(path: Path) -> str:
