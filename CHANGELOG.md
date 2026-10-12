@@ -123,6 +123,73 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   comment's matplotlib evidence moves off 3.8.0, which the new floor no longer admits,
   onto 3.9.0 and the pinned 3.11.2, both of which declare `packaging>=20.0`
   unconditionally.
+- **`pyproject.toml` raises the floors that admitted a release with a fixed advisory or
+  with no wheel for a CI Python, plus jsonschema's.** Maintainer decision on 2026-10-12.
+  Core: requests 2.31.0 -> 2.33.0, jsonschema 4.0.0 -> 4.18.0, biopython 1.80 -> 1.87 and
+  PyYAML 6.0 -> 6.0.2. Extras: transformers 4.30.0 -> 5.10.1 (`gnn`), pytest 8.0.0 ->
+  9.0.3 (`dev`), fastapi 0.100.0 -> 0.116.2 and pydantic 2.0.0 -> 2.8.0 (`dev`, `api`
+  and `demo` alike), and streamlit 1.35.0 -> 1.54.0 (`demo`). `[build-system]`: wheel,
+  unbounded until now, -> 0.46.2. Every new floor has a wheel for CPython 3.11, 3.12 and
+  3.13 on Linux x86_64 and win_amd64 and clears every advisory OSV lists against a
+  release its old floor admitted, read from OSV's structured ranges rather than its
+  prose; each comment says which condition binds. The advisories: requests
+  CVE-2024-35195, CVE-2024-47081 and CVE-2026-25645 (fixed 2.32.0, 2.32.4 and 2.33.0;
+  2.32.0 and 2.32.1 are yanked); biopython CVE-2025-68463, whose PYSEC-2026-1221 record
+  gives fixed 1.87 while GHSA-x3vf-39hj-gxr4 gives only last_affected 1.86, so neither
+  covers 1.87; pytest CVE-2025-71176 (9.0.3); fastapi CVE-2024-24762 (0.109.1); pydantic
+  CVE-2024-3772 (2.4.0); streamlit CVE-2024-42474, CVE-2026-10804 and CVE-2026-33682
+  (1.37.0, 1.53.1 and 1.54.0); wheel CVE-2026-24049 (0.46.2) and CVE-2022-40898
+  (0.38.1); and transformers, where 43 of the 54 OSV records matching a release 4.30.0
+  admitted give a fixed release, the highest 5.10.0 (CVE-2026-9856), which PyPI has
+  yanked, hence 5.10.1. The decision expected a written acceptance for transformers
+  instead, on the understanding that its advisories have no fix; most do, so the two
+  conditions set its floor. Nine transformers CVEs have no OSV record giving any fix,
+  only a last_affected, all below 5.10.1: CVE-2025-14920, CVE-2025-14921,
+  CVE-2025-14924, CVE-2025-14926, CVE-2025-14927, CVE-2025-14928, CVE-2025-14929,
+  CVE-2025-14930 and CVE-2026-80047. They are accepted in writing in the `gnn` comment:
+  by OSV's own text they concern Perceiver, Transformer-XL, megatron_gpt2 and GLM4 model
+  parsing, X-CLIP checkpoint conversion, the SEW, SEW-D and HuBERT `convert_config`
+  functions and `load_custom_generate`, while SESTRAV's two transformers call sites
+  (`src/features.py` and `scripts/precompute_esm2_embeddings.py`) each load a
+  facebook/esm2 model at a pinned commit through `AutoTokenizer` or `EsmTokenizer` and
+  `EsmModel`, and neither passes `trust_remote_code`. The wheel condition binds PyYAML:
+  6.0.2 is its first release with CPython 3.13 wheels. Measured on Linux with pip 26.2.1 and no C compiler, 6.0's sdist
+  fails on 3.12 and 3.13 with `AttributeError: 'build_ext' object has no attribute
+  'cython_sources'`, and 6.0.1's installs on 3.13 but without the libyaml extension. For
+  biopython the wheel condition alone would need 1.85, and the same setup fails to build
+  1.80 on 3.12 and 1.84 on 3.13. Three floors rise for further reasons. jsonschema: on
+  CPython 3.14, which `requires-python` admits but no CI job runs, 4.0.1 and 4.17.3 each
+  fail 15 of 27 tests in the three dataset-schema test files with `TypeError: unhashable
+  type: 'dict'` inside `jsonschema.validate`, and 4.18.0 passes all 27; on 3.11 and 3.13
+  all three pass. fastapi: `api/main.py` uses `status.HTTP_422_UNPROCESSABLE_CONTENT`,
+  which starlette added in 0.48.0, and 0.116.2 is the first fastapi whose metadata admits
+  that starlette. With fastapi 0.116.1 on Python 3.13, starlette resolves to 0.47.3 and
+  `test_out_of_panel_peptide_returns_422_not_silent_zeros` fails with AttributeError on
+  that name. This makes the name reachable, not guaranteed: no fastapi release from
+  0.100.0 to 0.143.0 requires starlette 0.48.0 or later, and declaring starlette in
+  `api` and `demo` would fail the image-spec check in
+  `tests/test_images_install_only_hashed_dependencies.py` (measured) until the api and
+  demo image specs list it, which is a lock change and is not made here. pydantic: each
+  release pins one pydantic-core exactly, and 2.8.0 is the first whose pin has CPython
+  3.13 wheels; 2.4.0 and 2.7.4 each fail building pydantic-core from its sdist on 3.13 in
+  the same setup. No lock changes: every requirements file and lock that pins these
+  packages already pins at or above the new floor, and none pins transformers. The new
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` fails 18 of its 20 cases on
+  the old floors, and reverting any one floor fails at least one case. Its releases are
+  sentinels, not ranges: `requests>=2.31.0,!=2.31.0,!=2.32.3,!=2.32.5` passes every
+  requests case while admitting the affected 2.32.2. Its fastapi case applies only while
+  code under `api/` reads the starlette name. Floor-version run, on Linux under CPython
+  3.11, 3.12 and 3.13, with requests, jsonschema, biopython, PyYAML and pytest at exactly
+  their new floors, torch 2.13.0 on CPU, everything else resolved normally, and the
+  package installed editable from a build held at setuptools 83.0.0 and wheel 0.46.2:
+  fifteen test files that exercise those packages or the floors pass 290 with 1 skipped
+  (the opt-in live predictor query) on each Python. Adding fastapi 0.116.2, pydantic 2.8.0 and streamlit
+  1.54.0 (starlette resolves to 0.48.0), seven API, demo and config test files pass 47 of
+  47 and `tests/test_model_registry.py` 19 of 19 on each. Adding transformers 5.10.1 on
+  3.11 and 3.13, three feature and ESM test files pass 54 of 54, including the real
+  ESM-2 load in `tests/test_features.py`. The `packaging` comment's pytest evidence
+  moves off 8.0.0, which the new floor no longer admits, onto 9.0.3 and the pinned 9.1.1,
+  both of which declare `packaging>=22` unconditionally.
 - **The semgrep tool lock moves to semgrep 1.179.0, and the pyjwt override it needed is
   retired.** semgrep 1.178.0 declared a pyjwt requirement admitting only 2.13.x, which is
   why the `semgrep` spec compiled through `environments/semgrep-overrides.txt` to reach pyjwt
