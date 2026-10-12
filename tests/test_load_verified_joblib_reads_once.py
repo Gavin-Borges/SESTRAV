@@ -40,9 +40,18 @@ def test_bytes_swapped_after_verification_are_never_deserialized(tmp_path, monke
     monkeypatch.setattr(ai, "verify_artifact_library_versions", _swap)
     try:
         loaded = ai.load_verified_joblib(artifact, manifest, required_checksum=True)
-    except ai.ArtifactIntegrityError:
-        return
-    assert loaded == GOOD, "deserialized bytes that were never verified"
+    except ai.ArtifactIntegrityError as refusal:
+        # Name the only refusal this setup can legitimately raise. The artifact
+        # exists, its manifest entry is intact and the version check is patched
+        # out, so a loader that hashes after the swap fails the checksum and
+        # nothing else does. A bare `except ...: return` would also swallow an
+        # integrity error raised for an unrelated reason, and then the swap
+        # would never be adjudicated at all.
+        assert "Checksum verification failed" in str(refusal), (
+            f"refused, but not over the swapped bytes: {refusal}"
+        )
+    else:
+        assert loaded == GOOD, "deserialized bytes that were never verified"
 
 
 def test_the_artifact_is_opened_exactly_once(tmp_path, monkeypatch):
