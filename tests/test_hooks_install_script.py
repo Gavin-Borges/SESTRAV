@@ -13,8 +13,11 @@ all.
 
 The chmod is not cosmetic on POSIX. `git ls-tree` at 153d2b06 shows `pre-commit`,
 `commit-msg` and `pre-push` tracked as mode 100644 and only `prepare-commit-msg` as
-100755, so a Linux or macOS checkout gets three of the four non-executable, and git's
-own githooks documentation says hooks without the executable bit set are ignored.
+100755, so a Linux or macOS checkout then got three of the four non-executable, and git's
+own githooks documentation says hooks without the executable bit set are ignored. All
+four have since been tracked as 100755, so a fresh clone is already executable; the
+chmod still matters for a checkout made before that change and for any copy that drops
+the bit, which is why the sandbox below still starts every hook at 0644.
 
 What is asserted, and how each is made observable
 -------------------------------------------------
@@ -30,8 +33,8 @@ working directory decides which clone it configures.
 - `chmod +x` is called on each of the four named hooks, in the script's loop order.
   This is observed through a logging `chmod` shim first on PATH, because the execute
   bit itself cannot be observed on Windows (see the skip reason on the POSIX test).
-- On POSIX, the four hooks, copied in as 0644 to match a 100644 checkout, end up
-  executable.
+- On POSIX, the four hooks, copied in as 0644 to match a checkout made while they were
+  tracked 100644, end up executable.
 - The header comment's promise that "the setting applies to every worktree of this
   clone": after one run, from either worktree, git resolves the hooks directory of
   EACH worktree to that worktree's own `scripts/hooks`. An absolute value would send
@@ -234,7 +237,8 @@ def sandbox(tmp_path: Path, git_env: dict[str, str]) -> Path:
             copy = target / source.name
             # Bytes, not text: line endings must be what a contributor's checkout holds.
             copy.write_bytes(source.read_bytes())
-            # What a POSIX checkout gives a 100644 entry, so the chmod is observable.
+            # What a POSIX checkout gave these hooks while they were tracked 100644, so
+            # the chmod stays observable now that they are tracked 100755.
             copy.chmod(0o644)
     return clone
 
