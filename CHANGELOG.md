@@ -53,6 +53,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `downstream_status` block of `data/iedb_negatives_v5_provenance.json` and pinned by
   `tests/test_iedb_negatives_v5_composition_guard.py::test_downstream_merge_lag_is_pinned_not_silent`,
   which fails if the lag is closed or widened without the sidecar being updated with it.
+- **`pyproject.toml` now bounds `scikit-learn` below 1.9 and `pulp` below 4.** The locks pin
+  scikit-learn 1.8.0, but the core declaration was a bare floor, so `pip install .` resolved
+  the newest release, 1.9.1 on 2026-10-11. In environments that differ only in
+  scikit-learn (and narwhals, the new dependency 1.9 brings), scikit-learn 1.9.0 changes
+  45 of 208 probed output values against 1.8.0, all of them RandomForest, and no XGBoost
+  value moves; 1.9.1 matches 1.9.0. The bound keeps an unpinned install on the 1.8 series,
+  whose only release on 2026-10-11, 1.8.0, is what the locks pin. scikit-learn 1.8.0
+  publishes wheels for CPython 3.11 to 3.14 on Linux, macOS and Windows, but none for 3.15,
+  which 1.9.1 does; on that date torch published no 3.15 wheel and no source distribution
+  on PyPI, so on PyPI the bound blocks no 3.15 install that was otherwise possible, and the
+  `pyproject.toml` comment says to revisit it once torch ships one. `pulp`, declared in the `dev`
+  extra, gains `<4` as a guard against an untested next major release; 3.3.2 still
+  resolves, as before. No lock changes: every lock already pins versions inside both
+  bounds. The `artifact_integrity` docstring that quoted the old floor now quotes the range.
 - **The semgrep tool lock moves to semgrep 1.179.0, and the pyjwt override it needed is
   retired.** semgrep 1.178.0 declared a pyjwt requirement admitting only 2.13.x, which is
   why the `semgrep` spec compiled through `environments/semgrep-overrides.txt` to reach pyjwt
