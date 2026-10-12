@@ -176,6 +176,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   read that comes back as one column is re-read by tab) was untested too: a further test runs
   a comma-free tab-separated panel named `.dat`, and one with no extension, and checks that
   each reports its one overlapping peptide, which only the fallback makes possible.
+- **`sestrav predict` now says when freeze mode is off only because config gave it no
+  value.** `config.yaml` sets `freeze_mode: true`, but `sestrav predict` reads that file
+  only from its installation root, never from the working directory, and a non-editable
+  install (`pip install .`, or the Docker image) has none there. Without `--freeze-mode`
+  or `--no-freeze-mode` the run then used freeze mode's default, off, and printed only
+  `Freeze mode: False`, the same line a deliberate setting prints. It now adds a line
+  saying that no `freeze_mode` value came from `config.yaml`, that freeze mode is off by
+  default, and that `--freeze-mode` turns it on, whenever config supplied no value: no
+  file at the installation root, PyYAML not installed, an empty file, or one without the
+  key or with it null (a malformed `config.yaml` still raises, as before). A configured
+  `false` and an explicit flag print no such line. Behaviour is unchanged, by the owner's
+  choice.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
