@@ -127,6 +127,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   One case fails the load with an exception whose message is empty, so a cached failure
   is recognised by being set, not by its text. Eleven mutants of the new code each fail
   at least one API test.
+- **`/health` now reports a cached MHCflurry presentation-predictor load failure instead
+  of answering `healthy`.** `api/main.py` loads the predictor on the first `/score` that
+  reaches it and never retries a failed import or load, so from that failure on, every
+  `/score` that reaches it answers 200 with `binding_score` null until the server
+  restarts. `/health` read only the
+  RF model's state, so it answered `healthy` throughout, and only an INFO log line on each
+  request said why `binding_score` was null. Once that load has failed, `/health` answers
+  `status: degraded` with `model_loaded: true` and a `reason` naming the exception type
+  (`RuntimeError` for missing model data, `ModuleNotFoundError` when MHCflurry is not
+  installed) but not its message, which for missing model data quotes the local downloads
+  path. The body keeps its three keys; none is added. Before the first such `/score` the
+  load has not been attempted, so its state is unknown, not failed: `/health` still answers
+  `healthy` then and does not load the predictor itself, and an error raised by
+  `predict()`, which is not cached, leaves it `healthy` too. `/health` answers 200 in every
+  case. **Open question for the owner, deliberately not decided here:** `/ready` reads only
+  `model_loaded`, so it keeps answering 200, now with this degraded body. Answering 503 for
+  a cached MHCflurry failure would change the readiness contract that
+  `docker-compose.yml`'s api healthcheck gates the demo service on, and since
+  `Dockerfile.api` never fetches MHCflurry's model data, an api container given the RF
+  model through compose's `models/` mount would turn unready at its first `/score` that
+  reaches the predictor. `tests/test_api_health_reports_presentation_failure.py` (new, 7
+  test cases) drives `/health` and `/ready` through the ASGI app: four fail on the previous
+  code, and the three that pin the unchanged cases pass before and after.
+  `tests/test_api_readiness.py` now clears the cached failure before each case:
+  `tests/test_api_main.py` scores through the real MHCflurry, and with MHCflurry pointed at
+  an empty downloads directory the failure it cached made two of that file's exact-body
+  assertions fail once `/health` reported it. Eight mutants of the change each fail at
+  least one API test.
 - **`sestrav info` now says when it could not check the MHCflurry pin, and `USAGE.md`'s
   expected output matches what it prints.** `sestrav info` reads `config.yaml` only from its
   installation root, never from the working directory, and that stays: a `config.yaml` in
