@@ -28,8 +28,8 @@ from _dataset_utils import (
 # which reports digest "sha256:9ae7724a..." and size 41017409 for the asset below.
 # To move the pin, re-run that request for the new tag and copy the asset's
 # reported digest and size. The API's values are compared with these literals
-# before any byte is downloaded, and the downloaded bytes are then compared with
-# the literal sha256.
+# before any byte is downloaded, and the bytes themselves, downloaded or already
+# on disk, are compared with the literal sha256 before anything is extracted.
 VDJDB_PINNED_RELEASE_TAG = "2026-06-03-ZENODO"
 VDJDB_PINNED_ASSET_NAME = "vdjdb-2026-06-03.zip"
 VDJDB_PINNED_SHA256 = "9ae7724ab2ce9fdb09b1fb82a90c7462f75269f14f669238f8c154a80239cfc1"
@@ -158,14 +158,13 @@ def _download_verified(
     """Download to a .part file, verify and extract it, and only then rename it to zip_path.
 
     Any failure removes the .part file, so this only ever puts an archive at
-    zip_path once it has been verified and fully extracted. A failure before
-    extraction starts leaves zip_path as it was. Extraction may overwrite files
-    in extract_to, so zip_path (absent or damaged whenever this runs) is removed
-    as extraction starts, before anything is written: no later failure, an
-    interrupt or a process killed outright included, leaves it for a later run
-    to fall back on. After a failure once extraction has started, zip_path is
-    removed again, in case a member was extracted onto it. An Exception raised
-    by extraction itself is re-raised as _ExtractionFailed.
+    zip_path once its bytes matched expected_sha256 and it was fully extracted.
+    A failure before extraction starts leaves zip_path as it was. zip_path
+    (absent, or not the pinned archive, whenever this runs) is removed as
+    extraction starts, before anything is written, and again after a failure
+    once extraction has started, in case a member was extracted onto it, so no
+    failure leaves an archive name beside a directory this run half wrote. An
+    Exception raised by extraction itself is re-raised as _ExtractionFailed.
     """
     _check_asset_url(url)
     partial = zip_path + ".part"
@@ -192,9 +191,9 @@ def _download_verified(
             )
         with zipfile.ZipFile(partial, "r") as zip_ref:
             extracting = True
-            # Extraction may overwrite the table beside the damaged archive, so
-            # the archive goes first: even a kill mid-extraction, which runs no
-            # cleanup, then leaves no archive for a later run to fall back on.
+            # Extraction may overwrite files beside the old archive, so it goes
+            # first: even a kill mid-extraction, which runs no cleanup, then
+            # leaves no archive name beside a half-written directory.
             if os.path.exists(zip_path):
                 os.remove(zip_path)
             try:
@@ -210,72 +209,79 @@ def _download_verified(
         raise
 
 
-def _zip_is_intact(zip_path: str) -> bool:
-    """True when zip_path opens as an archive and every member passes its CRC-32."""
-    try:
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            return zip_ref.testzip() is None
-    except Exception:  # any failure to open or read it means it cannot be used
-        return False
+def _archive_matches_pin(zip_path: str) -> bool:
+    """True when zip_path is byte for byte the pinned archive: its size, then its sha256."""
+    return (
+        os.path.getsize(zip_path) == VDJDB_PINNED_SIZE_BYTES
+        and sha256_file(zip_path) == VDJDB_PINNED_SHA256
+    )
+
+
+# The table fetch_vdjdb returns, by member basename, in order of preference.
+_TABLE_NAMES = ("vdjdb.txt", "vdjdb_full.txt")
+
+
+def _table_member(zip_ref: zipfile.ZipFile) -> str:
+    """Name the archive member holding the VDJdb table.
+
+    It is found in the archive's own member list, never by searching the
+    directory the archive is extracted into, so a table that another release or
+    a manual extraction left there cannot be returned in place of this one.
+    """
+    members = [m.filename for m in zip_ref.infolist() if not m.is_dir()]
+    for name in _TABLE_NAMES:
+        for member in members:
+            if member.rsplit("/", 1)[-1] == name:
+                return member
+    raise RuntimeError(f"the VDJdb archive has no member named {' or '.join(_TABLE_NAMES)}")
 
 
 def fetch_vdjdb(output_dir: str = "data") -> str | None:
+    """Return a VDJdb table extracted IN THIS RUN from the pinned archive, or None.
+
+    The only archive used is one whose bytes this run compared with the pin. A
+    vdjdb.zip already in output_dir is hashed first and, if it matches, extracted
+    again; otherwise the pinned release is downloaded and verified. Every refusal
+    or failure returns None: no table already in output_dir is ever returned in
+    place of one extracted from verified bytes, whether the archive beside it
+    failed the pin, the release endpoint refused, or there was no network.
+    """
     os.makedirs(output_dir, exist_ok=True)
     zip_path = os.path.join(output_dir, "vdjdb.zip")
-    cached = os.path.exists(zip_path) and _zip_is_intact(zip_path)
-    if not cached:
-        if os.path.exists(zip_path):
-            # A truncated or corrupt archive (for example one left by an
-            # interrupted download before downloads went through a .part file)
-            # is kept until extraction of a verified download starts, so a fetch
-            # that fails before then still falls back to the table beside it.
-            # _download_verified removes it when extraction starts, so no later
-            # failure, a process killed outright included, leaves it behind.
-            print(f"{zip_path} is truncated or corrupt; fetching a verified replacement.")
-        try:
-            url, expected_sha256, size = _resolve_vdjdb_asset()
-            print(f"Downloading VDJdb from {url}...")
-            _download_verified(url, zip_path, expected_sha256, size, output_dir)
-            print("Downloaded and extracted VDJdb.")
-        except _ExtractionFailed as e:
-            # Extraction writes into output_dir, so a table found there now may
-            # be one this run half wrote. Do not fall back to it. (Extraction
-            # counts as started on entering _safe_extract_zip, so a refusal from
-            # its member check, which writes nothing, also lands here.)
-            print(f"Failed to fetch VDJdb: {e}")
-            print(f"Files in {output_dir} may have been partly overwritten; not using them.")
-            return None
-        except Exception as e:
-            print(f"Failed to fetch VDJdb: {e}")
-            if not os.path.exists(zip_path):
-                print("Please manually download VDJdb and provide the TSV path.")
+    if os.path.exists(zip_path):
+        if _archive_matches_pin(zip_path):
+            print(f"{zip_path} matches the pinned sha256; extracting it again.")
+            try:
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    member = _table_member(zip_ref)
+                    _safe_extract_zip(zip_ref, output_dir)
+            except Exception as e:
+                print(f"Failed to extract the pinned VDJdb archive: {e}")
                 return None
-    found = _find_vdjdb_tsv(output_dir)
-    if found is None and cached:
-        # An intact archive with no vdjdb.txt beside it (it was removed, or an
-        # earlier extraction stopped before writing it): extract it again.
+            return os.path.join(output_dir, *member.split("/"))
+        print(f"{zip_path} is not the pinned archive; fetching the pinned release.")
+    try:
+        url, expected_sha256, size = _resolve_vdjdb_asset()
+        print(f"Downloading VDJdb from {url}...")
+        _download_verified(url, zip_path, expected_sha256, size, output_dir)
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            _safe_extract_zip(zip_ref, output_dir)
-        found = _find_vdjdb_tsv(output_dir)
-    if found is None:
-        print("Warning: could not find vdjdb.txt in extracted archive.")
-    return found
-
-
-def _find_vdjdb_tsv(output_dir: str) -> str | None:
-    # Find vdjdb.txt (may be at top level or in a subdirectory)
-    for candidate in [
-        os.path.join(output_dir, "vdjdb.txt"),
-        os.path.join(output_dir, "vdjdb_full.txt"),
-    ]:
-        if os.path.exists(candidate):
-            return candidate
-    # Search extracted files
-    for root, _dirs, files in os.walk(output_dir):
-        for f in files:
-            if f == "vdjdb.txt" or f == "vdjdb_full.txt":
-                return os.path.join(root, f)
-    return None
+            member = _table_member(zip_ref)
+    except _ExtractionFailed as e:
+        # (Extraction counts as started on entering _safe_extract_zip, so a
+        # refusal from its member checks, which writes nothing, also lands here.)
+        print(f"Failed to fetch VDJdb: {e}")
+        print(f"Files in {output_dir} may have been partly overwritten; not using them.")
+        return None
+    except Exception as e:
+        print(f"Failed to fetch VDJdb: {e}")
+        print(
+            f"No table in {output_dir} is used in its place: only one extracted from "
+            "the pinned archive in this run is ingested. Pass a VDJdb table with "
+            "--input to ingest it unverified."
+        )
+        return None
+    print("Downloaded and extracted VDJdb.")
+    return os.path.join(output_dir, *member.split("/"))
 
 
 def ingest_vdjdb(input_path, output_path, schema_path):

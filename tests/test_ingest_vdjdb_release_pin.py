@@ -1,4 +1,4 @@
-"""scripts/ingest_vdjdb.py ingests ONE pinned VDJdb release, not whatever is latest.
+"""scripts/ingest_vdjdb.py ingests ONE pinned VDJdb release, and only bytes it verified.
 
 The fetcher used to resolve `/releases/latest` and then verify the downloaded
 bytes against the sha256 digest THAT SAME API RESPONSE reported for the asset.
@@ -14,7 +14,12 @@ These tests pin what makes it a pin instead:
   size must each equal the pinned value, and a mismatch is refused BEFORE any
   byte is downloaded;
 * the digest and size handed to the downloader are the PINNED values, not the
-  API's, so the pin governs the bytes even if the API misreports them.
+  API's, so the pin governs the bytes even if the API misreports them;
+* a refusal is FATAL: in each of the four cases the O6 review measured failing
+  open - an intact archive of another release already on disk, a release
+  republished under another tag, one republished with another digest, and no
+  network - `ingest_vdjdb` raises and writes neither the CSV nor its sidecar,
+  where it used to ingest a stale table and record the pinned release.
 
 No test opens a socket: the API call is routed through an in-memory
 urllib.request.urlopen, socket connects are refused, and `_download_verified` is
@@ -33,6 +38,7 @@ import sys
 import urllib.error
 import urllib.request
 import urllib.response
+import zipfile
 
 import pytest
 
@@ -41,6 +47,14 @@ _REPO_ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts"))
 
 import ingest_vdjdb  # noqa: E402
+
+SCHEMA_PATH = os.path.join(_REPO_ROOT, "data", "immunogenicity_dataset_v5_schema.json")
+
+_HEADER = "Epitope\tMHC A\tEpitope species\tEpitope gene\n"
+TSV_TEXT = (
+    _HEADER + "GILGFVFTL\tHLA-A*02:01\tInfluenzaA\tM\n" + "NLVPMVATV\tHLA-A*02:01\tCMV\tpp65\n"
+)
+STALE_TSV = _HEADER + "YLQPRTFLL\tHLA-A*02:01\tSARSCoV2\tSpike\n"
 
 _ABSENT = object()
 
@@ -193,3 +207,58 @@ def test_the_pinned_digest_and_size_are_what_reach_the_downloader(api, tmp_path,
     ingest_vdjdb.fetch_vdjdb(str(tmp_path / "data"))
     assert seen["sha256"] == ingest_vdjdb.VDJDB_PINNED_SHA256
     assert seen["max_bytes"] == ingest_vdjdb.VDJDB_PINNED_SIZE_BYTES
+
+
+# --------------------------------------------------------------------------
+# A refusal is fatal: the four fail-open cases now write nothing
+# --------------------------------------------------------------------------
+
+
+def _archive(tsv: str) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("vdjdb.txt", tsv)
+    return buffer.getvalue()
+
+
+# An intact archive of another release, and the first 100 bytes of one, the
+# shape an interrupted download used to leave behind.
+OTHER_RELEASE = _archive(STALE_TSV)
+TRUNCATED = _archive(TSV_TEXT)[:100]
+
+SCENARIOS = {
+    "other-release-cache": {"archive": OTHER_RELEASE, "offline": True},
+    "tag-republished": {"archive": TRUNCATED, "release": _release(tag="2027-01-01-ZENODO")},
+    "digest-republished": {
+        "archive": TRUNCATED,
+        "release": _release(assets=[_asset(digest="sha256:" + "f" * 64)]),
+    },
+    "offline": {"archive": TRUNCATED, "offline": True},
+}
+
+
+@pytest.mark.parametrize("scenario", list(SCENARIOS))
+def test_a_refused_or_unverified_archive_is_fatal_and_nothing_is_written(
+    scenario, api, tmp_path, monkeypatch
+):
+    """Each of these used to ingest the stale table at exit 0 and write a sidecar
+    recording the pinned release."""
+    case = SCENARIOS[scenario]
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "vdjdb.zip").write_bytes(case["archive"])
+    (data / "vdjdb.txt").write_text(STALE_TSV)
+    api["offline"] = case.get("offline", False)
+    if "release" in case:
+        api["release"] = case["release"]
+    monkeypatch.setattr(ingest_vdjdb, "_download_verified", _never_download)
+    monkeypatch.chdir(tmp_path)  # fetch_vdjdb() defaults to ./data
+    out = tmp_path / "out.csv"
+
+    with pytest.raises(FileNotFoundError, match="Could not find or fetch VDJdb input"):
+        ingest_vdjdb.ingest_vdjdb(None, str(out), SCHEMA_PATH)
+
+    assert not out.exists()
+    assert not (tmp_path / "out_provenance.json").exists()
+    assert (data / "vdjdb.txt").read_text() == STALE_TSV  # untouched, and unused
+    assert sorted(os.listdir(data)) == ["vdjdb.txt", "vdjdb.zip"]
