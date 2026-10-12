@@ -336,6 +336,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Not changed: `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb` still loads
     `facebook/esm2_t12_35M_UR50D` with no revision, and no commit of that model is pinned
     anywhere in this repository to pin it to.
+- **`scripts/ingest_immunecode.py` now pins the ImmuneCODE MIRA archive at the URL its
+  publisher lists, and refuses release 002.1 with the reason instead of a traceback.** The
+  URL the script held answered HTTP 404 on 2026-10-12, so the auto-download could not run;
+  the publisher's listing page links release 002.1 to
+  `https://adaptivepublic.blob.core.windows.net/publishedproject-supplements/covid-2020/ImmuneCODE-MIRA-Release002.1.zip`,
+  which is now the download URL, and that host joins the download allowlist. The archive
+  was accepted if it merely opened with every member passing its CRC-32, and its transfer
+  was unbounded; it is now read under a cap of the pinned size and must match the pinned
+  sha256 `ad0b0476f6e2c07aaec9e38cdb7f79e16c2b14e01f2ea706a2b2d86cb4667d9f` and 3856733
+  bytes, measured by streaming that URL (the server's `Content-MD5` matched, which shows
+  only that the bytes arrived as served). An `--input` archive is hashed against the same
+  pin, and the sidecar now names release 002.1 and its digest only for an input that
+  matched; a CSV, or an archive that did not match, records `archive_verified_against_pin`
+  false and no release, where `"release": "002.1"` used to be written for any input. The
+  release itself cannot supply what the script writes: read from the archive, it has no
+  `peptide-detail-cov2.csv`, its `peptide-detail-ci.csv` has no peptide column the script
+  reads and no HLA column, and HLA appears only as each subject's genotype in
+  `subject-metadata.csv`, which says which alleles a subject carries and not which one
+  presented a peptide. On `main` an `--input` of the archive or of that CSV died with a
+  `ValueError` traceback; now any table lacking a peptide or an HLA restriction column, the
+  auto-download's included, is refused with an exit 1 message
+  naming the missing columns, and, when the HLA column is the one missing, explaining the
+  genotype layout. No pair is built from the genotypes. The download-failure text no longer
+  suggests a manual `--input` of the same release as a way round, and says it is refused by
+  either route. Separately, a damaged `--input` archive is now named as one whatever its
+  filename (a truncated archive called `mira.dat` used to surface as a `UnicodeDecodeError`),
+  `main()` reports that, and a member failing its CRC-32 during extraction, as a logged
+  refusal with exit 1 rather than a traceback, and the two temporary directories no longer
+  let a cleanup `PermissionError` on Windows replace the real failure. Twenty-one mutants
+  across the three commits, each reverting one of these checks, all make the tests fail on
+  Windows; two of them depend on Windows refusing to remove an open file.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next

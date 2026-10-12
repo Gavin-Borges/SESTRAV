@@ -21,16 +21,25 @@ Download (release 002.1, as linked from the publisher's listing page
 https://clients.adaptivebiotech.com/pub/covid-2020 on 2026-10-12):
   https://adaptivepublic.blob.core.windows.net/publishedproject-supplements/covid-2020/ImmuneCODE-MIRA-Release002.1.zip
 
+Release 002.1 is refused
+------------------------
+That archive downloads and matches the pin, and is then refused, because it
+cannot supply what this script writes: each row of its peptide-detail tables is
+one TCR binding, with its experiment and its peptides but no HLA allele, and HLA
+appears only as each subject's genotype in subject-metadata.csv. A genotype says
+which alleles a subject carries, not which one presented a peptide, so pairing
+them would invent data. See _refuse_a_table_without_restriction.
+
 Usage
 -----
-  Auto-download (requires network access):
+  Auto-download (requires network access; release 002.1 is refused, see above):
     python scripts/ingest_immunecode.py
 
-  Pre-downloaded ZIP:
-    python scripts/ingest_immunecode.py --input path/to/ImmuneCODE-MIRA-Release002.1.zip
+  A local archive, hashed against the pin and refused if laid out like 002.1:
+    python scripts/ingest_immunecode.py --input path/to/archive.zip
 
-  Pre-extracted CSV:
-    python scripts/ingest_immunecode.py --input path/to/peptide-detail-cov2.csv
+  A local CSV with a peptide column and an HLA restriction column per row:
+    python scripts/ingest_immunecode.py --input path/to/peptide-detail.csv
 
   Dry run - print stats, no file write:
     python scripts/ingest_immunecode.py --dry-run
@@ -85,24 +94,34 @@ MIRA_DOWNLOAD_HOSTS = frozenset(
     {"adaptivepublic.blob.core.windows.net", "clients.adaptivebiotech.com"}
 )
 
-# ImmuneCODE MIRA release 002.1, the one release this script attributes rows to.
-# Measured 2026-10-12 by streaming MIRA_DOWNLOAD_URL and hashing the bytes. The
+# ImmuneCODE MIRA release 002.1: the archive the auto-download must match, and the
+# one an --input archive is compared with; the sidecar names this release only for
+# an input that matched. Measured 2026-10-12 by streaming MIRA_DOWNLOAD_URL and
+# hashing the bytes. The
 # MD5 of those bytes equalled the Content-MD5 header the same server sent, which
 # shows the transfer arrived as served; coming from the same host, it says
 # nothing about authenticity. Every member also passed its CRC-32. If the bytes
 # served there ever change, this pin turns that into a refusal.
 MIRA_PINNED_SHA256 = "ad0b0476f6e2c07aaec9e38cdb7f79e16c2b14e01f2ea706a2b2d86cb4667d9f"
 MIRA_PINNED_SIZE_BYTES = 3856733
+MIRA_PINNED_RELEASE = "002.1"
 
 # Seconds the opener may wait on the connect and on each socket read. It bounds
 # a stalled server, not the total transfer time of the archive.
 DOWNLOAD_TIMEOUT_SECONDS = 60
 
-# Preferred CSV filenames inside the ZIP archive, tried in order.
+# Preferred CSV filenames inside the ZIP archive, tried in order. Release 002.1
+# carries peptide-detail-ci.csv and peptide-detail-cii.csv and no
+# peptide-detail-cov2.csv, so the second name is the one it matches.
 _CANDIDATE_CSVS: list[str] = [
     "peptide-detail-cov2.csv",
     "peptide-detail-ci.csv",
 ]
+
+# The columns _extract_negatives reads a row's peptide and its restricting HLA
+# allele from, each tried in order.
+_PEPTIDE_COLUMNS: list[str] = ["Peptide", "peptide", "Antigen Sequence", "antigen_sequence"]
+_ALLELE_COLUMNS: list[str] = ["HLA Restrictions", "HLA_Restrictions", "MHC", "hla", "Allele"]
 
 # NCBI taxon ID for SARS-CoV-2 (Wuhan-Hu-1 reference strain).
 _VIRUS_TAXON_ID: int = 2697049
@@ -222,6 +241,33 @@ class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def _archive_matches_pin(path: str) -> bool:
+    """True when the file at path is byte for byte the pinned archive."""
+    return (
+        os.path.getsize(path) == MIRA_PINNED_SIZE_BYTES and sha256_file(path) == MIRA_PINNED_SHA256
+    )
+
+
+def _input_matches_pin(input_path: str | None) -> bool:
+    """Whether the input is byte for byte the pinned archive.
+
+    _download_mira raises unless the auto-download matches, so no --input means
+    True; an --input archive is hashed and the verdict logged; a CSV is False,
+    because nothing ties its rows to the archive.
+    """
+    if input_path is None:
+        return True
+    if not zipfile.is_zipfile(input_path):
+        return False
+    matches = _archive_matches_pin(input_path)
+    log.info(
+        "--input %s the pinned release %s archive.",
+        "matches" if matches else "is not",
+        MIRA_PINNED_RELEASE,
+    )
+    return matches
+
+
 def _zip_is_intact(path: str) -> bool:
     """True when path opens as a ZIP archive and every member passes its CRC-32."""
     try:
@@ -282,9 +328,12 @@ def _download_mira(dest_dir: str) -> str:
     except Exception as exc:
         raise RuntimeError(
             f"Download failed: {exc}\n"
-            "Please download the ImmuneCODE MIRA archive manually from:\n"
+            "The pinned archive is published at:\n"
             f"  {MIRA_DOWNLOAD_URL}\n"
-            "Then pass it via --input PATH."
+            f"as linked from {MIRA_LISTING_URL}. A copy downloaded by hand can be\n"
+            "passed with --input PATH and is checked against the same pin, but release\n"
+            f"{MIRA_PINNED_RELEASE} is refused by either route: it records HLA only as\n"
+            "subject genotypes, not as the allele restricting each peptide."
         ) from exc
     finally:
         if os.path.exists(partial):
@@ -450,6 +499,50 @@ def _require_column(df: pd.DataFrame, candidates: list[str], role: str) -> str:
     return col
 
 
+class UnsupportedLayout(RuntimeError):
+    """An input with no per-row peptide or HLA restriction, which cannot supply pairs."""
+
+
+def _refuse_a_table_without_restriction(df: pd.DataFrame, source: str) -> None:
+    """Refuse a table that cannot supply (peptide, HLA allele) pairs, and say why.
+
+    Release 002.1 is such a table. Read 2026-10-12 from the pinned archive: it has
+    no peptide-detail-cov2.csv; its peptide-detail-ci.csv has the columns TCR
+    BioIdentity, TCR Nucleotide Sequence, Experiment, ORF Coverage, Amino Acids,
+    Start Index in Genome and End Index in Genome, so no peptide column this script
+    reads and no HLA column at all; and its readme says subject-metadata.csv holds
+    "HLA when available" and is joined to the detail files by Experiment. That file
+    has two columns each for HLA-A, HLA-B and HLA-C per subject: a genotype, not
+    the allele that presented a given peptide. No pair is invented from it.
+    """
+    missing = [
+        f"{role} column (tried {', '.join(names)})"
+        for role, names in (
+            ("peptide", _PEPTIDE_COLUMNS),
+            ("HLA restriction", _ALLELE_COLUMNS),
+        )
+        if _detect_column(df, names) is None
+    ]
+    if not missing:
+        return
+    name = source.replace("\\", "/").rsplit("/", 1)[-1]
+    message = (
+        f"{name} cannot supply the (peptide, HLA allele) pairs this script writes: it has "
+        f"no {' and no '.join(missing)}. Refusing rather than inventing pairs."
+    )
+    if _detect_column(df, _ALLELE_COLUMNS) is None:
+        message += (
+            f" ImmuneCODE MIRA release {MIRA_PINNED_RELEASE} is laid out this way: each row"
+            " of its peptide-detail tables is one TCR binding, with its experiment and its"
+            " peptides ('Amino Acids') but no HLA allele, and HLA appears only as each"
+            " subject's genotype in subject-metadata.csv (two columns each for HLA-A, HLA-B"
+            " and HLA-C). A genotype says which alleles a subject carries, not which one"
+            " presented a peptide. To ingest ImmuneCODE negatives, pass --input a table"
+            " that records the restricting allele for each peptide."
+        )
+    raise UnsupportedLayout(message)
+
+
 # ---------------------------------------------------------------------------
 # Negative extraction
 # ---------------------------------------------------------------------------
@@ -473,16 +566,8 @@ def _extract_negatives(df: pd.DataFrame) -> list[dict[str, object]]:
     which pool member drove the response, so no individual peptide within a
     matched pool can be safely labelled as a negative.
     """
-    pep_col = _require_column(
-        df,
-        ["Peptide", "peptide", "Antigen Sequence", "antigen_sequence"],
-        "peptide",
-    )
-    allele_col = _require_column(
-        df,
-        ["HLA Restrictions", "HLA_Restrictions", "MHC", "hla", "Allele"],
-        "HLA allele",
-    )
+    pep_col = _require_column(df, _PEPTIDE_COLUMNS, "peptide")
+    allele_col = _require_column(df, _ALLELE_COLUMNS, "HLA allele")
     tcr_col = _detect_column(
         df,
         ["Amino Acids", "amino_acids", "CDR3b", "cdr3b", "TCR Beta CDR3"],
@@ -665,10 +750,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--input",
         metavar="PATH",
         help=(
-            "Path to the ImmuneCODE MIRA ZIP archive or a pre-extracted "
-            "peptide-detail-cov2.csv / peptide-detail-ci.csv file. "
-            "If omitted, the script attempts to download automatically from "
-            f"{MIRA_DOWNLOAD_URL}"
+            "Path to a MIRA ZIP archive or a peptide-detail CSV. Every row must carry "
+            "a peptide and the HLA allele restricting it; release "
+            f"{MIRA_PINNED_RELEASE} does not and is refused. If omitted, the script "
+            f"downloads {MIRA_DOWNLOAD_URL}, checks it against the pin, and refuses "
+            "it for the same reason."
         ),
     )
     p.add_argument(
@@ -707,8 +793,11 @@ def main(argv: list[str] | None = None) -> int:
     # Load raw data. A damaged archive is reported like every other refusal here:
     # DamagedArchive, or a BadZipFile from an archive whose member fails its CRC-32
     # while it is extracted, is logged and exits 1 rather than escaping as a traceback.
+    # A table that cannot supply (peptide, HLA allele) pairs is refused the same way.
     try:
         df_raw, source_path = _load_csv(args.input)
+        verified = _input_matches_pin(args.input)
+        _refuse_a_table_without_restriction(df_raw, source_path)
     except (FileNotFoundError, RuntimeError, zipfile.BadZipFile) as exc:
         log.error("%s", exc)
         return 1
@@ -758,7 +847,11 @@ def main(argv: list[str] | None = None) -> int:
         row_count=len(df_out),
         extra={
             "database": "ImmuneCODE MIRA",
-            "release": "002.1",
+            # Named only when this run verified the input's bytes against the pin;
+            # otherwise nothing in the run established which release it came from.
+            "release": MIRA_PINNED_RELEASE if verified else None,
+            "pinned_archive_sha256": MIRA_PINNED_SHA256 if verified else None,
+            "archive_verified_against_pin": verified,
             "reference_pmid": _REFERENCE_PMID,
             "label": 0,
             "virus": "SARS-CoV-2",

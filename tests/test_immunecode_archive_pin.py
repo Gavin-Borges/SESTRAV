@@ -15,7 +15,10 @@ These tests pin:
 * a digest over the WHOLE file: two archives identical in their first 1 MiB and
   different after it must not both match;
 * a transfer bounded by the pinned size, so an oversized body is cut off;
-* nothing left behind by a refusal: no archive under its final name, no `.part`.
+* nothing left behind by a refusal: no archive under its final name, no `.part`;
+* the sidecar names the pinned release and digest only when the run verified
+  its input against the pin: always for the auto-download, after hashing for an
+  --input archive, never for a CSV.
 
 No test opens a socket: `_download_mira` is driven with an in-memory opener.
 """
@@ -25,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import io
+import json
 import os
 import re
 import sys
@@ -187,3 +191,42 @@ def test_a_transfer_longer_than_the_pinned_size_is_cut_off(
     with pytest.raises(RuntimeError, match="exceeds"):
         ingest._download_mira(str(tmp_path))
     assert sorted(os.listdir(tmp_path)) == []
+
+
+# --------------------------------------------------------------------------
+# The provenance sidecar
+# --------------------------------------------------------------------------
+
+
+def _run_main(tmp_path, monkeypatch, route: str) -> dict:
+    """Run main() by one route, with the pin pointed at PAYLOAD; return the sidecar."""
+    _pin_to(monkeypatch, PAYLOAD)
+    output = tmp_path / "out.csv"
+    if route == "auto":
+        monkeypatch.setattr(urllib.request, "build_opener", _serve(PAYLOAD))
+        argv = ["--output", str(output)]
+    else:
+        source = tmp_path / ("local.csv" if route == "csv" else "local.zip")
+        body = {"zip": PAYLOAD, "other-zip": OTHER, "csv": MIRA_CSV.encode("ascii")}[route]
+        source.write_bytes(body)
+        argv = ["--input", str(source), "--output", str(output)]
+    assert ingest.main(argv) == 0
+    with open(os.path.splitext(str(output))[0] + "_provenance.json", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+@pytest.mark.parametrize("route", ["auto", "zip"])
+def test_a_verified_input_names_the_pinned_release(tmp_path, monkeypatch, route):
+    prov = _run_main(tmp_path, monkeypatch, route)
+    assert prov["archive_verified_against_pin"] is True
+    assert prov["release"] == "002.1"
+    assert prov["pinned_archive_sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+
+
+@pytest.mark.parametrize("route", ["other-zip", "csv"])
+def test_an_unverified_input_names_no_release(tmp_path, monkeypatch, route):
+    """OTHER is a valid archive the script can ingest, and is still not the pinned one."""
+    prov = _run_main(tmp_path, monkeypatch, route)
+    assert prov["archive_verified_against_pin"] is False
+    assert prov["release"] is None
+    assert prov["pinned_archive_sha256"] is None
