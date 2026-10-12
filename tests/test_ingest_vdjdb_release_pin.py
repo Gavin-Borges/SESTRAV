@@ -320,6 +320,34 @@ def test_a_local_input_is_recorded_as_unverified_with_no_release(tmp_path):
     assert prov["url"] is None
 
 
+def test_a_pinned_archive_whose_table_name_zipfile_rewrites_ingests_nothing(
+    tmp_path, api, monkeypatch
+):
+    """zipfile extracts sub/../vdjdb.txt to data/sub/vdjdb.txt, but the name joined
+    onto data/ spells data/vdjdb.txt. Measured before the refusal: that stale table
+    was ingested, and its sidecar recorded archive_verified_against_pin true."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as handle:
+        handle.writestr("sub/../vdjdb.txt", TSV_TEXT)
+    archive = buffer.getvalue()
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SHA256", hashlib.sha256(archive).hexdigest())
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SIZE_BYTES", len(archive))
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "vdjdb.zip").write_bytes(archive)
+    (data / "vdjdb.txt").write_text(STALE_TSV)
+    monkeypatch.chdir(tmp_path)  # fetch_vdjdb() defaults to ./data
+    out = tmp_path / "out.csv"
+
+    with pytest.raises(FileNotFoundError, match="Could not find or fetch VDJdb input"):
+        ingest_vdjdb.ingest_vdjdb(None, str(out), SCHEMA_PATH)
+
+    assert not out.exists()
+    assert not (tmp_path / "out_provenance.json").exists()
+    assert sorted(os.listdir(data)) == ["vdjdb.txt", "vdjdb.zip"]  # nothing extracted
+    assert api["calls"] == []  # the archive matched the pin, so nothing was fetched
+
+
 def test_the_sidecar_carries_neither_retired_fetch_flag(tmp_path, api, monkeypatch):
     """`fetched_latest_release` was meaningless under a pin, and a flag set merely
     because the fetcher RAN is what the review found claiming a release no run

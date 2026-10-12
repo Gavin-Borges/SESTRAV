@@ -94,12 +94,41 @@ class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
-    """Extract with a zip-slip guard and a bound on total uncompressed size.
+# Characters ZipFile.extract replaces with "_" in a member name on Windows.
+_ZIP_WINDOWS_REPLACED_CHARS = frozenset(':<>|"?*')
 
-    Both checks run over the whole member list BEFORE anything is written, so a
-    refusal leaves the destination untouched. The size bound is on the TOTAL,
-    because many small members can exceed any per-member limit between them.
+
+def _zipfile_would_rewrite(name: str) -> bool:
+    """True when ZipFile.extract would write `name` somewhere other than the path it spells.
+
+    On every platform zipfile drops empty, "." and ".." segments, and on Windows it
+    also replaces the characters above with "_" and strips trailing dots and spaces
+    from each segment. A rewritten name is written somewhere other than
+    os.path.join(dest, *name.split("/")), which is how fetch_vdjdb builds the path it
+    returns, so that path could name a file this extraction never wrote:
+    sub/../vdjdb.txt is written to sub/vdjdb.txt, but joined onto dest it spells the
+    top-level vdjdb.txt. Both platforms' rules apply everywhere, so an archive is
+    accepted or refused the same way on each. One trailing "/", which marks a
+    directory entry, is allowed.
+    """
+    path = name[:-1] if name.endswith("/") else name
+    return any(
+        segment in ("", ".", "..")
+        or segment.endswith((".", " "))
+        or not _ZIP_WINDOWS_REPLACED_CHARS.isdisjoint(segment)
+        for segment in path.split("/")
+    )
+
+
+def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
+    """Extract with a zip-slip guard, a member-name check and a bound on total size.
+
+    All three checks run over the whole member list BEFORE anything is written, so
+    a refusal leaves the destination untouched. The name check refuses any member
+    whose name zipfile would rewrite (see _zipfile_would_rewrite), so every member
+    is written at the path its own name spells; fetch_vdjdb depends on that. The
+    size bound is on the TOTAL, because many small members can exceed any
+    per-member limit between them.
 
     A member cannot write more than the size its own header declares: ZipExtFile
     stops at that count and then verifies the CRC, so summing the declared sizes
@@ -111,6 +140,11 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str) -> None:
         target = os.path.realpath(os.path.join(dest_dir, member.filename))
         if target != dest_root and not target.startswith(dest_root + os.sep):
             raise RuntimeError(f"Unsafe zip member path (path traversal): {member.filename}")
+        if _zipfile_would_rewrite(member.filename):
+            raise RuntimeError(
+                f"Refusing zip member {member.filename!r}: zipfile would rewrite that name "
+                "when extracting it, so the file written would not be the path it names"
+            )
         total += member.file_size
     if total > VDJDB_MAX_EXTRACTED_BYTES:
         raise RuntimeError(
@@ -249,8 +283,11 @@ def _table_member(zip_ref: zipfile.ZipFile) -> str:
     """Name the archive member holding the VDJdb table.
 
     It is found in the archive's own member list, never by searching the
-    directory the archive is extracted into, so a table that another release or
-    a manual extraction left there cannot be returned in place of this one.
+    directory the archive is extracted into. That keeps a table another release
+    or a manual extraction left there from being returned in place of this one
+    only because _safe_extract_zip also refuses any member name zipfile would
+    rewrite: without that, sub/../vdjdb.txt was extracted to sub/vdjdb.txt while
+    the path built from its name was the top-level vdjdb.txt.
     """
     members = [m.filename for m in zip_ref.infolist() if not m.is_dir()]
     for name in _TABLE_NAMES:
@@ -266,9 +303,12 @@ def fetch_vdjdb(output_dir: str = "data") -> str | None:
     The only archive used is one whose bytes this run compared with the pin. A
     vdjdb.zip already in output_dir is hashed first and, if it matches, extracted
     again; otherwise the pinned release is downloaded and verified. Every refusal
-    or failure returns None: no table already in output_dir is ever returned in
-    place of one extracted from verified bytes, whether the archive beside it
-    failed the pin, the release endpoint refused, or there was no network.
+    or failure returns None, whether the archive beside it failed the pin, the
+    release endpoint refused, or there was no network, so none of those returns a
+    table already in output_dir. On success the path returned is joined from the
+    table member's own name, and _safe_extract_zip refuses an archive holding any
+    member name zipfile would rewrite, so that path names a file this run's
+    extraction wrote, not one an earlier run or a manual extraction left there.
     """
     os.makedirs(output_dir, exist_ok=True)
     zip_path = os.path.join(output_dir, "vdjdb.zip")

@@ -145,6 +145,97 @@ def test_the_path_traversal_guard_still_fires(tmp_path):
 
 
 # --------------------------------------------------------------------------
+# 1b. A member name zipfile would rewrite is refused
+# --------------------------------------------------------------------------
+#
+# fetch_vdjdb returns os.path.join(output_dir, *name.split("/")) for the table
+# member. ZipFile.extract drops "", "." and ".." segments on every platform, and on
+# Windows replaces :<>|"?* with "_" and strips trailing dots and spaces from each
+# segment. A name it rewrites is written somewhere other than that join, and the
+# join can then name a stale file: sub/../vdjdb.txt is written to sub/vdjdb.txt
+# while the join spells the top-level vdjdb.txt. Each name below is refused on
+# every platform, so an archive is accepted or refused the same way on each.
+
+REWRITTEN_NAMES = [
+    "sub/../vdjdb.txt",  # ".." dropped; the join resolves elsewhere
+    "./vdjdb.txt",  # "." dropped
+    "sub/./vdjdb.txt",
+    "sub//vdjdb.txt",  # empty segment dropped
+    "sub/vdjdb.txt.",  # trailing dot stripped on Windows
+    "sub /vdjdb.txt",  # trailing space stripped on Windows
+    "sub/vdjdb?.txt",  # "?" replaced on Windows
+    'sub/a"b/vdjdb.txt',
+    "sub/a*b.txt",
+    "sub/a<b>.txt",
+    "sub/a|b.txt",
+    "sub/a:b.txt",
+    "sub/../",  # a directory entry is held to the same rule
+]
+
+
+@pytest.mark.parametrize("name", REWRITTEN_NAMES)
+def test_a_member_name_zipfile_would_rewrite_is_refused_and_nothing_is_written(name, tmp_path):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as handle:
+        handle.writestr("first.txt", "written first in the archive")
+        handle.writestr(name, "" if name.endswith("/") else "x")
+    dest = tmp_path / "out"
+    dest.mkdir()
+    # On Windows, os.path.realpath resolves a segment holding ":" outside dest
+    # (measured with CPython 3.11: dest/sub/a:b.txt -> "a:b.txt"), so the
+    # traversal guard refuses that name first. Either refusal writes nothing.
+    message = "zipfile would rewrite|path traversal" if ":" in name else "zipfile would rewrite"
+
+    with zipfile.ZipFile(io.BytesIO(buffer.getvalue())) as zip_ref:
+        with pytest.raises(RuntimeError, match=message):
+            ingest_vdjdb._safe_extract_zip(zip_ref, str(dest))
+
+    assert sorted(os.listdir(dest)) == []
+
+
+@pytest.mark.parametrize("name", REWRITTEN_NAMES)
+def test_the_name_check_flags_every_rewritten_name_on_any_platform(name):
+    assert ingest_vdjdb._zipfile_would_rewrite(name)
+
+
+ACCEPTED_NAMES = [
+    "vdjdb.txt",
+    "vdjdb-2026-06-03/",
+    "vdjdb-2026-06-03/vdjdb.txt",
+    "vdjdb-2026-06-03/vdjdb.slim.meta.txt",
+    "a/b/c/vdjdb_full.txt",
+    ".hidden/vdjdb.txt",  # a leading dot is kept by zipfile
+    "sub/x..y.txt",
+]
+
+
+@pytest.mark.parametrize("name", ACCEPTED_NAMES)
+def test_the_name_check_passes_names_zipfile_writes_as_spelled(name):
+    assert not ingest_vdjdb._zipfile_would_rewrite(name)
+
+
+def test_every_accepted_member_lands_exactly_where_its_name_joins(tmp_path):
+    """The property fetch_vdjdb relies on, checked against zipfile itself."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as handle:
+        for index, name in enumerate(ACCEPTED_NAMES):
+            handle.writestr(name, "" if name.endswith("/") else f"member {index}")
+    dest = tmp_path / "out"
+    dest.mkdir()
+
+    with zipfile.ZipFile(io.BytesIO(buffer.getvalue())) as zip_ref:
+        ingest_vdjdb._safe_extract_zip(zip_ref, str(dest))
+
+    for index, name in enumerate(ACCEPTED_NAMES):
+        joined = os.path.join(str(dest), *name.rstrip("/").split("/"))
+        if name.endswith("/"):
+            assert os.path.isdir(joined), name
+        else:
+            with open(joined, encoding="ascii") as handle:
+                assert handle.read() == f"member {index}", name
+
+
+# --------------------------------------------------------------------------
 # 2. An ingest that yields no rows is a failure
 # --------------------------------------------------------------------------
 

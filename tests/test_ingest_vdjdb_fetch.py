@@ -20,7 +20,9 @@ its .zip asset. These tests pin six properties of that download:
   place of one extracted from verified bytes in this run: not beside an archive
   that failed the pin, not offline, and not after a failed extraction;
 * the table returned is located through the verified archive's own member
-  list, so a stale table elsewhere in the directory is never returned.
+  list, and an archive holding a member name zipfile would rewrite on
+  extraction is refused, so the path returned is the file this run wrote and a
+  stale table elsewhere in the directory is never returned.
 
 No test opens a socket. The GitHub API call goes through an in-memory
 urllib.request.urlopen, and the asset transfer through in-memory https, http
@@ -843,3 +845,54 @@ def test_a_verified_archive_without_a_table_returns_none(route, tmp_path, networ
     _serve_via_cdn(network, body=tableless)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     assert "no member named vdjdb.txt or vdjdb_full.txt" in capsys.readouterr().out
+
+
+# A table member whose name zipfile rewrites as it extracts. The traversal guard
+# passes it, since it resolves inside the directory, but zipfile drops the ".."
+# segment and writes sub/vdjdb.txt, while the name joined onto the directory
+# spells the top-level vdjdb.txt, a file this extraction never wrote.
+DOTDOT_TABLE = _archive({"sub/../vdjdb.txt": TSV_TEXT})
+
+
+@pytest.mark.parametrize("route", ["download", "cached"])
+def test_a_table_member_name_zipfile_rewrites_is_refused_not_resolved_to_a_stale_table(
+    route, tmp_path, network, capsys
+):
+    """Measured before the refusal existed, on both routes: fetch_vdjdb returned
+    data/sub/../vdjdb.txt, which opens the stale data/vdjdb.txt, while the
+    verified table sat at data/sub/vdjdb.txt."""
+    _repin_to(network, DOTDOT_TABLE)
+    _place(tmp_path, DOTDOT_TABLE if route == "cached" else None, tsv=OTHER_TSV)
+    _serve_via_cdn(network, body=DOTDOT_TABLE)
+    found = ingest_vdjdb.fetch_vdjdb(_out(tmp_path))
+    assert found is None, f"returned {found!r}, which reads {_read(found)!r}"
+    assert "zipfile would rewrite" in capsys.readouterr().out
+    assert _read(_tsv(tmp_path)) == OTHER_TSV  # the stale table, untouched and unused
+    # Refused before anything was written; the download route also drops the archive.
+    expected = ["vdjdb.txt", "vdjdb.zip"] if route == "cached" else ["vdjdb.txt"]
+    assert sorted(os.listdir(_out(tmp_path))) == expected
+
+
+def test_the_pinned_archives_own_member_names_are_all_accepted(tmp_path, network):
+    """The refusal must not refuse the release it exists to protect. These are the
+    11 member names in the pinned archive's central directory, read 2026-10-12 from
+    the downloaded asset after its sha256 matched VDJDB_PINNED_SHA256."""
+    names = [
+        "vdjdb-2026-06-03/",
+        "vdjdb-2026-06-03/vdjdb_summary_embed.html",
+        "vdjdb-2026-06-03/vdjdb_full.txt",
+        "vdjdb-2026-06-03/vdjdb.slim.txt",
+        "vdjdb-2026-06-03/vdjdb.meta.txt",
+        "vdjdb-2026-06-03/vdjdb.txt",
+        "vdjdb-2026-06-03/LICENSE",
+        "vdjdb-2026-06-03/cluster_members.txt",
+        "vdjdb-2026-06-03/motif_pwms.txt",
+        "vdjdb-2026-06-03/latest-version.txt",
+        "vdjdb-2026-06-03/vdjdb.slim.meta.txt",
+    ]
+    same_layout = _archive({name: "" if name.endswith("/") else TSV_TEXT for name in names})
+    _repin_to(network, same_layout)
+    _place(tmp_path, same_layout)
+    found = ingest_vdjdb.fetch_vdjdb(_out(tmp_path))
+    assert found == os.path.join(_out(tmp_path), "vdjdb-2026-06-03", "vdjdb.txt")
+    assert _read(found) == TSV_TEXT
