@@ -267,6 +267,120 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **32 provenance, run-metadata and report writers now record a caller-supplied path
+  through one function, `src.provenance_paths.relative_source`, instead of as given or
+  through a reduction that could keep a username.** The repo's privacy mandate forbids
+  writing an absolute workstation path into any repo file, tracked or gitignored.
+  `relative_source` first removes the whitespace around a value. It keeps an `http`,
+  `https`, `ftp`, `ftps`, `s3` or `gs` URL whose host is a host name or a bracketed IP
+  literal, with an optional numeric port, as its scheme, host and path, dropping any
+  `user:password@`, query string and fragment; turns an absolute path inside the checkout
+  into its repo-relative POSIX form, unless a second pass would not keep that form as it
+  is; keeps any other relative path exactly as given, separators included; and reduces
+  anything else that names a workstation location (a value holding a line break, a tab
+  or another character that is not printable, an allowlisted URL whose host is empty or
+  not of that form such as `https:///C:/x.csv`, an absolute path outside the checkout, a
+  drive letter, drive-relative `C:x` included, a UNC or root-relative path, a `~` form, a
+  `Users` or `home` component, a `file:` URI, any other URL scheme such as `smb://`, a
+  relative path that escapes upwards, or an `external:` value) to `external:` plus at
+  most its last component. A path component is judged without its own surrounding
+  whitespace, so `data/ D:/x` names a drive. The last component is read from the text,
+  never the filesystem, after any leading URL scheme is removed and up to the first `?`
+  or `#`, and none is kept when a separator follows that mark. It is dropped when it
+  cannot be a file's own name: `..`, the authority after a leading `//` (a URL's
+  `user:password@host`, or a UNC server), a name holding `:` or `@` (a drive, a scheme, a
+  `host:port`), a `~` form, a name that is not printable, or the entry directly under
+  `Users` or `home`, which is a username. So `smb://user:pw@fileserver` records
+  `external:` and `smb://fileserver/share/x.csv?token=abc` records `external:x.csv`.
+  Every output is a fixed point. The writers and fields:
+  `scripts/_dataset_utils.write_provenance`'s `sources`, each string or path-like entry of
+  a list or tuple, or a single value (nine production callers under `scripts/`);
+  `input_file` and `output_file` in `scripts/ingest_published_panels.py`,
+  `scripts/ingest_lanl_hiv.py`, `scripts/download_lanl_hcv.py` and
+  `scripts/ingest_iedb_negatives.py`, which also records `existing_dataset`;
+  `output_file` in `scripts/build_dataset_v5.py`; `artifact` in
+  `scripts/compute_d29_corpus_composition.py`, `scripts/compute_loo_binding_confound.py`
+  and `scripts/compute_section33_decoy_binding_join.py`; `output_path`, `holdout_path` and
+  the stub's `data_dir` in `scripts/extract_allele_aware_data.py`; inside
+  `write_provenance_sidecar`'s `extra`, `mode31_oof` and `mode10_oof`
+  (`scripts/compute_binding_only_comparison.py`), each input's `path`
+  (`scripts/compute_binding_zerofill_attribution.py`), `training_data` and
+  `binding_matrix` (`scripts/compute_mode51_allele_identity_discriminator.py`) and the
+  `inputs` key (`scripts/compute_pooled_cv_metrics.py`, whose fallback for a file outside
+  the checkout was its resolved absolute path), where the three scripts that recorded
+  `Path.as_posix()` pass that string, so a relative input keeps its `/` on Windows;
+  `oof_path` and `artifact` in
+  `scripts/assess_calibration.py`, `dataset_path` and `artifact` in
+  `scripts/audit_cv_leakage.py`, `source_dataset` in `scripts/build_binding_matrix_v5.py`,
+  and `src/train_classifier.py`'s `training_data_path`, `antigen_processing_cache_path`
+  and `self_similarity_cache_path`, each of which went through a
+  repo-relative-or-bare-name expression that records a path inside the checkout under
+  `Users/<user>/` with the username; they still pass the resolved path, so an inside file
+  records the same repo-relative string as before unless a second pass would not keep
+  it, and an outside one now records `external:<name>` where it recorded `<name>`;
+  `dataset` and `binding_matrix` in the JSON of `scripts/run_loo_cross_virus_v4.py` and
+  `scripts/run_loo_cross_virus_v5.py`; `binding_matrix_path` and `esm2_model_name` in
+  `src/train_gnn.py`'s `build_gnn_run_config`, which `gnn_config.json` is written from;
+  `model_path` in `src/h2_tier_a_evaluation.py`'s summary CSV and its three input lines
+  in the summary Markdown; the three `inputs.*.path` values of
+  `src/final_validation_report.py`'s `freeze_status.json` and the four "Core Outputs"
+  lines of its report, which it builds from `--results-dir`; `predictions_file` in
+  `scripts/evaluate_per_virus.py`'s and `scripts/benchmark_syfpeithi.py`'s JSON;
+  `dataset` in `src/data_curation_qc.py`'s `dataset_qc.json`; `recovery_csv` and
+  `negative_csv` in `src/external_validation_tier_b_recovery.py`'s summary;
+  `peptide_list` in `src/prepare_external_validation_tier_b_inputs.py`'s manifest; and
+  four Markdown reports: the audit summary and virus/label breakdown CSVs that
+  `src/data_bias_audit.py`'s report names, the metrics and deltas CSVs in
+  `src/gold_standard_sensitivity.py`'s, the ten path lines of
+  `src/bias_skew_finalization.py`'s release summary, and the run directory in the section
+  `src/external_validation_finalize.py` appends to its comparison report.
+  `scripts/ingest_published_panels.py`, `scripts/ingest_lanl_hiv.py`,
+  `scripts/download_lanl_hcv.py` and `scripts/benchmark_syfpeithi.py` now put the
+  checkout on `sys.path` before their first `src` import, which the documented
+  `python scripts/<name>.py` usage needs. No
+  committed file changes, and regenerating one from the same inputs does not change a
+  path it records because of this: relative paths are kept as given because some
+  committed outputs record them with Windows separators (`data\raw\ctl_all.csv` in
+  `data/lanl_hiv_v5_provenance.json`, `models\v5\...` in
+  `results/per_virus_eval_v5_mode31.json`, `results\...` in
+  `results/final_validation_report.md` and in the two "Output files" lines of
+  `results/data_bias_audit.md`, the only tracked report into which one of the four
+  Markdown writers wrote a path it now routes), and a test now checks that every
+  committed value under 34 path-valued keys,
+  every `sources` entry and every `inputs` key in the 59 tracked `*.json` files (139
+  values in 37 of them) is a fixed point. **Not covered:** `src/artifact_integrity.py` is
+  unchanged, so `write_provenance_sidecar`'s `artifact`, `model_provenance_fields`'
+  `model_path` and `binding_matrix_provenance_fields`' `binding_matrix_path` still use the
+  repo-relative-or-bare-name expression; measured on Windows from the checkout root, it
+  keeps the username for an `external:`-prefixed drive path, a drive-relative
+  `C:Users\<user>\...` path, `~<user>/...` and a bare `~<user>`, a relative
+  `Users/<user>/...`, and a home directory itself (`C:\Users\<user>` or `/home/<user>`),
+  and in one trainer sidecar an outside corpus now reads `external:<name>` while an
+  outside binding matrix reads `<name>`. `write_provenance`'s `extra` and any structured
+  `sources` entry are written as given, and so is the exception message in
+  `freeze_status.json`'s `error`. `src/cli.py`'s Markdown validate and benchmark reports
+  still record `--dataset` and `--predictions` as given, in their `**Dataset:**` and
+  `**Predictions:**` lines, because a separate change edits that part of the file. A
+  grep for path-named dictionary keys, which is not
+  exhaustive, also finds these, not changed here: `source_oof` in
+  `scripts/compute_pooled_honest_metric.py`, `source_model.path` and `source_oof.path` in
+  `scripts/fit_conformal_calibrator.py`, `peptide_list_path` in
+  `scripts/prepare_netmhcpan_inputs.py`, the validate report's `dataset` in `src/cli.py`,
+  `base_input` and `oof_predictions` in `src/external_benchmark_comparison.py`, and
+  `train_source` in `src/external_validation_fairness.py`. Tests:
+  `tests/test_provenance_paths.py` holds a 37-row probe built at runtime from the real
+  username and checkout, URL credential, query and missing-host cases, authority,
+  credential, query and fragment reductions, whitespace and line-break cases, symlink or
+  junction cases and the `write_provenance` cases;
+  `tests/test_writers_record_no_workstation_path.py` runs each other writer, checks every
+  string of each JSON it writes, keys included, and every line of the four Markdown
+  reports above against a detector validated on 26 workstation shapes and 30 non-paths
+  (`~2/3 of rows`, `~50/50` and `~1/4` among them), runs that detector over every string
+  of every tracked `*.json` through a sweep that is itself tested on a throwaway
+  repository, and checks the fixed points above. Six mutants, run on Windows, each make
+  the tests fail: dropping from `relative_source` the authority rule, the `:` and `@`
+  name rule, the query and fragment rule, the whitespace strip or the host requirement,
+  and reverting the run directory line of `src/external_validation_finalize.py`.
 - **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
   `--no-require-hashes` line fails closed.** The check that every requirement carries a
   hash had its own line reader, separate from the pip-faithful one the option check uses. It

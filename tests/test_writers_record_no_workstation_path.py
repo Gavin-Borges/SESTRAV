@@ -963,6 +963,109 @@ def test_prepare_external_validation_tier_b_inputs(tmp_path, monkeypatch):
     _assert_no_workstation_path(prov, "prepare_external_validation_tier_b_inputs")
 
 
+# --- Markdown report writers ---------------------------------------------------
+# Each test runs the detector over every line of the report, not only the lines
+# that changed.
+
+
+def test_data_bias_audit_report(tmp_path):
+    """write_audit_reports() on a two-row dataset with no raw records."""
+    from src.data_bias_audit import write_audit_reports
+
+    dataset = tmp_path / "dataset.csv"
+    pd.DataFrame(
+        {"peptide": ["GILGFVFTL", "NLVPMVATV"], "label": [1, 0], "virus": ["Flu", "CMV"]}
+    ).to_csv(dataset, index=False)
+    out_csv, out_md = tmp_path / "audit.csv", tmp_path / "audit.md"
+
+    write_audit_reports(str(dataset), pd.DataFrame(), str(out_csv), str(out_md))
+
+    lines = out_md.read_text(encoding="utf-8").splitlines()
+    assert "- Audit summary CSV: `external:audit.csv`" in lines
+    assert "- Virus/label breakdown CSV: `external:audit_virus_label_counts.csv`" in lines
+    _assert_no_workstation_path(lines, "data_bias_audit")
+
+
+def test_gold_standard_sensitivity_report(tmp_path):
+    """run_gold_standard_sensitivity() on one virus's ranked file, nothing stubbed."""
+    from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
+    from src.gold_standard_sensitivity import run_gold_standard_sensitivity
+
+    virus, prefix = next(iter(VIRUS_FILE_MAP.items()))
+    peptides = [row["peptide"] for row in GOLD_STANDARD if row["virus"] == virus]
+    peptides += ["AAAAAAAA" + residue for residue in "CDEFGHIK"]
+    ranked = tmp_path / "ranked"
+    ranked.mkdir()
+    pd.DataFrame(
+        {"peptide": peptides, "immunogenicity_score": np.linspace(1.0, 0.0, len(peptides))}
+    ).to_csv(ranked / f"{prefix}_ranked.csv", index=False)
+    out_csv, out_md = tmp_path / "sens.csv", tmp_path / "sens.md"
+
+    run_gold_standard_sensitivity(str(ranked), str(out_csv), str(out_md))
+
+    lines = out_md.read_text(encoding="utf-8").splitlines()
+    assert "- Metrics by set: `external:sens.csv`" in lines
+    assert "- Delta vs current set: `external:sens_deltas.csv`" in lines
+    _assert_no_workstation_path(lines, "gold_standard_sensitivity")
+
+
+def test_bias_skew_finalization_release_summary(tmp_path, monkeypatch):
+    """run_bias_skew_finalization() into a scratch results directory. Stubbed: the
+    dataset refresh, the audit, both trainers, the final validation and the
+    sensitivity run, which need the raw IEDB exports and a populated results tree."""
+    import src.bias_skew_finalization as bsf
+
+    monkeypatch.setattr(bsf, "_collect_raw_records", lambda *a, **k: pd.DataFrame())
+    monkeypatch.setattr(bsf, "refresh_dataset", lambda *a, **k: None)
+    monkeypatch.setattr(bsf, "write_audit_reports", lambda *a, **k: (pd.DataFrame(), {}))
+    monkeypatch.setattr(bsf, "train_models", lambda *a, **k: None)
+    monkeypatch.setattr(bsf, "train_ann", lambda *a, **k: None)
+    monkeypatch.setattr(bsf, "run_final_validation", lambda **k: None)
+    monkeypatch.setattr(bsf, "run_gold_standard_sensitivity", lambda *a, **k: None)
+
+    summary = bsf.run_bias_skew_finalization(
+        source_data_dir=str(tmp_path / "raw"),
+        model_dir=str(tmp_path / "models"),
+        results_dir=str(tmp_path / "results"),
+        data_csv=str(tmp_path / "data.csv"),
+        binding_matrix_path=str(tmp_path / "matrix.csv"),
+    )
+
+    lines = Path(summary).read_text(encoding="utf-8").splitlines()
+    for line in (
+        "- Refreshed dataset: `external:data.csv`",
+        "- Provenance table: `external:immunogenicity_provenance.csv`",
+        "- Bias audit: `external:data_bias_audit_summary.csv` and `external:data_bias_audit.md`",
+        "- Training CV summary: `external:training_results.csv`",
+        "- Subgroup CV summary: `external:training_subgroup_metrics.csv`",
+        "- ANN subgroup CV summary: `external:ann_subgroup_metrics.csv`",
+        "- Baseline comparison: `external:baseline_comparison.csv`",
+        "- H2 Tier A fold metrics: `external:h2_tier_a_fold_metrics.csv`",
+        "- H2 Tier A summary: `external:h2_tier_a_summary.csv`",
+        "- Gold-standard sensitivity: `external:gold_standard_sensitivity.csv`",
+    ):
+        assert line in lines
+    _assert_no_workstation_path(lines, "bias_skew_finalization")
+
+
+def test_external_validation_finalize_report(tmp_path):
+    """append_finalize_report() called directly, with an empty metrics set."""
+    from src.external_validation_finalize import append_finalize_report
+
+    report = tmp_path / "comparison.md"
+    report.write_text("# Comparison\n", encoding="utf-8")
+    overlap = {"predig": {"status": "measured"}}
+    coverage = {"tools": {}, "intersection_n": 0}
+
+    append_finalize_report(
+        str(report), overlap, {}, pd.DataFrame(), [], coverage, str(tmp_path / "extval_run")
+    )
+
+    lines = report.read_text(encoding="utf-8").splitlines()
+    assert "Run directory: `external:extval_run`" in lines
+    _assert_no_workstation_path(lines, "external_validation_finalize")
+
+
 # --- the live tree ------------------------------------------------------------
 
 
