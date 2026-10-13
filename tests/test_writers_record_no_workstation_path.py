@@ -567,6 +567,102 @@ def test_compute_pooled_cv_metrics(tmp_path):
     assert _sidecar_key(Path(REPO) / "README.md") == "README.md"
 
 
+# --- the repo-relative-or-bare-name reductions, now relative_source -----------
+#
+# Each of these recorded `path.resolve().relative_to(root)`, or the bare file name
+# outside `root`. A path inside `root` under `Users/<user>/` came out as that
+# relative path, username included (run from the checkout's root, a relative
+# `Users/<user>/x.csv` argument is such a path). Each test calls the writing
+# function directly, with its module's root pointed at a scratch checkout holding a
+# file under `Users/<user>/`, and once with a file outside that checkout.
+
+
+@pytest.fixture(params=["under a Users/<user> directory", "outside the checkout"])
+def scratch_input(request, tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    if request.param == "outside the checkout":
+        path = tmp_path / "elsewhere" / "in.csv"
+    else:
+        path = root / "Users" / _USER / "in.csv"
+    path.parent.mkdir(parents=True)
+    path.write_text("peptide,label\nAAAAAAAAA,1\n", encoding="utf-8")
+    return root, path
+
+
+def test_assess_calibration_write_provenance(scratch_input, tmp_path, monkeypatch):
+    from scripts import assess_calibration as module
+
+    root, oof = scratch_input
+    monkeypatch.setattr(module, "PROJECT_ROOT", root)
+    out = tmp_path / "calibration.csv"
+    out.write_text("scope,n\npooled_all,1\n", encoding="utf-8")
+
+    module._write_provenance(out, oof, pd.DataFrame({"scope": ["pooled_all"], "n": [1]}))
+
+    prov = _read_json(module._provenance_path(out))
+    assert (prov["oof_path"], prov["artifact"]) == ("external:in.csv", "external:calibration.csv")
+    _assert_no_workstation_path(prov, "assess_calibration")
+
+
+def test_audit_cv_leakage_write_provenance(scratch_input, tmp_path, monkeypatch):
+    from scripts import audit_cv_leakage as module
+
+    root, dataset = scratch_input
+    monkeypatch.setattr(module, "PROJECT_ROOT", root)
+    for constant in ("BINDING_MATRIX_PATH", "ANTIGEN_PROCESSING_CACHE_PATH"):
+        monkeypatch.setattr(module, constant, root / "models" / (constant.lower() + ".csv"))
+    monkeypatch.setattr(module, "SELF_SIMILARITY_CACHE_PATH", root / "data" / "absent.csv")
+    out = tmp_path / "audit.csv"
+    out.write_text("metric,value\nx,0\n", encoding="utf-8")
+
+    module._write_provenance(out, dataset, n_rows=1)
+
+    prov = _read_json(module._provenance_path(out))
+    assert (prov["dataset_path"], prov["artifact"]) == ("external:in.csv", "external:audit.csv")
+    _assert_no_workstation_path(prov, "audit_cv_leakage")
+
+
+def test_build_binding_matrix_v5_write_provenance(scratch_input, tmp_path, monkeypatch):
+    from scripts import build_binding_matrix_v5 as module
+
+    root, dataset = scratch_input
+    monkeypatch.setattr(module, "PROJECT_ROOT", root)
+    out = tmp_path / "matrix_v5.csv"
+
+    module._write_provenance(
+        out,
+        dataset,
+        tmp_path / "matrix_v4.csv",
+        1,
+        2,
+        active_peptide_count=1,
+        already_covered_count=0,
+    )
+
+    prov = _read_json(out.with_suffix(".provenance.json"))
+    assert prov["source_dataset"] == "external:in.csv"
+    _assert_no_workstation_path(prov, "build_binding_matrix_v5")
+
+
+def test_train_classifier_training_provenance_fields(scratch_input, monkeypatch):
+    """`_input_provenance_pair`, through the public `training_provenance_fields`;
+    relative_source's default root is pointed at the scratch checkout."""
+    import src.provenance_paths
+    from src.train_classifier import training_provenance_fields
+
+    root, data = scratch_input
+    monkeypatch.setattr(src.provenance_paths, "PROJECT_ROOT", root)
+
+    fields = training_provenance_fields(
+        data, 35, antigen_processing_cache_path=data, self_similarity_cache_path=data
+    )
+
+    for name in ("training_data", "antigen_processing_cache", "self_similarity_cache"):
+        assert fields[name + "_path"] == "external:in.csv"
+    _assert_no_workstation_path(fields, "train_classifier")
+
+
 # --- the live tree ------------------------------------------------------------
 
 
