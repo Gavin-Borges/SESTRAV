@@ -42,11 +42,14 @@ whitespace removed (so a space before ``https://`` or ``D:\\`` cannot hide eithe
   separator (where scp and rsync read ``[user@]host:path``), is reduced as
   below. A plain ``@`` in a file's name is reduced too, because the text cannot
   tell ``a@b.csv`` from a user ``a`` at a host ``b.csv``;
-* any other relative path is kept exactly as given, separators included. Such a
-  path names no workstation location, user or remote host, and committed
-  provenance already records some with Windows separators
-  (``data\\raw\\ctl_all.csv``), which rewriting would change on the next
-  regeneration.
+* any other relative path is kept exactly as given, separators included. The
+  test reads the text alone: such a path is not a workstation location as
+  defined above, holds no ``@`` and has no ``:`` before its first separator,
+  but it is not otherwise known to name no user or host. A component that
+  merely equals a username, as in ``data/<name>/x.csv``, or a percent-encoded
+  ``%40`` is kept, for example. Committed provenance already records some kept
+  paths with Windows separators (``data\\raw\\ctl_all.csv``), which rewriting
+  would change on the next regeneration.
 
 The reduction is ``external:`` plus at most the value's last component, read from
 the TEXT after separators are normalized and ``..`` segments are collapsed, never

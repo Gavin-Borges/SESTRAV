@@ -291,12 +291,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   because the text cannot tell it from a user at a host. A path component is judged
   without its own surrounding whitespace, so `data/ D:/x` names a drive. The last
   component is read from the text, never the filesystem, after any leading URL scheme
-  is removed and up to the first `?` or `#`, and none is kept when a separator follows that mark. It is dropped when it
-  cannot be a file's own name: `..`, the authority after a leading `//` (a URL's
-  `user:password@host`, or a UNC server), a name holding `:` or `@` (a drive, a scheme, a
-  `host:port`), a `~` form, a name that is not printable, or the entry directly under
-  `Users` or `home`, which is a username. So `smb://user:pw@fileserver` records
-  `external:` and `smb://fileserver/share/x.csv?token=abc` records `external:x.csv`.
+  is removed and up to the first `?` or `#`, and none is kept when a separator follows
+  that mark. It is dropped when it cannot be a file's own name: `..`, the authority after
+  a leading `//` (a URL's `user:password@host`, or a UNC server), a name holding `:` or
+  `@` (a drive, a scheme, a `host:port`), a `~` form, a name that is not printable, or
+  the entry directly under `Users` or `home`, which is a username. So
+  `smb://user:pw@fileserver` records `external:` and
+  `smb://fileserver/share/x.csv?token=abc` records `external:x.csv`.
   Every output is a fixed point. The writers and fields:
   `scripts/_dataset_utils.write_provenance`'s `sources`, each string or path-like entry of
   a list or tuple, or a single value (nine production callers under `scripts/`);
