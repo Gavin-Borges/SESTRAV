@@ -25,6 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -663,6 +664,305 @@ def test_train_classifier_training_provenance_fields(scratch_input, monkeypatch)
     _assert_no_workstation_path(fields, "train_classifier")
 
 
+# --- run-metadata writers that are not provenance sidecars -------------------
+
+
+def _loo_fixture(tmp_path, *, v5):
+    """Two viruses, each with two positives and two negatives, plus two decoys."""
+    rows = []
+    for virus, letter in (("CMV", "C"), ("EBV", "E")):
+        for i, label in enumerate([1, 1, 0, 0]):
+            rows.append(
+                {
+                    "peptide": letter * 8 + "ACDE"[i],
+                    "label": label,
+                    "virus": virus,
+                    "source_type": "Virus",
+                    "is_quarantined": False,
+                    "negative_origin": "" if label else "tested_negative",
+                }
+            )
+    for i in range(2):
+        rows.append(
+            {
+                "peptide": "W" * 8 + "ACDE"[i],
+                "label": 0,
+                "virus": None,
+                "source_type": "Self",
+                "is_quarantined": False,
+                "negative_origin": "allele_matched_nonbinder",
+            }
+        )
+    frame = pd.DataFrame(rows)
+    if not v5:
+        frame = frame.drop(columns=["is_quarantined", "negative_origin"])
+    dataset = tmp_path / "dataset.csv"
+    frame.to_csv(dataset, index=False)
+    matrix = tmp_path / "matrix.csv"
+    matrix.write_text("peptide,bind_A0201\n", encoding="utf-8")
+    return dataset, matrix
+
+
+@pytest.mark.parametrize("version", ["v4", "v5"])
+def test_run_loo_cross_virus(version, tmp_path, monkeypatch):
+    """run_loo() end to end on a ten-row corpus, with the mode-31 feature builder
+    stubbed (it needs the real binding matrix and caches) and a five-tree forest."""
+    import importlib
+
+    module = importlib.import_module("scripts.run_loo_cross_virus_" + version)
+    dataset, matrix = _loo_fixture(tmp_path, v5=version == "v5")
+    rng = np.random.default_rng(0)
+    monkeypatch.setattr(
+        module,
+        "prepare_features_31",
+        lambda frame, _path: pd.DataFrame(rng.random((len(frame), 3))),
+    )
+    monkeypatch.setattr(module, "RF_PARAMS", dict(n_estimators=5, random_state=0, n_jobs=1))
+    monkeypatch.chdir(tmp_path)  # run_loo creates a "results" directory in the cwd
+    out_json, out_csv = tmp_path / "out" / "loo.json", tmp_path / "out" / "loo.csv"
+    out_json.parent.mkdir()
+
+    module.run_loo(
+        str(dataset),
+        str(matrix),
+        output_json=str(out_json),
+        output_csv=str(out_csv),
+        min_pos=1,
+        min_neg=1,
+    )
+
+    prov = _read_json(out_json)
+    assert (prov["dataset"], prov["binding_matrix"]) == (
+        "external:dataset.csv",
+        "external:matrix.csv",
+    )
+    _assert_no_workstation_path(prov, "run_loo_cross_virus_" + version)
+
+
+def test_train_gnn_run_config():
+    """build_gnn_run_config, whose return value train_gnn_v2 writes to
+    gnn_config.json, called directly; the training run itself is not run here."""
+    from src.train_gnn import build_gnn_run_config
+
+    arguments = dict(
+        esm2_model_name="C:\\Users\\" + _USER + "\\models\\esm2_local",
+        node_dim=320,
+        feature_mode=31,
+        num_continuous_features=31,
+        binding_matrix_path="/home/" + _USER + "/bm.csv",
+        max_epochs=1,
+        mean_best_epoch=1,
+        early_stopping_patience=1,
+        seed=0,
+        pooling="mean",
+        edge_mode="full",
+    )
+
+    config = build_gnn_run_config(**arguments)
+
+    assert (config["esm2_model_name"], config["binding_matrix_path"]) == (
+        "external:esm2_local",
+        "external:bm.csv",
+    )
+    _assert_no_workstation_path(config, "train_gnn")
+    arguments.update(esm2_model_name="facebook/esm2_t12_35M_UR50D", binding_matrix_path=None)
+    hub = build_gnn_run_config(**arguments)
+    assert (hub["esm2_model_name"], hub["binding_matrix_path"]) == (
+        "facebook/esm2_t12_35M_UR50D",
+        None,
+    )
+
+
+def test_final_validation_and_h2_tier_a(tmp_path, monkeypatch):
+    """run_final_validation() end to end into a scratch results directory, running
+    the real run_h2_tier_a. Stubbed: the gold-standard and baseline reports (they
+    read a populated results tree), and inside H2 the verified model load, the
+    feature builder, the binding lookup and the bootstrap CI (they need the real
+    model, matrix and corpus). The model is a two-feature decision tree."""
+    from sklearn.tree import DecisionTreeClassifier
+
+    from src import final_validation_report as report
+    from src import h2_tier_a_evaluation as h2
+
+    rng = np.random.default_rng(0)
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    data, matrix, model = inputs / "data.csv", inputs / "matrix.csv", inputs / "model.joblib"
+    pd.DataFrame(
+        {
+            "peptide": ["KLM" + format(i, "06d") for i in range(40)],
+            "label": [i % 2 for i in range(40)],
+            "virus": ["CMV"] * 40,
+        }
+    ).to_csv(data, index=False)
+    matrix.write_text("peptide\n", encoding="utf-8")
+    model.write_bytes(b"not a model")
+    template = DecisionTreeClassifier(max_depth=2, random_state=0)
+    template.fit(rng.random((4, 2)), [0, 1, 0, 1])
+
+    monkeypatch.setattr(h2, "load_verified_joblib", lambda *a, **k: template)
+    monkeypatch.setattr(
+        h2, "model_provenance_fields", lambda p: {"model_path": "m", "model_sha256": None}
+    )
+    monkeypatch.setattr(
+        h2, "_build_features", lambda frame, n, _p: pd.DataFrame(rng.random((len(frame), n)))
+    )
+    monkeypatch.setattr(
+        h2, "_attach_binding_max", lambda frame, _p: pd.Series(rng.random(len(frame)))
+    )
+    monkeypatch.setattr(h2, "_bootstrap_ratio_ci", lambda *a, **k: (float("nan"), float("nan")))
+    monkeypatch.setattr(
+        report, "full_validation_report", lambda *a, **k: pd.DataFrame({"stage1_found": [True]})
+    )
+    monkeypatch.setattr(report, "compare_methods", lambda *a, **k: pd.DataFrame({"m": [1]}))
+    out = tmp_path / "out"
+    out.mkdir()
+
+    report.run_final_validation(
+        results_dir=str(out),
+        data_path=str(data),
+        binding_matrix_path=str(matrix),
+        model_path=str(model),
+    )
+
+    freeze = _read_json(out / "freeze_status.json")
+    assert {k: v["path"] for k, v in freeze["inputs"].items()} == {
+        "data_path": "external:data.csv",
+        "binding_matrix_path": "external:matrix.csv",
+        "model_path": "external:model.joblib",
+    }
+    _assert_no_workstation_path(freeze, "final_validation_report freeze_status")
+    summary = pd.read_csv(out / "h2_tier_a_summary.csv")
+    assert set(summary["model_path"]) == {"external:model.joblib"}
+    md = (out / "h2_tier_a_summary.md").read_text(encoding="utf-8")
+    for line in (
+        "- Dataset: `external:data.csv`",
+        "- Integrated model template: `external:model.joblib`",
+        "- Binding matrix: `external:matrix.csv`",
+    ):
+        assert line in md
+    report_md = (out / "final_validation_report.md").read_text(encoding="utf-8")
+    for line in (
+        "- Gold-standard stage validation: `external:gold_standard_validation.csv`",
+        "- Baseline comparison: `external:baseline_comparison.csv`",
+        "- H2 Tier A summary: `external:h2_tier_a_summary.csv`",
+        "- H2 Tier A markdown: `external:h2_tier_a_summary.md`",
+    ):
+        assert line in report_md
+
+
+def test_evaluate_per_virus(tmp_path):
+    """main(), end to end, on a twenty-row prediction file for one virus."""
+    from scripts.evaluate_per_virus import main
+
+    predictions = tmp_path / "preds.csv"
+    pd.DataFrame(
+        {
+            "peptide": ["KLM" + format(i, "06d") for i in range(20)],
+            "label": [i % 2 for i in range(20)],
+            "score": [(i % 2) * 0.5 + i / 100 for i in range(20)],
+            "virus": ["CMV"] * 20,
+            "negative_origin": ["" if i % 2 else "tested_negative" for i in range(20)],
+        }
+    ).to_csv(predictions, index=False)
+    out = tmp_path / "per_virus.json"
+    argv = ["--predictions", str(predictions), "--output-json", str(out)]
+    argv += ["--n-bootstrap", "10", "--min-virus-size", "5"]
+
+    assert main(argv) in (0, 2)  # 2: ran, exit criterion not met
+
+    prov = _read_json(out)
+    assert prov["predictions_file"] == "external:preds.csv"
+    _assert_no_workstation_path(prov, "evaluate_per_virus")
+
+
+def test_benchmark_syfpeithi(tmp_path):
+    """run_benchmark() end to end on a two-row prediction file."""
+    from scripts.benchmark_syfpeithi import run_benchmark
+
+    predictions = tmp_path / "oof.csv"
+    predictions.write_text("peptide,score,label\nGLCTLVAML,0.9,1\nAAAAAAAAA,0.1,0\n")
+    out = tmp_path / "syfpeithi.json"
+
+    run_benchmark(predictions, out)
+
+    prov = _read_json(out)
+    assert prov["predictions_file"] == "external:oof.csv"
+    _assert_no_workstation_path(prov, "benchmark_syfpeithi")
+
+
+def test_data_curation_qc(tmp_path):
+    """The script end to end, run as tests/test_data_curation_qc.py runs it but from
+    a scratch working directory, because it writes results/qc/ under the cwd."""
+    dataset = tmp_path / "valid.csv"
+    dataset.write_text("peptide,label\nACDEFGHIK,1\nLMNPQRSTV,0\n")
+    config = tmp_path / "config.yaml"
+    config.write_text("freeze_mode: false\n")
+    work = tmp_path / "work"
+    work.mkdir()
+    script = str(Path(REPO, "src", "data_curation_qc.py"))
+    argv = [sys.executable, script, "--check-dataset", str(dataset), "--config", str(config)]
+
+    result = subprocess.run(argv, capture_output=True, text=True, cwd=work)
+
+    assert result.returncode == 0, result.stderr
+    written = list(work.rglob("dataset_qc.json"))
+    assert len(written) == 1
+    prov = _read_json(written[0])
+    assert prov["dataset"] == "external:valid.csv"
+    _assert_no_workstation_path(prov, "data_curation_qc")
+
+
+def test_external_validation_tier_b_recovery(tmp_path, monkeypatch):
+    """main() with run_recovery stubbed (it reads PredIG and PRIME outputs)."""
+    from src import external_validation_tier_b_recovery as module
+
+    tables = (pd.DataFrame({"x": [1]}), pd.DataFrame({"y": [2]}))
+    monkeypatch.setattr(module, "run_recovery", lambda *a, **k: tables)
+    run_dir = tmp_path / "run"
+    monkeypatch.setattr(sys, "argv", ["x", "--run-dir", str(run_dir)])
+
+    module.main()
+
+    prov = _read_json(run_dir / "processed" / "tier_b_recovery_summary.json")
+    assert (prov["recovery_csv"], prov["negative_csv"]) == (
+        "external:tier_b_gold_standard_recovery.csv",
+        "external:tier_b_negative_discrimination.csv",
+    )
+    _assert_no_workstation_path(prov, "external_validation_tier_b_recovery")
+
+
+def test_prepare_external_validation_tier_b_inputs(tmp_path, monkeypatch):
+    """main() for one virus, with select_tier_b_pool stubbed (it ranks a real
+    proteome feature table)."""
+    from src import prepare_external_validation_tier_b_inputs as module
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "features.csv").write_text("peptide\nAAAAAAAAA\n")
+    pool = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA"],
+            "binding_max": [0.5],
+            "forced_gold_standard": [False],
+            "virus": ["EBV"],
+            "proteome_id": ["P"],
+        }
+    )
+    monkeypatch.setattr(module, "VIRUS_FEATURE_FILES", {"EBV": "features.csv"})
+    monkeypatch.setattr(module, "select_tier_b_pool", lambda *a, **k: pool)
+    config = str(tmp_path / "absent.yaml")
+    monkeypatch.setattr(
+        sys, "argv", ["x", "--results-dir", str(out), "--top-n", "1", "--config", config]
+    )
+
+    module.main()
+
+    prov = _read_json(out / "external_tier_b_prefilter_manifest.json")
+    assert prov["viruses"]["EBV"]["peptide_list"] == "external:external_tier_b_EBV_peptides.txt"
+    _assert_no_workstation_path(prov, "prepare_external_validation_tier_b_inputs")
+
+
 # --- the live tree ------------------------------------------------------------
 
 
@@ -768,3 +1068,97 @@ def test_no_tracked_json_carries_a_workstation_path_in_any_string():
     ).stdout.split()
     assert listed, "no tracked provenance sidecar found; the sweep would be vacuous"
     assert findings == []
+
+
+# Keys whose values the writers routed through relative_source record as paths, plus
+# `sources` entries and the KEYS of an `inputs` map (compute_d29_corpus_composition and
+# its siblings, and compute_pooled_cv_metrics, key that map by path).
+_PATH_KEYS = frozenset(
+    {
+        "antigen_processing_cache_path",
+        "artifact",
+        "binding_matrix",
+        "binding_matrix_path",
+        "data_dir",
+        "dataset",
+        "dataset_path",
+        "esm2_model_name",
+        "existing_dataset",
+        "holdout_path",
+        "input_file",
+        "mode10_oof",
+        "mode31_oof",
+        "negative_csv",
+        "oof_path",
+        "output_file",
+        "output_path",
+        "path",
+        "peptide_list",
+        "predictions_file",
+        "recovery_csv",
+        "self_similarity_cache_path",
+        "source_dataset",
+        "training_data",
+        "training_data_path",
+    }
+)
+# Keys that also hold a path in some tracked JSON although no writer above routes
+# them: the rest of what a listing of every path-looking string, by key, turns up.
+# Left out of that listing on purpose: `$schema` (a JSON Schema identifier, whose
+# "#" relative_source would drop), `uniprot_base_url` (a URL template), `doi` and
+# `anchor_pattern` (a regular expression).
+_OTHER_PATH_KEYS = frozenset(
+    {
+        "citing",
+        "existing_matrix",
+        "model",
+        "model_path",
+        "output",
+        "proteome_fasta",
+        "script",
+        "target",
+        "validation_out",
+    }
+)
+
+
+def _recorded_paths(node):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in _PATH_KEYS | _OTHER_PATH_KEYS and isinstance(value, str):
+                yield value
+            if key == "sources":
+                yield from (
+                    s for s in (value if isinstance(value, list) else [value]) if isinstance(s, str)
+                )
+            if key == "inputs" and isinstance(value, dict):
+                yield from value
+            yield from _recorded_paths(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _recorded_paths(value)
+
+
+def test_every_committed_path_value_is_a_fixed_point_of_relative_source():
+    """Regenerating a committed output must not change a path string it records
+    merely because the writer now goes through relative_source. That holds only if
+    every such value already committed is a fixed point - including the relative
+    paths committed with Windows separators, which relative_source keeps as given."""
+    from src.provenance_paths import relative_source
+
+    documents = _tracked_json_documents(REPO)
+    if documents is None:
+        pytest.skip("not a git work tree: no tracked JSON to read")
+    values = [(name, v) for name, document in documents for v in _recorded_paths(document)]
+    assert any("\\" in v for _, v in values), "no Windows-separator value: check is vacuous"
+    assert [(name, v) for name, v in values if relative_source(v) != v] == []
+
+
+def test_the_fixed_point_check_reads_each_path_key_sources_and_inputs_keys():
+    document = {
+        "artifact": "a.csv",
+        "nested": [{"script": "s.py", "inputs": {"k.csv": "0" * 64}}],
+        "sources": ["one.csv", {"url": "u"}, 3],
+        "other": {"sources": "two.csv", "note": "not a path key"},
+    }
+    assert sorted(_recorded_paths(document)) == ["a.csv", "k.csv", "one.csv", "s.py", "two.csv"]
