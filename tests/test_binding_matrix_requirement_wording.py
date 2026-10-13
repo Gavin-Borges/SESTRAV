@@ -17,16 +17,15 @@ before.
 
 The requirement is EXERCISED here rather than read off the module's source text. A
 twelve-row synthetic corpus is enough, because each raise fires in the dispatch just after
-that corpus is loaded. Measured on this Windows workstation on 2026-10-12, running this file
-alone with `-o addopts= -p no:cacheprovider`: 14 cases in 2.4 seconds, the slowest being
-mode 21's two-fold training at 0.88 seconds and each of the ten raises at 0.01 seconds. An
-earlier version of this file pinned the raises by grepping the
-source and said in its docstring that exercising them per mode "would need a real training
-corpus"; that was an unmeasured claim and it is wrong, and
+that corpus is loaded: the ten raise cases fit no model and write no artifact, so the
+mode-21 case is the only one of the eleven `train_models` cases here that trains, on two
+folds of a ten-record training pool. No timing figure is pinned here, because a stopwatch
+reading is a property of the workstation rather than of the wording under test.
+
+Neither half of "except 21" is new coverage.
 `tests/test_train_classifier.py::test_a_recognized_mode_reaches_its_own_dispatch_branch`
-had already been exercising the same ten raises on a thirty-row corpus since 2026-10-01.
-What the wording's "except 21" rests on, mode 21 running to completion with no matrix, is
-not new coverage either: it has been exercised since 2026-06-22 by
+has been exercising the same ten raises on a thirty-row corpus since 2026-10-01, and mode
+21 running to completion with no matrix has been exercised since 2026-06-22 by
 `tests/test_train_classifier.py::test_train_models_mode21_smoke`, which trains mode 21 with
 no binding matrix and asserts that its model and results files exist. It is pinned here
 again, beside the ten raises, so that both halves of "except 21" are checked in one file.
@@ -75,10 +74,14 @@ def _corpus(tmp_path: Path) -> str:
 
     Two of the twelve peptides, CLGGLLTMV and IVTDFSVIK, are in GOLD_STANDARD_EPITOPES, so
     `train_models` holds them out and mode 21 trains on the other ten, still five per label.
-    The columns are the three `train_models` needs to reach the dispatch and to run
-    stratified CV: peptide, label and virus. Every test here runs with cwd set to its
-    tmp_path, so no proteome FASTA is found and every peptide takes the SYNTH_ parent
-    fallback, which none of the behaviour under test depends on.
+    Only peptide and label are needed to reach the dispatch: dropping either raises
+    `KeyError`, while dropping virus still runs mode 21 to completion and writes the same
+    artifacts, because the CV splitter stratifies on label, origin, supertype and length
+    rather than on virus. The virus column is kept because that helper carries one. The
+    two `train_models` cases below run with cwd set to their tmp_path, so no proteome
+    FASTA is found and every peptide takes the SYNTH_ parent fallback, which none of the
+    behaviour under test depends on; the three text-pin tests take no tmp_path and never
+    chdir.
     """
     frame = pd.DataFrame(
         {
@@ -174,8 +177,10 @@ def test_the_usage_validate_table_names_every_mode_except_21() -> None:
 def test_all_four_binding_matrix_carriers_hold_one_phrase() -> None:
     """One phrase across the four carriers, so a reader meets the same rule everywhere.
 
-    `src/cli.py`'s two `validate` help strings are read here but not owned here: they are
-    pinned as parser objects by tests/test_cli_validate_default_source.py. This test is for
+    `src/cli.py`'s two `validate` help strings are read here but not owned here:
+    tests/test_cli_validate_default_source.py pins the first by equality on `action.help`
+    off `cli._build_validate_parser()`, and the second as a substring of the
+    whitespace-collapsed rendering of `cli.main(["validate", "--help"])`. This test is for
     the agreement itself, which no single carrier's own test can see. Each file's matching
     lines are compared as a whole list, so a further line holding this exact phrase, in any
     letter case, in `src/cli.py`, `src/train_classifier.py` or `USAGE.md` also fails it,
