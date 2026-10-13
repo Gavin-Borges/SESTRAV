@@ -283,10 +283,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   drive letter, drive-relative `C:x` included, a UNC or root-relative path, a `~` form, a
   `Users` or `home` component, a `file:` URI, any other URL scheme such as `smb://`, a
   relative path that escapes upwards, or an `external:` value) to `external:` plus at
-  most its last component. A path component is judged without its own surrounding
-  whitespace, so `data/ D:/x` names a drive. The last component is read from the text,
-  never the filesystem, after any leading URL scheme is removed and up to the first `?`
-  or `#`, and none is kept when a separator follows that mark. It is dropped when it
+  most its last component. The relative paths it keeps exclude one holding an `@`
+  anywhere or a `:` before its first separator, which is reduced the same way: a
+  scheme-less `user:pw@host:/data/x.csv`, the `<user>@fileserver:/srv/x.csv` that scp and
+  rsync read as `[user@]host:path`, and `data/user:pw@host/x.csv` all record
+  `external:x.csv`, and a plain `@` in a name, as in `data/a@b.csv`, records `external:`,
+  because the text cannot tell it from a user at a host. A path component is judged
+  without its own surrounding whitespace, so `data/ D:/x` names a drive. The last
+  component is read from the text, never the filesystem, after any leading URL scheme
+  is removed and up to the first `?` or `#`, and none is kept when a separator follows that mark. It is dropped when it
   cannot be a file's own name: `..`, the authority after a leading `//` (a URL's
   `user:password@host`, or a UNC server), a name holding `:` or `@` (a drive, a scheme, a
   `host:port`), a `~` form, a name that is not printable, or the entry directly under
@@ -371,7 +376,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_provenance_paths.py` holds a 37-row probe built at runtime from the real
   username and checkout, URL credential, query and missing-host cases, authority,
   credential, query and fragment reductions, whitespace and line-break cases, symlink or
-  junction cases and the `write_provenance` cases;
+  junction cases, the `write_provenance` cases, and eleven `@` and `host:` shapes with
+  five relative paths kept as given;
   `tests/test_writers_record_no_workstation_path.py` runs each other writer, checks every
   string of each JSON it writes, keys included, and every line of the four Markdown
   reports above against a detector validated on 26 workstation shapes and 30 non-paths

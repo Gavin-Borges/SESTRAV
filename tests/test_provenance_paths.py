@@ -268,6 +268,59 @@ def test_whitespace_and_line_breaks_hide_nothing(source, expected):
     assert relative_source(out, root=REPO) == out, "not a fixed point"
 
 
+# (label, input, expected output): a relative path holding an "@" anywhere, or a
+# ":" before its first separator. Labelled, so no test id carries the checkout.
+_USER_OR_REMOTE_HOST = [
+    # A user:password@ with no scheme before it, and a remote host's path.
+    ("credentials, host:path", "user:pw@host:/data/x.csv", "external:x.csv"),
+    ("key:secret@bucket", "AKIAEXAMPLE:secret@bucket/x.csv", "external:x.csv"),
+    ("credentials in a later component", "data/user:pw@host/x.csv", "external:x.csv"),
+    # scp and rsync read [user@]host:path, so the username must not survive.
+    ("scp user@host:/path", USER + "@fileserver:/srv/x.csv", "external:x.csv"),
+    ("scp user@host:name", "user@host:x.csv", "external:"),
+    ("scp user@host:/name", "user@host:/x.csv", "external:x.csv"),
+    ("scp host:path", "fileserver:data/x.csv", "external:x.csv"),
+    ("scp host:name", "host:x.csv", "external:"),
+    ("user@host, backslashes", "data\\" + USER + "@fileserver\\x.csv", "external:x.csv"),
+    # A plain "@" in a name: the text cannot tell it from a user at a host.
+    ("plain @ in a name", "data/a@b.csv", "external:"),
+    # Inside the checkout, the repo-relative form is reduced on the second pass.
+    (
+        "abs inside, user@host component",
+        os.path.join(REPO, "data", USER + "@fileserver", "x.csv"),
+        "external:x.csv",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label, source, expected", _USER_OR_REMOTE_HOST, ids=[c[0] for c in _USER_OR_REMOTE_HOST]
+)
+def test_a_relative_path_naming_a_user_or_remote_host_is_reduced(label, source, expected):
+    out = relative_source(source, root=REPO)
+    assert out == expected
+    for leaked in ("@", "pw", "secret", "host", "fileserver", "srv", "bucket"):
+        assert leaked not in out, (source, out)
+    assert USER not in out, (source, out)
+    _assert_names_no_workstation_location(out)
+    assert relative_source(out, root=REPO) == out, "not a fixed point"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "data/x.csv",
+        "data\\raw\\ctl_all.csv",
+        "src/provenance_paths.py",
+        "data/raw/run-2026.10.12_v5/x.csv",
+        # A ":" after the first separator is not where scp or rsync reads a host.
+        "data/host:x.csv",
+    ],
+)
+def test_a_relative_path_naming_no_user_or_remote_host_is_kept_as_given(source):
+    assert relative_source(source, root=REPO) == source
+
+
 def test_an_inside_path_a_second_pass_would_change_is_reduced(tmp_path):
     """A directory whose name starts with a space would give a padded
     repo-relative form, which a second pass would trim: it is reduced instead."""

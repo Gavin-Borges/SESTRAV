@@ -37,10 +37,16 @@ whitespace removed (so a space before ``https://`` or ``D:\\`` cannot hide eithe
   relative path that escapes upwards (judged textually, so the working directory
   cannot change the answer) - is reduced as below. A component is judged with
   its own surrounding whitespace removed, so ``data/ D:/x`` names a drive;
+* a relative path holding an ``@`` anywhere (a ``user@host``, or a
+  ``user:password@`` with no scheme before it), or a ``:`` before its first
+  separator (where scp and rsync read ``[user@]host:path``), is reduced as
+  below. A plain ``@`` in a file's name is reduced too, because the text cannot
+  tell ``a@b.csv`` from a user ``a`` at a host ``b.csv``;
 * any other relative path is kept exactly as given, separators included. Such a
-  path names no workstation location, and committed provenance already
-  records some with Windows separators (``data\\raw\\ctl_all.csv``), which
-  rewriting would change on the next regeneration.
+  path names no workstation location, user or remote host, and committed
+  provenance already records some with Windows separators
+  (``data\\raw\\ctl_all.csv``), which rewriting would change on the next
+  regeneration.
 
 The reduction is ``external:`` plus at most the value's last component, read from
 the TEXT after separators are normalized and ``..`` segments are collapsed, never
@@ -115,6 +121,12 @@ def _names_a_workstation_location(posix_text: str) -> bool:
         _DRIVE.match(part) or _SCHEME_REMNANT.fullmatch(part) or part.lower() in _HOME_PARENTS
         for part in _components(posix_text)
     )
+
+
+def _names_a_user_or_remote_host(posix_text: str) -> bool:
+    """True if a separator-normalized relative path holds an ``@`` anywhere, or a
+    ``:`` before its first separator, where scp and rsync read ``[user@]host:path``."""
+    return "@" in posix_text or ":" in posix_text.split("/", 1)[0]
 
 
 def _external(text: str) -> str:
@@ -221,6 +233,6 @@ def relative_source(source: object, root: str | os.PathLike[str] | None = None) 
             if relative_source(relative, root) == relative:
                 return relative
         return _external(text)
-    if _names_a_workstation_location(posix_text):
+    if _names_a_workstation_location(posix_text) or _names_a_user_or_remote_host(posix_text):
         return _external(text)
     return text
