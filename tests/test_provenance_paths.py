@@ -11,6 +11,7 @@ current user and not the checkout, and must be a fixed point.
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import re
 import sys
@@ -21,6 +22,9 @@ import pytest
 from src.provenance_paths import relative_source
 
 _ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT / "scripts"))
+
+import _dataset_utils  # noqa: E402
 
 
 def _username() -> str:
@@ -343,3 +347,64 @@ def test_a_link_outside_the_root_that_leads_inside_is_repo_relative(tmp_path):
 @pytest.mark.parametrize("value", [None, 7, {"url": "https://example.org/a.zip"}, ["a"]])
 def test_a_non_path_value_is_returned_unchanged(value):
     assert relative_source(value, root=REPO) == value
+
+
+# --- write_provenance, the shared ingest writer -----------------------------
+
+
+def _sidecar_of(output: Path) -> dict:
+    with open(os.path.splitext(str(output))[0] + "_provenance.json", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def test_write_provenance_records_sources_through_relative_source(tmp_path):
+    output = tmp_path / "artifact.csv"
+    output.write_text("peptide\nGILGFVFTL\n")
+    outside = tmp_path / "vdjdb.txt"
+    inside = os.path.join(REPO, "data", "immunogenicity_dataset_v5.csv")
+    sources = [str(outside), Path(inside), "data/iedb", "https://example.org/a", {"k": "v"}, None]
+
+    _dataset_utils.write_provenance(str(output), sources=sources, row_count=1)
+
+    assert _sidecar_of(output)["sources"] == [
+        "external:vdjdb.txt",
+        "data/immunogenicity_dataset_v5.csv",
+        "data/iedb",
+        "https://example.org/a",
+        {"k": "v"},
+        None,
+    ]
+
+
+def test_write_provenance_sanitizes_a_tuple_of_sources(tmp_path):
+    output = tmp_path / "artifact.csv"
+    output.write_text("peptide\nGILGFVFTL\n")
+    sources = (str(tmp_path / "a.tsv"), "https://" + USER + ":pw@example.org/b.zip?x=1")
+
+    _dataset_utils.write_provenance(str(output), sources=sources, row_count=1)
+
+    assert _sidecar_of(output)["sources"] == ["external:a.tsv", "https://example.org/b.zip"]
+
+
+def test_write_provenance_sanitizes_a_single_source_given_bare(tmp_path):
+    output = tmp_path / "artifact.csv"
+    output.write_text("peptide\nGILGFVFTL\n")
+    _dataset_utils.write_provenance(str(output), sources=str(tmp_path / "in.tsv"), row_count=1)
+    assert _sidecar_of(output)["sources"] == "external:in.tsv"
+
+
+def test_a_real_write_provenance_caller_records_no_workstation_path(tmp_path):
+    """End to end through scripts/ingest_tsnadb.py, whose call passes its input path."""
+    from ingest_tsnadb import ingest_tsnadb
+
+    tsv = tmp_path / "tsna.tsv"
+    tsv.write_text("Peptide\tHLA\nSIINFEKL\tHLA-A*02:01\n")
+    output = tmp_path / "out.csv"
+    schema = os.path.join(REPO, "data", "immunogenicity_dataset_v4_schema.json")
+
+    ingest_tsnadb(str(tsv.resolve()), str(output), schema)
+
+    prov = _sidecar_of(output)
+    assert prov["sources"] == ["external:tsna.tsv"]
+    for value in prov["sources"]:
+        _assert_names_no_workstation_location(value)
