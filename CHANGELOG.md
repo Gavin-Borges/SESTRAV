@@ -169,8 +169,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `30_graph`, and 21 is the dispatch chain's final `else`, which builds its features with
   `include_binding=False`. The two `--binding-matrix` help strings for `validate` in
   `src/cli.py` said "required for mode 30+", which is wrong for mode 10, and now say "required
-  for every feature mode except 21"; the same wording in `src/train_classifier.py`'s own
-  `--binding-matrix` help is unchanged and still reads `30+`. No behaviour change: the values
+  for every feature mode except 21"; `src/train_classifier.py`'s own `--binding-matrix` help
+  and `USAGE.md`'s `sestrav validate` table row carry that same phrase, so all four help and
+  table carriers of the requirement read alike. That help had said "required for
+  --feature-mode 30+", wrong for mode 10, and that row had said "Required for `--feature-mode
+  30` or `31`", wrong for the other eight modes. No behaviour change: the values
   forwarded to `train_models`, the three lines already printed and the exit code are identical
   in every case, and the lookup is untouched, so a `config.yaml` in the working directory is
   still never read. **Open question, deliberately not decided here:** whether a null
@@ -194,6 +197,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   note ignoring the config lookup. The two added here are the whole block hoisted ABOVE those
   three lines, which the earlier ordering test let through, and both `validate`
   `--binding-matrix` help strings reverted to `mode 30+`.
+  `tests/test_binding_matrix_requirement_wording.py` (new, 14 test cases) covers the other
+  two carriers and their agreement with those two, and EXERCISES `train_models` once per
+  recognised feature mode on a synthetic corpus instead of reading the dispatch as text:
+  each of the ten raises fires with its own mode named, and mode 21 trains and writes
+  its artifacts with no matrix at all. Three of its 14 cases fail against the previous
+  `src/train_classifier.py` and `USAGE.md`, and the same three fail with only this entry's
+  `src/cli.py` half applied.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped

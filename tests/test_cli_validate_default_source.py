@@ -387,7 +387,7 @@ def test_the_notes_print_below_the_three_lines_they_refer_to(tmp_path, monkeypat
 
 
 def test_both_validate_binding_matrix_help_strings_state_the_requirement(capsys):
-    """Two parsers advertise --binding-matrix for validate, and both read "mode 30+".
+    """Two parsers advertise --binding-matrix for validate, and both had read "mode 30+".
 
     "30+" is wrong for mode 10: train_models raises "--binding-matrix is required
     for feature-mode 10" when it is None. Both strings are pinned because only one
