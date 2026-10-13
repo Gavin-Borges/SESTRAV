@@ -29,7 +29,7 @@
 # unaccepted advisory once the advisory reaches pip-audit's feed (it is not a
 # required check), and the floor belongs back here with that dependent named.
 # aiohttp: CVE-2026-54273/54274/54275/54276/54277/54278/54280, CVE-2026-50269
-aiohttp>=3.14.3
+aiohttp>=3.14.4
 # setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
 # Unicode NFC/NFD normalization collision on macOS APFS/HFS+).
 # This floor used to conflict with torch 2.12.0's `setuptools<82` build-metadata
