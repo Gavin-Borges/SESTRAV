@@ -165,6 +165,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   same directory needs `--allow-overwrite` (without it the run exits 1 rather than replace
   what the first wrote). It no longer offers a command for mode 33, which also reads an
   antigen-processing score cache: no mode-33 rebuild has been checked from a clone.
+- **The pipeline's ANN now trains what its rule asks for, and its CV keeps each peptide in one
+  fold.** `pipeline.smk`'s `train_ann` rule, which the default `Results` target requires,
+  passed config's `feature_mode` (31) and the binding matrix to `src/train_ann.py`, which
+  builds only mode 21 or 50: every other mode fell through to the 21 sequence-only columns, so
+  the run trained mode 21 under a mode-31 request and read no matrix. The rule now passes
+  `--feature-mode 21` and no matrix, and `train_ann` refuses any mode but 21 and 50 before it
+  creates anything. Its CV moves from a label-only `StratifiedKFold` to
+  `src.ml_utils.PeptideGroupedKFold`, called as `src/train_gnn.py` calls it, because the v5
+  corpus repeats peptides across alleles. The ANN's CV metrics reach only `logs/train_ann.log`
+  and no tracked number comes from it. `docs/holdout_and_qc_policy.md` no longer lists it as
+  ungrouped.
 - **`scripts/check_panel_duplicates.py`'s delimiter docstring now matches the code, and its
   tab path is tested.** The docstring said a panel is read with `,` for `.csv` and a tab for
   everything else; the code reads a tab only for `.tsv` and `.txt` (any case) and `,` for
