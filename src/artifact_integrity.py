@@ -9,6 +9,7 @@ artifacts are created, and verify them again before sensitive loads.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 from datetime import datetime, timezone
@@ -176,11 +177,38 @@ def verify_artifact_checksum(
     Returns True when verification was performed and passed.
     Returns False when no applicable manifest entry exists and verification was optional.
     Raises ArtifactIntegrityError on mismatch or when verification is required but unavailable.
+
+    The answer describes the file as it was when hashed. A caller that then
+    opens the path again to deserialize it reads bytes this check never saw;
+    `read_verified_bytes` reads once and returns the bytes it checked.
     """
     artifact = Path(path)
     if not artifact.is_file():
         raise ArtifactIntegrityError(f"Artifact not found for checksum verification: {artifact}")
+    expected = _expected_sha256(artifact, manifest_path, required)
+    if expected is None:
+        return False
+    actual = sha256_file(artifact)
+    if expected != actual:
+        raise ArtifactIntegrityError(
+            f"Checksum verification failed for '{artifact}'. Expected {expected}, got {actual}."
+        )
+    return True
 
+
+def _expected_sha256(
+    artifact: Path,
+    manifest_path: str | Path | None,
+    required: bool,
+) -> str | None:
+    """Return the sha256 that `artifact`'s checksum manifest records for it.
+
+    Returns None, after logging the skip, when verification is optional and
+    nothing describes the artifact. Raises ArtifactIntegrityError when it is
+    required and nothing does, and, whatever `required` says, when an entry
+    names the artifact but records no sha256 string: that is a malformed
+    record, not an absent one, so it fails closed.
+    """
     manifest = Path(manifest_path) if manifest_path else default_manifest_path_for(artifact)
     payload = load_checksum_manifest(manifest)
     artifacts = payload.get("artifacts", {})
@@ -189,15 +217,17 @@ def verify_artifact_checksum(
             raise ArtifactIntegrityError(
                 f"Checksum manifest required for '{artifact}', but '{manifest}' was not found or is empty."
             )
-        # Optional verification did NOT happen. Say so: no caller in this
-        # repository inspects the return value, so without this line a sensitive
-        # load proceeds completely unverified and leaves no trace that it did.
+        # Optional verification did NOT happen. Say so: read_verified_bytes
+        # returns the bytes either way, and no production caller acts on
+        # verify_artifact_checksum's False (ModelRegistry.validate_signature
+        # returns it, but passes required=True, where False cannot occur), so
+        # without this line a load proceeds unverified and leaves no trace.
         logger.warning(
             "Checksum verification SKIPPED for '%s': manifest '%s' is missing or empty.",
             artifact,
             manifest,
         )
-        return False
+        return None
 
     # An artifact is only ever matched against its canonical manifest-relative key.
     # Basenames are not unique across the repo (models/, models/v5/ and
@@ -230,23 +260,59 @@ def verify_artifact_checksum(
             manifest,
             key,
         )
-        return False
+        return None
 
-    expected = entry.get("sha256")
-    actual = sha256_file(artifact)
-    if expected != actual:
+    expected = entry.get("sha256") if isinstance(entry, dict) else None
+    if not isinstance(expected, str):
         raise ArtifactIntegrityError(
-            f"Checksum verification failed for '{artifact}'. Expected {expected}, got {actual}."
+            f"Checksum entry for '{artifact}' in manifest '{manifest}' records no sha256."
         )
-    return True
+    return expected
+
+
+def read_verified_bytes(
+    path: str | Path,
+    manifest_path: str | Path | None = None,
+    required: bool = True,
+) -> bytes:
+    """Read an artifact once and return those bytes, checked against its manifest.
+
+    The digest is computed over the returned buffer, so a caller that
+    deserializes the buffer gets exactly the bytes that were checked, whatever
+    happens to the file afterwards. Raises ArtifactIntegrityError where
+    `verify_artifact_checksum` does; when `required` is False and the manifest
+    has no entry for the artifact, the bytes are returned unchecked and the
+    skip is logged.
+    """
+    artifact = Path(path)
+    if not artifact.is_file():
+        raise ArtifactIntegrityError(f"Artifact not found for checksum verification: {artifact}")
+    expected = _expected_sha256(artifact, manifest_path, required)
+    data = artifact.read_bytes()
+    if expected is not None:
+        actual = hashlib.sha256(data).hexdigest()
+        if expected != actual:
+            raise ArtifactIntegrityError(
+                f"Checksum verification failed for '{artifact}'. Expected {expected}, got {actual}."
+            )
+    return data
 
 
 def load_verified_joblib(
     path: str | Path,
     manifest_path: str | Path | None = None,
-    required_checksum: bool = False,
+    required_checksum: bool = True,
 ):
-    """Verify a joblib artifact when possible, then load it.
+    """Verify a joblib artifact, then load the bytes that were verified.
+
+    The file is read ONCE, by `read_verified_bytes`, and the buffer that was
+    hashed is the buffer that is unpickled. Hashing the path and then loading
+    it by path reads the file twice, so a file replaced between the two reads
+    would be deserialized unchecked.
+
+    `required_checksum` defaults to True: a missing manifest or entry raises
+    ArtifactIntegrityError. False loads an artifact with no manifest entry and
+    logs the skip; a mismatch against an entry that does exist still raises.
 
     Two independent properties are checked before the load, and they answer
     different questions. The checksum answers "are these the bytes we recorded";
@@ -261,9 +327,9 @@ def load_verified_joblib(
     """
     from joblib import load as joblib_load
 
-    verify_artifact_checksum(path, manifest_path=manifest_path, required=required_checksum)
+    data = read_verified_bytes(path, manifest_path=manifest_path, required=required_checksum)
     verify_artifact_library_versions(path, required=required_checksum)
-    return joblib_load(path)
+    return joblib_load(io.BytesIO(data))
 
 
 def _relative_to_project_root(path: Path) -> str:

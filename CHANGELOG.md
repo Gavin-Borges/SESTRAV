@@ -1212,6 +1212,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `environments/requirements-lock.in`'s own `setuptools>=84.0.0` to the advisory's 83.0.0.
   `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
   green (10 lockfile pairs fresh, 13 manifests hash-pinned).
+- **`load_verified_joblib` unpickles the bytes it verified, and requires a checksum by
+  default.** It hashed the artifact by path, compared library versions against the
+  provenance sidecar, then called `joblib.load(path)`, which opened the file again, so a
+  file replaced after the hash and before that second open was deserialized unchecked. A
+  test that swaps the file inside the version check, which runs in that window, loaded the
+  swapped object on `main`. The file is now read once, by a new `read_verified_bytes`
+  that hashes the buffer it returns, and `joblib.load` reads that same buffer, at the cost
+  of one in-memory copy of the file during the load. This closes the window between
+  hashing and unpickling the artifact. It does not cover the manifest or the sidecar,
+  which are separate files read by path, nor torch checkpoints: where their checksum is
+  verified, `torch.load` still reopens the path afterwards. `required_checksum` now
+  defaults to `True`, which all 15 calls in `src/`, `functions/`, `scripts/` and `app/`
+  already passed, so a call that omits it raises when the manifest
+  or its entry is missing; `required_checksum=False` still loads such an artifact and logs
+  the skip. A manifest entry that is not a mapping now raises `ArtifactIntegrityError`
+  instead of `AttributeError`. `read_verified_bytes(..., required=False)` is the same
+  opt-out under the new function's parameter name, so the blocking semgrep rule
+  `sestrav-require-verified-joblib-load`, which flagged only `joblib.load(...)` and
+  `load_verified_joblib(..., required_checksum=False)`, now flags it too, in both the
+  keyword and the positional spelling, with fixtures in `semgrep-rules/sestrav-custom.py`
+  for the two positives, for `required=True` and for a call inside a body the rule exempts
+  by name. `verify_artifact_checksum(..., required=False)` stays uncovered on purpose:
+  `src/baseline_comparison.py` passes it legitimately, so a pattern for it would fire on
+  code that is correct. `docs/threat_model.md`'s T2 credited `ModelRegistry`'s
+  expected-feature check, which runs after deserialization; it now names this loader and
+  both opt-out spellings the rule flags, and what they leave uncovered. Tests:
+  `tests/test_load_verified_joblib_reads_once.py`; seven mutants, each undoing one part of
+  the fix, all make the tests fail. The swap test accepts a refusal only when the error
+  names the failed checksum, so a loader that raised `ArtifactIntegrityError` for an
+  unrelated reason would fail it instead of passing it vacuously.
 - **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**
   (`tests/test_torch_load_weights_only.py`, SEC-13). A prior sweep found every runtime call
   site already pinned `weights_only=True`; that was a one-off finding with no standing check
