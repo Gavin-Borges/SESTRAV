@@ -30,6 +30,7 @@ from src.baseline_comparison import compare_methods
 from src.gold_standard import full_validation_report
 from src.h2_tier_a_evaluation import run_h2_tier_a
 from src.naming import canonical_output_filename, resolve_model_path
+from src.provenance_paths import relative_source
 
 
 def planned_validation_paths(
@@ -152,13 +153,21 @@ def run_final_validation(
         final_md_name = "final_validation_report.md"
         final_md_tmp_path = os.path.join(tmp_dir, final_md_name)
         status = "SUPPORTED" if h2_supported else "NOT SUPPORTED"
+        # Each "path" here, and each "Core Outputs" line below (built from
+        # results_dir), is recorded through relative_source, not as given.
         input_hashes = {
-            "data_path": {"path": data_path, "sha256": _sha256_or_missing(data_path)},
+            "data_path": {
+                "path": relative_source(data_path),
+                "sha256": _sha256_or_missing(data_path),
+            },
             "binding_matrix_path": {
-                "path": binding_matrix_path,
+                "path": relative_source(binding_matrix_path),
                 "sha256": _sha256_or_missing(binding_matrix_path),
             },
-            "model_path": {"path": model_path, "sha256": _sha256_or_missing(model_path)},
+            "model_path": {
+                "path": relative_source(model_path),
+                "sha256": _sha256_or_missing(model_path),
+            },
         }
 
         gs_path = os.path.join(results_dir, gs_filename)
@@ -170,10 +179,10 @@ def run_final_validation(
             f.write(
                 f"# SESTRAV Final Validation Report\n\n"
                 f"## Core Outputs\n"
-                f"- Gold-standard stage validation: `{gs_path}`\n"
-                f"- Baseline comparison: `{baseline_path}`\n"
-                f"- H2 Tier A summary: `{h2_summary_csv}`\n"
-                f"- H2 Tier A markdown: `{h2_summary_md}`\n\n"
+                f"- Gold-standard stage validation: `{relative_source(gs_path)}`\n"
+                f"- Baseline comparison: `{relative_source(baseline_path)}`\n"
+                f"- H2 Tier A summary: `{relative_source(h2_summary_csv)}`\n"
+                f"- H2 Tier A markdown: `{relative_source(h2_summary_md)}`\n\n"
                 f"## H2 Tier A Headline\n"
                 f"- R10 (ISSR@10 integrated / binding-only): `{r10:.4f}`\n"
                 f"- R25 (ISSR@25 integrated / binding-only): `{r25:.4f}`\n"
