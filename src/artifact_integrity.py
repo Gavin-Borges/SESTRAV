@@ -560,7 +560,7 @@ def write_provenance_sidecar(
     `library_versions` records the environment the artifact was written in, for
     the same reason: the bytes of a pickled estimator are only loadable by a
     compatible `scikit-learn`, and `pyproject.toml` declares a range
-    (`scikit-learn>=1.3.0,<1.9`) rather than the exact version any given artifact was
+    (`scikit-learn>=1.5.0,<1.9`) rather than the exact version any given artifact was
     produced under. It is written here, in the one function every sidecar
     passes through, so that all callers gain the field together instead of each
     remembering to pass it through `extra`.
