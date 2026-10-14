@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.artifact_guard import guard_planned_paths
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.provenance_paths import relative_source
 from src.train_classifier import prepare_features_31
 
 DATASET_PATH = "data/immunogenicity_dataset_v4.csv"
@@ -192,8 +193,8 @@ def run_loo(
     provenance = {
         "benchmark": "loo_cross_virus_v4",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
-        "dataset": dataset_path,
-        "binding_matrix": binding_matrix_path,
+        "dataset": relative_source(dataset_path),
+        "binding_matrix": relative_source(binding_matrix_path),
         "feature_mode": 31,
         "rf_params": RF_PARAMS,
         "min_pos_threshold": min_pos,

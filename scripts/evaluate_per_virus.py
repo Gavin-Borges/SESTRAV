@@ -61,6 +61,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.provenance_paths import relative_source  # noqa: E402
 from src.statistical_bootstrap import paired_bootstrap_comparison  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -891,7 +892,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
     output = {
-        "predictions_file": str(args.predictions),
+        "predictions_file": relative_source(args.predictions),
         "n_bootstrap": args.n_bootstrap,
         "min_virus_size": args.min_virus_size,
         "per_virus": results,

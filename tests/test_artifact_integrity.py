@@ -169,7 +169,7 @@ def test_load_verified_joblib_roundtrip(tmp_path):
     joblib.dump(obj, artifact)
     manifest_path = tmp_path / MODEL_CHECKSUM_MANIFEST
     update_checksum_manifest(manifest_path, [artifact])
-    assert load_verified_joblib(artifact, manifest_path) == obj
+    assert load_verified_joblib(artifact, manifest_path, required_checksum=True) == obj
 
 
 def test_load_verified_joblib_mismatch_raises(tmp_path):
@@ -288,11 +288,14 @@ def test_nested_key_does_not_leak_to_sibling_basename(tmp_path):
 def test_optional_verification_warns_when_the_manifest_has_no_entries(tmp_path, caplog):
     """A skipped verification must leave a trace.
 
-    No PRODUCTION caller inspects this return value. All three discard it:
-    load_verified_joblib in src/artifact_integrity.py, and _load_torch_checkpoint
-    in both src/baseline_comparison.py and functions/stage4_immunogenicity_scoring.py.
-    So a bare False was a sensitive load proceeding completely unverified with
-    nothing in the log to say so, and baseline_comparison loads a model that way.
+    No PRODUCTION caller acts on a False return. _load_torch_checkpoint in both
+    src/baseline_comparison.py and functions/stage4_immunogenicity_scoring.py
+    discards it; ModelRegistry.validate_signature returns it, but passes
+    required=True, where False cannot occur. So a bare False was a sensitive
+    load proceeding completely unverified with nothing in the log to say so,
+    and baseline_comparison loads a model that way. load_verified_joblib reads
+    through read_verified_bytes, which returns the bytes either way, so for it
+    too the log line is the only record of a skip.
 
     Scoped to production deliberately: tests DO read it, including the
     assertion two lines below and tests/test_stage4_conformal.py, which uses
@@ -585,7 +588,9 @@ def test_load_verified_joblib_warns_but_loads_on_drift_when_not_required(tmp_pat
     )
 
     with caplog.at_level("WARNING", logger="src.artifact_integrity"):
-        assert load_verified_joblib(artifact, manifest_path) == {"weights": [1, 2, 3]}
+        assert load_verified_joblib(artifact, manifest_path, required_checksum=False) == {
+            "weights": [1, 2, 3]
+        }
     assert "DRIFT" in caplog.text
 
 

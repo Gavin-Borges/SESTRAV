@@ -31,6 +31,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.artifact_integrity import sha256_file, write_provenance_sidecar  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 
 TRACKED_OUTPUT = "results/binding_zerofill_attribution.csv"
 KEY_COLUMNS = [
@@ -260,7 +261,7 @@ def git_blob(path: Path) -> str:
 
 def input_record(path: Path) -> dict[str, str]:
     return {
-        "path": path.as_posix(),
+        "path": relative_source(path.as_posix()),
         "sha256": sha256_file(path),
         "blob_sha": git_blob(path),
     }

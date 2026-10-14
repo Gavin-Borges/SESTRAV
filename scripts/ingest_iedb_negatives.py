@@ -45,6 +45,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.artifact_integrity import sha256_file as compute_file_sha256  # noqa: E402
 from scripts._dataset_utils import normalize_reference_pmids  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -783,11 +784,11 @@ def main(argv: list[str] | None = None) -> int:
     provenance = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         "git_sha": get_git_sha(),
-        "input_file": str(args.input),
+        "input_file": relative_source(args.input),
         "input_sha256": compute_file_sha256(args.input),
-        "existing_dataset": str(args.existing_dataset),
+        "existing_dataset": relative_source(args.existing_dataset),
         "filter_stats": stats,
-        "output_file": str(args.output),
+        "output_file": relative_source(args.output),
         "output_checksum_sha256": compute_file_sha256(args.output),
     }
     with open(provenance_path, "w", encoding="utf-8") as fh:

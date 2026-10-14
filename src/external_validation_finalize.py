@@ -40,6 +40,7 @@ from src.external_validation_fairness import (
     evaluate_tools,
     quantify_overlap_robust,
 )
+from src.provenance_paths import relative_source
 
 CONTAMINATION_CAP_PCT = 30.0
 PRIMARY_TOOLS = {
@@ -446,7 +447,7 @@ def append_finalize_report(
         "## v2.0 Protocol Finalization (External_More_Goals)",
         "",
         f"Finalized: {ts}",
-        f"Run directory: `{run_dir}`",
+        f"Run directory: `{relative_source(run_dir)}`",
         "",
         "### Training Overlap (exact + substring)",
         "",
