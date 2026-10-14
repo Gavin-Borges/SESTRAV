@@ -467,6 +467,43 @@ def cmd_validate(args: argparse.Namespace) -> int:
     print(f"[sestrav validate] Dataset     : {args.dataset}")
     print(f"[sestrav validate] Feature mode: {feature_mode}")
     print(f"[sestrav validate] CV folds    : {args.folds}")
+    # Both settings fall back silently when config supplies no value for the key: a
+    # non-editable install has no config.yaml at its installation root (and _read_config
+    # never falls back to the working directory); _read_config also returns no value when
+    # PyYAML is absent, and a config can be empty or lack the key or leave it null. (A
+    # malformed config.yaml raises before this point.)
+    #
+    # State the two fallbacks exactly, because they are not the same thing. The binding
+    # matrix falls back to no matrix at all. The feature mode falls back to "21" only
+    # where the KEY IS ABSENT, since that is the default of the cfg.get above: no
+    # config.yaml, PyYAML missing, an empty or comment-only file, or a file without the
+    # key. A key that is PRESENT but null returns None from cfg.get, and str(None) makes
+    # the mode the string "None", which train_models rejects outright (it is not in
+    # RECOGNIZED_FEATURE_MODES) rather than treating as 21. Both cases are a mode nobody
+    # configured, and "Feature mode: 21" reads exactly like a deliberate setting, so both
+    # get the note; neither is a behaviour this unit changes.
+    #
+    # Each note keys on that key's lookup returning no value, never on the value
+    # equalling the fallback, so a config asking for 21 stays silent; the values
+    # forwarded below are unchanged in every case. Both conditions test the config value
+    # with `is None`, not for falsiness, so a config that genuinely sets an empty or zero
+    # value has supplied a value and stays silent; the flag halves are falsy tests
+    # because an empty --feature-mode or --binding-matrix does not reach the run either.
+    if not args.feature_mode and cfg.get("feature_mode") is None:
+        print(
+            "[sestrav validate] No feature_mode value came from config.yaml (sestrav reads "
+            "it only from its installation root, never the working directory), so the "
+            "feature mode above is not a configured setting; validate's own fallback is 21, "
+            "while a feature_mode key left empty in config.yaml reaches training as the "
+            "string None and is rejected there. Pass --feature-mode to set it."
+        )
+    if not args.binding_matrix and cfg.get("binding_matrix_path") is None:
+        print(
+            "[sestrav validate] No binding_matrix_path value came from config.yaml "
+            "(sestrav reads it only from its installation root, never the working "
+            "directory), so this run has no binding matrix; every feature mode except 21 "
+            "needs one, and --binding-matrix PATH is the only other source."
+        )
 
     from src.train_classifier import train_models
 
@@ -658,7 +695,7 @@ def _build_validate_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to peptide binding matrix CSV (required for mode 30+)",
+        help="Path to peptide binding matrix CSV (required for every feature mode except 21)",
     )
     p.add_argument(
         "--model-dir",
@@ -794,7 +831,9 @@ Examples:
     p_validate = subparsers.add_parser("validate", help="Cross-validate on a labeled dataset")
     p_validate.add_argument("--dataset", required=True, help="Path to labeled immunogenicity CSV")
     p_validate.add_argument(
-        "--binding-matrix", default=None, help="Binding matrix CSV (required for mode 30+)"
+        "--binding-matrix",
+        default=None,
+        help="Binding matrix CSV (required for every feature mode except 21)",
     )
     p_validate.add_argument(
         "--model-dir",

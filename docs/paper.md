@@ -365,8 +365,8 @@ representations were concatenated and decoded by a two-layer fusion MLP (192 to 
 to 1 units) with intermediate ReLU activation and dropout. Internal verification
 gates 2 and 3, confirming forward-pass correctness and end-to-end gradient flow to
 all trainable parameters, passed for this architecture. GNN training on the v5 dataset
-will be reported in a subsequent release; all results in this manuscript reflect the
-RF mode-31 canonical classifier.
+was completed, and its evaluation did not clear the pre-registered promotion bar
+(Section 4.3), so the production classifier remains the RF mode-31 model.
 
 
 ### 2.4 Evaluation Methodology
@@ -842,7 +842,11 @@ IEDB-confirmed negative test sets is limited for the RF mode-31 feature set at c
 v5 data scales. CMV achieves the highest corrected LOO AUC-ROC (0.633), consistent with
 the presence of EBV (family Herpesviridae) in its LOO training corpus. HBV (0.556) and
 HCV (0.528) are modestly above chance with clean negative sets (229 and 320 real tested
-negatives respectively). The remaining six viruses cluster near or below the chance
+negatives respectively). Against a higher, sample-size-aware reference - the one-sided
+95% upper bound on the AUC-ROC an uninformative scorer reaches at each virus's test class
+counts (`chance_ceiling` in `scripts/evaluate_per_virus.py`), which applies no
+multiplicity correction across the nine - only CMV and HBV clear that bound, and HCV
+falls below it. The remaining six viruses cluster near or below the chance
 baseline.
 
 HIV-1 is anti-predictive (LOO AUC-ROC 0.162) despite substantially higher within-CV

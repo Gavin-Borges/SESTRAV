@@ -67,8 +67,9 @@ class ModelRegistry:
             try:
                 model = load_verified_joblib(model_path, required_checksum=True)
             except (
-                # load_verified_joblib is verify_artifact_checksum followed by
-                # joblib.load, so its raise surface is determinable. Same annotated
+                # load_verified_joblib is read_verified_bytes, the sidecar version
+                # check, then joblib.load on the verified buffer, so its raise
+                # surface is determinable. Same annotated
                 # form as the torch.load tuple below. A programming error is NOT in
                 # this set on purpose: the docstring's contract is that a
                 # VERIFICATION failure returns False, so a bug should surface as a
