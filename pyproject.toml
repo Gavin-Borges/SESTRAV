@@ -36,16 +36,48 @@ dependencies = [
     # torch. SESTRAV does not call torch.jit.script, so this is defence in depth
     # rather than an exploitable-path fix. See SECURITY.md.
     "torch>=2.13.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
+    # Six floors raised together by maintainer decision on 2026-10-11: numpy and
+    # pandas here, and scikit-learn, mhcflurry, scipy and matplotlib below, each with
+    # its reason. numpy 2.0.0: four packaged modules reach numpy._core.multiarray.scalar
+    # when they load a PyTorch checkpoint, and on numpy 1.26.4 that lookup raises
+    # AttributeError. That release does ship numpy/_core/, but its __init__.py is a
+    # docstring-only stub that imports none of its submodules, so the chain resolves
+    # only once something has imported numpy._core.multiarray by name, and measured
+    # on 1.26.4 neither `import numpy` nor `import torch` does. Which attribute is
+    # reported missing depends on the process: numpy._core itself in a bare one, and
+    # .multiarray once numpy._core but not its multiarray submodule has been imported,
+    # which is what `import torch` leaves behind.
+    # All four sites import torch before the lookup, so .multiarray is what fails
+    # there. The four do not fail alike. src/baseline_comparison lets the
+    # AttributeError out raw: its except names only FileNotFoundError, ValueError and
+    # KeyError. src/core/model_registry (which spells the lookup with getattr) and
+    # src/verify/sestrav_evaluator each list AttributeError in their own except tuple
+    # and convert it to a RuntimeError that refuses the checkpoint.
+    # functions/stage4_immunogenicity_scoring swallows it in `except Exception: pass`
+    # and calls torch.load outside that block, so there the failed lookup raises
+    # nothing: the add_safe_globals registration is silently skipped and torch.load
+    # runs without it.
+    # pandas 2.2.2: 2.2.0 and 2.2.1 declare numpy<2, and pandas' release notes call
+    # 2.2.2 its first release generally compatible with numpy 2.0. A second reason not
+    # to go below 2.2.0, executed rather than read off metadata:
+    # scripts/build_dataset_v4.py passes include_groups=False to groupby().apply(), a
+    # parameter pandas added in 2.2.0. On 2.1.4 apply() has no such parameter, so the
+    # keyword reaches the applied lambda and raises TypeError; 2.2.2 accepts it.
+    # scripts/ is not packaged, so that reason binds whoever runs the v4 build rather
+    # than an installed consumer.
+    "pandas>=2.2.2",
+    "numpy>=2.0.0",
     # Bounded below 1.9 by maintainer decision on 2026-10-11. In environments that
     # differ only in scikit-learn (and narwhals, which 1.9 adds), 1.9.0 changes 45 of
     # 208 probed output values against 1.8.0, all of them RandomForest (no XGBoost
     # value moves), and 1.9.1 matches 1.9.0. The locks pin 1.8.0; without this bound
     # `pip install .` resolves the newest release. 1.8.0, the only 1.8 release on that
-    # date, has CPython 3.11-3.14 wheels but none for 3.15, which 1.9 has; torch had no
-    # 3.15 wheel either, so revisit this bound when torch ships one.
-    "scikit-learn>=1.3.0,<1.9",
+    # date, has CPython 3.11-3.14 wheels but none for 3.15, which 1.9.1 has and 1.9.0
+    # does not; torch had no 3.15 wheel either, so revisit this bound when torch ships
+    # one. Floor 1.5.0: the release that fixes CVE-2024-5206 (GHSA-jw8x-6495-233v,
+    # in TfidfVectorizer, which SESTRAV does not use); numpy 2 alone would need only
+    # 1.4.2, since 1.4.1.post1 declares numpy<2.0.
+    "scikit-learn>=1.5.0,<1.9",
     "joblib>=1.3.0",
     "requests>=2.31.0",
     "jsonschema>=4.0.0",
@@ -54,14 +86,20 @@ dependencies = [
     # imported but declared nowhere. They were never missing from CI - all seven
     # are pinned in environments/requirements.lock - so the gap was in the
     # metadata a PyPI consumer resolves, not in the test environment. Floors are
-    # set below the locked versions rather than at them, since nothing here
-    # requires a recent feature.
+    # set below the locked versions rather than at them. The mhcflurry and scipy
+    # floors were raised on 2026-10-11, for the reasons given beside each.
     #   biopython  functions/stage1_peptide_generation - pipeline stage 1
     #   mhcflurry  functions/stage2_mhc_binding_prediction - pipeline stage 2
     # Both are reached by `sestrav predict`, so without them the flagship
     # command fails on a clean install (see src/cli.py cmd_predict).
     "biopython>=1.80",
-    "mhcflurry>=2.1.0",
+    # mhcflurry 2.2.0: every 2.1.x release requires TensorFlow and imports
+    # pkg_resources at module level in mhcflurry/downloads.py, and setuptools has
+    # not shipped pkg_resources since 82.0.0. 2.2.0 requires torch instead and
+    # drops that import. This repo is already past that line: [build-system] above
+    # requires setuptools>=83.0.0 and requirements.in pins setuptools==84.0.0, and
+    # the 83.0.0 and 84.0.0 wheels carry no pkg_resources member.
+    "mhcflurry>=2.2.0",
     #   PyYAML     src/core/config.py and 7 more - config.yaml is the engine's
     #              own config format. src/cli.py imports it lazily behind a
     #              try/except ImportError, but src/core/config.py does not.
@@ -69,7 +107,9 @@ dependencies = [
     #   scipy      src/h2_tier_a_evaluation, src/external_benchmark_comparison.
     #              Arrives transitively via scikit-learn today; declared because
     #              relying on a transitive dependency is not a contract.
-    "scipy>=1.11.0",
+    #              Floor 1.13.0: 1.12.0 declares numpy<1.29.0, and scipy's 1.13.0
+    #              release notes list support for NumPy 2.0.0.
+    "scipy>=1.13.0",
     #   xgboost    src/train_classifier - the production model is an RF/XGB
     #              ensemble, so this is not optional to training.
     "xgboost>=2.0.0",
@@ -89,7 +129,9 @@ dependencies = [
     #              score_immunogenicity() always writes two PNGs to results/ at
     #              the end of every run - not gated behind a flag. Reached by
     #              `sestrav predict`, the flagship command, via stage 4.
-    "matplotlib>=3.8.0",
+    #              Floor 3.9.0: 3.8.0 to 3.8.3 declare numpy<2. 3.8.4 drops that
+    #              cap, so 3.9.0 is sufficient rather than minimal.
+    "matplotlib>=3.9.0",
 ]
 
 [project.optional-dependencies]
@@ -146,11 +188,13 @@ dev = [
     # imports it at module scope to compare a requirements.in pin against its
     # floor here, so an environment without it would abort that file during
     # COLLECTION rather than fail it. Any install gets it anyway: matplotlib, a
-    # core dependency, requires packaging>=20.0 unconditionally (checked at
-    # 3.8.0 and 3.11.1), and pytest requires it unconditionally in both versions
-    # checked (packaging>=22 in 9.1.1, a bare `packaging` in 8.0.0, the pytest
-    # floor declared here), while setuptools 83.0.0 lists it only under its
-    # `core` and `test` extras and ships its own copy under setuptools/_vendor.
+    # core dependency, requires packaging>=20.0 unconditionally (checked at 3.9.0,
+    # the floor declared above, and at 3.11.2, the pinned version; the 3.8.0 this
+    # comment used to cite stopped being admissible when that floor rose), and
+    # pytest requires it unconditionally in both versions checked (packaging>=22 in
+    # 9.1.1, a bare `packaging` in 8.0.0, the pytest floor declared here), while
+    # setuptools 83.0.0 lists it only under its `core` and `test` extras and ships
+    # its own copy under setuptools/_vendor.
     # That transitive arrival is why the missing declaration went unnoticed,
     # and why even a from-scratch `pip install -e ".[dev]"` would not have
     # exposed it. It is declared anyway because a direct import must not depend
