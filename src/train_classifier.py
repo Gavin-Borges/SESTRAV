@@ -1459,7 +1459,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to peptide_binding_matrix.csv (required for --feature-mode 30+)",
+        help="Path to peptide_binding_matrix.csv (required for every feature mode except 21)",
     )
     parser.add_argument(
         "--antigen-processing-cache",
