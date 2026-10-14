@@ -842,7 +842,11 @@ IEDB-confirmed negative test sets is limited for the RF mode-31 feature set at c
 v5 data scales. CMV achieves the highest corrected LOO AUC-ROC (0.633), consistent with
 the presence of EBV (family Herpesviridae) in its LOO training corpus. HBV (0.556) and
 HCV (0.528) are modestly above chance with clean negative sets (229 and 320 real tested
-negatives respectively). The remaining six viruses cluster near or below the chance
+negatives respectively). Against a higher, sample-size-aware reference - the one-sided
+95% upper bound on the AUC-ROC an uninformative scorer reaches at each virus's test class
+counts (`chance_ceiling` in `scripts/evaluate_per_virus.py`), which applies no
+multiplicity correction across the nine - only CMV and HBV clear that bound, and HCV
+falls below it. The remaining six viruses cluster near or below the chance
 baseline.
 
 HIV-1 is anti-predictive (LOO AUC-ROC 0.162) despite substantially higher within-CV
