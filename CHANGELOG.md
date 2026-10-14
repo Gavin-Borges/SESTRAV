@@ -230,6 +230,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   executable, as `prepare-commit-msg` already was. File contents are unchanged, and
   `tests/test_hooks_install_script.py`'s account of why the installer's `chmod` matters
   now says the modes changed.
+- **Stage 4 now flags every scored row whose peptide the conformal calibrator was calibrated
+  on, in a new `in_calibration_set` column.** `predict_interval` is valid only for rows whose
+  group (peptide) is absent from the calibration data and leaves that check to the caller;
+  stage 4 passed every row unchecked, and its default panels are the training viruses. The
+  calibration set is the training corpus's own OOF, 16,344 distinct peptides. Across the
+  eight panels `config.yaml` lists, 4,176 of the 94,572 distinct peptides stage 1 generates
+  (4.42%) are in it, up to 26% of SARS-CoV-2 9-mers, and 1,903 of them are positive-labelled
+  there. The flag reads the loaded calibrator's own groups, so it always describes the
+  calibrator that produced the interval. Intervals are unchanged; the flag says which ones
+  their validity statement does not cover, and stage 4 prints the count.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
   peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
   measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,

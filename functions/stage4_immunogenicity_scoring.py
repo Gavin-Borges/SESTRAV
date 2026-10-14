@@ -445,7 +445,9 @@ def _resolve_conformal_path(model_dir, conformal_path=None):
 def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=False):
     """Apply Cross Venn-Abers conformal prediction intervals.
 
-    Adds 'lower_bound', 'upper_bound', and 'interval_width' columns to features_df.
+    Adds 'lower_bound', 'upper_bound', and 'interval_width' columns to features_df,
+    and 'in_calibration_set', True where the row's peptide is one the calibrator was
+    calibrated on, so its interval is outside the stated validity scope.
     Returns True if intervals were computed and added, False otherwise.
     """
     resolved_path = _resolve_conformal_path(model_dir, conformal_path)
@@ -500,7 +502,19 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
     features_df["lower_bound"] = lower
     features_df["upper_bound"] = upper
     features_df["interval_width"] = upper - lower
+    # predict_interval is valid only for rows whose group is absent from the
+    # calibration data, and src/conformal.py leaves that check to the caller. The
+    # groups are peptides and the calibrator keeps them, so flag every row whose
+    # peptide it was calibrated on: its interval is outside the validity scope.
+    calibration_peptides = set(np.asarray(conformal_model.groups).astype(str))
+    in_calibration = features_df["peptide"].astype(str).isin(calibration_peptides)
+    features_df["in_calibration_set"] = in_calibration
     print(f"[Stage 4] Applied Cross Venn-Abers conformal intervals from {resolved_path}")
+    print(
+        f"[Stage 4] {int(in_calibration.sum())} of {len(features_df)} scored peptides are in "
+        "the conformal calibration set (in_calibration_set); their intervals fall outside "
+        "its validity scope"
+    )
     return True
 
 
