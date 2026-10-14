@@ -314,6 +314,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   eight antigen panels that `config.yaml` names instead of four, shows torch's version as a
   real wheel reports it, and says what changes after a non-editable install, including in
   the Docker image.
+- **`sestrav validate` now says when its feature mode and binding matrix came from its own
+  fallbacks rather than from `config.yaml`.** The same installation-root-only lookup feeds
+  `validate`: `--feature-mode` and `--binding-matrix` win, otherwise the values come from
+  `config.yaml`'s `feature_mode` (31) and `binding_matrix_path`. The two fallbacks are not the
+  same shape, and the note says which applies: the binding matrix falls back to no matrix at
+  all, while the feature mode falls back to 21 only where the KEY IS ABSENT - no
+  `config.yaml`, PyYAML missing, an empty or comment-only file, or a file without the key -
+  because 21 is the default of `validate`'s own `cfg.get`. A `feature_mode:` key that is
+  PRESENT but null instead reaches `train_models` as the string `None` and is rejected there,
+  since `None` is not in `RECOGNIZED_FEATURE_MODES`. After a non-editable `pip install .`, or
+  in the Docker image, there is no `config.yaml` at that root, so the run printed `Feature
+  mode: 21`, a line that reads exactly like a deliberate setting, and said nothing at all
+  about the binding matrix. It now prints one extra line per setting whenever that key's
+  lookup returned no value and no flag was given, naming the key, the installation-root-only
+  lookup and the flag that sets it. Both notes name that lookup, because either can print
+  alone: a `config.yaml` setting `feature_mode: 31` and no `binding_matrix_path` prints the
+  binding-matrix note by itself. Each note keys on the lookup returning no value, not on the
+  value equalling the fallback, so a `config.yaml` asking for mode 21 stays silent, as does an
+  explicit flag; and each tests the config value with `is None` rather than for falsiness, so
+  a config that genuinely sets an empty or zero value stays silent too. **Which feature modes
+  need a binding matrix, stated exactly: every mode except 21.** `train_models` raises
+  `--binding-matrix is required` for modes 10, 30, 31, 33, 35, 50, 51, 166, `30_esm` and
+  `30_graph`, and 21 is the dispatch chain's final `else`, which builds its features with
+  `include_binding=False`. The two `--binding-matrix` help strings for `validate` in
+  `src/cli.py` said "required for mode 30+", which is wrong for mode 10, and now say "required
+  for every feature mode except 21"; the same wording in `src/train_classifier.py`'s own
+  `--binding-matrix` help is unchanged and still reads `30+`. No behaviour change: the values
+  forwarded to `train_models`, the three lines already printed and the exit code are identical
+  in every case, and the lookup is untouched, so a `config.yaml` in the working directory is
+  still never read. **Open question, deliberately not decided here:** whether a null
+  `feature_mode:` should fall to 21 like an absent key instead of failing in training is a
+  behaviour change and needs an owner ruling; this entry only describes what happens today.
+  `tests/test_cli_validate_default_source.py` (new, 28 test cases) covers the absent, empty,
+  comment-only, key-missing, null-valued, falsy-valued and fully configured configs through
+  both a stubbed and the real lookup, and this checkout's own `config.yaml`, where neither
+  line appears. It also pins that both notes are printed before `train_models` is called and
+  survive a trainer that raises, and asserts against the real `train_models` that the string
+  `None` is rejected before any path is read or written. 21 of the 28 fail on the previous
+  code; of the 7 that pass, 6 are the cases that must stay silent and the seventh exercises
+  `train_models` rather than the CLI. It also pins that the notes print BELOW the three lines
+  already there, which is what makes the feature note's "above" true, and pins both `validate`
+  `--binding-matrix` help strings. Thirteen mutants of the note block were run on a scratch
+  copy and each is killed: both conditions with `is None` weakened to a falsiness test, both
+  with their flag half strengthened to `is None`, the whole block moved below the
+  `train_models` call, and the six already covered - the feature note unconditional, its
+  condition inverted, the binding-matrix note dropped, the feature note keyed on the literal
+  21 instead of the lookup, the feature note ignoring an explicit flag, and the binding-matrix
+  note ignoring the config lookup. The two added here are the whole block hoisted ABOVE those
+  three lines, which the earlier ordering test let through, and both `validate`
+  `--binding-matrix` help strings reverted to `mode 30+`.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
