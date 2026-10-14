@@ -24,6 +24,11 @@ from src.features import (
     FEATURE_COLUMNS_50,
 )
 
+# score_immunogenicity applies conformal intervals by default, and these tests are
+# written for the state CI has: no calibrator resolves. Where the gitignored default
+# exists, the mocked model loaders hand a fake model to predict_interval instead.
+pytestmark = pytest.mark.usefixtures("no_installed_conformal_calibrator")
+
 
 def _feature_frame(cols, n=16, seed=0):
     """Build a DataFrame with the given feature columns plus a peptide label."""
