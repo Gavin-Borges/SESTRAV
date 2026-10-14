@@ -387,6 +387,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   rows these belong to, when the manuscript called them trivially easy to calibrate and
   their own calibration row refuted it. They are genuine IEDB negatives, not decoys, so
   this is outside claims-register row D21.
+- **Stage 4's binary `immunogenic` call now compares the RAW score with the threshold picked
+  on the peptide-grouped OOF, so it runs at the operating point the threshold was chosen for.**
+  `pick_operating_threshold` picks the threshold on the raw OOF score, but `_apply_thresholds`
+  compared it with `calibrated_score` whenever a calibrator was applied, which is the default.
+  With the deployed isotonic calibrator, `calibrated >= 0.325` is the same call as
+  `raw >= ~0.248`: on the grouped v5 OOF (35,555 rows) it called 15,266 rows positive where
+  the threshold's own selection called 10,552, at precision 0.414 against 0.510. The call now
+  uses the raw score, and the calibrated score is still reported. The threshold is now the
+  one picked on the grouped OOF: `config.yaml`'s `thresholds_path` names
+  `models/v5/optimal_thresholds.json` (0.3291) instead of `models/optimal_thresholds.json`
+  (0.325, picked on the pre-D15 ungrouped OOF; it stays tracked as a ledger source). Both
+  describe the same model bytes. That key used to reach only `pipeline.py`: the Snakemake rule
+  now forwards it, and `sestrav predict` uses it when `--model` is the configured model file,
+  keeping the threshold beside any other model. Measured on the grouped v5 OOF, switching the
+  threshold alone moves 241 raw-score calls.
 - **`docs/model_evaluation_summary.md`'s rebuild command now runs as written.** Its reader
   disclosure said to rebuild a model with `python -m src.train_classifier --feature-mode <N>`,
   which exits 2 before training because `--data` and `--model-dir` are required. It now

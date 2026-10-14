@@ -8,6 +8,9 @@ features = pd.read_csv(snakemake.input[0])
 model_path = snakemake.params.get("model_path", None)
 if model_path == "":
     model_path = None
+# config.yaml's thresholds_path: the threshold picked for the configured model on the
+# peptide-grouped OOF. Unset falls back to optimal_thresholds.json beside the model.
+thresholds_path = snakemake.params.get("thresholds_path", None) or None
 freeze_mode = bool(snakemake.params.get("freeze_mode", False))
 output_dir = os.path.dirname(str(snakemake.output[0])) or "."
 
@@ -15,6 +18,7 @@ ranked, model = score_immunogenicity(
     features,
     proteome_id,
     model_path=model_path,
+    thresholds_path=thresholds_path,
     freeze_mode=freeze_mode,
     output_dir=output_dir,
 )

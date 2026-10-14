@@ -240,6 +240,32 @@ def _read_config() -> dict:
     return {}
 
 
+def _configured_thresholds_for(model_path: str, cfg: dict | None = None) -> str | None:
+    """config.yaml's thresholds_path, but only when ``model_path`` IS config's model.
+
+    A threshold belongs to the model it was picked for, so config's is handed to
+    Stage 4 only when --model resolves to the same file as config's model_path
+    (both relative to the installation, as _read_config is). For any other model
+    this returns None and Stage 4 uses the optimal_thresholds.json beside it. Without
+    this, `sestrav predict --model models/rf_31feature_integrated.joblib` used the
+    file beside that model, picked on the pre-D15 ungrouped OOF, while pipeline.py
+    and the Snakemake rule used the configured, peptide-grouped one.
+    """
+    cfg = _read_config() if cfg is None else cfg
+    configured_model = cfg.get("model_path")
+    thresholds = cfg.get("thresholds_path")
+    if not configured_model or not thresholds:
+        return None
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    configured_model = os.path.join(root, configured_model)
+    thresholds = os.path.join(root, thresholds)
+    try:
+        same_model = os.path.samefile(model_path, configured_model)
+    except OSError:
+        return None
+    return thresholds if same_model and os.path.isfile(thresholds) else None
+
+
 # ---------------------------------------------------------------------------
 # sestrav info
 # ---------------------------------------------------------------------------
@@ -422,6 +448,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
         features_df,
         proteome_id,
         model_path=args.model,
+        thresholds_path=_configured_thresholds_for(args.model),
         conformal=args.conformal,
         conformal_path=args.conformal_calibrator,
         freeze_mode=freeze_mode,
