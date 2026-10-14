@@ -938,6 +938,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_security_floors_have_a_dependent.py` fails on any floor, in any lockfile
   spec, whose package nothing but the spec requires; against the previous spec it names
   exactly these four.
+- **Five workflows now give their jobs `contents: read` instead of `read-all`.** `ci.yml`,
+  `fuzzing.yml`, `pii_scan.yml`, `security.yml` and `sestrav_verify_benchmarking.yml` set
+  `permissions: read-all` at workflow level, which hands every read scope (`actions`,
+  `checks`, `pull-requests`, `security-events` and the rest) to each job that declares no
+  permissions of its own. Those jobs only check out the repository, set up Python or Quarto,
+  and upload artifacts; none calls the API for any other scope of this repository, so the
+  workflow-level block is now `contents: read`, with a comment saying why. The `security.yml`
+  jobs that need more than that (`codeql`, `semgrep`) already declare their own permissions,
+  which replace the workflow-level block, so they are unaffected. Every job in the five
+  workflows also runs on `pull_request`, so the pull request carrying this change exercises
+  each one under the narrowed token. `scorecard.yml` keeps its `read-all`: its only job
+  declares its own permissions, so the workflow-level grant reaches nothing at runtime.
+  zizmor 1.30.1 `--offline` reports no findings at any severity in the five files (was 3
+  medium, `excessive-permissions`, in `ci.yml`, `pii_scan.yml` and `security.yml`; the other
+  two were not flagged and are narrowed for consistency).
 - **The monthly IEDB benchmark's `issues: write` token is held by one small job instead of
   the whole workflow.** `.github/workflows/iedb_benchmark.yml` granted `issues: write` at
   workflow level, so the steps that install the locked dependencies and this package and
