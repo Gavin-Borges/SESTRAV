@@ -222,6 +222,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every guard and every fallback-flag site was individually mutation-tested by reverting
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
+- **`src/train_gnn.py`'s v1 trainer now refuses a feature mode it does not build, so it can
+  no longer leave a 21-column matrix where a v2 mode-31 run will load it.** v1 builds two
+  feature sets, the 21 sequence-only columns and mode 50's expanded set, but any other mode
+  fell through to the 21-column branch while the feature cache stayed keyed by the requested
+  mode. `--architecture v1 --feature-mode 31 --binding-matrix M` therefore cached 21 columns
+  under the exact name `train_gnn_v2` computes for mode 31 with the same corpus and matrix,
+  and a later v2 run loaded them on a cache hit, since the cache check compares row counts
+  only, and recorded `feature_mode=31`. `train_gnn` now raises for anything but 21 and 50
+  before it reads, creates or caches anything, mirroring `train_gnn_v2`'s own guard. The CLI
+  help, which offered "21 or 31" with no architecture and said only mode 31 needs
+  `--binding-matrix`, now names which architecture builds each mode and that 31 and 50 both
+  need the matrix. A feature cache already written this way is not detected: delete
+  `physico_features_mode31_*` files under the configured `output_dir`'s `cache/` directory
+  if a v1 run was ever given mode 31.
 - **Installing the git hooks no longer modifies tracked files.** `CONTRIBUTING.md` step 2
   runs `bash scripts/hooks/install.sh`, which marks the four hooks executable. Three of
   them, `commit-msg`, `pre-commit` and `pre-push`, were tracked as non-executable, so on a
