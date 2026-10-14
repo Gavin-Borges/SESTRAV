@@ -1444,7 +1444,7 @@ if __name__ == "__main__":
         "of 21) | 21 (sequence-only) | 30 (physico+binding) | 31 canonical | "
         "33 (31+antigen-processing; MOCK scores, not real NetChop/TAPreg output - "
         "see docs/claims_register.md D18) | 35 (33+self-similarity) | 50 (expanded) | "
-        "51 (50+per-allele TCR contact weights, 55 cols; requires --binding-matrix) | "
+        "51 (50+per-allele TCR contact weights, 55 cols) | "
         "166 | 30_esm | 30_graph",
     )
     parser.add_argument(
