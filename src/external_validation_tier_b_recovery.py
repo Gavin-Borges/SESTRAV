@@ -26,6 +26,7 @@ from src.baseline_comparison import _rank_and_evaluate
 from src.external_validation_fairness import parse_raw_predig, parse_raw_prime
 from src.gold_standard import GOLD_STANDARD, GOLD_STANDARD_NEGATIVES
 from src.naming import proteome_id_candidates
+from src.provenance_paths import relative_source
 
 VIRUS_RANKED = {
     "EBV": "EBV_B95_8_panel8",
@@ -229,8 +230,8 @@ def main() -> None:
 
     summary = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
-        "recovery_csv": rec_path,
-        "negative_csv": neg_path,
+        "recovery_csv": relative_source(rec_path),
+        "negative_csv": relative_source(neg_path),
         "recovery_rows": len(recovery_df),
     }
     with open(os.path.join(processed, "tier_b_recovery_summary.json"), "w", encoding="utf-8") as f:

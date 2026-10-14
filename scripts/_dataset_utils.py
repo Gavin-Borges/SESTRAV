@@ -22,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 
 # Standard 20 amino acids; matches the v4 schema's peptide `pattern`.
 VALID_AA_PATTERN = r"^[ACDEFGHIKLMNPQRSTVWY]+$"
@@ -298,10 +299,22 @@ def validate_against_schema(df, schema_path):
 
 
 def write_provenance(output_path, sources, row_count, extra=None):
-    """Write a `<output>_provenance.json` sidecar (source, counts, date, git SHA)."""
+    """Write a `<output>_provenance.json` sidecar (source, counts, date, git SHA).
+
+    Each string or path-like entry of a list or tuple `sources` (or `sources`
+    itself, when it is one value) is recorded through
+    `src.provenance_paths.relative_source` rather than as given. A structured
+    entry such as a dict, and everything in
+    `extra`, is written as given: only the caller knows which of its fields are
+    paths.
+    """
+    if isinstance(sources, (list, tuple)):
+        recorded = [relative_source(source) for source in sources]
+    else:
+        recorded = relative_source(sources)
     prov = {
         "output": os.path.basename(output_path),
-        "sources": sources,
+        "sources": recorded,
         "row_count": int(row_count),
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha(),

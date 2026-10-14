@@ -25,6 +25,7 @@ from src.iedb_data_loader import (
     load_iedb_file,
     map_label,
 )
+from src.provenance_paths import relative_source
 
 
 def _collect_raw_records(data_dir: str, include_hpv11: bool = False) -> pd.DataFrame:
@@ -303,8 +304,8 @@ def write_audit_reports(
 - 30-feature mode still maps missing binding rows to all-zero vectors.
 
 ## Output files
-- Audit summary CSV: `{output_csv}`
-- Virus/label breakdown CSV: `{virus_breakdown_path}`
+- Audit summary CSV: `{relative_source(output_csv)}`
+- Virus/label breakdown CSV: `{relative_source(virus_breakdown_path)}`
 """
     with open(output_md, "w", encoding="utf-8") as f:
         f.write(md)

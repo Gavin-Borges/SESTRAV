@@ -48,13 +48,20 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
-from scripts.ingest_iedb_negatives import (
+# Run by path, as the usage above shows, sys.path[0] is scripts/, so the
+# repository root goes on sys.path before the first-party imports below.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.ingest_iedb_negatives import (  # noqa: E402
     compute_file_sha256,
     get_git_sha,
     is_valid_peptide,
     normalize_hla_allele,
     normalize_reference_pmids,
 )
+from src.provenance_paths import relative_source  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -617,13 +624,13 @@ def main(argv: list[str] | None = None) -> int:
     provenance = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         "git_sha": get_git_sha(),
-        "input_file": str(args.input),
+        "input_file": relative_source(args.input),
         "input_sha256": compute_file_sha256(args.input),
         "source": "LANL HIV Molecular Immunology Database (hiv.lanl.gov)",
         "negatives_only": args.negatives_only,
         "column_mapping": mapping,
         "filter_stats": stats,
-        "output_file": str(output_path),
+        "output_file": relative_source(output_path),
         "positive_count": int((out_df["label"] == 1).sum()),
         "negative_count": int((out_df["label"] == 0).sum()),
         "output_checksum_sha256": compute_file_sha256(output_path),

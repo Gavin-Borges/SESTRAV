@@ -36,6 +36,7 @@ from sklearn.preprocessing import StandardScaler
 from src.artifact_guard import guard_planned_paths
 from src.artifact_integrity import sha256_file
 from src.ml_utils import PeptideGroupedKFold
+from src.provenance_paths import relative_source
 from src.train_classifier import (
     _filter_quarantined,
     prepare_features,
@@ -304,13 +305,18 @@ def build_gnn_run_config(
     rounded mean of the per-fold best epochs, which is also the number of epochs
     the saved final model was retrained for. Both used to share one 'epochs'
     key that held the second value.
+
+    'esm2_model_name' (a hub id, or a local model directory) and
+    'binding_matrix_path' are recorded through
+    `src.provenance_paths.relative_source` rather than as given. A hub id such
+    as "facebook/esm2_t12_35M_UR50D" comes through unchanged.
     """
     return {
-        "esm2_model_name": esm2_model_name,
+        "esm2_model_name": relative_source(esm2_model_name),
         "node_dim": node_dim,
         "feature_mode": feature_mode,
         "num_continuous_features": num_continuous_features,
-        "binding_matrix_path": binding_matrix_path,
+        "binding_matrix_path": relative_source(binding_matrix_path),
         "max_epochs": max_epochs,
         "mean_best_epoch": mean_best_epoch,
         "early_stopping_patience": early_stopping_patience,

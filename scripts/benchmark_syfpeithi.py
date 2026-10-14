@@ -43,6 +43,11 @@ from pathlib import Path
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Run by path, sys.path[0] is scripts/, so `src` needs the checkout on sys.path.
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.provenance_paths import relative_source  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +317,7 @@ def run_benchmark(predictions_path: Path, output_path: Path | None) -> dict:
 
     benchmark_output = {
         "benchmark": "syfpeithi",
-        "predictions_file": str(predictions_path),
+        "predictions_file": relative_source(predictions_path),
         "feature_mode": feature_mode,
         "n_oof_peptides": n_total,
         "reference_set_size": len(SYFPEITHI_CANONICAL),
