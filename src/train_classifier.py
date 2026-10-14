@@ -1465,7 +1465,7 @@ if __name__ == "__main__":
         "--antigen-processing-cache",
         default=None,
         help="Path to antigen processing cache CSV with netchop_score + tap_score "
-        "(required for --feature-mode 33+). NOTE: the shipped cache holds MOCK "
+        "(required for --feature-mode 33 and 35). NOTE: the shipped cache holds MOCK "
         "sequence-derived scores, not real NetChop 3.1 / TAPreg output (D18)",
     )
     parser.add_argument(
