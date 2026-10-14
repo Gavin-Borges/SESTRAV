@@ -238,7 +238,7 @@ No arguments required. Prints environment summary and warns on version mismatche
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `--dataset` | Yes | Path to labeled immunogenicity CSV |
-| `--binding-matrix` | Cond. | Required for `--feature-mode 30` or `31` |
+| `--binding-matrix` | Cond. | Required for every feature mode except 21 |
 | `--folds` | No | CV folds (default: 5) |
 | `--feature-mode` | No | Feature mode override |
 | `--sample-weights` | No | Apply EBV/HPV16 bias-correction weights |
