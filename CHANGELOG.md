@@ -658,6 +658,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   characters. Three mutants re-run on this revision are each killed: the redirect check
   applied to 302 only, the damaged archive removed only after extraction, and the failure
   cleanup no longer removing a member extracted onto `vdjdb.zip`.
+- **`scripts/ingest_vdjdb.py` now ingests ONE pinned VDJdb release, and only from bytes it
+  verified against that pin.** The fetcher resolved `/releases/latest` and checked the
+  download against the digest the same API response reported, so a new upstream release
+  would have moved the URL, the digest and the size together and changed the corpus with no
+  error. The endpoint now names tag `2026-06-03-ZENODO`, and the tag the API reports (a
+  response with none is refused), the asset name `vdjdb-2026-06-03.zip`, its sha256
+  `9ae7724ab2ce9fdb09b1fb82a90c7462f75269f14f669238f8c154a80239cfc1` and its size, 41017409
+  bytes, must each equal a module-level literal before any byte is downloaded; all four were
+  read from that tag's release endpoint on 2026-10-12, and the downloader is handed the
+  literals rather than the API's values. Two older paths would still have let an unverified
+  table through, and the entry above records the second as deliberate: a `vdjdb.zip` already
+  on disk was reused if it merely opened with every member passing its CRC-32, and a failed
+  fetch, no network included, fell back to a table beside a damaged archive. With a pin
+  added, a refused pin took that same fallback, so a stale table was ingested at exit 0
+  under a sidecar describing a fetch. An archive on disk is now compared with the pinned
+  size and sha256 first and extracted again if it matches; one that does not is replaced by
+  a verified download; and every refusal or failure is fatal, with no table already in the
+  directory ingested in its place. The table is located through the verified archive's own
+  member list, because the pinned archive keeps it at `vdjdb-2026-06-03/vdjdb.txt` and the
+  old directory search returned a stale top-level `vdjdb.txt` first. That is safe only
+  because extraction also refuses, before writing anything, an archive holding any member
+  name zipfile would rewrite as it extracts: one with an empty, `.` or `..` segment, which
+  zipfile drops on every platform, or with any of `:<>|"?*` or a segment ending in a dot or
+  a space, which it rewrites on Windows; both kinds are refused on every platform. Without
+  that, a pin-matching archive whose table member was `sub/../vdjdb.txt` was extracted to
+  `sub/vdjdb.txt` while the path built from the name opened the stale top-level
+  `vdjdb.txt`: `fetch_vdjdb` returned it on the cached and the download route alike, and
+  `ingest_vdjdb` ingested it under a sidecar recording `archive_verified_against_pin` true.
+  All 11 member names in the pinned archive pass the check. The sidecar records
+  `archive_verified_against_pin` and names the pinned tag, asset, digest and endpoint only
+  when the run verified the bytes; a local `--input` records false and None, and
+  `fetched_latest_release` is retired. Extraction is bounded at 2 GiB of declared
+  uncompressed size, summed over the member list before anything is written; the pinned
+  archive declares 425,297,801 bytes across 11 members, and a test fails any bound below
+  that figure, not merely one below the compressed size. A table yielding no rows, such as a
+  `vdjdb.txt` holding only its header, which used to be written as an empty CSV with a
+  `row_count` 0 sidecar at exit 0, is refused before either file is written. Twenty-one
+  mutants across the first four commits, each reverting one of these checks, and eight
+  that disable or narrow the member-name check all make the tests fail.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
