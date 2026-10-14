@@ -523,11 +523,14 @@ def ingest_vdjdb(input_path, output_path, schema_path):
         if col not in df_v4.columns:
             df_v4[col] = None
 
-    cdr3_alpha_count = int(df_v4["tcr_alpha_cdr3"].notna().sum())
-    cdr3_beta_count = int(df_v4["tcr_beta_cdr3"].notna().sum())
-    if cdr3_alpha_count or cdr3_beta_count:
-        print(f"CDR3 sequences captured - alpha: {cdr3_alpha_count}, beta: {cdr3_beta_count} rows")
-    else:
+    # Whether the RELEASE carried any CDR3 data, measured here because the row
+    # filters below have not run yet. This decides only the diagnostic message:
+    # a release that does carry CDR3s must not be reported as lacking the
+    # columns merely because every row holding one was later dropped.
+    release_has_cdr3 = bool(
+        df_v4["tcr_alpha_cdr3"].notna().any() or df_v4["tcr_beta_cdr3"].notna().any()
+    )
+    if not release_has_cdr3:
         print(
             "CDR3 columns not found in this VDJdb release; tcr_alpha_cdr3/tcr_beta_cdr3 set to null."
         )
@@ -547,6 +550,16 @@ def ingest_vdjdb(input_path, output_path, schema_path):
     for col in ["tcr_alpha_cdr3", "tcr_beta_cdr3"]:
         if col in df_v4.columns:
             df_v4[col] = df_v4[col].where(df_v4[col].notna(), other=None)
+
+    # Count CDR3s on the FINAL frame, so the sidecar's counts describe the same
+    # table its row_count and sha256 describe. Counted before the filters above,
+    # they reported more populated rows than the artifact has rows at all: the
+    # shipped data/vdjdb_v5_provenance.json carries 1098 and 1283 against a
+    # row_count of 1066.
+    cdr3_alpha_count = int(df_v4["tcr_alpha_cdr3"].notna().sum())
+    cdr3_beta_count = int(df_v4["tcr_beta_cdr3"].notna().sum())
+    if release_has_cdr3:
+        print(f"CDR3 sequences captured - alpha: {cdr3_alpha_count}, beta: {cdr3_beta_count} rows")
 
     validate_against_schema(df_v4, schema_path)
     # An empty result used to be written out: an empty CSV plus a sidecar recording
