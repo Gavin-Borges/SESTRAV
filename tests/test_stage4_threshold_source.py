@@ -104,3 +104,20 @@ def test_missing_files_or_keys_fall_back_rather_than_raise(tmp_path):
     assert cli._configured_thresholds_for(str(model), missing) is None
     gone = {"model_path": str(tmp_path / "absent.joblib"), "thresholds_path": str(thresholds)}
     assert cli._configured_thresholds_for(str(model), gone) is None
+
+
+def test_configured_paths_resolve_against_the_installation_not_the_cwd(tmp_path, monkeypatch):
+    """config.yaml's relative paths are anchored to the installation, as _read_config is.
+
+    The tests above pass absolute paths, which joining onto any root leaves unchanged,
+    so resolving the configured paths against the working directory passed them all.
+    Here the configured paths are relative and the working directory holds neither.
+    A tracked file stands in for the model, since only file identity is compared.
+    """
+    install_root = Path(cli.__file__).resolve().parents[1]
+    stand_in = "config.yaml"
+    cfg = {"model_path": stand_in, "thresholds_path": CONFIG["thresholds_path"]}
+    monkeypatch.chdir(tmp_path)
+    resolved = cli._configured_thresholds_for(str(install_root / stand_in), cfg)
+    assert resolved is not None, "relative configured paths did not resolve under the install"
+    assert Path(resolved).resolve() == (install_root / CONFIG["thresholds_path"]).resolve()

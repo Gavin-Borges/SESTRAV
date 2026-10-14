@@ -782,11 +782,17 @@ def score_immunogenicity(
     # Use deterministic contiguous ranking (1..N) based on score ordering.
     # Prefer calibrated_score when available (Platt calibration is monotonic,
     # but boundary rounding can shift relative order for tied raw scores).
-    rank_col = (
-        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
-    )
+    # Ties in calibrated_score are broken by the raw score, the scale the
+    # immunogenic call is made on (_apply_thresholds). Isotonic calibration maps a
+    # raw interval to one value, and the deployed calibrator's plateau around the
+    # v5 threshold spans it, so ranking that plateau by peptide alone put uncalled
+    # rows above called ones. Calibration is monotone non-decreasing, so with this
+    # tie-break the called rows are always the top of the ranking.
+    sort_by = ["immunogenicity_score", "peptide"]
+    if "calibrated_score" in features_df.columns:
+        sort_by.insert(0, "calibrated_score")
     features_df = features_df.sort_values(
-        by=[rank_col, "peptide"], ascending=[False, True]
+        by=sort_by, ascending=[False] * (len(sort_by) - 1) + [True]
     ).reset_index(drop=True)
     features_df["rank"] = features_df.index + 1
 
