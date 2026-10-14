@@ -4,7 +4,8 @@ SESTRAV 2.0 - FastAPI Microservice
 Endpoints
 ---------
 POST /score         Score a single peptide-allele pair.
-GET  /health        Liveness probe; 200 even when no model is loaded (degraded).
+GET  /health        Liveness probe; 200 even when no model is loaded (degraded). Also
+                    degraded once the MHCflurry presentation predictor failed to load.
 GET  /ready         Readiness probe; same body as /health, 503 until the model loads.
 GET  /model-card    Version metadata and training parameters.
 GET  /provenance    Dataset checksums and Zenodo DOI.
@@ -16,9 +17,9 @@ Security
 - Models loaded once via the ModelManager singleton: the RF model, feature config and
   binding panel at startup, and the MHCflurry presentation predictor on the first /score
   that needs it. No request reloads a model from disk, and a failed load is not retried,
-  even a transient one. After a failed MHCflurry load, binding_score stays null until the
-  server restarts, so restart it after installing MHCflurry or its model data by the
-  verified route in README.md ("MHCflurry model data").
+  even a transient one. After a failed MHCflurry load, binding_score stays null, and
+  /health reports the failure, until the server restarts, so restart it after installing
+  MHCflurry or its model data by the verified route in README.md ("MHCflurry model data").
 - No shell=True, no eval()/exec(), no arbitrary code paths.
 
 Performance
@@ -208,6 +209,7 @@ class ModelManager:
     _presentation_lock: threading.Lock
     _presentation_predictor: Any = None
     _presentation_load_error: str | None = None
+    _presentation_load_error_type: str | None = None
 
     def __new__(cls) -> "ModelManager":
         if cls._instance is None:
@@ -218,6 +220,7 @@ class ModelManager:
             obj._presentation_lock = threading.Lock()
             obj._presentation_predictor = None
             obj._presentation_load_error = None
+            obj._presentation_load_error_type = None
             cls._instance = obj
         return cls._instance
 
@@ -297,6 +300,24 @@ class ModelManager:
                 f"{type(exc).__name__} while loading configured model path {path!r}"
             )
 
+    @property
+    def presentation_failure_reason(self) -> str | None:
+        """/health's reason once the one-time MHCflurry load has failed, else None.
+
+        None also covers a load not yet attempted: the predictor loads on the first
+        /score that reaches it, so until then its state is unknown, not failed. Checked
+        with `is not None`, since a failure's message can be empty. Names the exception
+        type only, as the RF load reason does: mhcflurry's message for missing model
+        data quotes the local downloads path.
+        """
+        if self._presentation_load_error is None:
+            return None
+        return (
+            f"{self._presentation_load_error_type or 'Exception'} while loading the "
+            "MHCflurry presentation predictor; binding_score stays null until the "
+            "server restarts."
+        )
+
     def presentation_score(self, sequence: str, allele: str) -> float:
         """MHCflurry presentation_score for one peptide-allele pair.
 
@@ -322,6 +343,7 @@ class ModelManager:
                     self._presentation_predictor = Class1PresentationPredictor.load()
                 except Exception as exc:
                     self._presentation_load_error = str(exc)
+                    self._presentation_load_error_type = type(exc).__name__
                     raise
             result = self._presentation_predictor.predict(
                 peptides=[sequence],
@@ -462,6 +484,12 @@ app = FastAPI(
 @app.get("/health", tags=["Operations"])
 def health_check():
     if _manager.is_ready:
+        # /score still answers 200 after a failed MHCflurry load, but with binding_score
+        # null until a restart, so a cached failure is reported here. /ready reads only
+        # model_loaded, so it keeps answering 200 in that state.
+        presentation_failure = _manager.presentation_failure_reason
+        if presentation_failure is not None:
+            return {"status": "degraded", "model_loaded": True, "reason": presentation_failure}
         return {"status": "healthy", "model_loaded": True, "reason": None}
     return {
         "status": "degraded",
