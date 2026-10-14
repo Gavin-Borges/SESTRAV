@@ -387,13 +387,14 @@ def test_the_notes_print_below_the_three_lines_they_refer_to(tmp_path, monkeypat
 
 
 def test_both_validate_binding_matrix_help_strings_state_the_requirement(capsys):
-    """Two parsers advertise --binding-matrix for validate, and both read "mode 30+".
+    """Two parsers advertise --binding-matrix for validate, and both had read "mode 30+".
 
     "30+" is wrong for mode 10: train_models raises "--binding-matrix is required
     for feature-mode 10" when it is None. Both strings are pinned because only one
     of the two is reachable from "sestrav validate --help", so a fix applied to one
     is easy to miss on the other. src/train_classifier.py's own --binding-matrix
-    help is deliberately NOT pinned here: that file is not part of this unit.
+    help is pinned twice in tests/test_binding_matrix_requirement_wording.py: once
+    on its own, and once in that file's four-carrier agreement test.
     """
     standalone = cli._build_validate_parser()
     action = next(a for a in standalone._actions if "--binding-matrix" in a.option_strings)
