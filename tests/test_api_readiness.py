@@ -18,8 +18,10 @@ would not prove the route is registered, or that the status reaches the wire).
 fastapi.testclient is avoided for the reason tests/test_api_main.py records -
 it needs an httpx package CI's hash-pinned lockfiles do not carry.
 
-No real model is loaded: the tests only flip the ModelManager singleton's
-`_loaded` flag, which is all /health and /ready read.
+No real model is loaded: the tests only set the ModelManager singleton's
+`_loaded` flag and load error, and clear its cached MHCflurry load failure,
+which is all /health and /ready read. That failure's own reporting is covered
+by tests/test_api_health_reports_presentation_failure.py.
 """
 
 from __future__ import annotations
@@ -74,15 +76,19 @@ def _asgi_get(path: str) -> tuple[int, Any]:
 
 @pytest.fixture
 def model_state() -> Iterator[None]:
-    """Restores the singleton's loaded flag and load error after each test."""
-    saved = (api_main._manager._loaded, api_main._manager._load_error)
+    """Restores the singleton's loaded flag, load error and cached MHCflurry failure."""
+    manager = api_main._manager
+    saved = (manager._loaded, manager._load_error, manager._presentation_load_error)
     yield
-    api_main._manager._loaded, api_main._manager._load_error = saved
+    manager._loaded, manager._load_error, manager._presentation_load_error = saved
 
 
 def _set_loaded(loaded: bool) -> None:
     api_main._manager._loaded = loaded
     api_main._manager._load_error = None
+    # tests/test_api_main.py scores through the real MHCflurry, which caches a load
+    # failure wherever its model data is absent, and /health would report it.
+    api_main._manager._presentation_load_error = None
 
 
 def test_ready_answers_503_while_no_model_is_loaded(model_state: None) -> None:

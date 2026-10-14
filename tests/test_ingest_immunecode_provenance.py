@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts import ingest_immunecode as ingest
 
-ZIP_NAME = "immuneCODE-MIRA-release002.1.zip"
+ZIP_NAME = "ImmuneCODE-MIRA-Release002.1.zip"
 CSV_NAME = "peptide-detail-cov2.csv"
 MIRA_CSV = (
     "Peptide,HLA Restrictions,Amino Acids\n"
@@ -243,6 +243,8 @@ def test_every_other_sidecar_field_is_unchanged(repo, out_dir):
         "sha256",
         "database",
         "release",
+        "pinned_archive_sha256",
+        "archive_verified_against_pin",
         "reference_pmid",
         "label",
         "virus",
@@ -253,12 +255,15 @@ def test_every_other_sidecar_field_is_unchanged(repo, out_dir):
     }
     assert data["output"] == "negatives.csv"
     assert data["row_count"] == 2
+    # A CSV is never checked against the pin, so no release is claimed for it.
     assert {k: data[k] for k in ("database", "release", "reference_pmid", "label")} == {
         "database": "ImmuneCODE MIRA",
-        "release": "002.1",
+        "release": None,
         "reference_pmid": "32665443",
         "label": 0,
     }
+    assert data["archive_verified_against_pin"] is False
+    assert data["pinned_archive_sha256"] is None
     assert data["virus"] == "SARS-CoV-2"
     assert data["negative_origin"] == "immunecode_mira"
     assert data["unique_peptides"] == 2

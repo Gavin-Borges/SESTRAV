@@ -13,7 +13,7 @@ import subprocess
 
 import joblib
 
-from src.artifact_integrity import load_verified_joblib
+from src.artifact_integrity import load_verified_joblib, read_verified_bytes
 
 stream = io.BytesIO(b"")
 
@@ -39,6 +39,24 @@ load_verified_joblib("model.joblib", False)
 
 # ok: sestrav-require-verified-joblib-load
 load_verified_joblib("model.joblib", required_checksum=True)
+
+# read_verified_bytes is the single read load_verified_joblib performs, so its
+# `required=False` is the same opt-out under another parameter name.
+# ruleid: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", required=False)
+
+# ruleid: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", None, False)
+
+# ok: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", required=True)
+
+
+def _load_joblib_impl(path):
+    """The rule exempts this body by name, so the opt-out inside it is allowed."""
+    # ok: sestrav-require-verified-joblib-load
+    return read_verified_bytes(path, required=False)
+
 
 # ruleid: sestrav-forbid-subprocess-shell-true
 subprocess.run("echo fixture", shell=True)  # noqa: S602  # nosec B602

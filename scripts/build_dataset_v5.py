@@ -44,6 +44,7 @@ from _dataset_utils import (  # noqa: E402
 from src.artifact_integrity import (  # noqa: E402
     sha256_file as compute_file_sha256,
 )
+from src.provenance_paths import relative_source  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -932,7 +933,7 @@ def main(argv: list[str] | None = None) -> int:
         "label_conflicts": conflict_count,
         "target_virus_pmid_counts": target_pmid_counts,
         "virus_composition_table": composition_table,
-        "output_file": str(args.output),
+        "output_file": relative_source(args.output),
         "output_checksum_sha256": checksum,
     }
 

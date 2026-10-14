@@ -50,6 +50,7 @@ from src.artifact_guard import guard_planned_paths
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.ml_utils import pin_serial_scoring
+from src.provenance_paths import relative_source
 from src.train_classifier import prepare_features_31
 
 DATASET_PATH = "data/immunogenicity_dataset_v5.csv"
@@ -285,8 +286,8 @@ def run_loo(
         "benchmark": "loo_cross_virus_v5",
         "amendment": "7",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
-        "dataset": dataset_path,
-        "binding_matrix": binding_matrix_path,
+        "dataset": relative_source(dataset_path),
+        "binding_matrix": relative_source(binding_matrix_path),
         "feature_mode": 31,
         "rf_params": RF_PARAMS,
         "min_pos_threshold": min_pos,
