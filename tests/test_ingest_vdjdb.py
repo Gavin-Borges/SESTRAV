@@ -1,6 +1,7 @@
 """Tests for scripts/ingest_vdjdb.py - VDJdb ingestion logic."""
 
 import csv
+import json
 import os
 import sys
 from unittest.mock import patch
@@ -47,6 +48,86 @@ _ROWS = [
         "Epitope gene": "IE1",
     },
 ]
+
+
+def _write_vdjdb_tsv_with_cdr3(path, rows):
+    """Write a legacy-format TSV carrying CDR3.alpha and CDR3.beta columns."""
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "Epitope",
+                "MHC A",
+                "Epitope species",
+                "Epitope gene",
+                "CDR3.alpha",
+                "CDR3.beta",
+            ],
+            delimiter="\t",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def test_provenance_cdr3_counts_describe_the_written_artifact(tmp_path):
+    """The sidecar's CDR3 counts must count the rows the sidecar's row_count counts.
+
+    They were taken before the dropna, the HLA-resolution filter and the
+    deduplication that build the artifact, so a release whose dropped rows
+    carried CDR3s produced a sidecar claiming more populated rows than the file
+    has rows: the shipped data/vdjdb_v5_provenance.json records 1098 alpha and
+    1283 beta against a row_count of 1066.
+
+    The third row below is dropped by the low-resolution allele filter and
+    carries both CDR3s, so the pre-filter counts are 3 and the artifact's are 2.
+    """
+    rows = [
+        {
+            "Epitope": "GILGFVFTL",
+            "MHC A": "HLA-A*02:01",
+            "Epitope species": "Influenza A",
+            "Epitope gene": "M",
+            "CDR3.alpha": "CAVRDSNYQLIW",
+            "CDR3.beta": "CASSIRSSYEQYF",
+        },
+        {
+            "Epitope": "NLVPMVATV",
+            "MHC A": "HLA-A*02:01",
+            "Epitope species": "CMV",
+            "Epitope gene": "pp65",
+            "CDR3.alpha": "CAASIGPLGTGTASKLTF",
+            "CDR3.beta": "CASSPQETQYF",
+        },
+        {
+            # Low-resolution allele: dropped, and it carries both CDR3s.
+            "Epitope": "KLGGALQAK",
+            "MHC A": "HLA-A*03",
+            "Epitope species": "CMV",
+            "Epitope gene": "IE1",
+            "CDR3.alpha": "CAVNFGGGKLIF",
+            "CDR3.beta": "CASSLAPGATNEKLFF",
+        },
+    ]
+    tsv = tmp_path / "vdjdb.txt"
+    _write_vdjdb_tsv_with_cdr3(tsv, rows)
+    out_csv = tmp_path / "out.csv"
+    ingest_vdjdb(str(tsv), str(out_csv), SCHEMA_PATH)
+
+    with open(tmp_path / "out_provenance.json") as f:
+        prov = json.load(f)
+    df = pd.read_csv(out_csv)
+
+    # The dropped row is gone, so the artifact carries two rows.
+    assert prov["row_count"] == len(df) == 2
+
+    # The invariant that the shipped sidecar violates: a count of populated rows
+    # cannot exceed the number of rows.
+    assert prov["tcr_alpha_cdr3_populated"] <= prov["row_count"]
+    assert prov["tcr_beta_cdr3_populated"] <= prov["row_count"]
+
+    # Stronger: each count equals what the written file actually holds.
+    assert prov["tcr_alpha_cdr3_populated"] == int(df["tcr_alpha_cdr3"].notna().sum()) == 2
+    assert prov["tcr_beta_cdr3_populated"] == int(df["tcr_beta_cdr3"].notna().sum()) == 2
 
 
 def test_ingest_vdjdb_happy_path(tmp_path):

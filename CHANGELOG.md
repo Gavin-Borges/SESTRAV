@@ -67,6 +67,135 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   extra, gains `<4` as a guard against an untested next major release; 3.3.2 still
   resolves, as before. No lock changes: every lock already pins versions inside both
   bounds. The `artifact_integrity` docstring that quoted the old floor now quotes the range.
+- **`pyproject.toml` raises six core floors: numpy to 2.0.0, four that numpy 2 forces up
+  with it, and mhcflurry for a reason of its own.**
+  numpy 1.24.0 -> 2.0.0, pandas 2.0.0 -> 2.2.2, scikit-learn 1.3.0 -> 1.5.0 (the `<1.9`
+  bound stays), scipy 1.11.0 -> 1.13.0, matplotlib 3.8.0 -> 3.9.0 and mhcflurry 2.1.0 ->
+  2.2.0. Four packaged modules reach `numpy._core.multiarray.scalar` when they load a
+  PyTorch checkpoint, and on numpy 1.26.4 that lookup raises AttributeError. That release
+  does ship `numpy/_core/`, but its `__init__.py` is a docstring-only stub importing none
+  of its submodules, so the chain resolves only once something has imported
+  `numpy._core.multiarray` by name, and measured on 1.26.4 neither `import numpy` nor
+  `import torch` does. Which attribute is reported missing depends on the process:
+  `numpy._core` itself in a bare one, and `.multiarray` once `numpy._core` but not its
+  multiarray submodule has been imported, which is what `import torch` leaves behind.
+  All four sites import torch before the lookup, so `.multiarray` is what fails there.
+  The four do not fail alike, and the comment in `pyproject.toml` now says which:
+  `src/baseline_comparison.py` lets the AttributeError out raw, its `except` naming only
+  `FileNotFoundError`, `ValueError` and `KeyError`; `src/core/model_registry.py` and
+  `src/verify/sestrav_evaluator.py` each list `AttributeError` in their own `except` tuple
+  and convert it to a `RuntimeError` that refuses the checkpoint; and
+  `functions/stage4_immunogenicity_scoring.py` swallows it in `except Exception: pass` and
+  calls `torch.load` outside that block, so there the failed lookup raises nothing: the
+  `add_safe_globals` registration is silently skipped and `torch.load` runs without it. So
+  the old floor admitted a numpy on which those lookups fail unless some other import has
+  happened to load that submodule first.
+  pandas 2.2.1, scikit-learn 1.4.1.post1, scipy 1.12.0 and matplotlib 3.8.3 each cap numpy
+  below 2.0 in their metadata, so none of them installs beside the new numpy floor. The
+  pandas floor has a second reason, executed rather than read off metadata:
+  `scripts/build_dataset_v4.py` passes `include_groups=False` to `groupby().apply()`, a
+  parameter pandas added in 2.2.0; on 2.1.4 `apply()` has no such parameter, so the
+  keyword reaches the applied lambda and raises TypeError. `scripts/` is not packaged, so
+  that reason binds whoever runs the v4 build rather than an installed consumer.
+  scikit-learn 1.5.0 is also the release that fixes CVE-2024-5206 (GHSA-jw8x-6495-233v), in
+  `TfidfVectorizer`, which SESTRAV does not use. Every mhcflurry 2.1.x release requires
+  TensorFlow and imports `pkg_resources` at module level, which setuptools has not shipped
+  since 82.0.0 and which this repo is already past: `[build-system]` requires
+  `setuptools>=83.0.0` and `requirements.in` pins 84.0.0, and the 83.0.0 and 84.0.0
+  wheels carry no `pkg_resources` member. mhcflurry 2.2.0 requires torch instead. Two
+  floors are sufficient rather than minimal: matplotlib 3.8.4 already drops the numpy cap,
+  and for numpy 2 alone scikit-learn 1.4.2 would do. No lock changes: every requirements
+  file and lock that pins these six already pins numpy 2.4.6, pandas 3.0.3, scikit-learn
+  1.8.0, scipy 1.17.1, matplotlib 3.11.2 and mhcflurry 2.2.1. The new
+  `tests/test_declared_floors_exclude_incompatible_releases.py` fails on the old floors and
+  fails again if a floor is lowered far enough to admit numpy 1.26.4, pandas 2.2.1,
+  scikit-learn 1.4.2, scipy 1.12.0, matplotlib 3.8.3, or either of the two mhcflurry
+  releases it names, 2.1.0 and 2.1.5. Those two are sentinels and not a range: the 2.1.x
+  series is 2.1.0, 2.1.1, 2.1.2, 2.1.4 and 2.1.5, with no 2.1.3, and a floor admitting
+  only the releases between the sentinels, such as `>=2.1.2,<2.1.5`, still passes. Its
+  numpy check applies only while packaged code still reaches `numpy._core`. In a Linux Python
+  3.11 environment holding exactly numpy 2.0.0, pandas 2.2.2, scikit-learn 1.5.0, scipy
+  1.13.0, matplotlib 3.9.0 and mhcflurry 2.2.0, with torch 2.13.0 on CPU, seven existing
+  test files (model registry, evaluator, API, v4 dataset build, metrics, the predict
+  command's freeze-mode forwarding, and the floor-versus-pin check) pass, 133 of 133. The
+  scikit-learn bound's comment now says that 1.9.1, not 1.9.0, publishes CPython 3.15
+  wheels, the `artifact_integrity` docstring quotes the new range, and the `packaging`
+  comment's matplotlib evidence moves off 3.8.0, which the new floor no longer admits,
+  onto 3.9.0 and the pinned 3.11.2, both of which declare `packaging>=20.0`
+  unconditionally.
+- **`pyproject.toml` raises the floors that admitted a release with a fixed advisory or
+  with no wheel for a CI Python, plus jsonschema's.** Maintainer decision on 2026-10-12.
+  Core: requests 2.31.0 -> 2.33.0, jsonschema 4.0.0 -> 4.18.0, biopython 1.80 -> 1.87 and
+  PyYAML 6.0 -> 6.0.2. Extras: transformers 4.30.0 -> 5.10.1 (`gnn`), pytest 8.0.0 ->
+  9.0.3 (`dev`), fastapi 0.100.0 -> 0.133.0 and pydantic 2.0.0 -> 2.8.0 (`dev`, `api`
+  and `demo` alike), and streamlit 1.35.0 -> 1.54.0 (`demo`). `[build-system]`: wheel,
+  unbounded until now, -> 0.46.2. Every new floor has a wheel for CPython 3.11, 3.12 and
+  3.13 on Linux x86_64 and win_amd64 and clears every advisory OSV lists against a
+  release its old floor admitted, read from OSV's structured ranges rather than its
+  prose; each comment says which condition binds. The advisories: requests
+  CVE-2024-35195, CVE-2024-47081 and CVE-2026-25645 (fixed 2.32.0, 2.32.4 and 2.33.0;
+  2.32.0 and 2.32.1 are yanked); biopython CVE-2025-68463, whose PYSEC-2026-1221 record
+  gives fixed 1.87 while GHSA-x3vf-39hj-gxr4 gives only last_affected 1.86, so neither
+  covers 1.87; pytest CVE-2025-71176 (9.0.3); fastapi CVE-2024-24762 (0.109.1); pydantic
+  CVE-2024-3772 (2.4.0); streamlit CVE-2024-42474, CVE-2026-10804 and CVE-2026-33682
+  (1.37.0, 1.53.1 and 1.54.0); wheel CVE-2026-24049 (0.46.2) and CVE-2022-40898
+  (0.38.1); and transformers, where 43 of the 54 OSV records matching a release 4.30.0
+  admitted give a fixed release, the highest 5.10.0 (CVE-2026-9856), which PyPI has
+  yanked, hence 5.10.1. The decision expected a written acceptance for transformers
+  instead, on the understanding that its advisories have no fix; most do, so the two
+  conditions set its floor. Nine transformers CVEs have no OSV record giving any fix,
+  only a last_affected, all below 5.10.1: CVE-2025-14920, CVE-2025-14921,
+  CVE-2025-14924, CVE-2025-14926, CVE-2025-14927, CVE-2025-14928, CVE-2025-14929,
+  CVE-2025-14930 and CVE-2026-80047. They are accepted in writing in the `gnn` comment:
+  by OSV's own text they concern Perceiver, Transformer-XL, megatron_gpt2 and GLM4 model
+  parsing, X-CLIP checkpoint conversion, the SEW, SEW-D and HuBERT `convert_config`
+  functions and `load_custom_generate`, while SESTRAV's two transformers call sites
+  (`src/features.py` and `scripts/precompute_esm2_embeddings.py`) each load a
+  facebook/esm2 model at a pinned commit through `AutoTokenizer` or `EsmTokenizer` and
+  `EsmModel`, and neither passes `trust_remote_code`. The wheel condition binds PyYAML:
+  6.0.2 is its first release with CPython 3.13 wheels. Measured on Linux with pip 26.2.1 and no C compiler, 6.0's sdist
+  fails on 3.12 and 3.13 with `AttributeError: 'build_ext' object has no attribute
+  'cython_sources'`, and 6.0.1's installs on 3.13 but without the libyaml extension. For
+  biopython the wheel condition alone would need 1.85, and the same setup fails to build
+  1.80 on 3.12 and 1.84 on 3.13. Three floors rise for further reasons. jsonschema: on
+  CPython 3.14, which `requires-python` admits but no CI job runs, 4.0.1 and 4.17.3 each
+  fail 15 of 27 tests in the three dataset-schema test files with `TypeError: unhashable
+  type: 'dict'` inside `jsonschema.validate`, and 4.18.0 passes all 27; on 3.11 and 3.13
+  all three pass. fastapi: its own advisory is fixed in 0.109.1, but each fastapi release
+  declares a starlette range, every release from 0.100.0 to 0.132.1 caps starlette below
+  1.0.0, and OSV lists CVE-2026-48710 (GHSA-86qp-5c8j-p5mr, fixed 1.0.1) against every
+  starlette before 1.0.1, so installing any of those releases installs an affected
+  starlette. 0.133.0, the next release, is the first since 0.100.0 whose metadata admits
+  starlette 1.3.1, the lowest release clear of every OSV starlette record that gives a
+  fix (the highest fix is 1.3.1, for CVE-2026-54283), and it requires pydantic>=2.7.0,
+  which the pydantic floor meets. This admits a fixed starlette, not requires one: no
+  fastapi release from 0.100.0 to 0.143.0 requires a starlette above 0.46.0, and
+  declaring starlette in `api` and `demo` would fail the image-spec check in
+  `tests/test_images_install_only_hashed_dependencies.py` (measured) until the api and
+  demo image specs list it, which is a lock change and is not made here. The same range
+  admits starlette on both sides of its 0.48.0 rename of the 422 status name, so
+  `api/main.py` now answers 422 with the integer (see the `api/main.py` entry under
+  Fixed below). pydantic: each
+  release pins one pydantic-core exactly, and 2.8.0 is the first whose pin has CPython
+  3.13 wheels; 2.4.0 and 2.7.4 each fail building pydantic-core from its sdist on 3.13 in
+  the same setup. No lock changes: every requirements file and lock that pins these
+  packages already pins at or above the new floor, and none pins transformers. The new
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` fails 19 of its 21 cases
+  against the old floors and the `api/main.py` they shipped with, and reverting any one
+  floor fails at least one case. Its releases are sentinels, not ranges:
+  `requests>=2.31.0,!=2.31.0,!=2.32.3,!=2.32.5` passes every requests case while
+  admitting the affected 2.32.2. Floor-version run, on Linux under CPython
+  3.11, 3.12 and 3.13, with requests, jsonschema, biopython, PyYAML and pytest at exactly
+  their new floors, torch 2.13.0 on CPU, everything else resolved normally, and the
+  package installed editable from a build held at setuptools 83.0.0 and wheel 0.46.2:
+  fifteen test files that exercise those packages or the floors pass 291 with 1 skipped
+  (the opt-in live predictor query) on each Python. Adding fastapi 0.133.0, pydantic 2.8.0 and streamlit
+  1.54.0 (starlette resolves to 1.7.0), seven API, demo and config test files pass 47 of
+  47 and `tests/test_model_registry.py` 19 of 19 on each. Adding transformers 5.10.1 on
+  3.11 and 3.13, three feature and ESM test files pass 54 of 54, including the real
+  ESM-2 load in `tests/test_features.py`. The `packaging` comment's pytest evidence
+  moves off 8.0.0, which the new floor no longer admits, onto 9.0.3 and the pinned 9.1.1,
+  both of which declare `packaging>=22` unconditionally.
 - **The semgrep tool lock moves to semgrep 1.179.0, and the pyjwt override it needed is
   retired.** semgrep 1.178.0 declared a pyjwt requirement admitting only 2.13.x, which is
   why the `semgrep` spec compiled through `environments/semgrep-overrides.txt` to reach pyjwt
@@ -98,6 +227,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and after.
 
 ### Fixed
+- **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
+  `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
+  renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
+  on both sides of the rename, so on an admitted starlette without the new name the
+  handler raised AttributeError instead of answering 422. Measured on Linux under CPython
+  3.13 with fastapi 0.133.0 and pydantic 2.8.0: with starlette 0.47.3, and again with
+  0.40.0, `test_out_of_panel_peptide_returns_422_not_silent_zeros` fails with that
+  AttributeError before this change and passes after it. starlette 0.48.0 renamed four
+  status names, keeping the old four only as deprecated aliases that warn when read, and
+  those eight spellings are the only `HTTP_` names not assigned in every starlette release
+  from 0.40.0 to 1.7.0, read from `starlette/status.py` in each.
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` now fails if code under
+  `api/` reads any of the eight.
 - **`api/main.py` no longer reloads the MHCflurry presentation predictor on every `/score`
   request.** `_score_peptide` called `Class1PresentationPredictor.load()` for each request
   that passed the readiness check and the binding-panel lookup, although the module
@@ -127,6 +269,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   One case fails the load with an exception whose message is empty, so a cached failure
   is recognised by being set, not by its text. Eleven mutants of the new code each fail
   at least one API test.
+- **`/health` now reports a cached MHCflurry presentation-predictor load failure instead
+  of answering `healthy`.** `api/main.py` loads the predictor on the first `/score` that
+  reaches it and never retries a failed import or load, so from that failure on, every
+  `/score` that reaches it answers 200 with `binding_score` null until the server
+  restarts. `/health` read only the
+  RF model's state, so it answered `healthy` throughout, and only an INFO log line on each
+  request said why `binding_score` was null. Once that load has failed, `/health` answers
+  `status: degraded` with `model_loaded: true` and a `reason` naming the exception type
+  (`RuntimeError` for missing model data, `ModuleNotFoundError` when MHCflurry is not
+  installed) but not its message, which for missing model data quotes the local downloads
+  path. The body keeps its three keys; none is added. Before the first such `/score` the
+  load has not been attempted, so its state is unknown, not failed: `/health` still answers
+  `healthy` then and does not load the predictor itself, and an error raised by
+  `predict()`, which is not cached, leaves it `healthy` too. `/health` answers 200 in every
+  case. **Open question for the owner, deliberately not decided here:** `/ready` reads only
+  `model_loaded`, so it keeps answering 200, now with this degraded body. Answering 503 for
+  a cached MHCflurry failure would change the readiness contract that
+  `docker-compose.yml`'s api healthcheck gates the demo service on, and since
+  `Dockerfile.api` never fetches MHCflurry's model data, an api container given the RF
+  model through compose's `models/` mount would turn unready at its first `/score` that
+  reaches the predictor. `tests/test_api_health_reports_presentation_failure.py` (new, 7
+  test cases) drives `/health` and `/ready` through the ASGI app: four fail on the previous
+  code, and the three that pin the unchanged cases pass before and after.
+  `tests/test_api_readiness.py` now clears the cached failure before each case:
+  `tests/test_api_main.py` scores through the real MHCflurry, and with MHCflurry pointed at
+  an empty downloads directory the failure it cached made two of that file's exact-body
+  assertions fail once `/health` reported it. Eight mutants of the change each fail at
+  least one API test.
 - **`sestrav info` now says when it could not check the MHCflurry pin, and `USAGE.md`'s
   expected output matches what it prints.** `sestrav info` reads `config.yaml` only from its
   installation root, never from the working directory, and that stays: a `config.yaml` in
@@ -144,6 +314,66 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   eight antigen panels that `config.yaml` names instead of four, shows torch's version as a
   real wheel reports it, and says what changes after a non-editable install, including in
   the Docker image.
+- **`sestrav validate` now says when its feature mode and binding matrix came from its own
+  fallbacks rather than from `config.yaml`.** The same installation-root-only lookup feeds
+  `validate`: `--feature-mode` and `--binding-matrix` win, otherwise the values come from
+  `config.yaml`'s `feature_mode` (31) and `binding_matrix_path`. The two fallbacks are not the
+  same shape, and the note says which applies: the binding matrix falls back to no matrix at
+  all, while the feature mode falls back to 21 only where the KEY IS ABSENT - no
+  `config.yaml`, PyYAML missing, an empty or comment-only file, or a file without the key -
+  because 21 is the default of `validate`'s own `cfg.get`. A `feature_mode:` key that is
+  PRESENT but null instead reaches `train_models` as the string `None` and is rejected there,
+  since `None` is not in `RECOGNIZED_FEATURE_MODES`. After a non-editable `pip install .`, or
+  in the Docker image, there is no `config.yaml` at that root, so the run printed `Feature
+  mode: 21`, a line that reads exactly like a deliberate setting, and said nothing at all
+  about the binding matrix. It now prints one extra line per setting whenever that key's
+  lookup returned no value and no flag was given, naming the key, the installation-root-only
+  lookup and the flag that sets it. Both notes name that lookup, because either can print
+  alone: a `config.yaml` setting `feature_mode: 31` and no `binding_matrix_path` prints the
+  binding-matrix note by itself. Each note keys on the lookup returning no value, not on the
+  value equalling the fallback, so a `config.yaml` asking for mode 21 stays silent, as does an
+  explicit flag; and each tests the config value with `is None` rather than for falsiness, so
+  a config that genuinely sets an empty or zero value stays silent too. **Which feature modes
+  need a binding matrix, stated exactly: every mode except 21.** `train_models` raises
+  `--binding-matrix is required` for modes 10, 30, 31, 33, 35, 50, 51, 166, `30_esm` and
+  `30_graph`, and 21 is the dispatch chain's final `else`, which builds its features with
+  `include_binding=False`. The two `--binding-matrix` help strings for `validate` in
+  `src/cli.py` said "required for mode 30+", which is wrong for mode 10, and now say "required
+  for every feature mode except 21"; `src/train_classifier.py`'s own `--binding-matrix` help
+  and `USAGE.md`'s `sestrav validate` table row carry that same phrase, so all four help and
+  table carriers of the requirement read alike. That help had said "required for
+  --feature-mode 30+", wrong for mode 10, and that row had said "Required for `--feature-mode
+  30` or `31`", wrong for the other eight modes. No behaviour change: the values
+  forwarded to `train_models`, the three lines already printed and the exit code are identical
+  in every case, and the lookup is untouched, so a `config.yaml` in the working directory is
+  still never read. **Open question, deliberately not decided here:** whether a null
+  `feature_mode:` should fall to 21 like an absent key instead of failing in training is a
+  behaviour change and needs an owner ruling; this entry only describes what happens today.
+  `tests/test_cli_validate_default_source.py` (new, 28 test cases) covers the absent, empty,
+  comment-only, key-missing, null-valued, falsy-valued and fully configured configs through
+  both a stubbed and the real lookup, and this checkout's own `config.yaml`, where neither
+  line appears. It also pins that both notes are printed before `train_models` is called and
+  survive a trainer that raises, and asserts against the real `train_models` that the string
+  `None` is rejected before any path is read or written. 21 of the 28 fail on the previous
+  code; of the 7 that pass, 6 are the cases that must stay silent and the seventh exercises
+  `train_models` rather than the CLI. It also pins that the notes print BELOW the three lines
+  already there, which is what makes the feature note's "above" true, and pins both `validate`
+  `--binding-matrix` help strings. Thirteen mutants of the note block were run on a scratch
+  copy and each is killed: both conditions with `is None` weakened to a falsiness test, both
+  with their flag half strengthened to `is None`, the whole block moved below the
+  `train_models` call, and the six already covered - the feature note unconditional, its
+  condition inverted, the binding-matrix note dropped, the feature note keyed on the literal
+  21 instead of the lookup, the feature note ignoring an explicit flag, and the binding-matrix
+  note ignoring the config lookup. The two added here are the whole block hoisted ABOVE those
+  three lines, which the earlier ordering test let through, and both `validate`
+  `--binding-matrix` help strings reverted to `mode 30+`.
+  `tests/test_binding_matrix_requirement_wording.py` (new, 14 test cases) covers the other
+  two carriers and their agreement with those two, and EXERCISES `train_models` once per
+  recognised feature mode on a synthetic corpus instead of reading the dispatch as text:
+  each of the ten raises fires with its own mode named, and mode 21 trains and writes
+  its artifacts with no matrix at all. Three of its 14 cases fail against the previous
+  `src/train_classifier.py` and `USAGE.md`, and the same three fail with only this entry's
+  `src/cli.py` half applied.
 - **`README.md` and the `_excluded_bloc_cv_metrics` docstring in `src/train_classifier.py`
   no longer call the out-of-panel `Orthopoxvirus vaccinia` negatives "trivially
   separable".** Both used the phrase to explain why AUC-ROC falls when that bloc is dropped
@@ -187,6 +417,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   read that comes back as one column is re-read by tab) was untested too: a further test runs
   a comma-free tab-separated panel named `.dat`, and one with no extension, and checks that
   each reports its one overlapping peptide, which only the fallback makes possible.
+- **`sestrav predict` now says when freeze mode is off only because config gave it no
+  value.** `config.yaml` sets `freeze_mode: true`, but `sestrav predict` reads that file
+  only from its installation root, never from the working directory, and a non-editable
+  install (`pip install .`, or the Docker image) has none there. Without `--freeze-mode`
+  or `--no-freeze-mode` the run then used freeze mode's default, off, and printed only
+  `Freeze mode: False`, the same line a deliberate setting prints. It now adds a line
+  saying that no `freeze_mode` value came from `config.yaml`, that freeze mode is off by
+  default, and that `--freeze-mode` turns it on, whenever config supplied no value: no
+  file at the installation root, PyYAML not installed, an empty file, or one without the
+  key or with it null (a malformed `config.yaml` still raises, as before). A configured
+  `false` and an explicit flag print no such line. Behaviour is unchanged, by the owner's
+  choice.
 - **The SESTRAV-VERIFY GNN evaluation harness was completely allele-blind whenever
   invoked from anywhere but the repo root.** `StructuralPeptideMHCDataset.__init__`
   (`src/verify/structural_gnn.py`) loaded its 34-residue MHC pocket-sequence table via
@@ -233,6 +475,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   every guard and every fallback-flag site was individually mutation-tested by reverting
   it in isolation and confirming its dedicated test fails, then restoring it and confirming
   the suite is green again. `ruff check`/`ruff format`/`mypy` clean on all touched files.
+- **`src/train_gnn.py`'s v1 trainer now refuses a feature mode it does not build, so it can
+  no longer leave a 21-column matrix where a v2 mode-31 run will load it.** v1 builds two
+  feature sets, the 21 sequence-only columns and mode 50's expanded set, but any other mode
+  fell through to the 21-column branch while the feature cache stayed keyed by the requested
+  mode. `--architecture v1 --feature-mode 31 --binding-matrix M` therefore cached 21 columns
+  under the exact name `train_gnn_v2` computes for mode 31 with the same corpus and matrix,
+  and a later v2 run loaded them on a cache hit, since the cache check compares row counts
+  only, and recorded `feature_mode=31`. `train_gnn` now raises for anything but 21 and 50
+  before it reads, creates or caches anything, mirroring `train_gnn_v2`'s own guard. The CLI
+  help, which offered "21 or 31" with no architecture and said only mode 31 needs
+  `--binding-matrix`, now names which architecture builds each mode and that 31 and 50 both
+  need the matrix. A feature cache already written this way is not detected: delete
+  `physico_features_mode31_*` files under the configured `output_dir`'s `cache/` directory
+  if a v1 run was ever given mode 31.
 - **Installing the git hooks no longer modifies tracked files.** `CONTRIBUTING.md` step 2
   runs `bash scripts/hooks/install.sh`, which marks the four hooks executable. Three of
   them, `commit-msg`, `pre-commit` and `pre-push`, were tracked as non-executable, so on a
@@ -241,6 +497,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   executable, as `prepare-commit-msg` already was. File contents are unchanged, and
   `tests/test_hooks_install_script.py`'s account of why the installer's `chmod` matters
   now says the modes changed.
+- **Stage 4 now flags every scored row whose peptide the conformal calibrator was calibrated
+  on, in a new `in_calibration_set` column.** `predict_interval` is valid only for rows whose
+  group (peptide) is absent from the calibration data and leaves that check to the caller;
+  stage 4 passed every row unchecked, and its default panels are the training viruses. The
+  calibration set is the training corpus's own OOF, 16,344 distinct peptides. Across the
+  eight panels `config.yaml` lists, 4,176 of the 94,572 distinct peptides stage 1 generates
+  (4.42%) are in it, up to 26% of SARS-CoV-2 9-mers, and 1,903 of them are positive-labelled
+  there. The flag reads the loaded calibrator's own groups, so it always describes the
+  calibrator that produced the interval. Intervals are unchanged; the flag says which ones
+  their validity statement does not cover, and stage 4 prints the count.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
   peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
   measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
@@ -278,6 +544,127 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **32 provenance, run-metadata and report writers now record a caller-supplied path
+  through one function, `src.provenance_paths.relative_source`, instead of as given or
+  through a reduction that could keep a username.** The repo's privacy mandate forbids
+  writing an absolute workstation path into any repo file, tracked or gitignored.
+  `relative_source` first removes the whitespace around a value. It keeps an `http`,
+  `https`, `ftp`, `ftps`, `s3` or `gs` URL whose host is a host name or a bracketed IP
+  literal, with an optional numeric port, as its scheme, host and path, dropping any
+  `user:password@`, query string and fragment; turns an absolute path inside the checkout
+  into its repo-relative POSIX form, unless a second pass would not keep that form as it
+  is; keeps any other relative path exactly as given, separators included; and reduces
+  anything else that names a workstation location (a value holding a line break, a tab
+  or another character that is not printable, an allowlisted URL whose host is empty or
+  not of that form such as `https:///C:/x.csv`, an absolute path outside the checkout, a
+  drive letter, drive-relative `C:x` included, a UNC or root-relative path, a `~` form, a
+  `Users` or `home` component, a `file:` URI, any other URL scheme such as `smb://`, a
+  relative path that escapes upwards, or an `external:` value) to `external:` plus at
+  most its last component. The relative paths it keeps exclude one holding an `@`
+  anywhere or a `:` before its first separator, which is reduced the same way: a
+  scheme-less `user:pw@host:/data/x.csv`, the `<user>@fileserver:/srv/x.csv` that scp and
+  rsync read as `[user@]host:path`, and `data/user:pw@host/x.csv` all record
+  `external:x.csv`, and a plain `@` in a name, as in `data/a@b.csv`, records `external:`,
+  because the text cannot tell it from a user at a host. A path component is judged
+  without its own surrounding whitespace, so `data/ D:/x` names a drive. The last
+  component is read from the text, never the filesystem, after any leading URL scheme
+  is removed and up to the first `?` or `#`, and none is kept when a separator follows
+  that mark. It is dropped when it cannot be a file's own name: `..`, the authority after
+  a leading `//` (a URL's `user:password@host`, or a UNC server), a name holding `:` or
+  `@` (a drive, a scheme, a `host:port`), a `~` form, a name that is not printable, or
+  the entry directly under `Users` or `home`, which is a username. So
+  `smb://user:pw@fileserver` records `external:` and
+  `smb://fileserver/share/x.csv?token=abc` records `external:x.csv`.
+  Every output is a fixed point. The writers and fields:
+  `scripts/_dataset_utils.write_provenance`'s `sources`, each string or path-like entry of
+  a list or tuple, or a single value (nine production callers under `scripts/`);
+  `input_file` and `output_file` in `scripts/ingest_published_panels.py`,
+  `scripts/ingest_lanl_hiv.py`, `scripts/download_lanl_hcv.py` and
+  `scripts/ingest_iedb_negatives.py`, which also records `existing_dataset`;
+  `output_file` in `scripts/build_dataset_v5.py`; `artifact` in
+  `scripts/compute_d29_corpus_composition.py`, `scripts/compute_loo_binding_confound.py`
+  and `scripts/compute_section33_decoy_binding_join.py`; `output_path`, `holdout_path` and
+  the stub's `data_dir` in `scripts/extract_allele_aware_data.py`; inside
+  `write_provenance_sidecar`'s `extra`, `mode31_oof` and `mode10_oof`
+  (`scripts/compute_binding_only_comparison.py`), each input's `path`
+  (`scripts/compute_binding_zerofill_attribution.py`), `training_data` and
+  `binding_matrix` (`scripts/compute_mode51_allele_identity_discriminator.py`) and the
+  `inputs` key (`scripts/compute_pooled_cv_metrics.py`, whose fallback for a file outside
+  the checkout was its resolved absolute path), where the three scripts that recorded
+  `Path.as_posix()` pass that string, so a relative input keeps its `/` on Windows;
+  `oof_path` and `artifact` in
+  `scripts/assess_calibration.py`, `dataset_path` and `artifact` in
+  `scripts/audit_cv_leakage.py`, `source_dataset` in `scripts/build_binding_matrix_v5.py`,
+  and `src/train_classifier.py`'s `training_data_path`, `antigen_processing_cache_path`
+  and `self_similarity_cache_path`, each of which went through a
+  repo-relative-or-bare-name expression that records a path inside the checkout under
+  `Users/<user>/` with the username; they still pass the resolved path, so an inside file
+  records the same repo-relative string as before unless a second pass would not keep
+  it, and an outside one now records `external:<name>` where it recorded `<name>`;
+  `dataset` and `binding_matrix` in the JSON of `scripts/run_loo_cross_virus_v4.py` and
+  `scripts/run_loo_cross_virus_v5.py`; `binding_matrix_path` and `esm2_model_name` in
+  `src/train_gnn.py`'s `build_gnn_run_config`, which `gnn_config.json` is written from;
+  `model_path` in `src/h2_tier_a_evaluation.py`'s summary CSV and its three input lines
+  in the summary Markdown; the three `inputs.*.path` values of
+  `src/final_validation_report.py`'s `freeze_status.json` and the four "Core Outputs"
+  lines of its report, which it builds from `--results-dir`; `predictions_file` in
+  `scripts/evaluate_per_virus.py`'s and `scripts/benchmark_syfpeithi.py`'s JSON;
+  `dataset` in `src/data_curation_qc.py`'s `dataset_qc.json`; `recovery_csv` and
+  `negative_csv` in `src/external_validation_tier_b_recovery.py`'s summary;
+  `peptide_list` in `src/prepare_external_validation_tier_b_inputs.py`'s manifest; and
+  four Markdown reports: the audit summary and virus/label breakdown CSVs that
+  `src/data_bias_audit.py`'s report names, the metrics and deltas CSVs in
+  `src/gold_standard_sensitivity.py`'s, the ten path lines of
+  `src/bias_skew_finalization.py`'s release summary, and the run directory in the section
+  `src/external_validation_finalize.py` appends to its comparison report.
+  `scripts/ingest_published_panels.py`, `scripts/ingest_lanl_hiv.py`,
+  `scripts/download_lanl_hcv.py` and `scripts/benchmark_syfpeithi.py` now put the
+  checkout on `sys.path` before their first `src` import, which the documented
+  `python scripts/<name>.py` usage needs. No
+  committed file changes, and regenerating one from the same inputs does not change a
+  path it records because of this: relative paths are kept as given because some
+  committed outputs record them with Windows separators (`data\raw\ctl_all.csv` in
+  `data/lanl_hiv_v5_provenance.json`, `models\v5\...` in
+  `results/per_virus_eval_v5_mode31.json`, `results\...` in
+  `results/final_validation_report.md` and in the two "Output files" lines of
+  `results/data_bias_audit.md`, the only tracked report into which one of the four
+  Markdown writers wrote a path it now routes), and a test now checks that every
+  committed value under 34 path-valued keys,
+  every `sources` entry and every `inputs` key in the 59 tracked `*.json` files (139
+  values in 37 of them) is a fixed point. **Not covered:** `src/artifact_integrity.py` is
+  unchanged, so `write_provenance_sidecar`'s `artifact`, `model_provenance_fields`'
+  `model_path` and `binding_matrix_provenance_fields`' `binding_matrix_path` still use the
+  repo-relative-or-bare-name expression; measured on Windows from the checkout root, it
+  keeps the username for an `external:`-prefixed drive path, a drive-relative
+  `C:Users\<user>\...` path, `~<user>/...` and a bare `~<user>`, a relative
+  `Users/<user>/...`, and a home directory itself (`C:\Users\<user>` or `/home/<user>`),
+  and in one trainer sidecar an outside corpus now reads `external:<name>` while an
+  outside binding matrix reads `<name>`. `write_provenance`'s `extra` and any structured
+  `sources` entry are written as given, and so is the exception message in
+  `freeze_status.json`'s `error`. `src/cli.py`'s Markdown validate and benchmark reports
+  still record `--dataset` and `--predictions` as given, in their `**Dataset:**` and
+  `**Predictions:**` lines, because a separate change edits that part of the file. A
+  grep for path-named dictionary keys, which is not
+  exhaustive, also finds these, not changed here: `source_oof` in
+  `scripts/compute_pooled_honest_metric.py`, `source_model.path` and `source_oof.path` in
+  `scripts/fit_conformal_calibrator.py`, `peptide_list_path` in
+  `scripts/prepare_netmhcpan_inputs.py`, the validate report's `dataset` in `src/cli.py`,
+  `base_input` and `oof_predictions` in `src/external_benchmark_comparison.py`, and
+  `train_source` in `src/external_validation_fairness.py`. Tests:
+  `tests/test_provenance_paths.py` holds a 37-row probe built at runtime from the real
+  username and checkout, URL credential, query and missing-host cases, authority,
+  credential, query and fragment reductions, whitespace and line-break cases, symlink or
+  junction cases, the `write_provenance` cases, and eleven `@` and `host:` shapes with
+  five relative paths kept as given;
+  `tests/test_writers_record_no_workstation_path.py` runs each other writer, checks every
+  string of each JSON it writes, keys included, and every line of the four Markdown
+  reports above against a detector validated on 26 workstation shapes and 30 non-paths
+  (`~2/3 of rows`, `~50/50` and `~1/4` among them), runs that detector over every string
+  of every tracked `*.json` through a sweep that is itself tested on a throwaway
+  repository, and checks the fixed points above. Six mutants, run on Windows, each make
+  the tests fail: dropping from `relative_source` the authority rule, the `:` and `@`
+  name rule, the query and fragment rule, the whitespace strip or the host requirement,
+  and reverting the run directory line of `src/external_validation_finalize.py`.
 - **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
   `--no-require-hashes` line fails closed.** The check that every requirement carries a
   hash had its own line reader, separate from the pip-faithful one the option check uses. It
@@ -315,6 +702,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     context at any depth, along with the `.agents`, `.cursor` and `.codex` directories and
     the gitignored `.mcp.json`. No Dockerfile copies any of them; the change is about what
     is uploaded to the builder.
+- **The ESM-2 t12 model now has a pinned Hugging Face Hub commit, and the v2.3 notebook
+  loads it at that commit.** `scripts/precompute_esm2_embeddings.py` was already fail-closed
+  for t12: `resolve_revision` accepts only a full 40-character lowercase commit SHA, and
+  with no pin for the model it refused a t12 run before `transformers` was imported unless
+  `--revision` was given. This adds the missing value, not a new refusal. `PINNED_REVISIONS`
+  now maps `facebook/esm2_t12_35M_UR50D` to the upstream commit
+  `6fbf070e65b0b7291e7bbcd451118c216cff79d8` (upstream Hub commit, not a commit of this repo).
+  On 2026-10-12 the Hub's model API reported it as that repository's current commit, its
+  revision endpoint resolved it, and the `config.json` at it gives `hidden_size` 480, the
+  dimension the script's registry records for t12, and `num_hidden_layers` 12. The t30 and
+  t33 variants stay unpinned and are still refused without `--revision`.
+  `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb`, which the entry below records as
+  loading t12 with no revision, now imports `resolve_revision` from the script and passes
+  its result to both `from_pretrained` calls, so it holds no copy of the pin. Its Step 4
+  note no longer says the cell mirrors the script "exactly"; it names what the two share
+  (the pinned commit, batches of 64 over the sorted unique peptides, the residue slice and
+  the zero padding) and where they differ (the CUDA forward pass, and no incremental mode).
+  The notebook was edited as JSON, checked with `nbformat.validate`, and not executed. In
+  `tests/test_esm2_revision_pin.py`, the test that asserted the script holds no 40-hex
+  constant now asserts the property it stood in for: the script imports the t6 pin and
+  never holds its value, and every 40-hex constant it does hold is the pin of another
+  model. It does not assert that the t6 value appears only once in the tree, which would be
+  false: `tests/test_check_doc_commit_refs.py` also carries it, twice, as a fixture. The three
+  tests that used t12 as their unpinned example now use t30, and two new tests read the
+  notebook's code cells. Against main, 5 of the file's 23 tests fail (three on the t12 pin,
+  two on the notebook); with the script change alone, the notebook's revision test still
+  fails. Eight mutants (removing the t12 entry; pinning it to the t6 revision, to `main` or
+  to a short SHA; copying the t6 pin into the script as a literal; dropping `revision=`
+  from the notebook's model load; passing the literal `main` to its tokenizer load; taking
+  `resolve_revision` from another module) all make the tests fail.
 - **`scripts/precompute_esm2_embeddings.py` loads ESM-2 from a pinned Hugging Face Hub
   commit, not from whatever the model repository's `main` branch holds.** It loaded the
   tokenizer and weights with `from_pretrained(model_name)` and no `revision=`, and
@@ -347,6 +764,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Not changed: `notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb` still loads
     `facebook/esm2_t12_35M_UR50D` with no revision, and no commit of that model is pinned
     anywhere in this repository to pin it to.
+- **`scripts/ingest_immunecode.py` now pins the ImmuneCODE MIRA archive at the URL its
+  publisher lists, and refuses release 002.1 with the reason instead of a traceback.** The
+  URL the script held answered HTTP 404 on 2026-10-12, so the auto-download could not run;
+  the publisher's listing page links release 002.1 to
+  `https://adaptivepublic.blob.core.windows.net/publishedproject-supplements/covid-2020/ImmuneCODE-MIRA-Release002.1.zip`,
+  which is now the download URL, and that host joins the download allowlist. The archive
+  was accepted if it merely opened with every member passing its CRC-32, and its transfer
+  was unbounded; it is now read under a cap of the pinned size and must match the pinned
+  sha256 `ad0b0476f6e2c07aaec9e38cdb7f79e16c2b14e01f2ea706a2b2d86cb4667d9f` and 3856733
+  bytes, measured by streaming that URL (the server's `Content-MD5` matched, which shows
+  only that the bytes arrived as served). An `--input` archive is hashed against the same
+  pin, and the sidecar now names release 002.1 and its digest only for an input that
+  matched; a CSV, or an archive that did not match, records `archive_verified_against_pin`
+  false and no release, where `"release": "002.1"` used to be written for any input. The
+  release itself cannot supply what the script writes: read from the archive, it has no
+  `peptide-detail-cov2.csv`, its `peptide-detail-ci.csv` has no peptide column the script
+  reads and no HLA column, and HLA appears only as each subject's genotype in
+  `subject-metadata.csv`, which says which alleles a subject carries and not which one
+  presented a peptide. On `main` an `--input` of the archive or of that CSV died with a
+  `ValueError` traceback; now any table lacking a peptide or an HLA restriction column, the
+  auto-download's included, is refused with an exit 1 message
+  naming the missing columns, and, when the HLA column is the one missing, explaining the
+  genotype layout. No pair is built from the genotypes. The download-failure text no longer
+  suggests a manual `--input` of the same release as a way round, and says it is refused by
+  either route. Separately, a damaged `--input` archive is now named as one whatever its
+  filename (a truncated archive called `mira.dat` used to surface as a `UnicodeDecodeError`),
+  `main()` reports that, and a member failing its CRC-32 during extraction, as a logged
+  refusal with exit 1 rather than a traceback, and the two temporary directories no longer
+  let a cleanup `PermissionError` on Windows replace the real failure. Twenty-one mutants
+  across the three commits, each reverting one of these checks, all make the tests fail on
+  Windows; two of them depend on Windows refusing to remove an open file.
 - **The PII scan writes its diff outside the checkout, so a pull request that removes or
   fills an email placeholder no longer fails on the scan's own diff file.** `pii_scan.yml`'s
   `scan-leaks` job wrote the pull request's diff to `diff.txt` in the checkout, and its next
@@ -408,6 +856,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   characters. Three mutants re-run on this revision are each killed: the redirect check
   applied to 302 only, the damaged archive removed only after extraction, and the failure
   cleanup no longer removing a member extracted onto `vdjdb.zip`.
+- **`scripts/ingest_vdjdb.py` now ingests ONE pinned VDJdb release, and only from bytes it
+  verified against that pin.** The fetcher resolved `/releases/latest` and checked the
+  download against the digest the same API response reported, so a new upstream release
+  would have moved the URL, the digest and the size together and changed the corpus with no
+  error. The endpoint now names tag `2026-06-03-ZENODO`, and the tag the API reports (a
+  response with none is refused), the asset name `vdjdb-2026-06-03.zip`, its sha256
+  `9ae7724ab2ce9fdb09b1fb82a90c7462f75269f14f669238f8c154a80239cfc1` and its size, 41017409
+  bytes, must each equal a module-level literal before any byte is downloaded; all four were
+  read from that tag's release endpoint on 2026-10-12, and the downloader is handed the
+  literals rather than the API's values. Two older paths would still have let an unverified
+  table through, and the entry above records the second as deliberate: a `vdjdb.zip` already
+  on disk was reused if it merely opened with every member passing its CRC-32, and a failed
+  fetch, no network included, fell back to a table beside a damaged archive. With a pin
+  added, a refused pin took that same fallback, so a stale table was ingested at exit 0
+  under a sidecar describing a fetch. An archive on disk is now compared with the pinned
+  size and sha256 first and extracted again if it matches; one that does not is replaced by
+  a verified download; and every refusal or failure is fatal, with no table already in the
+  directory ingested in its place. The table is located through the verified archive's own
+  member list, because the pinned archive keeps it at `vdjdb-2026-06-03/vdjdb.txt` and the
+  old directory search returned a stale top-level `vdjdb.txt` first. That is safe only
+  because extraction also refuses, before writing anything, an archive holding any member
+  name zipfile would rewrite as it extracts: one with an empty, `.` or `..` segment, which
+  zipfile drops on every platform, or with any of `:<>|"?*` or a segment ending in a dot or
+  a space, which it rewrites on Windows; both kinds are refused on every platform. Without
+  that, a pin-matching archive whose table member was `sub/../vdjdb.txt` was extracted to
+  `sub/vdjdb.txt` while the path built from the name opened the stale top-level
+  `vdjdb.txt`: `fetch_vdjdb` returned it on the cached and the download route alike, and
+  `ingest_vdjdb` ingested it under a sidecar recording `archive_verified_against_pin` true.
+  All 11 member names in the pinned archive pass the check. The sidecar records
+  `archive_verified_against_pin` and names the pinned tag, asset, digest and endpoint only
+  when the run verified the bytes; a local `--input` records false and None, and
+  `fetched_latest_release` is retired. Extraction is bounded at 2 GiB of declared
+  uncompressed size, summed over the member list before anything is written; the pinned
+  archive declares 425,297,801 bytes across 11 members, and a test fails any bound below
+  that figure, not merely one below the compressed size. A table yielding no rows, such as a
+  `vdjdb.txt` holding only its header, which used to be written as an empty CSV with a
+  `row_count` 0 sidecar at exit 0, is refused before either file is written. Twenty-one
+  mutants across the first four commits, each reverting one of these checks, and eight
+  that disable or narrow the member-name check all make the tests fail.
 - **The runtime lock no longer installs pyjwt, cryptography, msgpack or pydantic-settings,
   which nothing in SESTRAV requires; pyjwt 2.14.0 was affected by GHSA-42vr-xj54-vc7v /
   CVE-2026-101918 (unauthenticated RecursionError DoS, fixed in 2.15.0).** Their only
@@ -1053,6 +1540,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `environments/requirements-lock.in`'s own `setuptools>=84.0.0` to the advisory's 83.0.0.
   `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
   green (10 lockfile pairs fresh, 13 manifests hash-pinned).
+- **`load_verified_joblib` unpickles the bytes it verified, and requires a checksum by
+  default.** It hashed the artifact by path, compared library versions against the
+  provenance sidecar, then called `joblib.load(path)`, which opened the file again, so a
+  file replaced after the hash and before that second open was deserialized unchecked. A
+  test that swaps the file inside the version check, which runs in that window, loaded the
+  swapped object on `main`. The file is now read once, by a new `read_verified_bytes`
+  that hashes the buffer it returns, and `joblib.load` reads that same buffer, at the cost
+  of one in-memory copy of the file during the load. This closes the window between
+  hashing and unpickling the artifact. It does not cover the manifest or the sidecar,
+  which are separate files read by path, nor torch checkpoints: where their checksum is
+  verified, `torch.load` still reopens the path afterwards. `required_checksum` now
+  defaults to `True`, which all 15 calls in `src/`, `functions/`, `scripts/` and `app/`
+  already passed, so a call that omits it raises when the manifest
+  or its entry is missing; `required_checksum=False` still loads such an artifact and logs
+  the skip. A manifest entry that is not a mapping now raises `ArtifactIntegrityError`
+  instead of `AttributeError`. `read_verified_bytes(..., required=False)` is the same
+  opt-out under the new function's parameter name, so the blocking semgrep rule
+  `sestrav-require-verified-joblib-load`, which flagged only `joblib.load(...)` and
+  `load_verified_joblib(..., required_checksum=False)`, now flags it too, in both the
+  keyword and the positional spelling, with fixtures in `semgrep-rules/sestrav-custom.py`
+  for the two positives, for `required=True` and for a call inside a body the rule exempts
+  by name. `verify_artifact_checksum(..., required=False)` stays uncovered on purpose:
+  `src/baseline_comparison.py` passes it legitimately, so a pattern for it would fire on
+  code that is correct. `docs/threat_model.md`'s T2 credited `ModelRegistry`'s
+  expected-feature check, which runs after deserialization; it now names this loader and
+  both opt-out spellings the rule flags, and what they leave uncovered. Tests:
+  `tests/test_load_verified_joblib_reads_once.py`; seven mutants, each undoing one part of
+  the fix, all make the tests fail. The swap test accepts a refusal only when the error
+  names the failed checksum, so a loader that raised `ArtifactIntegrityError` for an
+  unrelated reason would fail it instead of passing it vacuously.
 - **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**
   (`tests/test_torch_load_weights_only.py`, SEC-13). A prior sweep found every runtime call
   site already pinned `weights_only=True`; that was a one-off finding with no standing check

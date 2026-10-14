@@ -31,6 +31,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.features import KD_HYDRO, VDW_VOL, AROMATIC, CHARGE
+from src.provenance_paths import relative_source
 
 # ---------------------------------------------------------------------------
 # Target 10-allele panel (compact -> standard)
@@ -690,8 +691,8 @@ def main():
         stub = {
             "status": "awaiting_input_files",
             "message": "T-cell Assay exports not yet downloaded",
-            "data_dir": args.data_dir,
-            "output_path": args.output,
+            "data_dir": relative_source(args.data_dir),
+            "output_path": relative_source(args.output),
             "alleles": sorted(TARGET_ALLELES),
             "iedb_query": {
                 "EBV": "Organism=Human herpesvirus 4, Assay=T-cell, MHC=Class I",
@@ -723,8 +724,8 @@ def main():
     # Provenance
     prov = {
         "status": "complete",
-        "output_path": args.output,
-        "holdout_path": holdout_path,
+        "output_path": relative_source(args.output),
+        "holdout_path": relative_source(holdout_path),
         "training_pairs": len(train_df),
         "holdout_pairs": len(holdout_df),
         "unique_peptides": int(train_df["peptide"].nunique()),

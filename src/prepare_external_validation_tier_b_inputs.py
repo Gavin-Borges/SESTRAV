@@ -25,6 +25,7 @@ from src.prepare_external_validation_inputs import (
     DEFAULT_VIRUS_TO_PROTEOME,
     hla_to_prime_compact,
 )
+from src.provenance_paths import relative_source
 
 # Tier A used 9 alleles (B4402 unsupported in PRIME)
 TIER_B_ALLELES = [
@@ -156,7 +157,7 @@ def main() -> None:
             "gold_standard_in_pool": len(in_pool),
             "gold_standard_missing": sorted(gs - in_pool),
             "forced_gold_standard_count": int(pool["forced_gold_standard"].sum()),
-            "peptide_list": pep_path,
+            "peptide_list": relative_source(pep_path),
         }
         manifest["gold_standard_audit"][virus_key] = {
             "present": sorted(in_pool),

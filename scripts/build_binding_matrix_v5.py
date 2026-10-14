@@ -28,6 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file  # noqa: E402  (needs PROJECT_ROOT on sys.path)
+from src.provenance_paths import relative_source  # noqa: E402
 
 ALLELE_MAP: dict[str, str] = {
     "bind_A0101": "HLA-A*01:01",
@@ -107,11 +108,10 @@ def _write_provenance(
     # the reason above, and is why the value moved here instead of into a new key.
     # tests/test_build_binding_matrix_v5.py runs the gate's own _paired_path against
     # this payload rather than trusting this comment.
-    try:
-        source_dataset = dataset_path.resolve().relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        # A --dataset outside the repo has no repo-relative form; record the name alone.
-        source_dataset = dataset_path.name
+    #
+    # A --dataset outside the repo has no repo-relative form; relative_source records
+    # it as "external:" plus its file name.
+    source_dataset = relative_source(dataset_path.resolve(), root=PROJECT_ROOT)
 
     provenance = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
