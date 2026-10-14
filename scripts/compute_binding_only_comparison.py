@@ -22,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.artifact_integrity import sha256_file, write_provenance_sidecar  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 
 TARGET_VIRUSES = frozenset(
     {"CMV", "DENV", "EBV", "HBV", "HCV", "HIV-1", "HPV", "IAV", "SARS-CoV-2"}
@@ -197,9 +198,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         output,
         script="scripts/compute_binding_only_comparison.py",
         extra={
-            "mode31_oof": mode31_path.as_posix(),
+            "mode31_oof": relative_source(mode31_path.as_posix()),
             "mode31_oof_sha256": sha256_file(mode31_path),
-            "mode10_oof": mode10_path.as_posix(),
+            "mode10_oof": relative_source(mode10_path.as_posix()),
             "mode10_oof_sha256": sha256_file(mode10_path),
             "bootstrap_resamples": args.bootstrap_resamples,
             "bootstrap_seed": args.seed,

@@ -137,9 +137,11 @@ def test_provenance_fields_record_corpus_matrix_and_mode(tmp_path):
     assert fields["feature_mode"] == _MODE
     assert fields["training_data_sha256"] == sha256_file(data_path)
     assert fields["binding_matrix_sha256"] == sha256_file(binding)
-    # _relative_to_project_root falls back to the basename for a path outside
-    # the repository, which is what tmp_path always is.
-    assert fields["training_data_path"] == data_path.name
+    # tmp_path is outside the repository. The corpus path goes through
+    # src.provenance_paths.relative_source ("external:" plus the file name); the
+    # binding matrix goes through src.artifact_integrity's
+    # binding_matrix_provenance_fields, which records the bare file name.
+    assert fields["training_data_path"] == "external:" + data_path.name
     assert fields["binding_matrix_path"] == binding.name
 
 
@@ -219,7 +221,7 @@ def test_provenance_fields_absent_input_is_none_not_an_exception(tmp_path):
     missing = tmp_path / "gone.csv"
     fields = training_provenance_fields(missing, _MODE)
     assert fields["training_data_sha256"] is None
-    assert fields["training_data_path"] == "gone.csv"
+    assert fields["training_data_path"] == "external:gone.csv"
 
 
 # ---------------------------------------------------------------------------

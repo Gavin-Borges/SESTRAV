@@ -1,7 +1,13 @@
 [build-system]
 # Floor states the security requirement, not the current pin: setuptools 83.0.0
 # closes GHSA-h35f-9h28-mq5c. requirements.in pins 84.0.0; see its comment there.
-requires = ["setuptools>=83.0.0", "wheel"]
+# wheel was unbounded until 2026-10-12 (see requests in [project].dependencies for
+# the conditions it was raised under). It ships a py3-none-any wheel, so the
+# advisories bind: 0.46.2 is the release OSV gives as the fix for CVE-2026-24049
+# (GHSA-8rrh-rw8j-w5fx, path traversal in `wheel unpack`, affected from 0.40.0), and
+# CVE-2022-40898 (GHSA-qwmp-2cf2-g9g6) was fixed in 0.38.1. 0.46.0 and 0.46.1 are
+# yanked. environments/requirements-ci-build.txt pins 0.48.0.
+requires = ["setuptools>=83.0.0", "wheel>=0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -36,40 +42,122 @@ dependencies = [
     # torch. SESTRAV does not call torch.jit.script, so this is defence in depth
     # rather than an exploitable-path fix. See SECURITY.md.
     "torch>=2.13.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
+    # Six floors raised together by maintainer decision on 2026-10-11: numpy and
+    # pandas here, and scikit-learn, mhcflurry, scipy and matplotlib below, each with
+    # its reason. numpy 2.0.0: four packaged modules reach numpy._core.multiarray.scalar
+    # when they load a PyTorch checkpoint, and on numpy 1.26.4 that lookup raises
+    # AttributeError. That release does ship numpy/_core/, but its __init__.py is a
+    # docstring-only stub that imports none of its submodules, so the chain resolves
+    # only once something has imported numpy._core.multiarray by name, and measured
+    # on 1.26.4 neither `import numpy` nor `import torch` does. Which attribute is
+    # reported missing depends on the process: numpy._core itself in a bare one, and
+    # .multiarray once numpy._core but not its multiarray submodule has been imported,
+    # which is what `import torch` leaves behind.
+    # All four sites import torch before the lookup, so .multiarray is what fails
+    # there. The four do not fail alike. src/baseline_comparison lets the
+    # AttributeError out raw: its except names only FileNotFoundError, ValueError and
+    # KeyError. src/core/model_registry (which spells the lookup with getattr) and
+    # src/verify/sestrav_evaluator each list AttributeError in their own except tuple
+    # and convert it to a RuntimeError that refuses the checkpoint.
+    # functions/stage4_immunogenicity_scoring swallows it in `except Exception: pass`
+    # and calls torch.load outside that block, so there the failed lookup raises
+    # nothing: the add_safe_globals registration is silently skipped and torch.load
+    # runs without it.
+    # pandas 2.2.2: 2.2.0 and 2.2.1 declare numpy<2, and pandas' release notes call
+    # 2.2.2 its first release generally compatible with numpy 2.0. A second reason not
+    # to go below 2.2.0, executed rather than read off metadata:
+    # scripts/build_dataset_v4.py passes include_groups=False to groupby().apply(), a
+    # parameter pandas added in 2.2.0. On 2.1.4 apply() has no such parameter, so the
+    # keyword reaches the applied lambda and raises TypeError; 2.2.2 accepts it.
+    # scripts/ is not packaged, so that reason binds whoever runs the v4 build rather
+    # than an installed consumer.
+    "pandas>=2.2.2",
+    "numpy>=2.0.0",
     # Bounded below 1.9 by maintainer decision on 2026-10-11. In environments that
     # differ only in scikit-learn (and narwhals, which 1.9 adds), 1.9.0 changes 45 of
     # 208 probed output values against 1.8.0, all of them RandomForest (no XGBoost
     # value moves), and 1.9.1 matches 1.9.0. The locks pin 1.8.0; without this bound
     # `pip install .` resolves the newest release. 1.8.0, the only 1.8 release on that
-    # date, has CPython 3.11-3.14 wheels but none for 3.15, which 1.9 has; torch had no
-    # 3.15 wheel either, so revisit this bound when torch ships one.
-    "scikit-learn>=1.3.0,<1.9",
+    # date, has CPython 3.11-3.14 wheels but none for 3.15, which 1.9.1 has and 1.9.0
+    # does not; torch had no 3.15 wheel either, so revisit this bound when torch ships
+    # one. Floor 1.5.0: the release that fixes CVE-2024-5206 (GHSA-jw8x-6495-233v,
+    # in TfidfVectorizer, which SESTRAV does not use); numpy 2 alone would need only
+    # 1.4.2, since 1.4.1.post1 declares numpy<2.0.
+    "scikit-learn>=1.5.0,<1.9",
     "joblib>=1.3.0",
-    "requests>=2.31.0",
-    "jsonschema>=4.0.0",
+    # requests 2.33.0. Raised by maintainer decision on 2026-10-12, with the
+    # jsonschema, biopython and PyYAML floors below and floors in the extras and in
+    # [build-system]. Every floor raised that day meets two conditions: a wheel for
+    # CPython 3.11, 3.12 and 3.13 (the CI Pythons) on Linux x86_64 and win_amd64, and
+    # the fix for every advisory OSV lists against a release the old floor admitted,
+    # read from OSV's structured ranges rather than its prose. Each comment names the
+    # condition that binds, and any further reason that lifts a floor above the
+    # lowest release meeting both. requests 2.33.0 ships a py3-none-any wheel, so
+    # only the advisories bind: CVE-2024-35195 (GHSA-9wx4-h78v-vm56, fixed 2.32.0),
+    # CVE-2024-47081 (GHSA-9hjg-9r4m-mvj7, fixed 2.32.4) and CVE-2026-25645
+    # (GHSA-gc5v-m9x4-r6x2, fixed 2.33.0).
+    "requests>=2.33.0",
+    # jsonschema 4.18.0, for a further reason: neither condition binds (every
+    # release ships a py3-none-any wheel, and OSV lists no jsonschema advisory). On
+    # CPython 3.14, which requires-python admits but no CI job runs, 4.0.1 and
+    # 4.17.3 raise TypeError: unhashable type: 'dict' inside jsonschema.validate,
+    # while it checks the dataset schema against its metaschema, and 4.18.0 does not.
+    # Measured on 3.14.4 over tests/test_build_dataset_v4.py,
+    # tests/test_dataset_utils.py and tests/test_dataset_schema_contract.py: 15 of
+    # 27 fail on each of the two and all 27 pass on 4.18.0, while under 3.11 and
+    # 3.13 all 27 pass on all three. 4.0.1 and 4.17.3 are the lowest and highest
+    # non-yanked final releases below 4.18.0 (4.0.0 is yanked) and were run as
+    # sentinels; the releases between them were not. No packaged module imports
+    # jsonschema; scripts/_dataset_utils.py and scripts/build_dataset_v5.py do, and
+    # scripts/ is not packaged, so this binds whoever runs the dataset builds.
+    "jsonschema>=4.18.0",
     # Added 2026-08-14 after an AST audit of every module-scope import in the
     # three packaged trees (sestrav/, src/, functions/) found seven distributions
     # imported but declared nowhere. They were never missing from CI - all seven
     # are pinned in environments/requirements.lock - so the gap was in the
     # metadata a PyPI consumer resolves, not in the test environment. Floors are
-    # set below the locked versions rather than at them, since nothing here
-    # requires a recent feature.
+    # set below the locked versions rather than at them. The mhcflurry and scipy
+    # floors were raised on 2026-10-11, and the biopython and PyYAML floors on
+    # 2026-10-12, for the reasons given beside each.
     #   biopython  functions/stage1_peptide_generation - pipeline stage 1
     #   mhcflurry  functions/stage2_mhc_binding_prediction - pipeline stage 2
     # Both are reached by `sestrav predict`, so without them the flagship
     # command fails on a clean install (see src/cli.py cmd_predict).
-    "biopython>=1.80",
-    "mhcflurry>=2.1.0",
+    # biopython 1.87: the advisory binds. CVE-2025-68463 (doctype XXE in Bio.Entrez)
+    # has two OSV records whose structured ranges differ in form: PYSEC-2026-1221
+    # gives fixed 1.87, while GHSA-x3vf-39hj-gxr4 gives no fixed release, only
+    # last_affected 1.86. Both leave 1.87 and later outside the affected range, so
+    # neither covers a release this floor admits. SESTRAV does not import
+    # Bio.Entrez. The wheel condition alone would need 1.85: 1.80 has no CPython 3.12
+    # or 3.13 wheel for Linux x86_64 or win_amd64, and 1.81 to 1.84 have none for
+    # 3.13. Measured on Linux with pip 26.2.1 and no C compiler, 1.80's sdist fails
+    # to build on 3.12 and 1.84's on 3.13, each with No such file or directory: 'cc'.
+    "biopython>=1.87",
+    # mhcflurry 2.2.0: every 2.1.x release requires TensorFlow and imports
+    # pkg_resources at module level in mhcflurry/downloads.py, and setuptools has
+    # not shipped pkg_resources since 82.0.0. 2.2.0 requires torch instead and
+    # drops that import. This repo is already past that line: [build-system] above
+    # requires setuptools>=83.0.0 and requirements.in pins setuptools==84.0.0, and
+    # the 83.0.0 and 84.0.0 wheels carry no pkg_resources member.
+    "mhcflurry>=2.2.0",
     #   PyYAML     src/core/config.py and 7 more - config.yaml is the engine's
     #              own config format. src/cli.py imports it lazily behind a
     #              try/except ImportError, but src/core/config.py does not.
-    "PyYAML>=6.0",
+    #              Floor 6.0.2: the wheel condition binds (no OSV PyYAML advisory
+    #              matches 6.0 or later). 6.0.2 is the first release with CPython
+    #              3.13 wheels for Linux x86_64 and win_amd64; 6.0 has them for 3.11
+    #              only, and 6.0.1 for 3.11 and 3.12. Measured on Linux with pip
+    #              26.2.1 and no C compiler: 6.0's sdist fails on 3.12 and 3.13
+    #              before compiling anything, with AttributeError: 'build_ext' object
+    #              has no attribute 'cython_sources'; 6.0.1's sdist installs on 3.13,
+    #              but without the libyaml extension (yaml.__with_libyaml__ False).
+    "PyYAML>=6.0.2",
     #   scipy      src/h2_tier_a_evaluation, src/external_benchmark_comparison.
     #              Arrives transitively via scikit-learn today; declared because
     #              relying on a transitive dependency is not a contract.
-    "scipy>=1.11.0",
+    #              Floor 1.13.0: 1.12.0 declares numpy<1.29.0, and scipy's 1.13.0
+    #              release notes list support for NumPy 2.0.0.
+    "scipy>=1.13.0",
     #   xgboost    src/train_classifier - the production model is an RF/XGB
     #              ensemble, so this is not optional to training.
     "xgboost>=2.0.0",
@@ -89,7 +177,9 @@ dependencies = [
     #              score_immunogenicity() always writes two PNGs to results/ at
     #              the end of every run - not gated behind a flag. Reached by
     #              `sestrav predict`, the flagship command, via stage 4.
-    "matplotlib>=3.8.0",
+    #              Floor 3.9.0: 3.8.0 to 3.8.3 declare numpy<2. 3.8.4 drops that
+    #              cap, so 3.9.0 is sufficient rather than minimal.
+    "matplotlib>=3.9.0",
 ]
 
 [project.optional-dependencies]
@@ -98,7 +188,30 @@ dependencies = [
 # Install from a source checkout with: pip install ".[gnn]"
 gnn = [
     "torch-geometric>=2.5.0",
-    "transformers>=4.30.0",
+    # transformers 5.10.1, raised 2026-10-12 from 4.30.0 under the two conditions
+    # given at requests in [project].dependencies. The decision itself expected a
+    # written acceptance here instead, on the understanding that these advisories
+    # have no fix; most do, so the conditions set the floor and the CVEs that have
+    # none are accepted below. The advisories bind. OSV holds 56 transformers
+    # records (32 CVEs); 54 of them (31 CVEs) match a release the old floor
+    # admitted, and 43 of those 54 give a fixed release. The highest fix is 5.10.0
+    # (CVE-2026-9856, GHSA-xrqw-3rrv-vx5w), which PyPI has yanked, so the floor is
+    # the next release. It ships a py3-none-any wheel. No lock pins transformers.
+    # Accepted, not fixed: nine CVEs have no OSV record giving any fixed release,
+    # only a last_affected: CVE-2025-14920, -14921 (4.54.1), CVE-2025-14924
+    # (4.55.0), CVE-2025-14926, -14927, -14928 (4.57.0), CVE-2025-14930 (4.57.1),
+    # CVE-2025-14929 (5.0.0-rc0) and CVE-2026-80047 (from 4.49.0 to 5.8.1). Every
+    # last_affected is below this floor, so by OSV's range semantics none matches a
+    # release this floor admits, but no record says a later release is fixed. The
+    # exposure is narrow either way. By OSV's own text they concern parsing
+    # Perceiver, Transformer-XL, megatron_gpt2 and GLM4 model files, checkpoints or
+    # weights, X-CLIP checkpoint conversion, the SEW, SEW-D and HuBERT
+    # convert_config functions, and GenerativePreTrainedModel.load_custom_generate.
+    # SESTRAV imports transformers in two places, src/features.py and
+    # scripts/precompute_esm2_embeddings.py, each loading a facebook/esm2 model at a
+    # pinned commit through AutoTokenizer or EsmTokenizer and EsmModel; neither
+    # passes trust_remote_code or calls generate or load_custom_generate.
+    "transformers>=5.10.1",
 ]
 # Snakemake pipeline runner - only needed to execute pipeline.smk end-to-end.
 # Install from a source checkout with: pip install ".[pipeline]"
@@ -108,7 +221,10 @@ pipeline = [
 dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
-    "pytest>=8.0.0",
+    # pytest 9.0.3, raised 2026-10-12 (see requests above for the conditions): the
+    # advisory binds. OSV lists CVE-2025-71176 (GHSA-6w46-j5rx-g56g) against every
+    # release before 9.0.3, which fixes it.
+    "pytest>=9.0.3",
     "pytest-cov>=5.0.0",
     "pytest-xdist>=3.6.0",
     "hypothesis>=6.100.0",
@@ -122,8 +238,35 @@ dev = [
     # pyproject.toml mentions it somewhere. Gated by
     # tests/test_dev_extra_runs_the_test_suite.py. Versions match [api]/[demo]
     # deliberately, so the three extras cannot drift into a resolver conflict.
-    "fastapi>=0.100.0",
-    "pydantic>=2.0.0",
+    # Both raised 2026-10-12 (see requests above for the conditions), and both sit
+    # above their own advisory fixes, 0.109.1 for fastapi (CVE-2024-24762,
+    # PYSEC-2024-38) and 2.4.0 for pydantic (CVE-2024-3772, GHSA-mr82-8j83-vxmv),
+    # because of a package each one's metadata constrains.
+    # fastapi 0.133.0: the advisories bind through starlette. fastapi ships a
+    # py3-none-any wheel, and each release declares a starlette range; every release
+    # from 0.100.0 to 0.132.1 caps starlette below 1.0.0, and OSV lists
+    # CVE-2026-48710 (GHSA-86qp-5c8j-p5mr, fixed 1.0.1) against every starlette
+    # before 1.0.1, so installing any of them installs an affected starlette. 0.133.0,
+    # the next release, is the first since 0.100.0 whose metadata admits starlette
+    # 1.3.1, the lowest release clear of every OSV starlette record that gives a fix
+    # (the highest fix is 1.3.1, for CVE-2026-54283), and it requires
+    # pydantic>=2.7.0, which the floor below meets.
+    # Admitting is not requiring: no fastapi release from 0.100.0 to 0.143.0
+    # requires a starlette above 0.46.0, so a resolver may still pick an affected
+    # one. A guarantee would need starlette declared here and in [api] and [demo],
+    # which would make tests/test_images_install_only_hashed_dependencies.py require
+    # the api and demo image specs to list it: a lock change, not made here. The
+    # same range admits starlette on both sides of its 0.48.0 rename of
+    # HTTP_422_UNPROCESSABLE_ENTITY to HTTP_422_UNPROCESSABLE_CONTENT, which is why
+    # api/main.py answers 422 with the integer rather than either name.
+    # pydantic 2.8.0: pydantic ships a py3-none-any wheel, but each release pins one
+    # pydantic-core release exactly, and 2.8.0 is the first whose pin (2.20.0) has
+    # CPython 3.13 wheels for Linux x86_64 and win_amd64; 2.4.0 pins 2.10.0 and 2.7.4
+    # pins 2.18.4, and neither has one. Measured on Linux 3.13 with pip 26.2.1 and no
+    # C compiler, pydantic 2.4.0 and 2.7.4 each fail building pydantic-core from its
+    # sdist, and 2.8.0 installs from wheels.
+    "fastapi>=0.133.0",
+    "pydantic>=2.8.0",
     # pulp, pyahocorasick and mhcgnomes added 2026-09-13. Same class as the
     # fastapi/pydantic move above, one level further out: no test imports any of
     # them directly, so the companion scan in
@@ -146,11 +289,15 @@ dev = [
     # imports it at module scope to compare a requirements.in pin against its
     # floor here, so an environment without it would abort that file during
     # COLLECTION rather than fail it. Any install gets it anyway: matplotlib, a
-    # core dependency, requires packaging>=20.0 unconditionally (checked at
-    # 3.8.0 and 3.11.1), and pytest requires it unconditionally in both versions
-    # checked (packaging>=22 in 9.1.1, a bare `packaging` in 8.0.0, the pytest
-    # floor declared here), while setuptools 83.0.0 lists it only under its
-    # `core` and `test` extras and ships its own copy under setuptools/_vendor.
+    # core dependency, requires packaging>=20.0 unconditionally (checked at 3.9.0,
+    # the floor declared above, and at 3.11.2, the pinned version; the 3.8.0 this
+    # comment used to cite stopped being admissible when that floor rose), and
+    # pytest requires it unconditionally in both versions checked (packaging>=22 in
+    # 9.0.3, the pytest floor declared here, and in 9.1.1, the pinned version; the
+    # 8.0.0 this comment used to cite stopped being admissible when that floor rose
+    # on 2026-10-12), while
+    # setuptools 83.0.0 lists it only under its `core` and `test` extras and ships
+    # its own copy under setuptools/_vendor.
     # That transitive arrival is why the missing declaration went unnoticed,
     # and why even a from-scratch `pip install -e ".[dev]"` would not have
     # exposed it. It is declared anyway because a direct import must not depend
@@ -161,21 +308,27 @@ dev = [
     # "not a full PEP 440 comparator".
     "packaging>=23.0",
 ]
+# fastapi and pydantic in [api] and [demo] match [dev]; see the comment there.
 api = [
-    "fastapi>=0.100.0",
+    "fastapi>=0.133.0",
     "uvicorn>=0.23.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.8.0",
 ]
 demo = [
-    "streamlit>=1.35.0",
+    # streamlit 1.54.0, raised 2026-10-12 (see requests in [project].dependencies
+    # for the conditions): the advisories bind. OSV lists three against releases
+    # the old floor (1.35.0) admitted, fixed in 1.37.0 (CVE-2024-42474,
+    # GHSA-rxff-vr5r-8cj5), 1.53.1 (CVE-2026-10804, GHSA-vqwp-45wm-r9r5) and
+    # 1.54.0 (CVE-2026-33682, GHSA-7p48-42j8-8846). It ships a py3-none-any wheel.
+    "streamlit>=1.54.0",
     "shap>=0.44.0",
     # matplotlib moved to [project].dependencies 2026-08-16 - it was already a
     # hard requirement of the core predict path, not demo-specific. Listing it
     # here too would be a harmless duplicate; omitted so this extra only
     # names packages genuinely exclusive to it.
-    "fastapi>=0.100.0",
+    "fastapi>=0.133.0",
     "uvicorn>=0.23.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.8.0",
 ]
 # scripts/ is not packaged (tool.setuptools.packages.find include is
 # sestrav*, src*, functions*). Two distributions are imported unguarded at

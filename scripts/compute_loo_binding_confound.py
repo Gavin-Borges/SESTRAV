@@ -36,6 +36,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 
 CANON = ["CMV", "DENV", "EBV", "HBV", "HCV", "HIV-1", "HPV", "IAV", "SARS-CoV-2"]
 PV_SRC = "results/per_virus_eval_v5_mode31.csv"
@@ -122,7 +123,7 @@ def _write_sidecar(output_path: str) -> str:
     payload = {
         "generated_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(),
         "script": "scripts/compute_loo_binding_confound.py",
-        "artifact": output_path,
+        "artifact": relative_source(output_path),
         "sha256": _sha256_file(output_path),
         "inputs": {
             PV_SRC: _sha256_file(PV_SRC),

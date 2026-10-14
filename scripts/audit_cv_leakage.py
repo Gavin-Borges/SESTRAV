@@ -51,6 +51,7 @@ from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa:
 from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 from src.evaluate_metrics import evaluate  # noqa: E402
 from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 from src.train_classifier import (  # noqa: E402
     prepare_features_31,
     prepare_features_35,
@@ -798,14 +799,11 @@ def _feature_input_provenance() -> dict[str, dict[str, str]]:
 
 
 def _write_provenance(output_path: Path, dataset_path: Path, n_rows: int) -> None:
-    try:
-        dataset_rel = dataset_path.resolve().relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        dataset_rel = dataset_path.name
-    try:
-        out_rel = output_path.resolve().relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        out_rel = output_path.name
+    # Resolved first, so a path given relative to the working directory is
+    # recorded by where it points: a repo-relative path, or "external:" plus at
+    # most its file name (src.provenance_paths.relative_source).
+    dataset_rel = relative_source(dataset_path.resolve(), root=PROJECT_ROOT)
+    out_rel = relative_source(output_path.resolve(), root=PROJECT_ROOT)
     provenance = {
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "script": "scripts/audit_cv_leakage.py",

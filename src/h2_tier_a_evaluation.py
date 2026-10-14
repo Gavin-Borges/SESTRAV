@@ -39,6 +39,7 @@ from src.train_classifier import prepare_features, prepare_features_30, prepare_
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
 from src.subgroup_eval import evaluate_subgroups
 from src.naming import resolve_model_path
+from src.provenance_paths import relative_source
 
 
 def _bootstrap_ratio_ci(
@@ -360,6 +361,12 @@ def run_h2_tier_a(
     ci_supports_h2 = bool(np.isfinite(ratio_10_ci_lo) and ratio_10_ci_lo >= 2.0)
     h2_supported = (ratio_10 >= 2.0) and stable_ratio and ci_supports_h2
 
+    # The three caller-supplied input paths as the CSV and Markdown record them:
+    # through relative_source, not as given.
+    recorded_model_path = relative_source(model_path)
+    recorded_data_path = relative_source(data_path)
+    recorded_binding_matrix_path = relative_source(binding_matrix_path)
+
     decision_df = pd.DataFrame(
         [
             {
@@ -382,7 +389,7 @@ def run_h2_tier_a(
                 "ratio_stable_binding_issr10_gte_0_08": stable_ratio,
                 "ratio_ci_low_gte_2": ci_supports_h2,
                 "h2_supported_ratio_gte_2_and_stable": h2_supported,
-                "model_path": model_path,
+                "model_path": recorded_model_path,
                 "model_sha256": model_prov["model_sha256"],
                 "feature_count": model_n_features,
                 "n_total_labeled": len(df),
@@ -403,7 +410,7 @@ def run_h2_tier_a(
     summary_df["ratio_stable_binding_issr10_gte_0_08"] = np.nan
     summary_df["ratio_ci_low_gte_2"] = np.nan
     summary_df["h2_supported_ratio_gte_2_and_stable"] = np.nan
-    summary_df["model_path"] = model_path
+    summary_df["model_path"] = recorded_model_path
     summary_df["model_sha256"] = model_prov["model_sha256"]
     summary_df["feature_count"] = model_n_features
     summary_df["n_total_labeled"] = len(df)
@@ -445,9 +452,9 @@ def run_h2_tier_a(
     md = f"""# H2 Tier A Evaluation Summary
 
 ## Inputs
-- Dataset: `{data_path}`
-- Integrated model template: `{model_path}` (sha256: `{model_prov["model_sha256"]}`)
-- Binding matrix: `{binding_matrix_path}`
+- Dataset: `{recorded_data_path}`
+- Integrated model template: `{recorded_model_path}` (sha256: `{model_prov["model_sha256"]}`)
+- Binding matrix: `{recorded_binding_matrix_path}`
 - CV: StratifiedKFold(n_splits={n_splits}, shuffle=True, random_state={random_state})
 - Splitter note: this is a label-only (ungrouped) splitter, but it is **peptide-disjoint
   on this corpus by construction** - the v3 dataset is 1,004 rows over 1,004 unique
