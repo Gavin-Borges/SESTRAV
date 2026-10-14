@@ -365,8 +365,8 @@ representations were concatenated and decoded by a two-layer fusion MLP (192 to 
 to 1 units) with intermediate ReLU activation and dropout. Internal verification
 gates 2 and 3, confirming forward-pass correctness and end-to-end gradient flow to
 all trainable parameters, passed for this architecture. GNN training on the v5 dataset
-will be reported in a subsequent release; all results in this manuscript reflect the
-RF mode-31 canonical classifier.
+was completed, and its evaluation did not clear the pre-registered promotion bar
+(Section 4.3), so the production classifier remains the RF mode-31 model.
 
 
 ### 2.4 Evaluation Methodology
