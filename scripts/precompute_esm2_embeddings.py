@@ -9,12 +9,13 @@ Usage - default (t6, 320-dim, v2.1):
 Usage - larger model (t12, 480-dim, v2.2):
     python scripts/precompute_esm2_embeddings.py \
         --model facebook/esm2_t12_35M_UR50D \
-        --revision <full 40-character commit SHA of that model repository> \
         --output data/esm2_embeddings_t12.pt
 
 The model loads from one Hugging Face Hub commit, never from whatever the model
-repository's main branch holds today. Only the default model has a pinned
-commit (src/features.py), so every other model needs --revision.
+repository's main branch holds today. Two models carry a pinned commit: the t6
+default (pinned in src/features.py, which loads it) and the t12 variant above
+(pinned below, since src/features.py never loads it). Any OTHER registered model
+needs --revision with a full 40-character commit SHA, and is refused without one.
 """
 
 import argparse
@@ -41,10 +42,29 @@ ESM_MODEL_DIMS: dict[str, int] = {
     "facebook/esm2_t33_650M_UR50D": 1280,
 }
 
-# Hugging Face Hub commits used when no revision is given. A revision names a commit
-# of ONE model repository, so src/features.py's pin covers its own model and no other.
-# Imported rather than copied, so the two cannot drift.
-PINNED_REVISIONS: dict[str, str] = {_ESM_MODEL_NAME: _ESM_MODEL_REVISION}
+# The t12 variant this module's own usage notes document. A revision names a commit of
+# ONE model repository, so src/features.py's pin covers the t6 default and no other
+# model; this pin has no other home, because src/features.py never loads t12.
+# notebooks/SESTRAV_GNN_v23_canonical_retrain.ipynb reads it from here, through
+# resolve_revision, rather than holding a copy.
+#
+# Measured 2026-10-12 from the Hub's own API, which reports this as the current commit
+# of the model repository:
+#   curl -s https://huggingface.co/api/models/facebook/esm2_t12_35M_UR50D
+# Confirmed resolvable, and confirmed to be the 480-dimension 12-layer model that
+# ESM_MODEL_DIMS claims, by reading its config at that commit:
+#   curl -s https://huggingface.co/facebook/esm2_t12_35M_UR50D/raw/<sha>/config.json
+# which gives hidden_size 480 and num_hidden_layers 12.
+_ESM2_T12_NAME = "facebook/esm2_t12_35M_UR50D"
+_ESM2_T12_REVISION = "6fbf070e65b0b7291e7bbcd451118c216cff79d8"
+
+# Hugging Face Hub commits used when no revision is given. The t6 entry is IMPORTED
+# rather than copied, so it and src/features.py cannot drift. The other registered
+# models stay unpinned and are refused without an explicit full commit SHA.
+PINNED_REVISIONS: dict[str, str] = {
+    _ESM_MODEL_NAME: _ESM_MODEL_REVISION,
+    _ESM2_T12_NAME: _ESM2_T12_REVISION,
+}
 
 _FULL_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
 
@@ -155,7 +175,8 @@ if __name__ == "__main__":
         default=None,
         help=(
             "Full 40-character Hugging Face Hub commit SHA to load the model from. "
-            f"Defaults to the pinned commit for {_ESM_MODEL_NAME}; required for any other model."
+            "Defaults to the pinned commit for a pinned model "
+            f"({', '.join(sorted(PINNED_REVISIONS))}); required for any other model."
         ),
     )
     parser.add_argument(

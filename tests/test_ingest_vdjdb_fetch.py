@@ -1,24 +1,28 @@
 """Tests for the VDJdb archive download in scripts/ingest_vdjdb.py.
 
-fetch_vdjdb() resolves the latest release through the GitHub API and downloads
-its .zip asset. These tests pin five properties of that download:
+fetch_vdjdb() resolves the pinned release through the GitHub API and downloads
+its .zip asset. These tests pin six properties of that download:
 
 * the asset URL is refused before it is opened unless it is https on
   github.com under this repository's release downloads, and every redirect
   target (301, 302, 303, 307 and 308) is checked the same way BEFORE urllib
   follows it, with only GitHub's release-asset hosts added for redirects;
 * the transfer has a bounded socket timeout and reads no more bytes than the
-  release API reports for the asset;
-* the bytes go to a ``.part`` file, are checked against the sha256 digest the
-  release API reports, are extracted, and only then take the name
-  ``vdjdb.zip``, so no failed download leaves its archive under that name;
-* a damaged ``vdjdb.zip`` already on disk is replaced by a verified download.
-  If that download fails before extraction starts, the damaged archive is
-  kept and any table already beside it is still used; once extraction starts,
-  the damaged archive is removed before anything is written, so neither a
-  later failure nor a process killed mid-extraction leaves it to fall back on;
-* an intact ``vdjdb.zip`` is reused without network access, and extracted
-  again when nothing extracted from it is left.
+  pinned size;
+* the bytes go to a ``.part`` file, are checked against the pinned sha256, are
+  extracted, and only then take the name ``vdjdb.zip``, so no failed download
+  leaves its archive under that name;
+* a ``vdjdb.zip`` already on disk is hashed first. One that matches the pin is
+  reused without network access and extracted again; one that does not is
+  replaced by a verified download, and is removed as that download's
+  extraction starts, before anything is written;
+* every refusal or failure returns None. No table already on disk is used in
+  place of one extracted from verified bytes in this run: not beside an archive
+  that failed the pin, not offline, and not after a failed extraction;
+* the table returned is located through the verified archive's own member
+  list, and an archive holding a member name zipfile would rewrite on
+  extraction is refused, so the path returned is the file this run wrote and a
+  stale table elsewhere in the directory is never returned.
 
 No test opens a socket. The GitHub API call goes through an in-memory
 urllib.request.urlopen, and the asset transfer through in-memory https, http
@@ -172,6 +176,12 @@ def network(monkeypatch):
     API call fail as it would with no network.
     """
     state: dict = {"release": _release(), "routes": {}, "calls": [], "offline": False}
+    # The synthetic PAYLOAD stands in for the pinned archive, so the pin points at
+    # it for the duration of each test. The pin's real literals, and the refusals
+    # that compare a release against them, live in test_ingest_vdjdb_release_pin.py;
+    # these tests are about the transfer, not about which release is pinned.
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SHA256", PAYLOAD_SHA256)
+    monkeypatch.setattr(ingest_vdjdb, "VDJDB_PINNED_SIZE_BYTES", len(PAYLOAD))
     real_build_opener = urllib.request.build_opener
 
     def _build_opener(*handlers):
@@ -216,6 +226,28 @@ def _serve_via_cdn(state: dict, **kw) -> None:
 
 def _asset_urls(state: dict) -> list[str]:
     return [url for url, _ in state["calls"] if url != ingest_vdjdb.VDJDB_RELEASES_API]
+
+
+def _pin(sha256: str | None = None, size: int | None = None) -> None:
+    """Move the pin a test is measured against.
+
+    The ``network`` fixture monkeypatches both pin constants, so it has already
+    recorded their real values and restores them at teardown; reassigning them
+    here is undone with the rest. A test that serves its own archive, or that
+    drives a code path reached only once the API agrees with the pin, points the
+    pin at what it serves, so the resolve-time comparison is not what it measures.
+    """
+    if sha256 is not None:
+        ingest_vdjdb.VDJDB_PINNED_SHA256 = sha256
+    if size is not None:
+        ingest_vdjdb.VDJDB_PINNED_SIZE_BYTES = size
+
+
+def _repin_to(state: dict, body: bytes) -> None:
+    """Point the release AND the pin at ``body``."""
+    digest = hashlib.sha256(body).hexdigest()
+    state["release"] = _release(digest="sha256:" + digest, size=len(body))
+    _pin(sha256=digest, size=len(body))
 
 
 def _out(tmp_path) -> str:
@@ -361,6 +393,7 @@ def test_every_asset_request_has_a_bounded_socket_timeout(tmp_path, network):
 def test_digest_mismatch_leaves_no_archive_and_no_part_file(wrong, tmp_path, network, capsys):
     assert wrong != PAYLOAD_SHA256
     network["release"] = _release(digest="sha256:" + wrong)
+    _pin(sha256=wrong)  # the API agrees with the pin; the BYTES are what differ
     _serve_via_cdn(network)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     assert sorted(os.listdir(_out(tmp_path))) == []
@@ -396,6 +429,7 @@ def test_uppercase_hex_digest_from_the_api_is_accepted(tmp_path, network):
 
 def test_transfer_longer_than_the_reported_size_is_cut_off(tmp_path, network, capsys):
     network["release"] = _release(size=len(PAYLOAD) - 1)
+    _pin(size=len(PAYLOAD) - 1)  # so the cap, not the pin comparison, is measured
     _serve_via_cdn(network)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     assert sorted(os.listdir(_out(tmp_path))) == []
@@ -491,8 +525,23 @@ def _corrupt_member_crc(payload: bytes) -> bytes:
     return payload[:start] + bytes([payload[start] ^ 0x01]) + payload[start + 1 :]
 
 
+def _archive(members: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, text in members.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
+
+
 DAMAGED = [PAYLOAD[: len(PAYLOAD) // 2], _corrupt_member_crc(_zip_bytes(zipfile.ZIP_STORED))]
 DAMAGED_IDS = ["truncated", "bad-crc"]
+
+# An intact archive of some other release: it opens, every member passes its
+# CRC-32, and it is still not the archive the pin names.
+OTHER_TSV = "antigen.epitope\tmhc.a\nYLQPRTFLL\tHLA-A*02:01\n"
+OTHER = _archive({"vdjdb.txt": OTHER_TSV})
+NOT_PINNED = [*DAMAGED, OTHER]
+NOT_PINNED_IDS = [*DAMAGED_IDS, "other-release"]
 
 
 def _place(tmp_path, zip_bytes: bytes | None = None, tsv: str | None = None) -> None:
@@ -505,33 +554,48 @@ def _place(tmp_path, zip_bytes: bytes | None = None, tsv: str | None = None) -> 
             handle.write(tsv)
 
 
-@pytest.mark.parametrize("damaged", DAMAGED, ids=DAMAGED_IDS)
-def test_damaged_existing_archive_is_replaced_by_a_verified_download(damaged, tmp_path, network):
+def _read(path) -> str:
+    with open(path, encoding="ascii") as handle:
+        return handle.read()
+
+
+@pytest.mark.parametrize("damaged", NOT_PINNED, ids=NOT_PINNED_IDS)
+def test_an_archive_that_is_not_the_pinned_one_is_replaced_by_a_verified_download(
+    damaged, tmp_path, network
+):
     _place(tmp_path, damaged)
     _serve_via_cdn(network)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
     assert _asset_urls(network) == [ASSET_URL, CDN_URL]
     with open(_zip(tmp_path), "rb") as handle:
         assert handle.read() == PAYLOAD
+    assert _read(_tsv(tmp_path)) == TSV_TEXT
 
 
-@pytest.mark.parametrize("damaged", DAMAGED, ids=DAMAGED_IDS)
-def test_damaged_archive_is_kept_when_the_fetch_fails_offline(damaged, tmp_path, network):
-    """Offline, the earlier extraction is still used, as before this check existed."""
-    _place(tmp_path, damaged, tsv=TSV_TEXT)
+@pytest.mark.parametrize("damaged", NOT_PINNED, ids=NOT_PINNED_IDS)
+def test_offline_no_table_beside_an_archive_that_is_not_the_pinned_one_is_used(
+    damaged, tmp_path, network, capsys
+):
+    """The table beside it is whatever some earlier run left; nothing in this run
+    checked which release it came from, so it is not returned."""
+    stale = OTHER_TSV if damaged is OTHER else TSV_TEXT
+    _place(tmp_path, damaged, tsv=stale)
     network["offline"] = True
-    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
+    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
+    assert "No table in" in capsys.readouterr().out
     with open(_zip(tmp_path), "rb") as handle:
         assert handle.read() == damaged
+    assert _read(_tsv(tmp_path)) == stale  # left as it was, and not used
     assert sorted(os.listdir(_out(tmp_path))) == ["vdjdb.txt", "vdjdb.zip"]
 
 
-def test_damaged_archive_is_kept_when_the_download_fails_verification(tmp_path, network):
+def test_no_table_is_used_when_the_download_fails_verification(tmp_path, network):
     damaged = DAMAGED[0]
     _place(tmp_path, damaged, tsv=TSV_TEXT)
     network["release"] = _release(digest="sha256:" + "0" * 64)
+    _pin(sha256="0" * 64)  # the API agrees with the pin; the BYTES are what differ
     _serve_via_cdn(network)
-    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
+    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     with open(_zip(tmp_path), "rb") as handle:
         assert handle.read() == damaged
 
@@ -550,7 +614,7 @@ def test_table_half_written_by_a_failed_extraction_is_not_returned(
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     out = capsys.readouterr().out
     assert os.path.getsize(_tsv(tmp_path)) == 10  # what this run left behind
-    # The damaged archive is removed too, so a later run cannot fall back to it.
+    # The damaged archive is removed too, so no archive name sits beside it.
     assert sorted(os.listdir(_out(tmp_path))) == ["vdjdb.txt"]
     assert "may have been partly overwritten; not using them" in out
 
@@ -558,9 +622,7 @@ def test_table_half_written_by_a_failed_extraction_is_not_returned(
 def _serve_corrupt_member_with_its_own_digest(state: dict) -> None:
     """An upstream archive whose member fails its CRC still matches its digest."""
     corrupt = DAMAGED[1]
-    state["release"] = _release(
-        digest="sha256:" + hashlib.sha256(corrupt).hexdigest(), size=len(corrupt)
-    )
+    _repin_to(state, corrupt)
     _serve_via_cdn(state, body=corrupt)
 
 
@@ -598,14 +660,12 @@ def test_an_interrupt_during_extraction_propagates_and_removes_the_damaged_archi
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
 
 
-def test_a_part_file_that_cannot_be_removed_does_not_bring_back_the_damaged_archive(
-    tmp_path, network, monkeypatch
-):
+def test_a_part_file_that_cannot_be_removed_still_returns_no_table(tmp_path, network, monkeypatch):
     """On Windows a second handle on vdjdb.zip.part makes removing it raise.
     The cleanup stops there and the PermissionError replaces the extraction
-    failure, so fetch_vdjdb takes its generic branch, which falls back to the
-    table beside vdjdb.zip whenever that file exists. The damaged archive must
-    already be gone, or the table this run half wrote is returned."""
+    failure, so fetch_vdjdb takes its generic branch rather than the extraction
+    one. That branch must return no table too, and the damaged archive must
+    already be gone."""
     _place(tmp_path, DAMAGED[0], tsv=OLD_TSV)
     _serve_via_cdn(network)
     real_remove = os.remove
@@ -627,17 +687,11 @@ def test_a_member_extracted_onto_the_archive_name_is_removed_after_a_failure(
     tmp_path, network, monkeypatch
 ):
     """The archive name is cleared as extraction starts, but a member named
-    vdjdb.zip is extracted onto it. After a later failure that file must go
-    too, or the next offline run falls back to the table this run half wrote."""
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("vdjdb.zip", "not an archive")
-        archive.writestr("vdjdb.txt", TSV_TEXT)
-    payload = buffer.getvalue()
+    vdjdb.zip is extracted onto it. After a later failure that file goes too,
+    so no archive name is left beside the table this run half wrote."""
+    payload = _archive({"vdjdb.zip": "not an archive", "vdjdb.txt": TSV_TEXT})
     _place(tmp_path, DAMAGED[0], tsv=OLD_TSV)
-    network["release"] = _release(
-        digest="sha256:" + hashlib.sha256(payload).hexdigest(), size=len(payload)
-    )
+    _repin_to(network, payload)
     _serve_via_cdn(network, body=payload)
     real_copy = shutil.copyfileobj
     copies: list[int] = []
@@ -658,7 +712,7 @@ def test_a_member_extracted_onto_the_archive_name_is_removed_after_a_failure(
 
 
 @pytest.mark.parametrize("failure", ["refused-url", "refused-redirect", "oversize"])
-def test_damaged_archive_is_kept_when_the_fetch_fails_before_extraction(failure, tmp_path, network):
+def test_no_table_is_used_when_the_fetch_fails_before_extraction(failure, tmp_path, network):
     _place(tmp_path, DAMAGED[0], tsv=TSV_TEXT)
     if failure == "refused-url":
         network["release"] = _release(url="https://example.org/vdjdb.zip")
@@ -667,10 +721,11 @@ def test_damaged_archive_is_kept_when_the_fetch_fails_before_extraction(failure,
         _redirect(network, ASSET_URL, "https://attacker.example/vdjdb.zip")
     else:
         network["release"] = _release(size=len(PAYLOAD) - 1)
+        _pin(size=len(PAYLOAD) - 1)  # so this leg still fails on the cap
         _serve_via_cdn(network)
-    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
+    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
     with open(_zip(tmp_path), "rb") as handle:
-        assert handle.read() == DAMAGED[0]
+        assert handle.read() == DAMAGED[0]  # kept, and not used
 
 
 def test_first_run_partial_extraction_is_not_returned(tmp_path, network, disk_fills_mid_extraction):
@@ -681,7 +736,7 @@ def test_first_run_partial_extraction_is_not_returned(tmp_path, network, disk_fi
 
 def test_archive_takes_its_final_name_only_after_extraction(tmp_path, network, monkeypatch):
     """A process killed mid-extraction runs no cleanup at all; it must not
-    leave a verified vdjdb.zip that the next run trusts beside a partial table."""
+    leave a verified vdjdb.zip beside a partial table."""
     seen: list[bool] = []
     real_copy = shutil.copyfileobj
 
@@ -696,13 +751,13 @@ def test_archive_takes_its_final_name_only_after_extraction(tmp_path, network, m
     assert os.path.exists(_zip(tmp_path))
 
 
-@pytest.mark.parametrize("damaged", DAMAGED, ids=DAMAGED_IDS)
-def test_damaged_archive_is_gone_before_any_member_is_written(
+@pytest.mark.parametrize("damaged", NOT_PINNED, ids=NOT_PINNED_IDS)
+def test_an_archive_that_is_not_the_pinned_one_is_gone_before_any_member_is_written(
     damaged, tmp_path, network, monkeypatch
 ):
-    """A process killed mid-extraction runs no cleanup. If the damaged archive
-    were still there while members are written, the next offline run would
-    fall back to a table this one half wrote."""
+    """A process killed mid-extraction runs no cleanup, so the old archive goes
+    before anything is written, and no archive name sits beside a half-written
+    table."""
     _place(tmp_path, damaged, tsv=OLD_TSV)
     seen: list[bool] = []
     real_copy = shutil.copyfileobj
@@ -720,29 +775,124 @@ def test_damaged_archive_is_gone_before_any_member_is_written(
 
 
 def test_stray_table_without_an_archive_is_not_used_when_offline(tmp_path, network):
-    """With no vdjdb.zip there is nothing to fall back on, as before."""
     _place(tmp_path, tsv=TSV_TEXT)
     network["offline"] = True
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
 
 
-@pytest.mark.parametrize("damaged", DAMAGED, ids=DAMAGED_IDS)
-def test_damaged_archive_with_no_table_offline_returns_none(damaged, tmp_path, network):
-    """A damaged archive is never extracted, so nothing raises."""
+@pytest.mark.parametrize("damaged", NOT_PINNED, ids=NOT_PINNED_IDS)
+def test_an_archive_that_is_not_the_pinned_one_is_never_extracted(damaged, tmp_path, network):
     _place(tmp_path, damaged)
     network["offline"] = True
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
+    assert sorted(os.listdir(_out(tmp_path))) == ["vdjdb.zip"]
 
 
-def test_intact_existing_archive_is_reused_without_network(tmp_path, network):
-    _place(tmp_path, PAYLOAD, tsv=TSV_TEXT)
+def test_an_archive_matching_the_pin_is_extracted_again_without_network(tmp_path, network):
+    """The table beside it is NOT trusted: only what this run extracts is returned."""
+    _place(tmp_path, PAYLOAD, tsv=OLD_TSV)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
     assert network["calls"] == []
+    assert _read(_tsv(tmp_path)) == TSV_TEXT
 
 
-def test_intact_archive_with_nothing_extracted_is_extracted_again(tmp_path, network):
+def test_an_archive_matching_the_pin_with_nothing_extracted_is_extracted(tmp_path, network):
     _place(tmp_path, PAYLOAD)
     assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) == _tsv(tmp_path)
     assert network["calls"] == []
-    with open(_tsv(tmp_path), encoding="ascii") as handle:
-        assert handle.read() == TSV_TEXT
+    assert _read(_tsv(tmp_path)) == TSV_TEXT
+
+
+def test_an_archive_of_the_pinned_size_but_another_digest_is_not_reused(tmp_path, network):
+    """Size alone is not the pin: same length, different bytes."""
+    other = _archive({"vdjdb.txt": TSV_TEXT.replace("GILGFVFTL", "GILGFVFTM")})
+    assert len(other) == len(PAYLOAD)
+    _place(tmp_path, other)
+    network["offline"] = True
+    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
+    assert sorted(os.listdir(_out(tmp_path))) == ["vdjdb.zip"]
+
+
+# The real archive keeps its table in a subdirectory: its central directory, read
+# 2026-10-12, lists vdjdb-2026-06-03/vdjdb.txt beside vdjdb-2026-06-03/vdjdb_full.txt.
+NESTED = _archive(
+    {
+        "vdjdb-2026-06-03/vdjdb_full.txt": OLD_TSV,
+        "vdjdb-2026-06-03/vdjdb.txt": TSV_TEXT,
+    }
+)
+
+
+@pytest.mark.parametrize("route", ["download", "cached"])
+def test_the_table_returned_is_the_verified_archives_own_member(route, tmp_path, network):
+    """A stale top-level vdjdb.txt must not be returned in place of the member
+    this run extracted from verified bytes, and vdjdb.txt is preferred to
+    vdjdb_full.txt whatever their order in the archive."""
+    _repin_to(network, NESTED)
+    _place(tmp_path, NESTED if route == "cached" else None, tsv=OTHER_TSV)
+    _serve_via_cdn(network, body=NESTED)
+    found = ingest_vdjdb.fetch_vdjdb(_out(tmp_path))
+    assert found == os.path.join(_out(tmp_path), "vdjdb-2026-06-03", "vdjdb.txt")
+    assert _read(found) == TSV_TEXT
+    assert _read(_tsv(tmp_path)) == OTHER_TSV  # the stale table, untouched and unused
+
+
+@pytest.mark.parametrize("route", ["download", "cached"])
+def test_a_verified_archive_without_a_table_returns_none(route, tmp_path, network, capsys):
+    tableless = _archive({"readme.txt": "no table here"})
+    _repin_to(network, tableless)
+    _place(tmp_path, tableless if route == "cached" else None, tsv=TSV_TEXT)
+    _serve_via_cdn(network, body=tableless)
+    assert ingest_vdjdb.fetch_vdjdb(_out(tmp_path)) is None
+    assert "no member named vdjdb.txt or vdjdb_full.txt" in capsys.readouterr().out
+
+
+# A table member whose name zipfile rewrites as it extracts. The traversal guard
+# passes it, since it resolves inside the directory, but zipfile drops the ".."
+# segment and writes sub/vdjdb.txt, while the name joined onto the directory
+# spells the top-level vdjdb.txt, a file this extraction never wrote.
+DOTDOT_TABLE = _archive({"sub/../vdjdb.txt": TSV_TEXT})
+
+
+@pytest.mark.parametrize("route", ["download", "cached"])
+def test_a_table_member_name_zipfile_rewrites_is_refused_not_resolved_to_a_stale_table(
+    route, tmp_path, network, capsys
+):
+    """Measured before the refusal existed, on both routes: fetch_vdjdb returned
+    data/sub/../vdjdb.txt, which opens the stale data/vdjdb.txt, while the
+    verified table sat at data/sub/vdjdb.txt."""
+    _repin_to(network, DOTDOT_TABLE)
+    _place(tmp_path, DOTDOT_TABLE if route == "cached" else None, tsv=OTHER_TSV)
+    _serve_via_cdn(network, body=DOTDOT_TABLE)
+    found = ingest_vdjdb.fetch_vdjdb(_out(tmp_path))
+    assert found is None, f"returned {found!r}, which reads {_read(found)!r}"
+    assert "zipfile would rewrite" in capsys.readouterr().out
+    assert _read(_tsv(tmp_path)) == OTHER_TSV  # the stale table, untouched and unused
+    # Refused before anything was written; the download route also drops the archive.
+    expected = ["vdjdb.txt", "vdjdb.zip"] if route == "cached" else ["vdjdb.txt"]
+    assert sorted(os.listdir(_out(tmp_path))) == expected
+
+
+def test_the_pinned_archives_own_member_names_are_all_accepted(tmp_path, network):
+    """The refusal must not refuse the release it exists to protect. These are the
+    11 member names in the pinned archive's central directory, read 2026-10-12 from
+    the downloaded asset after its sha256 matched VDJDB_PINNED_SHA256."""
+    names = [
+        "vdjdb-2026-06-03/",
+        "vdjdb-2026-06-03/vdjdb_summary_embed.html",
+        "vdjdb-2026-06-03/vdjdb_full.txt",
+        "vdjdb-2026-06-03/vdjdb.slim.txt",
+        "vdjdb-2026-06-03/vdjdb.meta.txt",
+        "vdjdb-2026-06-03/vdjdb.txt",
+        "vdjdb-2026-06-03/LICENSE",
+        "vdjdb-2026-06-03/cluster_members.txt",
+        "vdjdb-2026-06-03/motif_pwms.txt",
+        "vdjdb-2026-06-03/latest-version.txt",
+        "vdjdb-2026-06-03/vdjdb.slim.meta.txt",
+    ]
+    same_layout = _archive({name: "" if name.endswith("/") else TSV_TEXT for name in names})
+    _repin_to(network, same_layout)
+    _place(tmp_path, same_layout)
+    found = ingest_vdjdb.fetch_vdjdb(_out(tmp_path))
+    assert found == os.path.join(_out(tmp_path), "vdjdb-2026-06-03", "vdjdb.txt")
+    assert _read(found) == TSV_TEXT
