@@ -127,7 +127,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   with no wheel for a CI Python, plus jsonschema's.** Maintainer decision on 2026-10-12.
   Core: requests 2.31.0 -> 2.33.0, jsonschema 4.0.0 -> 4.18.0, biopython 1.80 -> 1.87 and
   PyYAML 6.0 -> 6.0.2. Extras: transformers 4.30.0 -> 5.10.1 (`gnn`), pytest 8.0.0 ->
-  9.0.3 (`dev`), fastapi 0.100.0 -> 0.116.2 and pydantic 2.0.0 -> 2.8.0 (`dev`, `api`
+  9.0.3 (`dev`), fastapi 0.100.0 -> 0.133.0 and pydantic 2.0.0 -> 2.8.0 (`dev`, `api`
   and `demo` alike), and streamlit 1.35.0 -> 1.54.0 (`demo`). `[build-system]`: wheel,
   unbounded until now, -> 0.46.2. Every new floor has a wheel for CPython 3.11, 3.12 and
   3.13 on Linux x86_64 and win_amd64 and clears every advisory OSV lists against a
@@ -161,30 +161,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   CPython 3.14, which `requires-python` admits but no CI job runs, 4.0.1 and 4.17.3 each
   fail 15 of 27 tests in the three dataset-schema test files with `TypeError: unhashable
   type: 'dict'` inside `jsonschema.validate`, and 4.18.0 passes all 27; on 3.11 and 3.13
-  all three pass. fastapi: `api/main.py` uses `status.HTTP_422_UNPROCESSABLE_CONTENT`,
-  which starlette added in 0.48.0, and 0.116.2 is the first fastapi whose metadata admits
-  that starlette. With fastapi 0.116.1 on Python 3.13, starlette resolves to 0.47.3 and
-  `test_out_of_panel_peptide_returns_422_not_silent_zeros` fails with AttributeError on
-  that name. This makes the name reachable, not guaranteed: no fastapi release from
-  0.100.0 to 0.143.0 requires starlette 0.48.0 or later, and declaring starlette in
-  `api` and `demo` would fail the image-spec check in
+  all three pass. fastapi: its own advisory is fixed in 0.109.1, but each fastapi release
+  declares a starlette range, every release from 0.100.0 to 0.132.1 caps starlette below
+  1.0.0, and OSV lists CVE-2026-48710 (GHSA-86qp-5c8j-p5mr, fixed 1.0.1) against every
+  starlette before 1.0.1, so installing any of those releases installs an affected
+  starlette. 0.133.0, the next release, is the first since 0.100.0 whose metadata admits
+  starlette 1.3.1, the lowest release clear of every OSV starlette record that gives a
+  fix (the highest fix is 1.3.1, for CVE-2026-54283), and it requires pydantic>=2.7.0,
+  which the pydantic floor meets. This admits a fixed starlette, not requires one: no
+  fastapi release from 0.100.0 to 0.143.0 requires a starlette above 0.46.0, and
+  declaring starlette in `api` and `demo` would fail the image-spec check in
   `tests/test_images_install_only_hashed_dependencies.py` (measured) until the api and
-  demo image specs list it, which is a lock change and is not made here. pydantic: each
+  demo image specs list it, which is a lock change and is not made here. The same range
+  admits starlette on both sides of its 0.48.0 rename of the 422 status name, so
+  `api/main.py` now answers 422 with the integer (see the `api/main.py` entry under
+  Fixed below). pydantic: each
   release pins one pydantic-core exactly, and 2.8.0 is the first whose pin has CPython
   3.13 wheels; 2.4.0 and 2.7.4 each fail building pydantic-core from its sdist on 3.13 in
   the same setup. No lock changes: every requirements file and lock that pins these
   packages already pins at or above the new floor, and none pins transformers. The new
-  `tests/test_declared_floors_cover_advisories_and_wheels.py` fails 18 of its 20 cases on
-  the old floors, and reverting any one floor fails at least one case. Its releases are
-  sentinels, not ranges: `requests>=2.31.0,!=2.31.0,!=2.32.3,!=2.32.5` passes every
-  requests case while admitting the affected 2.32.2. Its fastapi case applies only while
-  code under `api/` reads the starlette name. Floor-version run, on Linux under CPython
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` fails 19 of its 21 cases
+  against the old floors and the `api/main.py` they shipped with, and reverting any one
+  floor fails at least one case. Its releases are sentinels, not ranges:
+  `requests>=2.31.0,!=2.31.0,!=2.32.3,!=2.32.5` passes every requests case while
+  admitting the affected 2.32.2. Floor-version run, on Linux under CPython
   3.11, 3.12 and 3.13, with requests, jsonschema, biopython, PyYAML and pytest at exactly
   their new floors, torch 2.13.0 on CPU, everything else resolved normally, and the
   package installed editable from a build held at setuptools 83.0.0 and wheel 0.46.2:
-  fifteen test files that exercise those packages or the floors pass 290 with 1 skipped
-  (the opt-in live predictor query) on each Python. Adding fastapi 0.116.2, pydantic 2.8.0 and streamlit
-  1.54.0 (starlette resolves to 0.48.0), seven API, demo and config test files pass 47 of
+  fifteen test files that exercise those packages or the floors pass 291 with 1 skipped
+  (the opt-in live predictor query) on each Python. Adding fastapi 0.133.0, pydantic 2.8.0 and streamlit
+  1.54.0 (starlette resolves to 1.7.0), seven API, demo and config test files pass 47 of
   47 and `tests/test_model_registry.py` 19 of 19 on each. Adding transformers 5.10.1 on
   3.11 and 3.13, three feature and ESM test files pass 54 of 54, including the real
   ESM-2 load in `tests/test_features.py`. The `packaging` comment's pytest evidence
@@ -221,6 +227,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and after.
 
 ### Fixed
+- **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
+  `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
+  renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
+  on both sides of the rename, so on an admitted starlette without the new name the
+  handler raised AttributeError instead of answering 422. Measured on Linux under CPython
+  3.13 with fastapi 0.133.0 and pydantic 2.8.0: with starlette 0.47.3, and again with
+  0.40.0, `test_out_of_panel_peptide_returns_422_not_silent_zeros` fails with that
+  AttributeError before this change and passes after it. starlette 0.48.0 renamed four
+  status names, keeping the old four only as deprecated aliases that warn when read, and
+  those eight spellings are the only `HTTP_` names not assigned in every starlette release
+  from 0.40.0 to 1.7.0, read from `starlette/status.py` in each.
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` now fails if code under
+  `api/` reads any of the eight.
 - **`api/main.py` no longer reloads the MHCflurry presentation predictor on every `/score`
   request.** `_score_peptide` called `Class1PresentationPredictor.load()` for each request
   that passed the readiness check and the binding-panel lookup, although the module
