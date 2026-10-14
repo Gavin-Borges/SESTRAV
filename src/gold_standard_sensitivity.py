@@ -12,6 +12,7 @@ import pandas as pd
 
 from src.artifact_guard import guard_planned_paths
 from src.gold_standard import GOLD_STANDARD, VIRUS_FILE_MAP
+from src.provenance_paths import relative_source
 
 # Strain-sensitive epitopes called out in project documentation/comments.
 STRAIN_SENSITIVE = {"FLRGRAYGI", "HPVGEADYFEY"}
@@ -162,8 +163,8 @@ def run_gold_standard_sensitivity(
 - Report top-k recovery and rank shifts relative to current standard.
 
 ## Output files
-- Metrics by set: `{output_csv}`
-- Delta vs current set: `{comp_csv}`
+- Metrics by set: `{relative_source(output_csv)}`
+- Delta vs current set: `{relative_source(comp_csv)}`
 """
     with open(output_md, "w", encoding="utf-8") as f:
         f.write(md)
