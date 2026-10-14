@@ -107,6 +107,9 @@ def test_the_pipeline_rule_asks_train_ann_for_a_mode_it_builds():
     assert requested, "the train_ann rule names no feature mode"
     assert requested.group(1).isdigit(), f"not a literal mode: {requested.group(1)!r}"
     assert int(requested.group(1)) in _built_modes()
-    # Mode 21 reads no binding matrix, so the rule must not feed one in.
+    # Mode 21 reads no binding matrix, so the rule must not feed one in; mode 50
+    # cannot run without one, so the rule must pass it.
     if int(requested.group(1)) == 21:
         assert "binding" not in body
+    else:
+        assert "--binding-matrix" in body
