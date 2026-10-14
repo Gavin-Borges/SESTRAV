@@ -15,7 +15,7 @@ rules:
           pickle.load($FILE)
 
   - id: sestrav-require-verified-joblib-load
-    message: "Avoid direct usage of joblib.load or required_checksum=False. Use src.artifact_integrity.load_verified_joblib with required_checksum=True to prevent unsafe deserialization."
+    message: "Avoid direct usage of joblib.load, required_checksum=False or read_verified_bytes(required=False). Use src.artifact_integrity.load_verified_joblib with required_checksum=True to prevent unsafe deserialization."
     languages: [python]
     severity: ERROR
     patterns:
@@ -23,6 +23,14 @@ rules:
           - pattern: joblib.load(...)
           - pattern: load_verified_joblib(..., required_checksum=False)
           - pattern: load_verified_joblib(..., False)
+          # read_verified_bytes is load_verified_joblib's single read, and its
+          # `required=False` is the same opt-out under another parameter name:
+          # it returns bytes nothing checked when the manifest has no entry.
+          # verify_artifact_library_versions(required=False) is deliberately NOT
+          # here - drift warns by design, and src/baseline_comparison.py passes
+          # verify_artifact_checksum(required=False) legitimately.
+          - pattern: read_verified_bytes(..., required=False)
+          - pattern: read_verified_bytes(..., False)
       - pattern-not-inside: |
           def load_verified_joblib(...):
               ...

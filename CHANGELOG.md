@@ -67,6 +67,135 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   extra, gains `<4` as a guard against an untested next major release; 3.3.2 still
   resolves, as before. No lock changes: every lock already pins versions inside both
   bounds. The `artifact_integrity` docstring that quoted the old floor now quotes the range.
+- **`pyproject.toml` raises six core floors: numpy to 2.0.0, four that numpy 2 forces up
+  with it, and mhcflurry for a reason of its own.**
+  numpy 1.24.0 -> 2.0.0, pandas 2.0.0 -> 2.2.2, scikit-learn 1.3.0 -> 1.5.0 (the `<1.9`
+  bound stays), scipy 1.11.0 -> 1.13.0, matplotlib 3.8.0 -> 3.9.0 and mhcflurry 2.1.0 ->
+  2.2.0. Four packaged modules reach `numpy._core.multiarray.scalar` when they load a
+  PyTorch checkpoint, and on numpy 1.26.4 that lookup raises AttributeError. That release
+  does ship `numpy/_core/`, but its `__init__.py` is a docstring-only stub importing none
+  of its submodules, so the chain resolves only once something has imported
+  `numpy._core.multiarray` by name, and measured on 1.26.4 neither `import numpy` nor
+  `import torch` does. Which attribute is reported missing depends on the process:
+  `numpy._core` itself in a bare one, and `.multiarray` once `numpy._core` but not its
+  multiarray submodule has been imported, which is what `import torch` leaves behind.
+  All four sites import torch before the lookup, so `.multiarray` is what fails there.
+  The four do not fail alike, and the comment in `pyproject.toml` now says which:
+  `src/baseline_comparison.py` lets the AttributeError out raw, its `except` naming only
+  `FileNotFoundError`, `ValueError` and `KeyError`; `src/core/model_registry.py` and
+  `src/verify/sestrav_evaluator.py` each list `AttributeError` in their own `except` tuple
+  and convert it to a `RuntimeError` that refuses the checkpoint; and
+  `functions/stage4_immunogenicity_scoring.py` swallows it in `except Exception: pass` and
+  calls `torch.load` outside that block, so there the failed lookup raises nothing: the
+  `add_safe_globals` registration is silently skipped and `torch.load` runs without it. So
+  the old floor admitted a numpy on which those lookups fail unless some other import has
+  happened to load that submodule first.
+  pandas 2.2.1, scikit-learn 1.4.1.post1, scipy 1.12.0 and matplotlib 3.8.3 each cap numpy
+  below 2.0 in their metadata, so none of them installs beside the new numpy floor. The
+  pandas floor has a second reason, executed rather than read off metadata:
+  `scripts/build_dataset_v4.py` passes `include_groups=False` to `groupby().apply()`, a
+  parameter pandas added in 2.2.0; on 2.1.4 `apply()` has no such parameter, so the
+  keyword reaches the applied lambda and raises TypeError. `scripts/` is not packaged, so
+  that reason binds whoever runs the v4 build rather than an installed consumer.
+  scikit-learn 1.5.0 is also the release that fixes CVE-2024-5206 (GHSA-jw8x-6495-233v), in
+  `TfidfVectorizer`, which SESTRAV does not use. Every mhcflurry 2.1.x release requires
+  TensorFlow and imports `pkg_resources` at module level, which setuptools has not shipped
+  since 82.0.0 and which this repo is already past: `[build-system]` requires
+  `setuptools>=83.0.0` and `requirements.in` pins 84.0.0, and the 83.0.0 and 84.0.0
+  wheels carry no `pkg_resources` member. mhcflurry 2.2.0 requires torch instead. Two
+  floors are sufficient rather than minimal: matplotlib 3.8.4 already drops the numpy cap,
+  and for numpy 2 alone scikit-learn 1.4.2 would do. No lock changes: every requirements
+  file and lock that pins these six already pins numpy 2.4.6, pandas 3.0.3, scikit-learn
+  1.8.0, scipy 1.17.1, matplotlib 3.11.2 and mhcflurry 2.2.1. The new
+  `tests/test_declared_floors_exclude_incompatible_releases.py` fails on the old floors and
+  fails again if a floor is lowered far enough to admit numpy 1.26.4, pandas 2.2.1,
+  scikit-learn 1.4.2, scipy 1.12.0, matplotlib 3.8.3, or either of the two mhcflurry
+  releases it names, 2.1.0 and 2.1.5. Those two are sentinels and not a range: the 2.1.x
+  series is 2.1.0, 2.1.1, 2.1.2, 2.1.4 and 2.1.5, with no 2.1.3, and a floor admitting
+  only the releases between the sentinels, such as `>=2.1.2,<2.1.5`, still passes. Its
+  numpy check applies only while packaged code still reaches `numpy._core`. In a Linux Python
+  3.11 environment holding exactly numpy 2.0.0, pandas 2.2.2, scikit-learn 1.5.0, scipy
+  1.13.0, matplotlib 3.9.0 and mhcflurry 2.2.0, with torch 2.13.0 on CPU, seven existing
+  test files (model registry, evaluator, API, v4 dataset build, metrics, the predict
+  command's freeze-mode forwarding, and the floor-versus-pin check) pass, 133 of 133. The
+  scikit-learn bound's comment now says that 1.9.1, not 1.9.0, publishes CPython 3.15
+  wheels, the `artifact_integrity` docstring quotes the new range, and the `packaging`
+  comment's matplotlib evidence moves off 3.8.0, which the new floor no longer admits,
+  onto 3.9.0 and the pinned 3.11.2, both of which declare `packaging>=20.0`
+  unconditionally.
+- **`pyproject.toml` raises the floors that admitted a release with a fixed advisory or
+  with no wheel for a CI Python, plus jsonschema's.** Maintainer decision on 2026-10-12.
+  Core: requests 2.31.0 -> 2.33.0, jsonschema 4.0.0 -> 4.18.0, biopython 1.80 -> 1.87 and
+  PyYAML 6.0 -> 6.0.2. Extras: transformers 4.30.0 -> 5.10.1 (`gnn`), pytest 8.0.0 ->
+  9.0.3 (`dev`), fastapi 0.100.0 -> 0.133.0 and pydantic 2.0.0 -> 2.8.0 (`dev`, `api`
+  and `demo` alike), and streamlit 1.35.0 -> 1.54.0 (`demo`). `[build-system]`: wheel,
+  unbounded until now, -> 0.46.2. Every new floor has a wheel for CPython 3.11, 3.12 and
+  3.13 on Linux x86_64 and win_amd64 and clears every advisory OSV lists against a
+  release its old floor admitted, read from OSV's structured ranges rather than its
+  prose; each comment says which condition binds. The advisories: requests
+  CVE-2024-35195, CVE-2024-47081 and CVE-2026-25645 (fixed 2.32.0, 2.32.4 and 2.33.0;
+  2.32.0 and 2.32.1 are yanked); biopython CVE-2025-68463, whose PYSEC-2026-1221 record
+  gives fixed 1.87 while GHSA-x3vf-39hj-gxr4 gives only last_affected 1.86, so neither
+  covers 1.87; pytest CVE-2025-71176 (9.0.3); fastapi CVE-2024-24762 (0.109.1); pydantic
+  CVE-2024-3772 (2.4.0); streamlit CVE-2024-42474, CVE-2026-10804 and CVE-2026-33682
+  (1.37.0, 1.53.1 and 1.54.0); wheel CVE-2026-24049 (0.46.2) and CVE-2022-40898
+  (0.38.1); and transformers, where 43 of the 54 OSV records matching a release 4.30.0
+  admitted give a fixed release, the highest 5.10.0 (CVE-2026-9856), which PyPI has
+  yanked, hence 5.10.1. The decision expected a written acceptance for transformers
+  instead, on the understanding that its advisories have no fix; most do, so the two
+  conditions set its floor. Nine transformers CVEs have no OSV record giving any fix,
+  only a last_affected, all below 5.10.1: CVE-2025-14920, CVE-2025-14921,
+  CVE-2025-14924, CVE-2025-14926, CVE-2025-14927, CVE-2025-14928, CVE-2025-14929,
+  CVE-2025-14930 and CVE-2026-80047. They are accepted in writing in the `gnn` comment:
+  by OSV's own text they concern Perceiver, Transformer-XL, megatron_gpt2 and GLM4 model
+  parsing, X-CLIP checkpoint conversion, the SEW, SEW-D and HuBERT `convert_config`
+  functions and `load_custom_generate`, while SESTRAV's two transformers call sites
+  (`src/features.py` and `scripts/precompute_esm2_embeddings.py`) each load a
+  facebook/esm2 model at a pinned commit through `AutoTokenizer` or `EsmTokenizer` and
+  `EsmModel`, and neither passes `trust_remote_code`. The wheel condition binds PyYAML:
+  6.0.2 is its first release with CPython 3.13 wheels. Measured on Linux with pip 26.2.1 and no C compiler, 6.0's sdist
+  fails on 3.12 and 3.13 with `AttributeError: 'build_ext' object has no attribute
+  'cython_sources'`, and 6.0.1's installs on 3.13 but without the libyaml extension. For
+  biopython the wheel condition alone would need 1.85, and the same setup fails to build
+  1.80 on 3.12 and 1.84 on 3.13. Three floors rise for further reasons. jsonschema: on
+  CPython 3.14, which `requires-python` admits but no CI job runs, 4.0.1 and 4.17.3 each
+  fail 15 of 27 tests in the three dataset-schema test files with `TypeError: unhashable
+  type: 'dict'` inside `jsonschema.validate`, and 4.18.0 passes all 27; on 3.11 and 3.13
+  all three pass. fastapi: its own advisory is fixed in 0.109.1, but each fastapi release
+  declares a starlette range, every release from 0.100.0 to 0.132.1 caps starlette below
+  1.0.0, and OSV lists CVE-2026-48710 (GHSA-86qp-5c8j-p5mr, fixed 1.0.1) against every
+  starlette before 1.0.1, so installing any of those releases installs an affected
+  starlette. 0.133.0, the next release, is the first since 0.100.0 whose metadata admits
+  starlette 1.3.1, the lowest release clear of every OSV starlette record that gives a
+  fix (the highest fix is 1.3.1, for CVE-2026-54283), and it requires pydantic>=2.7.0,
+  which the pydantic floor meets. This admits a fixed starlette, not requires one: no
+  fastapi release from 0.100.0 to 0.143.0 requires a starlette above 0.46.0, and
+  declaring starlette in `api` and `demo` would fail the image-spec check in
+  `tests/test_images_install_only_hashed_dependencies.py` (measured) until the api and
+  demo image specs list it, which is a lock change and is not made here. The same range
+  admits starlette on both sides of its 0.48.0 rename of the 422 status name, so
+  `api/main.py` now answers 422 with the integer (see the `api/main.py` entry under
+  Fixed below). pydantic: each
+  release pins one pydantic-core exactly, and 2.8.0 is the first whose pin has CPython
+  3.13 wheels; 2.4.0 and 2.7.4 each fail building pydantic-core from its sdist on 3.13 in
+  the same setup. No lock changes: every requirements file and lock that pins these
+  packages already pins at or above the new floor, and none pins transformers. The new
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` fails 19 of its 21 cases
+  against the old floors and the `api/main.py` they shipped with, and reverting any one
+  floor fails at least one case. Its releases are sentinels, not ranges:
+  `requests>=2.31.0,!=2.31.0,!=2.32.3,!=2.32.5` passes every requests case while
+  admitting the affected 2.32.2. Floor-version run, on Linux under CPython
+  3.11, 3.12 and 3.13, with requests, jsonschema, biopython, PyYAML and pytest at exactly
+  their new floors, torch 2.13.0 on CPU, everything else resolved normally, and the
+  package installed editable from a build held at setuptools 83.0.0 and wheel 0.46.2:
+  fifteen test files that exercise those packages or the floors pass 291 with 1 skipped
+  (the opt-in live predictor query) on each Python. Adding fastapi 0.133.0, pydantic 2.8.0 and streamlit
+  1.54.0 (starlette resolves to 1.7.0), seven API, demo and config test files pass 47 of
+  47 and `tests/test_model_registry.py` 19 of 19 on each. Adding transformers 5.10.1 on
+  3.11 and 3.13, three feature and ESM test files pass 54 of 54, including the real
+  ESM-2 load in `tests/test_features.py`. The `packaging` comment's pytest evidence
+  moves off 8.0.0, which the new floor no longer admits, onto 9.0.3 and the pinned 9.1.1,
+  both of which declare `packaging>=22` unconditionally.
 - **The semgrep tool lock moves to semgrep 1.179.0, and the pyjwt override it needed is
   retired.** semgrep 1.178.0 declared a pyjwt requirement admitting only 2.13.x, which is
   why the `semgrep` spec compiled through `environments/semgrep-overrides.txt` to reach pyjwt
@@ -98,6 +227,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and after.
 
 ### Fixed
+- **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
+  `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
+  renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
+  on both sides of the rename, so on an admitted starlette without the new name the
+  handler raised AttributeError instead of answering 422. Measured on Linux under CPython
+  3.13 with fastapi 0.133.0 and pydantic 2.8.0: with starlette 0.47.3, and again with
+  0.40.0, `test_out_of_panel_peptide_returns_422_not_silent_zeros` fails with that
+  AttributeError before this change and passes after it. starlette 0.48.0 renamed four
+  status names, keeping the old four only as deprecated aliases that warn when read, and
+  those eight spellings are the only `HTTP_` names not assigned in every starlette release
+  from 0.40.0 to 1.7.0, read from `starlette/status.py` in each.
+  `tests/test_declared_floors_cover_advisories_and_wheels.py` now fails if code under
+  `api/` reads any of the eight.
 - **`api/main.py` no longer reloads the MHCflurry presentation predictor on every `/score`
   request.** `_score_peptide` called `Class1PresentationPredictor.load()` for each request
   that passed the readiness check and the binding-panel lookup, although the module
@@ -127,6 +269,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   One case fails the load with an exception whose message is empty, so a cached failure
   is recognised by being set, not by its text. Eleven mutants of the new code each fail
   at least one API test.
+- **`/health` now reports a cached MHCflurry presentation-predictor load failure instead
+  of answering `healthy`.** `api/main.py` loads the predictor on the first `/score` that
+  reaches it and never retries a failed import or load, so from that failure on, every
+  `/score` that reaches it answers 200 with `binding_score` null until the server
+  restarts. `/health` read only the
+  RF model's state, so it answered `healthy` throughout, and only an INFO log line on each
+  request said why `binding_score` was null. Once that load has failed, `/health` answers
+  `status: degraded` with `model_loaded: true` and a `reason` naming the exception type
+  (`RuntimeError` for missing model data, `ModuleNotFoundError` when MHCflurry is not
+  installed) but not its message, which for missing model data quotes the local downloads
+  path. The body keeps its three keys; none is added. Before the first such `/score` the
+  load has not been attempted, so its state is unknown, not failed: `/health` still answers
+  `healthy` then and does not load the predictor itself, and an error raised by
+  `predict()`, which is not cached, leaves it `healthy` too. `/health` answers 200 in every
+  case. **Open question for the owner, deliberately not decided here:** `/ready` reads only
+  `model_loaded`, so it keeps answering 200, now with this degraded body. Answering 503 for
+  a cached MHCflurry failure would change the readiness contract that
+  `docker-compose.yml`'s api healthcheck gates the demo service on, and since
+  `Dockerfile.api` never fetches MHCflurry's model data, an api container given the RF
+  model through compose's `models/` mount would turn unready at its first `/score` that
+  reaches the predictor. `tests/test_api_health_reports_presentation_failure.py` (new, 7
+  test cases) drives `/health` and `/ready` through the ASGI app: four fail on the previous
+  code, and the three that pin the unchanged cases pass before and after.
+  `tests/test_api_readiness.py` now clears the cached failure before each case:
+  `tests/test_api_main.py` scores through the real MHCflurry, and with MHCflurry pointed at
+  an empty downloads directory the failure it cached made two of that file's exact-body
+  assertions fail once `/health` reported it. Eight mutants of the change each fail at
+  least one API test.
 - **`sestrav info` now says when it could not check the MHCflurry pin, and `USAGE.md`'s
   expected output matches what it prints.** `sestrav info` reads `config.yaml` only from its
   installation root, never from the working directory, and that stays: a `config.yaml` in
@@ -1102,6 +1272,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `environments/requirements-lock.in`'s own `setuptools>=84.0.0` to the advisory's 83.0.0.
   `tools/check_lockfile_freshness.py --check` and `tools/check_hash_pins.py` both stay
   green (10 lockfile pairs fresh, 13 manifests hash-pinned).
+- **`load_verified_joblib` unpickles the bytes it verified, and requires a checksum by
+  default.** It hashed the artifact by path, compared library versions against the
+  provenance sidecar, then called `joblib.load(path)`, which opened the file again, so a
+  file replaced after the hash and before that second open was deserialized unchecked. A
+  test that swaps the file inside the version check, which runs in that window, loaded the
+  swapped object on `main`. The file is now read once, by a new `read_verified_bytes`
+  that hashes the buffer it returns, and `joblib.load` reads that same buffer, at the cost
+  of one in-memory copy of the file during the load. This closes the window between
+  hashing and unpickling the artifact. It does not cover the manifest or the sidecar,
+  which are separate files read by path, nor torch checkpoints: where their checksum is
+  verified, `torch.load` still reopens the path afterwards. `required_checksum` now
+  defaults to `True`, which all 15 calls in `src/`, `functions/`, `scripts/` and `app/`
+  already passed, so a call that omits it raises when the manifest
+  or its entry is missing; `required_checksum=False` still loads such an artifact and logs
+  the skip. A manifest entry that is not a mapping now raises `ArtifactIntegrityError`
+  instead of `AttributeError`. `read_verified_bytes(..., required=False)` is the same
+  opt-out under the new function's parameter name, so the blocking semgrep rule
+  `sestrav-require-verified-joblib-load`, which flagged only `joblib.load(...)` and
+  `load_verified_joblib(..., required_checksum=False)`, now flags it too, in both the
+  keyword and the positional spelling, with fixtures in `semgrep-rules/sestrav-custom.py`
+  for the two positives, for `required=True` and for a call inside a body the rule exempts
+  by name. `verify_artifact_checksum(..., required=False)` stays uncovered on purpose:
+  `src/baseline_comparison.py` passes it legitimately, so a pattern for it would fire on
+  code that is correct. `docs/threat_model.md`'s T2 credited `ModelRegistry`'s
+  expected-feature check, which runs after deserialization; it now names this loader and
+  both opt-out spellings the rule flags, and what they leave uncovered. Tests:
+  `tests/test_load_verified_joblib_reads_once.py`; seven mutants, each undoing one part of
+  the fix, all make the tests fail. The swap test accepts a refusal only when the error
+  names the failed checksum, so a loader that raised `ArtifactIntegrityError` for an
+  unrelated reason would fail it instead of passing it vacuously.
 - **`torch.load(...)` weights_only=True now enforced by test, not just by manual audit**
   (`tests/test_torch_load_weights_only.py`, SEC-13). A prior sweep found every runtime call
   site already pinned `weights_only=True`; that was a one-off finding with no standing check
