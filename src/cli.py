@@ -358,7 +358,20 @@ def cmd_predict(args: argparse.Namespace) -> int:
     # the configured value; this keeps the two entry points honest about the same flag.
     freeze_mode = args.freeze_mode
     if freeze_mode is None:
-        freeze_mode = bool(_read_config().get("freeze_mode", False))
+        configured = _read_config().get("freeze_mode")
+        freeze_mode = bool(configured)
+        if configured is None:
+            # No value came from config: a non-editable install has no config.yaml at its
+            # installation root (and _read_config never falls back to the working
+            # directory); _read_config also returns no value when PyYAML is absent, and a
+            # config can be empty or lack the key or leave it null. (A malformed
+            # config.yaml raises before this point.) freeze_mode above is then the
+            # default, so say so rather than let it pass for a configured setting.
+            print(
+                "[sestrav predict] No freeze_mode value came from config.yaml (sestrav "
+                "reads it only from its installation root, never the working directory), "
+                "so freeze mode is off by default; pass --freeze-mode to turn it on."
+            )
     print(f"[sestrav predict] Freeze mode: {freeze_mode}")
     _require_conformal_calibrator(args, freeze_mode)
 
