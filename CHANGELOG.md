@@ -683,6 +683,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   on 1,280 of which the old check disagreed with pip. Found by an independent review of
   #733. The 16 default manifests still pass: rc 0 before and after. Three mutants, one per
   change, all make the tests fail.
+- **A CodeRabbit configuration, `.coderabbit.yaml`, turns off each path from that review app
+  into commits, PR titles or PR descriptions that its configuration schema has a key for, and
+  lands before the app is installed, so it never runs here on its defaults.** The summary it
+  writes into the PR description (`reviews.high_level_summary`) is off, and the summary and
+  title placeholders are set to sentinels: the schema says a description holding the default
+  `@coderabbitai summary` still gets a summary with `high_level_summary` off, and a title
+  holding the default `@coderabbitai` gets a generated title, which a merge commit here
+  carries. All six finishing touches are off, including the five that default to on
+  (`docstrings`, `unit_tests`, `autofix`, `fix_ci`, `resolve_merge_conflict`), which the
+  schema and CodeRabbit's command reference say removes their checkboxes and commands.
+  `request_changes_workflow` stays `false`, which per the command reference also stops
+  `@coderabbitai approve` from approving. `allow_author_approval: false` stops a PR's author
+  running that command or `@coderabbitai resolve` on their own PR; anyone else still can, and
+  no key turns them off for everyone. `chat.allow_non_org_members: false` applies, per the
+  schema, only to organization repositories, so it has no documented effect on this
+  user-owned one. No key closes the rest: `@coderabbitai generate configuration` and
+  `emit path instructions` open a pull request, and `autopilot` (write access required) and
+  `local commit` can commit to a PR branch, so the file says never to merge a pull request
+  or a commit the app makes. All of this is documented behaviour, not measured: the app is not
+  installed. Its tools that duplicate CI or GitHub secret scanning are off; `shellcheck`,
+  `actionlint` and `hadolint` stay on because no workflow runs them today. Path instructions
+  carry this repository's review rules for Snakemake, `torch.load`, `load_verified_joblib`,
+  workflows and the local hooks. Every key was checked against
+  `coderabbit.ai/integrations/schema.v2.json` on 2026-10-14.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no

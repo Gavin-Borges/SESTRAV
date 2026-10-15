@@ -1,0 +1,243 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit review configuration. Every key below was checked against the
+# schema named above on 2026-10-14. Behaviour attributed to "the command
+# reference" is from docs.coderabbit.ai/reference/review-commands on the same
+# date. None of it is measured: the app is not installed yet.
+#
+# This repository's commits have one author of record and carry no bot
+# co-author trailers, so the aim is that CodeRabbit comments and writes nothing
+# else. These settings close every such path that a key in the schema closes:
+#   - reviews.high_level_summary: false, and high_level_summary_placeholder set
+#     to a sentinel. The schema says the summary "is still generated when this
+#     placeholder is present" even with high_level_summary false, and the
+#     default placeholder is "@coderabbitai summary". The summary is written
+#     into the PR description; whether a description reaches a merge commit
+#     depends on merge-message settings that can change.
+#   - reviews.auto_title_placeholder set to a sentinel. Its default is
+#     "@coderabbitai", and a PR title containing it gets a generated title.
+#     Merge commits here carry the PR title.
+#   - reviews.finishing_touches: all six off, including the five that default
+#     to on (docstrings, unit_tests, autofix, fix_ci, resolve_merge_conflict).
+#     Each writes code, as a commit on the PR branch or as a follow-up PR. Off,
+#     their checkboxes go and CodeRabbit declines their commands.
+#   - reviews.request_changes_workflow and reviews.allow_author_approval, and
+#     chat.allow_non_org_members: see the comment on each for what it does and
+#     does not stop.
+#
+# What no key in the schema closes, per the command reference:
+#   - "@coderabbitai generate configuration" and "@coderabbitai emit path
+#     instructions" each open a pull request.
+#   - "@coderabbitai autopilot" (write access required) turns on Autofix, and
+#     "@coderabbitai local commit" commits a prepared change to the PR branch.
+#     The docs name no key that gates either.
+# So never merge a pull request CodeRabbit opens, or a branch carrying a commit
+# it made. Never click "Commit suggestion" on a CodeRabbit comment either:
+# GitHub credits the suggestion's author as a co-author of the commit. No local
+# hook sees a commit made on GitHub. Apply any change by hand instead.
+
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "chill"
+  # True would make CodeRabbit "Automatically approve when CodeRabbit's comments
+  # are resolved" (schema). False also covers the approve command: the command
+  # reference says "@coderabbitai approve" "only submits an approval when
+  # reviews.request_changes_workflow is enabled", so here it resolves
+  # CodeRabbit's own threads and does not approve.
+  request_changes_workflow: false
+  # Stops a PR's author running "@coderabbitai approve" or "@coderabbitai
+  # resolve" on their own PR. Nobody else is stopped: per the schema, "anyone
+  # other than the author can still use them", and no key turns the commands
+  # off for everyone. pr-review-check.yml counts only OWNER, MEMBER or
+  # COLLABORATOR approvals, and skips the review requirement on the owner's PRs.
+  allow_author_approval: false
+  high_level_summary: false
+  # Sentinels, not real placeholders. The schema puts no constraint on either
+  # string and documents no way to turn either off, and the docs do not say how
+  # matching works; if it is a substring match, an empty string would match
+  # every description and every title. Each is therefore a token nobody types
+  # by accident. Do not paste either one into a PR title or description.
+  high_level_summary_placeholder: "SESTRAV_CODERABBIT_SUMMARY_PLACEHOLDER_UNUSED"
+  auto_title_placeholder: "SESTRAV_CODERABBIT_TITLE_PLACEHOLDER_UNUSED"
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+    # Dependabot PRs are finished by hand with tools/update_dependencies.py; a
+    # review of the half-compiled diff is noise.
+    ignore_usernames:
+      - "dependabot[bot]"
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+
+  # Generated, hashed, or data files: reviewing them burns the rate limit and
+  # produces nothing a human can act on.
+  path_filters:
+    - "!**/*.lock"
+    - "!requirements.txt"
+    - "!environments/*.txt"
+    - "!docs/sbom.json"
+    - "!docs/line_citations.json"
+    - "!data/**"
+    - "!results/**"
+    - "!figures/**"
+    - "!models/**/*.json"
+    - "!**/*.csv"
+    - "!**/*.tsv"
+    - "!**/*.ipynb"
+
+  path_instructions:
+    - path: "**/*.smk"
+      instructions: |
+        Snakemake DAG reproducibility and shell safety:
+        - Every interpolation inside a `shell:` block must use the `:q` quoting
+          modifier ({input:q}, {output:q}, {params.x:q}, {wildcards.x:q}). Flag any
+          that do not.
+        - Flag any `run:` block that builds a shell command with an f-string or
+          `shell()` call over data-derived values.
+        - Wildcards that come from data (allele names, proteome IDs, antigen names)
+          should be constrained with wildcard_constraints.
+        - Every rule's outputs must be a pure function of declared inputs, params and
+          config: flag reads of undeclared files, unseeded randomness, wall-clock
+          time, or network access inside a rule.
+        - Flag a new `config.get(..., default)` whose default names a file that is
+          gitignored (it breaks the clean-clone dry run in ci.yml).
+    - path: "pipeline.smk"
+      instructions: |
+        Same rules as **/*.smk. The config allowlist prelude near the top of this
+        file (_validate_config and its _check_* helpers) is a security boundary: it
+        rejects absolute paths, '..' segments, backslashes and path segments outside
+        [A-Za-z0-9_.-]. Flag any change that weakens it.
+    - path: "src/**/*.py"
+      instructions: |
+        PyTorch / PyTorch Geometric safety:
+        - Every torch.load must pass weights_only=True. Flag torch.jit.load,
+          pickle, dill, cloudpickle, pd.read_pickle and np.load(allow_pickle=True).
+        - joblib artifacts must load through load_verified_joblib with
+          required_checksum left at its default of True; flag a raw joblib.load.
+        - Tensor shape and device: flag tensors created without an explicit device
+          next to tensors that have one, .cuda() calls that bypass a configured
+          device, and missing .detach().cpu() before numpy conversion.
+        - GNN node features in the v2.3 path are flat (total_nodes, node_dim); flag
+          code that assumes (batch, max_len, features) there. Flag in-place
+          operations on node features (autograd).
+        - Seeds: training entry points must seed torch, numpy and random.
+    - path: "src/artifact_integrity.py"
+      instructions: |
+        Security boundary. A checksum manifest proves integrity, not provenance:
+        flag any change that lets a caller-supplied directory provide both the
+        artifact and the manifest it is checked against.
+    - path: ".github/workflows/**"
+      instructions: |
+        GitHub Actions hardening:
+        - Workflow-level permissions must be read-only and no wider than the jobs
+          need; flag read-all or write-all. Write scopes belong at job level, each
+          justified. (scorecard.yml's workflow-level read-all is inert: its only
+          job declares its own permissions.)
+        - Every `uses:` pinned to a full 40-character SHA with a version comment.
+        - actions/checkout must set persist-credentials: false.
+        - No ${{ github.event.* }}, github.head_ref or inputs.* inside `run:`; pass
+          through `env:` instead.
+        - No pull_request_target or workflow_run triggers.
+        - Installs from a package index should use --require-hashes against a
+          lockfile; flag a new unhashed install and ask why.
+    - path: "scripts/hooks/**"
+      instructions: |
+        These hooks run on the maintainer's workstation on every commit and push
+        once installed (core.hooksPath). Treat any change as security-sensitive:
+        flag network access, downloads, eval, new external commands, and anything
+        that weakens a gate (pipes that can turn a grep exit 2 into a pass, removed
+        `set -o pipefail`, widened allowlists).
+    - path: "**/*.in"
+      instructions: |
+        Dependency changes: a change to an .in file must come with the regenerated
+        hashed lockfile from tools/update_dependencies.py in the same PR. Flag new
+        dependencies and ask what they are for.
+    - path: "pyproject.toml"
+      instructions: |
+        Dependency changes: a raised floor or new dependency must come with the
+        regenerated hashed lockfiles from tools/update_dependencies.py in the same
+        PR. Flag new dependencies and ask what they are for.
+    - path: "**/*.md"
+      instructions: |
+        Public documentation. Flag absolute workstation paths, personal email
+        addresses, hostnames, and any numeric result that is not traceable to a
+        results/ file or the claims register.
+
+  tools:
+    # Keep: these lint files nothing in CI lints today.
+    shellcheck:
+      enabled: true
+    actionlint:
+      enabled: true
+    hadolint:
+      enabled: true
+    github-checks:
+      enabled: true
+    # Off: CI already runs these, or they duplicate GitHub secret scanning and
+    # push protection, pip-audit and Dependabot. Duplicates are alert fatigue.
+    ruff:
+      enabled: false
+    flake8:
+      enabled: false
+    pylint:
+      enabled: false
+    semgrep:
+      enabled: false
+    opengrep:
+      enabled: false
+    gitleaks:
+      enabled: false
+    trufflehog:
+      enabled: false
+    osvScanner:
+      enabled: false
+    zizmor:
+      enabled: false
+    # Off: noise for a scientific codebase.
+    languagetool:
+      enabled: false
+    markdownlint:
+      enabled: false
+    yamllint:
+      enabled: false
+    presidio:
+      enabled: false
+    ast-grep:
+      enabled: false
+    checkov:
+      enabled: false
+    trivy:
+      enabled: false
+
+knowledge_base:
+  # Disables the knowledge-base features that require CodeRabbit to retain data.
+  opt_out: true
+
+chat:
+  # Reply only when mentioned.
+  auto_reply: false
+  # The schema scopes this to "GitHub organization repositories". This
+  # repository is user-owned, so the docs give it no effect here today. It is
+  # set so that a move to an organization does not open chat to non-members.
+  allow_non_org_members: false
