@@ -227,6 +227,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and after.
 
 ### Fixed
+- **`src/verify/sestrav_evaluator.py` now says when its GNN scored with untrained weights.**
+  With no checkpoint, `run_evaluation_pipeline` evaluates an initialized structural GNN.
+  Those are real model scores, not mock ones, so the report's `use_mock_fallback` is false,
+  and nothing else in `validation_report.json` said the weights were random. A requested
+  checkpoint that did not exist was reported the same way as one never asked for. The
+  report's metadata now carries `checkpoint_status` ("loaded", "absent", "failed" or
+  "not_attempted"), `checkpoint_requested`, `checkpoint_loaded` (both as given, never
+  resolved, so no workstation path is written) and `untrained_baseline`. The terminal
+  report prints the status. What happens on a failed load is unchanged: it still warns and
+  falls back to mock scores. `tests/test_sestrav_evaluator_checkpoint_status.py` covers each
+  arm; all five of its tests fail on the previous code.
 - **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
   `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
   renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
