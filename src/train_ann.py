@@ -14,12 +14,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
 from src.train_classifier import _filter_quarantined, prepare_features, prepare_features_50
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.ml_utils import PeptideGroupedKFold
 
 # Amino acid vocabulary for One-Hot Encoding
 AA_VOCAB = "ACDEFGHIKLMNPQRSTVWY"
@@ -137,6 +137,15 @@ def train_ann(
     feature_mode=21,
     binding_matrix_path=None,
 ):
+    # This trainer builds two feature sets, the 21 sequence-only columns and mode 50.
+    # Any other mode used to fall through to the 21-column branch, so pipeline.smk's
+    # `--feature-mode 31 --binding-matrix ...` trained 21 columns and read no matrix.
+    # Refuse before anything is created.
+    if feature_mode not in (21, 50):
+        raise ValueError(
+            f"train_ann supports feature_mode 21 or 50, got {feature_mode!r}; it has no "
+            "mode-31 feature set, so a binding matrix would go unused."
+        )
     os.makedirs(model_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -159,11 +168,23 @@ def train_ann(
 
     y = train_pool["label"].values
 
-    # 3. Stratified K-Fold CV
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    # 3. Peptide-grouped, composite-stratified K-Fold CV, as src/train_gnn.py's
+    # build_cv_splits does. Every feature here is a function of the peptide string and
+    # the v5 corpus repeats peptides across alleles, so a label-only StratifiedKFold put
+    # the same peptide on both sides of a fold (docs/claims_register.md D15).
+    splitter = PeptideGroupedKFold(n_splits=5, shuffle=True, random_state=42)
+    splits = splitter.split(
+        train_pool,
+        y,
+        negative_origin=train_pool["negative_origin"]
+        if "negative_origin" in train_pool.columns
+        else None,
+        hla_alleles=train_pool["hla_allele"] if "hla_allele" in train_pool.columns else None,
+        peptides=train_pool["peptide"],
+    )
     fold_metrics = []
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(X_feats, y), 1):
+    for fold, (train_idx, val_idx) in enumerate(splits, 1):
         print(f"\n--- Fold {fold} ---")
         df_train, df_val = train_pool.iloc[train_idx], train_pool.iloc[val_idx]
         X_train, X_val = X_feats.iloc[train_idx], X_feats.iloc[val_idx]
@@ -244,8 +265,18 @@ if __name__ == "__main__":
     parser.add_argument("--data", required=True, help="Path to immunogenicity_dataset.csv")
     parser.add_argument("--model-dir", default="models/ann", help="Output directory")
     parser.add_argument("--epochs", type=int, default=15, help="Training epochs per fold")
-    parser.add_argument("--feature-mode", type=int, default=21, help="Feature mode (21 or 50)")
-    parser.add_argument("--binding-matrix", default=None, help="Path to peptide_binding_matrix.csv")
+    parser.add_argument(
+        "--feature-mode",
+        type=int,
+        default=21,
+        help="Feature mode: 21 (sequence-only physico) or 50 (expanded multi-allele; requires "
+        "--binding-matrix). No other mode is built, so any other value is refused",
+    )
+    parser.add_argument(
+        "--binding-matrix",
+        default=None,
+        help="Path to peptide_binding_matrix.csv, required for --feature-mode 50",
+    )
     args = parser.parse_args()
 
     train_ann(
