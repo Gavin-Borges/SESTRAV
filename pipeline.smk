@@ -245,15 +245,15 @@ rule qc_dataset:
         "{sys.executable:q} src/data_curation_qc.py --check-dataset {input.dataset:q} --config config.yaml > {log:q} 2>&1"
 
 
+# src/train_ann.py builds mode 21 (sequence-only) or 50 and nothing else. This rule used
+# to pass config's feature_mode (31) and the binding matrix, which trained the 21 columns
+# under a mode-31 request and read no matrix; it now asks for what it trains.
 rule train_ann:
     input:
         data = TRAINING_DATASET,
-        qc = "results/qc/dataset_qc.json",
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v4.csv")
+        qc = "results/qc/dataset_qc.json"
     output:
         "models/ann/ann_model.pth"
-    params:
-        feature_mode = config.get("feature_mode", 31)
     log:
         "logs/train_ann.log"
     benchmark:
@@ -261,7 +261,7 @@ rule train_ann:
     conda:
         "environment.yml"
     shell:
-        "{sys.executable:q} -m src.train_ann --data {input.data:q} --model-dir models/ann --feature-mode {params.feature_mode:q} --binding-matrix {input.binding_matrix:q} > {log:q} 2>&1"
+        "{sys.executable:q} -m src.train_ann --data {input.data:q} --model-dir models/ann --feature-mode 21 > {log:q} 2>&1"
 
 
 rule train_gnn:
