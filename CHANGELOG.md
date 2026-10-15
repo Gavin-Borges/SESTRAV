@@ -395,6 +395,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   same directory needs `--allow-overwrite` (without it the run exits 1 rather than replace
   what the first wrote). It no longer offers a command for mode 33, which also reads an
   antigen-processing score cache: no mode-33 rebuild has been checked from a clone.
+- **The pipeline's ANN now trains what its rule asks for, and its CV keeps each peptide in one
+  fold.** `pipeline.smk`'s `train_ann` rule, which the default `Results` target requires,
+  passed config's `feature_mode` (31) and the binding matrix to `src/train_ann.py`, which
+  builds only mode 21 or 50: every other mode fell through to the 21 sequence-only columns, so
+  the run trained mode 21 under a mode-31 request and read no matrix. The rule now passes
+  `--feature-mode 21` and no matrix, and `train_ann` refuses any mode but 21 and 50 before it
+  creates anything. Its CV moves from a label-only `StratifiedKFold` to
+  `src.ml_utils.PeptideGroupedKFold`, called as `src/train_gnn.py` calls it, because the v5
+  corpus repeats peptides across alleles. The ANN's CV metrics reach only `logs/train_ann.log`
+  and no tracked number comes from it. `docs/holdout_and_qc_policy.md` no longer lists it as
+  ungrouped.
 - **`scripts/check_panel_duplicates.py`'s delimiter docstring now matches the code, and its
   tab path is tested.** The docstring said a panel is read with `,` for `.csv` and a tab for
   everything else; the code reads a tab only for `.tsv` and `.txt` (any case) and `,` for
@@ -672,6 +683,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   on 1,280 of which the old check disagreed with pip. Found by an independent review of
   #733. The 16 default manifests still pass: rc 0 before and after. Three mutants, one per
   change, all make the tests fail.
+- **A CodeRabbit configuration, `.coderabbit.yaml`, turns off each path from that review app
+  into commits, PR titles or PR descriptions that its configuration schema has a key for, and
+  lands before the app is installed, so it never runs here on its defaults.** The summary it
+  writes into the PR description (`reviews.high_level_summary`) is off, and the summary and
+  title placeholders are set to sentinels: the schema says a description holding the default
+  `@coderabbitai summary` still gets a summary with `high_level_summary` off, and a title
+  holding the default `@coderabbitai` gets a generated title, which a merge commit here
+  carries. All six finishing touches are off, including the five that default to on
+  (`docstrings`, `unit_tests`, `autofix`, `fix_ci`, `resolve_merge_conflict`), which the
+  schema and CodeRabbit's command reference say removes their checkboxes and commands.
+  `request_changes_workflow` stays `false`, which per the command reference also stops
+  `@coderabbitai approve` from approving. `allow_author_approval: false` stops a PR's author
+  running that command or `@coderabbitai resolve` on their own PR; anyone else still can, and
+  no key turns them off for everyone. `chat.allow_non_org_members: false` applies, per the
+  schema, only to organization repositories, so it has no documented effect on this
+  user-owned one. No key closes the rest: `@coderabbitai generate configuration` and
+  `emit path instructions` open a pull request, and `autopilot` (write access required) and
+  `local commit` can commit to a PR branch, so the file says never to merge a pull request
+  or a commit the app makes. All of this is documented behaviour, not measured: the app is not
+  installed. Its tools that duplicate CI or GitHub secret scanning are off; `shellcheck`,
+  `actionlint` and `hadolint` stay on because no workflow runs them today. Path instructions
+  carry this repository's review rules for Snakemake, `torch.load`, `load_verified_joblib`,
+  workflows and the local hooks. Every key was checked against
+  `coderabbit.ai/integrations/schema.v2.json` on 2026-10-14.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no

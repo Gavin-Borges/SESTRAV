@@ -49,7 +49,7 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
   `src/bias_skew_finalization.py`, `scripts/regenerate_shareout_pngs.py`, and the Colab notebook);
   none exposes a `--cv-group-by` knob. `scripts/diagnose_vaccinia_contamination.py` calls
   `_cross_validate` directly, bypassing `train_models` entirely. Separately, the whole
-  non-`train_classifier` CV family still uses label-only `StratifiedKFold`: `src/train_ann.py`,
+  non-`train_classifier` CV family still uses label-only `StratifiedKFold`:
   `src/gnn_benchmark.py`, `src/model.py`,
   `src/external_validation_cross_virus.py`, `src/virus_specific_ablation.py`,
   `src/training_plots.py`, `scripts/verify_tier_a_provenance.py`, and - note, because this one
@@ -58,7 +58,7 @@ Before any model (RF, XGB, ANN, or GNN) is allowed to train or evaluate on a new
   (`docs/claims_register.md` D17): its binding-only denominator was an all-zeros constant.** Note
   the splitter is not the defect here - the v3 corpus has 1,004 rows and 1,004 unique peptides, so
   `StratifiedKFold` is already peptide-disjoint on it and grouping would be a no-op. **This qualifies the "without exception" wording in the
-  ANN/GNN bullet below**, but for the ANN track only: `src/train_ann.py` is still ungrouped.
+  ANN/GNN bullet below**, but for the ANN track only: `src/model.py`'s `run_cv`, behind `src/ann_benchmark.py`, is still ungrouped. **Corrected 2026-10-14 - `src/train_ann.py`, the ANN `pipeline.smk` trains, was removed from the list above** when it moved onto `src.ml_utils.PeptideGroupedKFold`.
   **Corrected 2026-08-15 - `src/train_gnn.py` was removed from this sentence and from the list
   above.** It ran an ungrouped `StratifiedKFold` until `c327403` (2026-08-12), which moved both
   of its CV call sites onto `src.ml_utils.PeptideGroupedKFold` and made it stamp `fold` and
