@@ -91,7 +91,10 @@ as replacements**. Quote the tracked files under their own provenance or not at 
 `scripts/generate_baseline_report.py`. They do not match the three lines above, and they rank GCN
 first on both metrics. Neither has a provenance sidecar and neither records a splitter, corpus or
 seed, so they are named here as the artifacts a reader can actually open - not as corrected values
-for the list above, and not as a basis for ranking any GNN against any RF or ANN figure.
+for the list above, and not as a basis for ranking any GNN against any RF or ANN figure. Their
+writer, `src/gnn_benchmark.py`, folds with an ungrouped `StratifiedKFold` (shuffled, stratified on
+label and virus), not grouped by peptide. Its `--data` is required and unrecorded, so these values
+are free of the peptide leakage D15 retracted only if that input held one row per peptide.
 
 ## Runtime and Dependency Matrix
 
