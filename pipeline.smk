@@ -197,6 +197,7 @@ rule score_immunogenicity:
         "results/{proteome_id}_score_distribution.png"
     params:
         model_path = config.get("model_path", ""),
+        thresholds_path = config.get("thresholds_path", ""),
         freeze_mode = config.get("freeze_mode", False)
     log:
         "logs/score_immunogenicity/{proteome_id}.log"

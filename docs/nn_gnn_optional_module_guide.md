@@ -138,8 +138,10 @@ threshold file at the end of this section is a tracked artifact.
 - ANN Colab calibration (UNVENDORED):
   `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/calibration_summary.json`
   - selected method: `isotonic`
-- RF production threshold file (SESTRAV runtime):
-  `models/optimal_thresholds.json`
+- RF production threshold file (SESTRAV runtime, `config.yaml`'s `thresholds_path`):
+  `models/v5/optimal_thresholds.json`, picked on the peptide-grouped OOF and applied to the
+  raw score. `models/optimal_thresholds.json`, picked on the pre-D15 ungrouped OOF for the
+  same model bytes, stays tracked as a ledger source and is not the runtime file.
 
 These are different workflows and should not be mixed in release claims.
 

@@ -113,7 +113,12 @@ freeze_mode: true
 # Gitignored (.gitignore models/*.joblib), so it is absent from every fresh clone.
 # Regenerate with scripts/fit_calibrator.py before Stage 4 calibration is available.
 calibration_path: models/isotonic_calibrator.joblib
-thresholds_path: models/optimal_thresholds.json
+# The binary `immunogenic` call compares this threshold with the RAW score, the scale
+# it was picked on. The v5 file is the one picked on the peptide-grouped OOF (D15);
+# models/optimal_thresholds.json was picked on the pre-D15 ungrouped OOF. Both describe
+# the same model: models/rf_31feature_integrated.joblib and its models/v5/ copy are
+# byte-identical, since D15 changed the CV splitter and not the final whole-pool fit.
+thresholds_path: models/v5/optimal_thresholds.json
 
 # Training corpus for the Snakemake pipeline (pipeline.smk TRAINING_DATASET).
 # Set explicitly because pipeline.smk's fallback is data/immunogenicity_dataset_v4.csv,
