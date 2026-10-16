@@ -405,7 +405,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   but now breaks a calibrated tie by the raw score before the peptide: the deployed
   calibrator's plateau around the threshold spans raw 0.3034 to 0.3304, so ranking it by
   peptide alone put 1,424 uncalled rows above the last called row on the grouped v5 OOF. With
-  a monotone non-decreasing calibrator, which every calibrator the repo's fitters write is
+  a monotone non-decreasing calibrator, which every stage-4 calibrator a repo script writes is
   (isotonic, increasing), the called rows are now always the top of the ranking.
 - **`docs/model_evaluation_summary.md`'s rebuild command now runs as written.** Its reader
   disclosure said to rebuild a model with `python -m src.train_classifier --feature-mode <N>`,

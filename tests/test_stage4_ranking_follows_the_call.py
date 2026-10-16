@@ -7,8 +7,9 @@ rows on it tie on the calibrated score while some are called and some are not. W
 the tie broken by peptide alone, uncalled rows ranked above called ones (on the
 grouped v5 OOF, 1,424 uncalled rows sat above the last called row). The tie is now
 broken by the raw score, so under a monotone non-decreasing calibrator the called
-rows are always a prefix of the ranking. Every calibrator the repo fits is one; the
-last test below pins that condition.
+rows are always a prefix of the ranking. Every stage-4 calibrator a repo script writes
+is isotonic and increasing; the last test below pins that for every IsotonicRegression
+the repo constructs.
 """
 
 from __future__ import annotations
@@ -151,14 +152,20 @@ def test_under_a_monotone_calibrator_the_ranking_is_the_raw_score_order(monkeypa
     _assert_called_rows_lead(ranked)
 
 
-def test_every_calibrator_the_repo_fits_is_monotone_non_decreasing():
-    """Pins the condition the ranking guarantee states.
+def test_every_isotonic_calibrator_the_repo_constructs_is_monotone_non_decreasing():
+    """Pins the condition the ranking guarantee states, for the isotonic fitters.
 
     Every IsotonicRegression constructed under scripts/, src/ and functions/ keeps
     the default increasing=True and clips out-of-range input, so it is monotone
     non-decreasing and never returns NaN for a finite score (which _apply_calibration
     would replace with the raw score). A fitter that set increasing=False or "auto"
-    could produce a calibrator under which uncalled rows outrank called ones.
+    could produce a calibrator under which uncalled rows outrank called ones, so no
+    call anywhere in those trees may pass `increasing` other than True (that also
+    covers set_params and an aliased constructor), and no IsotonicRegression call
+    may hide its arguments behind `**`. Scope, stated rather than implied: this reads
+    source files on disk, untracked ones included, and covers isotonic fitters only.
+    It does not cover src/train_gnn.py's Platt scaler, which stage 4 never loads, nor
+    a future non-isotonic stage-4 fitter.
     """
     import ast
     from pathlib import Path
@@ -167,19 +174,20 @@ def test_every_calibrator_the_repo_fits_is_monotone_non_decreasing():
     calls: list[tuple[str, ast.Call]] = []
     for top in ("scripts", "src", "functions"):
         for path in sorted((root / top).rglob("*.py")):
+            where = path.relative_to(root).as_posix()
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Call):
                     continue
+                for kw in node.keywords:
+                    if kw.arg == "increasing":
+                        assert isinstance(kw.value, ast.Constant) and kw.value.value is True, where
                 name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                 if name == "IsotonicRegression":
-                    calls.append((path.relative_to(root).as_posix(), node))
+                    calls.append((where, node))
     assert len(calls) >= 5, calls  # non-vacuous: the fitters were found
     for where, node in calls:
         kwargs = {kw.arg: kw.value for kw in node.keywords}
-        increasing = kwargs.get("increasing")
-        assert increasing is None or (
-            isinstance(increasing, ast.Constant) and increasing.value is True
-        ), where
+        assert None not in kwargs, f"{where}: IsotonicRegression(**...) hides its arguments"
         bounds = kwargs.get("out_of_bounds")
         assert isinstance(bounds, ast.Constant) and bounds.value == "clip", where

@@ -787,9 +787,11 @@ def score_immunogenicity(
     # v5 threshold spans it, so ranking that plateau by peptide alone put uncalled
     # rows above called ones. With a monotone non-decreasing calibrator this
     # tie-break makes the order the raw-score order, so the called rows are the
-    # top of the ranking. Every calibrator the repo's fitters write is one
-    # (IsotonicRegression, increasing, out_of_bounds="clip"); a legacy
-    # platt_calibrator.joblib fitted with a negative slope would not be.
+    # top of the ranking. The calibrators this module resolves that a repo script
+    # writes are (scripts/fit_calibrator.py, scripts/fit_final_per_virus_calibrators.py:
+    # IsotonicRegression, increasing, out_of_bounds="clip"); a legacy
+    # platt_calibrator.joblib, which no script writes, would not be if fitted with a
+    # negative slope.
     sort_by = ["immunogenicity_score", "peptide"]
     if "calibrated_score" in features_df.columns:
         sort_by.insert(0, "calibrated_score")
