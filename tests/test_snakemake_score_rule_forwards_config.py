@@ -17,7 +17,7 @@ Pinned here, by reading the sources rather than running Snakemake, which needs a
 real DAG and a conda environment:
 
 - every key the rule declares as a param is passed on by `scripts/stage4.py`;
-- the four scoring keys `config.yaml` carries reach `score_immunogenicity`;
+- the five scoring keys `config.yaml` carries reach `score_immunogenicity`;
 - each is passed to the parameter of the same name, so none is crossed;
 - `mc_dropout` and `freeze_mode` are coerced to bool, and the two path keys turn
   an empty string into None, which is what an unset config key becomes.
@@ -42,8 +42,11 @@ RULE = "score_immunogenicity"
 CONFIG_SCORING_KEYS = {"model_path", "thresholds_path", "calibration_path", "freeze_mode", "mc_dropout"}
 
 
-def _rule_params(rule: str) -> dict[str, str]:
-    """{param name: the config key it reads} for one rule's params block."""
+def _rule_params(rule: str, with_default: bool = False):
+    """{param name: the config key it reads} for one rule's params block.
+
+    With ``with_default``, the value is ``(config key, default as written)`` instead.
+    """
     text = SMK.read_text(encoding="utf-8")
     start = text.index(f"\nrule {rule}:")
     end = text.find("\nrule ", start + 1)
@@ -54,10 +57,13 @@ def _rule_params(rule: str) -> dict[str, str]:
         default=len(body),
     )
     block = body[params:stop]
-    return {
-        m.group(1): m.group(2)
-        for m in re.finditer(r"^\s+(\w+)\s*=\s*config\.get\(\s*\"(\w+)\"", block, re.MULTILINE)
+    found = {
+        m.group(1): (m.group(2), (m.group(3) or "").strip())
+        for m in re.finditer(
+            r"^\s+(\w+)\s*=\s*config\.get\(\s*\"(\w+)\"\s*(?:,([^)]*))?\)", block, re.MULTILINE
+        )
     }
+    return found if with_default else {name: key for name, (key, _) in found.items()}
 
 
 def _stage4_call() -> ast.Call:
@@ -108,6 +114,43 @@ def test_every_scoring_key_reaches_score_immunogenicity_uncrossed() -> None:
         assert key in passed, f"score_immunogenicity is not given {key}"
         source = ast.unparse(passed[key])
         assert re.search(rf"\b{key}\b", source), f"{key}= is passed {source}, which does not derive from it"
+
+
+def test_an_absent_config_key_defaults_to_off() -> None:
+    """The rule's own default decides when config omits a key, as the smoke fixture does."""
+    for name, (key, default) in _rule_params(RULE, with_default=True).items():
+        assert default in {'""', "False"}, f"{name} defaults to {default!r}; it must default to off"
+
+
+def test_no_assignment_discards_a_forwarded_value() -> None:
+    """Every assignment to a forwarded name must still derive from the config read.
+
+    `model_path = None` under `if model_path == "":` is normalization and is allowed,
+    because its own guard tests the name. A bare `calibration_path = None` between the
+    read and the call is not: it would silently drop what config supplied, and the
+    keyword-name check above cannot see it.
+    """
+    tree = ast.parse(STAGE4.read_text(encoding="utf-8"))
+
+    def walk(node: ast.AST, guards: tuple[str, ...]) -> None:
+        for child in ast.iter_child_nodes(node):
+            inner = guards
+            if isinstance(child, ast.If):
+                inner = guards + (ast.unparse(child.test),)
+            if isinstance(child, ast.Assign):
+                rhs = ast.unparse(child.value)
+                for target in child.targets:
+                    name = getattr(target, "id", None)
+                    if name not in CONFIG_SCORING_KEYS:
+                        continue
+                    derived = "snakemake.params" in rhs or re.search(rf"\b{name}\b", rhs)
+                    guarded = any(re.search(rf"\b{name}\b", g) for g in inner)
+                    assert derived or guarded, (
+                        f"{name} = {rhs} neither derives from the config read nor normalizes it"
+                    )
+            walk(child, inner)
+
+    walk(tree, ())
 
 
 def test_the_flags_are_coerced_and_empty_paths_become_none() -> None:

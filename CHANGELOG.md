@@ -536,7 +536,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   mirror of `tests/test_pipeline_forwards_freeze_mode.py`, where `pipeline.py` was the side
   that dropped a key. Both defaults are unchanged (`mc_dropout: false`, and the shipped
   `calibration_path` names the file the fallback already resolved), so a default run scores
-  as before; a run that SET either key now gets what it asked for.
+  as before, and a run that sets `calibration_path` now gets the calibrator it named.
+  **`mc_dropout: true` still runs no MC Dropout pass with the shipped model**: Stage 4
+  honours the flag only on the PyTorch branch, and `config.yaml`'s `model_path` is a
+  `.joblib`, so the key also needs a `.pt` model. The flag is now wired rather than
+  discarded; making the ANN model card's instruction work end to end on the shipped
+  configuration is a separate question.
   `tests/test_snakemake_score_rule_forwards_config.py` pins every scoring key through the
   rule and the script.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
