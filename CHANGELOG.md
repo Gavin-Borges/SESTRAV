@@ -508,6 +508,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   need the matrix. A feature cache already written this way is not detected: delete
   `physico_features_mode31_*` files under the configured `output_dir`'s `cache/` directory
   if a v1 run was ever given mode 31.
+- **The standardized predictor outputs now say when a PRIME or PredIG score was simulated.**
+  The default Snakemake target needs `results/{proteome_id}_standardized_outputs.csv`, so it
+  runs `scripts/run_prime_wrapper.py` and `scripts/run_predig_wrapper.py`. When PRIME, or
+  Docker for PredIG, is missing or fails, those wrappers write scores derived from the
+  binding input plus seeded noise and still exit 0, and `scripts/standardize_outputs.py`
+  merged them with nothing to tell them from real tool output. Each simulated row now
+  carries `simulated=1`, the standardized CSV gains `prime_simulated` and `predig_simulated`
+  (1 on every row when that tool's file was simulated, 0 when it was real; appended, so the
+  existing columns keep their positions), and all three scripts warn on stderr. Whether to
+  simulate at all is unchanged. `tests/test_competitor_scores_say_when_simulated.py` covers
+  both wrappers, the merge and real output.
 - **Installing the git hooks no longer modifies tracked files.** `CONTRIBUTING.md` step 2
   runs `bash scripts/hooks/install.sh`, which marks the four hooks executable. Three of
   them, `commit-msg`, `pre-commit` and `pre-push`, were tracked as non-executable, so on a

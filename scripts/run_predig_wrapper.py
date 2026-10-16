@@ -171,9 +171,15 @@ def main():
     if os.path.isfile(temp_pairs_path):
         os.remove(temp_pairs_path)
 
-    # Fallback to simulation
+    # Fallback to simulation. The scores below are the binding input plus seeded
+    # noise, not PredIG output, and this script still exits 0, so the Snakemake
+    # default target is satisfied either way. Every simulated row therefore
+    # carries simulated=1, which scripts/standardize_outputs.py turns into
+    # predig_simulated in the standardized CSV; real PredIG output has no such column.
     print(
-        "[PredIG Wrapper] Docker or PredIG input compilation failed. Simulating output for reproducibility..."
+        "[PredIG Wrapper] WARNING: Docker or PredIG input compilation failed. Writing "
+        "SIMULATED scores (binding-derived plus seeded noise), not PredIG output.",
+        file=sys.stderr,
     )
     np.random.seed(42)
 
@@ -185,7 +191,7 @@ def main():
             bind_map[col] = df.set_index("peptide")[col].to_dict()
 
     mock_rows = []
-    # Write standard columns: peptide, allele, predig_score
+    # Write standard columns: peptide, allele, predig_score, simulated
     for pep in peptides:
         for allele in alleles_list:
             # check if we can get a real binding value
@@ -197,7 +203,9 @@ def main():
                     bind_val = 1.0 - min(bind_val, 5000) / 5000
 
             predig_score = max(0.0, min(1.0, bind_val * 0.75 + np.random.normal(0, 0.12)))
-            mock_rows.append({"peptide": pep, "allele": allele, "predig_score": predig_score})
+            mock_rows.append(
+                {"peptide": pep, "allele": allele, "predig_score": predig_score, "simulated": 1}
+            )
 
     mock_df = pd.DataFrame(mock_rows)
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
