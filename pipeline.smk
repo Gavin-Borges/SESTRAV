@@ -198,7 +198,9 @@ rule score_immunogenicity:
     params:
         model_path = config.get("model_path", ""),
         thresholds_path = config.get("thresholds_path", ""),
-        freeze_mode = config.get("freeze_mode", False)
+        calibration_path = config.get("calibration_path", ""),
+        freeze_mode = config.get("freeze_mode", False),
+        mc_dropout = config.get("mc_dropout", False)
     log:
         "logs/score_immunogenicity/{proteome_id}.log"
     benchmark:
