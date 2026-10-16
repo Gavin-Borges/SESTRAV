@@ -238,7 +238,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   workstation path is written) and `untrained_baseline`. The terminal
   report prints the status. What happens on a failed load is unchanged: it still warns and
   falls back to mock scores. `tests/test_sestrav_evaluator_checkpoint_status.py` covers each
-  arm; all five of its tests fail on the previous code.
+  arm; all six of its tests fail on the previous code.
 - **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
   `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
   renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
