@@ -22,14 +22,19 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 def simulated_flag(df: pd.DataFrame) -> int:
-    """1 if a predictor's raw output was simulated by its wrapper, else 0.
+    """1 if a predictor's raw output is marked simulated, else 0.
 
     scripts/run_prime_wrapper.py and scripts/run_predig_wrapper.py fall back to
-    scores derived from the binding input plus seeded noise when the tool is not
-    installed or fails, and still exit 0, so the Snakemake default target is met
-    either way. They mark every such row with simulated=1; real tool output has
-    no ``simulated`` column. The flag is per file: a wrapper simulates all of its
-    output or none of it.
+    seeded noise when the tool is not installed or fails, and still exit 0, so the
+    Snakemake default target is met either way. They mark every such row with
+    simulated=1. The flag is per file: a wrapper simulates all of its output or
+    none of it.
+
+    0 means the file carries no simulation mark, which is NOT the same as "real".
+    A file written before those wrappers started marking their output reads 0, and
+    Snakemake will not rerun them for this change alone, because neither rule's
+    input or shell command changed: rerun with
+    ``--forcerun run_prime run_predig`` to re-establish the mark.
     """
     if "simulated" not in df.columns:
         return 0
@@ -132,7 +137,7 @@ def main():
         if flag:
             print(
                 f"[standardize] WARNING: the {tool} scores are SIMULATED by its wrapper "
-                f"(binding-derived plus seeded noise), not {tool} output; "
+                f"(seeded noise), not {tool} output; "
                 f"{tool.lower()}_simulated is 1 on every row.",
                 file=sys.stderr,
             )

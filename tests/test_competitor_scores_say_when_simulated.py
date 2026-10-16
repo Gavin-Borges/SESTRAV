@@ -5,16 +5,19 @@ Why this test exists
 `rule Results` (pipeline.smk) requires `results/{id}_standardized_outputs.csv`, so
 the default Snakemake target runs `rule run_prime` and `rule run_predig`
 (standardize_outputs.smk). When PRIME or PredIG (Docker) is not installed, or fails,
-their wrappers write scores derived from the binding input plus seeded noise and
-still exit 0, and scripts/standardize_outputs.py merged those scores in with nothing
-to tell them from real tool output (to-do PC-9). A benchmark built on that file
-would compare SESTRAV against a noisy copy of its own binding input.
+their wrappers write seeded noise and still exit 0, and
+scripts/standardize_outputs.py merged those scores in with nothing to tell them from
+real tool output (to-do PC-9). A benchmark built on that file would compare SESTRAV
+against noise. PRIME's simulated score is derived from the binding input; PredIG's
+usually is not, because no stage-2 column matches an allele name, so it is noise
+around a constant.
 
 Pinned here: each wrapper marks every simulated row `simulated=1`; the standardized
-CSV carries `prime_simulated` and `predig_simulated`, 1 on every row when that
-tool's file was simulated and 0 when it was real; the columns that were already
-there keep their order. Whether to simulate at all, or refuse, is unchanged and is
-an owner decision.
+CSV carries `prime_simulated` and `predig_simulated`, each following its own tool's
+file; the columns that were already there keep their order. A 0 means the file
+carries no simulation mark, not that the scores are known to be real: a file written
+before the wrappers marked their output reads 0. Whether to simulate at all, or
+refuse, is unchanged and is an owner decision.
 """
 
 from __future__ import annotations
@@ -136,6 +139,22 @@ def test_simulated_scores_are_flagged_in_the_standardized_csv(tmp_path, monkeypa
     assert (merged["predig_simulated"] == 1).all()
     err = capsys.readouterr().err
     assert "PRIME scores are SIMULATED" in err and "PredIG scores are SIMULATED" in err
+
+
+def test_each_flag_follows_its_own_tool(tmp_path, monkeypatch, capsys):
+    """One tool simulated and the other not: the two flags must not be swapped or shared."""
+    prime = _simulate_prime(tmp_path, monkeypatch)
+    predig = tmp_path / "predig_real.csv"
+    pd.DataFrame(
+        {"peptide": PEPTIDES, "allele": [ALLELE] * 3, "predig_score": [0.6, 0.5, 0.4]}
+    ).to_csv(predig, index=False)
+    capsys.readouterr()
+    merged = _standardize(tmp_path, monkeypatch, prime, predig)
+    assert (merged["prime_simulated"] == 1).all()
+    assert (merged["predig_simulated"] == 0).all()
+    err = capsys.readouterr().err
+    assert "PRIME scores are SIMULATED" in err
+    assert "PredIG scores are SIMULATED" not in err
 
 
 def test_real_tool_output_is_not_flagged(tmp_path, monkeypatch, capsys):

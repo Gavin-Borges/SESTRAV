@@ -171,14 +171,24 @@ def main():
     if os.path.isfile(temp_pairs_path):
         os.remove(temp_pairs_path)
 
-    # Fallback to simulation. The scores below are the binding input plus seeded
-    # noise, not PredIG output, and this script still exits 0, so the Snakemake
-    # default target is satisfied either way. Every simulated row therefore
-    # carries simulated=1, which scripts/standardize_outputs.py turns into
-    # predig_simulated in the standardized CSV; real PredIG output has no such column.
+    # Fallback to simulation. The scores below are seeded noise, not PredIG output,
+    # and this script still exits 0, so the Snakemake default target is satisfied
+    # either way. Every simulated row therefore carries simulated=1, which
+    # scripts/standardize_outputs.py turns into predig_simulated in the standardized
+    # CSV; real PredIG output has no such column.
+    #
+    # Two reasons the default pipeline reaches this branch with Docker installed, and
+    # why bind_val below usually stays at its 0.5 default, so the score is noise around
+    # a constant rather than binding-derived. Both predate the simulated flag and
+    # neither is fixed here. (1) build_recombinant_table selects peptide, proteome_id
+    # and virus, and functions/stage2_mhc_binding_prediction.py writes none of the last
+    # two, so it raises KeyError and predig_input_built is False. (2) hla_cols matches a
+    # column only if it is named HLA-... or exactly like an allele, while stage 2 writes
+    # wide bind_A0201-style columns, so bind_map stays empty.
     print(
-        "[PredIG Wrapper] WARNING: Docker or PredIG input compilation failed. Writing "
-        "SIMULATED scores (binding-derived plus seeded noise), not PredIG output.",
+        "[PredIG Wrapper] WARNING: Docker is unavailable or the PredIG input could not "
+        "be built. Writing SIMULATED scores (seeded noise, binding-derived only where a "
+        "binding column matches an allele name), not PredIG output.",
         file=sys.stderr,
     )
     np.random.seed(42)
