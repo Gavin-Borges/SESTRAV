@@ -779,15 +779,17 @@ def score_immunogenicity(
 
     _apply_thresholds(features_df, model_dir, thresholds_path)
 
-    # Use deterministic contiguous ranking (1..N) based on score ordering.
-    # Prefer calibrated_score when available (Platt calibration is monotonic,
-    # but boundary rounding can shift relative order for tied raw scores).
+    # Use deterministic contiguous ranking (1..N) based on score ordering: by
+    # calibrated_score when a calibrator was applied, else by the raw score.
     # Ties in calibrated_score are broken by the raw score, the scale the
     # immunogenic call is made on (_apply_thresholds). Isotonic calibration maps a
     # raw interval to one value, and the deployed calibrator's plateau around the
     # v5 threshold spans it, so ranking that plateau by peptide alone put uncalled
-    # rows above called ones. Calibration is monotone non-decreasing, so with this
-    # tie-break the called rows are always the top of the ranking.
+    # rows above called ones. With a monotone non-decreasing calibrator this
+    # tie-break makes the order the raw-score order, so the called rows are the
+    # top of the ranking. Every calibrator the repo's fitters write is one
+    # (IsotonicRegression, increasing, out_of_bounds="clip"); a legacy
+    # platt_calibrator.joblib fitted with a negative slope would not be.
     sort_by = ["immunogenicity_score", "peptide"]
     if "calibrated_score" in features_df.columns:
         sort_by.insert(0, "calibrated_score")
