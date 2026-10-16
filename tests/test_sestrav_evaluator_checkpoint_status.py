@@ -11,20 +11,26 @@ a requested checkpoint that was missing from one that was never asked for.
 
 Each arm is now reported on its own: `checkpoint_status` is "loaded",
 "absent", "failed" or "not_attempted"; `checkpoint_requested` is the path the
-caller passed, or null; `checkpoint_loaded` is that path only when it loaded;
-and `untrained_baseline` is true exactly when an initialized GNN scored without
-one. Paths are reported as given, never resolved, so the report carries no
-workstation path. The failure POLICY (warn and fall back, or raise) is
+caller passed (reduced as below), or null; `checkpoint_loaded` is that path only when it loaded;
+and `untrained_baseline` is true when the run built an initialized GNN with no
+checkpoint to load (a virus that then fell back to mock scores says so in its
+own `used_mock_fallback`). Both paths go through
+`src.provenance_paths.relative_source` - repo-relative inside the checkout,
+`external:<name>` outside it - so the report carries no workstation path
+whatever the caller passed. The failure POLICY (warn and fall back, or raise) is
 unchanged and is an owner decision (PC-7).
 """
 
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
 import torch
 
 from src.verify.sestrav_evaluator import HAS_PYG, run_evaluation_pipeline
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 pytestmark = pytest.mark.skipif(not HAS_PYG, reason="requires torch_geometric")
 
@@ -46,11 +52,15 @@ def _run(tmp_path, **kwargs):
     report = run_evaluation_pipeline(_targets(tmp_path), results_dir=tmp_path / "results", **kwargs)
     written = json.loads((tmp_path / "results" / "validation_report.json").read_text())
     assert written["metadata"] == report["metadata"], "the JSON on disk must carry the same fields"
+    recorded = json.dumps(written["metadata"])
+    for spelling in {str(tmp_path), tmp_path.as_posix(), json.dumps(str(tmp_path))[1:-1]}:
+        assert spelling not in recorded, "a workstation path reached the report"
     return report["metadata"]
 
 
-def test_no_checkpoint_is_reported_as_an_untrained_baseline(tmp_path):
+def test_no_checkpoint_is_reported_as_an_untrained_baseline(tmp_path, capsys):
     meta = _run(tmp_path, use_mock=False)
+    assert "GNN checkpoint: absent (untrained baseline)" in capsys.readouterr().out
     assert meta["checkpoint_status"] == "absent"
     assert meta["checkpoint_requested"] is None
     assert meta["checkpoint_loaded"] is None
@@ -62,9 +72,17 @@ def test_a_requested_checkpoint_that_is_missing_is_named(tmp_path):
     missing = tmp_path / "not_there.pth"
     meta = _run(tmp_path, model_checkpoint_path=missing, use_mock=False)
     assert meta["checkpoint_status"] == "absent"
-    assert meta["checkpoint_requested"] == missing.as_posix()
+    assert meta["checkpoint_requested"] == "external:not_there.pth"
     assert meta["checkpoint_loaded"] is None
     assert meta["untrained_baseline"] is True
+
+
+def test_a_requested_checkpoint_inside_the_checkout_is_recorded_repo_relative(tmp_path):
+    absent = REPO_ROOT / "models" / "gnn" / "no_such_checkpoint_for_this_test.pth"
+    assert not absent.exists()
+    meta = _run(tmp_path, model_checkpoint_path=absent, use_mock=False)
+    assert meta["checkpoint_status"] == "absent"
+    assert meta["checkpoint_requested"] == "models/gnn/no_such_checkpoint_for_this_test.pth"
 
 
 def test_a_loaded_checkpoint_is_named_and_not_a_baseline(tmp_path):
@@ -74,8 +92,8 @@ def test_a_loaded_checkpoint_is_named_and_not_a_baseline(tmp_path):
     torch.save({"model_state_dict": StructuralGNN().state_dict()}, ckpt)  # nosec B614
     meta = _run(tmp_path, model_checkpoint_path=ckpt, use_mock=False)
     assert meta["checkpoint_status"] == "loaded"
-    assert meta["checkpoint_requested"] == ckpt.as_posix()
-    assert meta["checkpoint_loaded"] == ckpt.as_posix()
+    assert meta["checkpoint_requested"] == "external:gnn.pth"
+    assert meta["checkpoint_loaded"] == "external:gnn.pth"
     assert meta["untrained_baseline"] is False
     assert meta["use_mock_fallback"] is False
 
@@ -85,7 +103,7 @@ def test_an_incompatible_checkpoint_is_reported_as_failed(tmp_path):
     torch.save({"model_state_dict": {"not_a_layer.weight": torch.zeros(1)}}, ckpt)  # nosec B614
     meta = _run(tmp_path, model_checkpoint_path=ckpt, use_mock=False)
     assert meta["checkpoint_status"] == "failed"
-    assert meta["checkpoint_requested"] == ckpt.as_posix()
+    assert meta["checkpoint_requested"] == "external:wrong_shape.pth"
     assert meta["checkpoint_loaded"] is None
     assert meta["untrained_baseline"] is False
     assert meta["use_mock_fallback"] is True

@@ -233,8 +233,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and nothing else in `validation_report.json` said the weights were random. A requested
   checkpoint that did not exist was reported the same way as one never asked for. The
   report's metadata now carries `checkpoint_status` ("loaded", "absent", "failed" or
-  "not_attempted"), `checkpoint_requested`, `checkpoint_loaded` (both as given, never
-  resolved, so no workstation path is written) and `untrained_baseline`. The terminal
+  "not_attempted"), `checkpoint_requested`, `checkpoint_loaded` (both through
+  `relative_source`: repo-relative inside the checkout, `external:<name>` outside it, so no
+  workstation path is written) and `untrained_baseline`. The terminal
   report prints the status. What happens on a failed load is unchanged: it still warns and
   falls back to mock scores. `tests/test_sestrav_evaluator_checkpoint_status.py` covers each
   arm; all five of its tests fail on the previous code.

@@ -19,6 +19,8 @@ from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
+from src.provenance_paths import relative_source
+
 try:
     import torch
 except ImportError as _e:
@@ -426,11 +428,14 @@ def run_evaluation_pipeline(
     # for it. checkpoint_status is "loaded", "absent" (none requested, or the
     # requested file does not exist), "failed" (the GNN could not be built or
     # the checkpoint did not load, so mock scores follow) or "not_attempted"
-    # (mock requested, or no PyG). Paths are reported as given, never resolved,
-    # so the report carries no workstation path.
+    # (mock requested, or no PyG). A recorded path goes through relative_source:
+    # repo-relative inside the checkout, "external:<name>" outside it, so the
+    # report carries no workstation path whatever the caller passed.
     model = None
     checkpoint_status = "not_attempted"
-    checkpoint_requested = model_checkpoint_path.as_posix() if model_checkpoint_path else None
+    checkpoint_requested = (
+        relative_source(model_checkpoint_path.resolve()) if model_checkpoint_path else None
+    )
     checkpoint_loaded: Optional[str] = None
     if HAS_PYG and not use_mock:
         try:
