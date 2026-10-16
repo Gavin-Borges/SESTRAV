@@ -16,6 +16,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
+### Fixed
+- **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
+  `scripts/fetch_human_proteome.py` actually writes.** The fallback was
+  `data/proteomes/human_reference.fasta`, a path no script produces and no document
+  mentions; it occurred in exactly two tracked files, `pipeline.smk` itself and the
+  exemption comment in `tests/test_pipeline_defaults_exist_in_a_clone.py`. The fetch
+  script's `DEFAULT_OUTPUT`, the regeneration recipe in `data/README.md` and the
+  "download independently, do not commit" block in `.gitignore` all name
+  `data/proteomes/human_uniprot_UP000005640.fasta` instead. So a reader who ran the
+  documented download and then asked for `data/hard_decoys.csv` still got
+  `MissingInputException` in rule `generate_hard_decoys`, naming a file they had never
+  been told to create. `rule generate_hard_decoys` is not reached by the default target,
+  so neither Snakemake dry-run leg could see this and the shipped
+  `snakemake --dry-run --cores 1` was exit 0 throughout; `reference_proteome` is also a
+  deliberate entry in that test's `KNOWN_UNTRACKED_DEFAULTS`, which exempts it from the
+  tracked-file check because a 100 MB proteome is a download rather than a repository
+  artifact. **That exemption was read as covering the name as well as the bytes, and it
+  never did.** A new test pins the pipeline fallback to the fetch script's
+  `DEFAULT_OUTPUT`, parsed from the source with `ast` rather than imported, so a test can
+  never be one assignment away from reaching the network. No behaviour changes for anyone
+  who sets `reference_proteome` in `config.yaml`; the shipped `config.yaml` does not set
+  it, which is why the fallback was load-bearing.
+
 ### Changed
 - **`tools/check_hash_pins.py` now rejects options that change where packages come from,
   instead of skipping every option line.** `--extra-index-url`, `--trusted-host`,
