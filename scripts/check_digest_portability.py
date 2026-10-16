@@ -22,6 +22,10 @@ PATTERNS = (
     # data/immunogenicity_dataset_v5_schema.json and left the manifest behind.
     # CHANGELOG.md records this same manifest carrying a stale digest once before.
     "*zenodo_manifest*.json",
+    # The conformal coverage report pins the sha256 of the OOF file it was fitted
+    # on (source_oof). It was out of scope, and that digest was the CRLF form of
+    # models/v5/rf_oof_predictions.csv, which no LF blob reproduces.
+    "*conformal_coverage*.json",
 )
 DIGEST = re.compile(r"[0-9a-fA-F]{64}")
 CATEGORIES = ("PORTABLE", "WINDOWS_ONLY", "MISMATCH", "MISSING", "UNRESOLVED", "EXEMPT")
