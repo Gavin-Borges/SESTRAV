@@ -511,9 +511,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **The standardized predictor outputs now say when a PRIME or PredIG score was simulated.**
   The default Snakemake target needs `results/{proteome_id}_standardized_outputs.csv`, so it
   runs `scripts/run_prime_wrapper.py` and `scripts/run_predig_wrapper.py`. When PRIME, or
-  Docker for PredIG, is missing or fails, those wrappers write seeded noise and still exit 0,
-  and `scripts/standardize_outputs.py` merged it with nothing to tell it from real tool
-  output. Each simulated row now carries `simulated=1`, the standardized CSV gains
+  Docker for PredIG, is missing or fails, those wrappers write seeded noise and still exit 0
+  (PRIME's is derived from the binding input, PredIG's is noise around a constant under the
+  default pipeline), and `scripts/standardize_outputs.py` merged it with nothing to tell it
+  from real tool output. Each simulated row now carries `simulated=1`, the standardized CSV gains
   `prime_simulated` and `predig_simulated` (1 on every row of a file its wrapper marked;
   appended, so the existing columns keep their positions), and all three scripts warn on
   stderr. A 0 means the file carries no simulation mark, not that the scores are known to be
