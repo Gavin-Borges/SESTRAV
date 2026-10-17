@@ -563,6 +563,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **`tools/update_dependencies.py` now resolves every lockfile against PyPI alone, so a
+  developer's uv settings can no longer route a recompile through another index or
+  change what it writes.** The tool named no index and passed its whole environment to
+  uv. Measured on uv 0.12.0 by recompiling the `ci-ruff` lock through the tool with a
+  dead index injected one route at a time, ten routes reached it, each exiting 2:
+  `UV_DEFAULT_INDEX`, `UV_INDEX_URL`, `UV_EXTRA_INDEX_URL`, `UV_INDEX`, `UV_FIND_LINKS`,
+  `UV_CONFIG_FILE`, a user-level `uv.toml`, a `UV_CONSTRAINT` file carrying an
+  `--extra-index-url` or `--find-links` line, and a `UV_OVERRIDE` file carrying an
+  `--extra-index-url` line. `UV_CUSTOM_COMPILE_COMMAND` rewrote the lock header, and
+  `UV_EXCLUDE_NEWER` and `UV_WORKING_DIR` each made the run fail. uv now runs with every
+  `UV_*` variable dropped except six that cannot change what it resolves
+  (`UV_CACHE_DIR`, `UV_HTTP_TIMEOUT`, `UV_NATIVE_TLS`, `UV_NO_CACHE`, `UV_NO_PROGRESS`,
+  `UV_SYSTEM_CERTS`), and with `UV_NO_CONFIG=1`, which stops it discovering a `uv.toml`.
+  The list names what is kept rather than what is dropped because uv adds variables like
+  these from release to release, and a drop-list would go stale; a test drops a `UV_*`
+  name the tool has never heard of. The `--no-config` flag was not used because uv
+  writes it into every lockfile header. The argv also gains
+  `--default-index https://pypi.org/simple`, so a command printed by `--dry-run` and run
+  by hand still names PyPI; that flag rather than `--index-url`, because `--index-url`
+  outranks `UV_INDEX_URL` but not `UV_DEFAULT_INDEX`, while `--default-index` outranks
+  both. uv leaves it out of the header, so no lockfile changes: the same recompile under
+  all fourteen routes tried (the thirteen above and a `UV_BUILD_CONSTRAINT` file, which
+  changed nothing on the old tool either) now exits 0 with the lock byte-identical, and
+  `UV_CACHE_DIR` is still honoured. The repo has no `uv.toml` and no `[tool.uv]` table,
+  and a test fails if one is added, since `UV_NO_CONFIG` would ignore it. Thirteen new
+  tests; ten mutants, each removing one part, all make them fail.
 - **32 provenance, run-metadata and report writers now record a caller-supplied path
   through one function, `src.provenance_paths.relative_source`, instead of as given or
   through a reduction that could keep a username.** The repo's privacy mandate forbids
