@@ -538,6 +538,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **Every tracked hash-pinned lock can now be audited for published advisories, not only
+  `environments/requirements.lock`.** CVE-2026-59951 was published on 2026-10-15 against
+  `mcp` 1.29.0, already pinned in `environments/requirements-semgrep.txt`, and no CI job that
+  can fail saw it: `tools/check_lockfile_advisories.py` judged the production lock alone,
+  `.github/workflows/dependency-review.yml` judges only the versions a pull request changes,
+  and the installed-set `pip-audit` sees only what its own runner installed. The new
+  `tools/audit_all_locks.py` runs `pip-audit -r <lock> --no-deps --disable-pip` (no resolver,
+  no install, no `--ignore-vuln`) over every manifest `tools/check_hash_pins.py` treats as
+  hash-pinned, 16 on 2026-10-17, and judges each report with that gate's own policy. A report
+  that skips a pinned package, or omits one, is a tooling failure (exit 2), never a pass, and a
+  new test derives the lock population independently from git and fails if any tracked lock
+  goes unaudited. Acceptances in `environments/accepted_advisories.toml` are now scoped per
+  lock by an optional `lock` field; an entry without one still covers
+  `environments/requirements.lock` only, as every entry did before, so accepting an advisory
+  for one lock never covers the same pin in another. Package names now compare in PEP 503
+  form, so a lock pin spelled with a dot or with extras can no longer read as out of scope;
+  no tracked lock pins either form today. Run on 2026-10-17 over all 16 locks, it reports
+  exactly one unaccepted finding, CVE-2026-59951 on `mcp` in the semgrep lock, and exits 1;
+  accepting or fixing that finding is a separate decision, and no acceptance was added.
 - **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
   references, which it used to pass.** Each hands pip something the gate never inspects, and
   each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included
