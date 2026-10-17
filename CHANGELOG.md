@@ -239,6 +239,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   report prints the status. What happens on a failed load is unchanged: it still warns and
   falls back to mock scores. `tests/test_sestrav_evaluator_checkpoint_status.py` covers each
   arm; all six of its tests fail on the previous code.
+- **`models/v5/conformal_coverage_mode31.json` records a source digest that reproduces from
+  the Git blob, and the digest gate now checks it.** Its `source_oof.sha256` was the digest of
+  a CRLF working copy of `models/v5/rf_oof_predictions.csv`, which `.gitattributes` pins to
+  LF, so no clone's blob matched it. The same digest pair was corrected for a sibling carrier
+  under claims register D24-resid; this carrier was missed because
+  `scripts/check_digest_portability.py` did not scan the coverage report. The recorded value
+  is now the LF content's digest, and the report's own entry in
+  `models/v5/model_artifact_checksums.json` follows the edit. `scripts/fit_conformal_calibrator.py`
+  now hashes the source with CRLF read as LF and writes the report with LF line endings, so a
+  run from a CRLF checkout records the same digests as one from a Linux clone. The gate's
+  patterns now include `*conformal_coverage*.json`; before this change it would have called
+  the old value WINDOWS_ONLY. No fitted number changes.
 - **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
   `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
   renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
