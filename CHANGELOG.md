@@ -555,6 +555,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   there. The flag reads the loaded calibrator's own groups, so it always describes the
   calibrator that produced the interval. Intervals are unchanged; the flag says which ones
   their validity statement does not cover, and stage 4 prints the count.
+- **The Snakemake scoring rule now forwards `calibration_path` and `mc_dropout`, which it
+  read from `config.yaml` and dropped.** `rule score_immunogenicity` passed Stage 4 only
+  `model_path`, `thresholds_path` and `freeze_mode`, so setting either of the other two was a
+  silent no-op under Snakemake while `pipeline.py` honoured both: calibration fell back to a
+  calibrator found beside the model, and `mc_dropout: true` produced no MC Dropout pass at
+  all, though `docs/model_cards/ann_30feature.md` tells a reader to enable it by setting
+  exactly that key. This is the defect `thresholds_path` had until it was fixed, and the
+  mirror of `tests/test_pipeline_forwards_freeze_mode.py`, where `pipeline.py` was the side
+  that dropped a key. Both defaults are unchanged (`mc_dropout: false`, and the shipped
+  `calibration_path` names the file the fallback already resolved), so a default run scores
+  as before, and a run that sets `calibration_path` now gets the calibrator it named.
+  **`mc_dropout: true` still runs no MC Dropout pass with the shipped model**: Stage 4
+  honours the flag only on the PyTorch branch, and `config.yaml`'s `model_path` is a
+  `.joblib`, so the key also needs a `.pt` model. The flag is now wired rather than
+  discarded; making the ANN model card's instruction work end to end on the shipped
+  configuration is a separate question.
+  `tests/test_snakemake_score_rule_forwards_config.py` pins every scoring key through the
+  rule and the script.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
   peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
   measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
