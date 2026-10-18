@@ -92,6 +92,37 @@ def _check_relative_path(key, value):
             _reject(key, value, "path segments are restricted to [A-Za-z0-9_.-]")
 
 
+_TRUE_SPELLINGS = frozenset({"true", "1", "yes"})
+_FALSE_SPELLINGS = frozenset({"false", "0", "no"})
+
+
+def _config_flag(key):
+    """Read a boolean config key, which Snakemake may deliver as a bool, an int or a str.
+
+    `--config freeze_mode=false` arrives as the str 'false' (only the exact spellings
+    True and False become bools), and so does a quoted YAML value, so a bare truthiness
+    test on config.get() switched the flag ON. The accepted spellings are the ones
+    scripts/stage4.py's _parse_flag accepts; anything else is rejected, not defaulted.
+    """
+    value = config.get(key, False)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        spelling = value.lower()
+        if spelling in _TRUE_SPELLINGS:
+            return True
+        if spelling in _FALSE_SPELLINGS:
+            return False
+    _reject(
+        key,
+        value,
+        f"must be a boolean: use true/false, yes/no or 1/0 in any case, "
+        f"for example snakemake --config {key}=false",
+    )
+
+
 def _validate_config(cfg):
     for key in _ALLELE_KEYS:
         if key in cfg:
@@ -332,7 +363,7 @@ rule full_validation_report:
         model_dir = lambda w, input: os.path.dirname(input.model),
         dataset_mode = config.get("dataset_mode", "expansion_v4"),
         dataset_version = config.get("dataset_version", "4.0.0"),
-        freeze_flag = "--freeze-mode" if config.get("freeze_mode", False) else ""
+        freeze_flag = "--freeze-mode" if _config_flag("freeze_mode") else ""
     log:
         "logs/full_validation_report.log"
     benchmark:
@@ -371,7 +402,7 @@ rule extract_verify_data:
             "results/verify/hcv_verify.csv"
         ]
     params:
-        mock_flag = "--mock" if config.get("mock_ingestion", False) else ""
+        mock_flag = "--mock" if _config_flag("mock_ingestion") else ""
     log:
         "logs/extract_verify_data.log"
     benchmark:
@@ -394,7 +425,7 @@ rule evaluate_verify_gnn:
         report = "results/verify/validation_report.json"
     params:
         checkpoint = config.get("gnn_checkpoint", ""),
-        mock_flag = "--mock" if config.get("mock_evaluation", False) else ""
+        mock_flag = "--mock" if _config_flag("mock_evaluation") else ""
     log:
         "logs/evaluate_verify_gnn.log"
     benchmark:
