@@ -726,6 +726,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   carry this repository's review rules for Snakemake, `torch.load`, `load_verified_joblib`,
   workflows and the local hooks. Every key was checked against
   `coderabbit.ai/integrations/schema.v2.json` on 2026-10-14.
+- **The `sestrav-require-verified-joblib-load` semgrep rule now catches a checksum opt-out
+  that is not spelled as the literal `False`.** It matched `required_checksum=False`,
+  `read_verified_bytes(..., required=False)` and a positional `False`, so a flag passed as
+  a name or an expression (`required_checksum=strict`), as the third positional argument
+  (`load_verified_joblib(path, None, strict)`), or inside an unpacked mapping
+  (`**options`) passed the blocking scan while it can still be `False` at run time. The
+  rule now flags any flag but the literal `True`, for both functions; a call that passes
+  no flag stays clean, because the default is `True`, and `load_verified_joblib`'s own
+  body stays exempt. `docs/threat_model.md`'s T2 row says so. Measured with semgrep
+  1.179.0, CI's pin: the fixtures gain seven `ruleid:` and three `ok:` lines, and across
+  every rule's fixtures `scripts/check_semgrep_rule_fixtures.py` now matches 23 findings
+  to 23 `ruleid:` and 16 `ok:` annotations (16, 16 and 13 before); the previous rule
+  reports 5 of this rule's 12 `ruleid:` lines, missing all seven new ones; and the
+  blocking scan, `semgrep scan --config semgrep-rules/ --error`, reports 0
+  findings over 241 files, so no existing caller is affected.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
