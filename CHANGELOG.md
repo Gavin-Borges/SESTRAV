@@ -17,6 +17,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **PredIG's recombinant input now builds from the binding CSV `rule run_predig`
+  actually passes it, so the default pipeline attempts real PredIG instead of always
+  simulating.** `scripts/run_predig_wrapper.py` handed stage 2's
+  `results/{proteome_id}_binding.csv` to `build_recombinant_table` as the peptide
+  metadata file, and that function selected `peptide`, `proteome_id` and `virus` from
+  it unconditionally. `functions/stage2_mhc_binding_prediction.py` writes neither of
+  the last two, so the selection raised `KeyError`, the wrapper caught it as "failed
+  to build recombinant input", and `predig_input_built` was False on every run. With
+  Docker installed and working the wrapper still took the simulated branch, which the
+  wrapper's own comment had recorded as defect (1) since the simulated flag landed.
+  `build_recombinant_table` now reads only the metadata columns the CSV has and takes
+  an optional `proteome_id` from its caller; a `proteome_id` column still wins where
+  the CSV has one, so the external-validation route through the module's own `main()`
+  is unchanged. The wrapper gained an optional `--proteome-id`, and `rule run_predig`
+  passes `{wildcards.proteome_id:q}`, quoted like every other interpolation in
+  `standardize_outputs.smk`. Behaviour change: with Docker installed the default
+  pipeline now ATTEMPTS PredIG; with Docker absent, or called without the new flag on
+  a stage-2 CSV, it still simulates and marks every row `simulated=1`, and the build
+  failure is now a `ValueError` naming the missing column rather than a bare
+  `KeyError`. The second defect that comment records, `hla_cols` never matching stage
+  2's wide `bind_A0201`-style columns, is unchanged and still noted there.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document

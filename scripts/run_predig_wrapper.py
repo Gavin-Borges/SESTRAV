@@ -26,6 +26,14 @@ def main():
     parser.add_argument("--binding-csv", required=True, help="Input MHC binding stage CSV")
     parser.add_argument("--output", required=True, help="Output PredIG raw CSV file")
     parser.add_argument("--alleles", required=True, help="Comma-separated alleles list")
+    # Optional, so existing invocations keep working. Stage 2's binding CSV carries no
+    # proteome_id column, so without this the recombinant input cannot be built at all
+    # and this wrapper simulates; see the note above the fallback below.
+    parser.add_argument(
+        "--proteome-id",
+        default=None,
+        help="Proteome id for the binding CSV (rule run_predig passes its wildcard)",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.binding_csv):
@@ -95,6 +103,7 @@ def main():
             validation_input_path=args.binding_csv,
             proteome_dir=proteome_dir,
             output_path=temp_predig_input_abs,
+            proteome_id=args.proteome_id,
         )
         predig_input_built = True
     # build_recombinant_table does file I/O (OSError) and DataFrame column
@@ -177,14 +186,19 @@ def main():
     # scripts/standardize_outputs.py turns into predig_simulated in the standardized
     # CSV; real PredIG output has no such column.
     #
-    # Two reasons the default pipeline reaches this branch with Docker installed, and
-    # why bind_val below usually stays at its 0.5 default, so the score is noise around
-    # a constant rather than binding-derived. Both predate the simulated flag and
-    # neither is fixed here. (1) build_recombinant_table selects peptide, proteome_id
-    # and virus, and functions/stage2_mhc_binding_prediction.py writes none of the last
-    # two, so it raises KeyError and predig_input_built is False. (2) hla_cols matches a
-    # column only if it is named HLA-... or exactly like an allele, while stage 2 writes
-    # wide bind_A0201-style columns, so bind_map stays empty.
+    # Why bind_val below usually stays at its 0.5 default, so the simulated score is
+    # noise around a constant rather than binding-derived: hla_cols matches a column
+    # only if it is named HLA-... or exactly like an allele, while stage 2 writes wide
+    # bind_A0201-style columns, so bind_map stays empty. That predates the simulated
+    # flag and is not fixed here (to-do PC-PG2).
+    #
+    # A second reason the default pipeline reached this branch with Docker installed is
+    # now FIXED: build_recombinant_table selected peptide, proteome_id and virus, and
+    # functions/stage2_mhc_binding_prediction.py writes none of the last two, so it
+    # raised KeyError and predig_input_built was always False. The proteome id now
+    # arrives by --proteome-id, which rule run_predig passes from its wildcard. Called
+    # without that flag on a stage-2 CSV the build still fails, ValueError now rather
+    # than KeyError, and this branch is still reached.
     print(
         "[PredIG Wrapper] WARNING: Docker is unavailable or the PredIG input could not "
         "be built. Writing SIMULATED scores (seeded noise, binding-derived only where a "
