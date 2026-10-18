@@ -27,6 +27,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.artifact_integrity import sha256_file, write_provenance_sidecar  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 from src.evaluate_metrics import evaluate  # noqa: E402
 from src.features import (  # noqa: E402
     ALLELE_CONTACT_WEIGHTS,
@@ -437,9 +438,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         output,
         script="scripts/compute_mode51_allele_identity_discriminator.py",
         extra={
-            "training_data": data_path.as_posix(),
+            "training_data": relative_source(data_path.as_posix()),
             "training_data_sha256": sha256_file(data_path),
-            "binding_matrix": binding_path.as_posix(),
+            "binding_matrix": relative_source(binding_path.as_posix()),
             "binding_matrix_sha256": sha256_file(binding_path),
             "git_sha": git_sha,
             "python": platform.python_version(),

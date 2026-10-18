@@ -21,6 +21,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file
+from src.provenance_paths import relative_source
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -310,7 +311,7 @@ if __name__ == "__main__":
             with open(out_dir / "dataset_qc.json", "w") as f:
                 json.dump(
                     {
-                        "dataset": args.check_dataset,
+                        "dataset": relative_source(args.check_dataset),
                         "checksum": checksum,
                         "status": "PASSED",
                         "positives": int((df["label"] == 1).sum()),

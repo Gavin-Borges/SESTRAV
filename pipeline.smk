@@ -197,7 +197,10 @@ rule score_immunogenicity:
         "results/{proteome_id}_score_distribution.png"
     params:
         model_path = config.get("model_path", ""),
-        freeze_mode = config.get("freeze_mode", False)
+        thresholds_path = config.get("thresholds_path", ""),
+        calibration_path = config.get("calibration_path", ""),
+        freeze_mode = config.get("freeze_mode", False),
+        mc_dropout = config.get("mc_dropout", False)
     log:
         "logs/score_immunogenicity/{proteome_id}.log"
     benchmark:
@@ -209,8 +212,18 @@ rule score_immunogenicity:
 
 
 rule generate_hard_decoys:
+    # The default names the file scripts/fetch_human_proteome.py actually writes (its
+    # DEFAULT_OUTPUT) and that data/README.md documents fetching. It is gitignored by
+    # .gitignore's "Large reference FASTA databases - download independently, do not
+    # commit" block, so it is absent from a fresh clone; this rule is not reached by the
+    # default target, so that costs the documented dry-run nothing.
+    #
+    # The previous default named data/proteomes/human_reference.fasta, a path no script
+    # writes and no document mentions, so requesting data/hard_decoys.csv died with
+    # MissingInputException even for a reader who had just run the documented download.
+    # tests/test_pipeline_defaults_exist_in_a_clone.py pins these two names together.
     input:
-        fasta = config.get("reference_proteome", "data/proteomes/human_reference.fasta")
+        fasta = config.get("reference_proteome", "data/proteomes/human_uniprot_UP000005640.fasta")
     output:
         "data/hard_decoys.csv"
     params:
@@ -245,15 +258,15 @@ rule qc_dataset:
         "{sys.executable:q} src/data_curation_qc.py --check-dataset {input.dataset:q} --config config.yaml > {log:q} 2>&1"
 
 
+# src/train_ann.py builds mode 21 (sequence-only) or 50 and nothing else. This rule used
+# to pass config's feature_mode (31) and the binding matrix, which trained the 21 columns
+# under a mode-31 request and read no matrix; it now asks for what it trains.
 rule train_ann:
     input:
         data = TRAINING_DATASET,
-        qc = "results/qc/dataset_qc.json",
-        binding_matrix = config.get("binding_matrix_path", "models/peptide_binding_matrix_v4.csv")
+        qc = "results/qc/dataset_qc.json"
     output:
         "models/ann/ann_model.pth"
-    params:
-        feature_mode = config.get("feature_mode", 31)
     log:
         "logs/train_ann.log"
     benchmark:
@@ -261,7 +274,7 @@ rule train_ann:
     conda:
         "environment.yml"
     shell:
-        "{sys.executable:q} -m src.train_ann --data {input.data:q} --model-dir models/ann --feature-mode {params.feature_mode:q} --binding-matrix {input.binding_matrix:q} > {log:q} 2>&1"
+        "{sys.executable:q} -m src.train_ann --data {input.data:q} --model-dir models/ann --feature-mode 21 > {log:q} 2>&1"
 
 
 rule train_gnn:
