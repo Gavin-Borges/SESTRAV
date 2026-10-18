@@ -198,7 +198,9 @@ rule score_immunogenicity:
     params:
         model_path = config.get("model_path", ""),
         thresholds_path = config.get("thresholds_path", ""),
-        freeze_mode = config.get("freeze_mode", False)
+        calibration_path = config.get("calibration_path", ""),
+        freeze_mode = config.get("freeze_mode", False),
+        mc_dropout = config.get("mc_dropout", False)
     log:
         "logs/score_immunogenicity/{proteome_id}.log"
     benchmark:
@@ -210,8 +212,18 @@ rule score_immunogenicity:
 
 
 rule generate_hard_decoys:
+    # The default names the file scripts/fetch_human_proteome.py actually writes (its
+    # DEFAULT_OUTPUT) and that data/README.md documents fetching. It is gitignored by
+    # .gitignore's "Large reference FASTA databases - download independently, do not
+    # commit" block, so it is absent from a fresh clone; this rule is not reached by the
+    # default target, so that costs the documented dry-run nothing.
+    #
+    # The previous default named data/proteomes/human_reference.fasta, a path no script
+    # writes and no document mentions, so requesting data/hard_decoys.csv died with
+    # MissingInputException even for a reader who had just run the documented download.
+    # tests/test_pipeline_defaults_exist_in_a_clone.py pins these two names together.
     input:
-        fasta = config.get("reference_proteome", "data/proteomes/human_reference.fasta")
+        fasta = config.get("reference_proteome", "data/proteomes/human_uniprot_UP000005640.fasta")
     output:
         "data/hard_decoys.csv"
     params:
