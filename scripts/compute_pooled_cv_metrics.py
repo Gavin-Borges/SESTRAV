@@ -110,13 +110,15 @@ def _sidecar_key(path: pathlib.Path) -> str:
     pre-commit Gate 4 - which, fittingly, rejected the first draft of this very docstring
     for quoting such a path as an example. Mirrors the normalization in
     `scripts/compute_pooled_honest_metric.py`.
+
+    An input OUTSIDE the checkout used to fall back to its resolved absolute path,
+    which is the home-directory leak described above. It is now recorded through
+    `src.provenance_paths.relative_source`, as `external:` plus its file name.
     """
-    resolved = path.resolve()
-    try:
-        rel: pathlib.Path = resolved.relative_to(REPO_ROOT)
-    except ValueError:
-        rel = resolved
-    return str(rel).replace("\\", "/")
+    # main() has already put REPO_ROOT on sys.path.
+    from src.provenance_paths import relative_source
+
+    return relative_source(path.resolve(), root=REPO_ROOT)
 
 
 def write(rows: Sequence[Row], out_path: pathlib.Path) -> pathlib.Path:

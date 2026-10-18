@@ -19,6 +19,8 @@ from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
+from src.provenance_paths import relative_source
+
 try:
     import torch
 except ImportError as _e:
@@ -420,8 +422,21 @@ def run_evaluation_pipeline(
 
     device = torch.device("cuda" if torch.cuda.is_available() and not use_mock else "cpu")
 
-    # Instantiate/load GNN
+    # Instantiate/load GNN. What happened to the checkpoint is recorded per arm,
+    # because use_mock_fallback cannot say it: an initialized GNN with no
+    # checkpoint produces real (untrained) model scores, so that flag is False
+    # for it. checkpoint_status is "loaded", "absent" (none requested, or the
+    # requested file does not exist), "failed" (the GNN could not be built or
+    # the checkpoint did not load, so mock scores follow) or "not_attempted"
+    # (mock requested, or no PyG). A recorded path goes through relative_source:
+    # repo-relative inside the checkout, "external:<name>" outside it, so the
+    # report carries no workstation path whatever the caller passed.
     model = None
+    checkpoint_status = "not_attempted"
+    checkpoint_requested = (
+        relative_source(model_checkpoint_path.resolve()) if model_checkpoint_path else None
+    )
+    checkpoint_loaded: Optional[str] = None
     if HAS_PYG and not use_mock:
         try:
             model = StructuralGNN().to(device)
@@ -432,7 +447,10 @@ def run_evaluation_pipeline(
                     model.load_state_dict(checkpoint["model_state_dict"])
                 else:
                     model.load_state_dict(checkpoint)
+                checkpoint_status = "loaded"
+                checkpoint_loaded = checkpoint_requested
             else:
+                checkpoint_status = "absent"
                 logger.info(
                     "No pre-trained GNN checkpoint found. Evaluating initialized structural GNN baseline."
                 )
@@ -440,6 +458,7 @@ def run_evaluation_pipeline(
             logger.warning(
                 f"Could not load/initialize GNN model: {e}. Falling back to mock calculations."
             )
+            checkpoint_status = "failed"
             model = None
 
     report: Dict[str, Any] = {
@@ -448,6 +467,10 @@ def run_evaluation_pipeline(
             "device": str(device),
             "use_mock_fallback": use_mock or (model is None),
             "has_pyg_compiled": HAS_PYG,
+            "checkpoint_status": checkpoint_status,
+            "checkpoint_requested": checkpoint_requested,
+            "checkpoint_loaded": checkpoint_loaded,
+            "untrained_baseline": checkpoint_status == "absent",
         },
         "viral_families": {},
     }
@@ -498,6 +521,8 @@ def run_evaluation_pipeline(
     print("=" * 60)
     print(f"Device: {report['metadata']['device']}")
     print(f"Mock/Fallback Mode: {report['metadata']['use_mock_fallback']}")
+    untrained = " (untrained baseline)" if report["metadata"]["untrained_baseline"] else ""
+    print(f"GNN checkpoint: {report['metadata']['checkpoint_status']}{untrained}")
     print("-" * 60)
 
     for name, res in report["viral_families"].items():

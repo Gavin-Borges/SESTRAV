@@ -59,6 +59,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 from src.features import ALLELE_CONTACT_WEIGHTS  # noqa: E402
 
 DATASET_SRC = "data/immunogenicity_dataset_v5.csv"
@@ -140,7 +141,7 @@ def _write_sidecar(output_path: str) -> str:
     payload = {
         "generated_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(),
         "script": "scripts/compute_d29_corpus_composition.py",
-        "artifact": output_path,
+        "artifact": relative_source(output_path),
         "sha256": _sha256_file(output_path),
         "inputs": {
             DATASET_SRC: _sha256_file(DATASET_SRC),

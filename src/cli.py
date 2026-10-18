@@ -240,6 +240,32 @@ def _read_config() -> dict:
     return {}
 
 
+def _configured_thresholds_for(model_path: str, cfg: dict | None = None) -> str | None:
+    """config.yaml's thresholds_path, but only when ``model_path`` IS config's model.
+
+    A threshold belongs to the model it was picked for, so config's is handed to
+    Stage 4 only when --model resolves to the same file as config's model_path
+    (both relative to the installation, as _read_config is). For any other model
+    this returns None and Stage 4 uses the optimal_thresholds.json beside it. Without
+    this, `sestrav predict --model models/rf_31feature_integrated.joblib` used the
+    file beside that model, picked on the pre-D15 ungrouped OOF, while pipeline.py
+    and the Snakemake rule used the configured, peptide-grouped one.
+    """
+    cfg = _read_config() if cfg is None else cfg
+    configured_model = cfg.get("model_path")
+    thresholds = cfg.get("thresholds_path")
+    if not configured_model or not thresholds:
+        return None
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    configured_model = os.path.join(root, configured_model)
+    thresholds = os.path.join(root, thresholds)
+    try:
+        same_model = os.path.samefile(model_path, configured_model)
+    except OSError:
+        return None
+    return thresholds if same_model and os.path.isfile(thresholds) else None
+
+
 # ---------------------------------------------------------------------------
 # sestrav info
 # ---------------------------------------------------------------------------
@@ -358,7 +384,20 @@ def cmd_predict(args: argparse.Namespace) -> int:
     # the configured value; this keeps the two entry points honest about the same flag.
     freeze_mode = args.freeze_mode
     if freeze_mode is None:
-        freeze_mode = bool(_read_config().get("freeze_mode", False))
+        configured = _read_config().get("freeze_mode")
+        freeze_mode = bool(configured)
+        if configured is None:
+            # No value came from config: a non-editable install has no config.yaml at its
+            # installation root (and _read_config never falls back to the working
+            # directory); _read_config also returns no value when PyYAML is absent, and a
+            # config can be empty or lack the key or leave it null. (A malformed
+            # config.yaml raises before this point.) freeze_mode above is then the
+            # default, so say so rather than let it pass for a configured setting.
+            print(
+                "[sestrav predict] No freeze_mode value came from config.yaml (sestrav "
+                "reads it only from its installation root, never the working directory), "
+                "so freeze mode is off by default; pass --freeze-mode to turn it on."
+            )
     print(f"[sestrav predict] Freeze mode: {freeze_mode}")
     _require_conformal_calibrator(args, freeze_mode)
 
@@ -409,6 +448,7 @@ def cmd_predict(args: argparse.Namespace) -> int:
         features_df,
         proteome_id,
         model_path=args.model,
+        thresholds_path=_configured_thresholds_for(args.model),
         conformal=args.conformal,
         conformal_path=args.conformal_calibrator,
         freeze_mode=freeze_mode,
@@ -467,6 +507,43 @@ def cmd_validate(args: argparse.Namespace) -> int:
     print(f"[sestrav validate] Dataset     : {args.dataset}")
     print(f"[sestrav validate] Feature mode: {feature_mode}")
     print(f"[sestrav validate] CV folds    : {args.folds}")
+    # Both settings fall back silently when config supplies no value for the key: a
+    # non-editable install has no config.yaml at its installation root (and _read_config
+    # never falls back to the working directory); _read_config also returns no value when
+    # PyYAML is absent, and a config can be empty or lack the key or leave it null. (A
+    # malformed config.yaml raises before this point.)
+    #
+    # State the two fallbacks exactly, because they are not the same thing. The binding
+    # matrix falls back to no matrix at all. The feature mode falls back to "21" only
+    # where the KEY IS ABSENT, since that is the default of the cfg.get above: no
+    # config.yaml, PyYAML missing, an empty or comment-only file, or a file without the
+    # key. A key that is PRESENT but null returns None from cfg.get, and str(None) makes
+    # the mode the string "None", which train_models rejects outright (it is not in
+    # RECOGNIZED_FEATURE_MODES) rather than treating as 21. Both cases are a mode nobody
+    # configured, and "Feature mode: 21" reads exactly like a deliberate setting, so both
+    # get the note; neither is a behaviour this unit changes.
+    #
+    # Each note keys on that key's lookup returning no value, never on the value
+    # equalling the fallback, so a config asking for 21 stays silent; the values
+    # forwarded below are unchanged in every case. Both conditions test the config value
+    # with `is None`, not for falsiness, so a config that genuinely sets an empty or zero
+    # value has supplied a value and stays silent; the flag halves are falsy tests
+    # because an empty --feature-mode or --binding-matrix does not reach the run either.
+    if not args.feature_mode and cfg.get("feature_mode") is None:
+        print(
+            "[sestrav validate] No feature_mode value came from config.yaml (sestrav reads "
+            "it only from its installation root, never the working directory), so the "
+            "feature mode above is not a configured setting; validate's own fallback is 21, "
+            "while a feature_mode key left empty in config.yaml reaches training as the "
+            "string None and is rejected there. Pass --feature-mode to set it."
+        )
+    if not args.binding_matrix and cfg.get("binding_matrix_path") is None:
+        print(
+            "[sestrav validate] No binding_matrix_path value came from config.yaml "
+            "(sestrav reads it only from its installation root, never the working "
+            "directory), so this run has no binding matrix; every feature mode except 21 "
+            "needs one, and --binding-matrix PATH is the only other source."
+        )
 
     from src.train_classifier import train_models
 
@@ -658,7 +735,7 @@ def _build_validate_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to peptide binding matrix CSV (required for mode 30+)",
+        help="Path to peptide binding matrix CSV (required for every feature mode except 21)",
     )
     p.add_argument(
         "--model-dir",
@@ -794,7 +871,9 @@ Examples:
     p_validate = subparsers.add_parser("validate", help="Cross-validate on a labeled dataset")
     p_validate.add_argument("--dataset", required=True, help="Path to labeled immunogenicity CSV")
     p_validate.add_argument(
-        "--binding-matrix", default=None, help="Binding matrix CSV (required for mode 30+)"
+        "--binding-matrix",
+        default=None,
+        help="Binding matrix CSV (required for every feature mode except 21)",
     )
     p_validate.add_argument(
         "--model-dir",

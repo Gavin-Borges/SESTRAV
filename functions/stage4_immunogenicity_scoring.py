@@ -398,18 +398,27 @@ def _resolve_thresholds_path(model_dir, thresholds_path=None):
 
 
 def _apply_thresholds(features_df, model_dir, thresholds_path=None):
-    """Add binary immunogenic column using exported optimal thresholds."""
+    """Add binary immunogenic column using exported optimal thresholds.
+
+    The threshold is compared against the RAW ``immunogenicity_score``, never
+    ``calibrated_score``. src/train_classifier.py picks it with
+    pick_operating_threshold on the raw OOF ``score`` column, so it is a point on
+    the raw scale. Applying it to the isotonic output instead moved the operating
+    point: with the deployed calibrator, ``calibrated >= 0.325`` is the same call as
+    ``raw >= ~0.248``, which on the grouped v5 OOF called 15,266 rows positive
+    where the threshold's own selection called 10,552 (precision 0.414 against
+    0.510). The calibrated score is still reported; it just does not decide the call.
+    """
     thresh_path = _resolve_thresholds_path(model_dir, thresholds_path)
     if thresh_path is None:
         return
     with open(thresh_path) as f:
         thresholds = json.load(f)
-    score_col = (
-        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
-    )
     f1_thresh = thresholds.get("threshold", thresholds.get("f1_threshold", 0.5))
-    features_df["immunogenic"] = (features_df[score_col] >= f1_thresh).astype(int)
-    print(f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f}")
+    features_df["immunogenic"] = (features_df["immunogenicity_score"] >= f1_thresh).astype(int)
+    print(
+        f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f} to the raw score ({thresh_path})"
+    )
 
 
 def _resolve_conformal_path(model_dir, conformal_path=None):
@@ -445,7 +454,9 @@ def _resolve_conformal_path(model_dir, conformal_path=None):
 def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=False):
     """Apply Cross Venn-Abers conformal prediction intervals.
 
-    Adds 'lower_bound', 'upper_bound', and 'interval_width' columns to features_df.
+    Adds 'lower_bound', 'upper_bound', and 'interval_width' columns to features_df,
+    and 'in_calibration_set', True where the row's peptide is one the calibrator was
+    calibrated on, so its interval is outside the stated validity scope.
     Returns True if intervals were computed and added, False otherwise.
     """
     resolved_path = _resolve_conformal_path(model_dir, conformal_path)
@@ -500,7 +511,19 @@ def _apply_conformal(features_df, model_dir, conformal_path=None, freeze_mode=Fa
     features_df["lower_bound"] = lower
     features_df["upper_bound"] = upper
     features_df["interval_width"] = upper - lower
+    # predict_interval is valid only for rows whose group is absent from the
+    # calibration data, and src/conformal.py leaves that check to the caller. The
+    # groups are peptides and the calibrator keeps them, so flag every row whose
+    # peptide it was calibrated on: its interval is outside the validity scope.
+    calibration_peptides = set(np.asarray(conformal_model.groups).astype(str))
+    in_calibration = features_df["peptide"].astype(str).isin(calibration_peptides)
+    features_df["in_calibration_set"] = in_calibration
     print(f"[Stage 4] Applied Cross Venn-Abers conformal intervals from {resolved_path}")
+    print(
+        f"[Stage 4] {int(in_calibration.sum())} of {len(features_df)} scored peptides are in "
+        "the conformal calibration set (in_calibration_set); their intervals fall outside "
+        "its validity scope"
+    )
     return True
 
 
@@ -756,14 +779,24 @@ def score_immunogenicity(
 
     _apply_thresholds(features_df, model_dir, thresholds_path)
 
-    # Use deterministic contiguous ranking (1..N) based on score ordering.
-    # Prefer calibrated_score when available (Platt calibration is monotonic,
-    # but boundary rounding can shift relative order for tied raw scores).
-    rank_col = (
-        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
-    )
+    # Use deterministic contiguous ranking (1..N) based on score ordering: by
+    # calibrated_score when a calibrator was applied, else by the raw score.
+    # Ties in calibrated_score are broken by the raw score, the scale the
+    # immunogenic call is made on (_apply_thresholds). Isotonic calibration maps a
+    # raw interval to one value, and the deployed calibrator's plateau around the
+    # v5 threshold spans it, so ranking that plateau by peptide alone put uncalled
+    # rows above called ones. With a monotone non-decreasing calibrator this
+    # tie-break makes the order the raw-score order, so the called rows are the
+    # top of the ranking. The calibrators this module resolves that a repo script
+    # writes are monotone non-decreasing (scripts/fit_calibrator.py and
+    # scripts/fit_final_per_virus_calibrators.py fit IsotonicRegression, increasing,
+    # out_of_bounds="clip"); a legacy platt_calibrator.joblib, which no script
+    # writes, would not be if fitted with a negative slope.
+    sort_by = ["immunogenicity_score", "peptide"]
+    if "calibrated_score" in features_df.columns:
+        sort_by.insert(0, "calibrated_score")
     features_df = features_df.sort_values(
-        by=[rank_col, "peptide"], ascending=[False, True]
+        by=sort_by, ascending=[False] * (len(sort_by) - 1) + [True]
     ).reset_index(drop=True)
     features_df["rank"] = features_df.index + 1
 

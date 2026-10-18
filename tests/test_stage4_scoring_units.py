@@ -102,12 +102,18 @@ def test_apply_thresholds_falls_back_to_f1_threshold_key(tmp_path):
     assert df["immunogenic"].tolist() == [0, 1, 1]
 
 
-def test_apply_thresholds_prefers_calibrated_score_column(tmp_path):
-    (tmp_path / "optimal_thresholds.json").write_text(json.dumps({"threshold": 0.5}))
-    # Raw score would flip the call; calibrated_score must take precedence.
-    df = pd.DataFrame({"immunogenicity_score": [0.9], "calibrated_score": [0.1]})
+def test_apply_thresholds_calls_on_the_raw_score_even_when_calibrated(tmp_path):
+    """The threshold is picked on the raw OOF score, so it is applied to the raw score.
+
+    The second row is the production case this replaces: the isotonic calibrator lifts
+    a raw score below the threshold above it, and calling on calibrated_score made it
+    positive. The calibrated column is left untouched.
+    """
+    (tmp_path / "optimal_thresholds.json").write_text(json.dumps({"threshold": 0.35}))
+    df = pd.DataFrame({"immunogenicity_score": [0.9, 0.30], "calibrated_score": [0.1, 0.40]})
     _apply_thresholds(df, str(tmp_path))
-    assert df["immunogenic"].tolist() == [0]
+    assert df["immunogenic"].tolist() == [1, 0]
+    assert df["calibrated_score"].tolist() == [0.1, 0.40]
 
 
 def test_apply_calibration_without_calibrator_returns_originals(tmp_path):

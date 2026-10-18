@@ -17,6 +17,7 @@ from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.data_bias_audit import _collect_raw_records, refresh_dataset, write_audit_reports
 from src.final_validation_report import run_final_validation
 from src.gold_standard_sensitivity import run_gold_standard_sensitivity
+from src.provenance_paths import relative_source
 from src.train_classifier import train_models
 
 
@@ -65,6 +66,11 @@ def _gate_status(
 def _gate_label(value: bool | None) -> str:
     """Render tri-state gates without presenting an unmeasured check as a boolean."""
     return "Unmeasured (sensitivity deltas absent or empty)" if value is None else str(value)
+
+
+def _shown(directory: str, name: str) -> str:
+    """How the release summary records ``directory/name``: never as a workstation path."""
+    return relative_source(os.path.join(directory, name))
 
 
 def planned_bias_skew_paths(results_dir: str) -> list[str]:
@@ -222,17 +228,17 @@ def run_bias_skew_finalization(
         f.write(
             "# SESTRAV Bias/Skew Finalization Summary\n\n"
             "## Dataset updates\n"
-            f"- Refreshed dataset: `{data_csv}`\n"
-            f"- Provenance table: `{provenance_csv}`\n"
-            f"- Bias audit: `{audit_csv}` and `{audit_md}`\n\n"
+            f"- Refreshed dataset: `{relative_source(data_csv)}`\n"
+            f"- Provenance table: `{relative_source(provenance_csv)}`\n"
+            f"- Bias audit: `{relative_source(audit_csv)}` and `{relative_source(audit_md)}`\n\n"
             "## Model/evaluation outputs\n"
-            f"- Training CV summary: `{os.path.join(model_dir, 'training_results.csv')}`\n"
-            f"- Subgroup CV summary: `{os.path.join(model_dir, 'training_subgroup_metrics.csv')}`\n"
-            f"- ANN subgroup CV summary: `{os.path.join(model_dir, 'ann_subgroup_metrics.csv')}`\n"
-            f"- Baseline comparison: `{os.path.join(results_dir, 'baseline_comparison.csv')}`\n"
-            f"- H2 Tier A fold metrics: `{os.path.join(results_dir, 'h2_tier_a_fold_metrics.csv')}`\n"
-            f"- H2 Tier A summary: `{os.path.join(results_dir, 'h2_tier_a_summary.csv')}`\n"
-            f"- Gold-standard sensitivity: `{gs_sens_csv}`\n\n"
+            f"- Training CV summary: `{_shown(model_dir, 'training_results.csv')}`\n"
+            f"- Subgroup CV summary: `{_shown(model_dir, 'training_subgroup_metrics.csv')}`\n"
+            f"- ANN subgroup CV summary: `{_shown(model_dir, 'ann_subgroup_metrics.csv')}`\n"
+            f"- Baseline comparison: `{_shown(results_dir, 'baseline_comparison.csv')}`\n"
+            f"- H2 Tier A fold metrics: `{_shown(results_dir, 'h2_tier_a_fold_metrics.csv')}`\n"
+            f"- H2 Tier A summary: `{_shown(results_dir, 'h2_tier_a_summary.csv')}`\n"
+            f"- Gold-standard sensitivity: `{relative_source(gs_sens_csv)}`\n\n"
             "## Threshold decision\n"
             f"- Selected threshold: `{threshold_payload.get('threshold', np.nan):.4f}`\n"
             f"- Overall precision: `{threshold_payload.get('overall_precision', np.nan):.4f}`\n"

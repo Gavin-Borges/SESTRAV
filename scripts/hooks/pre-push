@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # SESTRAV pre-push gate
 #
-# Eight numbered checks plus Check 1b, each opened by a banner line that starts
-# "# ---- Check", run in the order listed below; any failing check blocks the
-# push. Check 1b's banner is indented because it runs inside Check 1's loop over
-# the pushed refs. Check 6 runs two scans under one banner, and the second has
-# no banner of its own. A shared setup section, also bannered, sits above
+# Eight numbered checks plus Checks 1b and 1c, each opened by a banner line that
+# starts "# ---- Check", run in the order listed below; any failing check blocks
+# the push. Check 1b's banner is indented because it runs inside Check 1's loop
+# over the pushed refs. Check 6 runs two scans under one banner, and the second
+# has no banner of its own. A shared setup section, also bannered, sits above
 # Check 1. To list every banner:
 #   grep -n -E '^[[:space:]]*# ---- ' scripts/hooks/pre-push
 #
-# Shared setup (not a numbered check) -- assigns REPO_ROOT and defines
-#   ensure_python, which every check that runs python calls before its first
-#   python command. The first call activates the sestrav environment where
-#   conda is on PATH and blocks unless `python` imports pytest.
+# Shared setup (not a numbered check) -- puts the sestrav conda environment on
+#   PATH when it exists and is not already active, so a push started from a
+#   plain PowerShell window finds it; assigns REPO_ROOT; and defines
+#   ensure_python, which every check that runs python calls before its
+#   first python command. The first call activates the sestrav environment
+#   where conda is on PATH and blocks unless `python` imports pytest.
 #
 # Check 1 -- blocks direct pushes to the 'main' branch.
 #   Every change to main goes through a typed feature branch -> PR -> CI -> merge.
@@ -33,10 +35,20 @@
 #   release.yml accepts, and it takes pyproject.toml's first 'version = "..."'
 #   line instead of parsing TOML.
 #
-# Check 2 -- runs the fast test gate before pushing any branch.
-#   On Windows shells it skips two files and four cases that crash natively
-#   there (see the comment above the pytest call); CI runs them. The gate
-#   catches regressions before they reach the remote.
+# Check 1c -- blocks a push whose commits change a guardrail path:
+#   .github/workflows/, scripts/hooks/, scripts/owner/, .claude/ or .cursor/.
+#   Those paths are the controls themselves, so changing one is the owner's
+#   decision. Authorized override for one push: SESTRAV_ALLOW_GUARDRAIL_EDIT=1.
+#
+# Check 2 -- runs the test gate before pushing any branch. The default (fast)
+#   mode byte-compiles the changed .py files and runs only the test files that
+#   scripts/hooks/map_changed_tests.py maps the pushed changes to, stopping at
+#   the first failure. SESTRAV_FULL_PREPUSH=1 runs the whole suite instead, and
+#   so does a release-tag push, a change the mapper says affects every test
+#   (conftest.py, pytest.ini, pyproject.toml), or any failure to work out what
+#   changed. On Windows shells it skips two files and four cases that crash
+#   natively there (see the comment above the pytest call); CI runs them. CI's
+#   required test job runs the whole suite on every pull request either way.
 #
 # Check 3 -- blocks any institution name that is not on the affiliation
 #   allowlist (scripts/check_affiliation_claims.py). Guards claims_register
@@ -114,6 +126,47 @@ is_calendar_date() {
 # ---- Shared setup for every check (not a numbered check) ----------------
 # Defined above Check 1 so that no check depends on another check having run
 # first. Checks 2 to 8 all need REPO_ROOT, and all of them run bare `python`.
+
+# Put the sestrav conda environment on PATH when it exists and is not already
+# active. git runs this hook with whatever PATH the pushing shell had, and a
+# plain PowerShell or cmd window has no conda activation at all, so without this
+# ensure_python below finds the WindowsApps store shim and blocks every push.
+# Candidates come from $SESTRAV_CONDA_ENV, then $HOME and $USERPROFILE under the
+# usual conda install names; no workstation path is written here. The
+# directories mirror what `conda activate` adds on Windows. When no candidate
+# exists nothing changes, so Linux, macOS and CI behave exactly as before, and
+# ensure_python still verifies the interpreter either way.
+prepend_sestrav_env() {
+    if [[ "${CONDA_DEFAULT_ENV:-}" == "sestrav" ]]; then
+        return 0
+    fi
+    local homes=() candidates=() home base env_dir sub add
+    [[ -n "${SESTRAV_CONDA_ENV:-}" ]] && candidates+=("${SESTRAV_CONDA_ENV}")
+    [[ -n "${HOME:-}" ]] && homes+=("${HOME}")
+    if [[ -n "${USERPROFILE:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+        homes+=("$(cygpath -u "${USERPROFILE}")")
+    fi
+    for home in ${homes[@]+"${homes[@]}"}; do
+        for base in miniconda3 anaconda3 miniforge3 mambaforge; do
+            candidates+=("${home}/${base}/envs/sestrav")
+        done
+    done
+    for env_dir in ${candidates[@]+"${candidates[@]}"}; do
+        if [[ -x "${env_dir}/python.exe" || -x "${env_dir}/bin/python" ]]; then
+            add=""
+            for sub in "" /Library/mingw-w64/bin /Library/usr/bin /Library/bin /Scripts /bin; do
+                if [[ -d "${env_dir}${sub}" ]]; then
+                    add="${add:+${add}:}${env_dir}${sub}"
+                fi
+            done
+            export PATH="${add}:${PATH}"
+            return 0
+        fi
+    done
+    return 0
+}
+prepend_sestrav_env
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # ensure_python verifies, once per push, the interpreter that bare `python`
@@ -182,7 +235,8 @@ ensure_python() {
 # ---- Check 1: Direct-push guard ----------------------------------------
 protected_branch="main"
 PUSH_UPDATES="$(mktemp)"
-trap 'rm -f "${PUSH_UPDATES}"' EXIT
+# Checks 1c and 2 keep their scratch lists beside it, as ${PUSH_UPDATES}.<name>.
+trap 'rm -f "${PUSH_UPDATES}" "${PUSH_UPDATES}".*' EXIT
 
 while read -r local_ref local_sha remote_ref remote_sha; do
     printf '%s\t%s\t%s\t%s\n' \
@@ -271,6 +325,91 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         printf '[pre-push] that PyPI will never allow you to replace for this version.\n'
     fi
 done
+
+# ---- Check 1c: Guardrail path check -------------------------------------
+# Blocks a push whose commits add, modify, delete or rename anything under the
+# paths in guardrail_re, unless SESTRAV_ALLOW_GUARDRAIL_EDIT=1 is set for this
+# push. Those paths are the controls themselves: CI's workflows, these hooks
+# and their helpers, the owner's landing script, and the assistants' own
+# configuration. An assistant's branch that edits one is the case this exists
+# for, so the override is the owner's to set, never a default.
+#
+# WHICH COMMITS. Those being pushed that no remote-tracking ref already holds,
+# the same population as Check 6's blob scan. A merge commit is read with -c,
+# which lists only the paths that differ from EVERY parent: its own conflict
+# resolutions, not the base branch it brought in. Otherwise merging main into a
+# branch would report every workflow main changed since the branch was cut.
+#
+# FAILS CLOSED. A commit range git cannot list, or a commit whose paths it
+# cannot read, blocks the push instead of reading as clean. Two inputs are not
+# errors: a remote sha this clone has never fetched is simply not used as a
+# boundary (the remote-tracking refs still are), and a local sha that is not a
+# commit here is announced and skipped. git never hands a pre-push hook a local
+# sha it does not hold, so that case is a synthetic invocation; Check 6's blob
+# scan rejects the same sha in a real push.
+#
+# A trailing CR is stripped from each field: git writes LF, but a caller that
+# feeds this hook through a text-mode pipe on Windows sends CRLF, and the CR
+# would otherwise ride on the last field, the remote sha.
+guardrail_re='^(\.github/workflows/|scripts/hooks/|scripts/owner/|\.claude/|\.cursor/)'
+GUARDRAIL_RAW="${PUSH_UPDATES}.guardrail"
+: > "${GUARDRAIL_RAW}"
+guardrail_unreadable=0
+while IFS=$'\t' read -r g_local_ref g_local_sha g_remote_ref g_remote_sha; do
+    g_remote_sha="${g_remote_sha%$'\r'}"
+    if [[ "$g_local_sha" =~ ^0+$ ]]; then
+        continue
+    fi
+    if ! git cat-file -e "${g_local_sha}^{commit}" 2>/dev/null; then
+        printf '[pre-push] Check 1c: %s is not a commit in this repository; nothing to inspect.\n' "$g_local_sha"
+        continue
+    fi
+    g_revs=("$g_local_sha" --not --remotes=origin --remotes=upstream)
+    if [[ ! "$g_remote_sha" =~ ^0+$ ]] && git cat-file -e "${g_remote_sha}^{commit}" 2>/dev/null; then
+        g_revs+=("$g_remote_sha")
+    fi
+    if ! g_commits="$(git rev-list "${g_revs[@]}" 2>"${PUSH_UPDATES}.guardrail_err")"; then
+        block "Cannot list the commits pushed from ${g_local_ref} to ${g_remote_ref}; fetch, then push again."
+        head -c 400 "${PUSH_UPDATES}.guardrail_err" | sed 's/^/  git: /' >&2
+        guardrail_unreadable=1
+        continue
+    fi
+    for g_commit in $g_commits; do
+        if ! git diff-tree -r -c --root --no-commit-id --name-only -z "$g_commit" >> "${GUARDRAIL_RAW}"; then
+            block "Cannot read the paths changed by commit ${g_commit}."
+            guardrail_unreadable=1
+        fi
+    done
+done < "${PUSH_UPDATES}"
+
+if [[ "$guardrail_unreadable" -ne 0 ]]; then
+    exit 1
+fi
+
+guardrail_hits=()
+while IFS= read -r -d '' g_path; do
+    if [[ "$g_path" =~ $guardrail_re ]]; then
+        guardrail_hits+=("$g_path")
+    fi
+done < "${GUARDRAIL_RAW}"
+
+if [[ ${#guardrail_hits[@]} -gt 0 ]]; then
+    if [[ "${SESTRAV_ALLOW_GUARDRAIL_EDIT:-0}" == "1" ]]; then
+        printf '[pre-push] Guardrail paths changed; allowed by SESTRAV_ALLOW_GUARDRAIL_EDIT=1:\n'
+        printf '%s\n' "${guardrail_hits[@]}" | sort -u | sed 's/^/  /'
+    else
+        block "This push changes guardrail paths, which only the owner may change."
+        printf '\n' >&2
+        printf '%s\n' "${guardrail_hits[@]}" | sort -u | sed 's/^/  /' >&2
+        printf '\n' >&2
+        printf '%s\n' "  Workflows, hooks, the owner's landing script and the assistant" >&2
+        printf '%s\n' "  configuration are the controls themselves. If this change is" >&2
+        printf '%s\n' "  intended, the owner pushes it with the override set for that push:" >&2
+        printf '%s\n' "    SESTRAV_ALLOW_GUARDRAIL_EDIT=1 git push ...                  (Git Bash)" >&2
+        printf '%s\n' "    \$env:SESTRAV_ALLOW_GUARDRAIL_EDIT='1'; git push ...          (PowerShell)" >&2
+        exit 1
+    fi
+fi
 
 # ---- Check 2: Fast test gate -------------------------------------------
 printf '[pre-push] Running fast test gate (Windows shells skip six native-crash targets; CI runs them)...\n'
@@ -365,7 +504,100 @@ esac
 # CONTRIBUTING.md tells every contributor to install these hooks, so the
 # non-Windows branch - where this array is empty - is exactly the case that
 # would break. The `+` form expands to nothing on every bash version.
-cd "${REPO_ROOT}" && python -m pytest tests/ ${pytest_platform_args[@]+"${pytest_platform_args[@]}"}
+#
+# MODE. Full when SESTRAV_FULL_PREPUSH=1, for a release-tag push (Check 1b's
+# irreversible case), and whenever the fast path cannot be trusted: no base to
+# diff against, a diff git cannot produce, or a checkout that does not carry
+# scripts/hooks/map_changed_tests.py yet. Every one of those falls back to MORE
+# testing, never less. Otherwise fast: the same pytest command, plus that
+# module loaded as a plugin with the list of changed paths. It byte-compiles
+# the changed .py files, maps the changes to test files, and lets pytest collect
+# only those; when its mapping says the changes affect the whole suite
+# (conftest.py, pytest.ini, pyproject.toml, or more test files than a fast run
+# is for) it filters nothing. --maxfail=1 stops a fast run at the first failure.
+#
+# ONE PYTHON COMMAND. The full and fast modes share the single pytest line
+# below, so this check makes exactly one python call after ensure_python's
+# probe either way, which tests/test_pre_push_interpreter_guard.py counts.
+#
+# WHAT FAST MODE CANNOT SEE. A test that reaches a changed module only through
+# another module is not selected. CI's required test job runs the whole suite
+# on every pull request, so fast mode is a quick local signal and not the gate;
+# set SESTRAV_FULL_PREPUSH=1 for a push that should be certified locally.
+#
+# NO EXTRA -q. pytest.ini's addopts already passes -q, and a second one makes
+# -qq, which prints no summary line at all.
+prepush_mode="fast"
+prepush_reason=""
+# grep exits 0 on a match and 1 on none; anything else means it never read the
+# list, and that must not read as "no release tag".
+tag_rc=0
+grep -q -- $'\trefs/tags/v' "${PUSH_UPDATES}" || tag_rc=$?
+if [[ "${SESTRAV_FULL_PREPUSH:-0}" == "1" ]]; then
+    prepush_mode="full"
+    prepush_reason="SESTRAV_FULL_PREPUSH=1"
+elif [[ "$tag_rc" -eq 0 ]]; then
+    prepush_mode="full"
+    prepush_reason="a release tag is being pushed"
+elif [[ "$tag_rc" -gt 1 ]]; then
+    prepush_mode="full"
+    prepush_reason="the pushed-ref list could not be read"
+elif [[ ! -f "${REPO_ROOT}/scripts/hooks/map_changed_tests.py" ]]; then
+    prepush_mode="full"
+    prepush_reason="this checkout has no scripts/hooks/map_changed_tests.py"
+fi
+
+CHANGED_RAW="${PUSH_UPDATES}.changed"
+CHANGED_LIST="${PUSH_UPDATES}.changed_list"
+if [[ "$prepush_mode" == "fast" ]]; then
+    : > "${CHANGED_RAW}"
+    while IFS=$'\t' read -r c_local_ref c_local_sha c_remote_ref c_remote_sha; do
+        c_remote_sha="${c_remote_sha%$'\r'}"
+        if [[ "$c_local_sha" =~ ^0+$ ]]; then
+            continue
+        fi
+        # Diff from the commit the remote already has when this clone holds it,
+        # else from the merge base with origin/main: never a two-dot diff against
+        # main itself, which would report main's own advances as changes.
+        c_base=""
+        if [[ ! "$c_remote_sha" =~ ^0+$ ]] && git cat-file -e "${c_remote_sha}^{commit}" 2>/dev/null; then
+            c_base="$c_remote_sha"
+        else
+            c_base="$(git merge-base refs/remotes/origin/main "$c_local_sha" 2>/dev/null)" || c_base=""
+        fi
+        if [[ -z "$c_base" ]]; then
+            prepush_mode="full"
+            prepush_reason="no base to diff ${c_local_ref} against"
+            break
+        fi
+        if ! git diff --name-only -z "$c_base" "$c_local_sha" >> "${CHANGED_RAW}"; then
+            prepush_mode="full"
+            prepush_reason="git diff failed for ${c_local_ref}"
+            break
+        fi
+    done < "${PUSH_UPDATES}"
+fi
+
+# The list is handed over as ONE --option=value token, never as two. pytest
+# picks its rootdir from the common ancestor of every argument that names an
+# existing path, and a separate value token is such an argument: with the list
+# in the temp directory, the ancestor became a directory above the repository,
+# pytest.ini was never read, and a stray pyproject.toml there was used instead
+# (measured 2026-10-14). cygpath -w gives Windows Python a path it can open.
+pytest_mode_args=()
+if [[ "$prepush_mode" == "fast" ]]; then
+    tr '\0' '\n' < "${CHANGED_RAW}" | sort -u > "${CHANGED_LIST}"
+    changed_list_arg="${CHANGED_LIST}"
+    if command -v cygpath >/dev/null 2>&1; then
+        changed_list_arg="$(cygpath -w "${CHANGED_LIST}")"
+    fi
+    pytest_mode_args=(-p scripts.hooks.map_changed_tests "--sestrav-changed-list=${changed_list_arg}" --maxfail=1)
+    printf '[pre-push] Fast test gate: only tests mapped from this push. SESTRAV_FULL_PREPUSH=1 runs the whole suite; CI always does.\n'
+else
+    printf '[pre-push] Running the whole suite (%s).\n' "${prepush_reason}"
+fi
+
+cd "${REPO_ROOT}" && python -m pytest tests/ ${pytest_mode_args[@]+"${pytest_mode_args[@]}"} ${pytest_platform_args[@]+"${pytest_platform_args[@]}"}
 
 status=$?
 
@@ -487,8 +719,8 @@ fi
 # WHY PRE-PUSH RATHER THAN PRE-COMMIT. This scanner walks the TREE, not the
 # staged diff. On pre-commit that means an unrelated pre-existing file could
 # block a commit touching something else, and the cost is paid per commit.
-# Here the cost is already sunk: Check 2 above runs the full pytest suite, so
-# this scan's ~0.6s is noise. The pushed-object scan below covers the content
+# Here the cost is small next to Check 2's pytest run, even in its fast mode,
+# so this scan's ~0.6s is noise. The pushed-object scan below covers the content
 # crossing the public-remote boundary, including blobs absent from the checkout.
 #
 # DELIBERATELY UNGUARDED. Checks 4 and 5 skip when _local/ is absent, which
@@ -638,9 +870,10 @@ fi
 # .github/workflows/qualifier_bindings.yml. Only TRACKED files are read, so
 # gitignored notes in a working checkout cannot block a push.
 #
-# WHY A SEPARATE CHECK. Check 2 collects tests/test_check_qualifier_bindings.py,
-# whose live-tree tests do audit this tree against the ratchet, but a failure
-# there surfaces as failing tests inside the suite. This check runs the gate
+# WHY A SEPARATE CHECK. Check 2 collects tests/test_check_qualifier_bindings.py
+# when it runs the whole suite (its fast mode may not), and that file's
+# live-tree tests do audit this tree against the ratchet, but a failure there
+# surfaces as failing tests inside the suite. This check runs the gate
 # itself, so the push is blocked by name with the gate's own report.
 #
 # RATCHET FORM, NOT --strict. --strict zeroes every ceiling, and it exited 1 on
