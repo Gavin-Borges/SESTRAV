@@ -684,6 +684,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the tests fail: dropping from `relative_source` the authority rule, the `:` and `@`
   name rule, the query and fragment rule, the whitespace strip or the host requirement,
   and reverting the run directory line of `src/external_validation_finalize.py`.
+- **`scripts/ingest_immunecode.py` now checks against the pin the same bytes it ingests.**
+  `main()` loaded the MIRA archive by path and then hashed it by path again, in two
+  separate reads, and the provenance sidecar recorded that second read as
+  `archive_verified_against_pin`. A file replaced between the two reads was extracted and
+  ingested while the sidecar named the pinned release. The archive is now read once:
+  `_read_archive` returns its bytes and the verdict, the members are extracted from those
+  same bytes in memory, the rows are read from the peptide-detail member of those bytes
+  rather than from its extracted copy in the temporary directory, and `_load_csv` returns
+  the verdict with the table, so `main()` no longer reads the file a second time.
+  Extraction itself is unchanged, so its path-traversal refusal still applies. An
+  auto-download whose archive no longer
+  matches the pin by the time it is extracted is now refused; before, the auto-download
+  route was recorded as verified without being checked again. A CSV input is still
+  never verified. The test of the auto-download sidecar now pins its stub archive, as
+  the real download only ever returns pinned bytes. `scripts/ingest_vdjdb.py` is left
+  as it is: it extracts into the data directory and its caller reads the table back
+  from there by path, so a matching change to its archive check would leave the same
+  window one step later. Eight new tests: three replace the archive on disk the moment
+  `zipfile` opens it, one replaces it straight after it is read, one rewrites the
+  extracted CSV before the rows are read, one checks that the verdict covers every byte
+  rather than a prefix, and two cover the auto-download. Eight mutants, each undoing one
+  part, all make a test fail.
 - **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
   `--no-require-hashes` line fails closed.** The check that every requirement carries a
   hash had its own line reader, separate from the pip-faithful one the option check uses. It

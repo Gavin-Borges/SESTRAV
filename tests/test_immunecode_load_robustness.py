@@ -169,25 +169,27 @@ def test_a_plain_csv_is_still_read_as_a_csv(tmp_path):
     """The magic-byte check must not capture a legitimate CSV input."""
     csv_path = tmp_path / "peptide-detail-cov2.csv"
     csv_path.write_text(MIRA_CSV)
-    df, source = ingest._load_csv(str(csv_path))
+    df, source, verified = ingest._load_csv(str(csv_path))
     assert len(df) == 2
     assert source == str(csv_path)
+    assert verified is False
 
 
 def test_a_csv_whose_first_bytes_merely_start_with_pk_is_not_mistaken_for_an_archive(tmp_path):
     """Only the four-byte local-file-header signature counts, not the letters PK."""
     csv_path = tmp_path / "peptides.csv"
     csv_path.write_text("PKPeptide,HLA Restrictions,Amino Acids\nYLQPRTFLL,HLA-A*02:01,\n")
-    df, _source = ingest._load_csv(str(csv_path))
+    df, _source, _verified = ingest._load_csv(str(csv_path))
     assert len(df) == 1
 
 
 def test_an_intact_archive_is_still_loaded(tmp_path):
     archive = tmp_path / "mira.zip"
     archive.write_bytes(PAYLOAD)
-    df, source = ingest._load_csv(str(archive))
+    df, source, verified = ingest._load_csv(str(archive))
     assert len(df) == 2
     assert source == str(archive)
+    assert verified is False  # not the pinned release's bytes
 
 
 # --------------------------------------------------------------------------
