@@ -17,6 +17,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **The simulated PredIG score now follows stage 2's binding columns instead of being
+  noise around a constant.** `scripts/run_predig_wrapper.py` builds `bind_map` by
+  matching the requested alleles against the binding CSV's columns, and it matched a
+  column only when that column was named exactly like the allele or began with `HLA-`.
+  `functions/stage2_mhc_binding_prediction.py` writes its per-allele presentation
+  scores as WIDE columns named by its own `_allele_to_col` rule, which turns
+  `HLA-A*02:01` into `bind_A0201`, so on the CSV `rule run_predig` actually passes no
+  column ever matched. `bind_map` stayed empty, every `bind_val` kept its 0.5 default,
+  and every simulated score was seeded noise around the constant 0.375 carrying no
+  binding signal at all; the wrapper's own comment had recorded this as defect (2).
+  Each requested allele is now resolved to stage 2's column name as well, and
+  `bind_map` is keyed by the allele rather than by the column so that the lookup can
+  find it. That one-line naming rule is COPIED rather than imported, because stage 2
+  imports mhcflurry at module level (3.9 s and over 2,300 modules, torch among them,
+  measured in the sestrav env), a heavy import for one string rule; a test pins the
+  copy as agreeing with stage 2's own. A column named exactly like the allele still wins where
+  one exists, and the nM-affinity conversion for values above 1.0 is unchanged. Blank
+  cells are now dropped rather than mapped, because `min(1.0, nan)` returns 1.0 and an
+  absent presentation score would otherwise have scored that row as the strongest
+  possible binder. Behaviour change: simulated PredIG scores now vary with stage 2's
+  `presentation_score` wherever the CSV carries one for the allele, where before they
+  varied only with the seed; an allele the input has no binding values for is still
+  noise around a constant. These rows are still SIMULATED and still carry
+  `simulated=1`, because binding-derived noise is still not PredIG output. No
+  simulated PredIG output is a tracked file, so no committed artifact changes.
 - **PredIG's recombinant input now builds from the binding CSV `rule run_predig`
   actually passes it, so the default pipeline attempts real PredIG instead of always
   simulating.** `scripts/run_predig_wrapper.py` handed stage 2's

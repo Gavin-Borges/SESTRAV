@@ -4,6 +4,7 @@ Builds recombinant inputs, runs PredIG via Docker if available, else generates s
 """
 
 import os
+import re
 import sys
 import argparse
 import subprocess
@@ -19,6 +20,17 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+
+# Stage 2 writes its per-allele presentation scores as WIDE columns, named by
+# functions/stage2_mhc_binding_prediction.py's `_allele_to_col`. That one-line rule is
+# COPIED here rather than imported: that module imports mhcflurry at module level
+# (measured 2026-10-18 in the sestrav env: 3.9 s and over 2,300 modules, torch among
+# them), a heavy import for a one-line string rule.
+# tests/test_predig_simulation_reads_stage2_binding_columns.py pins the two as agreeing.
+def _stage2_binding_column(allele):
+    """Return stage 2's wide column name for an allele: 'HLA-A*02:01' -> 'bind_A0201'."""
+    return "bind_" + re.sub(r"[^A-Za-z0-9]", "", allele.replace("HLA-", ""))
 
 
 def main():
@@ -186,33 +198,49 @@ def main():
     # scripts/standardize_outputs.py turns into predig_simulated in the standardized
     # CSV; real PredIG output has no such column.
     #
-    # Why bind_val below usually stays at its 0.5 default, so the simulated score is
-    # noise around a constant rather than binding-derived: hla_cols matches a column
-    # only if it is named HLA-... or exactly like an allele, while stage 2 writes wide
-    # bind_A0201-style columns, so bind_map stays empty. That predates the simulated
-    # flag and is not fixed here (to-do PC-PG2).
+    # Both defects this comment used to carry are now FIXED, so a simulated score is
+    # binding-derived wherever the input supplies a binding value for the allele.
     #
-    # A second reason the default pipeline reached this branch with Docker installed is
-    # now FIXED: build_recombinant_table selected peptide, proteome_id and virus, and
+    # (1) build_recombinant_table selected peptide, proteome_id and virus, and
     # functions/stage2_mhc_binding_prediction.py writes none of the last two, so it
     # raised KeyError and predig_input_built was always False. The proteome id now
     # arrives by --proteome-id, which rule run_predig passes from its wildcard. Called
     # without that flag on a stage-2 CSV the build still fails, ValueError now rather
     # than KeyError, and this branch is still reached.
+    #
+    # (2) bind_map matched a column only if it was named HLA-... or exactly like an
+    # allele, while stage 2 writes wide bind_A0201-style columns, so bind_map stayed
+    # empty, every bind_val below kept its 0.5 default, and the simulated score was
+    # noise around the constant 0.375 carrying no binding signal at all. Each requested
+    # allele is now resolved to stage 2's column name as well (to-do PC-PG2). bind_val
+    # still falls back to 0.5 where neither spelling of the column is present, so an
+    # allele the input has no binding values for is still noise around a constant.
+    #
+    # What is NOT fixed, because it is not a defect: these rows are still SIMULATED and
+    # still carry simulated=1. Binding-derived noise is not PredIG output.
     print(
         "[PredIG Wrapper] WARNING: Docker is unavailable or the PredIG input could not "
-        "be built. Writing SIMULATED scores (seeded noise, binding-derived only where a "
-        "binding column matches an allele name), not PredIG output.",
+        "be built. Writing SIMULATED scores (seeded noise around each row's binding "
+        "value where the input has one for the allele, else around a constant), not "
+        "PredIG output.",
         file=sys.stderr,
     )
     np.random.seed(42)
 
-    # Extract binding mappings for correlation
+    # Extract binding mappings for correlation, keyed by the ALLELE name because the
+    # loop below looks them up by allele rather than by column. Two column spellings
+    # are accepted, in this order: a column named exactly like the allele (the
+    # HLA-A*02:01-style wide frame some callers pass), then stage 2's bind_A0201-style
+    # column, which is what the CSV `rule run_predig` passes actually carries.
+    # Blank cells are DROPPED rather than mapped: min(1.0, nan) returns 1.0, so an
+    # absent presentation score would otherwise score that row as the strongest
+    # possible binder instead of falling through to the 0.5 default below.
     bind_map = {}
-    # If the input has presentation_score or affinity columns
-    for col in hla_cols:
-        if col in df.columns:
-            bind_map[col] = df.set_index("peptide")[col].to_dict()
+    for allele in alleles_list:
+        for col in (allele, _stage2_binding_column(allele)):
+            if col in df.columns:
+                bind_map[allele] = df.set_index("peptide")[col].dropna().to_dict()
+                break
 
     mock_rows = []
     # Write standard columns: peptide, allele, predig_score, simulated
