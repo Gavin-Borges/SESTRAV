@@ -4,19 +4,29 @@ SESTRAV Offline Model Training Script
 Trains RandomForest and XGBoost classifiers on cleaned IEDB immunogenicity data.
 Produces serialized .joblib models for use in the production scoring pipeline.
 
-Feature modes:
-  --feature-mode 21  (default, legacy)
-      21 sequence-only features (p4-p8 physicochemical + peptide_length).
-      binding_score excluded because IEDB exports lack allele info.
+Feature modes (--feature-mode; the list is RECOGNIZED_FEATURE_MODES):
+  10        binding-only, no physicochemistry: the converse ablation of 21
+  21        default, legacy: 21 sequence-only features (p4-p8 physicochemical
+            + peptide_length); binding_score is excluded because IEDB exports
+            lack allele info
+  30        20 physicochemical features + 10 per-allele MHCflurry binding scores
+  31        canonical
+  33        31 + antigen-processing scores (MOCK scores, not real NetChop/TAPreg
+            output - see docs/claims_register.md D18)
+  35        33 + self-similarity
+  50        expanded
+  51        50 + per-allele TCR contact weights (55 columns)
+  166       see train_models' feature-selection chain
+  30_esm    see train_models' feature-selection chain
+  30_graph  see train_models' feature-selection chain
 
-  --feature-mode 30
-      20 physicochemical features + 10 per-allele MHCflurry binding scores.
-      Requires --binding-matrix pointing to peptide_binding_matrix.csv
-      (produced by CMB 523 Project 2).
+What each mode needs besides --data is stated once, in the help of the input
+flags (--binding-matrix, --antigen-processing-cache, --self-similarity-cache).
 
-Evaluation uses stratified 5-fold cross-validation on the full training pool
-for reliable metric estimates, then retrains on the full pool for the final
-serialized model.
+Evaluation cross-validates on the full training pool (--cv-folds, 5 by default)
+for metric estimates, with the folds grouped by peptide unless --cv-group-by
+none is passed, or Leave-One-Protein-Out with --lopo. It then retrains on the
+full pool for the final serialized model.
 
 --model-dir is required and existing artifacts there are never replaced unless
 --allow-overwrite is given, so a run cannot silently rewrite published metrics.
@@ -43,12 +53,12 @@ from joblib import dump
 
 from src.artifact_integrity import (
     MODEL_CHECKSUM_MANIFEST,
-    _relative_to_project_root,
     binding_matrix_provenance_fields,
     sha256_file,
     update_checksum_manifest,
     write_provenance_sidecar,
 )
+from src.provenance_paths import relative_source
 from src.features import (
     compute_features,
     FEATURE_COLUMNS,
@@ -868,19 +878,28 @@ def _input_provenance_pair(name: str, path: str | Path) -> dict[str, object]:
     """`{<name>_path, <name>_sha256}` for one input a training run reads.
 
     The shape is copied from `src.artifact_integrity.model_provenance_fields`
-    and `binding_matrix_provenance_fields`: a project-root-relative path plus
-    the file's own sha256, and `None` rather than an exception when the file is
-    not present locally, matching how `check_provenance` treats a missing
-    referenced artifact as a benign SKIP. Parameterized by `name` here only
-    because a training run reads four inputs of this shape and the pair-shaped
-    family in `src.artifact_integrity` names just one of them
+    and `binding_matrix_provenance_fields`: a path plus the file's own sha256,
+    and `None` rather than an exception when the file is not present locally,
+    matching how `check_provenance` treats a missing referenced artifact as a
+    benign SKIP. Parameterized by `name` here only because a training run reads
+    four inputs of this shape and the pair-shaped family in
+    `src.artifact_integrity` names just one of them
     (`binding_matrix_provenance_fields`); its other member,
     `model_provenance_fields`, describes a model as a scorer's INPUT, which is
     the opposite end from a training run.
+
+    The path is the resolved input recorded through
+    `src.provenance_paths.relative_source`: a repo-relative path, or `external:`
+    plus at most its file name, which is what an input outside the checkout
+    gets. Those two helpers reduce a path
+    with `src.artifact_integrity._relative_to_project_root` instead, which
+    records a bare file name outside the checkout, so in one sidecar an outside
+    training corpus reads `external:<name>` and an outside binding matrix
+    `<name>`.
     """
     resolved = Path(path)
     return {
-        f"{name}_path": _relative_to_project_root(resolved),
+        f"{name}_path": relative_source(resolved.resolve()),
         f"{name}_sha256": sha256_file(resolved) if resolved.is_file() else None,
     }
 
@@ -1444,19 +1463,19 @@ if __name__ == "__main__":
         "of 21) | 21 (sequence-only) | 30 (physico+binding) | 31 canonical | "
         "33 (31+antigen-processing; MOCK scores, not real NetChop/TAPreg output - "
         "see docs/claims_register.md D18) | 35 (33+self-similarity) | 50 (expanded) | "
-        "51 (50+per-allele TCR contact weights, 55 cols; requires --binding-matrix) | "
+        "51 (50+per-allele TCR contact weights, 55 cols) | "
         "166 | 30_esm | 30_graph",
     )
     parser.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to peptide_binding_matrix.csv (required for --feature-mode 30+)",
+        help="Path to peptide_binding_matrix.csv (required for every feature mode except 21)",
     )
     parser.add_argument(
         "--antigen-processing-cache",
         default=None,
         help="Path to antigen processing cache CSV with netchop_score + tap_score "
-        "(required for --feature-mode 33+). NOTE: the shipped cache holds MOCK "
+        "(required for --feature-mode 33 and 35). NOTE: the shipped cache holds MOCK "
         "sequence-derived scores, not real NetChop 3.1 / TAPreg output (D18)",
     )
     parser.add_argument(
@@ -1475,7 +1494,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lopo",
         action="store_true",
-        help="Perform Leave-One-Protein-Out (LOPO) cross-validation instead of StratifiedKFold",
+        help="Perform Leave-One-Protein-Out (LOPO) cross-validation instead of the "
+        "k-fold cross-validation set by --cv-folds and --cv-group-by",
     )
     # dest differs from the resolved value below so a bare --lopo can tell an
     # explicit --cv-group-by peptide apart from the default.

@@ -91,7 +91,12 @@ as replacements**. Quote the tracked files under their own provenance or not at 
 `scripts/generate_baseline_report.py`. They do not match the three lines above, and they rank GCN
 first on both metrics. Neither has a provenance sidecar and neither records a splitter, corpus or
 seed, so they are named here as the artifacts a reader can actually open - not as corrected values
-for the list above, and not as a basis for ranking any GNN against any RF or ANN figure.
+for the list above, and not as a basis for ranking any GNN against any RF or ANN figure. Their
+writer, `src/gnn_benchmark.py`, does record two of those three: it folds with an ungrouped
+`StratifiedKFold` (shuffled, stratified on label and virus), not grouped by peptide, and fixes its
+`random_state` to that module's `SEED`. The corpus is the one genuinely unrecoverable field, since
+`--data` is required with no default, so these values are free of the peptide leakage D15 retracted
+only if that input held one row per peptide.
 
 ## Runtime and Dependency Matrix
 
@@ -138,8 +143,10 @@ threshold file at the end of this section is a tracked artifact.
 - ANN Colab calibration (UNVENDORED):
   `CMB 523 Injection for SESTRAV Progress/523 Project 2/Colab_outputs/calibration_summary.json`
   - selected method: `isotonic`
-- RF production threshold file (SESTRAV runtime):
-  `models/optimal_thresholds.json`
+- RF production threshold file (SESTRAV runtime, `config.yaml`'s `thresholds_path`):
+  `models/v5/optimal_thresholds.json`, picked on the peptide-grouped OOF and applied to the
+  raw score. `models/optimal_thresholds.json`, picked on the pre-D15 ungrouped OOF for the
+  same model bytes, stays tracked as a ledger source and is not the runtime file.
 
 These are different workflows and should not be mixed in release claims.
 

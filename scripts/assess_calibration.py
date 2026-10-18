@@ -67,6 +67,7 @@ from scripts.fit_calibrator import (  # noqa: E402
 )
 from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa: E402
 from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
+from src.provenance_paths import relative_source  # noqa: E402
 
 RANDOM_STATE = 42
 N_SPLITS = 5
@@ -192,15 +193,12 @@ def _guard_output_path(output_path: Path, allow_overwrite: bool) -> None:
 
 
 def _write_provenance(output_path: Path, oof_path: Path, result: pd.DataFrame) -> None:
-    try:
-        oof_rel = oof_path.resolve().relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        oof_rel = oof_path.name
+    # Resolved first, so a path given relative to the working directory is
+    # recorded by where it points: a repo-relative path, or "external:" plus at
+    # most its file name (src.provenance_paths.relative_source).
+    oof_rel = relative_source(oof_path.resolve(), root=PROJECT_ROOT)
     pooled = result[result["scope"] == "pooled_all"].iloc[0]
-    try:
-        out_rel = output_path.resolve().relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        out_rel = output_path.name
+    out_rel = relative_source(output_path.resolve(), root=PROJECT_ROOT)
     provenance = {
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "script": "scripts/assess_calibration.py",

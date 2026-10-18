@@ -33,9 +33,9 @@ The pipeline natively supports dynamic execution based on `dataset_mode`, `datas
    - Strict checksum and integrity validation prior to training (`src/data_curation_qc.py`).
 
 6. **`train_ann` & `train_gnn`**
-   - **Input**: `data/immunogenicity_dataset_v3.csv`, QC output, binding matrices.
+   - **Input**: the training corpus (`config.yaml`'s `training_dataset`) and the QC output; `train_gnn` also takes the binding matrix, while `train_ann` runs `--feature-mode 21` and takes none.
    - **Output**: `models/ann/ann_model.pth`, `models/gnn/structural_gnn_v2.pth`.
-   - Trains multi-layer perceptrons or molecular graph nets using stratified cross-validation.
+   - Trains a multi-layer perceptron and a graph net, each under peptide-grouped, composite-stratified cross-validation (`src.ml_utils.PeptideGroupedKFold`).
 
 7. **`full_validation_report`**
    - Integrates outputs to build gold-standard benchmarking reports and cross-tier summaries.

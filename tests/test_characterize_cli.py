@@ -363,6 +363,10 @@ def test_predict_freeze_mode_falls_to_false_when_config_is_unreachable(
     non-editable install that lookup finds nothing and `sestrav predict` runs
     with freeze_mode False, although the repository's config.yaml sets it true.
     Simulated here by pointing the module's __file__ at an empty tree.
+
+    Ruled by the owner on 2026-10-11: keep the behaviour, and have the run say
+    that no freeze_mode value came from config.yaml and freeze mode is off by
+    default, so the default cannot pass for a configured value.
     """
     # pins behaviour, not correctness
     captured = _stub_stages(monkeypatch)
@@ -382,6 +386,55 @@ def test_predict_freeze_mode_falls_to_false_when_config_is_unreachable(
     assert "[sestrav predict] Freeze mode: True" in out_repo
     assert installed["s4"][0][1]["freeze_mode"] is False
     assert "[sestrav predict] Freeze mode: False" in out_installed
+    note = "[sestrav predict] No freeze_mode value came from config.yaml"
+    assert note not in out_repo
+    assert note in out_installed
+    assert "pass --freeze-mode to turn it on" in out_installed
+
+
+@pytest.mark.parametrize(
+    "config, expected, noted",
+    [
+        ({}, False, True),  # no value: no file, PyYAML absent, or an empty file
+        ({"model_path": "x"}, False, True),  # a config read that lacks the key
+        ({"freeze_mode": None}, False, True),  # the key present but null
+        ({"freeze_mode": False}, False, False),  # a configured false is not a default
+        ({"freeze_mode": True}, True, False),
+    ],
+)
+def test_predict_notes_a_default_freeze_mode_only_when_config_gave_no_value(
+    tmp_path, monkeypatch, capsys, config, expected, noted
+):
+    # The note keys on whether config supplied a freeze_mode value, not on whether a
+    # config was read, so an empty or keyless config is noted and a configured false
+    # is not; the value itself is the same as before in every case.
+    captured = _stub_stages(monkeypatch)
+    _satisfy_predict_preflight(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "_read_config", lambda: dict(config))
+
+    assert cli.main(_predict_argv(tmp_path)) == 0
+    out = capsys.readouterr().out
+
+    assert captured["s4"][0][1]["freeze_mode"] is expected
+    assert f"[sestrav predict] Freeze mode: {expected}" in out
+    assert ("No freeze_mode value came from config.yaml" in out) is noted
+
+
+@pytest.mark.parametrize("flag, expected", [("--freeze-mode", True), ("--no-freeze-mode", False)])
+def test_predict_freeze_flag_without_config_prints_no_default_note(
+    tmp_path, monkeypatch, capsys, flag, expected
+):
+    # An explicit flag is the value's source, so the no-config note would mislead.
+    captured = _stub_stages(monkeypatch)
+    _satisfy_predict_preflight(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "__file__", str(tmp_path / "site-packages" / "src" / "cli.py"))
+
+    assert cli.main(_predict_argv(tmp_path, flag)) == 0
+    out = capsys.readouterr().out
+
+    assert captured["s4"][0][1]["freeze_mode"] is expected
+    assert f"[sestrav predict] Freeze mode: {expected}" in out
+    assert "No freeze_mode value came from config.yaml" not in out
 
 
 # ---------------------------------------------------------------------------

@@ -36,6 +36,7 @@ from sklearn.preprocessing import StandardScaler
 from src.artifact_guard import guard_planned_paths
 from src.artifact_integrity import sha256_file
 from src.ml_utils import PeptideGroupedKFold
+from src.provenance_paths import relative_source
 from src.train_classifier import (
     _filter_quarantined,
     prepare_features,
@@ -304,13 +305,18 @@ def build_gnn_run_config(
     rounded mean of the per-fold best epochs, which is also the number of epochs
     the saved final model was retrained for. Both used to share one 'epochs'
     key that held the second value.
+
+    'esm2_model_name' (a hub id, or a local model directory) and
+    'binding_matrix_path' are recorded through
+    `src.provenance_paths.relative_source` rather than as given. A hub id such
+    as "facebook/esm2_t12_35M_UR50D" comes through unchanged.
     """
     return {
-        "esm2_model_name": esm2_model_name,
+        "esm2_model_name": relative_source(esm2_model_name),
         "node_dim": node_dim,
         "feature_mode": feature_mode,
         "num_continuous_features": num_continuous_features,
-        "binding_matrix_path": binding_matrix_path,
+        "binding_matrix_path": relative_source(binding_matrix_path),
         "max_epochs": max_epochs,
         "mean_best_epoch": mean_best_epoch,
         "early_stopping_patience": early_stopping_patience,
@@ -525,9 +531,25 @@ def train_gnn(
         model_dir: Output directory. No default: the destination of a training
                    run must be a deliberate choice, because the repo's published
                    artifacts live under models/.
+        feature_mode: 21 (sequence-only physico) or 50 (expanded multi-allele,
+                   needs binding_matrix_path). Mode 31 is built only by
+                   train_gnn_v2; any other mode raises before anything is read.
         allow_overwrite: Replace existing artifacts instead of aborting before
                    any training work is done.
     """
+    # v1 builds exactly two feature sets. Every other mode used to fall through to
+    # the 21-column branch below while the feature cache stayed keyed by the
+    # REQUESTED mode, so `--architecture v1 --feature-mode 31 --binding-matrix M`
+    # saved 21 columns under the name train_gnn_v2 computes for mode 31 with the
+    # same corpus and matrix. A later v2 run loaded them on a cache hit, since
+    # _validate_cached_features checks only the row count, and recorded
+    # feature_mode=31. Refuse before anything is read, created or cached.
+    if feature_mode not in (21, 50):
+        raise ValueError(
+            f"train_gnn (v1) supports feature_mode 21 or 50, got {feature_mode!r}. "
+            "Mode 31 is built only by --architecture v2 (train_gnn_v2)."
+        )
+
     from src.core.config import SestravConfig
     from src.core.feature_store import FeatureStore
 
@@ -1134,12 +1156,14 @@ if __name__ == "__main__":
         "--feature-mode",
         type=int,
         default=21,
-        help="Feature mode: 21 (physico-only) or 31 (physico + per-allele binding; requires --binding-matrix)",
+        help="Feature mode: 21 (physico-only; either architecture), 31 (physico + "
+        "per-allele binding; --architecture v2 only) or 50 (expanded multi-allele; "
+        "--architecture v1 only). 31 and 50 require --binding-matrix",
     )
     parser.add_argument(
         "--binding-matrix",
         default=None,
-        help="Path to the binding matrix, required for --feature-mode 31. Use "
+        help="Path to the binding matrix, required for --feature-mode 31 and 50. Use "
         "models/peptide_binding_matrix_v5.csv with the v5 corpus: v5 is a strict "
         "superset of v4, and v4 reaches only 8,725 of the 35,555 pool rows while "
         "prepare_features_30 zero-fills every peptide it misses, which makes matrix "
