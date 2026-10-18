@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -69,6 +70,28 @@ def brier_score(labels: np.ndarray, scores: np.ndarray) -> float:
     return float(np.mean((s - y) ** 2))
 
 
+def sha256_lf(path: Path) -> str:
+    """SHA256 of a text file's content with its CRLF line endings read as LF.
+
+    A digest recorded for a tracked text file must reproduce from the Git blob,
+    which .gitattributes pins to LF, whatever line endings the checkout running
+    this script has (scripts/check_digest_portability.py calls a digest that
+    only a CRLF copy reproduces WINDOWS_ONLY). Hashing the raw bytes recorded
+    the CRLF rendering's digest for models/v5/rf_oof_predictions.csv.
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def write_coverage_report(path: Path, report: dict[str, Any]) -> None:
+    """Write the coverage report with LF line endings on every platform.
+
+    model_artifact_checksums.json records this file's sha256, which must also
+    reproduce from its LF blob; a Windows text-mode write produces CRLF bytes.
+    """
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(report, f, indent=2)
+
+
 def _load_rf_oof(oof_path: Path) -> pd.DataFrame:
     """Load OOF predictions, keeping only RandomForest rows with valid scores."""
     df = pd.read_csv(oof_path)
@@ -106,7 +129,7 @@ def compute_coverage_report(
         },
         "source_oof": {
             "path": str(oof_path).replace("\\", "/"),
-            "sha256": sha256_file(oof_path) if oof_path.is_file() else None,
+            "sha256": sha256_lf(oof_path) if oof_path.is_file() else None,
         },
         "metrics": {
             "mean_raw_score": float(np.mean(scores)),
@@ -235,8 +258,7 @@ def main() -> None:
     joblib.dump(model, args.output)
 
     print(f"[conformal] Saving coverage report to {args.coverage_output}...")
-    with open(args.coverage_output, "w", encoding="utf-8") as f:
-        json.dump(coverage_report, f, indent=2)
+    write_coverage_report(args.coverage_output, coverage_report)
 
     # Update checksum manifest
     manifest_path = default_manifest_path_for(args.output)
