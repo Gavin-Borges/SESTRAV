@@ -19,8 +19,12 @@ real DAG and a conda environment:
 - every key the rule declares as a param is passed on by `scripts/stage4.py`;
 - the five scoring keys `config.yaml` carries reach `score_immunogenicity`;
 - each is passed to the parameter of the same name, so none is crossed;
-- `mc_dropout` and `freeze_mode` are coerced to bool, and the two path keys turn
-  an empty string into None, which is what an unset config key becomes.
+- `mc_dropout` and `freeze_mode` go through the script's string-aware
+  `_parse_flag`, not bare bool(), and the two path keys turn an empty string into
+  None, which is what an unset config key becomes. Bare bool() made
+  `--config mc_dropout=false` truthy, because Snakemake delivers that as the str
+  'false'; `tests/test_stage4_parses_boolean_params.py` runs the script and pins
+  what each spelling actually reaches Stage 4 as.
 
 This is a static check: it says the keys are wired, not that Stage 4 honours them.
 `tests/test_stage4_scoring.py::test_pytorch_branch_mc_dropout` covers the
@@ -157,7 +161,12 @@ def test_the_flags_are_coerced_and_empty_paths_become_none() -> None:
     """An unset config key arrives as "" or False; Stage 4 must normalize before passing."""
     source = STAGE4.read_text(encoding="utf-8")
     for flag in ("freeze_mode", "mc_dropout"):
-        assert re.search(rf"{flag}\s*=\s*bool\(", source), f"{flag} is not coerced to bool"
+        assert re.search(rf"{flag}\s*=\s*_parse_flag\(\s*\"{flag}\"", source), (
+            f"{flag} is not parsed by _parse_flag under its own name"
+        )
+        assert not re.search(rf"{flag}\s*=\s*bool\(", source), (
+            f"{flag} is coerced with bare bool(), which makes the str 'false' True"
+        )
     for path_key in ("thresholds_path", "calibration_path"):
         assert re.search(rf"{path_key}\s*=.*\bor None\b", source), (
             f"{path_key} does not turn an empty config value into None"
