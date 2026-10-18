@@ -17,6 +17,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **`scripts/fit_conformal_calibrator.py` no longer records an absolute `--model` or
+  `--oof` as a workstation path.** The coverage report it writes, tracked as
+  `models/v5/conformal_coverage_mode31.json`, recorded `source_model.path` and
+  `source_oof.path` as the argument given with its backslashes turned into `/`, so an
+  absolute source put a `C:/Users/<user>/...` or `/home/<user>/...` path into a tracked
+  file. Both now go through `src.provenance_paths.relative_source`, as the other provenance
+  writers do; the entry that moved those writers onto it named these two keys among the
+  ones it left unchanged. A source outside the checkout is recorded as `external:<name>`,
+  an absolute source inside it as its repo-relative path, and a relative source as given
+  with `/` separators, exactly as before. The `sha256` fields are still taken from the
+  files themselves. **The committed report is not regenerated and does not need to be:** it
+  was written from the default relative sources, which record the same two strings before
+  and after, and a new test pins them to the committed values.
+  `tests/test_fit_conformal_calibrator_relative_sources.py` drives
+  `compute_coverage_report` and `main()`, with the fold assignment and interval steps
+  stubbed so nothing is fitted; three of its four tests fail on the previous writer.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document

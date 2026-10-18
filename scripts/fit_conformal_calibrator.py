@@ -40,6 +40,7 @@ from src.conformal import (  # noqa: E402
     fit_venn_abers,
     oof_intervals,
 )
+from src.provenance_paths import relative_source  # noqa: E402
 
 RANDOM_SEED = 42
 
@@ -110,7 +111,12 @@ def compute_coverage_report(
     model_path: Path,
     oof_path: Path,
 ) -> dict[str, Any]:
-    """Compute empirical calibration, bracket width, and provenance metrics."""
+    """Compute empirical calibration, bracket width, and provenance metrics.
+
+    The two source paths are recorded through ``relative_source``, so an absolute
+    ``--model`` or ``--oof`` is never written into the tracked report as a
+    workstation path; the digests are still taken from the files themselves.
+    """
     scores = df["score"].to_numpy(dtype=np.float64)
     labels = df["label"].to_numpy(dtype=np.float64)
     mid = 0.5 * (lower + upper)
@@ -124,11 +130,11 @@ def compute_coverage_report(
         "n_folds": int(model.n_folds),
         "random_state": model.random_state,
         "source_model": {
-            "path": str(model_path).replace("\\", "/"),
+            "path": relative_source(str(model_path).replace("\\", "/")),
             "sha256": sha256_file(model_path) if model_path.is_file() else None,
         },
         "source_oof": {
-            "path": str(oof_path).replace("\\", "/"),
+            "path": relative_source(str(oof_path).replace("\\", "/")),
             "sha256": sha256_lf(oof_path) if oof_path.is_file() else None,
         },
         "metrics": {
