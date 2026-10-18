@@ -26,6 +26,7 @@ checked with `git ls-files`, not with `Path.exists()`. That distinction is the w
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 from pathlib import Path
@@ -36,17 +37,28 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PIPELINE = REPO_ROOT / "pipeline.smk"
 CONFIG = REPO_ROOT / "config.yaml"
+FETCH_SCRIPT = REPO_ROOT / "scripts" / "fetch_human_proteome.py"
 
 # Keys whose default is deliberately allowed to be untracked, each with the reason it is
 # exempt. An exemption is recorded here so it is VISIBLE; the failure mode this whole file
 # exists to catch is an untracked default that nobody knew about.
 #
-# reference_proteome: `pipeline.smk` falls back to data/proteomes/human_reference.fasta,
-# which is not in the repository. It is exempt because it is NOT reached by the default
-# target: with training_dataset set correctly, `snakemake --dry-run --cores 1` resolves to
-# exit 0 on a tracked-only tree, measured. A large reference proteome is a download, not a
-# repository artifact. If a future rule pulls it into the default DAG this exemption stops
-# being correct, and the right fix then is to document the download, not to widen this list.
+# reference_proteome: `pipeline.smk` falls back to
+# data/proteomes/human_uniprot_UP000005640.fasta, which is not in the repository. It is
+# exempt because it is NOT reached by the default target: with training_dataset set
+# correctly, `snakemake --dry-run --cores 1` resolves to exit 0 on a tracked-only tree,
+# measured. A large reference proteome is a download, not a repository artifact. If a
+# future rule pulls it into the default DAG this exemption stops being correct, and the
+# right fix then is to document the download, not to widen this list.
+#
+# The download IS documented, and until 2026-10-16 this default did not name it. The
+# fallback was data/proteomes/human_reference.fasta, a path that no script writes and no
+# document mentions - it occurred in exactly two tracked files, pipeline.smk and this
+# comment. So a reader who ran the documented `scripts/fetch_human_proteome.py` and then
+# asked for data/hard_decoys.csv still got MissingInputException, because the fetch script
+# writes human_uniprot_UP000005640.fasta. Being exempt from the TRACKED check never meant
+# the name was unchecked; it only meant the clone is not expected to carry the bytes.
+# test_the_reference_proteome_default_is_the_path_the_fetch_script_writes now pins it.
 KNOWN_UNTRACKED_DEFAULTS = {
     "reference_proteome",
     # model_path: .gitignore's model-binary block excludes every model
@@ -145,6 +157,44 @@ def test_the_training_corpus_default_is_the_reason_this_test_exists():
     assert not _tracked(fallback), (
         f"pipeline.smk's training_dataset fallback {fallback!r} is now tracked. "
         "The defect this test guards has changed shape; re-read the module docstring."
+    )
+
+
+def _fetch_script_default_output() -> str:
+    """The DEFAULT_OUTPUT literal in scripts/fetch_human_proteome.py, read without importing.
+
+    Parsed rather than imported: the module is a downloader, and a test must not be one
+    assignment away from reaching the network. Parsed rather than grepped so that a
+    commented-out or shadowed assignment cannot be mistaken for the live one.
+    """
+    tree = ast.parse(FETCH_SCRIPT.read_text(encoding="utf-8"))
+    for node in tree.body:  # module level only; a nested one is not what the CLI uses
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "DEFAULT_OUTPUT":
+                    return str(node.value.value)
+    raise AssertionError(
+        "scripts/fetch_human_proteome.py no longer defines a module-level DEFAULT_OUTPUT "
+        "string; the binding this test asserts has moved and the test must be rewritten"
+    )
+
+
+def test_the_reference_proteome_default_is_the_path_the_fetch_script_writes():
+    """pipeline.smk must name the FASTA the documented download actually produces.
+
+    reference_proteome is exempt from the tracked-file check above because the proteome is
+    a 100 MB download rather than a repository artifact. That exemption says nothing about
+    whether the NAME is right, and for a year it was not: the fallback named
+    human_reference.fasta while scripts/fetch_human_proteome.py writes
+    human_uniprot_UP000005640.fasta, so `snakemake data/hard_decoys.csv` failed even after
+    a reader followed data/README.md exactly. An exemption from one check is not an
+    exemption from all of them.
+    """
+    default = _path_defaults()["reference_proteome"]
+    assert default == _fetch_script_default_output(), (
+        f"pipeline.smk falls back to {default!r} but scripts/fetch_human_proteome.py writes "
+        f"{_fetch_script_default_output()!r}. Running the documented download then asking "
+        f"for data/hard_decoys.csv would fail with MissingInputException."
     )
 
 

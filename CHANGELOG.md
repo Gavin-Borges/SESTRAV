@@ -16,6 +16,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
+### Fixed
+- **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
+  `scripts/fetch_human_proteome.py` actually writes.** The fallback was
+  `data/proteomes/human_reference.fasta`, a path no script produces and no document
+  mentions; it occurred in exactly two tracked files, `pipeline.smk` itself and the
+  exemption comment in `tests/test_pipeline_defaults_exist_in_a_clone.py`. The fetch
+  script's `DEFAULT_OUTPUT`, the regeneration recipe in `data/README.md` and the
+  "download independently, do not commit" block in `.gitignore` all name
+  `data/proteomes/human_uniprot_UP000005640.fasta` instead. So a reader who ran the
+  documented download and then asked for `data/hard_decoys.csv` still got
+  `MissingInputException` in rule `generate_hard_decoys`, naming a file they had never
+  been told to create. `rule generate_hard_decoys` is not reached by the default target,
+  so neither Snakemake dry-run leg could see this and the shipped
+  `snakemake --dry-run --cores 1` was exit 0 throughout; `reference_proteome` is also a
+  deliberate entry in that test's `KNOWN_UNTRACKED_DEFAULTS`, which exempts it from the
+  tracked-file check because a 100 MB proteome is a download rather than a repository
+  artifact. **That exemption was read as covering the name as well as the bytes, and it
+  never did.** A new test pins the pipeline fallback to the fetch script's
+  `DEFAULT_OUTPUT`, parsed from the source with `ast` rather than imported, so a test can
+  never be one assignment away from reaching the network. No behaviour changes for anyone
+  who sets `reference_proteome` in `config.yaml`; the shipped `config.yaml` does not set
+  it, which is why the fallback was load-bearing.
+
 ### Changed
 - **`tools/check_hash_pins.py` now rejects options that change where packages come from,
   instead of skipping every option line.** `--extra-index-url`, `--trusted-host`,
@@ -227,6 +250,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and after.
 
 ### Fixed
+- **`src/verify/sestrav_evaluator.py` now says when its GNN scored with untrained weights.**
+  With no checkpoint, `run_evaluation_pipeline` evaluates an initialized structural GNN.
+  Those are real model scores, not mock ones, so the report's `use_mock_fallback` is false,
+  and nothing else in `validation_report.json` said the weights were random. A requested
+  checkpoint that did not exist was reported the same way as one never asked for. The
+  report's metadata now carries `checkpoint_status` ("loaded", "absent", "failed" or
+  "not_attempted"), `checkpoint_requested`, `checkpoint_loaded` (both through
+  `relative_source`: repo-relative inside the checkout, `external:<name>` outside it, so no
+  workstation path is written) and `untrained_baseline`. The terminal
+  report prints the status. What happens on a failed load is unchanged: it still warns and
+  falls back to mock scores. `tests/test_sestrav_evaluator_checkpoint_status.py` covers each
+  arm; all six of its tests fail on the previous code.
+- **`models/v5/conformal_coverage_mode31.json` records a source digest that reproduces from
+  the Git blob, and the digest gate now checks it.** Its `source_oof.sha256` was the digest of
+  a CRLF working copy of `models/v5/rf_oof_predictions.csv`, which `.gitattributes` pins to
+  LF, so no clone's blob matched it. The same digest pair was corrected for a sibling carrier
+  under claims register D24-resid; this carrier was missed because
+  `scripts/check_digest_portability.py` did not scan the coverage report. The recorded value
+  is now the LF content's digest, and the report's own entry in
+  `models/v5/model_artifact_checksums.json` follows the edit. `scripts/fit_conformal_calibrator.py`
+  now hashes the source with CRLF read as LF and writes the report with LF line endings, so a
+  run from a CRLF checkout records the same digests as one from a Linux clone. The gate's
+  patterns now include `*conformal_coverage*.json`; before this change it would have called
+  the old value WINDOWS_ONLY. No fitted number changes.
 - **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
   `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
   renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
@@ -404,8 +451,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   threshold alone moves 241 raw-score calls. The ranking still sorts by the calibrated score,
   but now breaks a calibrated tie by the raw score before the peptide: the deployed
   calibrator's plateau around the threshold spans raw 0.3034 to 0.3304, so ranking it by
-  peptide alone put 1,424 uncalled rows above the last called row on the grouped v5 OOF. The
-  called rows are now always the top of the ranking.
+  peptide alone put 1,424 uncalled rows above the last called row on the grouped v5 OOF. With
+  a monotone non-decreasing calibrator, which every stage-4 calibrator a repo script writes is
+  (isotonic, increasing), the called rows are now always the top of the ranking.
 - **`docs/model_evaluation_summary.md`'s rebuild command now runs as written.** Its reader
   disclosure said to rebuild a model with `python -m src.train_classifier --feature-mode <N>`,
   which exits 2 before training because `--data` and `--model-dir` are required. It now
@@ -508,6 +556,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   need the matrix. A feature cache already written this way is not detected: delete
   `physico_features_mode31_*` files under the configured `output_dir`'s `cache/` directory
   if a v1 run was ever given mode 31.
+- **The standardized predictor outputs now say when a PRIME or PredIG score was simulated.**
+  The default Snakemake target needs `results/{proteome_id}_standardized_outputs.csv`, so it
+  runs `scripts/run_prime_wrapper.py` and `scripts/run_predig_wrapper.py`. When PRIME, or
+  Docker for PredIG, is missing or fails, those wrappers write seeded noise and still exit 0
+  (PRIME's is derived from the binding input, PredIG's is noise around a constant under the
+  default pipeline), and `scripts/standardize_outputs.py` merged it with nothing to tell it
+  from real tool output. Each simulated row now carries `simulated=1`, the standardized CSV gains
+  `prime_simulated` and `predig_simulated` (1 on every row of a file its wrapper marked;
+  appended, so the existing columns keep their positions), and all three scripts warn on
+  stderr. A 0 means the file carries no simulation mark, not that the scores are known to be
+  real: neither rule's input or command changed, so Snakemake will not rerun a predictor for
+  this change alone, and a file written earlier reads 0 until
+  `--forcerun run_prime run_predig`. Two pre-existing reasons the default target simulates
+  PredIG even with Docker installed are recorded in that wrapper's comment, unfixed here.
+  Whether to simulate at all is unchanged.
+  `tests/test_competitor_scores_say_when_simulated.py` covers both wrappers, the merge, one
+  tool simulated while the other is not, and unmarked output.
 - **Installing the git hooks no longer modifies tracked files.** `CONTRIBUTING.md` step 2
   runs `bash scripts/hooks/install.sh`, which marks the four hooks executable. Three of
   them, `commit-msg`, `pre-commit` and `pre-push`, were tracked as non-executable, so on a
@@ -526,6 +591,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   there. The flag reads the loaded calibrator's own groups, so it always describes the
   calibrator that produced the interval. Intervals are unchanged; the flag says which ones
   their validity statement does not cover, and stage 4 prints the count.
+- **The Snakemake scoring rule now forwards `calibration_path` and `mc_dropout`, which it
+  read from `config.yaml` and dropped.** `rule score_immunogenicity` passed Stage 4 only
+  `model_path`, `thresholds_path` and `freeze_mode`, so setting either of the other two was a
+  silent no-op under Snakemake while `pipeline.py` honoured both: calibration fell back to a
+  calibrator found beside the model, and `mc_dropout: true` produced no MC Dropout pass at
+  all, though `docs/model_cards/ann_30feature.md` tells a reader to enable it by setting
+  exactly that key. This is the defect `thresholds_path` had until it was fixed, and the
+  mirror of `tests/test_pipeline_forwards_freeze_mode.py`, where `pipeline.py` was the side
+  that dropped a key. Both defaults are unchanged (`mc_dropout: false`, and the shipped
+  `calibration_path` names the file the fallback already resolved), so a default run scores
+  as before, and a run that sets `calibration_path` now gets the calibrator it named.
+  **`mc_dropout: true` still runs no MC Dropout pass with the shipped model**: Stage 4
+  honours the flag only on the PyTorch branch, and `config.yaml`'s `model_path` is a
+  `.joblib`, so the key also needs a `.pt` model. The flag is now wired rather than
+  discarded; making the ANN model card's instruction work end to end on the shipped
+  configuration is a separate question.
+  `tests/test_snakemake_score_rule_forwards_config.py` pins every scoring key through the
+  rule and the script.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
   peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
   measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
