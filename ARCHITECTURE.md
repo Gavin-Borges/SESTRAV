@@ -35,11 +35,13 @@ the ten allele binding scores to a binding-free physicochemical floor moves AUC-
 `models/v5/training_results_ablation.csv`; the two feature sets differ by exactly those
 ten columns and nothing else). Random Forest importance agrees: the binding block holds
 55.8% of total against 41.7% for the physicochemical block and 2.5% for length
-(`models/v5/feature_importances.csv`). **The converse is not measured.** That ablation
-has no binding-only arm, so what the physicochemical features add over binding alone is
-unquantified on this corpus - see `docs/paper.md` Section 4, which already discloses the
-same gap. Do not restore an additive framing in either direction without an arm that
-measures it.
+(`models/v5/feature_importances.csv`). **The converse is not isolated.** That ablation
+has no binding-only arm, and the one tracked comparison against a binding-only Random
+Forest (claims-register row D43) is confounded: that model receives an all-zero binding
+vector for every scored peptide the binding matrix lacks. So what the physicochemical
+features add over binding alone is unquantified on this corpus - see `docs/paper.md`
+Section 4, which already discloses the same gap. Do not restore an additive framing in
+either direction without an arm that measures it free of that confound.
 
 Three properties are treated as first-class requirements, not afterthoughts:
 
