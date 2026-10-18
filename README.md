@@ -539,7 +539,8 @@ course directory (`CMB 523 .../Colab_outputs/bootstrap_metric_cis.csv`) that is 
 repository and from any local workspace, so it can never acquire provenance here. The one tracked
 ANN artifact, `models/ann_cv_summary.csv`, reports **AUC-PR 0.7820 +/- 0.0239** (population std,
 5-fold) - but it measures a **different network**, the legacy 64-32 ReLU dropout 0.3, over the 704
-peptides remaining after the 16 gold-standard epitopes are held out of the 720-peptide v3 corpus.
+peptides remaining after the 16 gold-standard epitopes are held out of the 720-peptide v2 corpus
+(`data/archive/immunogenicity_dataset_v2.csv`; v3 has 1,004 rows).
 It is therefore not a replacement value for the architecture named above, and is not presented as
 one. Re-derived from `models/ann_oof_predictions.csv` and reproduces digit-for-digit.
 * **GNN v2.3 (research track):** `pip install ".[gnn]"` (from source; not published to PyPI), then `python -m src.train_gnn --help`.
