@@ -26,9 +26,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   comment, a ` * ` block-comment line, a `-` or `+` list or a `|` table, each of which
   repeats its marker at the start of the next line, reported the project's own
   institution as unreviewed. Re-flowing one paragraph at every width from 20 to 80
-  gave 7,080 extra findings per marker over 151,158 inputs for `> `, `- `, `# `, `* `
-  and `// `, and none for a bare or indented continuation. The leading markers and
-  whitespace are now removed before the comparison. **The same comparison was a
+  gave a finding the unwrapped paragraph does not at 20 of the 61 widths for each of
+  `> `, `- `, `# `, `* ` and `// `, and at none for a bare or indented continuation.
+  The leading markers and whitespace are now removed before the comparison; an
+  ordered-list number, `;` or `%` is not, and still gives that finding at 20 of the 61
+  widths. **The same comparison was a
   `startswith`, so it also accepted a continuation that merely BEGINS with the
   remaining words**: a truncated head followed by a longer word on the next line
   passed the gate with exit 0, the shape of the B13 hole that a bare prefix rule had

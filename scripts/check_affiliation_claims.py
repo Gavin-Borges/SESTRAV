@@ -685,9 +685,10 @@ def is_excluded_prefix(path: str) -> bool:
 # What a continuation line can open with before its words: a blockquote's ">"
 # (nested or not), a comment's "#" or "//", a block comment's or list's "*", a
 # list's "-" or "+", a table cell's "|", and the whitespace around them.
-# Measured 2026-10-19: a wrapped own institution whose continuation opened with
-# any of "> ", "- ", "# ", "* " or "// " was reported, 7,080 extra findings per
-# marker over 151,158 re-flowed inputs, while a bare or indented one was not.
+# Measured 2026-10-19 by re-flowing one paragraph at every width from 20 to 80: a
+# continuation opening with any of "> ", "- ", "# ", "* " or "// " gave a finding
+# the unwrapped paragraph does not at 20 of the 61 widths, a bare or indented one
+# at none. An ordered-list number, ";" or "%" is not removed (still 20 of 61).
 _CONTINUATION_MARKUP = re.compile(r"^(?:[>#*+|\-]|//|\s)+")
 
 

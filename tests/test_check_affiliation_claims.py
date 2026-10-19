@@ -38,7 +38,7 @@ from pathlib import Path
 
 import pytest
 
-_SCRIPT =Path(__file__).resolve().parents[1] / "scripts" / "check_affiliation_claims.py"
+_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_affiliation_claims.py"
 
 # The exact text that was published in README.md and lived on origin/main.
 ORIGINAL_FABRICATION = (
@@ -1002,9 +1002,9 @@ def test_wrap_acceptance_needs_the_remaining_words_not_merely_a_next_line():
 # list or a table repeats that block's marker at the start of the next line, and
 # the continuation check compared the marker with the remaining words, so the
 # project's own institution was reported there. Measured 2026-10-19 by
-# re-flowing one paragraph at every width from 20 to 80: 7,080 extra findings per
-# marker over 151,158 inputs for "> ", "- ", "# ", "* " and "// ", and none for
-# a bare or two-space continuation.
+# re-flowing one paragraph at every width from 20 to 80: a finding the unwrapped
+# paragraph does not give appeared at 20 of the 61 widths for each of "> ", "- ",
+# "# ", "* " and "// ", and at none for a bare or two-space continuation.
 # ---------------------------------------------------------------------------
 
 _MARKED_WRAPS = [
