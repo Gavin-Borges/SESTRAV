@@ -470,6 +470,49 @@ UNREADABLE_PATHS: List[str] = []
 # scan_tree resets it and refuses to pass while it is non-empty.
 TRACKED_LIST_ERRORS: List[str] = []
 
+# Encodings a file is ALSO read in when its UTF-8 reading contains a NUL byte.
+#
+# Every file used to be read as UTF-8 only. A UTF-16 file read that way is each
+# ASCII character followed by a NUL, so no keyword or vendor pattern can match it.
+# Measured 2026-10-19 at e653f140: `api_key = "<18 chars>"` and a GitHub token
+# shape, each written as UTF-16 or UTF-32 in either byte order, with or without a
+# byte-order mark, returned [] from scan_file, and scan_tree printed [SUCCESS] over
+# such a file. Windows PowerShell 5.1's `>` redirection and Out-File write UTF-16LE
+# with a mark by default, so this is how a credential in that encoding gets
+# committed on a Windows workstation.
+#
+# Any ASCII character encoded in one of these four puts a NUL byte beside it, so a
+# NUL is the trigger and an ASCII-only UTF-8 file pays nothing. The readings are
+# ADDITIVE: the UTF-8 pass runs first and unchanged, so no line it flags can stop
+# being flagged, and a file whose encoding is misjudged still gets the UTF-8 pass.
+# All four are tried, rather than one picked from a byte-order mark, because a
+# heuristic choice is a bypass: a file arranged to look like one encoding would
+# hide content readable in another.
+_WIDE_ENCODINGS = ("utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be")
+
+
+def _line_is_flagged(line: str, patterns: List["re.Pattern[str]"]) -> bool:
+    for pattern in patterns:
+        # finditer, not search: a line can carry more than one assignment,
+        # and search() inspects only the FIRST. A short decoy earlier on the
+        # line then shields a real secret later on it, which is a
+        # one-character bypass. Measured: `token = "abc"; password = "<36
+        # chars>"` went from BLOCK to allow under search().
+        for match in pattern.finditer(line):
+            val = match.group(2)
+            # Whitespace inside the captured value means prose, not a
+            # credential. This is what keeps sentences like
+            # `A password: "must be at least twelve characters"` quiet, and
+            # it discriminates on the VALUE rather than on the whole line.
+            if any(ch.isspace() for ch in val):
+                continue
+            if len(val) > 8 and calculate_entropy(val) > 3.0:
+                return True
+    # Keyword-independent pass. Runs only when the assignment patterns found
+    # nothing, purely to save work: it is ADDITIVE, so no line that is caught
+    # today can stop being caught.
+    return any(vendor.search(line) for vendor in VENDOR_CREDENTIAL_FORMATS)
+
 
 def scan_file(path: str) -> List[int]:
     # Returns only the line NUMBERS of credential-like assignments. The matched
@@ -512,38 +555,25 @@ def scan_file(path: str) -> List[int]:
         # raising, so the scan runs to the end of the file. Credential values are
         # ASCII by construction (the patterns below match quoted or bare tokens
         # with no whitespace), so the smuggled bytes cannot mask a match.
+        saw_nul = False
         with open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
             for line_no, line in enumerate(f, 1):
-                flagged = False
-                for pattern in patterns:
-                    # finditer, not search: a line can carry more than one assignment,
-                    # and search() inspects only the FIRST. A short decoy earlier on the
-                    # line then shields a real secret later on it, which is a
-                    # one-character bypass. Measured: `token = "abc"; password = "<36
-                    # chars>"` went from BLOCK to allow under search().
-                    for match in pattern.finditer(line):
-                        val = match.group(2)
-                        # Whitespace inside the captured value means prose, not a
-                        # credential. This is what keeps sentences like
-                        # `A password: "must be at least twelve characters"` quiet, and
-                        # it discriminates on the VALUE rather than on the whole line.
-                        if any(ch.isspace() for ch in val):
-                            continue
-                        if len(val) > 8 and calculate_entropy(val) > 3.0:
-                            flagged = True
-                            break
-                    if flagged:
-                        break
-                # Keyword-independent pass. Runs only when the assignment
-                # patterns found nothing, purely to save work: it is ADDITIVE, so
-                # no line that is caught today can stop being caught.
-                if not flagged:
-                    for vendor in VENDOR_CREDENTIAL_FORMATS:
-                        if vendor.search(line):
-                            flagged = True
-                            break
-                if flagged:
+                if "\x00" in line:
+                    saw_nul = True
+                if _line_is_flagged(line, patterns):
                     flagged_line_numbers.append(line_no)
+        if saw_nul:
+            # errors="replace", not surrogateescape, which handles only bytes at or
+            # above 0x80 and raises on the rest; a UTF-16 reading of an odd byte
+            # count ends in a dangling byte, and raising there would stop the scan.
+            # Each line is reported once, in line order, however many readings flag it.
+            wide_flagged = set(flagged_line_numbers)
+            for encoding in _WIDE_ENCODINGS:
+                with open(path, "r", encoding=encoding, errors="replace") as f:
+                    for line_no, line in enumerate(f, 1):
+                        if _line_is_flagged(line, patterns):
+                            wide_flagged.add(line_no)
+            flagged_line_numbers = sorted(wide_flagged)
     except OSError:
         # The file could not be opened or read at all (permissions, a vanished
         # path, a device error). That is NOT a clean result: nothing about this
