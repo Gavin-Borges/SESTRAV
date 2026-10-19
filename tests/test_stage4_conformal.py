@@ -163,13 +163,17 @@ def test_cli_predict_parser_conformal_flags(capsys: pytest.CaptureFixture[str]) 
 
 def _apply(tmp_path, freeze_mode):
     """Call _apply_conformal with no calibrator resolvable from anywhere."""
-    from functions.stage4_immunogenicity_scoring import _apply_conformal
+    from functions.stage4_immunogenicity_scoring import _apply_conformal, _resolve_conformal_path
 
+    # The premise, checked rather than assumed: without the fixture a checkout that
+    # holds the gitignored calibrator resolves it here, whatever the cwd.
+    assert _resolve_conformal_path(str(tmp_path), None) is None, "a calibrator still resolves"
     df = _sample_feature_frame(n=3)
     df["immunogenicity_score"] = [0.1, 0.2, 0.3]
     return _apply_conformal(df, str(tmp_path), conformal_path=None, freeze_mode=freeze_mode)
 
 
+@pytest.mark.usefixtures("no_installed_conformal_calibrator")
 def test_unresolvable_calibrator_warns_instead_of_silently_skipping(
     tmp_path, monkeypatch, capsys
 ) -> None:
@@ -187,6 +191,7 @@ def test_unresolvable_calibrator_warns_instead_of_silently_skipping(
     assert "WARNING" in out
 
 
+@pytest.mark.usefixtures("no_installed_conformal_calibrator")
 def test_unresolvable_calibrator_raises_under_freeze_mode(tmp_path, monkeypatch) -> None:
     """freeze_mode previously guarded only the explicit-path branch.
 
