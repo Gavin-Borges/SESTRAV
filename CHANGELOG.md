@@ -17,6 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **`.gitignore` now blocks the key, token and backup files its security block
+  missed.** It already ignored `*.key`, `*.pem`, `*.p12`, `*.pfx`, `*.jks` and the four
+  OpenSSH default key names, but a PuTTY key (`*.ppk`), an ASCII-armoured PGP export
+  (`*.asc`), a binary keyring (`*.gpg`), cloud service-account and OAuth client JSON,
+  a bare `token.txt`, editor directories (`.vscode/`, `.idea/`, whose launch
+  configurations carry environment variables), backup, merge and swap leftovers
+  (`*.bak`, `*.orig`, `*.rej`, `*.swp`, `*.swo`) and core dumps were all committable.
+  The core-dump rule is `/core` plus `core.[0-9]*`, not the bare `core` a sweep
+  proposed: a bare `core` also matches `src/core/`, which holds three tracked modules,
+  and would have silently ignored every new file added there. Measured before adding:
+  the set of tracked files the rules ignore is identical before and after (the same 10
+  force-added files), so nothing tracked changes state. A new test checks 20 paths that
+  must be ignored and 6 that must not, including `src/core/` sources, with
+  `git check-ignore --no-index`.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
