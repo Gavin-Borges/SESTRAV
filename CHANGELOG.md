@@ -17,6 +17,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **`config.yaml`'s `freeze_mode` and `require_checksum_match_in_freeze_mode` now mean
+  the same thing to every reader: the three that re-read the raw YAML parse them as the
+  config schema does, instead of testing them for truthiness.** `src/core/config.py`
+  declares both as `bool` fields, and pydantic gives such a field a fixed vocabulary:
+  `true`, `on`, `yes`, `1`, `t` or `y` in any case is True, `false`, `off`, `no`, `0`, `f`
+  or `n` is False, and anything else is refused. `pipeline.py` reads them through that
+  schema. `sestrav predict` (`src/cli.py`) set `freeze_mode = bool(configured)`, and
+  `src/data_curation_qc.py` and `scripts/data_qc_gate.py` gated the dataset checksum on
+  `config.get("freeze_mode") and gov.get("require_checksum_match_in_freeze_mode")`. An
+  unquoted YAML `false` arrives from `yaml.safe_load` as a real bool and was fine, but a
+  QUOTED `"false"` arrives as a string and `bool("false")` is True, so
+  `freeze_mode: "false"` turned freeze mode on at those three readers while the schema
+  read it as off, and `require_checksum_match_in_freeze_mode: "false"` still enforced
+  the checksum. Both failed toward the stricter mode, so nothing unsafe passed, but the
+  same `config.yaml` meant two things depending on which entry point read it, and a run
+  the operator had switched off could still be refused. A new `src.config_flags.config_bool`
+  parses them; a missing or null key is still each reader's default (off), and a value
+  that is not a boolean is refused with the key named, rather than read as on. It
+  reimplements the schema's vocabulary rather than importing pydantic, because pydantic
+  comes only with the `dev`, `api` and `demo` extras and `sestrav predict` must keep
+  working on a core-only install; a new test checks it against `SestravConfig` and
+  `DatasetGovernanceConfig` themselves on 48 spellings, and a second confirms it imports
+  with pydantic absent. Behavioural tests drive all three readers end to end, in both
+  directions, and twelve mutants, each removing one part, all fail them. Found widening
+  the census of a review NIT that named two of the three readers; the third,
+  `scripts/data_qc_gate.py`, is the dataset QC gate CI's `test` job runs.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
