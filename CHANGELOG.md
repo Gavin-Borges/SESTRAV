@@ -17,6 +17,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **`environment.yml` now pins conda `pip` to 26.2.1, the version
+  `environments/requirements-pip-bootstrap.txt` pins, instead of 24.0.** The conda `pip`
+  is the pip that `conda env create` uses to run the hash-checked `pip:` block, so it is
+  the pip that installs `requirements.txt`. pip-audit 2.10.1 reports six advisories
+  against 24.0 (PYSEC-2026-196, PYSEC-2026-1795, PYSEC-2026-1796, PYSEC-2026-2875,
+  PYSEC-2026-2876 and PYSEC-2026-3721), fixed in releases from 25.3 to 26.2.
+  `.github/dependabot.yml` configures no conda ecosystem, and Scorecard's vulnerability
+  check on `main` listed one unrelated advisory while this pin was live, so neither
+  reported them. A new test holds the conda pin equal to the bootstrap lock's single
+  hash-locked `pip` pin, a `requirements*.txt` file that GitHub's dependency graph reads,
+  so the conda path now moves when that file does. A dry-run conda solve of
+  `environment.yml`'s conda dependencies with the new pin selects python 3.11.15 and
+  pip 26.2.1 from conda-forge; a full `conda env create` was not run.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
