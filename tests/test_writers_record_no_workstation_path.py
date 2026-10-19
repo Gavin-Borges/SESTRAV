@@ -1129,12 +1129,41 @@ def test_failure_note_reduces_each_path_inside_a_message(scratch_root, tmp_path)
          "ValueError: cannot read 'external:out.csv'"),
         (RuntimeError(f"{inside} and {leak}"), "RuntimeError: data/x.csv and external:out.csv"),
         (KeyError(str(leak)), "KeyError: 'external:out.csv'"),
+        # A UNC path, in either separator, starts with two of them.
+        (RuntimeError(f"cannot open \\\\host\\share\\{_USER}\\out.csv"),
+         "RuntimeError: cannot open external:out.csv"),
+        (RuntimeError(f"cannot open //host/share/{_USER}/out.csv"),
+         "RuntimeError: cannot open external:out.csv"),
     )
 
     for error, expected in cases:
         note = failure_note(error)
         assert note == expected
         assert workstation_path_findings(note) == [], note
+
+
+def test_failure_note_does_not_raise_when_a_path_cannot_be_resolved(scratch_root, monkeypatch):
+    """Both writers call failure_note inside an except block, where a raise would
+    replace the error being recorded and leave freeze_status.json unwritten. On
+    Windows os.path.realpath raises OSError (WinError 668) for a malformed UNC name
+    such as two backslashes and a ";", which a message can carry. A path that
+    cannot be resolved cannot be shown to be inside the checkout, so it is
+    recorded as external."""
+    import src.provenance_paths as module
+
+    def unresolvable(path, *_args, **_kwargs):
+        raise OSError(668, "An assertion failure has occurred", path)
+
+    monkeypatch.setattr(module.os.path, "realpath", unresolvable)
+    path = str(scratch_root / "data" / "x.csv")
+
+    assert module.relative_source(path) == "external:x.csv"
+    assert module.failure_note(RuntimeError(f"cannot open {path}")) == (
+        "RuntimeError: cannot open external:x.csv"
+    )
+    assert module.failure_note(_missing(path)) == (
+        "FileNotFoundError: No such file or directory: external:x.csv"
+    )
 
 
 @pytest.mark.parametrize(

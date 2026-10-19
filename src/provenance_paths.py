@@ -222,11 +222,13 @@ def relative_source(source: object, root: str | os.PathLike[str] | None = None) 
     if os.path.isabs(text):
         # Both sides in one resolved form, so a symlinked or dotted spelling of
         # either cannot move a file in or out of the checkout.
-        path = os.path.realpath(text)
-        base = os.path.realpath(os.fspath(root) if root is not None else PROJECT_ROOT)
         try:
+            path = os.path.realpath(text)
+            base = os.path.realpath(os.fspath(root) if root is not None else PROJECT_ROOT)
             inside = os.path.commonpath([base, path]) == base
         except ValueError:  # on Windows, a path on a different drive from the repo
+            inside = False
+        except OSError:  # unresolvable, e.g. WinError 668 on a malformed UNC name
             inside = False
         if inside:
             relative = os.path.relpath(path, base).replace(os.sep, "/")
@@ -258,14 +260,17 @@ _BARE_PATH = re.compile(_PATH_START + r"[^\s'\"]*")
 
 def failure_note(exc: BaseException, root: str | os.PathLike[str] | None = None) -> str:
     """Return how a writer records an exception it caught: its type, then its
-    message with every path in it reduced by :func:`relative_source`.
+    message with each path found in it reduced by :func:`relative_source`.
 
     An ``OSError`` that names its file is rebuilt from ``strerror`` and the
     reduced ``filename`` (and ``filename2``), because its own text quotes the
     path as given, absolute whenever the caller's was. Any other message has each
-    path it holds reduced in place: a quoted one whole, a bare one up to the next
-    space or quote. A bare path holding a space is therefore reduced only up to
-    that space.
+    path found in it reduced in place: a quoted one whole, a bare one up to the
+    next space or quote. A bare path holding a space is therefore reduced only up
+    to that space. A path that directly follows a ":" is not found and stays as
+    written, as in ``key:/abs/dir/x.csv`` and ``file:///abs/dir/x.csv`` (with a
+    space, ``key: /abs/dir/x.csv`` is reduced), because a path is never taken to
+    start after a ":", so that a URL's "//" is not read as one.
     """
     filename = getattr(exc, "filename", None)
     if isinstance(exc, OSError) and filename is not None:
