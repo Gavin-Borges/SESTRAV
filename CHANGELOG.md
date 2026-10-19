@@ -29,15 +29,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   otherwise identical certification runs of an integration batch. The repository had
   already found this hazard once: `tests/test_snakemake_shell_quoting.py` looked beside the
   running interpreter after PATH, and its docstring named this case. Both files now use one
-  shared resolver, `tests/_snakemake_launcher.py`, moved verbatim from that file. A new
-  `tests/test_snakemake_launcher.py` checks that, with every directory holding a snakemake
-  launcher removed from PATH, the resolver still finds the launcher beside the interpreter,
-  and the smoke test, run under that same PATH, passes rather than skips. A third test
-  guards the defect class rather than this one instance: across `tests/`, any function
-  that asks PATH for snakemake must also look beside `sys.executable`. It is measured per
-  function, so a correct private copy elsewhere is not refused, and a call given `path=`,
-  which does not consult PATH, is not counted. Four mutants, each removing one part, are
-  all killed.
+  shared resolver, `tests/_snakemake_launcher.py`, whose lookup moved unchanged from that
+  file (its docstring is new). A new `tests/test_snakemake_launcher.py` checks that, with
+  every directory holding a snakemake launcher removed from PATH, the resolver still finds
+  the launcher beside the interpreter, and the smoke test, run under that same PATH, passes
+  rather than skips. A further test guards the defect class rather than this one instance:
+  across `tests/`, any scope that asks PATH for snakemake must also look beside
+  `sys.executable`. The scopes are each function and the module's code outside every
+  function, because a module-level `NAME = shutil.which(...)` feeding a `skipif` is how this
+  suite gates on a program, with 15 such calls for bash, grep and git. A correct private
+  copy elsewhere is not refused, and a call given `path=`, which does not consult PATH, is
+  not counted. Run over the whole of `tests/` on `origin/main`, it flags only the smoke
+  test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
+  full suite gives the same passed and skipped counts whether or not the env's launcher
+  directory is on PATH.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document

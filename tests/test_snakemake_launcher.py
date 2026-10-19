@@ -124,22 +124,91 @@ def _reads_sys_executable(node: ast.AST) -> bool:
     )
 
 
-def test_no_test_resolves_snakemake_by_path_alone():
-    """The defect CLASS, not one instance: a function that asks PATH for snakemake must
-    also look beside `sys.executable`. Measured per FUNCTION, so a helper carrying both
-    steps passes wherever it lives, and a lookup with only the first fails, naming it.
-    The shared helper is the intended home, but a correct private copy is not refused."""
+_FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _outside_functions(node: ast.AST):
+    """Every node below `node` that is not inside a function. A function's decorators sit
+    in its `decorator_list`, so they belong to that function's scope, not to this one."""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, _FUNCTIONS):
+            continue
+        yield child
+        yield from _outside_functions(child)
+
+
+def _path_only_lookups(source: str) -> list[str]:
+    """The scopes in `source` that ask PATH for snakemake without also reading
+    `sys.executable`: each function, and the module's own code outside every function
+    (reported as `<module>`, and covering class bodies). The module scope matters because
+    `NAME = shutil.which(...)` feeding a `skipif` is how this suite gates on a program;
+    `tests/` held 15 such module-level calls on 2026-10-19, for bash, grep and git."""
+    tree = ast.parse(source)
     offenders = []
-    for path in sorted((REPO_ROOT / "tests").rglob("*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for func in ast.walk(tree):
-            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            nodes = list(ast.walk(func))
-            if any(_calls_which_snakemake(n) for n in nodes) and not any(
-                _reads_sys_executable(n) for n in nodes
-            ):
-                offenders.append(f"{path.relative_to(REPO_ROOT).as_posix()}::{func.name}")
+    scopes = [
+        (func.name, list(ast.walk(func))) for func in ast.walk(tree) if isinstance(func, _FUNCTIONS)
+    ]
+    scopes.append(("<module>", list(_outside_functions(tree))))
+    for name, nodes in scopes:
+        if any(_calls_which_snakemake(n) for n in nodes) and not any(
+            _reads_sys_executable(n) for n in nodes
+        ):
+            offenders.append(name)
+    return offenders
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "def f():\n    return shutil.which('snakemake')\n", ["f"], id="function-path-only"
+        ),
+        pytest.param(
+            "def f():\n    return shutil.which('snakemake') or str(Path(sys.executable).parent)\n",
+            [],
+            id="function-with-fallback",
+        ),
+        pytest.param(
+            "SNAKEMAKE = shutil.which('snakemake')\n", ["<module>"], id="module-path-only"
+        ),
+        pytest.param(
+            "SNAKEMAKE = shutil.which('snakemake') or str(Path(sys.executable).parent)\n",
+            [],
+            id="module-with-fallback",
+        ),
+        pytest.param(
+            "class T:\n    S = shutil.which('snakemake')\n", ["<module>"], id="class-body"
+        ),
+        pytest.param(
+            "@pytest.mark.skipif(shutil.which('snakemake') is None, reason='x')\ndef test_x():\n    pass\n",
+            ["test_x"],
+            id="decorator-belongs-to-its-function",
+        ),
+        pytest.param(
+            "S = shutil.which('snakemake', path='x')\n", [], id="path-keyword-is-not-PATH"
+        ),
+        pytest.param(
+            "S = shutil.which('snakemake', None, 'x')\n", [], id="path-positional-is-not-PATH"
+        ),
+        pytest.param("BASH = shutil.which('bash')\n", [], id="another-program-is-not-counted"),
+    ],
+)
+def test_the_lookup_check_reads_both_scopes(source, expected):
+    assert _path_only_lookups(source) == expected
+
+
+def test_no_test_resolves_snakemake_by_path_alone():
+    """The defect CLASS, not one instance: a scope that asks PATH for snakemake must also
+    look beside `sys.executable`. Measured per function and for module scope, so a helper
+    carrying both steps passes wherever it lives and a lookup with only the first fails,
+    naming it. The shared helper is the intended home, but a correct private copy is not
+    refused. This also pins that the check flags nothing that exists today: none of the
+    module-level `shutil.which` calls already in `tests/` is for snakemake."""
+    offenders = [
+        f"{path.relative_to(REPO_ROOT).as_posix()}::{name}"
+        for path in sorted((REPO_ROOT / "tests").rglob("*.py"))
+        for name in _path_only_lookups(path.read_text(encoding="utf-8"))
+    ]
     assert not offenders, (
         "these resolve snakemake from PATH alone and so skip whenever the env's launcher "
         f"directory is off PATH; use tests._snakemake_launcher.snakemake_launcher: {offenders}"
