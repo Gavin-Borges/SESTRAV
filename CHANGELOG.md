@@ -17,6 +17,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **`scripts/check_secrets.py` now catches `pass` names, connection-string passwords,
+  passwords on a command line, and R assignments.** Each shape below was planted with an
+  18-character value that clears the length and entropy floors and was missed by the
+  scanner at `e653f140`, while the plain `api_key = "<v>"` control was flagged: a `pass`
+  name (`DB_PASS = "<v>"`, a JSON `"pass"` key, `db_pass: <v>` in YAML, `SMTP_PASS=<v>` in
+  a `.env`); a `Password=` or `PWD=` element of an ADO.NET or ODBC connection string;
+  `--password <v>` with a space (the `=` form was already caught), `mysql -p<v>`,
+  `curl -u user:<v>` and `twine upload -p <v>`; and `api_key <- "<v>"` in R, which `.qmd`
+  and `.md` files carry. Each is a separate pattern, so it is additive and goes through
+  the same floors as the rest. What stays quiet is pinned too: placeholders and shell
+  variables after a flag (`<PASSWORD_HERE>`, `"$DB_PASSWORD"`, `${{ secrets.X }}`), a bare
+  `mysql -p`, which prompts, names that only contain the letters (`bypass_mode`,
+  `passport_id`), a keyword argument (`connect(password=...)`), and an R comparison
+  (`token < -1`). An unquoted lone `pass:` is deliberately not matched: measured first, it
+  hit "pass: governance" in this file, stopped by the entropy floor at 2.92, and "Second
+  pass: documentation" (3.24) would clear it, so it would turn the gate red on prose; the
+  unquoted form needs a joined name such as `DB_PASS`, and a lone `pass` is caught when
+  quoted. Over the 724 files the tree scan reads, the new patterns flag nothing, and the
+  scan stays `[SUCCESS]`. Multi-line values are not covered.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document

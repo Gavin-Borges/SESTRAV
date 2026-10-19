@@ -192,6 +192,64 @@ CREDENTIAL_TRIPLE_QUOTED = re.compile(
     r"(?:[_-][a-z0-9]+)*\s*=\s*[bfu]?(?:'''|\"\"\")([^'\"]+)(?:'''|\"\"\")"
 )
 
+# Shapes measured as missed at e653f140 with an 18-character planted value that the
+# floors pass, while the plain `api_key = "<v>"` control was flagged (security sweep
+# 2026-10-19, SCR-06). Separate patterns for the reason given above pattern 8: each
+# runs its own finditer, so none can swallow a match another makes.
+
+# 11. A `pass` name. The keyword group carries password, passwd and pwd but not the bare
+#     word, so `DB_PASS = "<v>"` and a JSON "pass" key were missed, quoted or bare.
+#     A letter or digit may not precede it, so bypass_mode does not match; after it
+#     must come `_` or `-` and more name, a quote, or the operator, so passport_id and
+#     passthrough do not match either.
+#
+#     The UNQUOTED form needs a joined name part (DB_PASS, SMTP_PASS, pass_phrase), and
+#     a lone `pass` is reached only when its value is quoted. Measured first: a lone
+#     `pass:` with a bare value matched "pass: governance" in this repo's CHANGELOG.md,
+#     stopped by the entropy floor at 2.92, and "Second pass: documentation" (3.24)
+#     would have cleared it, so the lone form would turn the gate red on prose.
+_PW_WORD_NAME = r"(?<![a-z0-9])pass(?:[_-][a-z0-9]+)*"
+_PW_WORD_JOINED_NAME = (
+    r"(?<![a-z0-9])(?:[a-z0-9]+[_-])+pass(?:[_-][a-z0-9]+)*"
+    r"|(?<![a-z0-9])pass(?:[_-][a-z0-9]+)+"
+)
+CREDENTIAL_PASS_NAME = re.compile(
+    r"(?i)(" + _PW_WORD_NAME + r")['\"]?\s*[=:]\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+CREDENTIAL_PASS_NAME_BARE = re.compile(
+    r"(?i)(" + _PW_WORD_JOINED_NAME + r")['\"]?\s*[=:]\s*([^\s'\"#,;)\]}]+)"
+)
+
+# 12. A Password= or PWD= element of an ADO.NET or ODBC connection string. The value
+#     follows `=` with no quote of its own, inside a string quoted as a whole. The
+#     element must open the string or follow a `;`, which is what separates it from a
+#     keyword argument such as `connect(password=...)`.
+CREDENTIAL_CONNECTION_STRING = re.compile(r"(?i)(?:;|['\"])\s*(password|pwd)\s*=\s*([^;'\"\s]+)")
+
+# 13. A password on a command line. `--password=<v>` was already caught by the bare-value
+#     parse; the space-separated form, mysql's attached `-p<v>`, curl's `-u user:<v>` and
+#     twine's `-p <v>` were not. A value opening with `<`, `$`, `%` or `{` is a placeholder
+#     or a variable and is skipped. The mysql and twine forms are case-sensitive, as the
+#     tools' own flags are (mysql's `-P` is the port).
+_CLI_VALUE = r"['\"]?([^\s'\"<$%{][^\s'\"]*)"
+CREDENTIAL_CLI_PASSWORD_FLAG = re.compile(r"(?i)(--pass(?:word)?)\s+" + _CLI_VALUE)
+CREDENTIAL_MYSQL_ATTACHED = re.compile(
+    r"(\bmysql(?:dump|admin|import)?\b[^\n]*?\s-p)([^\s'\"<$%{][^\s'\"]*)"
+)
+CREDENTIAL_CURL_USER = re.compile(
+    r"(?i)(\bcurl\b[^\n]*?\s(?:-u|--user)\s*['\"]?[^\s:'\"]+):([^\s'\"<$%{@][^\s'\"@]*)"
+)
+CREDENTIAL_TWINE_PASSWORD = re.compile(r"(\btwine\b[^\n]*?\s-p)\s+" + _CLI_VALUE)
+
+# 14. An R assignment, `<-` or `<<-`, which `.qmd` and `.md` files carry. A comparison
+#     against a negative number (`token < -1`) has a space inside the arrow and does not
+#     match.
+CREDENTIAL_R_ARROW = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*<<?-\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
 # reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
 # the patterns above recognise, so the assignment rules never saw it. The value
@@ -490,10 +548,18 @@ def scan_file(path: str) -> List[int]:
         CREDENTIAL_ENV_ITEM,
         CREDENTIAL_WALRUS,
         CREDENTIAL_TRIPLE_QUOTED,
+        CREDENTIAL_PASS_NAME,
+        CREDENTIAL_CONNECTION_STRING,
+        CREDENTIAL_CLI_PASSWORD_FLAG,
+        CREDENTIAL_MYSQL_ATTACHED,
+        CREDENTIAL_CURL_USER,
+        CREDENTIAL_TWINE_PASSWORD,
+        CREDENTIAL_R_ARROW,
         URL_EMBEDDED_CREDENTIAL,
     ]
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
+        patterns.append(CREDENTIAL_PASS_NAME_BARE)
     elif is_makefile(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_MAKE)
     try:
