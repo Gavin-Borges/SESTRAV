@@ -40,7 +40,9 @@ GitHub's built-in private reporting is also available:
 
 1. Navigate to the [SESTRAV Security tab](https://github.com/Gavin-Borges/SESTRAV/security).
 2. Click **"Report a vulnerability"**.
-3. Fill in the advisory form - this is end-to-end encrypted between you and the maintainer.
+3. Fill in the advisory form. The report is private: it goes to the repository's
+   maintainers rather than to a public issue, and GitHub adds you to it as a
+   collaborator. GitHub does not describe it as encrypted end to end.
 
 ## Response Commitment
 
