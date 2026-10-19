@@ -17,6 +17,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **The pipeline smoke test now RUNS wherever snakemake is installed, instead of skipping
+  when its launcher directory is off PATH.** `tests/test_pipeline_smoke_executes.py`, the
+  one test that executes the pipeline, resolved snakemake with `shutil.which` alone and
+  skipped when that returned None. When a suite is run by naming a conda env's interpreter
+  directly, without activating the env, the env's launcher directory is not on PATH:
+  `which` returns None while snakemake is installed and importable, the test skips, and a
+  skip reads as green. Measured by an outside reviewer with PATH as the only variable (same
+  interpreter, tree and argv): 25 passed and 1 skipped without the launcher directory on
+  PATH, 26 passed with it, which at suite scale is exactly the difference between two
+  otherwise identical certification runs of an integration batch. The repository had
+  already found this hazard once: `tests/test_snakemake_shell_quoting.py` looked beside the
+  running interpreter after PATH, and its docstring named this case. Both files now use one
+  shared resolver, `tests/_snakemake_launcher.py`, moved verbatim from that file. A new
+  `tests/test_snakemake_launcher.py` checks that, with every directory holding a snakemake
+  launcher removed from PATH, the resolver still finds the launcher beside the interpreter,
+  and the smoke test, run under that same PATH, passes rather than skips. A third test
+  guards the defect class rather than this one instance: across `tests/`, any function
+  that asks PATH for snakemake must also look beside `sys.executable`. It is measured per
+  function, so a correct private copy elsewhere is not refused, and a call given `path=`,
+  which does not consult PATH, is not counted. Four mutants, each removing one part, are
+  all killed.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
