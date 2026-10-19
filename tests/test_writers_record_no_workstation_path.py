@@ -18,6 +18,7 @@ here rather than pass on a clean tree.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -1064,6 +1065,162 @@ def test_external_validation_finalize_report(tmp_path):
     lines = report.read_text(encoding="utf-8").splitlines()
     assert "Run directory: `external:extval_run`" in lines
     _assert_no_workstation_path(lines, "external_validation_finalize")
+
+
+# --- failure notes -----------------------------------------------------------
+# Two writers record the text of an exception they CATCH: the leakage audit's
+# mode-35 row (`note`) and run_final_validation's freeze_status.json (`error`),
+# a tracked file. An OSError's text carries the path it failed on, absolute
+# whenever the caller's path was, and a message built by an f-string carries
+# whatever path was put into it. The tests above drive both writers' success
+# paths only, which is how a clone-regenerated audit came to write the absolute
+# path of the absent, gitignored self-similarity cache into its `note` cell.
+# Both writers now record the text through `src.provenance_paths.failure_note`.
+
+
+def _missing(path):
+    return FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+
+
+@pytest.fixture
+def scratch_root(tmp_path, monkeypatch):
+    """relative_source's default root pointed at a scratch checkout."""
+    import src.provenance_paths
+
+    root = tmp_path / "repo"
+    (root / "data").mkdir(parents=True)
+    monkeypatch.setattr(src.provenance_paths, "PROJECT_ROOT", root)
+    return root
+
+
+def test_failure_note_reduces_the_paths_an_oserror_carries(scratch_root, tmp_path):
+    from src.provenance_paths import failure_note
+
+    elsewhere = tmp_path / "elsewhere"
+    moved = FileExistsError(
+        errno.EEXIST, os.strerror(errno.EEXIST), str(elsewhere / "a.csv"), None,
+        str(scratch_root / "data" / "b.csv"),
+    )
+
+    assert failure_note(_missing(scratch_root / "data" / "cache.csv")) == (
+        "FileNotFoundError: No such file or directory: data/cache.csv"
+    )
+    assert failure_note(_missing(elsewhere / "cache.csv")) == (
+        "FileNotFoundError: No such file or directory: external:cache.csv"
+    )
+    assert failure_note(moved) == (
+        "FileExistsError: " + os.strerror(errno.EEXIST) + ": external:a.csv: data/b.csv"
+    )
+
+
+def test_failure_note_reduces_each_path_inside_a_message(scratch_root, tmp_path):
+    from src.provenance_paths import failure_note
+
+    leak = tmp_path / "elsewhere" / "out.csv"
+    inside = scratch_root / "data" / "x.csv"
+    cases = (
+        (RuntimeError(f"artifact was not produced: {leak}"),
+         "RuntimeError: artifact was not produced: external:out.csv"),
+        # repr() doubles every backslash of a Windows path; the quoted form is
+        # reduced whole, so a space inside the path cannot split it.
+        (ValueError(f"cannot read {str(leak)!r}"), "ValueError: cannot read 'external:out.csv'"),
+        (ValueError(f"cannot read {str(inside)!r}"), "ValueError: cannot read 'data/x.csv'"),
+        (ValueError(f"cannot read '{tmp_path / 'a b' / 'out.csv'}'"),
+         "ValueError: cannot read 'external:out.csv'"),
+        (RuntimeError(f"{inside} and {leak}"), "RuntimeError: data/x.csv and external:out.csv"),
+        (KeyError(str(leak)), "KeyError: 'external:out.csv'"),
+    )
+
+    for error, expected in cases:
+        note = failure_note(error)
+        assert note == expected
+        assert workstation_path_findings(note) == [], note
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "no rows left after the QC filter",
+        "AUC-PR/ROC, +/- 0.01, n/a",
+        "ratio 3/4 and ~2/3 of rows",
+        "see https://example.org/a/b.csv",
+        "HLA-A*02:01 / HLA-B*07:02",
+        "external:x.csv",
+    ],
+)
+def test_failure_note_keeps_a_message_that_names_no_workstation_path(text):
+    from src.provenance_paths import failure_note
+
+    assert failure_note(ValueError(text)) == "ValueError: " + text
+
+
+@pytest.mark.parametrize("inside", [True, False], ids=["inside the checkout", "outside it"])
+def test_audit_cv_leakage_mode35_failure_note(inside, tmp_path, monkeypatch):
+    """_feature_mode_ab() with the mode-31 and mode-50 feature builders and the CV
+    stubbed, and prepare_features_35 raising as it does in a clone, where the
+    gitignored self-similarity cache is absent."""
+    from scripts import audit_cv_leakage as module
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(module, "PROJECT_ROOT", root)
+    cache = (root if inside else tmp_path / "elsewhere") / "data" / "self_similarity_cache.csv"
+
+    def absent(*_args, **_kwargs):
+        raise _missing(cache)
+
+    def features(frame, _path):
+        return pd.DataFrame({"f": range(len(frame))})
+
+    monkeypatch.setattr(module, "prepare_features_31", features)
+    monkeypatch.setattr(module, "prepare_features_50", features)
+    monkeypatch.setattr(module, "prepare_features_35", absent)
+    monkeypatch.setattr(module, "_cv_auc", lambda X, y, groups: (0.5, 0.0, 0.5, None))
+    active = pd.DataFrame({"peptide": ["AAAAAAAAA", "CCCCCCCCC"], "label": [1, 0]})
+
+    rows = module._feature_mode_ab(active)
+
+    (row,) = [r for r in rows if r["metric"] == "mode35_grouped_auc_pr"]
+    expected = "data/self_similarity_cache.csv" if inside else "external:self_similarity_cache.csv"
+    assert row["note"] == "FileNotFoundError: No such file or directory: " + expected
+    _assert_no_workstation_path(rows, "audit_cv_leakage mode-35 note")
+
+
+@pytest.mark.parametrize(
+    "make_error, expected",
+    [
+        (_missing, "FileNotFoundError: No such file or directory: external:gold.csv"),
+        (
+            lambda leak: RuntimeError(f"Expected validation artifact was not produced: {leak}"),
+            "RuntimeError: Expected validation artifact was not produced: external:gold.csv",
+        ),
+    ],
+    ids=["OSError", "message"],
+)
+def test_final_validation_failure_records_its_error_without_a_workstation_path(
+    make_error, expected, tmp_path, monkeypatch
+):
+    """run_final_validation() with the gold-standard report raising, so the
+    publication boundary writes freeze_status.json and re-raises."""
+    from src import final_validation_report as report
+
+    error = make_error(tmp_path / "elsewhere" / "gold.csv")
+
+    def fail(*_args, **_kwargs):
+        raise error
+
+    monkeypatch.setattr(report, "full_validation_report", fail)
+    model = tmp_path / "model.joblib"
+    model.write_bytes(b"not a model")
+    out = tmp_path / "out"
+    out.mkdir()
+
+    with pytest.raises(type(error)):
+        report.run_final_validation(results_dir=str(out), model_path=str(model))
+
+    freeze = _read_json(out / "freeze_status.json")
+    assert (freeze["valid"], freeze["error"]) == (False, expected)
+    _assert_no_workstation_path(freeze, "final_validation_report freeze_status error")
 
 
 # --- the live tree ------------------------------------------------------------
