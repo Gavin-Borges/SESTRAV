@@ -17,6 +17,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **PredIG's recombinant input now takes each peptide's protein context from the FASTA
+  the peptide was cut from, so all eight antigens `config.yaml` runs get their real
+  parent proteins.** `build_recombinant_table` looked parents up in `PROTEOME_FASTA`, a
+  hand-written table naming two panels (`EBV_B95_8_panel8`, `HPV16_18_panel8`). For the
+  other six (`HBV_ayw_panel4`, `HCV_1a_panel4`, `HIV1_HXB2_panel4`,
+  `SARSCOV2_wuhan1_panel4`, `IAV_PR8_panel4`, `CMV_AD169_panel4`) every peptide fell
+  through to `synthetic_protein_context`, the peptide padded with glycine, and once the
+  recombinant input could be built at all, PredIG run under Docker scored that padding as
+  if it were the parent protein, with nothing in the output saying so. Measured on the
+  pipeline's own stage 2 output for all eight antigens: 68,224 of 94,573 unique peptides
+  (72.1%), every peptide of those six antigens, got synthetic context; with this change,
+  none does. `rule run_predig` now takes the FASTA as an input by reusing
+  `rules.generate_peptides.input.fasta`, the same input function that cut the peptides,
+  rather than restating its lookup, and passes it as `--proteome-fasta`. For the two
+  panels the table already named, the table and `config.yaml` name the same file, and the
+  recombinant input is byte-identical before and after. `build_recombinant_table` gains
+  `proteome_fasta=`, searched first for that proteome's rows only, refused without the
+  `proteome_id` it belongs to, and an error rather than a silent fall-through when the
+  path is not a file; a peptide the file does not hold still falls back and is still
+  counted. The external-validation path, which carries its own `proteome_id` column and
+  passes no FASTA, is unchanged. A new test checks every antigen `config.yaml` runs: a
+  Snakemake dry run hands `run_predig` exactly the FASTA `config.yaml` names, the file is
+  tracked, and a peptide cut from it maps to a real protein. Eight mutants, each removing
+  one part, all fail it. PredIG itself was not run against a real container here.
 - **The simulated PredIG score now follows stage 2's binding columns instead of being
   noise around a constant.** `scripts/run_predig_wrapper.py` builds `bind_map` by
   matching the requested alleles against the binding CSV's columns, and it matched a

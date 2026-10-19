@@ -103,6 +103,7 @@ def build_recombinant_table(
     proteome_dir: str,
     output_path: str,
     proteome_id: Optional[str] = None,
+    proteome_fasta: Optional[str] = None,
 ) -> Tuple[pd.DataFrame, int]:
     """Map each (peptide, allele) pair to a parent protein and write PredIG's input.
 
@@ -114,7 +115,27 @@ def build_recombinant_table(
     unconditionally raised KeyError on that file, so the wrapper always fell back to
     simulated scores. A missing `peptide`, or a `proteome_id` given by neither the CSV
     nor the caller, raises ValueError.
+
+    `proteome_fasta` is the FASTA the peptides of the `proteome_id` keyword were cut
+    from; `rule run_predig` passes the file `rule generate_peptides` read. For the rows
+    of that proteome it is searched FIRST, before PROTEOME_FASTA, which names only two
+    panels: without it, the other antigens `config.yaml` runs got
+    `synthetic_protein_context` for every peptide, and PredIG then scored glycine
+    padding as if it were the parent protein. It applies only to the rows of that one
+    proteome, so it is refused (ValueError) without `proteome_id`, and a path that is
+    not a file raises FileNotFoundError rather than falling through to synthetic
+    context. A peptide the file does not hold still falls back, and is still counted.
     """
+    if proteome_fasta is not None:
+        if not proteome_id:
+            raise ValueError(
+                "proteome_fasta names the FASTA of one proteome, so it needs that "
+                "proteome_id (run_predig_wrapper.py --proteome-id)"
+            )
+        if not os.path.isfile(proteome_fasta):
+            raise FileNotFoundError(f"proteome_fasta is not a file: {proteome_fasta}")
+    given_proteins = parse_fasta(proteome_fasta) if proteome_fasta is not None else {}
+
     pairs = pd.read_csv(pairs_path)
     meta = pd.read_csv(validation_input_path, usecols=lambda col: col in META_COLUMNS)
     if "peptide" not in meta.columns:
@@ -152,7 +173,10 @@ def build_recombinant_table(
 
         hit: Optional[Tuple[str, str]] = None
 
-        if row_proteome_id in PROTEOME_FASTA:
+        if given_proteins and row_proteome_id == proteome_id:
+            hit = find_parent_protein(peptide, given_proteins)
+
+        if hit is None and row_proteome_id in PROTEOME_FASTA:
             proteins = _load_fasta(PROTEOME_FASTA[row_proteome_id])
             if proteins:
                 hit = find_parent_protein(peptide, proteins)
