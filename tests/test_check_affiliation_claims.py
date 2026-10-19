@@ -36,7 +36,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_affiliation_claims.py"
+import pytest
+
+_SCRIPT =Path(__file__).resolve().parents[1] / "scripts" / "check_affiliation_claims.py"
 
 # The exact text that was published in README.md and lived on origin/main.
 ORIGINAL_FABRICATION = (
@@ -990,3 +992,82 @@ def test_wrap_acceptance_needs_the_remaining_words_not_merely_a_next_line():
     assert mod.is_wrapped_own_institution(head, f"{tail} (README:517).") is True
     assert mod.is_wrapped_own_institution(head, "something else entirely") is False
     assert mod.is_wrapped_own_institution(head, None) is False
+
+
+# ---------------------------------------------------------------------------
+# A wrap inside quoted, commented, listed or tabled text.
+#
+# Every wrap test above uses a bare or indented continuation line. A wrap inside
+# a Markdown blockquote, a Python or shell comment, a C-style block comment, a
+# list or a table repeats that block's marker at the start of the next line, and
+# the continuation check compared the marker with the remaining words, so the
+# project's own institution was reported there. Measured 2026-10-19 by
+# re-flowing one paragraph at every width from 20 to 80: 7,080 extra findings per
+# marker over 151,158 inputs for "> ", "- ", "# ", "* " and "// ", and none for
+# a bare or two-space continuation.
+# ---------------------------------------------------------------------------
+
+_MARKED_WRAPS = [
+    ("> ", "> "),
+    ("> > ", "> > "),
+    ("# ", "# "),
+    ("// ", "// "),
+    (" * ", " * "),
+    ("- ", "- "),
+    ("+ ", "+ "),
+    ("| ", "| "),
+]
+
+
+@pytest.mark.parametrize("first, after", _MARKED_WRAPS, ids=[p.strip() for p, _ in _MARKED_WRAPS])
+def test_a_wrap_whose_continuation_opens_with_its_blocks_marker_is_not_reported(
+    tmp_path, first, after
+):
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    doc = tmp_path / "plan.md"
+    doc.write_text(
+        f"{first}The author studies at the {_titled(head)}\n{after}{_titled(tail)} in the spring.\n",
+        encoding="utf-8",
+    )
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a_marker_counts_only_when_the_remaining_words_follow_it():
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    for marker in ("> ", "# ", "// ", " * ", "| "):
+        assert mod.is_wrapped_own_institution(head, f"{marker}{tail} |") is True, marker
+        assert mod.is_wrapped_own_institution(head, f"{marker}something else") is False, marker
+        assert mod.is_wrapped_own_institution(head, marker) is False, marker
+    third = next(iter(mod.THIRD_PARTY_INSTITUTIONS))
+    third_head, third_tail = third.rsplit(" ", maxsplit=1)
+    assert mod.is_wrapped_own_institution(third_head, f"> {third_tail}") is False
+
+
+def test_the_remaining_words_must_end_where_the_name_ends():
+    """A continuation that merely STARTS with the remaining words names something
+    else: the check read it as completing the own institution, so a head followed
+    by a longer word passed. The words must end at a non-alphanumeric character
+    or at the end of the line."""
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    for following in ("", ".", ",", ")", "'s", "-based", " (see the README)"):
+        assert mod.is_wrapped_own_institution(head, tail + following) is True, following
+    for following in ("ia", "s", "2", "er college"):
+        assert mod.is_wrapped_own_institution(head, tail + following) is False, following
+
+
+def test_a_longer_word_on_the_next_line_is_still_reported(tmp_path):
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    doc = tmp_path / "plan.md"
+    doc.write_text(
+        f"Affiliation: {_titled(head)}\n{_titled(tail)}ia, a different place\n",
+        encoding="utf-8",
+    )
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
