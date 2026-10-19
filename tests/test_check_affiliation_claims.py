@@ -1071,3 +1071,70 @@ def test_a_longer_word_on_the_next_line_is_still_reported(tmp_path):
 
     result = _run_all(tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
+
+
+# ---------------------------------------------------------------------------
+# A wrap whose continuation opens with an ordered-list number, ";" or "%".
+#
+# The marker removal above left out three leaders. Measured 2026-10-19 with the
+# same paragraph re-flowed at every width from 20 to 80 and the leader put in
+# front of every line after wrapping: "1. ", "; " and "% " each still gave a
+# finding the unwrapped paragraph does not at 20 of the 61 widths. An ordered
+# list can also renumber between the two lines, and a comment leader can repeat.
+# ---------------------------------------------------------------------------
+
+_LEADER_WRAPS = [
+    ("1. ", "1. "),
+    ("1. ", "2. "),
+    ("9. ", "10. "),
+    ("1) ", "2) "),
+    ("> 1. ", "> 2. "),
+    ("; ", "; "),
+    (";; ", ";; "),
+    ("% ", "% "),
+    ("%% ", "%% "),
+]
+
+
+@pytest.mark.parametrize(
+    "first, after", _LEADER_WRAPS, ids=[f"{p.strip()}|{q.strip()}" for p, q in _LEADER_WRAPS]
+)
+def test_a_wrap_whose_continuation_opens_with_a_number_or_comment_leader_is_not_reported(
+    tmp_path, first, after
+):
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    doc = tmp_path / "plan.md"
+    doc.write_text(
+        f"{first}The author studies at the {_titled(head)}\n{after}{_titled(tail)} in spring.\n",
+        encoding="utf-8",
+    )
+
+    result = _run_all(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a_leader_counts_only_when_the_remaining_words_follow_it():
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    for leader in ("1. ", "10. ", "123456789. ", "1) ", "1.\t", "; ", ";", "% ", "%"):
+        assert mod.is_wrapped_own_institution(head, f"{leader}{tail}.") is True, leader
+        assert mod.is_wrapped_own_institution(head, f"{leader}something else") is False, leader
+        assert mod.is_wrapped_own_institution(head, f"{leader}{tail}ia") is False, leader
+        assert mod.is_wrapped_own_institution(head, leader) is False, leader
+    third = next(iter(mod.THIRD_PARTY_INSTITUTIONS))
+    third_head, third_tail = third.rsplit(" ", maxsplit=1)
+    assert mod.is_wrapped_own_institution(third_head, f"1. {third_tail}") is False
+    assert mod.is_wrapped_own_institution(third_head, f"; {third_tail}") is False
+
+
+def test_a_number_that_is_not_a_list_marker_is_still_compared_as_text():
+    """Only an ordered-list marker is removed: one to nine digits, then "." or
+    ")", then whitespace, as markdown-it-py 4.2.0's CommonMark list rule reads it.
+    Any other number, and a letter or a parenthesised number, is text, so it does
+    not complete the name. Passes before and after the fix; it fails if the number
+    rule widens."""
+    own = next(iter(mod.OWN_INSTITUTIONS))
+    head, tail = own.rsplit(" ", maxsplit=1)
+    for leader in ("1.", "1)", "1234567890. ", "1 ", "1: ", "a. ", "1.5 ", "(1) "):
+        assert mod.is_wrapped_own_institution(head, f"{leader}{tail}") is False, leader
