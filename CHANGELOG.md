@@ -17,6 +17,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
+  bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`
+  and `mock_evaluation` instead of testing them for truthiness, so
+  `snakemake --config freeze_mode=false` turns freeze mode off.** Snakemake does not deliver every spelling of a boolean as a bool. Measured
+  with snakemake 9.23.1, by printing the type a `params:` value arrives with in a
+  throwaway Snakefile: `--config mc_dropout=false` arrives as the string `'false'`,
+  and so do `true`, `TRUE`, `yes`, `no` and `No`; only the exact spellings `True` and
+  `False` become bools, and `0` and `1` become ints. A quoted YAML value in a config
+  file (`mc_dropout: "false"`) also arrives as a string. `bool('false')` is `True`,
+  so the obvious per-run override of the `freeze_mode: true` that `config.yaml` ships
+  left freeze mode ON, and `--config mc_dropout=false` switched MC Dropout ON, both
+  silently. The shipped `config.yaml` values are unquoted YAML booleans, arrive as
+  real bools, and were never affected. Stage 4 now accepts `true`/`false`, `yes`/`no`
+  and `1`/`0` in any case, real bools and the ints 0 and 1, and raises on anything
+  else, including an empty `--config mc_dropout=` (which arrives as `None`), rather
+  than guessing a default. A new test runs the script with a stand-in `snakemake`
+  object and asserts the value each spelling reaches `score_immunogenicity` as; the
+  static wiring test, which pinned the bare `bool()` call, now pins the parser.
+  `pipeline.smk` had the same defect in three rules, each building its flag as
+  `"--flag" if config.get(key, False) else ""`: a dry run against the smoke fixture
+  printed `--freeze-mode` in `full_validation_report` for `--config freeze_mode=false`,
+  and `--mock` in `extract_verify_data` and `evaluate_verify_gnn` for
+  `--config mock_ingestion=false mock_evaluation=false`. All three now read their key
+  through one `_config_flag` helper that accepts exactly what Stage 4 accepts and
+  rejects anything else, naming the key and the value, before any job runs. A new
+  test dry-runs the workflow with the keys set to opposite values and asserts each
+  flag renders as its own override says.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
