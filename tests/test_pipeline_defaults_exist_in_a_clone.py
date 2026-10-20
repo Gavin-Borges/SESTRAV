@@ -27,6 +27,7 @@ checked with `git ls-files`, not with `Path.exists()`. That distinction is the w
 from __future__ import annotations
 
 import ast
+import importlib.util
 import re
 import subprocess
 from pathlib import Path
@@ -160,23 +161,161 @@ def test_the_training_corpus_default_is_the_reason_this_test_exists():
     )
 
 
-def _fetch_script_default_output() -> str:
+def _fetch_script_default_output(source: str | Path = FETCH_SCRIPT) -> str:
     """The DEFAULT_OUTPUT literal in scripts/fetch_human_proteome.py, read without importing.
 
     Parsed rather than imported: the module is a downloader, and a test must not be one
     assignment away from reaching the network. Parsed rather than grepped so that a
-    commented-out or shadowed assignment cannot be mistaken for the live one.
+    commented-out assignment cannot be mistaken for the live one.
+
+    A SHADOWED assignment is refused, not resolved. Python binds the LAST module-level
+    assignment, and this helper used to return the FIRST, so two differing assignments
+    would have let the reference-proteome test below compare pipeline.smk against a dead
+    value. Every direct statement of the module body that targets the name is now counted:
+    an Assign naming it in any target (unpacking included), an AnnAssign with or without a
+    value, and an AugAssign. AssertionError is raised unless there is exactly one, and that
+    one assigns a string literal to the bare name (plain, annotated or chained).
+
+    Only direct statements of the module body are examined, so an assignment inside a def
+    or class is ignored, as the CLI never reads it. The same limit means an assignment
+    nested in a module-level compound statement (if, try, with, for, while, match) is NOT
+    seen, and neither is a binding made by any other kind of statement, such as import,
+    def, class, a for or with target, or a `:=` expression.
+
+    `source` is the script's path (the default) or module text to parse instead.
     """
-    tree = ast.parse(FETCH_SCRIPT.read_text(encoding="utf-8"))
-    for node in tree.body:  # module level only; a nested one is not what the CLI uses
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "DEFAULT_OUTPUT":
-                    return str(node.value.value)
-    raise AssertionError(
-        "scripts/fetch_human_proteome.py no longer defines a module-level DEFAULT_OUTPUT "
-        "string; the binding this test asserts has moved and the test must be rewritten"
+    if isinstance(source, Path):
+        where, source = source.name, source.read_text(encoding="utf-8")
+    else:
+        where = "the given module source"
+    name = "DEFAULT_OUTPUT"
+
+    def stores(target: ast.expr) -> bool:
+        return any(
+            isinstance(sub, ast.Name) and sub.id == name and isinstance(sub.ctx, ast.Store)
+            for sub in ast.walk(target)
+        )
+
+    found: list[tuple[ast.stmt, ast.expr | None]] = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Assign) and any(stores(t) for t in node.targets):
+            plain = any(isinstance(t, ast.Name) and t.id == name for t in node.targets)
+            found.append((node, node.value if plain else None))  # unpacked: no one literal
+        elif isinstance(node, ast.AnnAssign) and stores(node.target):
+            found.append((node, node.value))
+        elif isinstance(node, ast.AugAssign) and stores(node.target):
+            found.append((node, None))  # the bound result is not the right-hand side
+    if not found:
+        raise AssertionError(
+            f"{where} no longer assigns {name} at module level; the binding this test "
+            "asserts has moved and the test must be rewritten"
+        )
+    if len(found) > 1:
+        lines = ", ".join(str(node.lineno) for node, _ in found)
+        raise AssertionError(
+            f"{where} assigns {name} {len(found)} times at module level (lines {lines}). "
+            "Python binds the last one; this helper refuses to guess which value the CLI "
+            "uses. Leave exactly one assignment."
+        )
+    node, value = found[0]
+    if not (isinstance(value, ast.Constant) and isinstance(value.value, str)):
+        raise AssertionError(
+            f"{where} assigns {name} at line {node.lineno} by {type(node).__name__}, but not "
+            "as a plain string literal, so its value cannot be read without running the module"
+        )
+    return value.value
+
+
+# Two differing module-level assignments. A first-match reader returns the dead one.
+_SHADOWED = 'DEFAULT_OUTPUT = "data/dead.fasta"\nDEFAULT_OUTPUT = "data/live.fasta"\n'
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param('DEFAULT_OUTPUT = "data/one.fasta"\n', id="plain"),
+        pytest.param('DEFAULT_OUTPUT: str = "data/one.fasta"\n', id="annotated"),
+        pytest.param('OTHER = DEFAULT_OUTPUT = "data/one.fasta"\n', id="chained"),
+        pytest.param(
+            'DEFAULT_OUTPUT = "data/one.fasta"\nTABLE = {}\nTABLE[DEFAULT_OUTPUT] = "x"\n',
+            id="read-in-a-target-is-not-an-assignment",
+        ),
+    ],
+)
+def test_default_output_reader_returns_a_single_string_assignment(source: str):
+    assert _fetch_script_default_output(source) == "data/one.fasta"
+
+
+@pytest.mark.parametrize(
+    ("source", "why"),
+    [
+        pytest.param(_SHADOWED, "2 times", id="shadowed"),
+        pytest.param(
+            'DEFAULT_OUTPUT = "data/dead.fasta"\nDEFAULT_OUTPUT: str = "data/live.fasta"\n',
+            "2 times",
+            id="annotated-second",
+        ),
+        pytest.param(
+            'DEFAULT_OUTPUT = "data/a.fasta"\nDEFAULT_OUTPUT += ".gz"\n', "2 times", id="augmented"
+        ),
+        pytest.param(
+            '# DEFAULT_OUTPUT = "data/a.fasta"\nOTHER = "data/b.fasta"\n',
+            "no longer assigns",
+            id="none-only-a-comment",
+        ),
+        pytest.param("DEFAULT_OUTPUT = None\n", "not as a plain string", id="not-a-string"),
+        pytest.param(
+            'DEFAULT_OUTPUT = Path("data/a.fasta")\n', "not as a plain string", id="not-a-literal"
+        ),
+        pytest.param(
+            'DEFAULT_OUTPUT, OTHER = "data/a.fasta", "data/b.fasta"\n',
+            "not as a plain string",
+            id="unpacked",
+        ),
+        pytest.param(
+            'DEFAULT_OUTPUT, *REST = "data/a.fasta"\n',
+            "not as a plain string",
+            id="unpacked-from-one-string",
+        ),
+        pytest.param("DEFAULT_OUTPUT: str\n", "not as a plain string", id="bare-annotation"),
+    ],
+)
+def test_default_output_reader_refuses_what_it_cannot_resolve(source: str, why: str):
+    """Fail closed: no assignment, more than one, or one that is not a string literal."""
+    with pytest.raises(AssertionError, match=why):
+        _fetch_script_default_output(source)
+
+
+def test_default_output_reader_ignores_assignments_outside_module_level():
+    source = (
+        'DEFAULT_OUTPUT = "data/live.fasta"\n'
+        "def f():\n"
+        '    DEFAULT_OUTPUT = "data/local.fasta"\n'
+        "    return DEFAULT_OUTPUT\n"
+        "class C:\n"
+        '    DEFAULT_OUTPUT = "data/attribute.fasta"\n'
     )
+    assert _fetch_script_default_output(source) == "data/live.fasta"
+
+
+def test_the_shadowed_case_is_one_a_first_match_reader_gets_wrong(tmp_path: Path):
+    """Premise for the "shadowed" case above: Python binds the LAST assignment.
+
+    Importing the synthetic module, which is two string assignments and nothing else, gives
+    data/live.fasta while its first assignment reads data/dead.fasta. A reader that returned
+    the first match, as this file's helper did, would have compared pipeline.smk against a
+    value the module never holds.
+    """
+    module_path = tmp_path / "shadowed_fetch.py"
+    module_path.write_text(_SHADOWED, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("shadowed_fetch", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    first = ast.parse(_SHADOWED).body[0]
+    assert isinstance(first, ast.Assign) and isinstance(first.value, ast.Constant)
+    assert first.value.value == "data/dead.fasta"
+    assert module.DEFAULT_OUTPUT == "data/live.fasta"
 
 
 def test_the_reference_proteome_default_is_the_path_the_fetch_script_writes():
