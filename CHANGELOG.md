@@ -70,6 +70,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   directions, and twelve mutants, each removing one part, all fail them. Found widening
   the census of a review NIT that named two of the three readers; the third,
   `scripts/data_qc_gate.py`, is the dataset QC gate CI's `test` job runs.
+- **`scripts/fit_conformal_calibrator.py` and `scripts/compute_pooled_honest_metric.py`
+  no longer record an absolute source as a workstation path.** The coverage report the
+  calibrator writes, tracked as `models/v5/conformal_coverage_mode31.json`, recorded
+  `source_model.path` and `source_oof.path`, and the Def A row the metric script writes,
+  tracked as `results/pooled_honest_same_pathogen.csv`, recorded `source_oof`, each as the
+  argument given with its backslashes turned into `/`, so an absolute `--model` or `--oof`
+  put a `C:/Users/<user>/...` or `/home/<user>/...` path into a tracked file. All three now
+  go through `src.provenance_paths.relative_source`, as the other provenance writers do;
+  the entry that moved those writers onto it named these three keys among the ones it left
+  unchanged. A source outside the checkout is recorded as `external:<name>`, an absolute
+  source inside it as its repo-relative path, and a relative source as given with `/`
+  separators, exactly as before. The `sha256` fields and the metric itself are still
+  computed from the files the arguments name. **Neither committed output is regenerated,
+  and neither needs to be:** each was written from its default relative sources, which
+  record the same strings before and after, and new tests pin those strings to the
+  committed values.
+  `tests/test_fit_conformal_calibrator_relative_sources.py` drives
+  `compute_coverage_report` and `main()`, with the fold assignment and interval steps
+  stubbed so nothing is fitted; three of its four tests fail on the previous writer.
+  `tests/test_compute_pooled_honest_metric_relative_sources.py` drives `compute` and
+  `main()` on synthetic out-of-fold files and never reads the committed one; three of its
+  four tests fail on the previous writer.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
