@@ -118,8 +118,13 @@ release at which signing is introduced onward:
 - **Artifacts** carry a Sigstore provenance attestation, verifiable with:
 
   ```bash
-  gh attestation verify sestrav-<version>-py3-none-any.whl --repo Gavin-Borges/SESTRAV
+  gh attestation verify sestrav-<version>-py3-none-any.whl --repo Gavin-Borges/SESTRAV --signer-workflow Gavin-Borges/SESTRAV/.github/workflows/release.yml --source-ref refs/tags/v<version>
   ```
+
+  `--repo` alone accepts an attestation signed by any workflow in the repository, at
+  any ref. `--signer-workflow` and `--source-ref` require it to come from `release.yml`
+  running on that version's tag. Checked 2026-10-19 on the v2.0.2 and v2.0.3 wheels and
+  the v2.0.3 sdist: each verifies, and naming another workflow or another tag fails.
 
 The full release procedure is documented in [`docs/releasing.md`](docs/releasing.md).
 

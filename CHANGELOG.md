@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Fixed
+- **The documented `gh attestation verify` commands now pin the signing workflow and the
+  tag.** `SECURITY.md` and `docs/releasing.md` told consumers to verify a release with
+  `--repo Gavin-Borges/SESTRAV` alone, which accepts an attestation signed by any
+  workflow in the repository, at any ref. Both now add `--signer-workflow
+  Gavin-Borges/SESTRAV/.github/workflows/release.yml` and `--source-ref
+  refs/tags/v<version>`. Checked on 2026-10-19 against the published releases: the
+  pinned command exits 0 for the v2.0.2 and v2.0.3 wheels and the v2.0.3 sdist, and
+  exits 1 when it names `ci.yml` as the signer or v2.0.2 as the ref of the v2.0.3 wheel.
+  A new test fails if any tracked Markdown instruction drops either flag.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
