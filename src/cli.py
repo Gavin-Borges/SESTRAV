@@ -384,8 +384,12 @@ def cmd_predict(args: argparse.Namespace) -> int:
     # the configured value; this keeps the two entry points honest about the same flag.
     freeze_mode = args.freeze_mode
     if freeze_mode is None:
+        from src.config_flags import config_bool
+
         configured = _read_config().get("freeze_mode")
-        freeze_mode = bool(configured)
+        # Parsed as the config schema parses it, not tested for truthiness: a quoted
+        # "false" in config.yaml is a str, and bool("false") is True.
+        freeze_mode = config_bool("freeze_mode", configured)
         if configured is None:
             # No value came from config: a non-editable install has no config.yaml at its
             # installation root (and _read_config never falls back to the working
