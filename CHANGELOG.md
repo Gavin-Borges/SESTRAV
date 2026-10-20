@@ -70,6 +70,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   directions, and twelve mutants, each removing one part, all fail them. Found widening
   the census of a review NIT that named two of the three readers; the third,
   `scripts/data_qc_gate.py`, is the dataset QC gate CI's `test` job runs.
+- **`pipeline.smk` and `scripts/stage4.py` now accept every spelling of a boolean that the
+  config schema accepts, so a quoted `freeze_mode: "off"` or `--config freeze_mode=off`
+  turns freeze mode off instead of being refused by the Snakemake workflow alone.** The two
+  entries above, for `scripts/stage4.py` and for `config.yaml`, parsed the same keys with
+  two vocabularies. `src.config_flags.config_bool`, checked against the schema's own
+  pydantic fields, accepts `on`/`off`, `t`/`f`, `y`/`n` and the floats 1.0 and 0.0 besides
+  `true`/`false`, `yes`/`no` and `1`/`0`; the Snakefile's `_config_flag` and Stage 4's
+  `_parse_flag` accepted only the last three pairs and refused the rest, although
+  `freeze_mode`, `mc_dropout`, `mock_ingestion` and `mock_evaluation` are all `bool` fields
+  in `src/core/config.py`. Both now call `config_bool`, so the vocabulary is stated once.
+  Both still refuse `None` (an empty `--config key=`), which `config_bool` reads as its
+  default, and still reject any other value, naming the key and the value. The tests of
+  both parsers now carry each new spelling in several cases, a cross-check of both sites
+  against `config_bool` on 59 values, and a real dry run that renders each flag for
+  `off`/`ON`, `F`/`t` and `n`/`Y`. Written first, 105 of their cases failed against the
+  previous parsers, every one a newly accepted spelling or a new dry run.
 - **`scripts/fit_conformal_calibrator.py` and `scripts/compute_pooled_honest_metric.py`
   no longer record an absolute source as a workstation path.** The coverage report the
   calibrator writes, tracked as `models/v5/conformal_coverage_mode31.json`, recorded

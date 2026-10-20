@@ -2,33 +2,30 @@ import os
 
 import pandas as pd
 from functions.stage4_immunogenicity_scoring import score_immunogenicity, plot_immunogenicity_scores
-
-_TRUE_SPELLINGS = frozenset({"true", "1", "yes"})
-_FALSE_SPELLINGS = frozenset({"false", "0", "no"})
+from src.config_flags import config_bool
 
 
 def _parse_flag(name, value):
-    """Read a boolean param, which Snakemake may deliver as a bool, an int or a str.
+    """Read a boolean param, which Snakemake may deliver as a bool, an int, a float or a str.
 
     `--config mc_dropout=false` arrives as the str 'false' (only the exact spellings
     True and False become bools), and so does a quoted YAML value, so bare bool()
-    turned an explicit false into True. Anything that is not a recognised spelling
-    raises rather than falling back to a default.
+    turned an explicit false into True. The spellings accepted are config_bool's,
+    which are those of the config schema in src/core/config.py, so a value the schema
+    reads is not refused here. Anything else raises rather than falling back to a
+    default, and so does None (an empty `--config mc_dropout=`), which config_bool
+    would read as off.
     """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, int) and value in (0, 1):
-        return bool(value)
-    if isinstance(value, str):
-        spelling = value.lower()
-        if spelling in _TRUE_SPELLINGS:
-            return True
-        if spelling in _FALSE_SPELLINGS:
-            return False
-    raise ValueError(
-        f"{name}={value!r} is not a boolean: use true/false, yes/no or 1/0 in any case, "
-        f"for example snakemake --config {name}=false"
-    )
+    try:
+        parsed = None if value is None else config_bool(name, value)
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        raise ValueError(
+            f"{name}={value!r} is not a boolean: use true/false, yes/no, on/off, t/f, y/n "
+            f"or 1/0 in any case, for example snakemake --config {name}=false"
+        )
+    return parsed
 
 
 proteome_id = snakemake.wildcards.proteome_id

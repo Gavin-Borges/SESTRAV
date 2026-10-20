@@ -24,6 +24,14 @@ The script is run here with a stand-in `snakemake` object and a stubbed
 handed, not the shape of the source. Each accepted spelling is checked on both
 flags, and anything else must raise rather than fall back to a default: a typo
 in a release-grade switch is not a value to guess at.
+
+The accepted spellings are the config schema's. `src/core/config.py` declares
+both keys as pydantic `bool` fields, which also read `on`/`off`, `t`/`f`, `y`/`n`
+and the floats 1.0 and 0.0; `src.config_flags.config_bool` is checked against
+those fields on every spelling. Stage 4 first accepted only `true`/`false`,
+`yes`/`no` and `1`/`0`, so a quoted `freeze_mode: "off"` was valid to the schema
+and refused here. `None`, which an empty `--config mc_dropout=` delivers, is still
+refused, although `config_bool` reads it as its default.
 """
 
 from __future__ import annotations
@@ -77,10 +85,26 @@ ACCEPTED = [
     ("1", True),
     ("yes", True),
     ("YES", True),
+    ("off", False),
+    ("Off", False),
+    ("OFF", False),
+    ("f", False),
+    ("F", False),
+    ("n", False),
+    ("N", False),
+    ("on", True),
+    ("On", True),
+    ("ON", True),
+    ("t", True),
+    ("T", True),
+    ("y", True),
+    ("Y", True),
     (False, False),
     (True, True),
     (0, False),
     (1, True),
+    (0.0, False),
+    (1.0, True),
 ]
 
 
@@ -108,7 +132,10 @@ def test_the_two_flags_are_parsed_independently(monkeypatch, tmp_path, flag):
     assert captured[other] is True
 
 
-REJECTED = ["maybe", "", "falsee", "2", "off", 2, -1, None, 0.0]
+REJECTED = [
+    "maybe", "", "falsee", "2", "of", "onn", "tru", "yess", "none", "null",
+    "1.0", "0.0", " on", "off ", 2, -1, 0.5, 2.0, None,
+]
 
 
 @pytest.mark.parametrize("flag", FLAGS)

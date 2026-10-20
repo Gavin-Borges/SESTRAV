@@ -23,6 +23,10 @@ What is asserted here
   spelling to the bool it names and rejects anything else, naming the key and value;
 - it accepts exactly what Stage 4's `_parse_flag` accepts, so the two halves of
   `--config freeze_mode=...` cannot disagree;
+- both accept exactly what `src.config_flags.config_bool` accepts, which is the
+  config schema's vocabulary (`on`/`off`, `t`/`f`, `y`/`n` and the floats 1.0 and
+  0.0 as well), so a config.yaml the schema reads is not refused here. `None` is
+  the one exception, refused by both where `config_bool` reads it as its default;
 - each of the three rules reads its OWN key through it, and none still tests the
   raw config value for truthiness;
 - a real `snakemake --dry-run --printshellcmds` renders each flag as the override
@@ -60,12 +64,31 @@ ACCEPTED = [
     ("1", True),
     ("yes", True),
     ("YES", True),
+    ("off", False),
+    ("Off", False),
+    ("OFF", False),
+    ("f", False),
+    ("F", False),
+    ("n", False),
+    ("N", False),
+    ("on", True),
+    ("On", True),
+    ("ON", True),
+    ("t", True),
+    ("T", True),
+    ("y", True),
+    ("Y", True),
     (False, False),
     (True, True),
     (0, False),
     (1, True),
+    (0.0, False),
+    (1.0, True),
 ]
-REJECTED = ["maybe", "", "falsee", "2", "off", 2, -1, None, 0.0]
+REJECTED = [
+    "maybe", "", "falsee", "2", "of", "onn", "tru", "yess", "none", "null",
+    "1.0", "0.0", " on", "off ", 2, -1, 0.5, 2.0, None,
+]
 
 
 class _WorkflowError(Exception):
@@ -87,7 +110,7 @@ def _config_flag(config: dict):
     """Exec pipeline.smk's own `_config_flag` (and what it calls) against `config`."""
     source = PIPELINE.read_text(encoding="utf-8")
     namespace = {"WorkflowError": _WorkflowError, "config": config}
-    for header in ("def _reject(", "_TRUE_SPELLINGS =", "_FALSE_SPELLINGS =", "def _config_flag("):
+    for header in ("from src.config_flags import", "def _reject(", "def _config_flag("):
         exec(_top_level_block(source, header), namespace)  # noqa: S102 - the tracked Snakefile
     return namespace["_config_flag"]
 
@@ -95,13 +118,12 @@ def _config_flag(config: dict):
 def _stage4_parse_flag():
     """Exec scripts/stage4.py's `_parse_flag` without running the script body."""
     tree = ast.parse(STAGE4.read_text(encoding="utf-8"))
-    wanted = {"_TRUE_SPELLINGS", "_FALSE_SPELLINGS", "_parse_flag"}
     body: list[ast.stmt] = [
         node for node in tree.body
-        if (isinstance(node, ast.FunctionDef) and node.name in wanted)
-        or (isinstance(node, ast.Assign) and any(getattr(t, "id", None) in wanted for t in node.targets))
+        if (isinstance(node, ast.FunctionDef) and node.name == "_parse_flag")
+        or (isinstance(node, ast.ImportFrom) and node.module == "src.config_flags")
     ]
-    assert len(body) == 3, "scripts/stage4.py no longer defines _parse_flag and its two spelling sets"
+    assert len(body) == 2, "scripts/stage4.py no longer defines _parse_flag and imports config_bool"
     namespace: dict = {}
     exec(compile(ast.Module(body=body, type_ignores=[]), str(STAGE4), "exec"), namespace)  # noqa: S102
     return namespace["_parse_flag"]
@@ -153,6 +175,47 @@ def test_the_snakefile_accepts_exactly_what_stage4_accepts(raw):
     assert snakefile(raw) == stage4(raw), (
         f"freeze_mode={raw!r}: pipeline.smk gives {snakefile(raw)!r}, "
         f"scripts/stage4.py gives {stage4(raw)!r}"
+    )
+
+
+# Every word of the schema's vocabulary in four cases, written out here rather than read
+# from src/config_flags.py, plus the numbers the schema reads and every refused value
+# above except None (config_bool reads None as its default; both sites refuse it).
+_SCHEMA_WORDS = ("true", "on", "yes", "1", "t", "y", "false", "off", "no", "0", "f", "n")
+
+
+def _inverted_capitals(word: str) -> str:
+    """'on' -> 'oN': a mixed case that neither lower(), upper() nor capitalize() gives."""
+    return word.capitalize().swapcase()
+
+
+SCHEMA_CORPUS = (
+    sorted({case(word) for word in _SCHEMA_WORDS
+            for case in (str.lower, str.upper, str.capitalize, _inverted_capitals)})
+    + [True, False, 0, 1, 0.0, 1.0, -0.0]
+    + [raw for raw in REJECTED if raw is not None]
+)
+
+
+@pytest.mark.parametrize("raw", SCHEMA_CORPUS, ids=[repr(raw) for raw in SCHEMA_CORPUS])
+def test_both_sites_accept_exactly_what_config_bool_accepts(raw):
+    from src.config_flags import config_bool
+
+    def read(parse, value, refused):
+        try:
+            return parse(value)
+        except refused:
+            return "rejected"
+
+    parse_flag = _stage4_parse_flag()
+    want = read(lambda value: config_bool("freeze_mode", value), raw, ValueError)
+    stage4 = read(lambda value: parse_flag("freeze_mode", value), raw, ValueError)
+    snakefile = read(
+        lambda value: _config_flag({"freeze_mode": value})("freeze_mode"), raw, _WorkflowError
+    )
+    assert (snakefile, stage4) == (want, want), (
+        f"freeze_mode={raw!r}: config_bool gives {want!r}, pipeline.smk gives "
+        f"{snakefile!r}, scripts/stage4.py gives {stage4!r}"
     )
 
 
@@ -240,7 +303,7 @@ def _flag_rendered(output: str, key: str) -> bool:
 
 # Each pair is (a spelling of false, a spelling of true). The three keys get opposite
 # values in each arrangement, so a rule reading another rule's key cannot pass.
-PAIRS = [("false", "true"), ("No", "YES"), ("0", "1")]
+PAIRS = [("false", "true"), ("No", "YES"), ("0", "1"), ("off", "ON"), ("F", "t"), ("n", "Y")]
 
 
 @pytest.mark.parametrize("first_on", [False, True], ids=["freeze-off", "freeze-on"])
