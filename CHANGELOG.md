@@ -92,6 +92,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `tests/test_compute_pooled_honest_metric_relative_sources.py` drives `compute` and
   `main()` on synthetic out-of-fold files and never reads the committed one; three of its
   four tests fail on the previous writer.
+- **Three more writers record a caller-supplied path through `relative_source`, so an
+  absolute argument no longer writes a workstation path.** The entry that moved the other
+  provenance writers onto `src.provenance_paths.relative_source` named, among the fields it
+  left as given, `base_input` and `oof_predictions` in `src/external_benchmark_comparison.py`,
+  `train_source` in `src/external_validation_fairness.py` and `peptide_list_path` in
+  `scripts/prepare_netmhcpan_inputs.py`. `run_comparison` writes the first two, and the
+  `predig_file` and `prime_file` beside them, which that entry's grep did not name, into the
+  Provenance section of its Markdown report, tracked as
+  `results/external_benchmark_comparison.md`; `base_input` defaults to a file under
+  `--results-dir`, so an absolute `--results-dir` alone was enough to record one.
+  `run_fairness` writes each training list's `train_source` into
+  `manifests/training_overlap.json` and `processed/fairness_analysis.md` under its run
+  directory, and `prepare_inputs` writes `peptide_list_path` into `inputs/manifest.csv`;
+  neither output is tracked. Each now records an absolute path outside the checkout as
+  `external:<name>`, an absolute path inside it repo-relative, and a relative path exactly
+  as given, so the default arguments record the same strings as before. The NetMHCpan
+  runner, `run_netmhcpan.sh`, took each peptide list's file name from the recorded path,
+  which names no file once it reads `external:<name>`; it now names the list from its
+  (virus, allele) group, as `prepare_inputs` names the file, so its commands are unchanged.
+  **No committed file is regenerated or changes:** a new test checks that every path the
+  tracked report's Provenance section records is already a fixed point of
+  `relative_source`, so regenerating it from the same arguments records the same strings.
+  `tests/test_remaining_writers_record_relative_sources.py` drives each writer with paths
+  built under pytest's temporary directory and `relative_source`'s root pointed at a
+  scratch checkout, with the comparison's metric, figure and parser steps stubbed; seven of
+  its eleven tests fail on the previous code, and the four that pass there pin the default
+  and tracked values. `tests/test_netmhcpan_harness.py`'s grouping test now reads the
+  peptide list from the manifest's directory, since its temporary `--out-dir` is outside
+  the checkout. `src/cli.py`'s report lines, also named in that entry, are left to the
+  separate change that edits that file.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
