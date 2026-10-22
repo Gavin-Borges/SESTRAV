@@ -49,3 +49,15 @@ gitpython>=3.1.62
 # GHSA-vxq7-64xx-v4gw (streaming decompression and chunked decoding). All three
 # list 2.8.0 as the fix.
 urllib3>=2.8.0
+# certifi: GHSA-6q48-6c7w-9gw2 / PYSEC-2026-4320 (critical; releases before
+# 2026.10.18 bundle the emSign ECC Root CA - G3 root, and eight intermediate CA
+# certificates that chain to it have compromised private keys). It lists
+# 2026.10.19 as the fix. Pulled in by requests.
+certifi>=2026.10.19
+# pillow: CVE-2026-112403 / GHSA-8g5g-8vmr-9782 (critical; heap buffer overflow in
+# ImagingJpegDecode), six high (CVE-2026-112397, 112400, 112404, 112895, 112896,
+# 112897) and two medium (CVE-2026-112395, 112899). All nine list 13.0.0 as the
+# fix. Pulled in by matplotlib. The demo image's lock stays on 12.3.0, because
+# requirements-demo.in pins streamlit 1.65.0, which declares pillow<13: see
+# SECURITY.md's risk-acceptance register.
+pillow>=13.0.0
