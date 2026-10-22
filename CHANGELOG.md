@@ -768,6 +768,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **certifi and pillow now pin their patched releases, after advisories published on
+  2026-10-20.** certifi moves to 2026.10.19 in all seven locks that carry it:
+  `requirements.txt`, `environments/requirements.lock` and the api, demo, ci, pip-audit and
+  semgrep locks, from 2026.7.22 in the first four and 2026.5.20 in the last three. certifi
+  releases before 2026.10.18 bundle the `emSign ECC Root CA - G3` root, and eight eMudhra
+  intermediate CA certificates that chain to it have compromised private keys
+  (GHSA-6q48-6c7w-9gw2 / PYSEC-2026-4320, critical, first patched in 2026.10.19).
+  `requests` verifies HTTPS against certifi's bundle, and in the six fetch and ingest
+  scripts that import `scripts/_ssl_fix.py`, on Windows hosts whose system certificate store
+  fails to load, ssl's default contexts use it too. pillow moves from 12.3.0 to 13.0.0 in
+  `requirements.txt`, `environments/requirements.lock` and
+  `environments/requirements-api.txt`. Every Pillow advisory the GitHub advisory database
+  lists against 12.3.0 is first patched in 13.0.0: as of 2026-10-22T01:11Z, 28 of them, 3
+  critical (CVE-2026-112403, a heap buffer overflow in the JPEG decoder, among them), 16
+  high and 9 medium by the database's grading. Nine arrived on 2026-10-20 and nineteen on
+  2026-10-21, and the database has been taking in Pillow's repository advisories: Pillow's
+  own 13.0.0 release notes, as tagged on 2026-10-16, list 38 security fixes citing 42 GHSA
+  ids, of which Pillow had published 40 as repository advisories, 12 of those still outside
+  the database at 01:11Z; the default branch has since added a medium entry and reads 39
+  fixes and 43 ids. One more, GHSA-654x-cwwv-5j9c (medium), is fixed in 13.0.0 by
+  python-pillow/Pillow@19f64946eb but still affects the 12.3.0 the demo lock keeps; it
+  needs `PILLOW_ALIGNMENT` set above 1 and an image exported to Arrow, and no tracked file
+  sets that variable or imports Pillow. Pillow's advisory for it, which gained
+  CVE-2026-114501 on 2026-10-21 (UTC), still lists 13.0.0 as vulnerable with no patched
+  version, so a scanner reading it may flag 13.0.0 until Pillow corrects that.
+  The demo lock keeps pillow 12.3.0, because `environments/requirements-demo.in` pins
+  streamlit 1.65.0, which declares `pillow<13`, as does 1.66.0, its newest release as of
+  2026-10-21 (UTC). SECURITY.md's risk-acceptance register records why that is acceptable
+  for now and what re-opens it, and `tests/test_images_install_only_hashed_dependencies.py`
+  gains `IMAGE_LOCK_ALLOWED_DRIFT`, which lets that one lock run pillow 12.3.0 exactly
+  while `requirements.txt` differs and fails as soon as it no longer differs; a new test,
+  `test_allowed_image_drift_names_only_image_locks`, keeps its keys to locks an image
+  installs. certifi leaves `KNOWN_DIVERGENCES` in
+  `tests/test_workflow_coinstall_pin_divergence.py` in all five co-install groups that
+  listed it, because every lock now pins the same release, and that file's docstring now
+  counts twelve diverging packages where it said fourteen.
+  `environments/requirements-lock.in` gains `certifi>=2026.10.19` and `pillow>=13.0.0`
+  floors, each naming the package that pulls it in. The relock ran
+  `tools/update_dependencies.py --target certifi` and `--target pillow`: no other pin
+  moved, no unchanged package's hash set changed, and every new hash is one of PyPI's
+  published files for its release (2 of 2 for certifi, 83 of 83 for pillow). When this
+  change was made, pip-audit over all 16 locks, against both OSV and PyPI, reported only the
+  demo lock's pillow and the semgrep lock's mcp 1.29.0 (CVE-2026-59951), which this change
+  does not touch. One instrument note: the feeds lag the source and each other. As of
+  2026-10-22T01:11Z, PyPI's advisory feed, pip-audit's default source, lists 24 of the
+  database's 28 against the demo lock's 12.3.0 and omits four, the critical
+  CVE-2026-112403 among them, which OSV and the GitHub advisory database both carry.
+  `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` are regenerated for the two new versions.
 - **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
   references, which it used to pass.** Each hands pip something the gate never inspects, and
   each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included

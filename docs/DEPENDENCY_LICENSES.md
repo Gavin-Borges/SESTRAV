@@ -18,7 +18,7 @@
 | argparse-dataclass                    | 2.0.0       | MIT License                                                                                         |
 | attrs                                 | 26.1.0      | MIT                                                                                                 |
 | biopython                             | 1.88        | LicenseRef-Biopython-License-Agreement                                                              |
-| certifi                               | 2026.7.22   | Mozilla Public License 2.0 (MPL 2.0)                                                                |
+| certifi                               | 2026.10.19  | Mozilla Public License 2.0 (MPL 2.0)                                                                |
 | charset-normalizer                    | 3.4.9       | MIT                                                                                                 |
 | click                                 | 8.4.2       | BSD-3-Clause                                                                                        |
 | cloudpickle                           | 3.1.2       | BSD License                                                                                         |
@@ -282,7 +282,7 @@
 | opentelemetry-api                     | 1.45.1      | Apache-2.0                                                                                          |
 | packaging                             | 25.0        | Apache Software License; BSD License                                                                |
 | pandas                                | 3.0.3       | BSD License                                                                                         |
-| pillow                                | 12.3.0      | MIT-CMU                                                                                             |
+| pillow                                | 13.0.0      | MIT-CMU                                                                                             |
 | platformdirs                          | 4.11.3      | MIT                                                                                                 |
 | pluggy                                | 1.6.0       | MIT License                                                                                         |
 | propcache                             | 0.5.2       | Apache Software License                                                                             |

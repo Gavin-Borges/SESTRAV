@@ -300,6 +300,88 @@ As a standalone, offline scientific tool, SESTRAV occasionally relies on complex
 third-party libraries (e.g., PyTorch) that may contain upstream vulnerabilities
 with no available vendor patch. Each consciously-deferred advisory is logged here.
 
+- **Pillow 12.3.0 in the demo image: risk-accepted 2026-10-21 (UTC), until streamlit
+  admits Pillow 13.** Pillow 13.0.0's release notes, as tagged on 2026-10-16, list 38
+  security fixes (2 critical, 13 high, 20 medium, 3 low) and cite 42 GHSA ids; the
+  default branch has since added GHSA-654x-cwwv-5j9c and reads 39 fixes and 43 ids.
+  Every Pillow advisory that the GitHub advisory database (which Dependabot reads and OSV
+  imports; pip-audit's default PyPI feed lags it) lists against 12.3.0 is first patched in
+  13.0.0. The database has been taking them in from Pillow's repository advisories on `python-pillow/Pillow`: nine
+  arrived on 2026-10-20 and nineteen more on 2026-10-21 between 19:58 and 21:29 UTC. As of
+  2026-10-22T01:11Z, 40 of the 42 tagged ids are published repository advisories and 28 of
+  those are in the database, all listed against 12.3.0, which it grades 3 critical, 16 high
+  and 9 medium; Pillow's notes grade the same 28 as 1 critical, 7 high, 17 medium and 3
+  low. The other 12 published ones may follow, so re-count before quoting these figures.
+  `requirements.txt`, `environments/requirements.lock` and
+  `environments/requirements-api.txt` pin 13.0.0. `environments/requirements-demo.txt`
+  still pins 12.3.0, and `pip install ".[demo]"` (the route `USAGE.md` documents) resolves
+  12.x for the same reason.
+  - **Identifiers (the 28 in the advisory database as of 2026-10-22T01:11Z):** critical,
+    CVE-2026-112393 / GHSA-332p-7hrc-92wf (heap buffer overflow when saving TIFF to an
+    in-memory buffer), CVE-2026-112403 / GHSA-8g5g-8vmr-9782 (heap buffer overflow in
+    `ImagingJpegDecode`) and CVE-2026-112900 / GHSA-w889-685w-c8fh (argument injection in
+    the Ghostscript call); high, CVE-2026-112390, CVE-2026-112392, CVE-2026-112397,
+    CVE-2026-112399, CVE-2026-112400, CVE-2026-112402, CVE-2026-112404, CVE-2026-112405,
+    CVE-2026-112406, CVE-2026-112892, CVE-2026-112893, CVE-2026-112894, CVE-2026-112895,
+    CVE-2026-112896, CVE-2026-112897 and CVE-2026-112902; medium, CVE-2026-112391,
+    CVE-2026-112394, CVE-2026-112395, CVE-2026-112396, CVE-2026-112401, CVE-2026-112891,
+    CVE-2026-112898, CVE-2026-112899 and CVE-2026-112901. These are the advisory-database
+    severities; the release notes rank 15 of the same 28 differently.
+  - **Why it does not move:** `environments/requirements-demo.in` pins
+    `streamlit==1.65.0`, and streamlit 1.65.0 declares `pillow<13`, as does 1.66.0, its
+    newest release as of 2026-10-21 (UTC). A resolver that honours that metadata cannot
+    select 13.0.0. A uv override could force it past the cap, as `overrides.txt` once forced
+    setuptools past torch's and `semgrep-overrides.txt` once forced pyjwt past semgrep's. It
+    is not done here because streamlit has not been tested against Pillow 13; on `main`
+    today it would also need `tests/test_dependency_tooling.py`'s ban on overrides lifted.
+  - **Mitigation:** the nine that reached the database on 2026-10-20 each need Pillow to
+    process image or PDF data that an attacker shapes: decode it, save it back, or run
+    morphology on it. The nineteen that followed were weighed for this entry by their
+    titles, which name decoders, encoders, file parsers (PDF, GIF, TIFF, XBM, MSP, MIC,
+    APNG, and EPS through Ghostscript) and image operations (quantize, merge, transform,
+    rank filters, font rendering), and the two new critical ones also by their
+    descriptions. The 12 published repository advisories not yet in the database were
+    weighed by their titles alone, which name BMP, FlashPix JPEG, WMF/EMF, PNG eXIf,
+    SPIDER, MPO, DCX and TarIO parsing, the bundled OpenJPEG library, JPEG comment
+    writing, PDF append, multi-frame loading and native integer operations. In
+    `app/demo.py` a user shapes nothing
+    Pillow parses. The demo has no file or image input; its only data inputs are a text
+    field, accepted only as 8 to 11 standard amino-acid letters, and a selection box over a
+    fixed list of alleles. That peptide is drawn as text into the matplotlib figures the app
+    renders, and those self-rendered figures are the only images Pillow handles. Streamlit's
+    own server endpoints were not audited for this entry.
+  - **Fixed in 13.0.0, which the demo lock has not reached:** GHSA-654x-cwwv-5j9c
+    (medium, published 2026-10-19) is fixed in Pillow 13.0.0 by
+    python-pillow/Pillow@19f64946eb ("Reject exporting Arrow arrays from non-contiguous
+    images", upstream PR 10172), an ancestor of the `13.0.0` tag. It does affect the
+    12.3.0 this entry accepts: measured 2026-10-21 (UTC) with the advisory's own
+    reproducer, 12.3.0 exports stale heap bytes in every process layout tried (how many
+    depends on the layout: 114 to 142 of 2440), while 13.0.0 refuses the export with
+    `ValueError: Image rows are not contiguous in memory.` It needs `PILLOW_ALIGNMENT` set
+    above 1 and an image exported to Arrow; no tracked file sets `PILLOW_ALIGNMENT` or
+    imports Pillow. Pillow's own repository advisory, which gained CVE-2026-114501 on
+    2026-10-21 (UTC), still records 11.2.1 to 13.0.0 as vulnerable with no patched
+    version. The advisory database did not carry it as of 2026-10-22T01:11Z; if it is
+    imported with that range, scanners that read the database will flag 13.0.0 until
+    Pillow corrects it.
+  - **Re-review trigger:** a streamlit release whose metadata admits Pillow 13. Then raise
+    the `streamlit==` pin in `environments/requirements-demo.in`, recompile with
+    `python tools/update_dependencies.py --target pillow`, confirm the demo lock reaches
+    13.0.0, delete the demo entry in `IMAGE_LOCK_ALLOWED_DRIFT`
+    (`tests/test_images_install_only_hashed_dependencies.py`, which fails once the entry is
+    no longer needed) and the demo note in `environments/requirements-lock.in`, and mark
+    this entry resolved. Re-review it at once if the demo ever gains a file, image or camera
+    input, or if the advisory database lists a Pillow 12.x advisory that needs no
+    attacker-shaped data. Re-reviewed by the maintainer on 2026-10-21 (UTC), after the
+    database count rose from nine to 28 and from one critical to three, and re-confirmed.
+    The two new critical advisories need a TIFF saved to an in-memory target such as
+    `io.BytesIO` (GHSA-332p-7hrc-92wf) or an EPS file rendered through Ghostscript
+    (GHSA-w889-685w-c8fh); `app/demo.py` saves no TIFF and opens no EPS file.
+  - **Suppression:** none. The fail-closed pip-audit gate audits the environment that
+    `environments/requirements.lock` installs, which does not include the demo lock, so
+    nothing in CI needs silencing. Scorecard's vulnerability check and Dependabot are meant
+    to keep reporting this until it is fixed.
+
 - **CVE-2025-3000 (PyTorch JIT script memory corruption):** **RESOLVED 2026-08-05 - no
   longer risk-accepted.** PyTorch `<= 2.12.1` contains a memory corruption flaw inside
   `torch.jit.script`.
