@@ -71,6 +71,153 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the override's return.
 
 ### Fixed
+- **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
+  bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`
+  and `mock_evaluation` instead of testing them for truthiness, so
+  `snakemake --config freeze_mode=false` turns freeze mode off.** Snakemake does not deliver every spelling of a boolean as a bool. Measured
+  with snakemake 9.23.1, by printing the type a `params:` value arrives with in a
+  throwaway Snakefile: `--config mc_dropout=false` arrives as the string `'false'`,
+  and so do `true`, `TRUE`, `yes`, `no` and `No`; only the exact spellings `True` and
+  `False` become bools, and `0` and `1` become ints. A quoted YAML value in a config
+  file (`mc_dropout: "false"`) also arrives as a string. `bool('false')` is `True`,
+  so the obvious per-run override of the `freeze_mode: true` that `config.yaml` ships
+  left freeze mode ON, and `--config mc_dropout=false` switched MC Dropout ON, both
+  silently. The shipped `config.yaml` values are unquoted YAML booleans, arrive as
+  real bools, and were never affected. Stage 4 now accepts `true`/`false`, `yes`/`no`
+  and `1`/`0` in any case, real bools and the ints 0 and 1, and raises on anything
+  else, including an empty `--config mc_dropout=` (which arrives as `None`), rather
+  than guessing a default. A new test runs the script with a stand-in `snakemake`
+  object and asserts the value each spelling reaches `score_immunogenicity` as; the
+  static wiring test, which pinned the bare `bool()` call, now pins the parser.
+  `pipeline.smk` had the same defect in three rules, each building its flag as
+  `"--flag" if config.get(key, False) else ""`: a dry run against the smoke fixture
+  printed `--freeze-mode` in `full_validation_report` for `--config freeze_mode=false`,
+  and `--mock` in `extract_verify_data` and `evaluate_verify_gnn` for
+  `--config mock_ingestion=false mock_evaluation=false`. All three now read their key
+  through one `_config_flag` helper that accepts exactly what Stage 4 accepts and
+  rejects anything else, naming the key and the value, before any job runs. A new
+  test dry-runs the workflow with the keys set to opposite values and asserts each
+  flag renders as its own override says.
+- **`config.yaml`'s `freeze_mode` and `require_checksum_match_in_freeze_mode` now mean
+  the same thing to every reader: the three that re-read the raw YAML parse them as the
+  config schema does, instead of testing them for truthiness.** `src/core/config.py`
+  declares both as `bool` fields, and pydantic gives such a field a fixed vocabulary:
+  `true`, `on`, `yes`, `1`, `t` or `y` in any case is True, `false`, `off`, `no`, `0`, `f`
+  or `n` is False, and anything else is refused. `pipeline.py` reads them through that
+  schema. `sestrav predict` (`src/cli.py`) set `freeze_mode = bool(configured)`, and
+  `src/data_curation_qc.py` and `scripts/data_qc_gate.py` gated the dataset checksum on
+  `config.get("freeze_mode") and gov.get("require_checksum_match_in_freeze_mode")`. An
+  unquoted YAML `false` arrives from `yaml.safe_load` as a real bool and was fine, but a
+  QUOTED `"false"` arrives as a string and `bool("false")` is True, so
+  `freeze_mode: "false"` turned freeze mode on at those three readers while the schema
+  read it as off, and `require_checksum_match_in_freeze_mode: "false"` still enforced
+  the checksum. Both failed toward the stricter mode, so nothing unsafe passed, but the
+  same `config.yaml` meant two things depending on which entry point read it, and a run
+  the operator had switched off could still be refused. A new `src.config_flags.config_bool`
+  parses them; a missing or null key is still each reader's default (off), and a value
+  that is not a boolean is refused with the key named, rather than read as on. It
+  reimplements the schema's vocabulary rather than importing pydantic, because pydantic
+  comes only with the `dev`, `api` and `demo` extras and `sestrav predict` must keep
+  working on a core-only install; a new test checks it against `SestravConfig` and
+  `DatasetGovernanceConfig` themselves on 48 spellings, and a second confirms it imports
+  with pydantic absent. Behavioural tests drive all three readers end to end, in both
+  directions, and twelve mutants, each removing one part, all fail them. Found widening
+  the census of a review NIT that named two of the three readers; the third,
+  `scripts/data_qc_gate.py`, is the dataset QC gate CI's `test` job runs.
+- **`pipeline.smk` and `scripts/stage4.py` now accept every spelling of a boolean that the
+  config schema accepts, so a quoted `freeze_mode: "off"` or `--config freeze_mode=off`
+  turns freeze mode off instead of being refused by the Snakemake workflow alone.** The two
+  entries above, for `scripts/stage4.py` and for `config.yaml`, parsed the same keys with
+  two vocabularies. `src.config_flags.config_bool`, checked against the schema's own
+  pydantic fields, accepts `on`/`off`, `t`/`f`, `y`/`n` and the floats 1.0 and 0.0 besides
+  `true`/`false`, `yes`/`no` and `1`/`0`; the Snakefile's `_config_flag` and Stage 4's
+  `_parse_flag` accepted only the last three pairs and refused the rest, although
+  `freeze_mode`, `mc_dropout`, `mock_ingestion` and `mock_evaluation` are all `bool` fields
+  in `src/core/config.py`. Both now call `config_bool`, so the vocabulary is stated once.
+  Both still refuse `None` (an empty `--config key=`), which `config_bool` reads as its
+  default, and still reject any other value, naming the key and the value. The tests of
+  both parsers now carry each new spelling in several cases, a cross-check of both sites
+  against `config_bool` on 59 values, and a real dry run that renders each flag for
+  `off`/`ON`, `F`/`t` and `n`/`Y`. Written first, 105 of their cases failed against the
+  previous parsers, every one a newly accepted spelling or a new dry run.
+- **`scripts/fit_conformal_calibrator.py` and `scripts/compute_pooled_honest_metric.py`
+  no longer record an absolute source as a workstation path.** The coverage report the
+  calibrator writes, tracked as `models/v5/conformal_coverage_mode31.json`, recorded
+  `source_model.path` and `source_oof.path`, and the Def A row the metric script writes,
+  tracked as `results/pooled_honest_same_pathogen.csv`, recorded `source_oof`, each as the
+  argument given with its backslashes turned into `/`, so an absolute `--model` or `--oof`
+  put a `C:/Users/<user>/...` or `/home/<user>/...` path into a tracked file. All three now
+  go through `src.provenance_paths.relative_source`, as the other provenance writers do;
+  the entry that moved those writers onto it named these three keys among the ones it left
+  unchanged. A source outside the checkout is recorded as `external:<name>`, an absolute
+  source inside it as its repo-relative path, and a relative source as given with `/`
+  separators, exactly as before. The `sha256` fields and the metric itself are still
+  computed from the files the arguments name. **Neither committed output is regenerated,
+  and neither needs to be:** each was written from its default relative sources, which
+  record the same strings before and after, and new tests pin those strings to the
+  committed values.
+  `tests/test_fit_conformal_calibrator_relative_sources.py` drives
+  `compute_coverage_report` and `main()`, with the fold assignment and interval steps
+  stubbed so nothing is fitted; three of its four tests fail on the previous writer.
+  `tests/test_compute_pooled_honest_metric_relative_sources.py` drives `compute` and
+  `main()` on synthetic out-of-fold files and never reads the committed one; three of its
+  four tests fail on the previous writer.
+- **Three more writers record a caller-supplied path through `relative_source`, so an
+  absolute argument no longer writes a workstation path.** The entry that moved the other
+  provenance writers onto `src.provenance_paths.relative_source` named, among the fields it
+  left as given, `base_input` and `oof_predictions` in `src/external_benchmark_comparison.py`,
+  `train_source` in `src/external_validation_fairness.py` and `peptide_list_path` in
+  `scripts/prepare_netmhcpan_inputs.py`. `run_comparison` writes the first two, and the
+  `predig_file` and `prime_file` beside them, which that entry's grep did not name, into the
+  Provenance section of its Markdown report, tracked as
+  `results/external_benchmark_comparison.md`; `base_input` defaults to a file under
+  `--results-dir`, so an absolute `--results-dir` alone was enough to record one.
+  `run_fairness` writes each training list's `train_source` into
+  `manifests/training_overlap.json` and `processed/fairness_analysis.md` under its run
+  directory, and `prepare_inputs` writes `peptide_list_path` into `inputs/manifest.csv`;
+  neither output is tracked. Each now records an absolute path outside the checkout as
+  `external:<name>`, an absolute path inside it repo-relative, and a relative path exactly
+  as given, so the default arguments record the same strings as before. The NetMHCpan
+  runner, `run_netmhcpan.sh`, took each peptide list's file name from the recorded path,
+  which names no file once it reads `external:<name>`; it now names the list from its
+  (virus, allele) group, as `prepare_inputs` names the file, so its commands are unchanged.
+  **No committed file is regenerated or changes:** a new test checks that every path the
+  tracked report's Provenance section records is already a fixed point of
+  `relative_source`, so regenerating it from the same arguments records the same strings.
+  `tests/test_remaining_writers_record_relative_sources.py` drives each writer with paths
+  built under pytest's temporary directory and `relative_source`'s root pointed at a
+  scratch checkout, with the comparison's metric, figure and parser steps stubbed; seven of
+  its eleven tests fail on the previous code, and the four that pass there pin the default
+  and tracked values. `tests/test_netmhcpan_harness.py`'s grouping test now reads the
+  peptide list from the manifest's directory, since its temporary `--out-dir` is outside
+  the checkout. `src/cli.py`'s report lines, also named in that entry, are left to the
+  separate change that edits that file.
+- **The pipeline smoke test now RUNS wherever snakemake is installed, instead of skipping
+  when its launcher directory is off PATH.** `tests/test_pipeline_smoke_executes.py`, the
+  one test that executes the pipeline, resolved snakemake with `shutil.which` alone and
+  skipped when that returned None. When a suite is run by naming a conda env's interpreter
+  directly, without activating the env, the env's launcher directory is not on PATH:
+  `which` returns None while snakemake is installed and importable, the test skips, and a
+  skip reads as green. Measured by an outside reviewer with PATH as the only variable (same
+  interpreter, tree and argv): 25 passed and 1 skipped without the launcher directory on
+  PATH, 26 passed with it, which at suite scale is exactly the difference between two
+  otherwise identical certification runs of an integration batch. The repository had
+  already found this hazard once: `tests/test_snakemake_shell_quoting.py` looked beside the
+  running interpreter after PATH, and its docstring named this case. Both files now use one
+  shared resolver, `tests/_snakemake_launcher.py`, whose lookup moved unchanged from that
+  file (its docstring is new). A new `tests/test_snakemake_launcher.py` checks that, with
+  every directory holding a snakemake launcher removed from PATH, the resolver still finds
+  the launcher beside the interpreter, and the smoke test, run under that same PATH, passes
+  rather than skips. A further test guards the defect class rather than this one instance:
+  across `tests/`, any scope that asks PATH for snakemake must also look beside
+  `sys.executable`. The scopes are each function and the module's code outside every
+  function, because a module-level `NAME = shutil.which(...)` feeding a `skipif` is how this
+  suite gates on a program, with 15 such calls for bash, grep and git. A correct private
+  copy elsewhere is not refused, and a call given `path=`, which does not consult PATH, is
+  not counted. Run over the whole of `tests/` on `origin/main`, it flags only the smoke
+  test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
+  full suite gives the same passed and skipped counts whether or not the env's launcher
+  directory is on PATH.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document

@@ -46,12 +46,19 @@ to confirm reproducibility, compare the printed row instead.
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
 import pandas as pd
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.provenance_paths import relative_source  # noqa: E402
 
 TRACKED_OUTPUT = "results/pooled_honest_same_pathogen.csv"
 
@@ -64,6 +71,9 @@ REAL_NEG_ORIGIN = "iedb_api"
 
 
 def compute(oof_path: Path) -> dict:
+    """The Def A row. ``source_oof`` is recorded through ``relative_source``, so an
+    absolute ``--oof`` is never written into the tracked row as a workstation path;
+    the metric is still computed from the file the argument names."""
     df = pd.read_csv(oof_path)
     is_pos = df["label"] == 1
     is_real_neg = df["negative_origin"] == REAL_NEG_ORIGIN
@@ -78,7 +88,7 @@ def compute(oof_path: Path) -> dict:
         "auc_pr": auc(r, p),
         "n_pos": int((subset["label"] == 1).sum()),
         "n_neg": int((subset["label"] == 0).sum()),
-        "source_oof": str(oof_path).replace("\\", "/"),
+        "source_oof": relative_source(str(oof_path).replace("\\", "/")),
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
