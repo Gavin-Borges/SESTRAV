@@ -192,8 +192,16 @@ def main():
                 file=sys.stderr,
             )
 
-    # Fallback to simulation
-    print("[PRIME Wrapper] PRIME executable not found. Simulating output for reproducibility...")
+    # Fallback to simulation. The scores below are the binding input plus seeded
+    # noise, not PRIME output, and this script still exits 0, so the Snakemake
+    # default target is satisfied either way. Every simulated row therefore
+    # carries simulated=1, which scripts/standardize_outputs.py turns into
+    # prime_simulated in the standardized CSV; real PRIME output has no such column.
+    print(
+        "[PRIME Wrapper] WARNING: PRIME executable not found or failed. Writing SIMULATED "
+        "scores (binding-derived plus seeded noise), not PRIME output.",
+        file=sys.stderr,
+    )
     np.random.seed(42)
 
     # We want mock scores that correlate slightly with the presentation_score/affinity if available in binding_csv
@@ -212,7 +220,7 @@ def main():
 
     mock_rows = []
     # Write standard PRIME headers
-    # columns: peptide, MixMHCpred_score, PRIME_score, pctrank
+    # columns: peptide, MixMHCpred_score, PRIME_score, pctrank, simulated
     for pep in peptides:
         bind_val = bind_map.get(pep, 0.5)
         # add some noise
@@ -226,6 +234,7 @@ def main():
                 "MixMHCpred_score": mix_score,
                 "PRIME_score": prime_score,
                 "pctrank": pctrank,
+                "simulated": 1,
             }
         )
 

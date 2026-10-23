@@ -28,8 +28,10 @@
 # pip-audit job in security.yml audits this installed set and goes red on any
 # unaccepted advisory once the advisory reaches pip-audit's feed (it is not a
 # required check), and the floor belongs back here with that dependent named.
+# aiohttp's floor moved from 3.14.3 to 3.14.4 as a routine version bump, not for an
+# advisory: PyPI listed no known vulnerability for 3.14.3 on 2026-10-18.
 # aiohttp: CVE-2026-54273/54274/54275/54276/54277/54278/54280, CVE-2026-50269
-aiohttp>=3.14.3
+aiohttp>=3.14.5
 # setuptools: GHSA-h35f-9h28-mq5c (MANIFEST.in exclusion bypass in sdist via
 # Unicode NFC/NFD normalization collision on macOS APFS/HFS+).
 # This floor used to conflict with torch 2.12.0's `setuptools<82` build-metadata
@@ -41,9 +43,22 @@ aiohttp>=3.14.3
 # workaround.
 setuptools>=84.0.0
 # gitpython: PYSEC-2026-3785, PYSEC-2026-3786, PYSEC-2026-3787, PYSEC-2026-3788, CVE-2026-78679
-gitpython>=3.1.62
+# gitpython: GHSA-83vg-56qc-22m7 / CVE-2026-114145 (high; per its title, GitPython
+# validates a submodule's ".git" path only after cloning into it). It affects
+# <= 3.2.0 and lists 3.2.1 as the fix. Pulled in by snakemake.
+gitpython>=3.2.1
 # urllib3: CVE-2026-97687 / GHSA-8988-9cw3-xx77 (HTTPS-proxy and target TLS
 # settings), CVE-2026-97688 / GHSA-gh4c-6fx4-qh6g and CVE-2026-97689 /
 # GHSA-vxq7-64xx-v4gw (streaming decompression and chunked decoding). All three
 # list 2.8.0 as the fix.
 urllib3>=2.8.0
+# certifi: GHSA-6q48-6c7w-9gw2 / PYSEC-2026-4320 (critical; releases before
+# 2026.10.18 bundle the emSign ECC Root CA - G3 root, and eight intermediate CA
+# certificates that chain to it have compromised private keys). It lists
+# 2026.10.19 as the fix. Pulled in by requests.
+certifi>=2026.10.19
+# pillow: CVE-2026-112403 / GHSA-8g5g-8vmr-9782 (critical; heap buffer overflow in
+# ImagingJpegDecode), six high (CVE-2026-112397, 112400, 112404, 112895, 112896,
+# 112897) and two medium (CVE-2026-112395, 112899). All nine list 13.0.0 as the
+# fix. Pulled in by matplotlib.
+pillow>=13.0.0

@@ -189,7 +189,10 @@ def test_prepare_grouping_and_allele_cli(tmp_path: Path) -> None:
     b_group = keyed[("TESTV", "HLA-B07:02")]
     # The invalid-AA peptide is dropped, leaving one clean peptide.
     assert b_group["n_peptides"] == 1
-    pep_file = Path(str(b_group["peptide_list_path"]))
+    # out_dir is outside the checkout, so the list is recorded by name only
+    # (src.provenance_paths.relative_source) and lives beside the manifest.
+    assert b_group["peptide_list_path"] == "external:TESTV__HLA-B07_02.pep"
+    pep_file = out_dir / "inputs" / "TESTV__HLA-B07_02.pep"
     assert pep_file.read_text(encoding="utf-8").split() == ["GILGFVFTL"]
 
     # Manifest and runner are produced.

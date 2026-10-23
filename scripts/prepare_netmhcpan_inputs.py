@@ -17,6 +17,10 @@ Outputs (all under the gitignored ``_local/`` workspace):
 The manifest columns are:
     virus, allele_cli, allele_original, peptide_list_path, n_peptides
 
+``peptide_list_path`` goes through ``src.provenance_paths.relative_source``: a
+list inside the checkout is recorded repo-relative, one under an ``--out-dir``
+outside it as ``external:<name>``, a file in the manifest's own directory.
+
 The process is deterministic and idempotent: groups, peptide order and file
 names are sorted, so re-running with unchanged inputs reproduces byte-identical
 outputs.
@@ -37,8 +41,14 @@ from pathlib import Path
 
 # Allow "python scripts/prepare_netmhcpan_inputs.py" from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Run by path, sys.path[0] is scripts/, so `src` needs the checkout on sys.path.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from _netmhcpan_common import convert_allele_to_cli  # noqa: E402
+
+from src.provenance_paths import relative_source  # noqa: E402
 
 HELD_OUT_SUFFIX = "_held_out.tsv"
 DEFAULT_TEST_SET_DIR = "results/loo_test_sets"
@@ -159,7 +169,7 @@ def prepare_inputs(test_set_dir: Path, out_dir: Path) -> list[dict[str, object]]
                     "virus": virus,
                     "allele_cli": allele_cli,
                     "allele_original": allele_original,
-                    "peptide_list_path": pep_path.as_posix(),
+                    "peptide_list_path": relative_source(pep_path.as_posix()),
                     "n_peptides": len(peptides),
                 }
             )
@@ -219,9 +229,10 @@ def _write_runner(out_dir: Path, raw_dir: Path, records: list[dict[str, object]]
     for record in records:
         virus = str(record["virus"])
         allele_cli = str(record["allele_cli"])
-        pep_posix = str(record["peptide_list_path"])
-        pep_name = Path(pep_posix).name
-        stem = Path(pep_name).stem
+        # Named from the group, as prepare_inputs names the file: the recorded
+        # peptide_list_path can be "external:<name>", which names no file here.
+        stem = _safe_filename(virus, allele_cli)
+        pep_name = f"{stem}.pep"
         pep_arg = f"inputs/{pep_name}"
         out_xls = f"{raw_rel}/{stem}.xls"
         out_txt = f"{raw_rel}/{stem}.txt"

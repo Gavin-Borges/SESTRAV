@@ -30,6 +30,14 @@ import yaml
 import pandas as pd
 import numpy as np
 
+# Run by path (CI's `python scripts/data_qc_gate.py`), sys.path[0] is scripts/, so `src`
+# needs the checkout on sys.path.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src.config_flags import config_bool  # noqa: E402
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -113,9 +121,16 @@ def load_config(config_path: str) -> dict:
                 "class_ratio_bounds": thresholds.get(
                     "class_ratio_bounds", defaults["class_ratio_bounds"]
                 ),
-                "freeze_mode": config.get("freeze_mode", defaults["freeze_mode"]),
+                # Both flags are parsed as the config schema parses them, not tested
+                # for truthiness: a quoted "false" is a str, and bool("false") is True.
+                "freeze_mode": config_bool(
+                    "freeze_mode", config.get("freeze_mode"), defaults["freeze_mode"]
+                ),
                 "expected_checksum": gov.get("provenance", {}).get("checksum"),
-                "require_checksum": gov.get("require_checksum_match_in_freeze_mode", False),
+                "require_checksum": config_bool(
+                    "dataset_governance.require_checksum_match_in_freeze_mode",
+                    gov.get("require_checksum_match_in_freeze_mode"),
+                ),
             }
     except Exception as e:
         logger.error(f"Failed to parse config: {e}. Refusing defaults that disable freeze.")

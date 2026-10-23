@@ -53,11 +53,12 @@ import re
 import shutil
 import string
 import subprocess
-import sys
 import tarfile
 import textwrap
 import types
 from pathlib import Path
+
+from tests._snakemake_launcher import snakemake_launcher
 
 import pytest
 
@@ -348,27 +349,10 @@ def test_the_containment_check_rejects_an_unquoted_command():
 # ---------------------------------------------------------------------------
 
 
-def _snakemake() -> str:
-    """Resolve the snakemake launcher, PATH first and the running env second.
-
-    PATH alone is not enough here. On a workstation where the conda environment
-    is active for the interpreter but not exported to the shell, `shutil.which`
-    returns None while snakemake is installed and importable, and every test
-    below would skip - certifying nothing while reading as green. The second
-    lookup is the launcher directory beside the interpreter actually running
-    these tests, which is the environment snakemake was installed into.
-    """
-    found = shutil.which("snakemake")
-    if found is None:
-        launcher_dir = Path(sys.executable).parent
-        for name in ("Scripts/snakemake.exe", "snakemake.exe", "bin/snakemake", "snakemake"):
-            candidate = launcher_dir / name
-            if candidate.exists():
-                found = str(candidate)
-                break
-    if found is None:
-        pytest.skip("snakemake launcher not found on PATH or beside the running interpreter")
-    return str(found)
+# The launcher lookup, PATH first and then beside the running interpreter, lives in
+# tests/_snakemake_launcher.py so that every test running snakemake shares it. This
+# file had it alone, and tests/test_pipeline_smoke_executes.py skipped without it.
+_snakemake = snakemake_launcher
 
 
 def _sandbox(destination: Path) -> Path:

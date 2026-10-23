@@ -21,6 +21,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.artifact_integrity import sha256_file
+from src.config_flags import config_bool
 from src.provenance_paths import relative_source
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -290,8 +291,12 @@ if __name__ == "__main__":
             logger.info(f"Dataset SHA256: {checksum}")
 
             gov = config.get("dataset_governance", {})
-            if config.get("freeze_mode", False) and gov.get(
-                "require_checksum_match_in_freeze_mode", False
+            # Both flags are parsed as the config schema parses them, not tested for
+            # truthiness: a quoted "false" is a str, and bool("false") is True, so it
+            # enforced the checksum the operator had switched off.
+            if config_bool("freeze_mode", config.get("freeze_mode")) and config_bool(
+                "dataset_governance.require_checksum_match_in_freeze_mode",
+                gov.get("require_checksum_match_in_freeze_mode"),
             ):
                 expected = gov.get("provenance", {}).get("checksum")
                 if not expected:

@@ -41,6 +41,7 @@ from sklearn.metrics import (
 from src.artifact_guard import guard_planned_paths, planned_paths_under
 from src.evaluate_metrics import evaluate
 from src.gold_standard import GOLD_STANDARD, GOLD_STANDARD_NEGATIVES
+from src.provenance_paths import relative_source
 
 try:
     import matplotlib
@@ -655,9 +656,11 @@ def run_comparison(
     if base_path is None:
         base_path = os.path.join(results_dir, "external_validation_input.csv")
 
+    # Each path is recorded through relative_source, so an absolute one never
+    # puts a workstation path into the report; a relative one is kept as given.
     provenance: Dict[str, str] = {
-        "base_input": base_path,
-        "oof_predictions": oof_path,
+        "base_input": relative_source(base_path),
+        "oof_predictions": relative_source(oof_path),
     }
 
     predig_scores = None
@@ -667,7 +670,7 @@ def run_comparison(
             peptide_col=predig_peptide_col,
             score_col=predig_score_col,
         )
-        provenance["predig_file"] = predig_path
+        provenance["predig_file"] = relative_source(predig_path)
         provenance["predig_peptides_parsed"] = str(len(predig_scores))
         print(f"[comparison] PredIG: {len(predig_scores)} peptides parsed")
 
@@ -680,7 +683,7 @@ def run_comparison(
             sep=prime_sep,
             use_pctrank=prime_use_pctrank,
         )
-        provenance["prime_file"] = prime_path
+        provenance["prime_file"] = relative_source(prime_path)
         provenance["prime_peptides_parsed"] = str(len(prime_scores))
         provenance["prime_score_column"] = (
             "pctrank (inverted)" if prime_use_pctrank else prime_score_col

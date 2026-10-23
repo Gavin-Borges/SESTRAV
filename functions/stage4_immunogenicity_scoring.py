@@ -398,18 +398,27 @@ def _resolve_thresholds_path(model_dir, thresholds_path=None):
 
 
 def _apply_thresholds(features_df, model_dir, thresholds_path=None):
-    """Add binary immunogenic column using exported optimal thresholds."""
+    """Add binary immunogenic column using exported optimal thresholds.
+
+    The threshold is compared against the RAW ``immunogenicity_score``, never
+    ``calibrated_score``. src/train_classifier.py picks it with
+    pick_operating_threshold on the raw OOF ``score`` column, so it is a point on
+    the raw scale. Applying it to the isotonic output instead moved the operating
+    point: with the deployed calibrator, ``calibrated >= 0.325`` is the same call as
+    ``raw >= ~0.248``, which on the grouped v5 OOF called 15,266 rows positive
+    where the threshold's own selection called 10,552 (precision 0.414 against
+    0.510). The calibrated score is still reported; it just does not decide the call.
+    """
     thresh_path = _resolve_thresholds_path(model_dir, thresholds_path)
     if thresh_path is None:
         return
     with open(thresh_path) as f:
         thresholds = json.load(f)
-    score_col = (
-        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
-    )
     f1_thresh = thresholds.get("threshold", thresholds.get("f1_threshold", 0.5))
-    features_df["immunogenic"] = (features_df[score_col] >= f1_thresh).astype(int)
-    print(f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f}")
+    features_df["immunogenic"] = (features_df["immunogenicity_score"] >= f1_thresh).astype(int)
+    print(
+        f"[Stage 4] Applied F1-optimal threshold {f1_thresh:.3f} to the raw score ({thresh_path})"
+    )
 
 
 def _resolve_conformal_path(model_dir, conformal_path=None):
@@ -770,14 +779,24 @@ def score_immunogenicity(
 
     _apply_thresholds(features_df, model_dir, thresholds_path)
 
-    # Use deterministic contiguous ranking (1..N) based on score ordering.
-    # Prefer calibrated_score when available (Platt calibration is monotonic,
-    # but boundary rounding can shift relative order for tied raw scores).
-    rank_col = (
-        "calibrated_score" if "calibrated_score" in features_df.columns else "immunogenicity_score"
-    )
+    # Use deterministic contiguous ranking (1..N) based on score ordering: by
+    # calibrated_score when a calibrator was applied, else by the raw score.
+    # Ties in calibrated_score are broken by the raw score, the scale the
+    # immunogenic call is made on (_apply_thresholds). Isotonic calibration maps a
+    # raw interval to one value, and the deployed calibrator's plateau around the
+    # v5 threshold spans it, so ranking that plateau by peptide alone put uncalled
+    # rows above called ones. With a monotone non-decreasing calibrator this
+    # tie-break makes the order the raw-score order, so the called rows are the
+    # top of the ranking. The calibrators this module resolves that a repo script
+    # writes are monotone non-decreasing (scripts/fit_calibrator.py and
+    # scripts/fit_final_per_virus_calibrators.py fit IsotonicRegression, increasing,
+    # out_of_bounds="clip"); a legacy platt_calibrator.joblib, which no script
+    # writes, would not be if fitted with a negative slope.
+    sort_by = ["immunogenicity_score", "peptide"]
+    if "calibrated_score" in features_df.columns:
+        sort_by.insert(0, "calibrated_score")
     features_df = features_df.sort_values(
-        by=[rank_col, "peptide"], ascending=[False, True]
+        by=sort_by, ascending=[False] * (len(sort_by) - 1) + [True]
     ).reset_index(drop=True)
     features_df["rank"] = features_df.index + 1
 

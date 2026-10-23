@@ -63,7 +63,13 @@ status: historical-v3
   the reproduction command named on this very line, `scripts/scoring_error_audit.py`, contains no
   reference to PredIG, to 9-mers, or to any external baseline, so it cannot produce the comparison
   it was cited for.
-- **Cross-virus transfer:** EBV->HPV16 AUC-PR 0.742; HPV16->EBV 0.711. HBV/HCV transfer: not validated.
+- **Cross-virus transfer: not validated, in either direction.** EBV->HPV16 AUC-PR 0.742 but
+  AUC-ROC **0.5452**; HPV16->EBV AUC-PR 0.711 but AUC-ROC **0.5891**. Both sit near chance on
+  AUC-ROC, which the AUC-PR figures alone do not show, and this line reported only the AUC-PR
+  until 2026-10-16. The two directions are one fit each over the same two peptide sets swapped
+  (459 EBV, 245 HPV16), in `results/external_validation_cross_virus.csv` - a file with exactly
+  one commit in its whole history (`f360b901`, 2026-05-23), so neither direction has been
+  re-measured on v5. HBV/HCV transfer: not validated.
 
 ## Limitations
 - **Feature_mode=30 is legacy.** The 30-feature model omits `peptide_length`, causing systematic underperformance on 8-mer peptides (zero-imputed p7/p8 positions indistinguishable from noise without length context). Use `rf_31feature_integrated.joblib` for all new work.

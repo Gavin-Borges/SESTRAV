@@ -21,6 +21,26 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
+def simulated_flag(df: pd.DataFrame) -> int:
+    """1 if a predictor's raw output is marked simulated, else 0.
+
+    scripts/run_prime_wrapper.py and scripts/run_predig_wrapper.py fall back to
+    seeded noise when the tool is not installed or fails, and still exit 0, so the
+    Snakemake default target is met either way. They mark every such row with
+    simulated=1. The flag is per file: a wrapper simulates all of its output or
+    none of it.
+
+    0 means the file carries no simulation mark, which is NOT the same as "real".
+    A file written before those wrappers started marking their output reads 0, and
+    Snakemake will not rerun them for this change alone, because neither rule's
+    input or shell command changed: rerun with
+    ``--forcerun run_prime run_predig`` to re-establish the mark.
+    """
+    if "simulated" not in df.columns:
+        return 0
+    return int(bool(pd.to_numeric(df["simulated"], errors="coerce").fillna(0).any()))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Standardize and merge predictor outputs")
     parser.add_argument("--binding", required=True, help="Path to binding CSV")
@@ -111,6 +131,17 @@ def main():
     predig_df["hla"] = predig_df["hla"].apply(standardize_allele)
     predig_df = predig_df.drop_duplicates(subset=["peptide", "hla"])
 
+    prime_simulated = simulated_flag(prime_df)
+    predig_simulated = simulated_flag(predig_df)
+    for tool, flag in (("PRIME", prime_simulated), ("PredIG", predig_simulated)):
+        if flag:
+            print(
+                f"[standardize] WARNING: the {tool} scores are SIMULATED by its wrapper "
+                f"(seeded noise), not {tool} output; "
+                f"{tool.lower()}_simulated is 1 on every row.",
+                file=sys.stderr,
+            )
+
     # 4. Load SESTRAV predictions
     # Columns: peptide, rank, immunogenicity_score
     sestrav_df = pd.read_csv(args.sestrav)
@@ -152,6 +183,9 @@ def main():
     # assay_type and hard_negative_flag are not populated for proteomes, so default to NaN
     merged["assay_type"] = np.nan
     merged["hard_negative_flag"] = np.nan
+    # Appended after the existing columns, so their positions do not move.
+    merged["prime_simulated"] = prime_simulated
+    merged["predig_simulated"] = predig_simulated
 
     # Reorder columns to match canonical schema
     cols = [
@@ -163,6 +197,8 @@ def main():
         "sestrav_score",
         "assay_type",
         "hard_negative_flag",
+        "prime_simulated",
+        "predig_simulated",
     ]
     # Ensure all columns exist in case some merge failed
     for col in cols:

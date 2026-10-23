@@ -30,6 +30,7 @@ import pandas as pd
 
 from src.evaluate_metrics import evaluate
 from src.iedb_data_loader import GOLD_STANDARD_EPITOPES
+from src.provenance_paths import relative_source
 
 PREVALENCE_POS_RATE = 506 / 720  # frozen Tier A class balance
 
@@ -267,7 +268,8 @@ def quantify_overlap_robust(
         status = "acceptable"
 
     return {
-        "train_source": train_path,
+        # Never a workstation path: see src.provenance_paths.relative_source.
+        "train_source": relative_source(train_path),
         "eval_peptide_count": n_eval,
         "exact_overlap_count": len(exact),
         "exact_overlap_pct": round(exact_pct, 2),

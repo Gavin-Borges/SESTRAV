@@ -4,19 +4,29 @@ SESTRAV Offline Model Training Script
 Trains RandomForest and XGBoost classifiers on cleaned IEDB immunogenicity data.
 Produces serialized .joblib models for use in the production scoring pipeline.
 
-Feature modes:
-  --feature-mode 21  (default, legacy)
-      21 sequence-only features (p4-p8 physicochemical + peptide_length).
-      binding_score excluded because IEDB exports lack allele info.
+Feature modes (--feature-mode; the list is RECOGNIZED_FEATURE_MODES):
+  10        binding-only, no physicochemistry: the converse ablation of 21
+  21        default, legacy: 21 sequence-only features (p4-p8 physicochemical
+            + peptide_length); binding_score is excluded because IEDB exports
+            lack allele info
+  30        20 physicochemical features + 10 per-allele MHCflurry binding scores
+  31        canonical
+  33        31 + antigen-processing scores (MOCK scores, not real NetChop/TAPreg
+            output - see docs/claims_register.md D18)
+  35        33 + self-similarity
+  50        expanded
+  51        50 + per-allele TCR contact weights (55 columns)
+  166       see train_models' feature-selection chain
+  30_esm    see train_models' feature-selection chain
+  30_graph  see train_models' feature-selection chain
 
-  --feature-mode 30
-      20 physicochemical features + 10 per-allele MHCflurry binding scores.
-      Requires --binding-matrix pointing to peptide_binding_matrix.csv
-      (produced by CMB 523 Project 2).
+What each mode needs besides --data is stated once, in the help of the input
+flags (--binding-matrix, --antigen-processing-cache, --self-similarity-cache).
 
-Evaluation uses stratified 5-fold cross-validation on the full training pool
-for reliable metric estimates, then retrains on the full pool for the final
-serialized model.
+Evaluation cross-validates on the full training pool (--cv-folds, 5 by default)
+for metric estimates, with the folds grouped by peptide unless --cv-group-by
+none is passed, or Leave-One-Protein-Out with --lopo. It then retrains on the
+full pool for the final serialized model.
 
 --model-dir is required and existing artifacts there are never replaced unless
 --allow-overwrite is given, so a run cannot silently rewrite published metrics.
@@ -1484,7 +1494,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lopo",
         action="store_true",
-        help="Perform Leave-One-Protein-Out (LOPO) cross-validation instead of StratifiedKFold",
+        help="Perform Leave-One-Protein-Out (LOPO) cross-validation instead of the "
+        "k-fold cross-validation set by --cv-folds and --cv-group-by",
     )
     # dest differs from the resolved value below so a bare --lopo can tell an
     # explicit --cv-group-by peptide apart from the default.
