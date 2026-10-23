@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import csv
 import io
-import shutil
 import subprocess
 import tarfile
 from pathlib import Path
 
 import pytest
+
+from tests._snakemake_launcher import snakemake_launcher
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,9 +38,9 @@ def _extract_tracked_tree(destination: Path) -> None:
 
 
 def test_tracked_smoke_fixture_executes_generate_peptides(tmp_path):
-    snakemake = shutil.which("snakemake")
-    if snakemake is None:
-        pytest.skip("snakemake executable is not installed in this test environment")
+    # PATH first, then beside the running interpreter: `shutil.which` alone skipped this,
+    # the one test that executes the pipeline, whenever the env's Scripts/ was off PATH.
+    snakemake = snakemake_launcher()
     if not hasattr(tarfile, "data_filter"):
         pytest.skip("tarfile extraction filters need Python 3.11.4 or later")
 
