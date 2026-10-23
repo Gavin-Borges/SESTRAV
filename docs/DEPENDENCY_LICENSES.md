@@ -1,7 +1,7 @@
 | Name                                  | Version     | License                                                                                             |
 |---------------------------------------|-------------|-----------------------------------------------------------------------------------------------------|
 | ConfigArgParse                        | 1.7.5       | MIT License                                                                                         |
-| GitPython                             | 3.2.0       | BSD-3-Clause                                                                                        |
+| GitPython                             | 3.2.1       | BSD-3-Clause                                                                                        |
 | Jinja2                                | 3.1.6       | BSD License                                                                                         |
 | MarkupSafe                            | 3.0.3       | BSD-3-Clause                                                                                        |
 | PuLP                                  | 3.3.2       | MIT                                                                                                 |
@@ -9,7 +9,7 @@
 | Pygments                              | 2.20.0      | BSD-2-Clause                                                                                        |
 | SQLAlchemy                            | 2.0.51      | MIT                                                                                                 |
 | aiohappyeyeballs                      | 2.7.1       | Python Software Foundation License                                                                  |
-| aiohttp                               | 3.14.3      | Apache-2.0 AND MIT                                                                                  |
+| aiohttp                               | 3.14.5      | Apache-2.0 AND MIT                                                                                  |
 | aiosignal                             | 1.4.0       | Apache Software License                                                                             |
 | annotated-doc                         | 0.0.5       | MIT                                                                                                 |
 | annotated-types                       | 0.8.0       | MIT                                                                                                 |
@@ -18,7 +18,7 @@
 | argparse-dataclass                    | 2.0.0       | MIT License                                                                                         |
 | attrs                                 | 26.1.0      | MIT                                                                                                 |
 | biopython                             | 1.88        | LicenseRef-Biopython-License-Agreement                                                              |
-| certifi                               | 2026.7.22   | Mozilla Public License 2.0 (MPL 2.0)                                                                |
+| certifi                               | 2026.10.19  | Mozilla Public License 2.0 (MPL 2.0)                                                                |
 | charset-normalizer                    | 3.4.9       | MIT                                                                                                 |
 | click                                 | 8.4.2       | BSD-3-Clause                                                                                        |
 | cloudpickle                           | 3.1.2       | BSD License                                                                                         |
@@ -42,7 +42,7 @@
 | greenlet                              | 3.5.4       | MIT AND PSF-2.0                                                                                     |
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.168.3     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.168.5     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
@@ -282,7 +282,7 @@
 | opentelemetry-api                     | 1.45.1      | Apache-2.0                                                                                          |
 | packaging                             | 25.0        | Apache Software License; BSD License                                                                |
 | pandas                                | 3.0.3       | BSD License                                                                                         |
-| pillow                                | 12.3.0      | MIT-CMU                                                                                             |
+| pillow                                | 13.0.0      | MIT-CMU                                                                                             |
 | platformdirs                          | 4.11.3      | MIT                                                                                                 |
 | pluggy                                | 1.6.0       | MIT License                                                                                         |
 | propcache                             | 0.5.2       | Apache Software License                                                                             |
@@ -330,5 +330,5 @@
 | wrapt                                 | 2.3.0       | BSD-2-Clause                                                                                        |
 | xgboost                               | 3.2.0       | Apache Software License                                                                             |
 | xxhash                                | 3.8.1       | BSD-2-Clause                                                                                        |
-| yarl                                  | 1.24.5      | Apache-2.0                                                                                          |
+| yarl                                  | 1.25.1      | Apache-2.0                                                                                          |
 | yte                                   | 1.9.4       | MIT                                                                                                 |

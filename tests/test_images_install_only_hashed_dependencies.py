@@ -90,6 +90,18 @@ PIP_BOOTSTRAP = "environments/requirements-pip-bootstrap.txt"
 RUNTIME_LOCK = "requirements.txt"
 PRODUCTION_LOCK = "environments/requirements.lock"
 
+# Packages an image lock deliberately runs at a different version than
+# requirements.txt, each mapped to the ONE version that was accepted, so the lock
+# cannot move to another (an older, more vulnerable release, say) unnoticed. Each
+# entry needs a reason and an end condition, and
+# test_image_lock_shares_every_runtime_package_at_the_same_version fails once an
+# entry is no longer needed, so the carve-out cannot outlive its reason.
+# Empty. Its one entry so far, pillow 12.3.0 in environments/requirements-demo.txt,
+# ended when environments/requirements-demo.in moved streamlit from 1.65.0
+# (pillow<13) to 1.66.1 (pillow<14) and the demo lock reached 13.0.0, the version
+# requirements.txt pins; SECURITY.md's Risk-Acceptance Register marks it resolved.
+IMAGE_LOCK_ALLOWED_DRIFT: dict[str, dict[str, str]] = {}
+
 # pip's global options may sit between `pip` and `install` (`pip --cache-dir /x
 # install ...`), each optionally followed by a value; without them in the pattern
 # such an install would be invisible to every check below. `pip` also follows
@@ -888,8 +900,22 @@ def test_image_lock_shares_every_runtime_package_at_the_same_version(dockerfile:
         assert "--hash=" in text, f"{lock} is not a hashed lock"
         pins = _pins(lock)
         drift = {n: (v, runtime[n]) for n, v in pins.items() if n in runtime and runtime[n] != v}
-        assert not drift, f"{lock} runs versions requirements.txt does not: {drift}"
+        allowed = IMAGE_LOCK_ALLOWED_DRIFT.get(lock, {})
+        unexpected = {n: pair for n, pair in drift.items() if allowed.get(n) != pair[0]}
+        assert not unexpected, f"{lock} runs versions requirements.txt does not: {unexpected}"
+        stale = sorted(set(allowed) - set(drift))
+        assert not stale, (
+            f"IMAGE_LOCK_ALLOWED_DRIFT lets {lock} differ on {stale}, but it no longer does: "
+            "remove the entry, and resolve its SECURITY.md register entry if it has one"
+        )
         assert len(set(pins) & set(runtime)) >= 50, f"{lock} shares implausibly few packages"
+
+
+def test_allowed_image_drift_names_only_image_locks() -> None:
+    # A carve-out keyed to a path no image installs would never be checked by
+    # the test above, so it could never go stale and would sit there silently.
+    image_locks = {lock for dockerfile in IMAGE_SPECS for lock in _image_locks(dockerfile)}
+    assert set(IMAGE_LOCK_ALLOWED_DRIFT) <= image_locks, set(IMAGE_LOCK_ALLOWED_DRIFT) - image_locks
 
 
 def test_image_specs_are_managed_and_seeded_from_the_runtime_lock() -> None:

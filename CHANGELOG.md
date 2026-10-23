@@ -16,6 +16,176 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
+### Fixed
+- **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
+  bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`
+  and `mock_evaluation` instead of testing them for truthiness, so
+  `snakemake --config freeze_mode=false` turns freeze mode off.** Snakemake does not deliver every spelling of a boolean as a bool. Measured
+  with snakemake 9.23.1, by printing the type a `params:` value arrives with in a
+  throwaway Snakefile: `--config mc_dropout=false` arrives as the string `'false'`,
+  and so do `true`, `TRUE`, `yes`, `no` and `No`; only the exact spellings `True` and
+  `False` become bools, and `0` and `1` become ints. A quoted YAML value in a config
+  file (`mc_dropout: "false"`) also arrives as a string. `bool('false')` is `True`,
+  so the obvious per-run override of the `freeze_mode: true` that `config.yaml` ships
+  left freeze mode ON, and `--config mc_dropout=false` switched MC Dropout ON, both
+  silently. The shipped `config.yaml` values are unquoted YAML booleans, arrive as
+  real bools, and were never affected. Stage 4 now accepts `true`/`false`, `yes`/`no`
+  and `1`/`0` in any case, real bools and the ints 0 and 1, and raises on anything
+  else, including an empty `--config mc_dropout=` (which arrives as `None`), rather
+  than guessing a default. A new test runs the script with a stand-in `snakemake`
+  object and asserts the value each spelling reaches `score_immunogenicity` as; the
+  static wiring test, which pinned the bare `bool()` call, now pins the parser.
+  `pipeline.smk` had the same defect in three rules, each building its flag as
+  `"--flag" if config.get(key, False) else ""`: a dry run against the smoke fixture
+  printed `--freeze-mode` in `full_validation_report` for `--config freeze_mode=false`,
+  and `--mock` in `extract_verify_data` and `evaluate_verify_gnn` for
+  `--config mock_ingestion=false mock_evaluation=false`. All three now read their key
+  through one `_config_flag` helper that accepts exactly what Stage 4 accepts and
+  rejects anything else, naming the key and the value, before any job runs. A new
+  test dry-runs the workflow with the keys set to opposite values and asserts each
+  flag renders as its own override says.
+- **`config.yaml`'s `freeze_mode` and `require_checksum_match_in_freeze_mode` now mean
+  the same thing to every reader: the three that re-read the raw YAML parse them as the
+  config schema does, instead of testing them for truthiness.** `src/core/config.py`
+  declares both as `bool` fields, and pydantic gives such a field a fixed vocabulary:
+  `true`, `on`, `yes`, `1`, `t` or `y` in any case is True, `false`, `off`, `no`, `0`, `f`
+  or `n` is False, and anything else is refused. `pipeline.py` reads them through that
+  schema. `sestrav predict` (`src/cli.py`) set `freeze_mode = bool(configured)`, and
+  `src/data_curation_qc.py` and `scripts/data_qc_gate.py` gated the dataset checksum on
+  `config.get("freeze_mode") and gov.get("require_checksum_match_in_freeze_mode")`. An
+  unquoted YAML `false` arrives from `yaml.safe_load` as a real bool and was fine, but a
+  QUOTED `"false"` arrives as a string and `bool("false")` is True, so
+  `freeze_mode: "false"` turned freeze mode on at those three readers while the schema
+  read it as off, and `require_checksum_match_in_freeze_mode: "false"` still enforced
+  the checksum. Both failed toward the stricter mode, so nothing unsafe passed, but the
+  same `config.yaml` meant two things depending on which entry point read it, and a run
+  the operator had switched off could still be refused. A new `src.config_flags.config_bool`
+  parses them; a missing or null key is still each reader's default (off), and a value
+  that is not a boolean is refused with the key named, rather than read as on. It
+  reimplements the schema's vocabulary rather than importing pydantic, because pydantic
+  comes only with the `dev`, `api` and `demo` extras and `sestrav predict` must keep
+  working on a core-only install; a new test checks it against `SestravConfig` and
+  `DatasetGovernanceConfig` themselves on 48 spellings, and a second confirms it imports
+  with pydantic absent. Behavioural tests drive all three readers end to end, in both
+  directions, and twelve mutants, each removing one part, all fail them. Found widening
+  the census of a review NIT that named two of the three readers; the third,
+  `scripts/data_qc_gate.py`, is the dataset QC gate CI's `test` job runs.
+- **`pipeline.smk` and `scripts/stage4.py` now accept every spelling of a boolean that the
+  config schema accepts, so a quoted `freeze_mode: "off"` or `--config freeze_mode=off`
+  turns freeze mode off instead of being refused by the Snakemake workflow alone.** The two
+  entries above, for `scripts/stage4.py` and for `config.yaml`, parsed the same keys with
+  two vocabularies. `src.config_flags.config_bool`, checked against the schema's own
+  pydantic fields, accepts `on`/`off`, `t`/`f`, `y`/`n` and the floats 1.0 and 0.0 besides
+  `true`/`false`, `yes`/`no` and `1`/`0`; the Snakefile's `_config_flag` and Stage 4's
+  `_parse_flag` accepted only the last three pairs and refused the rest, although
+  `freeze_mode`, `mc_dropout`, `mock_ingestion` and `mock_evaluation` are all `bool` fields
+  in `src/core/config.py`. Both now call `config_bool`, so the vocabulary is stated once.
+  Both still refuse `None` (an empty `--config key=`), which `config_bool` reads as its
+  default, and still reject any other value, naming the key and the value. The tests of
+  both parsers now carry each new spelling in several cases, a cross-check of both sites
+  against `config_bool` on 59 values, and a real dry run that renders each flag for
+  `off`/`ON`, `F`/`t` and `n`/`Y`. Written first, 105 of their cases failed against the
+  previous parsers, every one a newly accepted spelling or a new dry run.
+- **`scripts/fit_conformal_calibrator.py` and `scripts/compute_pooled_honest_metric.py`
+  no longer record an absolute source as a workstation path.** The coverage report the
+  calibrator writes, tracked as `models/v5/conformal_coverage_mode31.json`, recorded
+  `source_model.path` and `source_oof.path`, and the Def A row the metric script writes,
+  tracked as `results/pooled_honest_same_pathogen.csv`, recorded `source_oof`, each as the
+  argument given with its backslashes turned into `/`, so an absolute `--model` or `--oof`
+  put a `C:/Users/<user>/...` or `/home/<user>/...` path into a tracked file. All three now
+  go through `src.provenance_paths.relative_source`, as the other provenance writers do;
+  the entry that moved those writers onto it named these three keys among the ones it left
+  unchanged. A source outside the checkout is recorded as `external:<name>`, an absolute
+  source inside it as its repo-relative path, and a relative source as given with `/`
+  separators, exactly as before. The `sha256` fields and the metric itself are still
+  computed from the files the arguments name. **Neither committed output is regenerated,
+  and neither needs to be:** each was written from its default relative sources, which
+  record the same strings before and after, and new tests pin those strings to the
+  committed values.
+  `tests/test_fit_conformal_calibrator_relative_sources.py` drives
+  `compute_coverage_report` and `main()`, with the fold assignment and interval steps
+  stubbed so nothing is fitted; three of its four tests fail on the previous writer.
+  `tests/test_compute_pooled_honest_metric_relative_sources.py` drives `compute` and
+  `main()` on synthetic out-of-fold files and never reads the committed one; three of its
+  four tests fail on the previous writer.
+- **Three more writers record a caller-supplied path through `relative_source`, so an
+  absolute argument no longer writes a workstation path.** The entry that moved the other
+  provenance writers onto `src.provenance_paths.relative_source` named, among the fields it
+  left as given, `base_input` and `oof_predictions` in `src/external_benchmark_comparison.py`,
+  `train_source` in `src/external_validation_fairness.py` and `peptide_list_path` in
+  `scripts/prepare_netmhcpan_inputs.py`. `run_comparison` writes the first two, and the
+  `predig_file` and `prime_file` beside them, which that entry's grep did not name, into the
+  Provenance section of its Markdown report, tracked as
+  `results/external_benchmark_comparison.md`; `base_input` defaults to a file under
+  `--results-dir`, so an absolute `--results-dir` alone was enough to record one.
+  `run_fairness` writes each training list's `train_source` into
+  `manifests/training_overlap.json` and `processed/fairness_analysis.md` under its run
+  directory, and `prepare_inputs` writes `peptide_list_path` into `inputs/manifest.csv`;
+  neither output is tracked. Each now records an absolute path outside the checkout as
+  `external:<name>`, an absolute path inside it repo-relative, and a relative path exactly
+  as given, so the default arguments record the same strings as before. The NetMHCpan
+  runner, `run_netmhcpan.sh`, took each peptide list's file name from the recorded path,
+  which names no file once it reads `external:<name>`; it now names the list from its
+  (virus, allele) group, as `prepare_inputs` names the file, so its commands are unchanged.
+  **No committed file is regenerated or changes:** a new test checks that every path the
+  tracked report's Provenance section records is already a fixed point of
+  `relative_source`, so regenerating it from the same arguments records the same strings.
+  `tests/test_remaining_writers_record_relative_sources.py` drives each writer with paths
+  built under pytest's temporary directory and `relative_source`'s root pointed at a
+  scratch checkout, with the comparison's metric, figure and parser steps stubbed; seven of
+  its eleven tests fail on the previous code, and the four that pass there pin the default
+  and tracked values. `tests/test_netmhcpan_harness.py`'s grouping test now reads the
+  peptide list from the manifest's directory, since its temporary `--out-dir` is outside
+  the checkout. `src/cli.py`'s report lines, also named in that entry, are left to the
+  separate change that edits that file.
+- **The pipeline smoke test now RUNS wherever snakemake is installed, instead of skipping
+  when its launcher directory is off PATH.** `tests/test_pipeline_smoke_executes.py`, the
+  one test that executes the pipeline, resolved snakemake with `shutil.which` alone and
+  skipped when that returned None. When a suite is run by naming a conda env's interpreter
+  directly, without activating the env, the env's launcher directory is not on PATH:
+  `which` returns None while snakemake is installed and importable, the test skips, and a
+  skip reads as green. Measured by an outside reviewer with PATH as the only variable (same
+  interpreter, tree and argv): 25 passed and 1 skipped without the launcher directory on
+  PATH, 26 passed with it, which at suite scale is exactly the difference between two
+  otherwise identical certification runs of an integration batch. The repository had
+  already found this hazard once: `tests/test_snakemake_shell_quoting.py` looked beside the
+  running interpreter after PATH, and its docstring named this case. Both files now use one
+  shared resolver, `tests/_snakemake_launcher.py`, whose lookup moved unchanged from that
+  file (its docstring is new). A new `tests/test_snakemake_launcher.py` checks that, with
+  every directory holding a snakemake launcher removed from PATH, the resolver still finds
+  the launcher beside the interpreter, and the smoke test, run under that same PATH, passes
+  rather than skips. A further test guards the defect class rather than this one instance:
+  across `tests/`, any scope that asks PATH for snakemake must also look beside
+  `sys.executable`. The scopes are each function and the module's code outside every
+  function, because a module-level `NAME = shutil.which(...)` feeding a `skipif` is how this
+  suite gates on a program, with 15 such calls for bash, grep and git. A correct private
+  copy elsewhere is not refused, and a call given `path=`, which does not consult PATH, is
+  not counted. Run over the whole of `tests/` on `origin/main`, it flags only the smoke
+  test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
+  full suite gives the same passed and skipped counts whether or not the env's launcher
+  directory is on PATH.
+- **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
+  `scripts/fetch_human_proteome.py` actually writes.** The fallback was
+  `data/proteomes/human_reference.fasta`, a path no script produces and no document
+  mentions; it occurred in exactly two tracked files, `pipeline.smk` itself and the
+  exemption comment in `tests/test_pipeline_defaults_exist_in_a_clone.py`. The fetch
+  script's `DEFAULT_OUTPUT`, the regeneration recipe in `data/README.md` and the
+  "download independently, do not commit" block in `.gitignore` all name
+  `data/proteomes/human_uniprot_UP000005640.fasta` instead. So a reader who ran the
+  documented download and then asked for `data/hard_decoys.csv` still got
+  `MissingInputException` in rule `generate_hard_decoys`, naming a file they had never
+  been told to create. `rule generate_hard_decoys` is not reached by the default target,
+  so neither Snakemake dry-run leg could see this and the shipped
+  `snakemake --dry-run --cores 1` was exit 0 throughout; `reference_proteome` is also a
+  deliberate entry in that test's `KNOWN_UNTRACKED_DEFAULTS`, which exempts it from the
+  tracked-file check because a 100 MB proteome is a download rather than a repository
+  artifact. **That exemption was read as covering the name as well as the bytes, and it
+  never did.** A new test pins the pipeline fallback to the fetch script's
+  `DEFAULT_OUTPUT`, parsed from the source with `ast` rather than imported, so a test can
+  never be one assignment away from reaching the network. No behaviour changes for anyone
+  who sets `reference_proteome` in `config.yaml`; the shipped `config.yaml` does not set
+  it, which is why the fallback was load-bearing.
+
 ### Changed
 - **`tools/check_hash_pins.py` now rejects options that change where packages come from,
   instead of skipping every option line.** `--extra-index-url`, `--trusted-host`,
@@ -227,6 +397,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   and after.
 
 ### Fixed
+- **`src/verify/sestrav_evaluator.py` now says when its GNN scored with untrained weights.**
+  With no checkpoint, `run_evaluation_pipeline` evaluates an initialized structural GNN.
+  Those are real model scores, not mock ones, so the report's `use_mock_fallback` is false,
+  and nothing else in `validation_report.json` said the weights were random. A requested
+  checkpoint that did not exist was reported the same way as one never asked for. The
+  report's metadata now carries `checkpoint_status` ("loaded", "absent", "failed" or
+  "not_attempted"), `checkpoint_requested`, `checkpoint_loaded` (both through
+  `relative_source`: repo-relative inside the checkout, `external:<name>` outside it, so no
+  workstation path is written) and `untrained_baseline`. The terminal
+  report prints the status. What happens on a failed load is unchanged: it still warns and
+  falls back to mock scores. `tests/test_sestrav_evaluator_checkpoint_status.py` covers each
+  arm; all six of its tests fail on the previous code.
+- **`models/v5/conformal_coverage_mode31.json` records a source digest that reproduces from
+  the Git blob, and the digest gate now checks it.** Its `source_oof.sha256` was the digest of
+  a CRLF working copy of `models/v5/rf_oof_predictions.csv`, which `.gitattributes` pins to
+  LF, so no clone's blob matched it. The same digest pair was corrected for a sibling carrier
+  under claims register D24-resid; this carrier was missed because
+  `scripts/check_digest_portability.py` did not scan the coverage report. The recorded value
+  is now the LF content's digest, and the report's own entry in
+  `models/v5/model_artifact_checksums.json` follows the edit. `scripts/fit_conformal_calibrator.py`
+  now hashes the source with CRLF read as LF and writes the report with LF line endings, so a
+  run from a CRLF checkout records the same digests as one from a Linux clone. The gate's
+  patterns now include `*conformal_coverage*.json`; before this change it would have called
+  the old value WINDOWS_ONLY. No fitted number changes.
 - **`api/main.py` answers an out-of-panel peptide with the integer 422 instead of
   `status.HTTP_422_UNPROCESSABLE_CONTENT`.** starlette added that name in 0.48.0, when it
   renamed `HTTP_422_UNPROCESSABLE_ENTITY`, and the declared fastapi floor admits starlette
@@ -404,8 +598,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   threshold alone moves 241 raw-score calls. The ranking still sorts by the calibrated score,
   but now breaks a calibrated tie by the raw score before the peptide: the deployed
   calibrator's plateau around the threshold spans raw 0.3034 to 0.3304, so ranking it by
-  peptide alone put 1,424 uncalled rows above the last called row on the grouped v5 OOF. The
-  called rows are now always the top of the ranking.
+  peptide alone put 1,424 uncalled rows above the last called row on the grouped v5 OOF. With
+  a monotone non-decreasing calibrator, which every stage-4 calibrator a repo script writes is
+  (isotonic, increasing), the called rows are now always the top of the ranking.
 - **`docs/model_evaluation_summary.md`'s rebuild command now runs as written.** Its reader
   disclosure said to rebuild a model with `python -m src.train_classifier --feature-mode <N>`,
   which exits 2 before training because `--data` and `--model-dir` are required. It now
@@ -508,6 +703,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   need the matrix. A feature cache already written this way is not detected: delete
   `physico_features_mode31_*` files under the configured `output_dir`'s `cache/` directory
   if a v1 run was ever given mode 31.
+- **The standardized predictor outputs now say when a PRIME or PredIG score was simulated.**
+  The default Snakemake target needs `results/{proteome_id}_standardized_outputs.csv`, so it
+  runs `scripts/run_prime_wrapper.py` and `scripts/run_predig_wrapper.py`. When PRIME, or
+  Docker for PredIG, is missing or fails, those wrappers write seeded noise and still exit 0
+  (PRIME's is derived from the binding input, PredIG's is noise around a constant under the
+  default pipeline), and `scripts/standardize_outputs.py` merged it with nothing to tell it
+  from real tool output. Each simulated row now carries `simulated=1`, the standardized CSV gains
+  `prime_simulated` and `predig_simulated` (1 on every row of a file its wrapper marked;
+  appended, so the existing columns keep their positions), and all three scripts warn on
+  stderr. A 0 means the file carries no simulation mark, not that the scores are known to be
+  real: neither rule's input or command changed, so Snakemake will not rerun a predictor for
+  this change alone, and a file written earlier reads 0 until
+  `--forcerun run_prime run_predig`. Two pre-existing reasons the default target simulates
+  PredIG even with Docker installed are recorded in that wrapper's comment, unfixed here.
+  Whether to simulate at all is unchanged.
+  `tests/test_competitor_scores_say_when_simulated.py` covers both wrappers, the merge, one
+  tool simulated while the other is not, and unmarked output.
 - **Installing the git hooks no longer modifies tracked files.** `CONTRIBUTING.md` step 2
   runs `bash scripts/hooks/install.sh`, which marks the four hooks executable. Three of
   them, `commit-msg`, `pre-commit` and `pre-push`, were tracked as non-executable, so on a
@@ -526,6 +738,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   there. The flag reads the loaded calibrator's own groups, so it always describes the
   calibrator that produced the interval. Intervals are unchanged; the flag says which ones
   their validity statement does not cover, and stage 4 prints the count.
+- **The Snakemake scoring rule now forwards `calibration_path` and `mc_dropout`, which it
+  read from `config.yaml` and dropped.** `rule score_immunogenicity` passed Stage 4 only
+  `model_path`, `thresholds_path` and `freeze_mode`, so setting either of the other two was a
+  silent no-op under Snakemake while `pipeline.py` honoured both: calibration fell back to a
+  calibrator found beside the model, and `mc_dropout: true` produced no MC Dropout pass at
+  all, though `docs/model_cards/ann_30feature.md` tells a reader to enable it by setting
+  exactly that key. This is the defect `thresholds_path` had until it was fixed, and the
+  mirror of `tests/test_pipeline_forwards_freeze_mode.py`, where `pipeline.py` was the side
+  that dropped a key. Both defaults are unchanged (`mc_dropout: false`, and the shipped
+  `calibration_path` names the file the fallback already resolved), so a default run scores
+  as before, and a run that sets `calibration_path` now gets the calibrator it named.
+  **`mc_dropout: true` still runs no MC Dropout pass with the shipped model**: Stage 4
+  honours the flag only on the PyTorch branch, and `config.yaml`'s `model_path` is a
+  `.joblib`, so the key also needs a `.pt` model. The flag is now wired rather than
+  discarded; making the ANN model card's instruction work end to end on the shipped
+  configuration is a separate question.
+  `tests/test_snakemake_score_rule_forwards_config.py` pins every scoring key through the
+  rule and the script.
 - **`app/demo.py` no longer reloads the MHCflurry presentation predictor for every scored
   peptide.** `_get_binding_score` called `Class1PresentationPredictor.load()` on each call:
   measured on one workstation with mhcflurry 2.2.1, three calls took 3.5, 1.1 and 1.1 s,
@@ -538,6 +768,101 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **gitpython now pins 3.2.1, its first release patched for GHSA-83vg-56qc-22m7 /
+  CVE-2026-114145 (high, published 2026-10-22).** The advisory affects gitpython 3.2.0 and
+  earlier: per its title, GitPython validates a submodule's ".git" path only after cloning
+  into it, and its proof of concept uses `Repo.create_submodule` to plant an executable git
+  hook. `environments/requirements.lock` and `environments/requirements-ci.txt` move from
+  3.2.0 to 3.2.1, and no other tracked lock pins gitpython. snakemake pulls it in, and the
+  gitpython floor in `environments/requirements-lock.in` rises from 3.1.62 to 3.2.1, naming
+  the advisory. No tracked Python file imports `git`, and nothing in the tracked tree calls
+  `create_submodule`. snakemake 9.27.0, the locked release, uses GitPython to find a
+  repository's top level, to resolve refs and read commits and files, and to clone and
+  fetch hosting-provider sources as bare repositories; it contains no `create_submodule` or
+  `Submodule` reference. The relock ran `tools/update_dependencies.py --target gitpython`
+  with uv 0.12.0, after the same uv had recompiled the base's inputs, with no upgrade, to
+  its locks unchanged: no other pin moved, and both new hashes are PyPI's published files
+  for 3.2.1. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` are regenerated, and
+  gitpython's version is their only change.
+- **The demo image reaches Pillow 13.0.0: its streamlit pin moves from 1.65.0 to 1.66.1,
+  and SECURITY.md's risk acceptance for the demo's Pillow 12.3.0 is resolved.** streamlit
+  1.66.1 declares `pillow<14,>=9.2.0`, where 1.65.0 and 1.66.0 declare `pillow<13`.
+  `environments/requirements-demo.in` now pins `streamlit==1.66.1`, and
+  `python tools/update_dependencies.py --target streamlit` recompiled
+  `environments/requirements-demo.txt`: Pillow moves from 12.3.0 to 13.0.0 and streamlit
+  from 1.65.0 to 1.66.1, and `httptools` and `toml` leave the lock, because streamlit 1.66
+  requires neither and no other package in the lock did. No other pin moved, no other lock
+  changed, and every new hash is one of PyPI's published files for its release. Every
+  Pillow advisory the GitHub advisory database lists against 12.3.0 is first patched in
+  13.0.0, and none lists a range containing 13.0.0 (queried 2026-10-22T20:37Z); pip-audit
+  finds no known vulnerability in the new demo lock on the PyPI or the OSV feed
+  (2026-10-22T20:38Z). The register entry is marked resolved and keeps its history. The
+  demo's `IMAGE_LOCK_ALLOWED_DRIFT` entry, whose test fails once the entry is no longer
+  needed, is removed, leaving the mapping empty, and so is the demo sentence on the
+  `pillow` floor in `environments/requirements-lock.in`. `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` do not change: the SBOM job builds them from an environment
+  holding `environments/requirements.lock` and its own tooling, and never installs the demo
+  lock. **Retracted:** the entry below said that 1.66.0 was streamlit's newest release as
+  of 2026-10-21 (UTC), and the register entry said that too; the register entry also said
+  that the acceptance would last "until streamlit admits Pillow 13", that "A resolver that
+  honours that metadata cannot select 13.0.0", and that `pip install ".[demo]"` resolves
+  Pillow 12.x. streamlit 1.66.1, which admits Pillow 13, reached PyPI at
+  2026-10-21T17:02Z; the resolver sentence held only for the pinned 1.65.0; and the
+  `[demo]` extra declares `streamlit>=1.54.0` with no upper bound, so a fresh resolve can
+  select streamlit 1.66.1 with Pillow 13.0.0.
+- **certifi and pillow now pin their patched releases, after advisories published on
+  2026-10-20.** certifi moves to 2026.10.19 in all seven locks that carry it:
+  `requirements.txt`, `environments/requirements.lock` and the api, demo, ci, pip-audit and
+  semgrep locks, from 2026.7.22 in the first four and 2026.5.20 in the last three. certifi
+  releases before 2026.10.18 bundle the `emSign ECC Root CA - G3` root, and eight eMudhra
+  intermediate CA certificates that chain to it have compromised private keys
+  (GHSA-6q48-6c7w-9gw2 / PYSEC-2026-4320, critical, first patched in 2026.10.19).
+  `requests` verifies HTTPS against certifi's bundle, and in the six fetch and ingest
+  scripts that import `scripts/_ssl_fix.py`, on Windows hosts whose system certificate store
+  fails to load, ssl's default contexts use it too. pillow moves from 12.3.0 to 13.0.0 in
+  `requirements.txt`, `environments/requirements.lock` and
+  `environments/requirements-api.txt`. Every Pillow advisory the GitHub advisory database
+  lists against 12.3.0 is first patched in 13.0.0: as of 2026-10-22T01:11Z, 28 of them, 3
+  critical (CVE-2026-112403, a heap buffer overflow in the JPEG decoder, among them), 16
+  high and 9 medium by the database's grading. Nine arrived on 2026-10-20 and nineteen on
+  2026-10-21, and the database has been taking in Pillow's repository advisories: Pillow's
+  own 13.0.0 release notes, as tagged on 2026-10-16, list 38 security fixes citing 42 GHSA
+  ids, of which Pillow had published 40 as repository advisories, 12 of those still outside
+  the database at 01:11Z; the default branch has since added a medium entry and reads 39
+  fixes and 43 ids. One more, GHSA-654x-cwwv-5j9c (medium), is fixed in 13.0.0 by
+  python-pillow/Pillow@19f64946eb but affects the 12.3.0 the demo lock kept until the entry
+  above; it
+  needs `PILLOW_ALIGNMENT` set above 1 and an image exported to Arrow, and no tracked file
+  sets that variable or imports Pillow. Pillow's advisory for it, which gained
+  CVE-2026-114501 on 2026-10-21 (UTC), still lists 13.0.0 as vulnerable with no patched
+  version, so a scanner reading it may flag 13.0.0 until Pillow corrects that.
+  This change left the demo lock on pillow 12.3.0, because
+  `environments/requirements-demo.in` pinned streamlit 1.65.0, which declares `pillow<13`.
+  SECURITY.md's risk-acceptance register recorded why that was acceptable and what would
+  re-open it, and `tests/test_images_install_only_hashed_dependencies.py` gained
+  `IMAGE_LOCK_ALLOWED_DRIFT`, which let that one lock run pillow 12.3.0 exactly while
+  `requirements.txt` differed and failed as soon as it no longer did; a new test,
+  `test_allowed_image_drift_names_only_image_locks`, keeps its keys to locks an image
+  installs. **Corrected 2026-10-22:** this entry said that 1.66.0, which also declares
+  `pillow<13`, was streamlit's newest release as of 2026-10-21 (UTC). From 17:02Z that day
+  it was not: streamlit 1.66.1, which declares `pillow<14`, reached PyPI then. The entry
+  above moves the demo lock to pillow 13.0.0. certifi leaves `KNOWN_DIVERGENCES` in
+  `tests/test_workflow_coinstall_pin_divergence.py` in all five co-install groups that
+  listed it, because every lock now pins the same release, and that file's docstring now
+  counts twelve diverging packages where it said fourteen.
+  `environments/requirements-lock.in` gains `certifi>=2026.10.19` and `pillow>=13.0.0`
+  floors, each naming the package that pulls it in. The relock ran
+  `tools/update_dependencies.py --target certifi` and `--target pillow`: no other pin
+  moved, no unchanged package's hash set changed, and every new hash is one of PyPI's
+  published files for its release (2 of 2 for certifi, 83 of 83 for pillow). When this
+  change was made, pip-audit over all 16 locks, against both OSV and PyPI, reported only the
+  demo lock's pillow and the semgrep lock's mcp 1.29.0 (CVE-2026-59951), which this change
+  does not touch. One instrument note: the feeds lag the source and each other. As of
+  2026-10-22T01:11Z, PyPI's advisory feed, pip-audit's default source, lists 24 of the
+  database's 28 against the demo lock's 12.3.0 and omits four, the critical
+  CVE-2026-112403 among them, which OSV and the GitHub advisory database both carry.
+  `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` are regenerated for the two new versions.
 - **Every tracked hash-pinned lock can now be audited for published advisories, not only
   `environments/requirements.lock`.** CVE-2026-59951 was published on 2026-10-15 against
   `mcp` 1.29.0, already pinned in `environments/requirements-semgrep.txt`, and no CI job that

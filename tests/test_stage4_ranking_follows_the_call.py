@@ -6,7 +6,10 @@ maps a whole raw interval to one value, so a plateau can straddle the threshold:
 rows on it tie on the calibrated score while some are called and some are not. With
 the tie broken by peptide alone, uncalled rows ranked above called ones (on the
 grouped v5 OOF, 1,424 uncalled rows sat above the last called row). The tie is now
-broken by the raw score, so the called rows are always a prefix of the ranking.
+broken by the raw score, so under a monotone non-decreasing calibrator the called
+rows are always a prefix of the ranking. Every stage-4 calibrator a repo script writes
+is isotonic and increasing; the last test below pins that for every IsotonicRegression
+the repo constructs.
 """
 
 from __future__ import annotations
@@ -119,3 +122,72 @@ def test_called_rows_lead_under_a_fitted_isotonic_calibrator(monkeypatch, tmp_pa
         # Non-vacuous: a calibrated value is shared by a called and an uncalled row.
         assert set(shared[called]) & set(shared[~called])
         _assert_called_rows_lead(ranked)
+
+
+def test_under_a_monotone_calibrator_the_ranking_is_the_raw_score_order(monkeypatch, tmp_path):
+    """The guarantee rests on the calibrator being monotone non-decreasing.
+
+    For such a calibrator, sorting by (calibrated desc, raw desc, peptide asc) is the
+    same order as sorting by (raw desc, peptide asc), and the called rows are a raw
+    prefix. Raw scores are drawn on a coarse grid so some rows tie on the raw score
+    too, and the peptide tie-break is exercised.
+    """
+    from sklearn.isotonic import IsotonicRegression
+
+    rng = np.random.default_rng(11)
+    x = rng.uniform(0, 1, size=400)
+    y = (rng.uniform(0, 1, size=400) < x).astype(int)
+    iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(x, y)
+
+    raw = np.round(rng.uniform(0, 1, size=200), 2)
+    peptides = [f"P{i:04d}" for i in rng.permutation(len(raw))]
+    assert len(np.unique(raw)) < len(raw)  # non-vacuous: some raw scores tie
+    ranked = _rank(monkeypatch, tmp_path, raw, peptides, iso, 0.5)
+    expected = (
+        pd.DataFrame({"peptide": peptides, "raw": raw})
+        .sort_values(["raw", "peptide"], ascending=[False, True])["peptide"]
+        .tolist()
+    )
+    assert ranked["peptide"].tolist() == expected
+    _assert_called_rows_lead(ranked)
+
+
+def test_every_isotonic_calibrator_the_repo_constructs_is_monotone_non_decreasing():
+    """Pins the condition the ranking guarantee states, for the isotonic fitters.
+
+    Every IsotonicRegression constructed under scripts/, src/ and functions/ keeps
+    the default increasing=True and clips out-of-range input, so it is monotone
+    non-decreasing and never returns NaN for a finite score (which _apply_calibration
+    would replace with the raw score). A fitter that set increasing=False or "auto"
+    could produce a calibrator under which uncalled rows outrank called ones, so no
+    call anywhere in those trees may pass `increasing` other than True (that also
+    covers set_params and an aliased constructor), and no IsotonicRegression call
+    may hide its arguments behind `**`. Scope, stated rather than implied: this reads
+    source files on disk, untracked ones included, and covers isotonic fitters only.
+    It does not cover src/train_gnn.py's Platt scaler, which stage 4 never loads, nor
+    a future non-isotonic stage-4 fitter.
+    """
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    calls: list[tuple[str, ast.Call]] = []
+    for top in ("scripts", "src", "functions"):
+        for path in sorted((root / top).rglob("*.py")):
+            where = path.relative_to(root).as_posix()
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                for kw in node.keywords:
+                    if kw.arg == "increasing":
+                        assert isinstance(kw.value, ast.Constant) and kw.value.value is True, where
+                name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+                if name == "IsotonicRegression":
+                    calls.append((where, node))
+    assert len(calls) >= 5, calls  # non-vacuous: the fitters were found
+    for where, node in calls:
+        kwargs = {kw.arg: kw.value for kw in node.keywords}
+        assert None not in kwargs, f"{where}: IsotonicRegression(**...) hides its arguments"
+        bounds = kwargs.get("out_of_bounds")
+        assert isinstance(bounds, ast.Constant) and bounds.value == "clip", where

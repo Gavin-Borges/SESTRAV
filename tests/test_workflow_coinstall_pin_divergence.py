@@ -28,8 +28,9 @@ three of the five sit in its conda and singularity deployment modules. So this t
 is regression insurance recorded while green, the same footing as
 ``tests/test_dependency_floors_match_pins.py``, whose docstring says as much.
 
-**This is a RATCHET, not a clean-slate assertion.** Fourteen packages already
-diverge, in five of the eight co-install groups; failing on those today would
+**This is a RATCHET, not a clean-slate assertion.** Twelve packages diverge, in
+five of the eight co-install groups, as re-measured on 2026-10-21 (fourteen when
+this test was written); failing on those today would
 only add a red test nobody can clear. ``KNOWN_DIVERGENCES`` records them, and
 the two tests below pin the boundary in BOTH directions: a package that starts
 diverging fails, and a package that stops diverging also fails, so the baseline
@@ -62,26 +63,27 @@ _REQ = re.compile(r"-r\s+(\S+\.(?:txt|lock))")
 # Measured 2026-09-23 and re-derived independently 2026-09-24. Every entry is a
 # package pinned to two or more versions within one (workflow, job) group. To
 # change this baseline, re-run the derivation and say in the commit message which
-# direction moved and why.
+# direction moved and why. certifi left all five groups on 2026-10-21, when every
+# lock that carries it moved to 2026.10.19 for GHSA-6q48-6c7w-9gw2.
 KNOWN_DIVERGENCES: dict[str, frozenset[str]] = {
     "ci.yml:compat": frozenset({
-        "annotated-types", "certifi", "charset-normalizer", "idna",
+        "annotated-types", "charset-normalizer", "idna",
         "packaging", "typing-extensions",
     }),
     "ci.yml:test": frozenset({
-        "annotated-types", "certifi", "charset-normalizer",
+        "annotated-types", "charset-normalizer",
         "fastjsonschema", "idna", "nbformat", "packaging", "platformdirs",
         "pygments", "rpds-py", "traitlets", "typing-extensions",
     }),
     "fuzzing.yml:fuzz": frozenset({
-        "annotated-types", "certifi", "charset-normalizer", "idna",
+        "annotated-types", "charset-normalizer", "idna",
         "packaging", "typing-extensions",
     }),
     "security.yml:pip-audit": frozenset({
-        "certifi", "charset-normalizer", "filelock", "packaging", "platformdirs",
+        "charset-normalizer", "filelock", "packaging", "platformdirs",
     }),
     "sestrav_verify_benchmarking.yml:verify-benchmark": frozenset({
-        "annotated-types", "certifi", "charset-normalizer", "idna",
+        "annotated-types", "charset-normalizer", "idna",
         "packaging", "typing-extensions",
     }),
 }

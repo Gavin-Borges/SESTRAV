@@ -5,6 +5,10 @@ from pathlib import PurePosixPath
 
 from snakemake.exceptions import WorkflowError
 
+# Snakemake adds this file's directory to sys.path before running it, which is what
+# makes the checkout's own src package importable here.
+from src.config_flags import config_bool
+
 configfile: "config.yaml"
 
 # ---------------------------------------------------------------------------
@@ -90,6 +94,31 @@ def _check_relative_path(key, value):
             _reject(key, value, "must not escape the repository root with '..'")
         if _PATH_SEGMENT_RE.fullmatch(segment) is None:
             _reject(key, value, "path segments are restricted to [A-Za-z0-9_.-]")
+
+
+def _config_flag(key):
+    """Read a boolean config key, which Snakemake may deliver as a bool, an int, a float or a str.
+
+    `--config freeze_mode=false` arrives as the str 'false' (only the exact spellings
+    True and False become bools), and so does a quoted YAML value, so a bare truthiness
+    test on config.get() switched the flag ON. The accepted spellings are config_bool's,
+    which are those of the config schema in src/core/config.py and of scripts/stage4.py's
+    _parse_flag; anything else is rejected, not defaulted, and so is None (an empty
+    `--config key=` or a bare `key:`), which config_bool would read as off.
+    """
+    value = config.get(key, False)
+    try:
+        parsed = None if value is None else config_bool(key, value)
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        _reject(
+            key,
+            value,
+            f"must be a boolean: use true/false, yes/no, on/off, t/f, y/n or 1/0 in any case, "
+            f"for example snakemake --config {key}=false",
+        )
+    return parsed
 
 
 def _validate_config(cfg):
@@ -198,7 +227,9 @@ rule score_immunogenicity:
     params:
         model_path = config.get("model_path", ""),
         thresholds_path = config.get("thresholds_path", ""),
-        freeze_mode = config.get("freeze_mode", False)
+        calibration_path = config.get("calibration_path", ""),
+        freeze_mode = config.get("freeze_mode", False),
+        mc_dropout = config.get("mc_dropout", False)
     log:
         "logs/score_immunogenicity/{proteome_id}.log"
     benchmark:
@@ -210,8 +241,18 @@ rule score_immunogenicity:
 
 
 rule generate_hard_decoys:
+    # The default names the file scripts/fetch_human_proteome.py actually writes (its
+    # DEFAULT_OUTPUT) and that data/README.md documents fetching. It is gitignored by
+    # .gitignore's "Large reference FASTA databases - download independently, do not
+    # commit" block, so it is absent from a fresh clone; this rule is not reached by the
+    # default target, so that costs the documented dry-run nothing.
+    #
+    # The previous default named data/proteomes/human_reference.fasta, a path no script
+    # writes and no document mentions, so requesting data/hard_decoys.csv died with
+    # MissingInputException even for a reader who had just run the documented download.
+    # tests/test_pipeline_defaults_exist_in_a_clone.py pins these two names together.
     input:
-        fasta = config.get("reference_proteome", "data/proteomes/human_reference.fasta")
+        fasta = config.get("reference_proteome", "data/proteomes/human_uniprot_UP000005640.fasta")
     output:
         "data/hard_decoys.csv"
     params:
@@ -320,7 +361,7 @@ rule full_validation_report:
         model_dir = lambda w, input: os.path.dirname(input.model),
         dataset_mode = config.get("dataset_mode", "expansion_v4"),
         dataset_version = config.get("dataset_version", "4.0.0"),
-        freeze_flag = "--freeze-mode" if config.get("freeze_mode", False) else ""
+        freeze_flag = "--freeze-mode" if _config_flag("freeze_mode") else ""
     log:
         "logs/full_validation_report.log"
     benchmark:
@@ -359,7 +400,7 @@ rule extract_verify_data:
             "results/verify/hcv_verify.csv"
         ]
     params:
-        mock_flag = "--mock" if config.get("mock_ingestion", False) else ""
+        mock_flag = "--mock" if _config_flag("mock_ingestion") else ""
     log:
         "logs/extract_verify_data.log"
     benchmark:
@@ -382,7 +423,7 @@ rule evaluate_verify_gnn:
         report = "results/verify/validation_report.json"
     params:
         checkpoint = config.get("gnn_checkpoint", ""),
-        mock_flag = "--mock" if config.get("mock_evaluation", False) else ""
+        mock_flag = "--mock" if _config_flag("mock_evaluation") else ""
     log:
         "logs/evaluate_verify_gnn.log"
     benchmark:
