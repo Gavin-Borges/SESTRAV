@@ -162,7 +162,7 @@
   {
     "License": "MIT",
     "Name": "fastapi",
-    "Version": "0.142.2"
+    "Version": "0.143.2"
   },
   {
     "License": "BSD License",
@@ -212,7 +212,7 @@
   {
     "License": "MPL-2.0",
     "Name": "hypothesis",
-    "Version": "6.168.5"
+    "Version": "6.170.0"
   },
   {
     "License": "BSD-3-Clause",
@@ -437,12 +437,12 @@
   {
     "License": "MIT",
     "Name": "pydantic",
-    "Version": "2.13.5"
+    "Version": "2.14.1"
   },
   {
     "License": "MIT",
     "Name": "pydantic_core",
-    "Version": "2.46.5"
+    "Version": "2.50.1"
   },
   {
     "License": "MIT",
@@ -612,7 +612,7 @@
   {
     "License": "MIT",
     "Name": "typing-inspection",
-    "Version": "0.4.2"
+    "Version": "0.4.4"
   },
   {
     "License": "PSF-2.0",
