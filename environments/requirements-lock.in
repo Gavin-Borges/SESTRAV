@@ -60,7 +60,5 @@ certifi>=2026.10.19
 # pillow: CVE-2026-112403 / GHSA-8g5g-8vmr-9782 (critical; heap buffer overflow in
 # ImagingJpegDecode), six high (CVE-2026-112397, 112400, 112404, 112895, 112896,
 # 112897) and two medium (CVE-2026-112395, 112899). All nine list 13.0.0 as the
-# fix. Pulled in by matplotlib. The demo image's lock stays on 12.3.0, because
-# requirements-demo.in pins streamlit 1.65.0, which declares pillow<13: see
-# SECURITY.md's risk-acceptance register.
+# fix. Pulled in by matplotlib.
 pillow>=13.0.0

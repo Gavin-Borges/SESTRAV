@@ -784,6 +784,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   its locks unchanged: no other pin moved, and both new hashes are PyPI's published files
   for 3.2.1. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` are regenerated, and
   gitpython's version is their only change.
+- **The demo image reaches Pillow 13.0.0: its streamlit pin moves from 1.65.0 to 1.66.1,
+  and SECURITY.md's risk acceptance for the demo's Pillow 12.3.0 is resolved.** streamlit
+  1.66.1 declares `pillow<14,>=9.2.0`, where 1.65.0 and 1.66.0 declare `pillow<13`.
+  `environments/requirements-demo.in` now pins `streamlit==1.66.1`, and
+  `python tools/update_dependencies.py --target streamlit` recompiled
+  `environments/requirements-demo.txt`: Pillow moves from 12.3.0 to 13.0.0 and streamlit
+  from 1.65.0 to 1.66.1, and `httptools` and `toml` leave the lock, because streamlit 1.66
+  requires neither and no other package in the lock did. No other pin moved, no other lock
+  changed, and every new hash is one of PyPI's published files for its release. Every
+  Pillow advisory the GitHub advisory database lists against 12.3.0 is first patched in
+  13.0.0, and none lists a range containing 13.0.0 (queried 2026-10-22T20:37Z); pip-audit
+  finds no known vulnerability in the new demo lock on the PyPI or the OSV feed
+  (2026-10-22T20:38Z). The register entry is marked resolved and keeps its history. The
+  demo's `IMAGE_LOCK_ALLOWED_DRIFT` entry, whose test fails once the entry is no longer
+  needed, is removed, leaving the mapping empty, and so is the demo sentence on the
+  `pillow` floor in `environments/requirements-lock.in`. `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` do not change: the SBOM job builds them from an environment
+  holding `environments/requirements.lock` and its own tooling, and never installs the demo
+  lock. **Retracted:** the entry below said that 1.66.0 was streamlit's newest release as
+  of 2026-10-21 (UTC), and the register entry said that too; the register entry also said
+  that the acceptance would last "until streamlit admits Pillow 13", that "A resolver that
+  honours that metadata cannot select 13.0.0", and that `pip install ".[demo]"` resolves
+  Pillow 12.x. streamlit 1.66.1, which admits Pillow 13, reached PyPI at
+  2026-10-21T17:02Z; the resolver sentence held only for the pinned 1.65.0; and the
+  `[demo]` extra declares `streamlit>=1.54.0` with no upper bound, so a fresh resolve can
+  select streamlit 1.66.1 with Pillow 13.0.0.
 - **certifi and pillow now pin their patched releases, after advisories published on
   2026-10-20.** certifi moves to 2026.10.19 in all seven locks that carry it:
   `requirements.txt`, `environments/requirements.lock` and the api, demo, ci, pip-audit and
@@ -804,19 +830,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   ids, of which Pillow had published 40 as repository advisories, 12 of those still outside
   the database at 01:11Z; the default branch has since added a medium entry and reads 39
   fixes and 43 ids. One more, GHSA-654x-cwwv-5j9c (medium), is fixed in 13.0.0 by
-  python-pillow/Pillow@19f64946eb but still affects the 12.3.0 the demo lock keeps; it
+  python-pillow/Pillow@19f64946eb but affects the 12.3.0 the demo lock kept until the entry
+  above; it
   needs `PILLOW_ALIGNMENT` set above 1 and an image exported to Arrow, and no tracked file
   sets that variable or imports Pillow. Pillow's advisory for it, which gained
   CVE-2026-114501 on 2026-10-21 (UTC), still lists 13.0.0 as vulnerable with no patched
   version, so a scanner reading it may flag 13.0.0 until Pillow corrects that.
-  The demo lock keeps pillow 12.3.0, because `environments/requirements-demo.in` pins
-  streamlit 1.65.0, which declares `pillow<13`, as does 1.66.0, its newest release as of
-  2026-10-21 (UTC). SECURITY.md's risk-acceptance register records why that is acceptable
-  for now and what re-opens it, and `tests/test_images_install_only_hashed_dependencies.py`
-  gains `IMAGE_LOCK_ALLOWED_DRIFT`, which lets that one lock run pillow 12.3.0 exactly
-  while `requirements.txt` differs and fails as soon as it no longer differs; a new test,
+  This change left the demo lock on pillow 12.3.0, because
+  `environments/requirements-demo.in` pinned streamlit 1.65.0, which declares `pillow<13`.
+  SECURITY.md's risk-acceptance register recorded why that was acceptable and what would
+  re-open it, and `tests/test_images_install_only_hashed_dependencies.py` gained
+  `IMAGE_LOCK_ALLOWED_DRIFT`, which let that one lock run pillow 12.3.0 exactly while
+  `requirements.txt` differed and failed as soon as it no longer did; a new test,
   `test_allowed_image_drift_names_only_image_locks`, keeps its keys to locks an image
-  installs. certifi leaves `KNOWN_DIVERGENCES` in
+  installs. **Corrected 2026-10-22:** this entry said that 1.66.0, which also declares
+  `pillow<13`, was streamlit's newest release as of 2026-10-21 (UTC). From 17:02Z that day
+  it was not: streamlit 1.66.1, which declares `pillow<14`, reached PyPI then. The entry
+  above moves the demo lock to pillow 13.0.0. certifi leaves `KNOWN_DIVERGENCES` in
   `tests/test_workflow_coinstall_pin_divergence.py` in all five co-install groups that
   listed it, because every lock now pins the same release, and that file's docstring now
   counts twelve diverging packages where it said fourteen.

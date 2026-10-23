@@ -96,14 +96,11 @@ PRODUCTION_LOCK = "environments/requirements.lock"
 # entry needs a reason and an end condition, and
 # test_image_lock_shares_every_runtime_package_at_the_same_version fails once an
 # entry is no longer needed, so the carve-out cannot outlive its reason.
-# pillow (2026-10-21 UTC): requirements.txt moved to 13.0.0 for CVE-2026-112403
-# and eight more advisories, but environments/requirements-demo.in pins
-# streamlit 1.65.0, which declares pillow<13 (as does 1.66.0), so the demo lock
-# stays on 12.3.0. SECURITY.md's Risk-Acceptance Register records the mitigation;
-# the entry ends when a streamlit release admits pillow 13 and the demo pins it.
-IMAGE_LOCK_ALLOWED_DRIFT: dict[str, dict[str, str]] = {
-    "environments/requirements-demo.txt": {"pillow": "12.3.0"},
-}
+# Empty. Its one entry so far, pillow 12.3.0 in environments/requirements-demo.txt,
+# ended when environments/requirements-demo.in moved streamlit from 1.65.0
+# (pillow<13) to 1.66.1 (pillow<14) and the demo lock reached 13.0.0, the version
+# requirements.txt pins; SECURITY.md's Risk-Acceptance Register marks it resolved.
+IMAGE_LOCK_ALLOWED_DRIFT: dict[str, dict[str, str]] = {}
 
 # pip's global options may sit between `pip` and `install` (`pip --cache-dir /x
 # install ...`), each optionally followed by a value; without them in the pattern
