@@ -621,6 +621,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **gitpython now pins 3.2.1, its first release patched for GHSA-83vg-56qc-22m7 /
+  CVE-2026-114145 (high, published 2026-10-22).** The advisory affects gitpython 3.2.0 and
+  earlier: per its title, GitPython validates a submodule's ".git" path only after cloning
+  into it, and its proof of concept uses `Repo.create_submodule` to plant an executable git
+  hook. `environments/requirements.lock` and `environments/requirements-ci.txt` move from
+  3.2.0 to 3.2.1, and no other tracked lock pins gitpython. snakemake pulls it in, and the
+  gitpython floor in `environments/requirements-lock.in` rises from 3.1.62 to 3.2.1, naming
+  the advisory. No tracked Python file imports `git`, and nothing in the tracked tree calls
+  `create_submodule`. snakemake 9.27.0, the locked release, uses GitPython to find a
+  repository's top level, to resolve refs and read commits and files, and to clone and
+  fetch hosting-provider sources as bare repositories; it contains no `create_submodule` or
+  `Submodule` reference. The relock ran `tools/update_dependencies.py --target gitpython`
+  with uv 0.12.0, after the same uv had recompiled the base's inputs, with no upgrade, to
+  its locks unchanged: no other pin moved, and both new hashes are PyPI's published files
+  for 3.2.1. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` are regenerated, and
+  gitpython's version is their only change.
 - **The demo image reaches Pillow 13.0.0: its streamlit pin moves from 1.65.0 to 1.66.1,
   and SECURITY.md's risk acceptance for the demo's Pillow 12.3.0 is resolved.** streamlit
   1.66.1 declares `pillow<14,>=9.2.0`, where 1.65.0 and 1.66.0 declare `pillow<13`.
