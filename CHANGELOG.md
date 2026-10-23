@@ -869,8 +869,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   can fail saw it: `tools/check_lockfile_advisories.py` judged the production lock alone,
   `.github/workflows/dependency-review.yml` judges only the versions a pull request changes,
   and the installed-set `pip-audit` sees only what its own runner installed. The new
-  `tools/audit_all_locks.py` runs `pip-audit -r <lock> --no-deps --disable-pip` (no resolver,
-  no install, no `--ignore-vuln`) over every manifest `tools/check_hash_pins.py` treats as
+  `tools/audit_all_locks.py` runs `pip-audit -r <lock> --no-deps --disable-pip -s osv` (no
+  resolver, no install, no `--ignore-vuln`) over every manifest `tools/check_hash_pins.py` treats as
   hash-pinned, 16 on 2026-10-17, and judges each report with that gate's own policy. A report
   that skips a pinned package, or omits one, is a tooling failure (exit 2), never a pass, and a
   new test derives the lock population independently from git and fails if any tracked lock
@@ -879,9 +879,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   `environments/requirements.lock` only, as every entry did before, so accepting an advisory
   for one lock never covers the same pin in another. Package names now compare in PEP 503
   form, so a lock pin spelled with a dot or with extras can no longer read as out of scope;
-  no tracked lock pins either form today. Run on 2026-10-17 over all 16 locks, it reports
-  exactly one unaccepted finding, CVE-2026-59951 on `mcp` in the semgrep lock, and exits 1;
-  accepting or fixing that finding is a separate decision, and no acceptance was added.
+  no tracked lock pins either form today. Run on 2026-10-17 over all 16 locks with
+  pip-audit's default PyPI feed, it reported exactly one unaccepted finding, CVE-2026-59951 on
+  `mcp` in the semgrep lock, and exited 1; accepting or fixing that finding is a separate
+  decision, and no acceptance was added. It now audits against OSV (`-s osv`), because the
+  default PyPI feed lacks advisories OSV carries: on 2026-10-23, over a scratch lock of 15
+  older pins, OSV reported 131 distinct (package, version, id) findings and PyPI 127, the 4
+  only OSV carried all against pillow 12.3.0, CVE-2026-112403 among them. The cost is that
+  only the PyPI service marks a pinned name it cannot find as skipped; under OSV such a name
+  reads as audited. Either service can list one advisory twice for a package, and a repeated
+  row is now counted once. Run on 2026-10-23 over all 16 locks with OSV, it reports exactly
+  two unaccepted findings, CVE-2026-59951 on `mcp` and CVE-2026-114603 on
+  `opentelemetry-api`, both in the semgrep lock, with the other 15 locks clean (622 pins,
+  none skipped or missing), and exits 1; the PyPI feed reported the same two that day. It
+  runs as an advisory (`continue-on-error`) step in the `pip-audit` job of
+  `.github/workflows/security.yml`, by owner ruling of 2026-10-17, to become blocking after
+  one green week, and that job's installed-set audit and the JSON report its fail-closed gate
+  reads move to `-s osv` too.
 - **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
   references, which it used to pass.** Each hands pip something the gate never inspects, and
   each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included

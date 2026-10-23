@@ -36,7 +36,7 @@ a second, independent way - tracked files whose own lines pin `name==version` wi
 
 HOW EACH LOCK IS AUDITED
 ------------------------
-    python -m pip_audit -r <lock> --no-deps --disable-pip --format json --output <file>
+    python -m pip_audit -r <lock> --no-deps --disable-pip -s osv --format json --output <file>
 
 `--no-deps --disable-pip` means no resolver, no throwaway venv and no install: the pins
 exactly as written, which is also the form that runs on a Windows workstation where a
@@ -52,14 +52,42 @@ and when it fails, so the JSON report is the evidence, and a run that wrote none
 tooling failure. Any report left in the output directory by an earlier run is deleted
 first, so a failed run can never be judged on a stale report.
 
+WHICH ADVISORY FEED
+-------------------
+`-s osv`, not pip-audit's default service, which is `pypi` (`pip-audit --help`, 2.10.1:
+"(default: pypi)"). The PyPI feed lacks advisories that OSV carries. Measured 2026-10-23
+with pip-audit 2.10.1 on a scratch lock of 15 older pins: OSV reported 131 distinct
+(package, version, id) findings and PyPI 127. None was PyPI-only, and the 4 that only
+OSV reported are all against pillow 12.3.0, CVE-2026-112403 (GHSA-8g5g-8vmr-9782, a heap
+buffer overflow in ImagingJpegDecode) among them, with no alias of any of the 4 in PyPI's
+report. Over the 16 tracked locks that day both services reported the same two findings,
+so the switch changed no verdict then.
+
+The switch has one cost, also measured that day. Only pip-audit's PyPI service marks a
+pinned name it cannot find with `skip_reason`; with `-s osv` such a name is reported as
+audited with no advisories. So the skip check under COMPLETENESS below cannot fire on an
+OSV report, while the check for pinned names absent from the report still does.
+
+DUPLICATE ROWS
+--------------
+pip-audit's JSON can list one advisory more than once for the same package, under either
+service. On that scratch lock 75 of OSV's 206 rows, and 72 of PyPI's 199, repeated an id
+already listed for the same package, differing only in the description, the aliases or a
+fix version's spelling (26.2 and 26.2.0). judge_report counts each (package, version, id)
+once and keeps every fix version, so the counts and the error lines are per advisory. The
+verdict never depended on it. Two DIFFERENT ids naming one advisory (two PYSEC records for
+one CVE, which pip-audit's own alias merge keeps apart) stay two findings, and each needs
+its own acceptance: that direction fails closed.
+
 COMPLETENESS
 ------------
 A report that audited fewer packages than the lock pins reads exactly like a clean one.
 So every name the lock pins must appear in its report, and a dependency pip-audit lists
 as skipped (`skip_reason`, for example not found on PyPI) counts as NOT audited. Either
 is a tooling failure for that lock, never a pass. Measured 2026-10-17 on Windows with
-pip-audit 2.10.1: every lock's report named exactly the packages it pins, and none was
-skipped. Findings on a lock with a tooling failure are still reported.
+pip-audit 2.10.1 and its default service: every lock's report named exactly the packages
+it pins, and none was skipped; again on 2026-10-23 under each service. Findings on a lock
+with a tooling failure are still reported.
 
 EXIT CODES
 ----------
@@ -90,7 +118,7 @@ import sys
 import tempfile
 import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 if __package__:  # imported as tools.audit_all_locks (the tests, or `python -m`)
     from tools import check_hash_pins as hash_pins
@@ -179,7 +207,10 @@ def report_name(lock: str) -> str:
 
 
 def pip_audit_command(lock_path: pathlib.Path, output_path: pathlib.Path) -> list[str]:
-    """The audit for one lock: the pins as written, no resolution, no suppression."""
+    """The audit for one lock: the pins as written, no resolution, no suppression.
+
+    Against the OSV feed, not the default PyPI one; see WHICH ADVISORY FEED above.
+    """
     return [
         sys.executable,
         "-m",
@@ -188,6 +219,8 @@ def pip_audit_command(lock_path: pathlib.Path, output_path: pathlib.Path) -> lis
         str(lock_path),
         "--no-deps",
         "--disable-pip",
+        "-s",
+        "osv",
         "--progress-spinner",
         "off",
         "--format",
@@ -215,6 +248,25 @@ def run_pip_audit(command: Sequence[str], timeout: int) -> tuple[int, str]:
     return result.returncode, lines[-1].strip() if lines else ""
 
 
+def distinct_findings(findings: Sequence[advisories.Finding]) -> list[advisories.Finding]:
+    """One finding per (package, version, advisory id), first-seen order.
+
+    A repeated row adds only the fix versions not already listed. See DUPLICATE ROWS
+    above for why a report repeats rows at all.
+    """
+    merged: dict[tuple[str, str, str], advisories.Finding] = {}
+    for finding in findings:
+        key = (finding.package, finding.version, finding.advisory_id)
+        seen = merged.get(key)
+        if seen is None:
+            merged[key] = finding
+            continue
+        extra = tuple(v for v in finding.fix_versions if v not in seen.fix_versions)
+        if extra:
+            merged[key] = replace(seen, fix_versions=seen.fix_versions + extra)
+    return list(merged.values())
+
+
 def judge_report(
     lock: str,
     report_text: str,
@@ -224,10 +276,11 @@ def judge_report(
     """Judge one lock's pip-audit JSON against its own pins and acceptances.
 
     Names are compared in PEP 503 form on both sides, the form pip-audit reports, so
-    a lock spelling `typing_extensions` or `zope.interface` still matches.
+    a lock spelling `typing_extensions` or `zope.interface` still matches. A row the
+    report repeats is judged once.
     """
     try:
-        findings = advisories.parse_report(report_text)
+        findings = distinct_findings(advisories.parse_report(report_text))
     except advisories.ReportError as exc:
         return LockResult(lock=lock, error=str(exc))
     pinned = {advisories._normalize(name) for name in pinned}

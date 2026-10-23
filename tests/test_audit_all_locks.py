@@ -14,7 +14,9 @@ verdict, and both are tested here without the network:
    package, was malformed, or was never written must not read as a pass.
 
 pip-audit itself is never run: a fake writes canned JSON shaped like pip-audit 2.10.1's
-`--format json` output, including its `skip_reason` form for a skipped dependency.
+`--format json` output, including its `skip_reason` form for a skipped dependency and
+the repeated rows real reports carry. The last two tests read security.yml's
+`pip-audit` job: the all-locks step is wired, advisory, and every gated audit uses OSV.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import subprocess
 import textwrap
 
@@ -133,6 +136,15 @@ def test_pip_audit_command_audits_the_pins_as_written_and_suppresses_nothing(tmp
     assert command[command.index("--format") + 1] == "json"
     assert command[command.index("-r") + 1] == str(tmp_path / "x.txt")
     assert not any(part.startswith("--ignore-vuln") for part in command)
+
+
+def test_pip_audit_command_queries_the_osv_feed_not_the_default(tmp_path):
+    # pip-audit's default service is PyPI, whose feed lacked four pillow 12.3.0
+    # advisories that OSV carried when measured on 2026-10-23 (module docstring).
+    command = audit_all_locks.pip_audit_command(tmp_path / "x.txt", tmp_path / "x.json")
+    assert command.count("-s") == 1
+    assert command[command.index("-s") + 1] == "osv"
+    assert not any(part.startswith("--vulnerability-service") for part in command)
 
 
 def test_report_names_cannot_collide_across_directories():
@@ -250,6 +262,41 @@ def test_judge_malformed_or_empty_report_is_an_error_not_a_pass(text, reason):
     result = audit_all_locks.judge_report("a.txt", text, {"numpy"}, {})
     assert result.status == "ERROR"
     assert reason in (result.error or "")
+
+
+def test_judge_counts_a_repeated_row_once_and_keeps_every_fix_version():
+    # The shape measured in real reports on 2026-10-23, under both services: one id
+    # listed twice for one package, the copies differing in description, aliases and
+    # the spelling of a fix version.
+    rows = [
+        {"id": "PYSEC-1", "fix_versions": ["26.2"], "aliases": ["CVE-1"], "description": "a"},
+        {"id": "PYSEC-1", "fix_versions": ["26.2.0"], "aliases": [], "description": "b"},
+    ]
+    report = _report({"name": "pip", "version": "24.0", "vulns": rows})
+    result = audit_all_locks.judge_report("a.txt", report, {"pip"}, {})
+    assert (result.in_scope, len(result.unaccepted)) == (1, 1)
+    assert result.unaccepted[0].fix_versions == ("26.2", "26.2.0")
+    errors = [line for line in result.annotations("accept.toml") if line.startswith("::error::")]
+    assert len(errors) == 1
+
+    accepted = {("PYSEC-1", "pip"): _acceptance("PYSEC-1", "pip", "a.txt")}
+    result = audit_all_locks.judge_report("a.txt", report, {"pip"}, accepted)
+    assert (result.status, result.in_scope, result.accepted) == ("ok", 1, 1)
+
+
+def test_judge_two_ids_for_one_advisory_each_need_their_own_acceptance():
+    # Measured 2026-10-23: werkzeug 3.0.1 carries PYSEC-2026-1860 and PYSEC-2026-3417,
+    # which alias each other through one CVE, and pip-audit reports both. Accepting
+    # one of them must not accept the other: that direction fails closed.
+    rows = [
+        {"id": "PYSEC-A", "fix_versions": ["9"], "aliases": ["CVE-9", "PYSEC-B"]},
+        {"id": "PYSEC-B", "fix_versions": ["9"], "aliases": ["CVE-9", "PYSEC-A"]},
+    ]
+    report = _report({"name": "werkzeug", "version": "3.0.1", "vulns": rows})
+    one = {("PYSEC-A", "werkzeug"): _acceptance("PYSEC-A", "werkzeug", "a.txt")}
+    result = audit_all_locks.judge_report("a.txt", report, {"werkzeug"}, one)
+    assert result.status == "FAIL"
+    assert [f.advisory_id for f in result.unaccepted] == ["PYSEC-B"]
 
 
 def test_judge_still_reports_findings_on_an_incompletely_audited_lock():
@@ -445,3 +492,63 @@ def test_main_unreadable_acceptance_file_is_a_tooling_failure(tmp_path, monkeypa
     code = audit_all_locks.main(["--report-dir", str(tmp_path / "r"), "--accept", str(accept)])
     assert code == 2
     assert "::error::cannot read" in capsys.readouterr().out
+
+
+# --- the CI wiring: advisory first, by owner ruling ---------------------------------
+#
+# The two tests below read .github/workflows/security.yml, which only the owner edits.
+# They land in the same pull request as the owner's workflow commit and are meant to
+# fail until that commit lands: the pairing is what proves they test the step.
+
+SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
+
+
+def _pip_audit_job_steps(workflow_text: str) -> list[dict]:
+    import yaml
+
+    return yaml.safe_load(workflow_text)["jobs"]["pip-audit"]["steps"]
+
+
+def _check_all_locks_step(steps: list[dict]) -> None:
+    runs = [str(step.get("run", "")) for step in steps]
+    wired = [i for i, run in enumerate(runs) if "tools/audit_all_locks.py" in run]
+    assert len(wired) == 1, "security.yml's pip-audit job must run tools/audit_all_locks.py once"
+    step = steps[wired[0]]
+    # ADVISORY by owner ruling, 2026-10-17, until one green week. Making it blocking
+    # is deliberate: delete continue-on-error and "(advisory)" in the workflow and
+    # these two assertions together.
+    assert step.get("continue-on-error") is True
+    assert "(advisory)" in str(step.get("name", ""))
+    assert isinstance(step.get("timeout-minutes"), int)
+    assert "--ignore-vuln" not in runs[wired[0]]
+    installs = [i for i, run in enumerate(runs) if "requirements-pip-audit.txt" in run]
+    assert installs and installs[0] < wired[0], "pip-audit must be installed before it runs"
+    # The production-lock gate is untouched: still there, and still fail-closed.
+    gates = [steps[i] for i, run in enumerate(runs) if "tools/check_lockfile_advisories.py" in run]
+    assert len(gates) == 1
+    assert "continue-on-error" not in gates[0]
+
+
+def test_the_pip_audit_job_runs_the_all_locks_audit_as_an_advisory_step():
+    _check_all_locks_step(_pip_audit_job_steps(SECURITY_WORKFLOW.read_text(encoding="utf-8")))
+
+
+def _check_osv_feed(steps: list[dict]) -> None:
+    lines = [
+        line.strip()
+        for step in steps
+        for line in str(step.get("run", "")).splitlines()
+        if line.strip().startswith("pip-audit")
+    ]
+    # The JSON report tools/check_lockfile_advisories.py fails closed on, and the
+    # installed-set audit shown in the log. The markdown run-summary digest is
+    # display only and is not asserted here.
+    gated = [line for line in lines if "--output pip-audit-report.json" in line]
+    shown = [line for line in lines if "--desc" in line]
+    assert len(gated) == 1 and len(shown) == 1, lines
+    for line in gated + shown:
+        assert re.search(r"(^|\s)-s osv(\s|$)", line), f"not on the OSV feed: {line}"
+
+
+def test_the_pip_audit_job_audits_the_installed_set_against_the_osv_feed():
+    _check_osv_feed(_pip_audit_job_steps(SECURITY_WORKFLOW.read_text(encoding="utf-8")))
