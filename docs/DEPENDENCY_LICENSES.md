@@ -32,7 +32,7 @@
 | docutils                              | 0.22.4      | BSD License; GNU General Public License (GPL); Public Domain                                        |
 | dpath                                 | 2.2.0       | MIT License                                                                                         |
 | et_xmlfile                            | 2.0.0       | MIT License                                                                                         |
-| fastapi                               | 0.142.2     | MIT                                                                                                 |
+| fastapi                               | 0.143.2     | MIT                                                                                                 |
 | fastjsonschema                        | 2.22.1      | BSD License                                                                                         |
 | filelock                              | 3.32.0      | MIT                                                                                                 |
 | fonttools                             | 4.63.0      | MIT                                                                                                 |
@@ -42,7 +42,7 @@
 | greenlet                              | 3.5.4       | MIT AND PSF-2.0                                                                                     |
 | h11                                   | 0.16.0      | MIT License                                                                                         |
 | humanfriendly                         | 10.0        | MIT License                                                                                         |
-| hypothesis                            | 6.168.5     | MPL-2.0                                                                                             |
+| hypothesis                            | 6.170.0     | MPL-2.0                                                                                             |
 | idna                                  | 3.18        | BSD-3-Clause                                                                                        |
 | immutables                            | 0.21        | Apache Software License                                                                             |
 | iniconfig                             | 2.3.0       | MIT                                                                                                 |
@@ -288,8 +288,8 @@
 | propcache                             | 0.5.2       | Apache Software License                                                                             |
 | psutil                                | 7.2.2       | BSD-3-Clause                                                                                        |
 | pyahocorasick                         | 2.3.1       | BSD-3-Clause and Public-Domain                                                                      |
-| pydantic                              | 2.13.5      | MIT                                                                                                 |
-| pydantic_core                         | 2.46.5      | MIT                                                                                                 |
+| pydantic                              | 2.14.1      | MIT                                                                                                 |
+| pydantic_core                         | 2.50.1      | MIT                                                                                                 |
 | pyparsing                             | 3.3.2       | MIT                                                                                                 |
 | pytest                                | 9.1.1       | MIT                                                                                                 |
 | python-dateutil                       | 2.9.0.post0 | Apache Software License; BSD License                                                                |
@@ -323,7 +323,7 @@
 | tqdm                                  | 4.70.0      | MPL-2.0 AND MIT                                                                                     |
 | traitlets                             | 5.15.1      | BSD License                                                                                         |
 | triton                                | 3.7.1       | MIT License                                                                                         |
-| typing-inspection                     | 0.4.2       | MIT                                                                                                 |
+| typing-inspection                     | 0.4.4       | MIT                                                                                                 |
 | typing_extensions                     | 4.16.0      | PSF-2.0                                                                                             |
 | urllib3                               | 2.8.0       | MIT                                                                                                 |
 | uvicorn                               | 0.54.0      | BSD-3-Clause                                                                                        |
