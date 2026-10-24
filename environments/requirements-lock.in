@@ -41,7 +41,7 @@ aiohttp>=3.14.5
 # condition is met: overrides.txt has been retired and this spec now resolves
 # normally. The floor itself stays - it is the security constraint, not the
 # workaround.
-setuptools>=84.0.0
+setuptools>=84.1.0
 # gitpython: PYSEC-2026-3785, PYSEC-2026-3786, PYSEC-2026-3787, PYSEC-2026-3788, CVE-2026-78679
 # gitpython: GHSA-83vg-56qc-22m7 / CVE-2026-114145 (high; per its title, GitPython
 # validates a submodule's ".git" path only after cloning into it). It affects
