@@ -329,11 +329,22 @@ def test_the_copied_naming_rule_agrees_with_stage2():
     """The wrapper COPIES stage 2's `_allele_to_col` rather than importing it.
 
     functions/stage2_mhc_binding_prediction.py imports mhcflurry at module level
-    (measured in the sestrav env: 3.9 s and over 2,300 modules, torch among them),
-    and environments/predig.yaml, the environment `rule run_predig` runs this
-    wrapper under, installs only pandas, numpy and docker-py, so importing that
-    module there would raise ModuleNotFoundError. This test is the pin that keeps
-    the copy honest.
+    (measured in the sestrav env: 3.9 s and over 2,300 modules, torch among them).
+    The copy exists to avoid paying that on every wrapper run, and this test is the
+    pin that keeps the copy honest.
+
+    This paragraph used to add that environments/predig.yaml "the environment
+    `rule run_predig` runs this wrapper under" installs only pandas, numpy and
+    docker-py, so importing stage 2 there would raise ModuleNotFoundError. **That
+    reason is retracted, and it is the same claim the v2 rebuild of the preceding
+    unit was made to retract.** `rule run_predig` DECLARES that conda env
+    (standardize_outputs.smk, its `conda:` key) but its shell command invokes the
+    wrapper with `{sys.executable}`, Snakemake's own interpreter, and no tracked
+    file passes `--use-conda`, so Snakemake never creates or activates it. The
+    wrapper therefore runs under whatever interpreter Snakemake is running under,
+    which in this repo is the sestrav env, where mhcflurry IS importable. The
+    ModuleNotFoundError could not arise, so cost is the whole justification and
+    unavailability was never part of it.
 
     Skipped where mhcflurry is absent, which is a fact about the environment and
     not about the rule: the import was measured working in this repo's sestrav env
