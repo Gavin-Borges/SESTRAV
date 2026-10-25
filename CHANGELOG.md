@@ -207,6 +207,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   script cannot import upstream PANDORA. Porting it needs a MODELLER license to test and
   is not attempted here. A new test fails if any tracked file other than this changelog
   carries a pip install of the bare `pandora` name.
+- **`scripts/check_secrets.py` now reads UTF-16 and UTF-32 files, which it used to pass
+  unexamined.** Every file was read as UTF-8 only, and a UTF-16 file read that way is each
+  ASCII character followed by a NUL byte, so neither the keyword patterns nor the
+  vendor-format patterns could match anything in it. Measured on the scanner as it stood:
+  a credential assignment and a GitHub token shape, each written as UTF-16 or UTF-32 in
+  either byte order, with or without a byte-order mark, were all missed, and the tree scan
+  printed `[SUCCESS]` over such a file. Windows PowerShell 5.1's `>` redirection and
+  `Out-File` write UTF-16LE by default, so this is how such a file reaches a commit on a
+  Windows workstation. Every gate that delegates to this scanner inherited the gap: the
+  `Custom Secret Pattern Scan` job in `security.yml` and both passes of pre-push Check 6.
+  A file whose UTF-8 reading contains a NUL byte is now also read as UTF-16 and UTF-32 in
+  both byte orders, and a line flagged by any reading is reported once. The UTF-8 pass
+  runs first and is unchanged, so nothing it caught can stop being caught, and a file with
+  no NUL byte is read exactly as before. All four readings are tried rather than one chosen
+  from a byte-order mark, because choosing one would let a file arranged to look like one
+  encoding hide content that is readable in another. The live tree scan is unchanged
+  (`[SUCCESS]`). The `pii_scan.yml` path scan is a separate workflow and is not changed
+  here.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
