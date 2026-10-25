@@ -768,6 +768,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **pre-push Check 6's pushed-range scan now reads every blob a push publishes: paths
+  under the directory names the tree scan prunes, type changes, and content that only a
+  merge commit introduced (security sweep finding SCR-02).** Check 6's second pass scans
+  the blobs that the pushed commits introduce, so a value added and then removed inside
+  one push is still caught after the checkout no longer holds it. Three kinds of pushed
+  blob were never read. The pass imported `EXCLUDE_DIRS` from `scripts/check_secrets.py`
+  and skipped every path carrying one of those directory names, so anything committed
+  under `results/`, `build/`, `scratch/` or the other pruned names was invisible to it;
+  the tree scan prunes those names only from its directory walk, where they hold untracked
+  build output and virtualenvs, and then adds every tracked file back, while every blob in
+  a pushed commit is published. It listed paths with `git diff-tree --diff-filter=AM`,
+  which drops status `T`, so a symlink replaced by a regular file was not read. And
+  `git diff-tree` lists no paths for a merge commit unless asked to, so a value written
+  into a conflict resolution was not read, as the hook's own header said. Measured
+  2026-10-25 in throwaway repositories, running the whole hook from the current `main`
+  with every other python check stubbed to pass: a value added then removed under
+  `results/`, `build/` or `scratch/`, introduced by a type change, written into a conflict
+  resolution, or added only by a merge commit was pushed with "Pushed commit ranges
+  contain no credential assignments.", while the same add-then-remove under `src/` was
+  blocked. The pass now admits a path on `_is_scannable` alone, so `EXCLUDE_PATHS` still
+  applies; lists paths with `--diff-filter=AMT`; and reads each commit with `-c`, which
+  git-diff-tree(1) says "lists only files which were modified from all parents": for a
+  merge, the blobs the merge itself created, and for any other commit it changes nothing.
+  Check 1c already reads merges that way. `-m` was not used because it diffs a merge
+  against each parent in turn, so merging `main` into a branch would re-read every path
+  `main` changed. Over the 200 first-parent commits of `main` up to its 2026-10-25 tip
+  (1,077 commits in all, 553 of them merges; on the 524 others `-c` changes no listing),
+  the new pass hands 1,589 blobs to the scanner against 1,428 before, 157 of the extra
+  reads from merge commits and 4 from `results/`, and flags nothing, as before. The new
+  `tests/test_pre_push_range_scan_sees_excluded_dirs_type_changes_and_merges.py` drives
+  the whole hook with the harness of
+  `tests/test_pre_push_blob_scan_keeps_non_ascii_names.py` and pins all three, with an
+  add-then-remove control under `src/` and negatives for a clean range through the pruned
+  directories with a merge, a deletion in a plain commit and in a merge, and a merge of
+  history the remote already holds. The hook change is a separate owner commit, because
+  `scripts/hooks/` is an owner-only path.
 - **gitpython now pins 3.2.1, its first release patched for GHSA-83vg-56qc-22m7 /
   CVE-2026-114145 (high, published 2026-10-22).** The advisory affects gitpython 3.2.0 and
   earlier: per its title, GitPython validates a submodule's ".git" path only after cloning
