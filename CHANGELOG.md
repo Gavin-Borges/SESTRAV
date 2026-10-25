@@ -191,6 +191,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   force-added files), so nothing tracked changes state. A new test checks 20 paths that
   must be ignored and 6 that must not, including `src/core/` sources, with
   `git check-ignore --no-index`.
+- **`scripts/run_pandora_structures.py` no longer tells readers to install another
+  vendor's package.** Its setup block said `pip install pandora pdb2sql mhctools`. On
+  PyPI, `pandora` is CNES's stereo-matching framework ("Pandora is a stereo matching
+  framework that helps emulate state of the art algorithms", pypi.org/project/pandora,
+  read 2026-10-19), unrelated to peptide-MHC modelling, so the instruction installed
+  third-party code and no PANDORA at all. The block now gives upstream's own routes from
+  the X-lab-3D/PANDORA README (read the same day): MODELLER and muscle/blast from conda,
+  then PANDORA as `csb-pandora` from the `csb-nijmegen` channel or from a clone with
+  `pip install -e .`, and `pandora-fetch` for the template database in place of a
+  `pandora.fetch_templates()` call that upstream does not document. **A known gap is
+  disclosed rather than fixed:** the script imports a lowercase `pandora` package and
+  calls `pandora.peptide.Peptide` and `.run()`, while upstream's package is `PANDORA` and
+  its documented API is `from PANDORA import Target, Pandora, Database`, so as written the
+  script cannot import upstream PANDORA. Porting it needs a MODELLER license to test and
+  is not attempted here. A new test fails if any tracked file other than this changelog
+  carries a pip install of the bare `pandora` name.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
