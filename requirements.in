@@ -19,7 +19,15 @@ mhcflurry==2.2.1
 # a uv override file to resolve at all; torch 2.13.0 raised that cap to
 # `setuptools>=77.0.3`, so the pin now resolves normally and overrides.txt has
 # been retired.
-setuptools==84.0.0
+# setuptools 84.1.0 closes GHSA-xmj3-9gf7-h52w (low): on Windows, a crafted
+# wheel's namespace_packages.txt could make Wheel.install_as_egg write an
+# __init__.py outside its destination. Raised from 84.0.0 on 2026-10-24. The
+# setuptools v84.1.0 release note says that path "is reached only by the
+# deprecated setup_requires mechanism when setup() is invoked outside a PEP 517
+# frontend; the setuptools build backend never reaches it", and this repo has no
+# setup.py, no setup.cfg and no setup_requires, so the bump closes the advisory
+# rather than a reachable exposure.
+setuptools==84.1.0
 
 # Plotting and explainability
 matplotlib==3.11.2
