@@ -302,9 +302,9 @@ def test_non_ascii_lookalike_letters_are_rejected_with_valueerror():
     IGNORECASE folds onto it: the dotless i (U+0131) into "preview", the long s
     (U+017F) into "post", and the Kelvin sign (U+212A) as a local segment. The
     first one used to match the grammar and then raise KeyError from the alias
-    table, which no caller handled. packaging 26 rejects all three; its older
-    releases accepted them, so this test deliberately does not consult the
-    installed `packaging`.
+    table, which no caller handled. packaging 26.1 and 26.3 reject all three;
+    26.0, 25.0 and 24.2 accept them (each measured), so this test deliberately
+    does not consult the installed `packaging`.
     """
     for bad in (
         "1.0prev" + chr(0x0131) + "ew1",

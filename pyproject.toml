@@ -303,9 +303,11 @@ dev = [
     # exposed it. It is declared anyway because a direct import must not depend
     # on another package keeping packaging in its own requirements, and
     # tests/test_dev_extra_runs_the_test_suite.py fails without this line.
-    # A PEP 440 comparator is not something to hand-roll; check_lockfile_freshness
-    # already carries a digit-tuple approximation that its own comment flags as
-    # "not a full PEP 440 comparator".
+    # A PEP 440 comparator is not something to hand-roll where packaging can be
+    # imported. tools/check_lockfile_freshness.py cannot import it (its CI step
+    # installs nothing), so it carries its own stdlib PEP 440 ordering key, which
+    # tests/test_check_lockfile_freshness_version_ordering.py checks against
+    # packaging.version.Version.
     "packaging>=23.0",
 ]
 # fastapi and pydantic in [api] and [demo] match [dev]; see the comment there.

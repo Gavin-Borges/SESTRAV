@@ -112,7 +112,7 @@ def normalize(name: str) -> str:
 # which is the right place for that dependency.
 #
 # The two `(?a:...)` groups make IGNORECASE ASCII-only inside them, as
-# packaging 26's own pattern does. Without that, Python's Unicode case folding
+# packaging's own pattern does from 26.1 on. Without that, Python's Unicode case folding
 # lets a few non-ASCII letters stand in for ASCII ones (the Kelvin sign for
 # "k", the dotless i for "i", the long s for "s"), so "preview" spelled with a
 # dotless i matched the grammar and then missed the alias table below with a
