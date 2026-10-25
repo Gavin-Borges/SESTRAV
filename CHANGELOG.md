@@ -242,7 +242,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   hit "pass: governance" in this file, stopped by the entropy floor at 2.92, and "Second
   pass: documentation" (3.24) would clear it, so it would turn the gate red on prose; the
   unquoted form needs a joined name such as `DB_PASS`, and a lone `pass` is caught when
-  quoted. Over the 724 files the tree scan reads, the new patterns flag nothing, and the
+  quoted. Over every file the tree scan reads, the new patterns flag nothing, and the
   scan stays `[SUCCESS]`. Multi-line values are not covered.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
