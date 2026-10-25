@@ -11,10 +11,13 @@ pip pull request open on 2026-10-25, the freshness step failed and the guard was
 including on one that edits the render lockfile.
 
 These tests pin the condition that fixes it: `!cancelled()` joined by `&&` to the two
-conditions that select a Dependabot pull request, and nothing else. They read the YAML;
-nothing here runs the workflow. The mutant table shows the checker refusing each listed
-wrong condition. It is a regression ratchet, not an exhaustive model of GitHub's
-expression language.
+conditions that select a Dependabot pull request, and nothing else. They also pin how the
+guard's script gets the base branch: through the step's `env:`, never by a `${{ }}`
+expansion inside `run:`, which is substituted into the script text before the shell
+parses it and which zizmor reports as template injection. They read the YAML; nothing
+here runs the workflow. The mutant tables show each checker refusing the listed wrong
+inputs. They are regression ratchets, not an exhaustive model of GitHub's expression
+language.
 """
 
 from __future__ import annotations
@@ -177,3 +180,65 @@ def test_the_checker_refuses_each_listed_wrong_condition(condition: object) -> N
 )
 def test_the_checker_accepts_the_fixed_condition(condition: str) -> None:
     assert guard_condition_problems(condition) == []
+
+
+# Pull-request refs reach a script through env, never by expansion into its text. Both
+# contexts name a branch the pull request's author picks; the head ref is arbitrary text.
+_PR_REF = re.compile(r"\bgithub\.(?:base_ref|head_ref|event\.pull_request\.(?:base|head)\.ref)\b")
+_EXPRESSION = re.compile(r"\$\{\{(.*?)\}\}", re.DOTALL)
+
+
+def run_block_ref_expansions(document: dict) -> list[str]:
+    """Every `${{ }}` expression inside a `run:` block that reads a pull-request ref."""
+    found = []
+    for job_name, job in (document.get("jobs") or {}).items():
+        for index, step in enumerate(job.get("steps") or []):
+            for expression in _EXPRESSION.findall(str(step.get("run", ""))):
+                if _PR_REF.search(expression):
+                    found.append(f"{job_name} step {index}: {expression.strip()}")
+    return found
+
+
+def test_pull_request_refs_reach_run_blocks_through_env_only() -> None:
+    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert run_block_ref_expansions(document) == []
+    steps = document["jobs"][JOB]["steps"]
+    guard = steps[_only_index(steps, RENDER_LOCK)]
+    # The guard must still diff against the base it is given. With the variable renamed or
+    # missing, `git diff` fails on "origin/...HEAD", `grep -qx` sees no input, and the step
+    # prints its PASSED line and exits 0.
+    assert (guard.get("env") or {}).get("BASE_REF") == "${{ github.base_ref }}"
+    assert '"origin/${BASE_REF}...HEAD"' in guard["run"]
+
+
+def _one_step(**step: object) -> dict:
+    return {"jobs": {"job": {"steps": [{"name": "step", **step}]}}}
+
+
+_EXPANDING_STEPS = {
+    "base_ref": _one_step(run='git diff "origin/${{ github.base_ref }}...HEAD"'),
+    "head_ref, no spaces": _one_step(run="echo ${{github.head_ref}}"),
+    "head_ref inside a function call": _one_step(
+        run="echo \"${{ format('{0}', github.head_ref) }}\""
+    ),
+    "the event payload's head ref": _one_step(run="echo ${{ github.event.pull_request.head.ref }}"),
+    "on a later line": _one_step(run="set -e\necho ${{ github.base_ref }}\n"),
+}
+
+
+@pytest.mark.parametrize("document", list(_EXPANDING_STEPS.values()), ids=list(_EXPANDING_STEPS))
+def test_the_ref_checker_refuses_each_listed_expansion(document: dict) -> None:
+    assert run_block_ref_expansions(document) != []
+
+
+_SAFE_STEPS = {
+    "through env": _one_step(env={"REF": "${{ github.head_ref }}"}, run='echo "$REF"'),
+    "in the step's if": _one_step(**{"if": "github.base_ref == 'main'"}, run="echo ok"),
+    "a shell variable": _one_step(run='git diff "origin/${BASE_REF}...HEAD"'),
+    "another context": _one_step(run="echo ${{ github.sha }}"),
+}
+
+
+@pytest.mark.parametrize("document", list(_SAFE_STEPS.values()), ids=list(_SAFE_STEPS))
+def test_the_ref_checker_accepts_each_listed_safe_step(document: dict) -> None:
+    assert run_block_ref_expansions(document) == []

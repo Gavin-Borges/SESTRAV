@@ -36,7 +36,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   passes. A new test reads the workflow and refuses a guard condition with no status check
   function, a different one, an `||`, a dropped selector or text outside the `${{ }}`
   expression, and refuses a `continue-on-error` or a reordering that would let either check
-  be skipped another way. The workflow is still advisory: its context is not among the
+  be skipped another way. The same step's script now reads the base branch from its `env:`
+  (`BASE_REF`) instead of having `${{ github.base_ref }}` expanded into the script text,
+  which zizmor 1.30.1 reported as template injection (high) and no longer reports. A second
+  test refuses any `${{ }}` expansion of a pull-request ref inside a `run:` block of the
+  workflow, and requires the guard to read `BASE_REF`: with that variable renamed or
+  missing, its `git diff` fails, `grep` sees no input, and the step passes. The workflow is
+  still advisory: its context is not among the
   required status checks of ruleset 16846770 (measured the same day), so the guard turns
   such a pull request red without blocking its merge. Nor does this make a Dependabot pip
   pull request mergeable as compiled: all three measured above still fail the freshness
