@@ -230,6 +230,56 @@ URL_EMBEDDED_CREDENTIAL = re.compile(
 # code, which is the failure the bare-value pattern above already documents for
 # a different rule. `credentials?` and `pwd` were measured the same way and
 # produce zero hits, which is why they ARE in the alternation.
+#
+# What IS added, 2026-10-25: a closed list of five names, not a `*_KEY` rule. A
+# 2026-10-13 audit (M4) reported `ACCESS_KEY=` and `SIGNING_KEY=` missed.
+# Planted at 5e72008d with an 18-character value: ACCESS_KEY in a .py and a
+# .env file and SIGNING_KEY in a .py file all passed, and the `API_KEY` control
+# was flagged. The broad form above was re-measured first, at 5e72008d over 733
+# scanned files with the alternation's suffixes allowed: TEN hits now (nine
+# without suffixes), every one a lookup key (the six named above plus
+# _SELECTED_KEY, GIT_CONFIG_KEY_0, _MODE35_KEY and _MODE31_KEY), so the
+# rejection stands and has grown.
+#
+# The five: access, signing, encryption, decryption and hmac. The last four
+# name key material and nothing else. access_key holds either a key or, in
+# AWS's usage, an access key ID, and this scanner already flags an AWS key ID
+# by its format wherever it appears. Measured the same way with the boundaries
+# below, each produces ZERO hits, and so did every candidate left out; those
+# were left out on meaning, not measurement. master_key also names a master
+# TABLE's join key, session_key a session lookup constant, public_key and
+# consumer_key the PUBLIC half of a pair, kms_key and crypto_key a key's
+# resource ID, client_key and ssh_key a key FILE's path. secret_key,
+# private_key and auth_key already match the alternation above.
+#
+# Four boundaries, each pinned by a test:
+#  - the name may follow a non-alphanumeric character or a camelCase hump
+#    (awsAccessKey), never a letter run, so ASSIGNING_KEY and DESIGNING_KEY,
+#    which end in "signing", do not match;
+#  - `_`, `-` or a camelCase `Key` must join the name to KEY. Run together,
+#    `signingkey` is git's own config name, user.signingkey, which per
+#    git-config(1) names a key (a GPG key specifier, a key file's path or a
+#    public key) and never holds secret key material; CONTRIBUTING.md and
+#    docs/releasing.md both cite it;
+#  - nothing may follow KEY, so ACCESS_KEY_ID and SIGNING_KEY_PATH, which name
+#    an identifier or a file, do not match;
+#  - a value opening with `<`, `$`, `%` or `{` is a placeholder or a variable
+#    (`<your-access-key>`, `${{ secrets.SIGNING_KEY }}`, `%ENCRYPTION_KEY%`),
+#    never key material, which is base64, hex or a vendor format.
+# The value then drops into the same length and entropy floors as every pattern
+# here, and the bare form runs only where the shared bare form does.
+_KEY_MATERIAL_NAME = (
+    r"(?:(?<![a-z0-9])|(?-i:(?<=[A-Za-z0-9])(?=[A-Z][a-z])))"
+    r"(?:access|signing|encryption|decryption|hmac)"
+    r"(?:[_-]key|(?-i:Key))"
+)
+CREDENTIAL_KEY_MATERIAL = re.compile(
+    r"(?i)(" + _KEY_MATERIAL_NAME + r")['\"]?\s*[=:]\s*['\"]([^'\"<$%{][^'\"]*)['\"]"
+)
+CREDENTIAL_KEY_MATERIAL_BARE = re.compile(
+    r"(?i)(" + _KEY_MATERIAL_NAME + r")['\"]?\s*[=:]\s*"
+    r"([^\s'\"#,;)\]}<$%{][^\s'\"#,;)\]}]*)"
+)
 
 # Vendor-issued credential FORMATS, matched without a keyword and without an
 # entropy floor. Both patterns above need an ASSIGNMENT: a credential-class name,
@@ -480,6 +530,7 @@ def scan_file(path: str) -> List[int]:
     # every format, so no line that is caught today can stop being caught.
     patterns = [
         CREDENTIAL_ASSIGNMENT,
+        CREDENTIAL_KEY_MATERIAL,
         CREDENTIAL_ANNOTATED,
         CREDENTIAL_PREFIXED_STRING,
         CREDENTIAL_ENV_DEFAULT,
@@ -493,6 +544,7 @@ def scan_file(path: str) -> List[int]:
         URL_EMBEDDED_CREDENTIAL,
     ]
     if allows_bare_value(path):
+        patterns.append(CREDENTIAL_KEY_MATERIAL_BARE)
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
     elif is_makefile(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_MAKE)
