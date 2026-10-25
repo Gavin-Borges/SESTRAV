@@ -781,8 +781,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   key ID, which the scan already flags by its format), and each produced zero findings
   on the same files. Four boundaries keep it narrow. No letter may run into the name, so
   `ASSIGNING_KEY` does not match. A `_`, `-` or camelCase `Key` must join it to KEY, so
-  git's own `user.signingkey`, which git-config(1) defines as naming a key (a GPG key
-  specifier, a key file's path or a public key), does not match. Nothing may follow KEY,
+  `user.signingkey` as this repository's docs write it, which git-config(1) defines as
+  naming a key (a GPG key specifier, a key file's path or a public key), does not match;
+  git's own camelCase spelling `user.signingKey` does, a known false positive that is
+  reported, never passed. Nothing may follow KEY,
   so `ACCESS_KEY_ID` does not match. A value opening with `<`, `$`, `%` or `{` is a
   placeholder or a variable and is skipped. Values keep the existing length and entropy
   floors, and unquoted values are read only in the formats that already allow them. The

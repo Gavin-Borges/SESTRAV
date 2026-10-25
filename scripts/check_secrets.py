@@ -256,11 +256,14 @@ URL_EMBEDDED_CREDENTIAL = re.compile(
 #  - the name may follow a non-alphanumeric character or a camelCase hump
 #    (awsAccessKey), never a letter run, so ASSIGNING_KEY and DESIGNING_KEY,
 #    which end in "signing", do not match;
-#  - `_`, `-` or a camelCase `Key` must join the name to KEY. Run together,
-#    `signingkey` is git's own config name, user.signingkey, which per
-#    git-config(1) names a key (a GPG key specifier, a key file's path or a
-#    public key) and never holds secret key material; CONTRIBUTING.md and
-#    docs/releasing.md both cite it;
+#  - `_`, `-` or a camelCase `Key` must join the name to KEY, so the run-together
+#    `signingkey` does not match. That is how CONTRIBUTING.md and
+#    docs/releasing.md write git's user.signingKey, which per git-config(1)
+#    names a key (a GPG key specifier, a key file's path or a public key) and
+#    never holds secret key material. git documents it in camelCase and its
+#    variable names are case-insensitive, so a `signingKey = <value>` line DOES
+#    match through the camelCase form: a known false positive, reported, never
+#    passed;
 #  - nothing may follow KEY, so ACCESS_KEY_ID and SIGNING_KEY_PATH, which name
 #    an identifier or a file, do not match;
 #  - a value opening with `<`, `$`, `%` or `{` is a placeholder or a variable

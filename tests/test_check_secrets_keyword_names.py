@@ -118,9 +118,11 @@ def test_a_stem_ending_a_longer_word_is_not_flagged(tmp_path: Path) -> None:
 
 
 def test_a_run_together_name_is_not_flagged(tmp_path: Path) -> None:
-    """`signingkey` is git's own config name (user.signingkey), which per git-config(1)
-    names a key (a GPG key specifier, a key file's path or a public key) and never
-    holds secret key material, so a separator or a camelCase `Key` is required."""
+    """`signingkey` is how this repository's docs write git's user.signingKey, which per
+    git-config(1) names a key (a GPG key specifier, a key file's path or a public key)
+    and never holds secret key material, so a separator or a camelCase `Key` is
+    required. git's own camelCase spelling `signingKey` does match: a known false
+    positive, recorded in the scanner comment."""
     cases = (
         ("case.md", "    signing" + "key = " + _token()),
         ("case.ini", "signing" + "key = " + _token()),
