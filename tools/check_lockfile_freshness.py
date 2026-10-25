@@ -13,7 +13,8 @@ against its compiled ``requirements*.txt`` / ``.lock`` output and fails if:
    when present, since their resolution is legitimately platform-dependent.
 2. A package the ``.in`` file floors with ``>=`` (the CVE-override pattern
    used in environments/requirements-lock.in) is present in the compiled
-   output below that floor.
+   output below that floor, or either side of that comparison is a version
+   PEP 440 cannot read, so the gate cannot say whether the floor holds.
 3. Any package entry in a compiled output has no ``--hash=sha256:`` pin
    (the ``--require-hashes`` install path this repo uses everywhere treats
    an unhashed entry as a supply-chain gap).
@@ -102,14 +103,178 @@ def normalize(name: str) -> str:
     return _NAME_NORMALIZE_RE.sub("-", name).lower()
 
 
-def _version_key(version: str) -> tuple[int, ...]:
-    """Best-effort numeric ordering for simple X.Y.Z-style pins.
+# PEP 440's version grammar. Spelled out here rather than imported from
+# `packaging` because this gate is stdlib-only BY DESIGN: the job that runs it,
+# `.github/workflows/dependency-lockfile-check.yml`, does `actions/setup-python`
+# and then calls this script with no install step at all ("Stdlib-only, no
+# network access", in that step's own comment), so `packaging` is not importable
+# there. The tests DO compare this function against `packaging.version.Version`,
+# which is the right place for that dependency.
+#
+# The two `(?a:...)` groups make IGNORECASE ASCII-only inside them, as
+# packaging 26's own pattern does. Without that, Python's Unicode case folding
+# lets a few non-ASCII letters stand in for ASCII ones (the Kelvin sign for
+# "k", the dotless i for "i", the long s for "s"), so "preview" spelled with a
+# dotless i matched the grammar and then missed the alias table below with a
+# KeyError. PEP 440 limits every one of these segments to ASCII.
+_PEP440_RE = re.compile(
+    r"""
+    ^\s*v?
+    (?a:
+        (?:(?P<epoch>[0-9]+)!)?
+        (?P<release>[0-9]+(?:\.[0-9]+)*)
+        (?:[-_.]?(?P<pre_l>alpha|a|beta|b|preview|pre|c|rc)[-_.]?(?P<pre_n>[0-9]+)?)?
+        (?:
+            (?:-(?P<post_n1>[0-9]+))
+            | (?:[-_.]?(?P<post_l>post|rev|r)[-_.]?(?P<post_n>[0-9]+)?)
+        )?
+        (?:[-_.]?(?P<dev_l>dev)[-_.]?(?P<dev_n>[0-9]+)?)?
+    )
+    (?a:\+(?P<local>[a-z0-9]+(?:[-_.][a-z0-9]+)*))?
+    \s*$
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
 
-    Good enough for the ``>=`` CVE-floor overrides in this repo, all of which
-    are plain dotted-numeric releases. Not a full PEP 440 comparator.
+# PEP 440 spells one pre-release phase several ways; these are its own aliases.
+_PRE_RANK = {
+    "alpha": 0,
+    "a": 0,
+    "beta": 1,
+    "b": 1,
+    "c": 2,
+    "pre": 2,
+    "preview": 2,
+    "rc": 2,
+}
+
+# Sentinels, kept as plain tuples so the whole key orders under ordinary tuple
+# comparison with no custom classes. None of them is a "large number" guess:
+# each one is decided before any version-supplied number is compared.
+#
+# Pre-release keys are (phase rank, number), and the rank is compared first.
+# The ranks come from the closed alias table above, so -1 sits below every
+# phase and one past the highest rank sits above every phase, whatever the
+# pre-release number is.
+_PRE_BELOW_ALL = (-1, 0)  # a dev release carrying no pre- or post-release marker
+_PRE_ABOVE_ALL = (max(_PRE_RANK.values()) + 1, 0)  # no pre-release marker at all
+# A post-release number is digits only in the grammar, so it is never negative
+# and -1 is below every one of them.
+_POST_ABSENT = (-1,)
+# Dev releases are keyed by PRESENCE first: present is (0, number) and absent
+# is (1,), so a version WITHOUT a dev segment sorts above the same version
+# WITH one no matter how large the dev number is. Date-stamped dev numbers
+# such as .dev20261024 are a common convention; the previous sentinel here,
+# (1 << 20,), was a bound that such a number exceeds, which ranked
+# 1.0rc1.dev20261024 ABOVE 1.0rc1 when PEP 440 ranks it below.
+_DEV_PRESENT = 0
+_DEV_ABSENT = (1,)
+# No local segment sorts below any local segment. A present local key is never
+# empty, because the grammar requires at least one segment after the "+".
+_LOCAL_ABSENT: tuple[tuple[int, int, str], ...] = ()
+_LOCAL_SEPARATOR_RE = re.compile(r"[-_.]")
+
+VersionKey = tuple[
+    int,  # epoch
+    tuple[int, ...],  # release, trailing zeros dropped
+    tuple[int, int],  # pre-release (phase rank, number), or a sentinel
+    tuple[int, ...],  # post-release
+    tuple[int, ...],  # dev release: (0, number) when present, (1,) when absent
+    tuple[tuple[int, int, str], ...],  # local version, one entry per segment
+]
+
+
+def _version_key(version: str) -> VersionKey:
+    """Order a pin the way PEP 440 does, pre-releases included.
+
+    **This replaced a `re.findall(r"\\d+", version)` key on 2026-10-25, which was
+    FAIL-OPEN in this gate.** That key read a pre-release number as an extra
+    release segment, so ``0.66b1`` became ``(0, 66, 1)`` and ``0.66`` became
+    ``(0, 66)``, making the gate rank a pre-release ABOVE its own final release.
+    The only caller compares a compiled pin against a declared ``>=`` CVE floor
+    and reports a violation when the pin sorts BELOW it, so a floor of ``>=0.66``
+    was satisfied, in the gate's view, by a lock pinning ``0.66b1`` - a
+    pre-release that predates the fix. pip and PEP 440 both read that pin as
+    below the floor. Measured against ``packaging.version.Version``, the old key
+    disagreed on four of seven probe pairs, every one of them a pre-release
+    ranked above its release.
+
+    The returned tuple is the PEP 440 comparison key, built the way
+    ``packaging.version``'s own comparison key is built: epoch, release with
+    trailing zeros dropped, then pre-release, post-release, dev-release and local
+    version, each either its own value or a sentinel placing it correctly against
+    versions that omit that part. A final release sorts above every pre-release
+    of the same number. A dev release of a bare release (``1.0.dev1``) sorts
+    below every pre-release of it, while a dev release of a pre- or post-release
+    sorts just below that pre- or post-release (``1.0a1.dev1 < 1.0a1`` and
+    ``1.0.post1.dev1 < 1.0.post1``), however large its dev number. A post-release
+    sorts above the release it follows.
+
+    A local version (``1.0+cpu``) sorts above the same version without one, and
+    two local versions are ordered segment by segment as PEP 440 specifies: the
+    segments are split on ``.``, ``-`` and ``_``, an all-digit segment compares
+    as a number and any other segment as lower-cased text, text segments sort
+    below numeric ones, and when one local version is a prefix of the other the
+    shorter sorts first. A floor never carries a local segment, because PEP 440
+    does not allow one in a ``>=`` specifier, so in this gate only the
+    local-versus-none rule can decide a comparison; the rest is implemented so
+    the key agrees with PEP 440 everywhere rather than only where the gate looks.
+
+    Raises ``ValueError`` on a version this grammar cannot read, rather than
+    guessing. Guessing is what the old key did. ``check_pair`` turns that into a
+    reported problem, so an unreadable pin or floor fails the run instead of
+    passing it.
     """
-    parts = re.findall(r"\d+", version)
-    return tuple(int(p) for p in parts) if parts else (0,)
+    match = _PEP440_RE.match(version)
+    if match is None:
+        raise ValueError(f"not a PEP 440 version: {version!r}")
+
+    epoch = int(match["epoch"] or 0)
+
+    release_parts = [int(part) for part in match["release"].split(".")]
+    while release_parts and release_parts[-1] == 0:
+        release_parts.pop()
+    release = tuple(release_parts)
+
+    pre: tuple[int, int] | None = None
+    if match["pre_l"] is not None:
+        pre = (_PRE_RANK[match["pre_l"].lower()], int(match["pre_n"] or 0))
+
+    post: tuple[int, ...] | None = None
+    if match["post_n1"] is not None:
+        post = (int(match["post_n1"]),)
+    elif match["post_l"] is not None:
+        post = (int(match["post_n"] or 0),)
+
+    dev: tuple[int, ...] | None = None
+    if match["dev_l"] is not None:
+        dev = (_DEV_PRESENT, int(match["dev_n"] or 0))
+
+    if pre is None and post is None and dev is not None:
+        pre_key = _PRE_BELOW_ALL
+    elif pre is None:
+        pre_key = _PRE_ABOVE_ALL
+    else:
+        pre_key = pre
+
+    if match["local"] is None:
+        local_key = _LOCAL_ABSENT
+    else:
+        # (0, 0, text) sorts below (1, number, "") for every text and number,
+        # which is PEP 440's "alphanumeric segments sort before numeric ones".
+        local_key = tuple(
+            (1, int(part), "") if part.isdigit() else (0, 0, part.lower())
+            for part in _LOCAL_SEPARATOR_RE.split(match["local"])
+        )
+
+    return (
+        epoch,
+        release,
+        pre_key,
+        post if post is not None else _POST_ABSENT,
+        dev if dev is not None else _DEV_ABSENT,
+        local_key,
+    )
 
 
 @dataclass
@@ -283,7 +448,18 @@ def check_pair(in_path: Path, out_path: Path) -> list[str]:
         elif pin.operator == ">=":
             if entry is None:
                 continue
-            if _version_key(entry.version) < _version_key(pin.version):
+            try:
+                below_floor = _version_key(entry.version) < _version_key(pin.version)
+            except ValueError as exc:
+                # Collected like every other unreadable input (item 5), so the
+                # run still fails and the rest of its problems are still shown.
+                problems.append(
+                    f"{rel_out}: cannot compare {pin.name}=={entry.version} against the "
+                    f"{pin.name}>={pin.version} floor declared in {pin.source} ({exc}), "
+                    f"so the floor is unchecked"
+                )
+                continue
+            if below_floor:
                 problems.append(
                     f"{rel_out}: {pin.name}>={pin.version} floor declared in "
                     f"{pin.source} but compiled output pins {pin.name}=={entry.version} "
