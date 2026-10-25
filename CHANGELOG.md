@@ -173,6 +173,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   pinned command exits 0 for the v2.0.2 and v2.0.3 wheels and the v2.0.3 sdist, and
   exits 1 when it names `ci.yml` as the signer or v2.0.2 as the ref of the v2.0.3 wheel.
   A new test fails if any tracked Markdown instruction drops either flag.
+- **`SECURITY.md` no longer says GitHub's private vulnerability reports are "end-to-end
+  encrypted".** GitHub's own pages on privately reporting a vulnerability and on
+  coordinated disclosure describe the report as private, made to the repository's
+  maintainers, and never describe it as encrypted (both read 2026-10-19). A reporter
+  choosing a channel on that promise was relying on a guarantee nobody made. The step
+  now says what the form does: the report goes to the maintainers rather than to a
+  public issue, and GitHub adds the reporter to it as a collaborator.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
