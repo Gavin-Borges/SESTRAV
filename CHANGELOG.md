@@ -784,6 +784,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   its locks unchanged: no other pin moved, and both new hashes are PyPI's published files
   for 3.2.1. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` are regenerated, and
   gitpython's version is their only change.
+- **The secret scan now catches exported OpenPGP and PuTTY private keys (SCR-01).**
+  Both passed every repository gate: an armored OpenPGP secret key ends its header in
+  "PRIVATE KEY BLOCK" plus dashes, which the PEM rule cannot reach, and a PuTTY `.ppk`
+  file has no PEM header at all. `scripts/check_secrets.py`, the only content scan CI
+  runs, gains a pattern for each, and now opens `.asc`, `.ppk`, `.pem` and `.key`
+  files, which it previously never read; no tracked file has any of those suffixes.
+  The PGP pattern writes its closing dashes as `-{5}` so its own text, which the
+  scanned pre-commit hook also carries, cannot match it, and a new test holds every
+  credential pattern to that. The companion maintainer change adds the same two
+  patterns to the hook's `CRED_PATTERNS` and blocks `.ppk` files by name.
 - **The demo image reaches Pillow 13.0.0: its streamlit pin moves from 1.65.0 to 1.66.1,
   and SECURITY.md's risk acceptance for the demo's Pillow 12.3.0 is resolved.** streamlit
   1.66.1 declares `pillow<14,>=9.2.0`, where 1.65.0 and 1.66.0 declare `pillow<13`.
