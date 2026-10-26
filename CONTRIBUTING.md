@@ -167,8 +167,15 @@ retirement, so the workaround cannot quietly return and mask a real resolution
 conflict. The `semgrep` spec was a later, named exception: it compiled with
 `--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
 `~=2.13.0` declaration, until semgrep 1.179.0 required `pyjwt[crypto]>=2.15.0,<3`
-itself. That met the override's exit condition, so it was deleted too, and the same
-test module now fails if any tier gains an override.
+itself. That met the override's exit condition, so it was deleted too. The same file
+was reinstated in 2026-10 for mcp and OpenTelemetry: every semgrep release from 1.179.0
+through 1.182.1 declares `mcp==1.29.0` exactly, which carries CVE-2026-59951, and
+`opentelemetry-api~=1.37.0`, which carries CVE-2026-114603. It states one exit
+condition per package group, every install of the semgrep lock passes `--no-deps` while
+it stands, and the same test module fails if any other tier gains an override. A
+Dependabot PR that touches `environments/requirements-semgrep.txt` recompiles it without
+the override file, so finalize it with `python tools/update_dependencies.py --ci-env
+semgrep` rather than merging it as compiled.
 
 ## Development Guidelines
 

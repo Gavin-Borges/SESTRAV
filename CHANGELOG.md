@@ -16,6 +16,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
+### Security
+- **The semgrep tool lock moves mcp from 1.29.0 to 1.30.0 and the OpenTelemetry packages
+  from 1.37.0 / 0.58b0 to 1.45.1 / 0.66b1, closing CVE-2026-59951 / GHSA-84m7-p3x7-pcfv and
+  CVE-2026-114603 / GHSA-xcq7-p3pf-p88h (both medium), through a reinstated uv override.**
+  Every semgrep release from 1.179.0 (pinned) through 1.182.1 (the newest on PyPI on
+  2026-10-23) declares `mcp==1.29.0` exactly and `opentelemetry-api~=1.37.0`, so no semgrep
+  upgrade reaches either fix, and a floor for either in the `.in` makes the spec
+  unsatisfiable (uv reports both). The mcp advisory is unbounded session accumulation in
+  its server-side StreamableHTTP transport; the OpenTelemetry one is
+  `TraceState.from_header` splitting an inbound `tracestate` header with an unbounded
+  regex. Neither is reachable as CI uses the tool, read in semgrep 1.179.0's installed
+  source: both semgrep jobs only run `semgrep scan`, which starts no MCP server, although
+  importing semgrep's CLI loads 47 `mcp.server` modules, the StreamableHTTP one included;
+  and semgrep's only call into OpenTelemetry's header extraction, `extract()` in
+  `semgrep/telemetry.py`, runs only under `--trace`, which neither job passes, and hands it
+  a carrier built locally with a `traceparent` and no `tracestate`. The lock is fixed
+  because patched releases exist. `environments/semgrep-overrides.txt` returns and lifts
+  exactly six packages: mcp to the 1.30 series, and opentelemetry-api, -sdk,
+  -exporter-otlp-proto-http, -instrumentation-requests and -instrumentation-threading to
+  1.45.1 / 0.66b1. The api cannot move alone, because opentelemetry-sdk 1.37.0 requires
+  `opentelemetry-api==1.37.0`; the two instrumentation lines change no pin today, since
+  semgrep's own `~=0.58b0` already admits 0.66b1, and bound the family so it moves and
+  retires as one unit. The file states one exit condition for mcp and one for the
+  OpenTelemetry group. Recompiled with `tools/update_dependencies.py --ci-env semgrep` (no
+  `--upgrade`), the lock moves mcp and ten OpenTelemetry pins, adds
+  opentelemetry-exporter-http-transport and opentelemetry-exporter-otlp-common, drops
+  importlib-metadata and zipp, which only opentelemetry-api 1.37.0 pulled in, and leaves the
+  other 53 pins and their hash sets unchanged; the same recompile without the override
+  reproduces the previous lock byte for byte. `pip-audit -r
+  environments/requirements-semgrep.txt --no-deps --disable-pip` reports exactly these two
+  advisories against the previous lock and none against this one, with `-s osv` and with
+  `-s pypi`. Each lock installed with `--no-deps --require-hashes` into its own location,
+  semgrep 1.179.0 on Windows and on Linux (WSL Ubuntu), Python 3.11 both, against the same
+  tree: the blocking custom-rules argv ran the same 7 rules over the same 241 files with 0
+  results and 0 errors under both locks, the advisory `p/python` scan loaded the same 158
+  rules and returned the same 3 SARIF results, all suppressed in source, and
+  `scripts/check_semgrep_rule_fixtures.py` passed under both. The lock now contradicts
+  semgrep's own metadata: uv, resolving it as its input, reports it unsatisfiable, and a
+  resolving `pip install --dry-run --require-hashes` of it on Linux fails with
+  `ResolutionImpossible`, while the previous lock resolves under both. So both semgrep
+  installs in `security.yml` pass `--no-deps` again. Dependabot's pip updater recompiles
+  with pip-compile, from options it derives from the existing lock, and never passes an
+  override file (dependabot-core's `pip_compile_file_updater.rb` has no override option),
+  so its grouped `/environments` PRs are expected to walk the lock back; finalize them
+  with `tools/update_dependencies.py`. In `tests/test_dependency_tooling.py` the
+  retired-override guards are inverted rather than deleted: the semgrep spec is the single
+  permitted override and its file must exist and be the only one; the override must name
+  exactly those six packages and state both exit conditions; the lock must pin a version
+  each override line admits; and two floors stated independently of the override file,
+  mcp at 1.30.0 and opentelemetry-api at 1.45.1, fail a recompile without it. The
+  `--no-deps` install guard, dormant since the pyjwt override was retired, applies again.
+  `CONTRIBUTING.md`, `ARCHITECTURE.md` and `environments/requirements-semgrep.in` record
+  the override's return.
+
 ### Fixed
 - **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
   bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`

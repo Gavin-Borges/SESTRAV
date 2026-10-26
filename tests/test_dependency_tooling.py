@@ -143,7 +143,25 @@ def test_ci_env_cannot_select_the_application_lockfiles():
         assert update_dependencies.select_specs(ci_env=name) == []
 
 
-def test_no_spec_compiles_with_a_uv_override_file():
+# The one spec permitted a uv override file, and the file it must name. Every
+# other spec must compile without one.
+OVERRIDDEN_SPECS = {"semgrep": "environments/semgrep-overrides.txt"}
+
+# The exact set of packages the semgrep override may lift, and nothing else:
+# mcp (CVE-2026-59951) and the five OpenTelemetry packages semgrep itself
+# declares (opentelemetry-api carries CVE-2026-114603; semgrep pins the other
+# four to the same release family, so they have to move with it).
+SEMGREP_OVERRIDDEN_PACKAGES = {
+    "mcp",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-instrumentation-requests",
+    "opentelemetry-instrumentation-threading",
+}
+
+
+def test_only_the_semgrep_spec_compiles_with_a_uv_override_file():
     # History: requirements.in / requirements-lock.in floor setuptools>=83.0.0
     # for GHSA-h35f-9h28-mq5c, which collided with torch 2.12.0's declared
     # `setuptools<82` build-metadata cap and made both specs unsatisfiable for
@@ -152,13 +170,116 @@ def test_no_spec_compiles_with_a_uv_override_file():
     # retired. This asserts the workaround does not creep back in: a
     # reintroduced override would silently mask a genuine resolution conflict.
     #
-    # The semgrep spec was a deliberate exception while semgrep declared
-    # pyjwt[crypto]~=2.13.0: it compiled with environments/semgrep-overrides.txt
-    # to lift pyjwt. semgrep 1.179.0 declares pyjwt[crypto]>=2.15.0,<3, so that
-    # override was retired too.
+    # The semgrep spec compiled with environments/semgrep-overrides.txt to lift
+    # pyjwt while semgrep declared pyjwt[crypto]~=2.13.0, until semgrep 1.179.0
+    # declared pyjwt[crypto]>=2.15.0,<3 and that override was retired. It was
+    # reinstated for mcp and OpenTelemetry: every semgrep release from 1.179.0
+    # through 1.182.1 declares mcp==1.29.0 exactly (CVE-2026-59951, fixed in
+    # 1.30.0) and opentelemetry-api~=1.37.0 (CVE-2026-114603, fixed in 1.45.1).
+    # That spec is named here so that any other is not.
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
     for spec in LOCK_SPECS:
-        assert spec.overrides is None, spec.name
-        assert "--overrides" not in build_command(spec), spec.name
+        command = build_command(spec)
+        expected = OVERRIDDEN_SPECS.get(spec.name)
+        assert spec.overrides == expected, spec.name
+        if expected is None:
+            assert "--overrides" not in command, spec.name
+        else:
+            assert command.count("--overrides") == 1, spec.name
+            assert command[command.index("--overrides") + 1] == expected, spec.name
+            assert (root / expected).is_file(), expected
+
+
+def _requirement_lines(path: pathlib.Path) -> list[str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+
+
+def _lock_pins(lock: pathlib.Path) -> dict[str, list[str]]:
+    """Every `name==version` pin in a uv-compiled lock, by normalised name."""
+    from packaging.requirements import Requirement
+
+    pinned: dict[str, list[str]] = {}
+    for pin_line in lock.read_text(encoding="utf-8").splitlines():
+        if pin_line.startswith((" ", "#")) or "==" not in pin_line:
+            continue
+        name, rest = pin_line.split("==", 1)
+        pinned.setdefault(Requirement(name).name.lower(), []).append(rest.split()[0])
+    return pinned
+
+
+def test_the_semgrep_override_lifts_exactly_its_named_set_and_states_its_exit_conditions():
+    from packaging.requirements import Requirement
+
+    path = pathlib.Path(update_dependencies.REPO_ROOT) / OVERRIDDEN_SPECS["semgrep"]
+    requirements = _requirement_lines(path)
+    names = [Requirement(line).name.lower() for line in requirements]
+    assert len(names) == len(set(names)), f"a package is overridden twice: {names}"
+    assert set(names) == SEMGREP_OVERRIDDEN_PACKAGES, names
+    text = path.read_text(encoding="utf-8")
+    # One exit condition per package group: the two groups retire independently.
+    assert "EXIT CONDITION (mcp)" in text
+    assert "EXIT CONDITION (OpenTelemetry)" in text
+
+
+def test_every_overridden_lock_pins_a_version_its_override_admits():
+    # A lock and its override can drift apart: a hand edit of either, or a
+    # recompile through another tool, changes one without the other.
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
+    root = pathlib.Path(update_dependencies.REPO_ROOT)
+    overridden = [(spec, spec.overrides) for spec in LOCK_SPECS if spec.overrides]
+    assert overridden, "no LockSpec sets overrides; this guard checked nothing"
+    for spec, overrides in overridden:
+        pinned = _lock_pins(root / spec.output)
+        for line in _requirement_lines(root / overrides):
+            requirement = Requirement(line)
+            pins = pinned.get(requirement.name.lower(), [])
+            assert len(pins) == 1, f"{spec.output}: {requirement.name} pinned {pins}"
+            assert Version(pins[0]) in requirement.specifier, (
+                f"{spec.output} pins {requirement.name}=={pins[0]}, "
+                f"outside its override {requirement.specifier}"
+            )
+
+
+# The two floors below are stated independently of the override file, so each
+# fails a lock compiled without the override (uv then resolves semgrep's own
+# requirements without an error, which Dependabot's grouped /environments
+# updates are expected to do) even if the override file itself is edited.
+#
+# pip-audit reports CVE-2026-59951 / GHSA-84m7-p3x7-pcfv against mcp 1.29.0;
+# 1.30.0 is its first fixed 1.x release.
+MCP_ADVISORY_FLOOR = "1.30.0"
+# pip-audit reports CVE-2026-114603 / GHSA-xcq7-p3pf-p88h against
+# opentelemetry-api 1.37.0; the advisory covers <= 1.45.0 and is fixed in 1.45.1.
+OPENTELEMETRY_API_ADVISORY_FLOOR = "1.45.1"
+
+
+def _single_semgrep_lock_pin(package: str) -> str:
+    semgrep = next(spec for spec in LOCK_SPECS if spec.name == "semgrep")
+    pins = _lock_pins(pathlib.Path(update_dependencies.REPO_ROOT) / semgrep.output)
+    found = pins.get(package, [])
+    assert len(found) == 1, f"{semgrep.output}: {package} pinned {found}"
+    return found[0]
+
+
+def test_the_semgrep_lock_pins_mcp_at_or_above_its_advisory_fix():
+    from packaging.version import Version
+
+    pin = _single_semgrep_lock_pin("mcp")
+    assert Version(pin) >= Version(MCP_ADVISORY_FLOOR), (
+        f"the semgrep lock pins mcp=={pin}, below {MCP_ADVISORY_FLOOR}"
+    )
+
+
+def test_the_semgrep_lock_pins_opentelemetry_api_at_or_above_its_advisory_fix():
+    from packaging.version import Version
+
+    pin = _single_semgrep_lock_pin("opentelemetry-api")
+    assert Version(pin) >= Version(OPENTELEMETRY_API_ADVISORY_FLOOR), (
+        f"the semgrep lock pins opentelemetry-api=={pin}, below {OPENTELEMETRY_API_ADVISORY_FLOOR}"
+    )
 
 
 # pip-audit reports advisories against pyjwt 2.13.0 and 2.14.0 and none against
@@ -229,11 +350,12 @@ def _install_surfaces(root: pathlib.Path) -> list[pathlib.Path]:
 def test_every_install_of_an_overridden_lock_skips_resolution():
     # An override makes the lock disagree with the overridden package's own
     # metadata, so a resolving install dies with ResolutionImpossible. Measured
-    # while the semgrep spec had one:
+    # while the semgrep spec overrode pyjwt:
     # `pip install --require-hashes -r environments/requirements-semgrep.txt`
-    # exited 1 against the overridden lock and 0 with --no-deps added. Dormant
-    # while no spec sets `overrides` (see the test above); it applies again to
-    # any spec that does.
+    # exited 1 against the overridden lock and 0 with --no-deps added. It was
+    # dormant while no spec set `overrides`, and is active again since the
+    # semgrep spec's mcp and OpenTelemetry override: security.yml's two semgrep
+    # installs are the installs it checks.
     overridden = [spec for spec in LOCK_SPECS if spec.overrides]
     if not overridden:
         # Report the dormancy instead of passing on an empty loop, so a run that
@@ -291,11 +413,21 @@ def test_the_no_deps_guard_scans_every_install_surface(tmp_path):
     assert found == set(expected)
 
 
-def test_the_retired_override_files_are_gone():
-    # Guards the other half of each retirement: the files themselves must not return.
+def test_the_only_override_files_are_the_permitted_ones():
+    # Guards the other half of each retirement: the root overrides.txt must not
+    # return, and no override file may exist beyond the ones OVERRIDDEN_SPECS
+    # names. environments/semgrep-overrides.txt was retired once (pyjwt) and
+    # reinstated for mcp and OpenTelemetry; when both of its exit conditions
+    # are met, remove its OVERRIDDEN_SPECS entry and this test requires the
+    # file to go too.
     root = pathlib.Path(update_dependencies.REPO_ROOT)
     assert not (root / "overrides.txt").exists()
-    assert not (root / "environments" / "semgrep-overrides.txt").exists()
+    present = {
+        p.relative_to(root).as_posix()
+        for pattern in ("*overrides*.txt", "environments/*overrides*.txt")
+        for p in root.glob(pattern)
+    }
+    assert present == set(OVERRIDDEN_SPECS.values())
 
 
 # The release that first closed GHSA-h35f-9h28-mq5c. Any setuptools at or above
