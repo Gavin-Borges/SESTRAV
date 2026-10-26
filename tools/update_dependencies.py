@@ -61,7 +61,9 @@ class LockSpec:
     # uv override file this spec needs to reach a patched release, or None.
     # An override makes the lock disagree with a package's own metadata, so a
     # resolving `pip install` of it fails and every install must pass --no-deps.
-    # No spec sets one today; tests/test_dependency_tooling.py fails if one does.
+    # Only the semgrep spec sets one (mcp for CVE-2026-59951, opentelemetry-api
+    # for CVE-2026-114603); the override file records its exit conditions, and
+    # tests/test_dependency_tooling.py fails if any other spec sets one.
     overrides: str | None = None
 
 
@@ -139,12 +141,17 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
         "3.11",
         False,
     ),
+    # overrides: every semgrep release from 1.179.0 through 1.182.1 declares
+    # mcp==1.29.0 exactly (CVE-2026-59951, fixed in 1.30.0) and
+    # opentelemetry-api~=1.37.0 (CVE-2026-114603, fixed in 1.45.1). See the
+    # EPILOG and environments/semgrep-overrides.txt for why and when to retire it.
     LockSpec(
         "semgrep",
         "environments/requirements-semgrep.in",
         "environments/requirements-semgrep.txt",
         "3.11",
         False,
+        overrides="environments/semgrep-overrides.txt",
     ),
 )
 
@@ -186,7 +193,19 @@ with no special handling.
 The 'semgrep' spec compiled with `--overrides environments/semgrep-overrides.txt`
 while semgrep declared `pyjwt[crypto]~=2.13.0`. semgrep 1.179.0 declares
 `pyjwt[crypto]>=2.15.0,<3`, which met that override's exit condition, so it was
-retired and the semgrep spec now compiles with no special handling either.
+retired.
+
+It was reinstated in 2026-10, for mcp and OpenTelemetry rather than pyjwt.
+Every semgrep release from 1.179.0 through 1.182.1 declares `mcp==1.29.0`
+exactly and `opentelemetry-api~=1.37.0`, with matching `~=1.37.0` / `~=0.58b0`
+ranges for the four other OpenTelemetry packages it names. mcp 1.29.0 carries
+CVE-2026-59951 / GHSA-84m7-p3x7-pcfv, fixed in 1.30.0, and opentelemetry-api
+1.37.0 carries CVE-2026-114603 / GHSA-xcq7-p3pf-p88h, fixed in 1.45.1. Without
+the override no resolver can reach either fix. The override file lifts mcp to
+the 1.30 series and those five OpenTelemetry packages to the 1.45.1 / 0.66b1
+releases, and states an exit condition for each group. Every install of the
+semgrep lock must pass --no-deps while it is in place, because the lock no
+longer satisfies semgrep's own metadata.
 """
 
 

@@ -486,7 +486,12 @@ trained model binaries or runtime caches; training must run before production sc
   cap, so the override was retired. The `semgrep` tool tier likewise compiled with
   `--overrides environments/semgrep-overrides.txt` to lift pyjwt past semgrep's own
   `~=2.13.0` pin, until semgrep 1.179.0 required `pyjwt[crypto]>=2.15.0,<3` itself and
-  that override was retired too. Every install path **that resolves from a lockfile** is
+  that override was retired too. It was reinstated in 2026-10 to lift mcp past semgrep's
+  exact `mcp==1.29.0` (CVE-2026-59951) and opentelemetry-api past its `~=1.37.0`
+  (CVE-2026-114603), with the four other OpenTelemetry packages semgrep names, so the
+  `semgrep` tier is again the one that compiles with an override, and both of its installs
+  must pass `--no-deps` (the file states one exit condition per package group).
+  Every install path **that resolves from a lockfile** is
   `--require-hashes` (corrected 2026-08-15: this read "every install path", which the
   `Dockerfile` falsifies - it runs a bare `pip install --user .` against default PyPI, with
   neither `--require-hashes` nor the CPU torch wheel index. Three CI jobs route torch through
