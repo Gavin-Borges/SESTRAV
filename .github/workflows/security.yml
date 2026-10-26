@@ -396,6 +396,40 @@ jobs:
         #   python tools/update_dependencies.py --ci-env pip-audit
         run: pip install --require-hashes -r environments/requirements-pip-audit.txt
 
+      - name: Audit every tracked hash-pinned lock (advisory)
+        # ADVISORY BY OWNER RULING, 2026-10-17: report-only for its first week, then
+        # blocking once it has run green for one week. TO MAKE IT BLOCKING, delete the
+        # `continue-on-error: true` line below and the word "(advisory)" from this
+        # step's name, together with the two assertions on them in
+        # tests/test_audit_all_locks.py. Nothing else changes: the script already exits
+        # non-zero on its own (1: an unaccepted finding, 2: a lock it could not fully
+        # audit).
+        #
+        # Why it exists: an advisory published AFTER a pin lands reached no job that
+        # can fail, for any lock but environments/requirements.lock. Measured
+        # 2026-10-17: CVE-2026-59951 against mcp 1.29.0, published 2026-10-15 and
+        # pinned in environments/requirements-semgrep.txt, turned nothing red. The
+        # fail-closed step at the bottom of this job reads only the production lock,
+        # dependency-review.yml judges only the versions a PR changes, and the
+        # installed-set audit below sees only what this runner installed.
+        #
+        # tools/audit_all_locks.py audits every lock tools/check_hash_pins.py treats as
+        # hash-pinned, as `pip-audit -r <lock> --no-deps --disable-pip -s osv`: the
+        # pins as written, with no resolver and no install, so it needs nothing the
+        # steps below install, and against the OSV feed, as the installed-set audits
+        # below are. No --ignore-vuln: each report is judged by the policy of
+        # tools/check_lockfile_advisories.py against environments/accepted_advisories.toml,
+        # whose entries are scoped per lock (an entry with no `lock` field still covers
+        # environments/requirements.lock only). It runs before the production lock is
+        # installed over this environment with --no-deps, so pip-audit runs on what its
+        # own hashed lock installed. timeout-minutes bounds a hung network audit so it
+        # cannot spend the job's 15 minutes, which the fail-closed gate below needs (the
+        # whole job took 115 s on main on 2026-10-16). No artifact upload: this job
+        # uploads none, and the per-lock verdicts are in the step log.
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python tools/audit_all_locks.py
+
       - name: Install the lockfile's build backend (hash-checked)
         # requirements.lock pins connection-pool (via snakemake) as an sdist only, so
         # the lockfile install below builds it. This installs the lock's own setuptools
@@ -455,7 +489,15 @@ jobs:
 
       - name: Audit installed dependency set
         continue-on-error: true
-        run: pip-audit --desc
+        # -s osv, not pip-audit's default PyPI service, whose feed lacks advisories
+        # that OSV carries; the step after this one writes its JSON report the same
+        # way. Measured 2026-10-23 with pip-audit 2.10.1 on a scratch lock of 15
+        # older pins: osv reported 131 distinct findings and the default 127, and
+        # the 4 only osv carried are all against pillow 12.3.0, CVE-2026-112403 (a
+        # heap buffer overflow in ImagingJpegDecode) among them; none was
+        # default-only. Either service can list one advisory twice for a package,
+        # so compare distinct (package, version, id) triples, never lines.
+        run: pip-audit --desc -s osv
 
       - name: Assert pip-audit tooling actually ran (fail on TOOLING error only)
         # The advisory audit above is continue-on-error so real CVE findings do not
@@ -470,7 +512,7 @@ jobs:
         # consumed as-is by the next step - do not add --ignore-vuln here.
         run: |
           set -o pipefail
-          pip-audit --format json --output pip-audit-report.json || true
+          pip-audit -s osv --format json --output pip-audit-report.json || true
           python - <<'PY'
           import json, sys
           try:
