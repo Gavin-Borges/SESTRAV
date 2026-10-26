@@ -144,12 +144,16 @@ them, find the tier it belongs to.
 
 ### The setuptools floor (and the override that used to be needed)
 
-`requirements.in` pins `setuptools==84.0.0` and
-`environments/requirements-lock.in` floors it at `>=84.0.0`. The advisory they
-close, GHSA-h35f-9h28-mq5c, is patched at 83.0.0, so both sit one release above
-the advisory minimum; that extra release is a dependabot bump, not a security
-requirement. `pyproject.toml` deliberately states the 83.0.0 minimum instead of
-tracking the pin, and says so in its own `[build-system]` comment.
+`requirements.in` pins `setuptools==84.1.0`, `environments/requirements-lock.in`
+floors it at `>=84.1.0`, and `pyproject.toml`'s `[build-system]` requires
+`setuptools>=84.1.0`. 84.1.0 is the first release patched for
+GHSA-xmj3-9gf7-h52w, so today the pin and both floors coincide with the advisory
+minimum. Before 2026-10-24 `pyproject.toml`'s floor stood at 83.0.0, the fix for
+GHSA-h35f-9h28-mq5c, which every 84.x still closes, and `requirements-lock.in`'s at
+84.0.0, where the routine bump had taken it with the pin. The rule is unchanged:
+`pyproject.toml` states the security minimum rather than tracking the pin, and
+says so in its own `[build-system]` comment, so a later routine setuptools bump
+moves the pins and leaves that floor alone.
 **That floor is still in force - do not remove it.**
 
 Until 2026-08-05 it collided with torch 2.12.0's declared `setuptools<82`
