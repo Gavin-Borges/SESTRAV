@@ -28,8 +28,8 @@ three of the five sit in its conda and singularity deployment modules. So this t
 is regression insurance recorded while green, the same footing as
 ``tests/test_dependency_floors_match_pins.py``, whose docstring says as much.
 
-**This is a RATCHET, not a clean-slate assertion.** Eleven packages diverge, in
-five of the eight co-install groups, as re-measured on 2026-10-23 (fourteen when
+**This is a RATCHET, not a clean-slate assertion.** Ten packages diverge, in
+five of the eight co-install groups, as re-measured on 2026-10-24 (fourteen when
 this test was written); failing on those today would
 only add a red test nobody can clear. ``KNOWN_DIVERGENCES`` records them, and
 the two tests below pin the boundary in BOTH directions: a package that starts
@@ -68,6 +68,10 @@ _REQ = re.compile(r"-r\s+(\S+\.(?:txt|lock))")
 # typing-extensions left the four groups that held it on 2026-10-23, when
 # pydantic 2.14.1 (which requires typing-extensions>=4.16.0) moved
 # environments/requirements-ci.txt from 4.15.0 to 4.16.0.
+# filelock left security.yml:pip-audit on 2026-10-24. That job installs
+# environments/requirements-pip-audit.txt (filelock 3.29.4) and
+# environments/requirements.lock (3.32.0) together, and both moved to 4.2.4 for
+# CVE-2026-112940, CVE-2026-112907 and CVE-2026-112913.
 KNOWN_DIVERGENCES: dict[str, frozenset[str]] = {
     "ci.yml:compat": frozenset({
         "annotated-types", "charset-normalizer", "idna",
@@ -83,7 +87,7 @@ KNOWN_DIVERGENCES: dict[str, frozenset[str]] = {
         "packaging",
     }),
     "security.yml:pip-audit": frozenset({
-        "charset-normalizer", "filelock", "packaging", "platformdirs",
+        "charset-normalizer", "packaging", "platformdirs",
     }),
     "sestrav_verify_benchmarking.yml:verify-benchmark": frozenset({
         "annotated-types", "charset-normalizer", "idna",
