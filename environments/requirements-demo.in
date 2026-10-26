@@ -14,7 +14,7 @@
 # it shares with requirements.txt keep the versions CI tests.
 # tests/test_images_install_only_hashed_dependencies.py enforces all of this.
 biopython==1.88
-fastapi==0.143.2
+fastapi==0.150.0
 joblib==1.6.0
 jsonschema==4.26.0
 matplotlib==3.11.2
@@ -28,7 +28,7 @@ pyyaml==6.0.3
 requests==2.34.2
 scikit-learn==1.8.0
 scipy==1.17.1
-setuptools==84.1.0
+setuptools==84.2.0
 shap==0.51.0
 streamlit==1.66.1
 torch==2.13.0
