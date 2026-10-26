@@ -768,6 +768,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **The release workflow's post-publish smoke test installs only hash-checked wheels.** Its
+  `smoke` job ran `pip install "sestrav==${VERSION}" --index-url https://pypi.org/simple/`,
+  which resolved the package and its whole dependency tree, torch included, from PyPI with no
+  hashes; OpenSSF Scorecard's Pinned-Dependencies check reports that line as code-scanning
+  alert #76. The job now checks out the tagged commit and installs the hash-pinned pip
+  bootstrap, then `environments/requirements-api.txt`, then the published wheel pinned to the
+  SHA-256 digest the build job recorded, so PyPI serving other bytes under that version fails
+  the install. Every install passes `--require-hashes --no-deps --only-binary=:all:`, so
+  nothing is resolved and nothing is built (an sdist build would fetch its build backend
+  unhashed). `pip check` then confirms the lock satisfies the wheel's own requirements, and
+  the import probes run from outside the checkout, so they import the installed wheel and not
+  the source tree. The API image's lock is the closure because it is compiled for the job's
+  Python 3.13 and pins every `[project].dependencies` entry: `environments/requirements.lock`
+  is compiled for 3.11, which `tests/test_tool_locks_match_their_job_python.py` refuses for a
+  3.13 job, and `requirements.txt` does not carry jsonschema. Read against
+  `checks/raw/shell_download_validate.go` at Scorecard v5.6.0, the release the pinned
+  scorecard-action v2.5.0 builds with, every pip command in the job is pinned; the score has
+  not been re-measured. On Linux with CPython 3.13 the job's own commands, with a local index
+  standing in for PyPI, installed all 78 pins of the lock and then the wheel, `pip check`
+  reported no broken requirement, and a tampered wheel, an index serving only the sdist, and
+  empty digests each failed the step. `tests/test_release_workflow_oidc_install_isolation.py`
+  gains four tests that pin this shape and a unit test of the digest-flow helper one of them
+  uses; the four, and the existing job-order test, fail against the previous workflow.
 - **gitpython now pins 3.2.1, its first release patched for GHSA-83vg-56qc-22m7 /
   CVE-2026-114145 (high, published 2026-10-22).** The advisory affects gitpython 3.2.0 and
   earlier: per its title, GitPython validates a submodule's ".git" path only after cloning

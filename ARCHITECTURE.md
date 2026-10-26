@@ -494,9 +494,12 @@ trained model binaries or runtime caches; training must run before production sc
   **Every other job that installs torch takes it from default PyPI**, and that set is wider than
   it looks - `iedb_benchmark.yml` and `security.yml` via `environments/requirements.lock`, and
   `ci.yml`'s own `compat` matrix via `requirements.txt`, which pins `torch` with no environment
-  marker. The non-lockfile CI steps that resolve from an index are unhashed by design:
-  `release.yml`'s pre-publish gate and its post-publish smoke test install the package with its
-  dependencies as a user would. `iedb_benchmark.yml`'s editable install, once listed here, is
+  marker. The non-lockfile CI step that resolves from an index is unhashed by design:
+  `release.yml`'s pre-publish gate installs the package with its dependencies as a user would.
+  Its post-publish smoke test no longer does: it installs
+  `environments/requirements-api.txt` and then the published wheel by the digest the build job
+  recorded, each install with `--require-hashes --no-deps --only-binary=:all:`.
+  `iedb_benchmark.yml`'s editable install, once listed here, is
   now `--no-deps --no-build-isolation` and downloads nothing, and the Dockerfiles have since
   moved to hash-pinned locks.)
   Two CI gates hold this together: `tools/check_hash_pins.py`
