@@ -27,7 +27,7 @@ mhcflurry==2.2.1
 # frontend; the setuptools build backend never reaches it", and this repo has no
 # setup.py, no setup.cfg and no setup_requires, so the bump closes the advisory
 # rather than a reachable exposure.
-setuptools==84.1.0
+setuptools==84.2.1
 
 # Plotting and explainability
 matplotlib==3.11.2
