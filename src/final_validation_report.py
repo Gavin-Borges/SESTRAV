@@ -30,7 +30,7 @@ from src.baseline_comparison import compare_methods
 from src.gold_standard import full_validation_report
 from src.h2_tier_a_evaluation import run_h2_tier_a
 from src.naming import canonical_output_filename, resolve_model_path
-from src.provenance_paths import relative_source
+from src.provenance_paths import failure_note, relative_source
 
 
 def planned_validation_paths(
@@ -253,7 +253,9 @@ def run_final_validation(
                     "valid": False,
                     "freeze_mode": freeze_mode,
                     "generated_at_utc": run_started_at,
-                    "error": str(exc),
+                    # freeze_status.json is tracked; the exception's own text can
+                    # carry an absolute input or temporary-directory path.
+                    "error": failure_note(exc),
                 },
                 f,
                 indent=2,

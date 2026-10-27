@@ -16,6 +16,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
+### Security
+- **The semgrep tool lock moves mcp from 1.29.0 to 1.30.0 and the OpenTelemetry packages
+  from 1.37.0 / 0.58b0 to 1.45.1 / 0.66b1, closing CVE-2026-59951 / GHSA-84m7-p3x7-pcfv and
+  CVE-2026-114603 / GHSA-xcq7-p3pf-p88h (both medium), through a reinstated uv override.**
+  Every semgrep release from 1.179.0 (pinned) through 1.182.1 (the newest on PyPI on
+  2026-10-23) declares `mcp==1.29.0` exactly and `opentelemetry-api~=1.37.0`, so no semgrep
+  upgrade reaches either fix, and a floor for either in the `.in` makes the spec
+  unsatisfiable (uv reports both). The mcp advisory is unbounded session accumulation in
+  its server-side StreamableHTTP transport; the OpenTelemetry one is
+  `TraceState.from_header` splitting an inbound `tracestate` header with an unbounded
+  regex. Neither is reachable as CI uses the tool, read in semgrep 1.179.0's installed
+  source: both semgrep jobs only run `semgrep scan`, which starts no MCP server, although
+  importing semgrep's CLI loads 47 `mcp.server` modules, the StreamableHTTP one included;
+  and semgrep's only call into OpenTelemetry's header extraction, `extract()` in
+  `semgrep/telemetry.py`, runs only under `--trace`, which neither job passes, and hands it
+  a carrier built locally with a `traceparent` and no `tracestate`. The lock is fixed
+  because patched releases exist. `environments/semgrep-overrides.txt` returns and lifts
+  exactly six packages: mcp to the 1.30 series, and opentelemetry-api, -sdk,
+  -exporter-otlp-proto-http, -instrumentation-requests and -instrumentation-threading to
+  1.45.1 / 0.66b1. The api cannot move alone, because opentelemetry-sdk 1.37.0 requires
+  `opentelemetry-api==1.37.0`; the two instrumentation lines change no pin today, since
+  semgrep's own `~=0.58b0` already admits 0.66b1, and bound the family so it moves and
+  retires as one unit. The file states one exit condition for mcp and one for the
+  OpenTelemetry group. Recompiled with `tools/update_dependencies.py --ci-env semgrep` (no
+  `--upgrade`), the lock moves mcp and ten OpenTelemetry pins, adds
+  opentelemetry-exporter-http-transport and opentelemetry-exporter-otlp-common, drops
+  importlib-metadata and zipp, which only opentelemetry-api 1.37.0 pulled in, and leaves the
+  other 53 pins and their hash sets unchanged; the same recompile without the override
+  reproduces the previous lock byte for byte. `pip-audit -r
+  environments/requirements-semgrep.txt --no-deps --disable-pip` reports exactly these two
+  advisories against the previous lock and none against this one, with `-s osv` and with
+  `-s pypi`. Each lock installed with `--no-deps --require-hashes` into its own location,
+  semgrep 1.179.0 on Windows and on Linux (WSL Ubuntu), Python 3.11 both, against the same
+  tree: the blocking custom-rules argv ran the same 7 rules over the same 241 files with 0
+  results and 0 errors under both locks, the advisory `p/python` scan loaded the same 158
+  rules and returned the same 3 SARIF results, all suppressed in source, and
+  `scripts/check_semgrep_rule_fixtures.py` passed under both. The lock now contradicts
+  semgrep's own metadata: uv, resolving it as its input, reports it unsatisfiable, and a
+  resolving `pip install --dry-run --require-hashes` of it on Linux fails with
+  `ResolutionImpossible`, while the previous lock resolves under both. So both semgrep
+  installs in `security.yml` pass `--no-deps` again. Dependabot's pip updater recompiles
+  with pip-compile, from options it derives from the existing lock, and never passes an
+  override file (dependabot-core's `pip_compile_file_updater.rb` has no override option),
+  so its grouped `/environments` PRs are expected to walk the lock back; finalize them
+  with `tools/update_dependencies.py`. In `tests/test_dependency_tooling.py` the
+  retired-override guards are inverted rather than deleted: the semgrep spec is the single
+  permitted override and its file must exist and be the only one; the override must name
+  exactly those six packages and state both exit conditions; the lock must pin a version
+  each override line admits; and two floors stated independently of the override file,
+  mcp at 1.30.0 and opentelemetry-api at 1.45.1, fail a recompile without it. The
+  `--no-deps` install guard, dormant since the pyjwt override was retired, applies again.
+  `CONTRIBUTING.md`, `ARCHITECTURE.md` and `environments/requirements-semgrep.in` record
+  the override's return.
+
 ### Fixed
 - **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
   bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`
@@ -164,6 +218,220 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
   full suite gives the same passed and skipped counts whether or not the env's launcher
   directory is on PATH.
+- **The affiliation gate now reads a wrapped own-institution name through a
+  blockquote, comment, list or table marker, and only accepts the wrap when the
+  remaining words end where the name ends.** `scripts/check_affiliation_claims.py`
+  scans line by line, so `is_wrapped_own_institution` accepts a truncated own
+  institution when the NEXT line supplies its remaining words. It compared those words
+  with the next line as written, so a wrap inside a Markdown blockquote, a `#`, `//`,
+  `;` or `%` comment, a ` * ` block-comment line, a `-`, `+` or numbered list or a `|`
+  table, each of which repeats its marker at the start of the next line, reported the
+  project's own institution as unreviewed. Re-flowing one paragraph that names it at
+  every width from 20 to 80, with the marker put in front of every line after
+  wrapping, gave a finding the unwrapped paragraph does not at 20 of the 61 widths for
+  each of `> `, `- `, `# `, `* `, `// `, `1. `, `; ` and `% `, and at none for a bare
+  or indented continuation. The leading markers and whitespace are now removed before
+  the comparison, and the same re-flow gives that finding at none of the 61 widths for
+  any of those eight. A number is removed only as an ordered-list marker (one to nine
+  digits, then `.` or `)`, then whitespace), so `1: `, `a. ` and `(1) ` are not, and
+  each still gives it at 20 of the 61. **The same comparison was a
+  `startswith`, so it also accepted a continuation that merely BEGINS with the
+  remaining words**: a truncated head followed by a longer word on the next line
+  passed the gate with exit 0, the shape of the B13 hole that a bare prefix rule had
+  opened before. The remaining words must now be followed by a non-alphanumeric
+  character or the end of the line, so punctuation, a possessive and a hyphenated
+  compound still complete the name. Third-party names are still never accepted as
+  wraps. Twenty-two new tests in `tests/test_check_affiliation_claims.py` (seventeen
+  marked wraps end to end, the marker, leader, number and boundary rules directly, and
+  the longer-word case end to end) all fail on the previous code except the number
+  rule's guard, which passes on both and fails if that rule widens; eight mutants of
+  the marker and boundary change and sixteen of the number and leader change are each
+  killed. Run over the primary checkout's whole tree in `--all` mode, the previous and
+  the new gate print byte-identical findings, so no finding in any current file moves
+  in either direction; the tracked-tree gate stays at exit 0.
+- **Two writers that record a caught exception's text no longer write a workstation
+  path with it.** `scripts/audit_cv_leakage.py` stores the exception from its mode-35
+  feature build in the `note` cell of that row, and `run_final_validation` stores the
+  exception from its publication boundary in the `error` field of
+  `results/freeze_status.json`, a tracked file. Both stored `str(exc)`. An `OSError`'s
+  text quotes the path it failed on as the caller gave it, and a message built with an
+  f-string carries whatever path was put into it, so either cell could hold an absolute
+  path. The audit case is not hypothetical: regenerated from a clone, where the
+  gitignored `data/self_similarity_cache.csv` is absent, the mode-35 row's `note` held
+  `[Errno 2] No such file or directory: '<clone>/data/self_similarity_cache.csv'` with
+  the clone's absolute location in place of `<clone>`. Both now record
+  `src.provenance_paths.failure_note(exc)`: the exception's type, then its message with
+  each path found in it reduced by `relative_source`, so a path inside the checkout keeps
+  its repo-relative form and any other becomes `external:<name>`. An `OSError` that names
+  its file is rebuilt from `strerror` and the reduced `filename` (and `filename2`); any
+  other message has each path found in it reduced in place, a quoted one whole and a bare
+  one up to the next space or quote. A path directly after a `:` is not found and stays
+  as written (`key:/abs/dir/x.csv`, `file:///abs/dir/x.csv`; with a space,
+  `key: /abs/dir/x.csv` is reduced), so that a URL's `//` is never read as a path.
+  Because both writers call the helper inside an `except` block, it must not raise
+  itself: `relative_source` now records a path that `os.path.realpath` cannot resolve as
+  external instead of letting the `OSError` escape. On Windows `realpath` raised
+  WinError 668 for a malformed UNC name (two backslashes and a `;`), which would have
+  replaced the error being recorded and left `freeze_status.json` unwritten. The existing
+  tests in `tests/test_writers_record_no_workstation_path.py` drove both writers' success
+  paths only, which is how the failure paths went unchecked; thirteen new tests there
+  drive each failure path, inside and outside the checkout, and check the helper on its
+  own, including UNC paths in both separators, a path `realpath` cannot resolve, and
+  messages that must come back unchanged (`n/a`, `3/4`, `~2/3`, `+/-`, a URL, an HLA
+  allele pair). All thirteen fail on the previous code, and ten mutants of the helper
+  and the two call sites are each killed. The tracked
+  `results/cv_leakage_audit.csv` and `results/freeze_status.json` are not regenerated by
+  this change.
+- **PredIG's recombinant input now takes each peptide's protein context from the FASTA
+  the peptide was cut from, so all eight antigens `config.yaml` runs get their real
+  parent proteins.** `build_recombinant_table` looked parents up in `PROTEOME_FASTA`, a
+  hand-written table naming two panels (`EBV_B95_8_panel8`, `HPV16_18_panel8`). For the
+  other six (`HBV_ayw_panel4`, `HCV_1a_panel4`, `HIV1_HXB2_panel4`,
+  `SARSCOV2_wuhan1_panel4`, `IAV_PR8_panel4`, `CMV_AD169_panel4`) every peptide fell
+  through to `synthetic_protein_context`, the peptide padded with glycine, and once the
+  recombinant input could be built at all, PredIG run under Docker scored that padding as
+  if it were the parent protein, with nothing in the output saying so. Measured on the
+  pipeline's own stage 2 output for all eight antigens: 68,224 of 94,573 unique peptides
+  (72.1%), every peptide of those six antigens, got synthetic context; with this change,
+  none does. `rule run_predig` now takes the FASTA as an input by reusing
+  `rules.generate_peptides.input.fasta`, the same input function that cut the peptides,
+  rather than restating its lookup, and passes it as `--proteome-fasta`. For the two
+  panels the table already named, the table and `config.yaml` name the same file, and the
+  recombinant input is byte-identical before and after. `build_recombinant_table` gains
+  `proteome_fasta=`, searched first for that proteome's rows only, refused without the
+  `proteome_id` it belongs to, and an error rather than a silent fall-through when the
+  path is not a file; a peptide the file does not hold still falls back and is still
+  counted. The external-validation path, which carries its own `proteome_id` column and
+  passes no FASTA, is unchanged. A new test checks every antigen `config.yaml` runs: a
+  Snakemake dry run hands `run_predig` exactly the FASTA `config.yaml` names, the file is
+  tracked, and a peptide cut from it maps to a real protein. Eight mutants, each removing
+  one part, all fail it. PredIG itself was not run against a real container here.
+- **The simulated PredIG score now follows stage 2's binding columns instead of being
+  noise around a constant.** `scripts/run_predig_wrapper.py` builds `bind_map` by
+  matching the requested alleles against the binding CSV's columns, and it matched a
+  column only when that column was named exactly like the allele or began with `HLA-`.
+  `functions/stage2_mhc_binding_prediction.py` writes its per-allele presentation
+  scores as WIDE columns named by its own `_allele_to_col` rule, which turns
+  `HLA-A*02:01` into `bind_A0201`, so on the CSV `rule run_predig` actually passes no
+  column ever matched. `bind_map` stayed empty, every `bind_val` kept its 0.5 default,
+  and every simulated score was seeded noise around the constant 0.375 carrying no
+  binding signal at all; the wrapper's own comment had recorded this as defect (2).
+  Each requested allele is now resolved to stage 2's column name as well, and
+  `bind_map` is keyed by the allele rather than by the column so that the lookup can
+  find it. That one-line naming rule is COPIED rather than imported, because stage 2
+  imports mhcflurry at module level (3.9 s and over 2,300 modules, torch among them,
+  measured in the sestrav env), a heavy import for one string rule; a test pins the
+  copy as agreeing with stage 2's own. A column named exactly like the allele still wins where
+  one exists, and the nM-affinity conversion for values above 1.0 is unchanged. Blank
+  cells are now dropped rather than mapped, because `min(1.0, nan)` returns 1.0 and an
+  absent presentation score would otherwise have scored that row as the strongest
+  possible binder. Behaviour change: simulated PredIG scores now vary with stage 2's
+  `presentation_score` wherever the CSV carries one for the allele, where before they
+  varied only with the seed; an allele the input has no binding values for is still
+  noise around a constant. These rows are still SIMULATED and still carry
+  `simulated=1`, because binding-derived noise is still not PredIG output. No
+  simulated PredIG output is a tracked file, so no committed artifact changes.
+- **PredIG's recombinant input now builds from the binding CSV `rule run_predig`
+  actually passes it, so the default pipeline attempts real PredIG instead of always
+  simulating.** `scripts/run_predig_wrapper.py` handed stage 2's
+  `results/{proteome_id}_binding.csv` to `build_recombinant_table` as the peptide
+  metadata file, and that function selected `peptide`, `proteome_id` and `virus` from
+  it unconditionally. `functions/stage2_mhc_binding_prediction.py` writes neither of
+  the last two, so the selection raised `KeyError`, the wrapper caught it as "failed
+  to build recombinant input", and `predig_input_built` was False on every run. With
+  Docker installed and working the wrapper still took the simulated branch, which the
+  wrapper's own comment had recorded as defect (1) since the simulated flag landed.
+  `build_recombinant_table` now reads only the metadata columns the CSV has and takes
+  an optional `proteome_id` from its caller; a `proteome_id` column still wins where
+  the CSV has one, so the external-validation route through the module's own `main()`
+  is unchanged. The wrapper gained an optional `--proteome-id`, and `rule run_predig`
+  passes `{wildcards.proteome_id:q}`, quoted like every other interpolation in
+  `standardize_outputs.smk`. Behaviour change: with Docker installed the default
+  pipeline now ATTEMPTS PredIG; with Docker absent, or called without the new flag on
+  a stage-2 CSV, it still simulates and marks every row `simulated=1`, and the build
+  failure is now a `ValueError` naming the missing column rather than a bare
+  `KeyError`. The second defect that comment records, `hla_cols` never matching stage
+  2's wide `bind_A0201`-style columns, is unchanged and still noted there.
+- **`environment.yml` now pins conda `pip` to 26.2.1, the version
+  `environments/requirements-pip-bootstrap.txt` pins, instead of 24.0.** The conda `pip`
+  is the pip that `conda env create` uses to run the hash-checked `pip:` block, so it is
+  the pip that installs `requirements.txt`. pip-audit 2.10.1 reports six advisories
+  against 24.0 (PYSEC-2026-196, PYSEC-2026-1795, PYSEC-2026-1796, PYSEC-2026-2875,
+  PYSEC-2026-2876 and PYSEC-2026-3721), fixed in releases from 25.3 to 26.2.
+  `.github/dependabot.yml` configures no conda ecosystem, and Scorecard's vulnerability
+  check on `main` listed one unrelated advisory while this pin was live, so neither
+  reported them. A new test holds the conda pin equal to the bootstrap lock's single
+  hash-locked `pip` pin, a `requirements*.txt` file that GitHub's dependency graph reads,
+  so the conda path now moves when that file does. A dry-run conda solve of
+  `environment.yml`'s conda dependencies with the new pin selects python 3.11.15 and
+  pip 26.2.1 from conda-forge; a full `conda env create` was not run.
+- **`.gitignore` now blocks the key, token and backup files its security block
+  missed.** It already ignored `*.key`, `*.pem`, `*.p12`, `*.pfx`, `*.jks` and the four
+  OpenSSH default key names, but a PuTTY key (`*.ppk`), an ASCII-armoured PGP export
+  (`*.asc`), a binary keyring (`*.gpg`), cloud service-account and OAuth client JSON,
+  a bare `token.txt`, editor directories (`.vscode/`, `.idea/`, whose launch
+  configurations carry environment variables), backup, merge and swap leftovers
+  (`*.bak`, `*.orig`, `*.rej`, `*.swp`, `*.swo`) and core dumps were all committable.
+  The core-dump rule is `/core` plus `core.[0-9]*`, not the bare `core` a sweep
+  proposed: a bare `core` also matches `src/core/`, which holds three tracked modules,
+  and would have silently ignored every new file added there. Measured before adding:
+  the set of tracked files the rules ignore is identical before and after (the same 10
+  force-added files), so nothing tracked changes state. A new test checks 20 paths that
+  must be ignored and 6 that must not, including `src/core/` sources, with
+  `git check-ignore --no-index`.
+- **`scripts/run_pandora_structures.py` no longer tells readers to install another
+  vendor's package.** Its setup block said `pip install pandora pdb2sql mhctools`. On
+  PyPI, `pandora` is CNES's stereo-matching framework ("Pandora is a stereo matching
+  framework that helps emulate state of the art algorithms", pypi.org/project/pandora,
+  read 2026-10-19), unrelated to peptide-MHC modelling, so the instruction installed
+  third-party code and no PANDORA at all. The block now gives upstream's own routes from
+  the X-lab-3D/PANDORA README (read the same day): MODELLER and muscle/blast from conda,
+  then PANDORA as `csb-pandora` from the `csb-nijmegen` channel or from a clone with
+  `pip install -e .`, and `pandora-fetch` for the template database in place of a
+  `pandora.fetch_templates()` call that upstream does not document. **A known gap is
+  disclosed rather than fixed:** the script imports a lowercase `pandora` package and
+  calls `pandora.peptide.Peptide` and `.run()`, while upstream's package is `PANDORA` and
+  its documented API is `from PANDORA import Target, Pandora, Database`, so as written the
+  script cannot import upstream PANDORA. Porting it needs a MODELLER license to test and
+  is not attempted here. A new test fails if any tracked file other than this changelog
+  carries a pip install of the bare `pandora` name.
+- **`scripts/check_secrets.py` now reads UTF-16 and UTF-32 files, which it used to pass
+  unexamined.** Every file was read as UTF-8 only, and a UTF-16 file read that way is each
+  ASCII character followed by a NUL byte, so neither the keyword patterns nor the
+  vendor-format patterns could match anything in it. Measured on the scanner as it stood:
+  a credential assignment and a GitHub token shape, each written as UTF-16 or UTF-32 in
+  either byte order, with or without a byte-order mark, were all missed, and the tree scan
+  printed `[SUCCESS]` over such a file. Windows PowerShell 5.1's `>` redirection and
+  `Out-File` write UTF-16LE by default, so this is how such a file reaches a commit on a
+  Windows workstation. Every gate that delegates to this scanner inherited the gap: the
+  `Custom Secret Pattern Scan` job in `security.yml` and both passes of pre-push Check 6.
+  A file whose UTF-8 reading contains a NUL byte is now also read as UTF-16 and UTF-32 in
+  both byte orders, and a line flagged by any reading is reported once. The UTF-8 pass
+  runs first and is unchanged, so nothing it caught can stop being caught, and a file with
+  no NUL byte is read exactly as before. All four readings are tried rather than one chosen
+  from a byte-order mark, because choosing one would let a file arranged to look like one
+  encoding hide content that is readable in another. The live tree scan is unchanged
+  (`[SUCCESS]`). The `pii_scan.yml` path scan is a separate workflow and is not changed
+  here.
+- **`scripts/check_secrets.py` now catches `pass` names, connection-string passwords,
+  passwords on a command line, and R assignments.** Each shape below was planted with an
+  18-character value that clears the length and entropy floors and was missed by the
+  scanner at `e653f140`, while the plain `api_key = "<v>"` control was flagged: a `pass`
+  name (`DB_PASS = "<v>"`, a JSON `"pass"` key, `db_pass: <v>` in YAML, `SMTP_PASS=<v>` in
+  a `.env`); a `Password=` or `PWD=` element of an ADO.NET or ODBC connection string;
+  `--password <v>` with a space (the `=` form was already caught), `mysql -p<v>`,
+  `curl -u user:<v>` and `twine upload -p <v>`; and `api_key <- "<v>"` in R, which `.qmd`
+  and `.md` files carry. Each is a separate pattern, so it is additive and goes through
+  the same floors as the rest. What stays quiet is pinned too: placeholders and shell
+  variables after a flag (`<PASSWORD_HERE>`, `"$DB_PASSWORD"`, `${{ secrets.X }}`), a bare
+  `mysql -p`, which prompts, names that only contain the letters (`bypass_mode`,
+  `passport_id`), a keyword argument (`connect(password=...)`), and an R comparison
+  (`token < -1`). An unquoted lone `pass:` is deliberately not matched: measured first, it
+  hit "pass: governance" in this file, stopped by the entropy floor at 2.92, and "Second
+  pass: documentation" (3.24) would clear it, so it would turn the gate red on prose; the
+  unquoted form needs a joined name such as `DB_PASS`, and a lone `pass` is caught when
+  quoted. Over every file the tree scan reads, the new patterns flag nothing, and the
+  scan stays `[SUCCESS]`. Multi-line values are not covered.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
@@ -793,6 +1061,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the 56 cases in the new `tests/test_check_secrets_keyword_names.py` fail on the
   previous scanner, each at an assertion that expects a finding; the other six assert
   that lookalike names and placeholder values stay clean.
+- **filelock now pins 4.2.4 and setuptools 84.1.0, closing four advisories, and
+  pyproject.toml's `[build-system]` floor rises to `setuptools>=84.1.0`.**
+  filelock 3.32.0 (`requirements.txt`, `environments/requirements.lock`,
+  `environments/requirements-api.txt`, `environments/requirements-demo.txt`) and 3.29.4
+  (`environments/requirements-pip-audit.txt`) are affected by CVE-2026-112940
+  (GHSA-v4x8-3wr5-3wq8, high), CVE-2026-112907 and CVE-2026-112913 (both low), all first
+  patched in 4.2.1; uv resolves 4.2.4. No tracked file imports filelock: it arrives
+  through torch in the four application locks and through cachecontrol in the pip-audit
+  tool lock. The high advisory and CVE-2026-112913 concern filelock's SQLite-backed
+  `ReadWriteLock`, which an installed torch 2.13.0 does not reference; its filelock
+  imports take `FileLock`, `BaseFileLock` and `Timeout`. setuptools 84.0.0 is affected by
+  GHSA-xmj3-9gf7-h52w (low), affected from 38.2.2: on Windows, a crafted wheel's
+  `namespace_packages.txt` can make `Wheel.install_as_egg` write an `__init__.py` outside
+  its destination. setuptools' v84.1.0 release note says that path is reached only by the
+  deprecated `setup_requires` mechanism outside a PEP 517 frontend, and this repository has
+  no `setup.py`, `setup.cfg` or `setup_requires`. The setuptools pin moves in
+  `requirements.in` and the api, ci-build and demo specs, and the floor in
+  `environments/requirements-lock.in` rises with `[build-system]`, which states the
+  security minimum rather than the pin; CONTRIBUTING.md's setuptools-floor section and
+  `tools/update_dependencies.py`'s `--help` epilog are updated to match. Both packages were
+  recompiled one at a time with `tools/update_dependencies.py --target`, not taken from
+  Dependabot's #806 and #807: only the moved pins and their hashes change, in the five
+  lockfiles that carry each package, six distinct files in all. pip-audit finds no advisory
+  in any of the six on either the PyPI or the OSV feed. `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` are regenerated by replaying the SBOM job on Linux, and
+  filelock's version is their only change. filelock also stops diverging inside `security.yml`'s pip-audit job, which
+  installs `environments/requirements-pip-audit.txt` and `environments/requirements.lock`
+  together, so `tests/test_workflow_coinstall_pin_divergence.py`'s baseline shrinks to ten
+  packages.
+- **The release workflow's post-publish smoke test installs only hash-checked wheels.** Its
+  `smoke` job ran `pip install "sestrav==${VERSION}" --index-url https://pypi.org/simple/`,
+  which resolved the package and its whole dependency tree, torch included, from PyPI with no
+  hashes; OpenSSF Scorecard's Pinned-Dependencies check reports that line as code-scanning
+  alert #76. The job now checks out the tagged commit and installs the hash-pinned pip
+  bootstrap, then `environments/requirements-api.txt`, then the published wheel pinned to the
+  SHA-256 digest the build job recorded, so PyPI serving other bytes under that version fails
+  the install. Every install passes `--require-hashes --no-deps --only-binary=:all:`, so
+  nothing is resolved and nothing is built (an sdist build would fetch its build backend
+  unhashed). `pip check` then confirms the lock satisfies the wheel's own requirements, and
+  the import probes run from outside the checkout, so they import the installed wheel and not
+  the source tree. The API image's lock is the closure because it is compiled for the job's
+  Python 3.13 and pins every `[project].dependencies` entry: `environments/requirements.lock`
+  is compiled for 3.11, which `tests/test_tool_locks_match_their_job_python.py` refuses for a
+  3.13 job, and `requirements.txt` does not carry jsonschema. Read against
+  `checks/raw/shell_download_validate.go` at Scorecard v5.6.0, the release the pinned
+  scorecard-action v2.5.0 builds with, every pip command in the job is pinned; the score has
+  not been re-measured. On Linux with CPython 3.13 the job's own commands, with a local index
+  standing in for PyPI, installed all 78 pins of the lock and then the wheel, `pip check`
+  reported no broken requirement, and a tampered wheel, an index serving only the sdist, and
+  empty digests each failed the step. `tests/test_release_workflow_oidc_install_isolation.py`
+  gains four tests that pin this shape and a unit test of the digest-flow helper one of them
+  uses; the four, and the existing job-order test, fail against the previous workflow.
 - **gitpython now pins 3.2.1, its first release patched for GHSA-83vg-56qc-22m7 /
   CVE-2026-114145 (high, published 2026-10-22).** The advisory affects gitpython 3.2.0 and
   earlier: per its title, GitPython validates a submodule's ".git" path only after cloning
@@ -809,6 +1129,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   its locks unchanged: no other pin moved, and both new hashes are PyPI's published files
   for 3.2.1. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` are regenerated, and
   gitpython's version is their only change.
+- **The secret scan now catches exported OpenPGP and PuTTY private keys (SCR-01).**
+  Both passed every repository gate: an armored OpenPGP secret key ends its header in
+  "PRIVATE KEY BLOCK" plus dashes, which the PEM rule cannot reach, and a PuTTY `.ppk`
+  file has no PEM header at all. `scripts/check_secrets.py`, the only content scan CI
+  runs, gains a pattern for each, and now opens `.asc`, `.ppk`, `.pem` and `.key`
+  files, which it previously never read; no tracked file has any of those suffixes.
+  The PGP pattern writes its closing dashes as `-{5}` so its own text, which the
+  scanned pre-commit hook also carries, cannot match it, and a new test holds every
+  credential pattern to that. The companion maintainer change adds the same two
+  patterns to the hook's `CRED_PATTERNS` and blocks `.ppk` files by name.
 - **The demo image reaches Pillow 13.0.0: its streamlit pin moves from 1.65.0 to 1.66.1,
   and SECURITY.md's risk acceptance for the demo's Pillow 12.3.0 is resolved.** streamlit
   1.66.1 declares `pillow<14,>=9.2.0`, where 1.65.0 and 1.66.0 declare `pillow<13`.
@@ -888,6 +1218,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   CVE-2026-112403 among them, which OSV and the GitHub advisory database both carry.
   `docs/sbom.json` and
   `docs/DEPENDENCY_LICENSES.md` are regenerated for the two new versions.
+- **Every tracked hash-pinned lock can now be audited for published advisories, not only
+  `environments/requirements.lock`.** CVE-2026-59951 was published on 2026-10-15 against
+  `mcp` 1.29.0, already pinned in `environments/requirements-semgrep.txt`, and no CI job that
+  can fail saw it: `tools/check_lockfile_advisories.py` judged the production lock alone,
+  `.github/workflows/dependency-review.yml` judges only the versions a pull request changes,
+  and the installed-set `pip-audit` sees only what its own runner installed. The new
+  `tools/audit_all_locks.py` runs `pip-audit -r <lock> --no-deps --disable-pip -s osv` (no
+  resolver, no install, no `--ignore-vuln`) over every manifest `tools/check_hash_pins.py` treats as
+  hash-pinned, 16 on 2026-10-17, and judges each report with that gate's own policy. A report
+  that skips a pinned package, or omits one, is a tooling failure (exit 2), never a pass, and a
+  new test derives the lock population independently from git and fails if any tracked lock
+  goes unaudited. Acceptances in `environments/accepted_advisories.toml` are now scoped per
+  lock by an optional `lock` field; an entry without one still covers
+  `environments/requirements.lock` only, as every entry did before, so accepting an advisory
+  for one lock never covers the same pin in another. Package names now compare in PEP 503
+  form, so a lock pin spelled with a dot or with extras can no longer read as out of scope;
+  no tracked lock pins either form today. Run on 2026-10-17 over all 16 locks with
+  pip-audit's default PyPI feed, it reported exactly one unaccepted finding, CVE-2026-59951 on
+  `mcp` in the semgrep lock, and exited 1; accepting or fixing that finding is a separate
+  decision, and no acceptance was added. It now audits against OSV (`-s osv`), because the
+  default PyPI feed lacks advisories OSV carries: on 2026-10-23, over a scratch lock of 15
+  older pins, OSV reported 131 distinct (package, version, id) findings and PyPI 127, the 4
+  only OSV carried all against pillow 12.3.0, CVE-2026-112403 among them. The cost is that
+  only the PyPI service marks a pinned name it cannot find as skipped; under OSV such a name
+  reads as audited. Either service can list one advisory twice for a package, and a repeated
+  row is now counted once. Run on 2026-10-23 over all 16 locks with OSV, it reports exactly
+  two unaccepted findings, CVE-2026-59951 on `mcp` and CVE-2026-114603 on
+  `opentelemetry-api`, both in the semgrep lock, with the other 15 locks clean (622 pins,
+  none skipped or missing), and exits 1; the PyPI feed reported the same two that day. It
+  runs as an advisory (`continue-on-error`) step in the `pip-audit` job of
+  `.github/workflows/security.yml`, by owner ruling of 2026-10-17, to become blocking after
+  one green week, and that job's installed-set audit and the JSON report its fail-closed gate
+  reads move to `-s osv` too.
 - **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
   references, which it used to pass.** Each hands pip something the gate never inspects, and
   each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included
@@ -913,6 +1276,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **`tools/update_dependencies.py` now resolves every lockfile against PyPI alone, so a
+  developer's uv settings can no longer route a recompile through another index or
+  change what it writes.** The tool named no index and passed its whole environment to
+  uv. Measured on uv 0.12.0 by recompiling the `ci-ruff` lock through the tool with a
+  dead index injected one route at a time, ten routes reached it, each exiting 2:
+  `UV_DEFAULT_INDEX`, `UV_INDEX_URL`, `UV_EXTRA_INDEX_URL`, `UV_INDEX`, `UV_FIND_LINKS`,
+  `UV_CONFIG_FILE`, a user-level `uv.toml`, a `UV_CONSTRAINT` file carrying an
+  `--extra-index-url` or `--find-links` line, and a `UV_OVERRIDE` file carrying an
+  `--extra-index-url` line. `UV_CUSTOM_COMPILE_COMMAND` rewrote the lock header, and
+  `UV_EXCLUDE_NEWER` and `UV_WORKING_DIR` each made the run fail. uv now runs with every
+  `UV_*` variable dropped except six that cannot change what it resolves
+  (`UV_CACHE_DIR`, `UV_HTTP_TIMEOUT`, `UV_NATIVE_TLS`, `UV_NO_CACHE`, `UV_NO_PROGRESS`,
+  `UV_SYSTEM_CERTS`), and with `UV_NO_CONFIG=1`, which stops it discovering a `uv.toml`.
+  The list names what is kept rather than what is dropped because uv adds variables like
+  these from release to release, and a drop-list would go stale; a test drops a `UV_*`
+  name the tool has never heard of. The `--no-config` flag was not used because uv
+  writes it into every lockfile header. The argv also gains
+  `--default-index https://pypi.org/simple`, so a command printed by `--dry-run` and run
+  by hand still names PyPI; that flag rather than `--index-url`, because `--index-url`
+  outranks `UV_INDEX_URL` but not `UV_DEFAULT_INDEX`, while `--default-index` outranks
+  both. uv leaves it out of the header, so no lockfile changes: the same recompile under
+  all fourteen routes tried (the thirteen above and a `UV_BUILD_CONSTRAINT` file, which
+  changed nothing on the old tool either) now exits 0 with the lock byte-identical, and
+  `UV_CACHE_DIR` is still honoured. The repo has no `uv.toml` and no `[tool.uv]` table,
+  and a test fails if one is added, since `UV_NO_CONFIG` would ignore it. Thirteen new
+  tests; ten mutants, each removing one part, all make them fail.
 - **32 provenance, run-metadata and report writers now record a caller-supplied path
   through one function, `src.provenance_paths.relative_source`, instead of as given or
   through a reduction that could keep a username.** The repo's privacy mandate forbids
@@ -1034,6 +1423,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the tests fail: dropping from `relative_source` the authority rule, the `:` and `@`
   name rule, the query and fragment rule, the whitespace strip or the host requirement,
   and reverting the run directory line of `src/external_validation_finalize.py`.
+- **`scripts/ingest_immunecode.py` now checks against the pin the same bytes it ingests.**
+  `main()` loaded the MIRA archive by path and then hashed it by path again, in two
+  separate reads, and the provenance sidecar recorded that second read as
+  `archive_verified_against_pin`. A file replaced between the two reads was extracted and
+  ingested while the sidecar named the pinned release. The archive is now read once:
+  `_read_archive` returns its bytes and the verdict, the members are extracted from those
+  same bytes in memory, the rows are read from the peptide-detail member of those bytes
+  rather than from its extracted copy in the temporary directory, and `_load_csv` returns
+  the verdict with the table, so `main()` no longer reads the file a second time.
+  Extraction itself is unchanged, so its path-traversal refusal still applies. An
+  auto-download whose archive no longer
+  matches the pin by the time it is extracted is now refused; before, the auto-download
+  route was recorded as verified without being checked again. A CSV input is still
+  never verified. The test of the auto-download sidecar now pins its stub archive, as
+  the real download only ever returns pinned bytes. `scripts/ingest_vdjdb.py` is left
+  as it is: it extracts into the data directory and its caller reads the table back
+  from there by path, so a matching change to its archive check would leave the same
+  window one step later. Eight new tests: three replace the archive on disk the moment
+  `zipfile` opens it, one replaces it straight after it is read, one rewrites the
+  extracted CSV before the rows are read, one checks that the verdict covers every byte
+  rather than a prefix, and two cover the auto-download. Eight mutants, each undoing one
+  part, all make a test fail.
 - **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
   `--no-require-hashes` line fails closed.** The check that every requirement carries a
   hash had its own line reader, separate from the pip-faithful one the option check uses. It
@@ -1076,6 +1487,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   carry this repository's review rules for Snakemake, `torch.load`, `load_verified_joblib`,
   workflows and the local hooks. Every key was checked against
   `coderabbit.ai/integrations/schema.v2.json` on 2026-10-14.
+- **The `sestrav-require-verified-joblib-load` semgrep rule now catches a checksum opt-out
+  that is not spelled as the literal `False`.** It matched `required_checksum=False`,
+  `read_verified_bytes(..., required=False)` and a positional `False`, so a flag passed as
+  a name or an expression (`required_checksum=strict`), as the third positional argument
+  (`load_verified_joblib(path, None, strict)`), or inside an unpacked mapping
+  (`**options`) passed the blocking scan while it can still be `False` at run time. The
+  rule now flags any flag but the literal `True`, for both functions; a call that passes
+  no flag stays clean, because the default is `True`, and `load_verified_joblib`'s own
+  body stays exempt. `docs/threat_model.md`'s T2 row says so. Measured with semgrep
+  1.179.0, CI's pin: the fixtures gain seven `ruleid:` and three `ok:` lines, and across
+  every rule's fixtures `scripts/check_semgrep_rule_fixtures.py` now matches 23 findings
+  to 23 `ruleid:` and 16 `ok:` annotations (16, 16 and 13 before); the previous rule
+  reports 5 of this rule's 12 `ruleid:` lines, missing all seven new ones; and the
+  blocking scan, `semgrep scan --config semgrep-rules/ --error`, reports 0
+  findings over 241 files, so no existing caller is affected.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no

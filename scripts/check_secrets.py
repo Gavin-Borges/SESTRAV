@@ -192,6 +192,64 @@ CREDENTIAL_TRIPLE_QUOTED = re.compile(
     r"(?:[_-][a-z0-9]+)*\s*=\s*[bfu]?(?:'''|\"\"\")([^'\"]+)(?:'''|\"\"\")"
 )
 
+# Shapes measured as missed at e653f140 with an 18-character planted value that the
+# floors pass, while the plain `api_key = "<v>"` control was flagged (security sweep
+# 2026-10-19, SCR-06). Separate patterns for the reason given above pattern 8: each
+# runs its own finditer, so none can swallow a match another makes.
+
+# 11. A `pass` name. The keyword group carries password, passwd and pwd but not the bare
+#     word, so `DB_PASS = "<v>"` and a JSON "pass" key were missed, quoted or bare.
+#     A letter or digit may not precede it, so bypass_mode does not match; after it
+#     must come `_` or `-` and more name, a quote, or the operator, so passport_id and
+#     passthrough do not match either.
+#
+#     The UNQUOTED form needs a joined name part (DB_PASS, SMTP_PASS, pass_phrase), and
+#     a lone `pass` is reached only when its value is quoted. Measured first: a lone
+#     `pass:` with a bare value matched "pass: governance" in this repo's CHANGELOG.md,
+#     stopped by the entropy floor at 2.92, and "Second pass: documentation" (3.24)
+#     would have cleared it, so the lone form would turn the gate red on prose.
+_PW_WORD_NAME = r"(?<![a-z0-9])pass(?:[_-][a-z0-9]+)*"
+_PW_WORD_JOINED_NAME = (
+    r"(?<![a-z0-9])(?:[a-z0-9]+[_-])+pass(?:[_-][a-z0-9]+)*"
+    r"|(?<![a-z0-9])pass(?:[_-][a-z0-9]+)+"
+)
+CREDENTIAL_PASS_NAME = re.compile(
+    r"(?i)(" + _PW_WORD_NAME + r")['\"]?\s*[=:]\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+CREDENTIAL_PASS_NAME_BARE = re.compile(
+    r"(?i)(" + _PW_WORD_JOINED_NAME + r")['\"]?\s*[=:]\s*([^\s'\"#,;)\]}]+)"
+)
+
+# 12. A Password= or PWD= element of an ADO.NET or ODBC connection string. The value
+#     follows `=` with no quote of its own, inside a string quoted as a whole. The
+#     element must open the string or follow a `;`, which is what separates it from a
+#     keyword argument such as `connect(password=...)`.
+CREDENTIAL_CONNECTION_STRING = re.compile(r"(?i)(?:;|['\"])\s*(password|pwd)\s*=\s*([^;'\"\s]+)")
+
+# 13. A password on a command line. `--password=<v>` was already caught by the bare-value
+#     parse; the space-separated form, mysql's attached `-p<v>`, curl's `-u user:<v>` and
+#     twine's `-p <v>` were not. A value opening with `<`, `$`, `%` or `{` is a placeholder
+#     or a variable and is skipped. The mysql and twine forms are case-sensitive, as the
+#     tools' own flags are (mysql's `-P` is the port).
+_CLI_VALUE = r"['\"]?([^\s'\"<$%{][^\s'\"]*)"
+CREDENTIAL_CLI_PASSWORD_FLAG = re.compile(r"(?i)(--pass(?:word)?)\s+" + _CLI_VALUE)
+CREDENTIAL_MYSQL_ATTACHED = re.compile(
+    r"(\bmysql(?:dump|admin|import)?\b[^\n]*?\s-p)([^\s'\"<$%{][^\s'\"]*)"
+)
+CREDENTIAL_CURL_USER = re.compile(
+    r"(?i)(\bcurl\b[^\n]*?\s(?:-u|--user)\s*['\"]?[^\s:'\"]+):([^\s'\"<$%{@][^\s'\"@]*)"
+)
+CREDENTIAL_TWINE_PASSWORD = re.compile(r"(\btwine\b[^\n]*?\s-p)\s+" + _CLI_VALUE)
+
+# 14. An R assignment, `<-` or `<<-`, which `.qmd` and `.md` files carry. A comparison
+#     against a negative number (`token < -1`) has a space inside the arrow and does not
+#     match.
+CREDENTIAL_R_ARROW = re.compile(
+    r"(?i)"
+    r"(api[_-]?key|token|secret|password|passwd|pwd|credentials?|auth|private[_-]?key)"
+    r"(?:[_-][a-z0-9]+)*\s*<<?-\s*[bfu]?['\"]([^'\"]+)['\"]"
+)
+
 # A credential embedded in a URL's userinfo. Keyword-independent for the same
 # reason the vendor formats are: `postgres://user:<value>@host/db` names nothing
 # the patterns above recognise, so the assignment rules never saw it. The value
@@ -323,6 +381,14 @@ VENDOR_CREDENTIAL_FORMATS = tuple(
         r"gh[oupsr]_[A-Za-z0-9]{20,}",
         r"sk-(proj|svcacct)-[A-Za-z0-9_-]{20,}",
         r"sk-ant-[A-Za-z0-9_-]{20,}",
+        # SCR-01 (2026-10-19 sweep, High): both passed every gate. An armored
+        # OpenPGP secret key ends its header in "PRIVATE KEY BLOCK-----", which the
+        # PEM rule above cannot reach, and a PuTTY .ppk carries no PEM header.
+        # The closing dashes are written -{5}, not literally, so the pattern's own
+        # text cannot match it: scripts/hooks/pre-commit carries the same string
+        # and is itself scanned (the PEM rule's [A-Z ]* does the same job).
+        r"-----BEGIN PGP PRIVATE KEY BLOCK-{5}",
+        r"PuTTY-User-Key-File-[0-9]+:",
     )
 )
 
@@ -492,6 +558,13 @@ _SCAN_SUFFIXES = (
     ".cfg",
     ".ini",
     ".env",
+    # Key containers (SCR-01). A key committed under its usual file name was never
+    # opened, so the private-key patterns could not see it. No tracked file has
+    # any of these suffixes (measured 2026-10-25), so this adds no false positive.
+    ".asc",
+    ".ppk",
+    ".pem",
+    ".key",
 )
 
 # Text files whose NAME carries no extension. Extensionless files cannot be
@@ -523,6 +596,49 @@ UNREADABLE_PATHS: List[str] = []
 # scan_tree resets it and refuses to pass while it is non-empty.
 TRACKED_LIST_ERRORS: List[str] = []
 
+# Encodings a file is ALSO read in when its UTF-8 reading contains a NUL byte.
+#
+# Every file used to be read as UTF-8 only. A UTF-16 file read that way is each
+# ASCII character followed by a NUL, so no keyword or vendor pattern can match it.
+# Measured 2026-10-19 at e653f140: `api_key = "<18 chars>"` and a GitHub token
+# shape, each written as UTF-16 or UTF-32 in either byte order, with or without a
+# byte-order mark, returned [] from scan_file, and scan_tree printed [SUCCESS] over
+# such a file. Windows PowerShell 5.1's `>` redirection and Out-File write UTF-16LE
+# with a mark by default, so this is how a credential in that encoding gets
+# committed on a Windows workstation.
+#
+# Any ASCII character encoded in one of these four puts a NUL byte beside it, so a
+# NUL is the trigger and an ASCII-only UTF-8 file pays nothing. The readings are
+# ADDITIVE: the UTF-8 pass runs first and unchanged, so no line it flags can stop
+# being flagged, and a file whose encoding is misjudged still gets the UTF-8 pass.
+# All four are tried, rather than one picked from a byte-order mark, because a
+# heuristic choice is a bypass: a file arranged to look like one encoding would
+# hide content readable in another.
+_WIDE_ENCODINGS = ("utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be")
+
+
+def _line_is_flagged(line: str, patterns: List["re.Pattern[str]"]) -> bool:
+    for pattern in patterns:
+        # finditer, not search: a line can carry more than one assignment,
+        # and search() inspects only the FIRST. A short decoy earlier on the
+        # line then shields a real secret later on it, which is a
+        # one-character bypass. Measured: `token = "abc"; password = "<36
+        # chars>"` went from BLOCK to allow under search().
+        for match in pattern.finditer(line):
+            val = match.group(2)
+            # Whitespace inside the captured value means prose, not a
+            # credential. This is what keeps sentences like
+            # `A password: "must be at least twelve characters"` quiet, and
+            # it discriminates on the VALUE rather than on the whole line.
+            if any(ch.isspace() for ch in val):
+                continue
+            if len(val) > 8 and calculate_entropy(val) > 3.0:
+                return True
+    # Keyword-independent pass. Runs only when the assignment patterns found
+    # nothing, purely to save work: it is ADDITIVE, so no line that is caught
+    # today can stop being caught.
+    return any(vendor.search(line) for vendor in VENDOR_CREDENTIAL_FORMATS)
+
 
 def scan_file(path: str) -> List[int]:
     # Returns only the line NUMBERS of credential-like assignments. The matched
@@ -544,11 +660,19 @@ def scan_file(path: str) -> List[int]:
         CREDENTIAL_ENV_ITEM,
         CREDENTIAL_WALRUS,
         CREDENTIAL_TRIPLE_QUOTED,
+        CREDENTIAL_PASS_NAME,
+        CREDENTIAL_CONNECTION_STRING,
+        CREDENTIAL_CLI_PASSWORD_FLAG,
+        CREDENTIAL_MYSQL_ATTACHED,
+        CREDENTIAL_CURL_USER,
+        CREDENTIAL_TWINE_PASSWORD,
+        CREDENTIAL_R_ARROW,
         URL_EMBEDDED_CREDENTIAL,
     ]
     if allows_bare_value(path):
         patterns.append(CREDENTIAL_KEY_MATERIAL_BARE)
         patterns.append(CREDENTIAL_ASSIGNMENT_BARE)
+        patterns.append(CREDENTIAL_PASS_NAME_BARE)
     elif is_makefile(path):
         patterns.append(CREDENTIAL_ASSIGNMENT_MAKE)
     try:
@@ -567,38 +691,25 @@ def scan_file(path: str) -> List[int]:
         # raising, so the scan runs to the end of the file. Credential values are
         # ASCII by construction (the patterns below match quoted or bare tokens
         # with no whitespace), so the smuggled bytes cannot mask a match.
+        saw_nul = False
         with open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
             for line_no, line in enumerate(f, 1):
-                flagged = False
-                for pattern in patterns:
-                    # finditer, not search: a line can carry more than one assignment,
-                    # and search() inspects only the FIRST. A short decoy earlier on the
-                    # line then shields a real secret later on it, which is a
-                    # one-character bypass. Measured: `token = "abc"; password = "<36
-                    # chars>"` went from BLOCK to allow under search().
-                    for match in pattern.finditer(line):
-                        val = match.group(2)
-                        # Whitespace inside the captured value means prose, not a
-                        # credential. This is what keeps sentences like
-                        # `A password: "must be at least twelve characters"` quiet, and
-                        # it discriminates on the VALUE rather than on the whole line.
-                        if any(ch.isspace() for ch in val):
-                            continue
-                        if len(val) > 8 and calculate_entropy(val) > 3.0:
-                            flagged = True
-                            break
-                    if flagged:
-                        break
-                # Keyword-independent pass. Runs only when the assignment
-                # patterns found nothing, purely to save work: it is ADDITIVE, so
-                # no line that is caught today can stop being caught.
-                if not flagged:
-                    for vendor in VENDOR_CREDENTIAL_FORMATS:
-                        if vendor.search(line):
-                            flagged = True
-                            break
-                if flagged:
+                if "\x00" in line:
+                    saw_nul = True
+                if _line_is_flagged(line, patterns):
                     flagged_line_numbers.append(line_no)
+        if saw_nul:
+            # errors="replace", not surrogateescape, which handles only bytes at or
+            # above 0x80 and raises on the rest; a UTF-16 reading of an odd byte
+            # count ends in a dangling byte, and raising there would stop the scan.
+            # Each line is reported once, in line order, however many readings flag it.
+            wide_flagged = set(flagged_line_numbers)
+            for encoding in _WIDE_ENCODINGS:
+                with open(path, "r", encoding=encoding, errors="replace") as f:
+                    for line_no, line in enumerate(f, 1):
+                        if _line_is_flagged(line, patterns):
+                            wide_flagged.add(line_no)
+            flagged_line_numbers = sorted(wide_flagged)
     except OSError:
         # The file could not be opened or read at all (permissions, a vanished
         # path, a device error). That is NOT a clean result: nothing about this
