@@ -218,6 +218,86 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
   full suite gives the same passed and skipped counts whether or not the env's launcher
   directory is on PATH.
+- **`environment.yml` now pins conda `pip` to 26.2.1, the version
+  `environments/requirements-pip-bootstrap.txt` pins, instead of 24.0.** The conda `pip`
+  is the pip that `conda env create` uses to run the hash-checked `pip:` block, so it is
+  the pip that installs `requirements.txt`. pip-audit 2.10.1 reports six advisories
+  against 24.0 (PYSEC-2026-196, PYSEC-2026-1795, PYSEC-2026-1796, PYSEC-2026-2875,
+  PYSEC-2026-2876 and PYSEC-2026-3721), fixed in releases from 25.3 to 26.2.
+  `.github/dependabot.yml` configures no conda ecosystem, and Scorecard's vulnerability
+  check on `main` listed one unrelated advisory while this pin was live, so neither
+  reported them. A new test holds the conda pin equal to the bootstrap lock's single
+  hash-locked `pip` pin, a `requirements*.txt` file that GitHub's dependency graph reads,
+  so the conda path now moves when that file does. A dry-run conda solve of
+  `environment.yml`'s conda dependencies with the new pin selects python 3.11.15 and
+  pip 26.2.1 from conda-forge; a full `conda env create` was not run.
+- **`.gitignore` now blocks the key, token and backup files its security block
+  missed.** It already ignored `*.key`, `*.pem`, `*.p12`, `*.pfx`, `*.jks` and the four
+  OpenSSH default key names, but a PuTTY key (`*.ppk`), an ASCII-armoured PGP export
+  (`*.asc`), a binary keyring (`*.gpg`), cloud service-account and OAuth client JSON,
+  a bare `token.txt`, editor directories (`.vscode/`, `.idea/`, whose launch
+  configurations carry environment variables), backup, merge and swap leftovers
+  (`*.bak`, `*.orig`, `*.rej`, `*.swp`, `*.swo`) and core dumps were all committable.
+  The core-dump rule is `/core` plus `core.[0-9]*`, not the bare `core` a sweep
+  proposed: a bare `core` also matches `src/core/`, which holds three tracked modules,
+  and would have silently ignored every new file added there. Measured before adding:
+  the set of tracked files the rules ignore is identical before and after (the same 10
+  force-added files), so nothing tracked changes state. A new test checks 20 paths that
+  must be ignored and 6 that must not, including `src/core/` sources, with
+  `git check-ignore --no-index`.
+- **`scripts/run_pandora_structures.py` no longer tells readers to install another
+  vendor's package.** Its setup block said `pip install pandora pdb2sql mhctools`. On
+  PyPI, `pandora` is CNES's stereo-matching framework ("Pandora is a stereo matching
+  framework that helps emulate state of the art algorithms", pypi.org/project/pandora,
+  read 2026-10-19), unrelated to peptide-MHC modelling, so the instruction installed
+  third-party code and no PANDORA at all. The block now gives upstream's own routes from
+  the X-lab-3D/PANDORA README (read the same day): MODELLER and muscle/blast from conda,
+  then PANDORA as `csb-pandora` from the `csb-nijmegen` channel or from a clone with
+  `pip install -e .`, and `pandora-fetch` for the template database in place of a
+  `pandora.fetch_templates()` call that upstream does not document. **A known gap is
+  disclosed rather than fixed:** the script imports a lowercase `pandora` package and
+  calls `pandora.peptide.Peptide` and `.run()`, while upstream's package is `PANDORA` and
+  its documented API is `from PANDORA import Target, Pandora, Database`, so as written the
+  script cannot import upstream PANDORA. Porting it needs a MODELLER license to test and
+  is not attempted here. A new test fails if any tracked file other than this changelog
+  carries a pip install of the bare `pandora` name.
+- **`scripts/check_secrets.py` now reads UTF-16 and UTF-32 files, which it used to pass
+  unexamined.** Every file was read as UTF-8 only, and a UTF-16 file read that way is each
+  ASCII character followed by a NUL byte, so neither the keyword patterns nor the
+  vendor-format patterns could match anything in it. Measured on the scanner as it stood:
+  a credential assignment and a GitHub token shape, each written as UTF-16 or UTF-32 in
+  either byte order, with or without a byte-order mark, were all missed, and the tree scan
+  printed `[SUCCESS]` over such a file. Windows PowerShell 5.1's `>` redirection and
+  `Out-File` write UTF-16LE by default, so this is how such a file reaches a commit on a
+  Windows workstation. Every gate that delegates to this scanner inherited the gap: the
+  `Custom Secret Pattern Scan` job in `security.yml` and both passes of pre-push Check 6.
+  A file whose UTF-8 reading contains a NUL byte is now also read as UTF-16 and UTF-32 in
+  both byte orders, and a line flagged by any reading is reported once. The UTF-8 pass
+  runs first and is unchanged, so nothing it caught can stop being caught, and a file with
+  no NUL byte is read exactly as before. All four readings are tried rather than one chosen
+  from a byte-order mark, because choosing one would let a file arranged to look like one
+  encoding hide content that is readable in another. The live tree scan is unchanged
+  (`[SUCCESS]`). The `pii_scan.yml` path scan is a separate workflow and is not changed
+  here.
+- **`scripts/check_secrets.py` now catches `pass` names, connection-string passwords,
+  passwords on a command line, and R assignments.** Each shape below was planted with an
+  18-character value that clears the length and entropy floors and was missed by the
+  scanner at `e653f140`, while the plain `api_key = "<v>"` control was flagged: a `pass`
+  name (`DB_PASS = "<v>"`, a JSON `"pass"` key, `db_pass: <v>` in YAML, `SMTP_PASS=<v>` in
+  a `.env`); a `Password=` or `PWD=` element of an ADO.NET or ODBC connection string;
+  `--password <v>` with a space (the `=` form was already caught), `mysql -p<v>`,
+  `curl -u user:<v>` and `twine upload -p <v>`; and `api_key <- "<v>"` in R, which `.qmd`
+  and `.md` files carry. Each is a separate pattern, so it is additive and goes through
+  the same floors as the rest. What stays quiet is pinned too: placeholders and shell
+  variables after a flag (`<PASSWORD_HERE>`, `"$DB_PASSWORD"`, `${{ secrets.X }}`), a bare
+  `mysql -p`, which prompts, names that only contain the letters (`bypass_mode`,
+  `passport_id`), a keyword argument (`connect(password=...)`), and an R comparison
+  (`token < -1`). An unquoted lone `pass:` is deliberately not matched: measured first, it
+  hit "pass: governance" in this file, stopped by the entropy floor at 2.92, and "Second
+  pass: documentation" (3.24) would clear it, so it would turn the gate red on prose; the
+  unquoted form needs a joined name such as `DB_PASS`, and a lone `pass` is caught when
+  quoted. Over every file the tree scan reads, the new patterns flag nothing, and the
+  scan stays `[SUCCESS]`. Multi-line values are not covered.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
