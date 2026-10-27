@@ -222,11 +222,13 @@ def relative_source(source: object, root: str | os.PathLike[str] | None = None) 
     if os.path.isabs(text):
         # Both sides in one resolved form, so a symlinked or dotted spelling of
         # either cannot move a file in or out of the checkout.
-        path = os.path.realpath(text)
-        base = os.path.realpath(os.fspath(root) if root is not None else PROJECT_ROOT)
         try:
+            path = os.path.realpath(text)
+            base = os.path.realpath(os.fspath(root) if root is not None else PROJECT_ROOT)
             inside = os.path.commonpath([base, path]) == base
         except ValueError:  # on Windows, a path on a different drive from the repo
+            inside = False
+        except OSError:  # unresolvable, e.g. WinError 668 on a malformed UNC name
             inside = False
         if inside:
             relative = os.path.relpath(path, base).replace(os.sep, "/")
@@ -239,3 +241,49 @@ def relative_source(source: object, root: str | os.PathLike[str] | None = None) 
     if _names_a_workstation_location(posix_text) or _names_a_user_or_remote_host(posix_text):
         return _external(text)
     return text
+
+
+# Where a path starts inside free text: a drive letter and a separator, a doubled
+# separator (UNC), a "~" or "~user" and a separator, a "/" that begins a component
+# followed by another separator, or a bare top-level directory that holds user or
+# temporary files. Never after a word character, ".", "-", "~", ":" or a separator,
+# so "n/a", "3/4", "~2/3", "+/-" and a URL's "://" do not start one.
+_PATH_START = (
+    r"(?<![\w.\-~:/\\])"
+    r"(?:[A-Za-z]:[\\/]|[\\/]{2}(?=[^\s\\/])|~(?:[A-Za-z_][\w.\-]*)?[\\/]"
+    r"|/(?=[^\s/\\]+[/\\])|/(?:home|Users|tmp|root|mnt|media|Volumes|private|var)(?![\w.\-]))"
+)
+# A quoted path is reduced whole, so a space inside it cannot split it in two.
+_QUOTED_PATH = re.compile(r"(['\"])(" + _PATH_START + r"[^'\"\n]*)\1")
+_BARE_PATH = re.compile(_PATH_START + r"[^\s'\"]*")
+
+
+def failure_note(exc: BaseException, root: str | os.PathLike[str] | None = None) -> str:
+    """Return how a writer records an exception it caught: its type, then its
+    message with each path found in it reduced by :func:`relative_source`.
+
+    An ``OSError`` that names its file is rebuilt from ``strerror`` and the
+    reduced ``filename`` (and ``filename2``), because its own text quotes the
+    path as given, absolute whenever the caller's was. Any other message has each
+    path found in it reduced in place: a quoted one whole, a bare one up to the
+    next space or quote. A bare path holding a space is therefore reduced only up
+    to that space. A path that directly follows a ":" is not found and stays as
+    written, as in ``key:/abs/dir/x.csv`` and ``file:///abs/dir/x.csv`` (with a
+    space, ``key: /abs/dir/x.csv`` is reduced), because a path is never taken to
+    start after a ":", so that a URL's "//" is not read as one.
+    """
+    filename = getattr(exc, "filename", None)
+    if isinstance(exc, OSError) and filename is not None:
+        parts = [exc.strerror or ""]
+        for name in (filename, exc.filename2):
+            if name is not None:
+                text = os.fsdecode(name) if isinstance(name, (str, bytes, os.PathLike)) else str(name)
+                parts.append(relative_source(text, root))
+        message = ": ".join(parts)
+    else:
+        message = _QUOTED_PATH.sub(
+            lambda m: m.group(1) + relative_source(m.group(2), root) + m.group(1), str(exc)
+        )
+        message = _BARE_PATH.sub(lambda m: relative_source(m.group(0), root), message)
+    name = type(exc).__name__
+    return f"{name}: {message}" if message else name
