@@ -218,6 +218,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
   full suite gives the same passed and skipped counts whether or not the env's launcher
   directory is on PATH.
+- **The affiliation gate now reads a wrapped own-institution name through a
+  blockquote, comment, list or table marker, and only accepts the wrap when the
+  remaining words end where the name ends.** `scripts/check_affiliation_claims.py`
+  scans line by line, so `is_wrapped_own_institution` accepts a truncated own
+  institution when the NEXT line supplies its remaining words. It compared those words
+  with the next line as written, so a wrap inside a Markdown blockquote, a `#`, `//`,
+  `;` or `%` comment, a ` * ` block-comment line, a `-`, `+` or numbered list or a `|`
+  table, each of which repeats its marker at the start of the next line, reported the
+  project's own institution as unreviewed. Re-flowing one paragraph that names it at
+  every width from 20 to 80, with the marker put in front of every line after
+  wrapping, gave a finding the unwrapped paragraph does not at 20 of the 61 widths for
+  each of `> `, `- `, `# `, `* `, `// `, `1. `, `; ` and `% `, and at none for a bare
+  or indented continuation. The leading markers and whitespace are now removed before
+  the comparison, and the same re-flow gives that finding at none of the 61 widths for
+  any of those eight. A number is removed only as an ordered-list marker (one to nine
+  digits, then `.` or `)`, then whitespace), so `1: `, `a. ` and `(1) ` are not, and
+  each still gives it at 20 of the 61. **The same comparison was a
+  `startswith`, so it also accepted a continuation that merely BEGINS with the
+  remaining words**: a truncated head followed by a longer word on the next line
+  passed the gate with exit 0, the shape of the B13 hole that a bare prefix rule had
+  opened before. The remaining words must now be followed by a non-alphanumeric
+  character or the end of the line, so punctuation, a possessive and a hyphenated
+  compound still complete the name. Third-party names are still never accepted as
+  wraps. Twenty-two new tests in `tests/test_check_affiliation_claims.py` (seventeen
+  marked wraps end to end, the marker, leader, number and boundary rules directly, and
+  the longer-word case end to end) all fail on the previous code except the number
+  rule's guard, which passes on both and fails if that rule widens; eight mutants of
+  the marker and boundary change and sixteen of the number and leader change are each
+  killed. Run over the primary checkout's whole tree in `--all` mode, the previous and
+  the new gate print byte-identical findings, so no finding in any current file moves
+  in either direction; the tracked-tree gate stays at exit 0.
 - **`pipeline.smk`'s `reference_proteome` fallback now names the FASTA that
   `scripts/fetch_human_proteome.py` actually writes.** The fallback was
   `data/proteomes/human_reference.fasta`, a path no script produces and no document
