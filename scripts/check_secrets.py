@@ -328,6 +328,14 @@ VENDOR_CREDENTIAL_FORMATS = tuple(
         r"gh[oupsr]_[A-Za-z0-9]{20,}",
         r"sk-(proj|svcacct)-[A-Za-z0-9_-]{20,}",
         r"sk-ant-[A-Za-z0-9_-]{20,}",
+        # SCR-01 (2026-10-19 sweep, High): both passed every gate. An armored
+        # OpenPGP secret key ends its header in "PRIVATE KEY BLOCK-----", which the
+        # PEM rule above cannot reach, and a PuTTY .ppk carries no PEM header.
+        # The closing dashes are written -{5}, not literally, so the pattern's own
+        # text cannot match it: scripts/hooks/pre-commit carries the same string
+        # and is itself scanned (the PEM rule's [A-Z ]* does the same job).
+        r"-----BEGIN PGP PRIVATE KEY BLOCK-{5}",
+        r"PuTTY-User-Key-File-[0-9]+:",
     )
 )
 
@@ -497,6 +505,13 @@ _SCAN_SUFFIXES = (
     ".cfg",
     ".ini",
     ".env",
+    # Key containers (SCR-01). A key committed under its usual file name was never
+    # opened, so the private-key patterns could not see it. No tracked file has
+    # any of these suffixes (measured 2026-10-25), so this adds no false positive.
+    ".asc",
+    ".ppk",
+    ".pem",
+    ".key",
 )
 
 # Text files whose NAME carries no extension. Extensionless files cannot be

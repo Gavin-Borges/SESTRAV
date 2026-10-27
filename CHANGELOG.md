@@ -16,6 +16,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > `## [2.1.0] - 2026-08-07` and folded back here on 2026-08-10, and merging across it would
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
+### Security
+- **The semgrep tool lock moves mcp from 1.29.0 to 1.30.0 and the OpenTelemetry packages
+  from 1.37.0 / 0.58b0 to 1.45.1 / 0.66b1, closing CVE-2026-59951 / GHSA-84m7-p3x7-pcfv and
+  CVE-2026-114603 / GHSA-xcq7-p3pf-p88h (both medium), through a reinstated uv override.**
+  Every semgrep release from 1.179.0 (pinned) through 1.182.1 (the newest on PyPI on
+  2026-10-23) declares `mcp==1.29.0` exactly and `opentelemetry-api~=1.37.0`, so no semgrep
+  upgrade reaches either fix, and a floor for either in the `.in` makes the spec
+  unsatisfiable (uv reports both). The mcp advisory is unbounded session accumulation in
+  its server-side StreamableHTTP transport; the OpenTelemetry one is
+  `TraceState.from_header` splitting an inbound `tracestate` header with an unbounded
+  regex. Neither is reachable as CI uses the tool, read in semgrep 1.179.0's installed
+  source: both semgrep jobs only run `semgrep scan`, which starts no MCP server, although
+  importing semgrep's CLI loads 47 `mcp.server` modules, the StreamableHTTP one included;
+  and semgrep's only call into OpenTelemetry's header extraction, `extract()` in
+  `semgrep/telemetry.py`, runs only under `--trace`, which neither job passes, and hands it
+  a carrier built locally with a `traceparent` and no `tracestate`. The lock is fixed
+  because patched releases exist. `environments/semgrep-overrides.txt` returns and lifts
+  exactly six packages: mcp to the 1.30 series, and opentelemetry-api, -sdk,
+  -exporter-otlp-proto-http, -instrumentation-requests and -instrumentation-threading to
+  1.45.1 / 0.66b1. The api cannot move alone, because opentelemetry-sdk 1.37.0 requires
+  `opentelemetry-api==1.37.0`; the two instrumentation lines change no pin today, since
+  semgrep's own `~=0.58b0` already admits 0.66b1, and bound the family so it moves and
+  retires as one unit. The file states one exit condition for mcp and one for the
+  OpenTelemetry group. Recompiled with `tools/update_dependencies.py --ci-env semgrep` (no
+  `--upgrade`), the lock moves mcp and ten OpenTelemetry pins, adds
+  opentelemetry-exporter-http-transport and opentelemetry-exporter-otlp-common, drops
+  importlib-metadata and zipp, which only opentelemetry-api 1.37.0 pulled in, and leaves the
+  other 53 pins and their hash sets unchanged; the same recompile without the override
+  reproduces the previous lock byte for byte. `pip-audit -r
+  environments/requirements-semgrep.txt --no-deps --disable-pip` reports exactly these two
+  advisories against the previous lock and none against this one, with `-s osv` and with
+  `-s pypi`. Each lock installed with `--no-deps --require-hashes` into its own location,
+  semgrep 1.179.0 on Windows and on Linux (WSL Ubuntu), Python 3.11 both, against the same
+  tree: the blocking custom-rules argv ran the same 7 rules over the same 241 files with 0
+  results and 0 errors under both locks, the advisory `p/python` scan loaded the same 158
+  rules and returned the same 3 SARIF results, all suppressed in source, and
+  `scripts/check_semgrep_rule_fixtures.py` passed under both. The lock now contradicts
+  semgrep's own metadata: uv, resolving it as its input, reports it unsatisfiable, and a
+  resolving `pip install --dry-run --require-hashes` of it on Linux fails with
+  `ResolutionImpossible`, while the previous lock resolves under both. So both semgrep
+  installs in `security.yml` pass `--no-deps` again. Dependabot's pip updater recompiles
+  with pip-compile, from options it derives from the existing lock, and never passes an
+  override file (dependabot-core's `pip_compile_file_updater.rb` has no override option),
+  so its grouped `/environments` PRs are expected to walk the lock back; finalize them
+  with `tools/update_dependencies.py`. In `tests/test_dependency_tooling.py` the
+  retired-override guards are inverted rather than deleted: the semgrep spec is the single
+  permitted override and its file must exist and be the only one; the override must name
+  exactly those six packages and state both exit conditions; the lock must pin a version
+  each override line admits; and two floors stated independently of the override file,
+  mcp at 1.30.0 and opentelemetry-api at 1.45.1, fail a recompile without it. The
+  `--no-deps` install guard, dormant since the pyjwt override was retired, applies again.
+  `CONTRIBUTING.md`, `ARCHITECTURE.md` and `environments/requirements-semgrep.in` record
+  the override's return.
+
 ### Fixed
 - **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
   bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`
@@ -848,6 +902,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **filelock now pins 4.2.4 and setuptools 84.1.0, closing four advisories, and
+  pyproject.toml's `[build-system]` floor rises to `setuptools>=84.1.0`.**
+  filelock 3.32.0 (`requirements.txt`, `environments/requirements.lock`,
+  `environments/requirements-api.txt`, `environments/requirements-demo.txt`) and 3.29.4
+  (`environments/requirements-pip-audit.txt`) are affected by CVE-2026-112940
+  (GHSA-v4x8-3wr5-3wq8, high), CVE-2026-112907 and CVE-2026-112913 (both low), all first
+  patched in 4.2.1; uv resolves 4.2.4. No tracked file imports filelock: it arrives
+  through torch in the four application locks and through cachecontrol in the pip-audit
+  tool lock. The high advisory and CVE-2026-112913 concern filelock's SQLite-backed
+  `ReadWriteLock`, which an installed torch 2.13.0 does not reference; its filelock
+  imports take `FileLock`, `BaseFileLock` and `Timeout`. setuptools 84.0.0 is affected by
+  GHSA-xmj3-9gf7-h52w (low), affected from 38.2.2: on Windows, a crafted wheel's
+  `namespace_packages.txt` can make `Wheel.install_as_egg` write an `__init__.py` outside
+  its destination. setuptools' v84.1.0 release note says that path is reached only by the
+  deprecated `setup_requires` mechanism outside a PEP 517 frontend, and this repository has
+  no `setup.py`, `setup.cfg` or `setup_requires`. The setuptools pin moves in
+  `requirements.in` and the api, ci-build and demo specs, and the floor in
+  `environments/requirements-lock.in` rises with `[build-system]`, which states the
+  security minimum rather than the pin; CONTRIBUTING.md's setuptools-floor section and
+  `tools/update_dependencies.py`'s `--help` epilog are updated to match. Both packages were
+  recompiled one at a time with `tools/update_dependencies.py --target`, not taken from
+  Dependabot's #806 and #807: only the moved pins and their hashes change, in the five
+  lockfiles that carry each package, six distinct files in all. pip-audit finds no advisory
+  in any of the six on either the PyPI or the OSV feed. `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` are regenerated by replaying the SBOM job on Linux, and
+  filelock's version is their only change. filelock also stops diverging inside `security.yml`'s pip-audit job, which
+  installs `environments/requirements-pip-audit.txt` and `environments/requirements.lock`
+  together, so `tests/test_workflow_coinstall_pin_divergence.py`'s baseline shrinks to ten
+  packages.
+- **The release workflow's post-publish smoke test installs only hash-checked wheels.** Its
+  `smoke` job ran `pip install "sestrav==${VERSION}" --index-url https://pypi.org/simple/`,
+  which resolved the package and its whole dependency tree, torch included, from PyPI with no
+  hashes; OpenSSF Scorecard's Pinned-Dependencies check reports that line as code-scanning
+  alert #76. The job now checks out the tagged commit and installs the hash-pinned pip
+  bootstrap, then `environments/requirements-api.txt`, then the published wheel pinned to the
+  SHA-256 digest the build job recorded, so PyPI serving other bytes under that version fails
+  the install. Every install passes `--require-hashes --no-deps --only-binary=:all:`, so
+  nothing is resolved and nothing is built (an sdist build would fetch its build backend
+  unhashed). `pip check` then confirms the lock satisfies the wheel's own requirements, and
+  the import probes run from outside the checkout, so they import the installed wheel and not
+  the source tree. The API image's lock is the closure because it is compiled for the job's
+  Python 3.13 and pins every `[project].dependencies` entry: `environments/requirements.lock`
+  is compiled for 3.11, which `tests/test_tool_locks_match_their_job_python.py` refuses for a
+  3.13 job, and `requirements.txt` does not carry jsonschema. Read against
+  `checks/raw/shell_download_validate.go` at Scorecard v5.6.0, the release the pinned
+  scorecard-action v2.5.0 builds with, every pip command in the job is pinned; the score has
+  not been re-measured. On Linux with CPython 3.13 the job's own commands, with a local index
+  standing in for PyPI, installed all 78 pins of the lock and then the wheel, `pip check`
+  reported no broken requirement, and a tampered wheel, an index serving only the sdist, and
+  empty digests each failed the step. `tests/test_release_workflow_oidc_install_isolation.py`
+  gains four tests that pin this shape and a unit test of the digest-flow helper one of them
+  uses; the four, and the existing job-order test, fail against the previous workflow.
 - **gitpython now pins 3.2.1, its first release patched for GHSA-83vg-56qc-22m7 /
   CVE-2026-114145 (high, published 2026-10-22).** The advisory affects gitpython 3.2.0 and
   earlier: per its title, GitPython validates a submodule's ".git" path only after cloning
@@ -864,6 +970,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   its locks unchanged: no other pin moved, and both new hashes are PyPI's published files
   for 3.2.1. `docs/sbom.json` and `docs/DEPENDENCY_LICENSES.md` are regenerated, and
   gitpython's version is their only change.
+- **The secret scan now catches exported OpenPGP and PuTTY private keys (SCR-01).**
+  Both passed every repository gate: an armored OpenPGP secret key ends its header in
+  "PRIVATE KEY BLOCK" plus dashes, which the PEM rule cannot reach, and a PuTTY `.ppk`
+  file has no PEM header at all. `scripts/check_secrets.py`, the only content scan CI
+  runs, gains a pattern for each, and now opens `.asc`, `.ppk`, `.pem` and `.key`
+  files, which it previously never read; no tracked file has any of those suffixes.
+  The PGP pattern writes its closing dashes as `-{5}` so its own text, which the
+  scanned pre-commit hook also carries, cannot match it, and a new test holds every
+  credential pattern to that. The companion maintainer change adds the same two
+  patterns to the hook's `CRED_PATTERNS` and blocks `.ppk` files by name.
 - **The demo image reaches Pillow 13.0.0: its streamlit pin moves from 1.65.0 to 1.66.1,
   and SECURITY.md's risk acceptance for the demo's Pillow 12.3.0 is resolved.** streamlit
   1.66.1 declares `pillow<14,>=9.2.0`, where 1.65.0 and 1.66.0 declare `pillow<13`.
@@ -943,6 +1059,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   CVE-2026-112403 among them, which OSV and the GitHub advisory database both carry.
   `docs/sbom.json` and
   `docs/DEPENDENCY_LICENSES.md` are regenerated for the two new versions.
+- **Every tracked hash-pinned lock can now be audited for published advisories, not only
+  `environments/requirements.lock`.** CVE-2026-59951 was published on 2026-10-15 against
+  `mcp` 1.29.0, already pinned in `environments/requirements-semgrep.txt`, and no CI job that
+  can fail saw it: `tools/check_lockfile_advisories.py` judged the production lock alone,
+  `.github/workflows/dependency-review.yml` judges only the versions a pull request changes,
+  and the installed-set `pip-audit` sees only what its own runner installed. The new
+  `tools/audit_all_locks.py` runs `pip-audit -r <lock> --no-deps --disable-pip -s osv` (no
+  resolver, no install, no `--ignore-vuln`) over every manifest `tools/check_hash_pins.py` treats as
+  hash-pinned, 16 on 2026-10-17, and judges each report with that gate's own policy. A report
+  that skips a pinned package, or omits one, is a tooling failure (exit 2), never a pass, and a
+  new test derives the lock population independently from git and fails if any tracked lock
+  goes unaudited. Acceptances in `environments/accepted_advisories.toml` are now scoped per
+  lock by an optional `lock` field; an entry without one still covers
+  `environments/requirements.lock` only, as every entry did before, so accepting an advisory
+  for one lock never covers the same pin in another. Package names now compare in PEP 503
+  form, so a lock pin spelled with a dot or with extras can no longer read as out of scope;
+  no tracked lock pins either form today. Run on 2026-10-17 over all 16 locks with
+  pip-audit's default PyPI feed, it reported exactly one unaccepted finding, CVE-2026-59951 on
+  `mcp` in the semgrep lock, and exited 1; accepting or fixing that finding is a separate
+  decision, and no acceptance was added. It now audits against OSV (`-s osv`), because the
+  default PyPI feed lacks advisories OSV carries: on 2026-10-23, over a scratch lock of 15
+  older pins, OSV reported 131 distinct (package, version, id) findings and PyPI 127, the 4
+  only OSV carried all against pillow 12.3.0, CVE-2026-112403 among them. The cost is that
+  only the PyPI service marks a pinned name it cannot find as skipped; under OSV such a name
+  reads as audited. Either service can list one advisory twice for a package, and a repeated
+  row is now counted once. Run on 2026-10-23 over all 16 locks with OSV, it reports exactly
+  two unaccepted findings, CVE-2026-59951 on `mcp` and CVE-2026-114603 on
+  `opentelemetry-api`, both in the semgrep lock, with the other 15 locks clean (622 pins,
+  none skipped or missing), and exits 1; the PyPI feed reported the same two that day. It
+  runs as an advisory (`continue-on-error`) step in the `pip-audit` job of
+  `.github/workflows/security.yml`, by owner ruling of 2026-10-17, to become blocking after
+  one green week, and that job's installed-set audit and the JSON report its fail-closed gate
+  reads move to `-s osv` too.
 - **`tools/check_hash_pins.py` now fails closed on includes, editables and direct
   references, which it used to pass.** Each hands pip something the gate never inspects, and
   each exited 0: an `-r` / `-c` include was parsed and dropped, so a manifest whose included
