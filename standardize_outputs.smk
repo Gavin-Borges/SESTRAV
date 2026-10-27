@@ -36,7 +36,11 @@ rule run_predig:
     conda:
         "environments/predig.yaml"
     shell:
-        "{sys.executable:q} scripts/run_predig_wrapper.py --binding-csv {input.binding:q} --output {output.predig_out:q} --alleles {params.alleles:q} > {log:q} 2>&1"
+        # --proteome-id is load-bearing, not cosmetic: the wrapper hands this binding CSV
+        # to build_recombinant_table as peptide metadata, and stage 2 writes no
+        # proteome_id column, so without it no recombinant input can be built and PredIG
+        # never runs. Quoted with :q like every other interpolation in this file.
+        "{sys.executable:q} scripts/run_predig_wrapper.py --binding-csv {input.binding:q} --output {output.predig_out:q} --alleles {params.alleles:q} --proteome-id {wildcards.proteome_id:q} > {log:q} 2>&1"
 
 rule standardize_predictor_outputs:
     input:
