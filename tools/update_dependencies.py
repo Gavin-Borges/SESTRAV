@@ -16,16 +16,50 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PYTHON_PLATFORM = "linux"
+
+# The one index every lockfile is resolved against. compile_env() already drops
+# the variables that would replace it; naming it in the argv as well keeps a
+# command printed by --dry-run and run by hand on PyPI. It is --default-index
+# rather than --index-url because, measured on uv 0.12.0, --index-url outranks
+# UV_INDEX_URL but not UV_DEFAULT_INDEX, while --default-index outranks both.
+# Under --no-emit-index-url uv leaves it out of the lockfile header.
+DEFAULT_INDEX = "https://pypi.org/simple"
+
+# The only UV_* environment variables a compile keeps: where the cache lives,
+# whether to bypass it, how to reach the network, and progress output. None of
+# them can change what uv resolves. Every other one is dropped, because uv
+# reads many as resolution inputs that the lockfile header never records: an
+# index (UV_DEFAULT_INDEX, UV_INDEX_URL, UV_INDEX, UV_EXTRA_INDEX_URL,
+# UV_FIND_LINKS), a constraint or override file that can name its own index
+# (UV_CONSTRAINT, UV_OVERRIDE), a config file (UV_CONFIG_FILE), a torch backend
+# index, a cutoff date, offline resolution from a stale cache, another working
+# directory, or the header's own command line (UV_CUSTOM_COMPILE_COMMAND). uv
+# adds such variables from release to release, so a list of variables to drop
+# would go stale; a list of variables to keep does not. UV_NO_CONFIG=1 is then
+# set, which stops uv discovering a user or system uv.toml; the --no-config
+# flag would do the same, but uv records that flag in every lockfile header.
+# The repo carries no uv configuration of its own (no uv.toml, no [tool.uv] in
+# pyproject.toml), so nothing it intends is ignored.
+UV_ENV_KEPT = (
+    "UV_CACHE_DIR",
+    "UV_HTTP_TIMEOUT",
+    "UV_NATIVE_TLS",
+    "UV_NO_CACHE",
+    "UV_NO_PROGRESS",
+    "UV_SYSTEM_CERTS",
+)
 
 # pip-compile's "unsafe" set. `uv pip compile` emits these by default, which is
 # equivalent to pip-compile --allow-unsafe; specs compiled without that flag
@@ -176,6 +210,12 @@ Notes:
     uv pip compile invocations recorded in each lockfile header.
   * --no-emit-index-url matches the repo convention and keeps a local
     [tool.uv.pip] emit-index-url setting from leaking an index into the file.
+  * Every lockfile resolves against PyPI alone. --default-index names it, and
+    uv runs with UV_NO_CONFIG=1 and with no UV_* variable but its cache,
+    network and progress settings, so neither a user's uv.toml nor a shell
+    setting can route a recompile through another index or change what it
+    resolves. A command printed by --dry-run carries --default-index but not
+    that environment.
   * Files without a `.in` source (requirements-ci-render.txt,
     requirements-ci-torch-cpu.txt, requirements-sbom.txt,
     requirements-pip-bootstrap.txt) are curated by hand
@@ -241,6 +281,8 @@ def build_command(
         spec.output,
         "--generate-hashes",
         "--no-emit-index-url",
+        "--default-index",
+        DEFAULT_INDEX,
         "--python-version",
         spec.python_version,
         "--python-platform",
@@ -256,6 +298,23 @@ def build_command(
     elif upgrade_package:
         command += ["--upgrade-package", upgrade_package]
     return command
+
+
+def compile_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Return the environment uv compiles in: `environ` without its uv settings.
+
+    Every UV_* variable outside UV_ENV_KEPT is dropped, any UV_NO_CONFIG among
+    them, and UV_NO_CONFIG=1 is set. Names are matched without regard to case,
+    because Windows reads environment variables that way.
+    """
+    source = os.environ if environ is None else environ
+    env = {
+        name: value
+        for name, value in source.items()
+        if not name.upper().startswith("UV_") or name.upper() in UV_ENV_KEPT
+    }
+    env["UV_NO_CONFIG"] = "1"
+    return env
 
 
 def uv_version() -> str | None:
@@ -402,7 +461,7 @@ def _compile_seeded(spec: LockSpec, command: list[str], root: Path = REPO_ROOT) 
         output = scratch / spec.output
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_bytes(preferences.encode("utf-8"))
-        result = subprocess.run(command, cwd=scratch, check=False)
+        result = subprocess.run(command, cwd=scratch, check=False, env=compile_env())
         compiled = output.read_bytes()
         if result.returncode == 0 and b"--hash=" in compiled:
             (root / spec.output).write_bytes(compiled)
@@ -450,7 +509,9 @@ def main(argv: list[str] | None = None) -> int:
         if spec.name in SEEDED_SPECS:
             returncode = _compile_seeded(spec, command)
         else:
-            returncode = subprocess.run(command, cwd=REPO_ROOT, check=False).returncode
+            returncode = subprocess.run(
+                command, cwd=REPO_ROOT, check=False, env=compile_env()
+            ).returncode
         if returncode != 0:
             print(f"ERROR: uv pip compile failed for {spec.source}", file=sys.stderr)
             return returncode

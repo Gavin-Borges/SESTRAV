@@ -218,6 +218,140 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   test fixed here. Six mutants, each removing one part, are all killed. With the fix, the
   full suite gives the same passed and skipped counts whether or not the env's launcher
   directory is on PATH.
+- **The affiliation gate now reads a wrapped own-institution name through a
+  blockquote, comment, list or table marker, and only accepts the wrap when the
+  remaining words end where the name ends.** `scripts/check_affiliation_claims.py`
+  scans line by line, so `is_wrapped_own_institution` accepts a truncated own
+  institution when the NEXT line supplies its remaining words. It compared those words
+  with the next line as written, so a wrap inside a Markdown blockquote, a `#`, `//`,
+  `;` or `%` comment, a ` * ` block-comment line, a `-`, `+` or numbered list or a `|`
+  table, each of which repeats its marker at the start of the next line, reported the
+  project's own institution as unreviewed. Re-flowing one paragraph that names it at
+  every width from 20 to 80, with the marker put in front of every line after
+  wrapping, gave a finding the unwrapped paragraph does not at 20 of the 61 widths for
+  each of `> `, `- `, `# `, `* `, `// `, `1. `, `; ` and `% `, and at none for a bare
+  or indented continuation. The leading markers and whitespace are now removed before
+  the comparison, and the same re-flow gives that finding at none of the 61 widths for
+  any of those eight. A number is removed only as an ordered-list marker (one to nine
+  digits, then `.` or `)`, then whitespace), so `1: `, `a. ` and `(1) ` are not, and
+  each still gives it at 20 of the 61. **The same comparison was a
+  `startswith`, so it also accepted a continuation that merely BEGINS with the
+  remaining words**: a truncated head followed by a longer word on the next line
+  passed the gate with exit 0, the shape of the B13 hole that a bare prefix rule had
+  opened before. The remaining words must now be followed by a non-alphanumeric
+  character or the end of the line, so punctuation, a possessive and a hyphenated
+  compound still complete the name. Third-party names are still never accepted as
+  wraps. Twenty-two new tests in `tests/test_check_affiliation_claims.py` (seventeen
+  marked wraps end to end, the marker, leader, number and boundary rules directly, and
+  the longer-word case end to end) all fail on the previous code except the number
+  rule's guard, which passes on both and fails if that rule widens; eight mutants of
+  the marker and boundary change and sixteen of the number and leader change are each
+  killed. Run over the primary checkout's whole tree in `--all` mode, the previous and
+  the new gate print byte-identical findings, so no finding in any current file moves
+  in either direction; the tracked-tree gate stays at exit 0.
+- **Two writers that record a caught exception's text no longer write a workstation
+  path with it.** `scripts/audit_cv_leakage.py` stores the exception from its mode-35
+  feature build in the `note` cell of that row, and `run_final_validation` stores the
+  exception from its publication boundary in the `error` field of
+  `results/freeze_status.json`, a tracked file. Both stored `str(exc)`. An `OSError`'s
+  text quotes the path it failed on as the caller gave it, and a message built with an
+  f-string carries whatever path was put into it, so either cell could hold an absolute
+  path. The audit case is not hypothetical: regenerated from a clone, where the
+  gitignored `data/self_similarity_cache.csv` is absent, the mode-35 row's `note` held
+  `[Errno 2] No such file or directory: '<clone>/data/self_similarity_cache.csv'` with
+  the clone's absolute location in place of `<clone>`. Both now record
+  `src.provenance_paths.failure_note(exc)`: the exception's type, then its message with
+  each path found in it reduced by `relative_source`, so a path inside the checkout keeps
+  its repo-relative form and any other becomes `external:<name>`. An `OSError` that names
+  its file is rebuilt from `strerror` and the reduced `filename` (and `filename2`); any
+  other message has each path found in it reduced in place, a quoted one whole and a bare
+  one up to the next space or quote. A path directly after a `:` is not found and stays
+  as written (`key:/abs/dir/x.csv`, `file:///abs/dir/x.csv`; with a space,
+  `key: /abs/dir/x.csv` is reduced), so that a URL's `//` is never read as a path.
+  Because both writers call the helper inside an `except` block, it must not raise
+  itself: `relative_source` now records a path that `os.path.realpath` cannot resolve as
+  external instead of letting the `OSError` escape. On Windows `realpath` raised
+  WinError 668 for a malformed UNC name (two backslashes and a `;`), which would have
+  replaced the error being recorded and left `freeze_status.json` unwritten. The existing
+  tests in `tests/test_writers_record_no_workstation_path.py` drove both writers' success
+  paths only, which is how the failure paths went unchecked; thirteen new tests there
+  drive each failure path, inside and outside the checkout, and check the helper on its
+  own, including UNC paths in both separators, a path `realpath` cannot resolve, and
+  messages that must come back unchanged (`n/a`, `3/4`, `~2/3`, `+/-`, a URL, an HLA
+  allele pair). All thirteen fail on the previous code, and ten mutants of the helper
+  and the two call sites are each killed. The tracked
+  `results/cv_leakage_audit.csv` and `results/freeze_status.json` are not regenerated by
+  this change.
+- **PredIG's recombinant input now takes each peptide's protein context from the FASTA
+  the peptide was cut from, so all eight antigens `config.yaml` runs get their real
+  parent proteins.** `build_recombinant_table` looked parents up in `PROTEOME_FASTA`, a
+  hand-written table naming two panels (`EBV_B95_8_panel8`, `HPV16_18_panel8`). For the
+  other six (`HBV_ayw_panel4`, `HCV_1a_panel4`, `HIV1_HXB2_panel4`,
+  `SARSCOV2_wuhan1_panel4`, `IAV_PR8_panel4`, `CMV_AD169_panel4`) every peptide fell
+  through to `synthetic_protein_context`, the peptide padded with glycine, and once the
+  recombinant input could be built at all, PredIG run under Docker scored that padding as
+  if it were the parent protein, with nothing in the output saying so. Measured on the
+  pipeline's own stage 2 output for all eight antigens: 68,224 of 94,573 unique peptides
+  (72.1%), every peptide of those six antigens, got synthetic context; with this change,
+  none does. `rule run_predig` now takes the FASTA as an input by reusing
+  `rules.generate_peptides.input.fasta`, the same input function that cut the peptides,
+  rather than restating its lookup, and passes it as `--proteome-fasta`. For the two
+  panels the table already named, the table and `config.yaml` name the same file, and the
+  recombinant input is byte-identical before and after. `build_recombinant_table` gains
+  `proteome_fasta=`, searched first for that proteome's rows only, refused without the
+  `proteome_id` it belongs to, and an error rather than a silent fall-through when the
+  path is not a file; a peptide the file does not hold still falls back and is still
+  counted. The external-validation path, which carries its own `proteome_id` column and
+  passes no FASTA, is unchanged. A new test checks every antigen `config.yaml` runs: a
+  Snakemake dry run hands `run_predig` exactly the FASTA `config.yaml` names, the file is
+  tracked, and a peptide cut from it maps to a real protein. Eight mutants, each removing
+  one part, all fail it. PredIG itself was not run against a real container here.
+- **The simulated PredIG score now follows stage 2's binding columns instead of being
+  noise around a constant.** `scripts/run_predig_wrapper.py` builds `bind_map` by
+  matching the requested alleles against the binding CSV's columns, and it matched a
+  column only when that column was named exactly like the allele or began with `HLA-`.
+  `functions/stage2_mhc_binding_prediction.py` writes its per-allele presentation
+  scores as WIDE columns named by its own `_allele_to_col` rule, which turns
+  `HLA-A*02:01` into `bind_A0201`, so on the CSV `rule run_predig` actually passes no
+  column ever matched. `bind_map` stayed empty, every `bind_val` kept its 0.5 default,
+  and every simulated score was seeded noise around the constant 0.375 carrying no
+  binding signal at all; the wrapper's own comment had recorded this as defect (2).
+  Each requested allele is now resolved to stage 2's column name as well, and
+  `bind_map` is keyed by the allele rather than by the column so that the lookup can
+  find it. That one-line naming rule is COPIED rather than imported, because stage 2
+  imports mhcflurry at module level (3.9 s and over 2,300 modules, torch among them,
+  measured in the sestrav env), a heavy import for one string rule; a test pins the
+  copy as agreeing with stage 2's own. A column named exactly like the allele still wins where
+  one exists, and the nM-affinity conversion for values above 1.0 is unchanged. Blank
+  cells are now dropped rather than mapped, because `min(1.0, nan)` returns 1.0 and an
+  absent presentation score would otherwise have scored that row as the strongest
+  possible binder. Behaviour change: simulated PredIG scores now vary with stage 2's
+  `presentation_score` wherever the CSV carries one for the allele, where before they
+  varied only with the seed; an allele the input has no binding values for is still
+  noise around a constant. These rows are still SIMULATED and still carry
+  `simulated=1`, because binding-derived noise is still not PredIG output. No
+  simulated PredIG output is a tracked file, so no committed artifact changes.
+- **PredIG's recombinant input now builds from the binding CSV `rule run_predig`
+  actually passes it, so the default pipeline attempts real PredIG instead of always
+  simulating.** `scripts/run_predig_wrapper.py` handed stage 2's
+  `results/{proteome_id}_binding.csv` to `build_recombinant_table` as the peptide
+  metadata file, and that function selected `peptide`, `proteome_id` and `virus` from
+  it unconditionally. `functions/stage2_mhc_binding_prediction.py` writes neither of
+  the last two, so the selection raised `KeyError`, the wrapper caught it as "failed
+  to build recombinant input", and `predig_input_built` was False on every run. With
+  Docker installed and working the wrapper still took the simulated branch, which the
+  wrapper's own comment had recorded as defect (1) since the simulated flag landed.
+  `build_recombinant_table` now reads only the metadata columns the CSV has and takes
+  an optional `proteome_id` from its caller; a `proteome_id` column still wins where
+  the CSV has one, so the external-validation route through the module's own `main()`
+  is unchanged. The wrapper gained an optional `--proteome-id`, and `rule run_predig`
+  passes `{wildcards.proteome_id:q}`, quoted like every other interpolation in
+  `standardize_outputs.smk`. Behaviour change: with Docker installed the default
+  pipeline now ATTEMPTS PredIG; with Docker absent, or called without the new flag on
+  a stage-2 CSV, it still simulates and marks every row `simulated=1`, and the build
+  failure is now a `ValueError` naming the missing column rather than a bare
+  `KeyError`. The second defect that comment records, `hla_cols` never matching stage
+  2's wide `bind_A0201`-style columns, is unchanged and still noted there.
 - **`environment.yml` now pins conda `pip` to 26.2.1, the version
   `environments/requirements-pip-bootstrap.txt` pins, instead of 24.0.** The conda `pip`
   is the pip that `conda env create` uses to run the hash-checked `pip:` block, so it is
@@ -1117,6 +1251,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **`tools/update_dependencies.py` now resolves every lockfile against PyPI alone, so a
+  developer's uv settings can no longer route a recompile through another index or
+  change what it writes.** The tool named no index and passed its whole environment to
+  uv. Measured on uv 0.12.0 by recompiling the `ci-ruff` lock through the tool with a
+  dead index injected one route at a time, ten routes reached it, each exiting 2:
+  `UV_DEFAULT_INDEX`, `UV_INDEX_URL`, `UV_EXTRA_INDEX_URL`, `UV_INDEX`, `UV_FIND_LINKS`,
+  `UV_CONFIG_FILE`, a user-level `uv.toml`, a `UV_CONSTRAINT` file carrying an
+  `--extra-index-url` or `--find-links` line, and a `UV_OVERRIDE` file carrying an
+  `--extra-index-url` line. `UV_CUSTOM_COMPILE_COMMAND` rewrote the lock header, and
+  `UV_EXCLUDE_NEWER` and `UV_WORKING_DIR` each made the run fail. uv now runs with every
+  `UV_*` variable dropped except six that cannot change what it resolves
+  (`UV_CACHE_DIR`, `UV_HTTP_TIMEOUT`, `UV_NATIVE_TLS`, `UV_NO_CACHE`, `UV_NO_PROGRESS`,
+  `UV_SYSTEM_CERTS`), and with `UV_NO_CONFIG=1`, which stops it discovering a `uv.toml`.
+  The list names what is kept rather than what is dropped because uv adds variables like
+  these from release to release, and a drop-list would go stale; a test drops a `UV_*`
+  name the tool has never heard of. The `--no-config` flag was not used because uv
+  writes it into every lockfile header. The argv also gains
+  `--default-index https://pypi.org/simple`, so a command printed by `--dry-run` and run
+  by hand still names PyPI; that flag rather than `--index-url`, because `--index-url`
+  outranks `UV_INDEX_URL` but not `UV_DEFAULT_INDEX`, while `--default-index` outranks
+  both. uv leaves it out of the header, so no lockfile changes: the same recompile under
+  all fourteen routes tried (the thirteen above and a `UV_BUILD_CONSTRAINT` file, which
+  changed nothing on the old tool either) now exits 0 with the lock byte-identical, and
+  `UV_CACHE_DIR` is still honoured. The repo has no `uv.toml` and no `[tool.uv]` table,
+  and a test fails if one is added, since `UV_NO_CONFIG` would ignore it. Thirteen new
+  tests; ten mutants, each removing one part, all make them fail.
 - **32 provenance, run-metadata and report writers now record a caller-supplied path
   through one function, `src.provenance_paths.relative_source`, instead of as given or
   through a reduction that could keep a username.** The repo's privacy mandate forbids
@@ -1238,6 +1398,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the tests fail: dropping from `relative_source` the authority rule, the `:` and `@`
   name rule, the query and fragment rule, the whitespace strip or the host requirement,
   and reverting the run directory line of `src/external_validation_finalize.py`.
+- **`scripts/ingest_immunecode.py` now checks against the pin the same bytes it ingests.**
+  `main()` loaded the MIRA archive by path and then hashed it by path again, in two
+  separate reads, and the provenance sidecar recorded that second read as
+  `archive_verified_against_pin`. A file replaced between the two reads was extracted and
+  ingested while the sidecar named the pinned release. The archive is now read once:
+  `_read_archive` returns its bytes and the verdict, the members are extracted from those
+  same bytes in memory, the rows are read from the peptide-detail member of those bytes
+  rather than from its extracted copy in the temporary directory, and `_load_csv` returns
+  the verdict with the table, so `main()` no longer reads the file a second time.
+  Extraction itself is unchanged, so its path-traversal refusal still applies. An
+  auto-download whose archive no longer
+  matches the pin by the time it is extracted is now refused; before, the auto-download
+  route was recorded as verified without being checked again. A CSV input is still
+  never verified. The test of the auto-download sidecar now pins its stub archive, as
+  the real download only ever returns pinned bytes. `scripts/ingest_vdjdb.py` is left
+  as it is: it extracts into the data directory and its caller reads the table back
+  from there by path, so a matching change to its archive check would leave the same
+  window one step later. Eight new tests: three replace the archive on disk the moment
+  `zipfile` opens it, one replaces it straight after it is read, one rewrites the
+  extracted CSV before the rows are read, one checks that the verdict covers every byte
+  rather than a prefix, and two cover the auto-download. Eight mutants, each undoing one
+  part, all make a test fail.
 - **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
   `--no-require-hashes` line fails closed.** The check that every requirement carries a
   hash had its own line reader, separate from the pip-faithful one the option check uses. It
@@ -1280,6 +1462,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   carry this repository's review rules for Snakemake, `torch.load`, `load_verified_joblib`,
   workflows and the local hooks. Every key was checked against
   `coderabbit.ai/integrations/schema.v2.json` on 2026-10-14.
+- **The `sestrav-require-verified-joblib-load` semgrep rule now catches a checksum opt-out
+  that is not spelled as the literal `False`.** It matched `required_checksum=False`,
+  `read_verified_bytes(..., required=False)` and a positional `False`, so a flag passed as
+  a name or an expression (`required_checksum=strict`), as the third positional argument
+  (`load_verified_joblib(path, None, strict)`), or inside an unpacked mapping
+  (`**options`) passed the blocking scan while it can still be `False` at run time. The
+  rule now flags any flag but the literal `True`, for both functions; a call that passes
+  no flag stays clean, because the default is `True`, and `load_verified_joblib`'s own
+  body stays exempt. `docs/threat_model.md`'s T2 row says so. Measured with semgrep
+  1.179.0, CI's pin: the fixtures gain seven `ruleid:` and three `ok:` lines, and across
+  every rule's fixtures `scripts/check_semgrep_rule_fixtures.py` now matches 23 findings
+  to 23 `ruleid:` and 16 `ok:` annotations (16, 16 and 13 before); the previous rule
+  reports 5 of this rule's 12 `ruleid:` lines, missing all seven new ones; and the
+  blocking scan, `semgrep scan --config semgrep-rules/ --error`, reports 0
+  findings over 241 files, so no existing caller is affected.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no

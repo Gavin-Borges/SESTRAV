@@ -682,6 +682,21 @@ def is_excluded_prefix(path: str) -> bool:
     )
 
 
+# What a continuation line can open with before its words: a blockquote's ">"
+# (nested or not), a comment's "#", "//", ";" or "%", a block comment's or list's
+# "*", a list's "-" or "+", an ordered list's number, a table cell's "|", and the
+# whitespace around them. The number is removed only as an ordered-list marker:
+# one to nine digits, then "." or ")", then whitespace, which is how
+# markdown-it-py 4.2.0's CommonMark list rule reads one; "1.5" or "1:" stays.
+# Measured 2026-10-19 by re-flowing one paragraph at every width from 20 to 80,
+# the marker put in front of every line after wrapping: before any marker was
+# removed, each of "> ", "- ", "# ", "* ", "// ", "1. ", "; " and "% " gave a
+# finding the unwrapped paragraph does not at 20 of the 61 widths, and a bare or
+# indented continuation at none. With this pattern none of them does; "a. ",
+# "(1) " and "1: " are not removed and still do.
+_CONTINUATION_MARKUP = re.compile(r"^(?:[>#*+|\-;%]|//|\d{1,9}[.)](?=\s)|\s)+")
+
+
 def is_wrapped_own_institution(name: str, next_line: str | None) -> bool:
     """True when ``name`` is a line-broken OWN institution the next line completes.
 
@@ -700,15 +715,24 @@ def is_wrapped_own_institution(name: str, next_line: str | None) -> bool:
 
     Scoped to OWN_INSTITUTIONS deliberately. A wrapped THIRD_PARTY name is
     still reported, because a third-party name is exactly what wants reviewing.
+
+    A wrap inside a blockquote, comment, list or table repeats the block's
+    marker at the start of the next line, so _CONTINUATION_MARKUP is removed
+    before the remaining words are compared. And those words must END where the
+    name ends: a continuation that merely starts with them ("<word>ia ...")
+    names something else.
     """
     if next_line is None:
         return False
     key = normalise_institution_name(name)
-    continuation = " ".join(next_line.split()).lower()
+    continuation = " ".join(_CONTINUATION_MARKUP.sub("", next_line).split()).lower()
     for own in OWN_INSTITUTIONS:
         if not own.startswith(key + " "):
             continue
-        if continuation.startswith(own[len(key) + 1 :]):
+        remaining = own[len(key) + 1 :]
+        if continuation.startswith(remaining) and not continuation[
+            len(remaining) : len(remaining) + 1
+        ].isalnum():
             return True
     return False
 
