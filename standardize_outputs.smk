@@ -24,7 +24,12 @@ rule run_prime:
 
 rule run_predig:
     input:
-        binding = "results/{proteome_id}_binding.csv"
+        binding = "results/{proteome_id}_binding.csv",
+        # The FASTA this antigen's peptides were cut from, taken from generate_peptides'
+        # own input function rather than restating its lookup, so the two rules cannot
+        # resolve one proteome to different files. pipeline.smk defines that rule before
+        # its include of this file, which is the only way this file is ever loaded.
+        fasta = rules.generate_peptides.input.fasta
     output:
         predig_out = "results/{proteome_id}_predig_output.csv"
     params:
@@ -40,7 +45,10 @@ rule run_predig:
         # to build_recombinant_table as peptide metadata, and stage 2 writes no
         # proteome_id column, so without it no recombinant input can be built and PredIG
         # never runs. Quoted with :q like every other interpolation in this file.
-        "{sys.executable:q} scripts/run_predig_wrapper.py --binding-csv {input.binding:q} --output {output.predig_out:q} --alleles {params.alleles:q} --proteome-id {wildcards.proteome_id:q} > {log:q} 2>&1"
+        # --proteome-fasta gives every antigen its real parent proteins; without it
+        # only the two panels PROTEOME_FASTA names found any, and PredIG scored the
+        # rest on synthetic glycine context.
+        "{sys.executable:q} scripts/run_predig_wrapper.py --binding-csv {input.binding:q} --output {output.predig_out:q} --alleles {params.alleles:q} --proteome-id {wildcards.proteome_id:q} --proteome-fasta {input.fasta:q} > {log:q} 2>&1"
 
 rule standardize_predictor_outputs:
     input:

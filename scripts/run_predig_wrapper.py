@@ -46,6 +46,14 @@ def main():
         default=None,
         help="Proteome id for the binding CSV (rule run_predig passes its wildcard)",
     )
+    # Optional too. The FASTA the binding CSV's peptides were cut from, so PredIG gets
+    # their real parent protein. Without it only the two panels PROTEOME_FASTA names
+    # find one, and every other antigen's peptides get synthetic glycine context.
+    parser.add_argument(
+        "--proteome-fasta",
+        default=None,
+        help="FASTA the peptides came from (rule run_predig passes generate_peptides' input)",
+    )
     args = parser.parse_args()
 
     if not os.path.isfile(args.binding_csv):
@@ -116,6 +124,7 @@ def main():
             proteome_dir=proteome_dir,
             output_path=temp_predig_input_abs,
             proteome_id=args.proteome_id,
+            proteome_fasta=args.proteome_fasta,
         )
         predig_input_built = True
     # build_recombinant_table does file I/O (OSError) and DataFrame column
