@@ -1004,6 +1004,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   LOW-1). The 16 default manifests use none of these forms, so the gate's verdict on the
   tree is unchanged: rc 0 before and after. Fourteen mutants, each reverting one new
   rejection or check or dropping one archive extension, all make the tests fail.
+- **`tools/update_dependencies.py` now resolves every lockfile against PyPI alone, so a
+  developer's uv settings can no longer route a recompile through another index or
+  change what it writes.** The tool named no index and passed its whole environment to
+  uv. Measured on uv 0.12.0 by recompiling the `ci-ruff` lock through the tool with a
+  dead index injected one route at a time, ten routes reached it, each exiting 2:
+  `UV_DEFAULT_INDEX`, `UV_INDEX_URL`, `UV_EXTRA_INDEX_URL`, `UV_INDEX`, `UV_FIND_LINKS`,
+  `UV_CONFIG_FILE`, a user-level `uv.toml`, a `UV_CONSTRAINT` file carrying an
+  `--extra-index-url` or `--find-links` line, and a `UV_OVERRIDE` file carrying an
+  `--extra-index-url` line. `UV_CUSTOM_COMPILE_COMMAND` rewrote the lock header, and
+  `UV_EXCLUDE_NEWER` and `UV_WORKING_DIR` each made the run fail. uv now runs with every
+  `UV_*` variable dropped except six that cannot change what it resolves
+  (`UV_CACHE_DIR`, `UV_HTTP_TIMEOUT`, `UV_NATIVE_TLS`, `UV_NO_CACHE`, `UV_NO_PROGRESS`,
+  `UV_SYSTEM_CERTS`), and with `UV_NO_CONFIG=1`, which stops it discovering a `uv.toml`.
+  The list names what is kept rather than what is dropped because uv adds variables like
+  these from release to release, and a drop-list would go stale; a test drops a `UV_*`
+  name the tool has never heard of. The `--no-config` flag was not used because uv
+  writes it into every lockfile header. The argv also gains
+  `--default-index https://pypi.org/simple`, so a command printed by `--dry-run` and run
+  by hand still names PyPI; that flag rather than `--index-url`, because `--index-url`
+  outranks `UV_INDEX_URL` but not `UV_DEFAULT_INDEX`, while `--default-index` outranks
+  both. uv leaves it out of the header, so no lockfile changes: the same recompile under
+  all fourteen routes tried (the thirteen above and a `UV_BUILD_CONSTRAINT` file, which
+  changed nothing on the old tool either) now exits 0 with the lock byte-identical, and
+  `UV_CACHE_DIR` is still honoured. The repo has no `uv.toml` and no `[tool.uv]` table,
+  and a test fails if one is added, since `UV_NO_CONFIG` would ignore it. Thirteen new
+  tests; ten mutants, each removing one part, all make them fail.
 - **32 provenance, run-metadata and report writers now record a caller-supplied path
   through one function, `src.provenance_paths.relative_source`, instead of as given or
   through a reduction that could keep a username.** The repo's privacy mandate forbids
@@ -1125,6 +1151,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the tests fail: dropping from `relative_source` the authority rule, the `:` and `@`
   name rule, the query and fragment rule, the whitespace strip or the host requirement,
   and reverting the run directory line of `src/external_validation_finalize.py`.
+- **`scripts/ingest_immunecode.py` now checks against the pin the same bytes it ingests.**
+  `main()` loaded the MIRA archive by path and then hashed it by path again, in two
+  separate reads, and the provenance sidecar recorded that second read as
+  `archive_verified_against_pin`. A file replaced between the two reads was extracted and
+  ingested while the sidecar named the pinned release. The archive is now read once:
+  `_read_archive` returns its bytes and the verdict, the members are extracted from those
+  same bytes in memory, the rows are read from the peptide-detail member of those bytes
+  rather than from its extracted copy in the temporary directory, and `_load_csv` returns
+  the verdict with the table, so `main()` no longer reads the file a second time.
+  Extraction itself is unchanged, so its path-traversal refusal still applies. An
+  auto-download whose archive no longer
+  matches the pin by the time it is extracted is now refused; before, the auto-download
+  route was recorded as verified without being checked again. A CSV input is still
+  never verified. The test of the auto-download sidecar now pins its stub archive, as
+  the real download only ever returns pinned bytes. `scripts/ingest_vdjdb.py` is left
+  as it is: it extracts into the data directory and its caller reads the table back
+  from there by path, so a matching change to its archive check would leave the same
+  window one step later. Eight new tests: three replace the archive on disk the moment
+  `zipfile` opens it, one replaces it straight after it is read, one rewrites the
+  extracted CSV before the rows are read, one checks that the verdict covers every byte
+  rather than a prefix, and two cover the auto-download. Eight mutants, each undoing one
+  part, all make a test fail.
 - **`tools/check_hash_pins.py`'s hash check now reads a manifest the way pip does, and a
   `--no-require-hashes` line fails closed.** The check that every requirement carries a
   hash had its own line reader, separate from the pip-faithful one the option check uses. It
@@ -1167,6 +1215,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   carry this repository's review rules for Snakemake, `torch.load`, `load_verified_joblib`,
   workflows and the local hooks. Every key was checked against
   `coderabbit.ai/integrations/schema.v2.json` on 2026-10-14.
+- **The `sestrav-require-verified-joblib-load` semgrep rule now catches a checksum opt-out
+  that is not spelled as the literal `False`.** It matched `required_checksum=False`,
+  `read_verified_bytes(..., required=False)` and a positional `False`, so a flag passed as
+  a name or an expression (`required_checksum=strict`), as the third positional argument
+  (`load_verified_joblib(path, None, strict)`), or inside an unpacked mapping
+  (`**options`) passed the blocking scan while it can still be `False` at run time. The
+  rule now flags any flag but the literal `True`, for both functions; a call that passes
+  no flag stays clean, because the default is `True`, and `load_verified_joblib`'s own
+  body stays exempt. `docs/threat_model.md`'s T2 row says so. Measured with semgrep
+  1.179.0, CI's pin: the fixtures gain seven `ruleid:` and three `ok:` lines, and across
+  every rule's fixtures `scripts/check_semgrep_rule_fixtures.py` now matches 23 findings
+  to 23 `ruleid:` and 16 `ok:` annotations (16, 16 and 13 before); the previous rule
+  reports 5 of this rule's 12 `ruleid:` lines, missing all seven new ones; and the
+  blocking scan, `semgrep scan --config semgrep-rules/ --error`, reports 0
+  findings over 241 files, so no existing caller is affected.
 - **Three low-severity hardening items: the DCO job's checkout token, a dead review
   bypass, and the Docker build context.**
   - `dco.yml`'s checkout now sets `persist-credentials: false`, so the job token is no
