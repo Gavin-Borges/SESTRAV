@@ -66,12 +66,13 @@
 # Check 6 -- credential scan, in two passes under one banner:
 #   (a) scripts/check_secrets.py's entropy scan over this checkout's files;
 #   (b) no banner of its own: an inline Python scan of every scannable blob
-#       that the non-merge commits being pushed add or modify, reusing that
-#       script's scanner, so content crossing to the remote is scanned even
-#       when the checkout no longer holds it. A merge commit's own changes,
-#       such as a conflict resolution, are not scanned here: git diff-tree
-#       lists no paths for a merge. It prints "Scanning blobs introduced by
-#       the pushed commit ranges".
+#       that the commits being pushed add, modify or change the type of,
+#       reusing that script's scanner, so content crossing to the remote is
+#       scanned even when the checkout no longer holds it. A merge commit's
+#       own changes, such as a conflict resolution, are scanned too, and so
+#       are paths under the directory names pass (a) prunes from its walk:
+#       every pushed blob is published. It prints "Scanning blobs introduced
+#       by the pushed commit ranges".
 #
 # Check 7 -- runs scripts/check_qualifier_bindings.py in its ratchet form: it
 #   fails when a binding's violations exceed its violation_ceiling in
@@ -750,16 +751,42 @@ fi
 
 # Check 6, pass (b): the pushed-range blob scan. It has no banner of its own;
 # the header lists it under Check 6.
+#
+# WHAT IT READS. Three choices below differ from what pass (a) does, and each
+# closed a measured hole: a value added and then removed inside one push passed
+# this scan and reached the remote's history (measured 2026-10-25 in throwaway
+# repositories; tests/test_pre_push_range_scan_sees_excluded_dirs_type_changes_and_merges.py
+# pins all three).
+#
+#   1. No EXCLUDE_DIRS. Pass (a) prunes those directory names from its WALK
+#      because untracked build output and virtualenvs are never published, and
+#      then adds every TRACKED file back. Every blob in a pushed commit is
+#      published, so the prune protects nothing here; inheriting it skipped
+#      results/, which holds tracked files, and any committed path under
+#      build/, scratch/ or the other pruned names. EXCLUDE_PATHS still
+#      applies, through _is_scannable.
+#   2. --diff-filter=AMT. T is a type change (git-diff-tree(1), --diff-filter):
+#      a symlink replaced by a regular file is listed as T, and AM alone never
+#      scanned it. D adds no content. R and C cannot appear: diff-tree is
+#      plumbing, and diff.renames affects only porcelain (git-config(1)).
+#   3. -c. Without it diff-tree lists no paths for a merge commit, so content
+#      that only a merge introduced was never read. With it, diff-tree "lists
+#      only files which were modified from all parents" (git-diff-tree(1)):
+#      the blobs the merge itself created. Every other path in a merge's tree
+#      equals some parent's, and that blob was scanned in its own commit or is
+#      already on the remote. -m would also list every path the merged branch
+#      changed, re-reading content the remote already holds; Check 1c reads
+#      merges with -c for the same reason.
 printf '[pre-push] Scanning blobs introduced by the pushed commit ranges...\n'
 
 cd "${REPO_ROOT}" && python - "${PUSH_UPDATES}" <<'PY'
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
-from scripts.check_secrets import EXCLUDE_DIRS, _is_scannable, scan_file
+from scripts.check_secrets import _is_scannable, scan_file
 
 ZERO_SHA = "0" * 40
 
@@ -797,13 +824,15 @@ def changed_paths(commit: str) -> list[str]:
     # (measured 2026-10-07 on Git for Windows and Linux;
     # tests/test_pre_push_blob_scan_keeps_non_ascii_names.py pins it). git()
     # above already decodes as UTF-8, the other half of that function's fix.
+    # -c and --diff-filter=AMT: points 3 and 2 in the comment above this scan.
     result = git(
         "diff-tree",
         "-z",
         "--root",
         "--no-commit-id",
         "--name-only",
-        "--diff-filter=AM",
+        "--diff-filter=AMT",
+        "-c",
         "-r",
         commit,
     )
@@ -814,8 +843,8 @@ def changed_paths(commit: str) -> list[str]:
 
 
 def admitted(path: str) -> bool:
-    parts = PurePosixPath(path).parts
-    return not any(part in EXCLUDE_DIRS for part in parts) and _is_scannable(path)
+    # _is_scannable only, never EXCLUDE_DIRS: point 1 in the comment above.
+    return _is_scannable(path)
 
 
 flagged = False
