@@ -1036,6 +1036,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **The secret scan now flags five key-material names it could not reach: `ACCESS_KEY`,
+  `SIGNING_KEY`, `ENCRYPTION_KEY`, `DECRYPTION_KEY` and `HMAC_KEY` (audit finding M4).**
+  `scripts/check_secrets.py`, the secret scan CI runs in `security.yml`, matches
+  `api_key` and `private_key` but no bare `key`. Measured at `5e72008d` with an
+  18-character value that clears its floors: `ACCESS_KEY = "<value>"` in a `.py` file,
+  `ACCESS_KEY=<value>` in a `.env` file and `SIGNING_KEY = "<value>"` all passed, while
+  the `API_KEY` control was flagged. A general `*_KEY` rule is still refused: measured
+  in the keyword list's own shape over the 733 tracked files the scan read at that
+  commit, it flags ten lines, every one a lookup key such as `RATCHET_KEY`. The new rule
+  is a closed list of names that hold a credential (`ACCESS_KEY` sometimes holds an AWS
+  key ID, which the scan already flags by its format), and each produced zero findings
+  on the same files. Four boundaries keep it narrow. No letter may run into the name, so
+  `ASSIGNING_KEY` does not match. A `_`, `-` or camelCase `Key` must join it to KEY, so
+  `user.signingkey` as this repository's docs write it, which git-config(1) defines as
+  naming a key (a GPG key specifier, a key file's path or a public key), does not match;
+  git's own camelCase spelling `user.signingKey` does, a known false positive that is
+  reported, never passed. Nothing may follow KEY,
+  so `ACCESS_KEY_ID` does not match. A value opening with `<`, `$`, `%` or `{` is a
+  placeholder or a variable and is skipped. Values keep the existing length and entropy
+  floors, and unquoted values are read only in the formats that already allow them. The
+  pre-commit hook needs no matching change: its credential gate matches fixed token
+  formats only, never a name and a value, and pre-push already runs this scanner. 50 of
+  the 56 cases in the new `tests/test_check_secrets_keyword_names.py` fail on the
+  previous scanner, each at an assertion that expects a finding; the other six assert
+  that lookalike names and placeholder values stay clean.
 - **filelock now pins 4.2.4 and setuptools 84.1.0, closing four advisories, and
   pyproject.toml's `[build-system]` floor rises to `setuptools>=84.1.0`.**
   filelock 3.32.0 (`requirements.txt`, `environments/requirements.lock`,
