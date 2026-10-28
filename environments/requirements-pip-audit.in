@@ -1,1 +1,14 @@
 pip-audit==2.10.1
+
+# Security overrides - minimum versions to close advisories in packages that
+# pip-audit's own dependencies would otherwise leave at a vulnerable release.
+#
+# A line here is a REQUIREMENT, not a constraint (see the same note in
+# environments/requirements-lock.in): a floor may only name a package that
+# pip-audit already pulls in, and it must be deleted once it stops pulling it
+# in. tests/test_security_floors_have_a_dependent.py enforces that.
+# msgpack: GHSA-j586-36cw-2gc2 / CVE-2026-114613 (high; per its title, an
+# unbounded memory leak in the C extension on strict_map_key validation
+# failure). It affects < 1.2.3 and lists 1.2.3 as the fix. Pulled in by
+# cachecontrol, which pip-audit uses for its HTTP cache.
+msgpack>=1.2.3

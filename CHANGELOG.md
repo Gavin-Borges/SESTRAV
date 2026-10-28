@@ -17,6 +17,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Security
+- **The pip-audit tool lock moves msgpack from 1.2.2 to 1.2.3, closing GHSA-j586-36cw-2gc2 /
+  CVE-2026-114613 (high).** Per its title, the advisory is an unbounded memory leak in the
+  msgpack C extension on `strict_map_key` validation failure; it affects releases before
+  1.2.3 and lists 1.2.3 as the fix. Of the tracked locks, only
+  `environments/requirements-pip-audit.txt` pins msgpack, which `security.yml`'s pip-audit
+  job installs: it arrives through cachecontrol, which pip-audit uses for its HTTP cache.
+  `environments/requirements-pip-audit.in` gains a `msgpack>=1.2.3` floor with the advisory
+  named beside it, in the form `environments/requirements-lock.in` uses, so a recompile
+  cannot resolve a vulnerable release. With that floor alone,
+  `tools/update_dependencies.py --ci-env pip-audit` resolves 1.2.4, first uploaded to PyPI
+  on 2026-10-26, the day before this change; the lock takes 1.2.3, the advisory's own fix,
+  and uv keeps it as its preference when the committed `.in` is recompiled (two consecutive
+  runs write the same file). Only msgpack's version, hash set and `via` block change; the
+  other 26 pins and their hashes do not. `pip-audit -r
+  environments/requirements-pip-audit.txt --no-deps --disable-pip` reports this advisory
+  against the previous lock and nothing against this one, with `-s pypi` and with `-s osv`.
 - **The semgrep tool lock moves mcp from 1.29.0 to 1.30.0 and the OpenTelemetry packages
   from 1.37.0 / 0.58b0 to 1.45.1 / 0.66b1, closing CVE-2026-59951 / GHSA-84m7-p3x7-pcfv and
   CVE-2026-114603 / GHSA-xcq7-p3pf-p88h (both medium), through a reinstated uv override.**
