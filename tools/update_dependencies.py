@@ -16,16 +16,50 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PYTHON_PLATFORM = "linux"
+
+# The one index every lockfile is resolved against. compile_env() already drops
+# the variables that would replace it; naming it in the argv as well keeps a
+# command printed by --dry-run and run by hand on PyPI. It is --default-index
+# rather than --index-url because, measured on uv 0.12.0, --index-url outranks
+# UV_INDEX_URL but not UV_DEFAULT_INDEX, while --default-index outranks both.
+# Under --no-emit-index-url uv leaves it out of the lockfile header.
+DEFAULT_INDEX = "https://pypi.org/simple"
+
+# The only UV_* environment variables a compile keeps: where the cache lives,
+# whether to bypass it, how to reach the network, and progress output. None of
+# them can change what uv resolves. Every other one is dropped, because uv
+# reads many as resolution inputs that the lockfile header never records: an
+# index (UV_DEFAULT_INDEX, UV_INDEX_URL, UV_INDEX, UV_EXTRA_INDEX_URL,
+# UV_FIND_LINKS), a constraint or override file that can name its own index
+# (UV_CONSTRAINT, UV_OVERRIDE), a config file (UV_CONFIG_FILE), a torch backend
+# index, a cutoff date, offline resolution from a stale cache, another working
+# directory, or the header's own command line (UV_CUSTOM_COMPILE_COMMAND). uv
+# adds such variables from release to release, so a list of variables to drop
+# would go stale; a list of variables to keep does not. UV_NO_CONFIG=1 is then
+# set, which stops uv discovering a user or system uv.toml; the --no-config
+# flag would do the same, but uv records that flag in every lockfile header.
+# The repo carries no uv configuration of its own (no uv.toml, no [tool.uv] in
+# pyproject.toml), so nothing it intends is ignored.
+UV_ENV_KEPT = (
+    "UV_CACHE_DIR",
+    "UV_HTTP_TIMEOUT",
+    "UV_NATIVE_TLS",
+    "UV_NO_CACHE",
+    "UV_NO_PROGRESS",
+    "UV_SYSTEM_CERTS",
+)
 
 # pip-compile's "unsafe" set. `uv pip compile` emits these by default, which is
 # equivalent to pip-compile --allow-unsafe; specs compiled without that flag
@@ -61,7 +95,9 @@ class LockSpec:
     # uv override file this spec needs to reach a patched release, or None.
     # An override makes the lock disagree with a package's own metadata, so a
     # resolving `pip install` of it fails and every install must pass --no-deps.
-    # No spec sets one today; tests/test_dependency_tooling.py fails if one does.
+    # Only the semgrep spec sets one (mcp for CVE-2026-59951, opentelemetry-api
+    # for CVE-2026-114603); the override file records its exit conditions, and
+    # tests/test_dependency_tooling.py fails if any other spec sets one.
     overrides: str | None = None
 
 
@@ -139,12 +175,17 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
         "3.11",
         False,
     ),
+    # overrides: every semgrep release from 1.179.0 through 1.182.1 declares
+    # mcp==1.29.0 exactly (CVE-2026-59951, fixed in 1.30.0) and
+    # opentelemetry-api~=1.37.0 (CVE-2026-114603, fixed in 1.45.1). See the
+    # EPILOG and environments/semgrep-overrides.txt for why and when to retire it.
     LockSpec(
         "semgrep",
         "environments/requirements-semgrep.in",
         "environments/requirements-semgrep.txt",
         "3.11",
         False,
+        overrides="environments/semgrep-overrides.txt",
     ),
 )
 
@@ -169,23 +210,42 @@ Notes:
     uv pip compile invocations recorded in each lockfile header.
   * --no-emit-index-url matches the repo convention and keeps a local
     [tool.uv.pip] emit-index-url setting from leaking an index into the file.
+  * Every lockfile resolves against PyPI alone. --default-index names it, and
+    uv runs with UV_NO_CONFIG=1 and with no UV_* variable but its cache,
+    network and progress settings, so neither a user's uv.toml nor a shell
+    setting can route a recompile through another index or change what it
+    resolves. A command printed by --dry-run carries --default-index but not
+    that environment.
   * Files without a `.in` source (requirements-ci-render.txt,
     requirements-ci-torch-cpu.txt, requirements-sbom.txt,
     requirements-pip-bootstrap.txt) are curated by hand
     with `pip download` + `pip hash` and are deliberately not managed here.
 
-The 'runtime' and 'lock' specs constrain setuptools to 84.0.0. The advisory,
-GHSA-h35f-9h28-mq5c, is patched at 83.0.0, so both specs sit one release above
-the advisory minimum. That floor used to collide with torch 2.12.0's declared
-`setuptools<82` build-metadata cap, making both specs unsatisfiable for any
-resolver, so each compiled through a `--overrides overrides.txt` file. torch
-2.13.0 raised the cap to `setuptools>=77.0.3`, so the override was retired and
-both specs now compile with no special handling.
+The 'runtime' spec pins setuptools to 84.1.0 and the 'lock' spec floors it there:
+84.1.0 is the first release patched for GHSA-xmj3-9gf7-h52w. The earlier
+security floor, 83.0.0 for GHSA-h35f-9h28-mq5c, used to collide with torch
+2.12.0's declared `setuptools<82` build-metadata cap, making both specs
+unsatisfiable for any resolver, so each compiled through a
+`--overrides overrides.txt` file. torch 2.13.0 raised the cap to
+`setuptools>=77.0.3`, so the override was retired and both specs now compile
+with no special handling.
 
 The 'semgrep' spec compiled with `--overrides environments/semgrep-overrides.txt`
 while semgrep declared `pyjwt[crypto]~=2.13.0`. semgrep 1.179.0 declares
 `pyjwt[crypto]>=2.15.0,<3`, which met that override's exit condition, so it was
-retired and the semgrep spec now compiles with no special handling either.
+retired.
+
+It was reinstated in 2026-10, for mcp and OpenTelemetry rather than pyjwt.
+Every semgrep release from 1.179.0 through 1.182.1 declares `mcp==1.29.0`
+exactly and `opentelemetry-api~=1.37.0`, with matching `~=1.37.0` / `~=0.58b0`
+ranges for the four other OpenTelemetry packages it names. mcp 1.29.0 carries
+CVE-2026-59951 / GHSA-84m7-p3x7-pcfv, fixed in 1.30.0, and opentelemetry-api
+1.37.0 carries CVE-2026-114603 / GHSA-xcq7-p3pf-p88h, fixed in 1.45.1. Without
+the override no resolver can reach either fix. The override file lifts mcp to
+the 1.30 series and those five OpenTelemetry packages to the 1.45.1 / 0.66b1
+releases, and states an exit condition for each group. Every install of the
+semgrep lock must pass --no-deps while it is in place, because the lock no
+longer satisfies semgrep's own metadata.
 """
 
 
@@ -221,6 +281,8 @@ def build_command(
         spec.output,
         "--generate-hashes",
         "--no-emit-index-url",
+        "--default-index",
+        DEFAULT_INDEX,
         "--python-version",
         spec.python_version,
         "--python-platform",
@@ -236,6 +298,23 @@ def build_command(
     elif upgrade_package:
         command += ["--upgrade-package", upgrade_package]
     return command
+
+
+def compile_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Return the environment uv compiles in: `environ` without its uv settings.
+
+    Every UV_* variable outside UV_ENV_KEPT is dropped, any UV_NO_CONFIG among
+    them, and UV_NO_CONFIG=1 is set. Names are matched without regard to case,
+    because Windows reads environment variables that way.
+    """
+    source = os.environ if environ is None else environ
+    env = {
+        name: value
+        for name, value in source.items()
+        if not name.upper().startswith("UV_") or name.upper() in UV_ENV_KEPT
+    }
+    env["UV_NO_CONFIG"] = "1"
+    return env
 
 
 def uv_version() -> str | None:
@@ -382,7 +461,7 @@ def _compile_seeded(spec: LockSpec, command: list[str], root: Path = REPO_ROOT) 
         output = scratch / spec.output
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_bytes(preferences.encode("utf-8"))
-        result = subprocess.run(command, cwd=scratch, check=False)
+        result = subprocess.run(command, cwd=scratch, check=False, env=compile_env())
         compiled = output.read_bytes()
         if result.returncode == 0 and b"--hash=" in compiled:
             (root / spec.output).write_bytes(compiled)
@@ -430,7 +509,9 @@ def main(argv: list[str] | None = None) -> int:
         if spec.name in SEEDED_SPECS:
             returncode = _compile_seeded(spec, command)
         else:
-            returncode = subprocess.run(command, cwd=REPO_ROOT, check=False).returncode
+            returncode = subprocess.run(
+                command, cwd=REPO_ROOT, check=False, env=compile_env()
+            ).returncode
         if returncode != 0:
             print(f"ERROR: uv pip compile failed for {spec.source}", file=sys.stderr)
             return returncode

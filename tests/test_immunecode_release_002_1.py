@@ -204,7 +204,7 @@ _REAL_ARCHIVE = os.environ.get("SESTRAV_IMMUNECODE_ARCHIVE")
 @pytest.mark.skipif(not _REAL_ARCHIVE, reason="set SESTRAV_IMMUNECODE_ARCHIVE to a local copy")
 def test_the_real_archive_matches_the_pin_and_is_refused(tmp_path, caplog, never_extracts):
     assert _REAL_ARCHIVE is not None
-    assert ingest._archive_matches_pin(_REAL_ARCHIVE)
+    assert ingest._read_archive(_REAL_ARCHIVE)[1]
     out = tmp_path / "out" / "negatives.csv"
     with caplog.at_level(logging.INFO):
         assert ingest.main(["--input", _REAL_ARCHIVE, "--output", str(out)]) == 1
