@@ -20,6 +20,7 @@ point the repo root at a fake one, under tmp_path except in the other-drive test
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -131,6 +132,12 @@ def test_auto_download_records_the_url_not_the_temporary_archive_path(repo, out_
         path = os.path.join(dest_dir, ZIP_NAME)
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr(CSV_NAME, MIRA_CSV)
+        # The real _download_mira returns only an archive whose bytes match the pin,
+        # and the loader re-checks the bytes it extracts, so the stub pins to its own.
+        with open(path, "rb") as handle:
+            body = handle.read()
+        monkeypatch.setattr(ingest, "MIRA_PINNED_SHA256", hashlib.sha256(body).hexdigest())
+        monkeypatch.setattr(ingest, "MIRA_PINNED_SIZE_BYTES", len(body))
         return path
 
     monkeypatch.setattr(ingest, "_download_mira", fake_download)
