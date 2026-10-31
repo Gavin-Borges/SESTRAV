@@ -105,6 +105,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   the override's return.
 
 ### Fixed
+- **The Dependabot render-lockfile guard in `.github/workflows/dependency-lockfile-check.yml`
+  now runs when the freshness check before it fails, which is the case Dependabot pull
+  requests reach.** The `Block Dependabot from editing the hand-maintained render lockfile`
+  step's `if:` selected pull requests authored by `dependabot[bot]` and contained no status
+  check function. GitHub applies a default status check of `success()` to such an `if:`
+  (GitHub Docs, "Status check functions"), so the step was skipped whenever the
+  `Check lockfiles are fresh and fully hashed` step before it failed. Measured 2026-10-25 on
+  the latest run of the workflow on each open Dependabot pip pull request, #766, #806 and
+  #807: the freshness step failed and the guard was skipped on all three, although #766
+  edits `environments/requirements-ci-render.txt`, the file the guard exists to protect. So
+  the CI gate map in `SECURITY.md`, which says this job also refuses a Dependabot edit to
+  that file, described a step that was skipped on every Dependabot pip pull request measured. The
+  condition now begins `!cancelled() &&`, which GitHub's documentation recommends over
+  `always()` for a step that must run whether earlier steps passed or failed, and keeps the
+  event and login conditions unchanged, so a human pull request still never runs the step.
+  `failure()` was not used because it would skip the guard whenever the freshness check
+  passes. A new test reads the workflow and refuses a guard condition with no status check
+  function, a different one, an `||`, a dropped selector or text outside the `${{ }}`
+  expression, and refuses a `continue-on-error` or a reordering that would let either check
+  be skipped another way. The same step's script now reads the base branch from its `env:`
+  (`BASE_REF`) instead of having `${{ github.base_ref }}` expanded into the script text,
+  which zizmor 1.30.1 reported as template injection (high) and no longer reports. A second
+  test refuses any `${{ }}` expansion of a pull-request ref inside a `run:` block of the
+  workflow, and requires the guard to read `BASE_REF`: with that variable renamed or
+  missing, its `git diff` fails, `grep` sees no input, and the step passes. The workflow is
+  still advisory: its context is not among the
+  required status checks of ruleset 16846770 (measured the same day), so the guard turns
+  such a pull request red without blocking its merge. Nor does this make a Dependabot pip
+  pull request mergeable as compiled: all three measured above still fail the freshness
+  check, and the locks that `CONTRIBUTING.md`'s dependency-tier table assigns to
+  `tools/update_dependencies.py` are still regenerated with that tool.
 - **`scripts/stage4.py` now parses `freeze_mode` and `mc_dropout` instead of calling
   bare `bool()` on them, and `pipeline.smk` parses `freeze_mode`, `mock_ingestion`
   and `mock_evaluation` instead of testing them for truthiness, so
@@ -1070,6 +1101,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   All 7 cases of the new `tests/test_demo_presentation_predictor.py` fail on the previous
   code.
 ### Security
+- **pre-push Check 6's pushed-range scan now reads every blob a push publishes: paths
+  under the directory names the tree scan prunes, type changes, and content that only a
+  merge commit introduced (security sweep finding SCR-02).** Check 6's second pass scans
+  the blobs that the pushed commits introduce, so a value added and then removed inside
+  one push is still caught after the checkout no longer holds it. Three kinds of pushed
+  blob were never read. The pass imported `EXCLUDE_DIRS` from `scripts/check_secrets.py`
+  and skipped every path carrying one of those directory names, so anything committed
+  under `results/`, `build/`, `scratch/` or the other pruned names was invisible to it;
+  the tree scan prunes those names only from its directory walk, where they hold untracked
+  build output and virtualenvs, and then adds every tracked file back, while every blob in
+  a pushed commit is published. It listed paths with `git diff-tree --diff-filter=AM`,
+  which drops status `T`, so a symlink replaced by a regular file was not read. And
+  `git diff-tree` lists no paths for a merge commit unless asked to, so a value written
+  into a conflict resolution was not read, as the hook's own header said. Measured
+  2026-10-25 in throwaway repositories, running the whole hook from the current `main`
+  with every other python check stubbed to pass: a value added then removed under
+  `results/`, `build/` or `scratch/`, introduced by a type change, written into a conflict
+  resolution, or added only by a merge commit was pushed with "Pushed commit ranges
+  contain no credential assignments.", while the same add-then-remove under `src/` was
+  blocked. The pass now admits a path on `_is_scannable` alone, so `EXCLUDE_PATHS` still
+  applies; lists paths with `--diff-filter=AMT`; and reads each commit with `-c`, which
+  git-diff-tree(1) says "lists only files which were modified from all parents": for a
+  merge, the blobs the merge itself created, and for any other commit it changes nothing.
+  Check 1c already reads merges that way. `-m` was not used because it diffs a merge
+  against each parent in turn, so merging `main` into a branch would re-read every path
+  `main` changed. Over the 200 first-parent commits of `main` up to its 2026-10-25 tip
+  (1,077 commits in all, 553 of them merges; on the 524 others `-c` changes no listing),
+  the new pass hands 1,589 blobs to the scanner against 1,428 before, 157 of the extra
+  reads from merge commits and 4 from `results/`, and flags nothing, as before. The new
+  `tests/test_pre_push_range_scan_sees_excluded_dirs_type_changes_and_merges.py` drives
+  the whole hook with the harness of
+  `tests/test_pre_push_blob_scan_keeps_non_ascii_names.py` and pins all three, with an
+  add-then-remove control under `src/` and negatives for a clean range through the pruned
+  directories with a merge, a deletion in a plain commit and in a merge, and a merge of
+  history the remote already holds. The hook change is a separate owner commit, because
+  `scripts/hooks/` is an owner-only path.
 - **The secret scan now flags five key-material names it could not reach: `ACCESS_KEY`,
   `SIGNING_KEY`, `ENCRYPTION_KEY`, `DECRYPTION_KEY` and `HMAC_KEY` (audit finding M4).**
   `scripts/check_secrets.py`, the secret scan CI runs in `security.yml`, matches
