@@ -17,6 +17,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Security
+- **Dependabot's root pip block now excludes `environments/`, aimed at the stale root
+  dependency-graph snapshot that kept alerts open on those locks.** `.github/dependabot.yml`'s
+  `directory: "/"` pip block gains `exclude-paths: ["environments/**"]`; the
+  `/environments` block, which already covers those files, is unchanged. The root job scans
+  subdirectories: its graph run at `8f032db2` logged `exclude_paths=[]` and submitted 15
+  `environments/` manifests beside `/requirements.txt` and `/pyproject.toml`, and that
+  snapshot carried mcp 1.29.0, msgpack 1.2.2 and opentelemetry-api 1.37.0, which main has
+  since moved past. Dependabot alerts on those locks stayed open after the fixes landed
+  (alerts #142, #183, #203) or were raised against versions main no longer pinned (alerts
+  #204, #205, #206); these are alert numbers, not pull requests. GitHub's Dependabot options
+  reference labels `exclude-paths` "Version updates only", so whether the dependency-graph
+  job honours it is to be read from that job's next run log. **Behaviour change:** the root
+  `python-minor-patch` version-update group stops editing `environments/` files; the
+  `/environments` `python-env-minor-patch` group still covers them. A new test requires every
+  pip block whose directory is an ancestor of another pip block's to exclude
+  `<relative path>/**`, and fails if a requirements file or `pyproject.toml` in an excluding
+  block's directory points a `-r`, `-c`, `--requirement` or `--constraint` option into an
+  excluded path.
 - **The pip-audit tool lock moves msgpack from 1.2.2 to 1.2.3, closing GHSA-j586-36cw-2gc2 /
   CVE-2026-114613 (high).** Per its title, the advisory is an unbounded memory leak in the
   msgpack C extension on `strict_map_key` validation failure; it affects releases before
