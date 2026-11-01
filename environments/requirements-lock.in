@@ -44,7 +44,7 @@ aiohttp>=3.14.5
 # setuptools: GHSA-xmj3-9gf7-h52w (low; Windows path escape via
 # namespace_packages.txt in Wheel.install_as_egg), affected from 38.2.2, first
 # patched in 84.1.0. Floor raised from 84.0.0 to 84.1.0 on 2026-10-24.
-setuptools>=84.1.0
+setuptools>=84.2.1
 # gitpython: PYSEC-2026-3785, PYSEC-2026-3786, PYSEC-2026-3787, PYSEC-2026-3788, CVE-2026-78679
 # gitpython: GHSA-83vg-56qc-22m7 / CVE-2026-114145 (high; per its title, GitPython
 # validates a submodule's ".git" path only after cloning into it). It affects
