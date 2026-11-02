@@ -17,6 +17,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Security
+- **The CI render lock moves tornado from 6.5.10 to 6.6 in
+  `environments/requirements-ci-render.txt`, closing CVE-2026-116577 / GHSA-pcg2-g6cj-q92c,
+  CVE-2026-116578 / GHSA-pw9p-v7r6-gx4p and CVE-2026-115927 / GHSA-r4j5-9xpp-3985.** No other
+  tracked lock pins tornado; ipykernel and jupyter_client require it, and they run the
+  Jupyter kernel that executes the report's Python cells in `ci.yml`'s Quarto render step.
+  This file is a hand-kept hash closure for Linux x86_64 and Python 3.13, and this repository
+  maintains it by hand, not through Dependabot (`CONTRIBUTING.md` dependency tier 4): tornado
+  is listed under `ignore:` in both pip blocks of `.github/dependabot.yml`, and
+  `dependency-lockfile-check.yml` fails any Dependabot pull request that modifies the file.
+  So the pin moves by hand, and only tornado's version and
+  hash set change: all 43 files PyPI publishes for 6.6 are hashed, as 6.5.10's block hashed
+  all 10 of its own.
+  6.6 satisfies ipykernel 6.29.5's `tornado>=6.1` and jupyter_client 8.9.1's
+  `tornado>=6.4.1` and declares no dependencies; under WSL Ubuntu, `pip install
+  --require-hashes` of the lock into a clean Python 3.13 venv installs 6.6 and nbclient runs
+  a notebook on the python3 kernel, and `quarto render docs/results_report.qmd` succeeds in
+  a venv built in the test job's install order. `pip-audit -r <lock> --no-deps
+  --disable-pip` reports the three advisories against the previous lock and none against
+  this one, and `tools/audit_all_locks.py` reports no finding in any of its 16 locks.
 - **Dependabot's root pip block now excludes `environments/`, aimed at the stale root
   dependency-graph snapshot that kept alerts open on those locks.** `.github/dependabot.yml`'s
   `directory: "/"` pip block gains `exclude-paths: ["environments/**"]`; the
