@@ -28,7 +28,7 @@ pyyaml==6.0.3
 requests==2.34.2
 scikit-learn==1.8.0
 scipy==1.17.1
-setuptools==84.0.0
+setuptools==84.1.0
 shap==0.51.0
 streamlit==1.66.1
 torch==2.13.0

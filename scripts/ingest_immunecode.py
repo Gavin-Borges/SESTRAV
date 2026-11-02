@@ -51,6 +51,8 @@ Usage
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import logging
 import os
 import random
@@ -241,31 +243,21 @@ class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _archive_matches_pin(path: str) -> bool:
-    """True when the file at path is byte for byte the pinned archive."""
-    return (
-        os.path.getsize(path) == MIRA_PINNED_SIZE_BYTES and sha256_file(path) == MIRA_PINNED_SHA256
-    )
+def _read_archive(path: str) -> tuple[bytes, bool]:
+    """Read the archive at path once; return its bytes and whether they are the pinned archive.
 
-
-def _input_matches_pin(input_path: str | None) -> bool:
-    """Whether the input is byte for byte the pinned archive.
-
-    _download_mira raises unless the auto-download matches, so no --input means
-    True; an --input archive is hashed and the verdict logged; a CSV is False,
-    because nothing ties its rows to the archive.
+    The verdict and the extraction both come from these same bytes. Hashing the
+    file by path and then reopening it to extract read it twice, so a file
+    replaced in between was extracted while the provenance sidecar recorded the
+    earlier bytes as verified against the pin.
     """
-    if input_path is None:
-        return True
-    if not zipfile.is_zipfile(input_path):
-        return False
-    matches = _archive_matches_pin(input_path)
-    log.info(
-        "--input %s the pinned release %s archive.",
-        "matches" if matches else "is not",
-        MIRA_PINNED_RELEASE,
+    with open(path, "rb") as handle:
+        data = handle.read()
+    matches = (
+        len(data) == MIRA_PINNED_SIZE_BYTES
+        and hashlib.sha256(data).hexdigest() == MIRA_PINNED_SHA256
     )
-    return matches
+    return data, matches
 
 
 def _zip_is_intact(path: str) -> bool:
@@ -374,31 +366,49 @@ def _refuse_a_damaged_archive(input_path: str) -> None:
         )
 
 
-def _load_from_zip(zip_path: str) -> tuple[pd.DataFrame, str]:
+def _load_from_zip(zip_path: str) -> tuple[pd.DataFrame, str, bool]:
     """Extract a MIRA ZIP, locate the peptide-detail CSV, and load it.
 
-    Returns (DataFrame, zip_path_for_provenance).
+    Returns (DataFrame, zip_path_for_provenance, matches_pin), where matches_pin
+    says whether the archive's bytes are the pinned archive (see _read_archive).
+    The rows are read from the matching member of those same bytes, not from the
+    extracted copy, which anything able to write the temporary directory could
+    replace between extraction and the read.
     """
     log.info("Extracting ZIP: %s", zip_path)
+    data, matches_pin = _read_archive(zip_path)
     # ignore_cleanup_errors: a handle still open on an extracted member makes the
     # cleanup raise on Windows, and that error would replace whatever this function
     # was already failing with - a missing peptide-detail CSV, say - on the way out.
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-        with zipfile.ZipFile(zip_path, "r") as zf:
+        with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
             _safe_extract_zip(zf, tmp)
-        csv_path = _find_csv_in_dir(tmp)
-        if csv_path is None:
-            raise FileNotFoundError(
-                f"No MIRA peptide-detail CSV found in '{zip_path}'. "
-                f"Expected one of: {_CANDIDATE_CSVS}"
-            )
-        log.info("Reading CSV from archive: %s", os.path.basename(csv_path))
-        # Read into memory before temp dir is deleted.
-        df = pd.read_csv(csv_path, low_memory=False)
-    return df, zip_path
+            csv_path = _find_csv_in_dir(tmp)
+            if csv_path is None:
+                raise FileNotFoundError(
+                    f"No MIRA peptide-detail CSV found in '{zip_path}'. "
+                    f"Expected one of: {_CANDIDATE_CSVS}"
+                )
+            member = _member_extracted_to(zf, tmp, csv_path)
+            log.info("Reading CSV from archive: %s", os.path.basename(csv_path))
+            with zf.open(member) as handle:
+                df = pd.read_csv(handle, low_memory=False)
+    return df, zip_path, matches_pin
 
 
-def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
+def _member_extracted_to(zf: zipfile.ZipFile, dest_dir: str, path: str) -> str:
+    """Name the archive member that extraction into dest_dir wrote to path."""
+    target = os.path.realpath(path)
+    for info in zf.infolist():
+        if not info.is_dir() and os.path.realpath(os.path.join(dest_dir, info.filename)) == target:
+            return info.filename
+    raise RuntimeError(
+        f"No member of the archive maps to the extracted {os.path.basename(path)}; "
+        "refusing to read the extracted copy instead."
+    )
+
+
+def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str, bool]:
     """Load a MIRA peptide-detail CSV from a ZIP, a CSV, or by auto-download.
 
     Dispatch order:
@@ -406,9 +416,12 @@ def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
       2. input_path is a ZIP (detected by zipfile.is_zipfile) -> extract then read.
       3. input_path is a CSV -> read directly.
 
-    Returns (DataFrame, source_description) where source_description is used
-    only for the provenance sidecar: MIRA_DOWNLOAD_URL for the auto-download,
+    Returns (DataFrame, source_description, verified). source_description is
+    used only for the provenance sidecar: MIRA_DOWNLOAD_URL for the auto-download,
     whose archive is deleted with its temporary directory, else input_path.
+    verified says whether the rows came from bytes that are the pinned archive,
+    judged on the bytes that were extracted; a CSV is never verified, because
+    nothing ties its rows to the archive.
     """
     if input_path is None:
         log.info("No --input given; attempting auto-download.")
@@ -418,21 +431,34 @@ def _load_csv(input_path: str | None) -> tuple[pd.DataFrame, str]:
         # that PermissionError would escape in place of the download's own message.
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             zip_path = _download_mira(tmp)
-            df, _zip_path = _load_from_zip(zip_path)
-            return df, MIRA_DOWNLOAD_URL
+            df, _zip_path, matches_pin = _load_from_zip(zip_path)
+            # _download_mira verified the .part file before renaming it, so this
+            # fails only if the archive changed after that check.
+            if not matches_pin:
+                raise RuntimeError(
+                    "The downloaded MIRA archive no longer matches the pinned sha256 "
+                    "it was verified against; refusing to use it."
+                )
+            return df, MIRA_DOWNLOAD_URL, True
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"--input path not found: {input_path}")
 
     if zipfile.is_zipfile(input_path):
-        return _load_from_zip(input_path)
+        df, source, matches_pin = _load_from_zip(input_path)
+        log.info(
+            "--input %s the pinned release %s archive.",
+            "matches" if matches_pin else "is not",
+            MIRA_PINNED_RELEASE,
+        )
+        return df, source, matches_pin
 
     _refuse_a_damaged_archive(input_path)
 
     # Direct CSV path.
     log.info("Loading CSV: %s", input_path)
     df = pd.read_csv(input_path, low_memory=False)
-    return df, input_path
+    return df, input_path, False
 
 
 # ---------------------------------------------------------------------------
@@ -795,8 +821,7 @@ def main(argv: list[str] | None = None) -> int:
     # while it is extracted, is logged and exits 1 rather than escaping as a traceback.
     # A table that cannot supply (peptide, HLA allele) pairs is refused the same way.
     try:
-        df_raw, source_path = _load_csv(args.input)
-        verified = _input_matches_pin(args.input)
+        df_raw, source_path, verified = _load_csv(args.input)
         _refuse_a_table_without_restriction(df_raw, source_path)
     except (FileNotFoundError, RuntimeError, zipfile.BadZipFile) as exc:
         log.error("%s", exc)

@@ -1,13 +1,17 @@
 [build-system]
-# Floor states the security requirement, not the current pin: setuptools 83.0.0
-# closes GHSA-h35f-9h28-mq5c. requirements.in pins 84.0.0; see its comment there.
+# Floor states the security requirement, not the current pin: setuptools 84.1.0
+# is the first release patched for GHSA-xmj3-9gf7-h52w (affected from 38.2.2).
+# It replaced the 83.0.0 floor on 2026-10-24; 83.0.0 closed GHSA-h35f-9h28-mq5c,
+# which every 84.x still closes. Leaving the floor at 83.0.0 would let an sdist
+# build satisfy this requirement with a setuptools carrying a live advisory.
+# requirements.in pins 84.1.0; see its comment there.
 # wheel was unbounded until 2026-10-12 (see requests in [project].dependencies for
 # the conditions it was raised under). It ships a py3-none-any wheel, so the
 # advisories bind: 0.46.2 is the release OSV gives as the fix for CVE-2026-24049
 # (GHSA-8rrh-rw8j-w5fx, path traversal in `wheel unpack`, affected from 0.40.0), and
 # CVE-2022-40898 (GHSA-qwmp-2cf2-g9g6) was fixed in 0.38.1. 0.46.0 and 0.46.1 are
 # yanked. environments/requirements-ci-build.txt pins 0.48.0.
-requires = ["setuptools>=83.0.0", "wheel>=0.46.2"]
+requires = ["setuptools>=84.1.0", "wheel>=0.46.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -137,8 +141,9 @@ dependencies = [
     # pkg_resources at module level in mhcflurry/downloads.py, and setuptools has
     # not shipped pkg_resources since 82.0.0. 2.2.0 requires torch instead and
     # drops that import. This repo is already past that line: [build-system] above
-    # requires setuptools>=83.0.0 and requirements.in pins setuptools==84.0.0, and
-    # the 83.0.0 and 84.0.0 wheels carry no pkg_resources member.
+    # requires setuptools>=84.1.0 and requirements.in pins setuptools==84.1.0, and
+    # the 84.1.0 wheel carries no pkg_resources member (measured 2026-10-24 on
+    # setuptools-84.1.0-py3-none-any.whl: 343 members, none under pkg_resources).
     "mhcflurry>=2.2.0",
     #   PyYAML     src/core/config.py and 7 more - config.yaml is the engine's
     #              own config format. src/cli.py imports it lazily behind a

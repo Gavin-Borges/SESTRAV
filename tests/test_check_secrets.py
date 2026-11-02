@@ -863,6 +863,8 @@ def _vendor_samples() -> dict:
         "openai classic": "sk-" + "a" * 20 + "B3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV3",
         "anthropic": "sk-ant-" + "api03aBcDeFgHiJkLmNoPqRsTuVwXyZ",
         "pem header": "-----BEGIN RSA " + "PRIVATE KEY-----",
+        "pgp private key block": "-----BEGIN PGP " + "PRIVATE KEY BLOCK-----",
+        "putty private key": "PuTTY-User-" + "Key-File-3: ssh-ed25519",
     }
 
 
@@ -901,6 +903,43 @@ def test_pem_header_alone_on_a_line_is_flagged(tmp_path: Path) -> None:
     assert mod.scan_file(str(target)) == [1]
 
 
+def test_exported_pgp_and_putty_private_keys_are_flagged(tmp_path: Path) -> None:
+    """SCR-01 (2026-10-19 sweep, High): both formats passed every gate. An armored
+    OpenPGP secret key ends its header in "PRIVATE KEY BLOCK-----", which the PEM
+    rule (it needs "PRIVATE KEY-----") cannot reach, and a PuTTY key has no PEM
+    header at all."""
+    mod = _load()
+    for name, header in {
+        "signing.asc": "-----BEGIN PGP " + "PRIVATE KEY BLOCK-----",
+        "server.ppk": "PuTTY-User-" + "Key-File-3: ssh-ed25519",
+    }.items():
+        target = tmp_path / name
+        target.write_text(header + "\n", encoding="utf-8")
+        assert mod.scan_file(str(target)) == [1], f"{name} not flagged"
+
+
+def test_no_credential_format_matches_its_own_pattern_text() -> None:
+    """scripts/hooks/pre-commit carries every one of these patterns as text, and
+    this scanner reads that hook, so a pattern whose source matches itself turns
+    the live scan red, and the hook would block the commit that adds it. A first
+    draft of the SCR-01 PGP rule was five literal dashes and did exactly that."""
+    mod = _load()
+    self_matching = [p.pattern for p in mod.VENDOR_CREDENTIAL_FORMATS if p.search(p.pattern)]
+    assert self_matching == [], f"patterns that match their own text: {self_matching}"
+
+
+def test_key_container_files_are_selected_for_scanning() -> None:
+    """SCR-01's other half: a key committed under its usual file name was never
+    opened, so no content pattern could see it."""
+    mod = _load()
+    missed = [
+        rel
+        for rel in ("keys/signing.asc", "keys/server.ppk", "certs/tls.pem", "certs/tls.key")
+        if not mod._is_scannable(rel)
+    ]
+    assert missed == [], f"key containers not scanned: {missed}"
+
+
 def test_vendor_pass_does_not_fire_on_lookalikes(tmp_path: Path) -> None:
     """Anti-vacuity partner. If the vendor pass regressed to matching broadly,
     the tests above would pass for the wrong reason. Two of these are real
@@ -919,6 +958,9 @@ def test_vendor_pass_does_not_fire_on_lookalikes(tmp_path: Path) -> None:
         "prose about a password": 'password: "must be at least twelve characters"',
         "short lookalike": 'x = "ghp_' + 'abc"',
         "the word private key in prose": "# rotate the private key every 90 days",
+        "pgp public key block": "-----BEGIN PGP " + "PUBLIC KEY BLOCK-----",
+        "pgp signature": "-----BEGIN PGP " + "SIGNATURE-----",
+        "putty header named in prose": "# a PuTTY-User-" + "Key-File line opens a .ppk",
     }.items():
         target = tmp_path / "case.py"
         target.write_text(line + "\n", encoding="utf-8")

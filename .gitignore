@@ -428,6 +428,34 @@ id_rsa
 id_dsa
 id_ecdsa
 id_ed25519
+# Added 2026-10-19 (security sweep SEC-07 / SCR-01). Other shapes a key or token
+# takes on disk: a PuTTY key, an ASCII-armoured PGP export (`--armor` output is
+# named .asc by convention), a binary keyring, cloud service-account and OAuth
+# client JSON, and a bare token file. Measured before adding: none of these
+# patterns matches a tracked file.
+*.ppk
+*.asc
+*.gpg
+credentials.json
+service-account.json
+*-service-account.json
+client_secret*.json
+token.txt
+# Editor state: launch configurations carry environment variables.
+.vscode/
+.idea/
+# Backup, merge and swap leftovers: copies of a file whose current version may
+# have been cleaned.
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+# Core dumps hold process memory. Anchored, NOT a bare `core`: that also matches
+# src/core/, which holds tracked modules, and would silently ignore any new file
+# added there.
+/core
+core.[0-9]*
 
 # SQLite databases (catch-all beyond the explicit db.sqlite3 entry)
 *.db

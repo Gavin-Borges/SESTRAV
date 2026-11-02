@@ -129,6 +129,7 @@ BLOCKED_PATTERNS=(
   '\.pem$'                   # PEM certificates
   '\.p12$'                   # PKCS12 certificates
   '\.pfx$'                   # PFX certificates
+  '\.ppk$'                   # PuTTY private keys (SCR-01)
   '(^|/)\.env(\.[^/]+)?$'    # .env, .env.local, .env.production, or in any subdir
 )
 
@@ -181,6 +182,12 @@ CRED_PATTERNS=(
   'gh[oupsr]_[A-Za-z0-9]{20,}'     # GitHub tokens (oauth/user/pat/server/refresh)
   'sk-(proj|svcacct)-[A-Za-z0-9_-]{20,}'  # OpenAI project/service keys
   'sk-ant-[A-Za-z0-9_-]{20,}'      # Anthropic keys
+  # SCR-01 (2026-10-19 sweep, High): an armored OpenPGP secret key ends its
+  # header in "PRIVATE KEY BLOCK-----", which the PEM rule above cannot reach,
+  # and a PuTTY .ppk carries no PEM header. Mirrored in scripts/check_secrets.py.
+  # -{5}, not five literal dashes, so this file does not match its own pattern.
+  '-----BEGIN PGP PRIVATE KEY BLOCK-{5}'  # OpenPGP secret key block
+  'PuTTY-User-Key-File-[0-9]+:'    # PuTTY private key file
 )
 
 gate2_failed=0
