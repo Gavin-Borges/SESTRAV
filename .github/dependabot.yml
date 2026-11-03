@@ -5,6 +5,19 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # This job also scans subdirectories. With no exclusion it logged
+    # exclude_paths=[] and submitted the environments/ locks to the dependency
+    # graph as well, though the "/environments" block below already covers
+    # them. Its snapshot of those locks went stale, so Dependabot alerts on them
+    # stayed open after the locks were fixed (alerts #142, #183, #203) or were
+    # raised against versions they no longer pinned (alerts #204, #205, #206),
+    # numbers in the alert list, not pull requests. GitHub's options
+    # reference labels exclude-paths "Version updates only", so whether the
+    # graph job honours it is to be read from that job's next log, not assumed.
+    # Version-update PRs from this block also stop editing environments/ files;
+    # the python-env-minor-patch group below still covers them.
+    exclude-paths:
+      - "environments/**"
     cooldown:
       default-days: 7
     groups:

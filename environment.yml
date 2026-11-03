@@ -19,7 +19,13 @@ dependencies:
   # environments/requirements-ci-ruff.in and environments/requirements-ci-mypy.in.
   - ruff
   - mypy
-  - pip=24.0
+  # The pip that runs the block below. Kept equal to the single pin in
+  # environments/requirements-pip-bootstrap.txt, which GitHub's dependency graph
+  # reads; no configured scanner reads a conda pin, and this one sat on 24.0 from
+  # 2026-05-23 until
+  # pip-audit reported six advisories against it.
+  # tests/test_conda_env_pins_the_bootstrap_pip.py fails when the two differ.
+  - pip=26.2.1
   - pip:
       # Every entry here must be "==" pinned AND carry a --hash=. conda writes
       # this whole list into one requirements file and runs a single pip install,

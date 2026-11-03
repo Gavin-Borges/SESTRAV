@@ -115,8 +115,9 @@ signed with it yet (see the `version_tags_signed` note below).
 ## Verifying a release (what consumers run)
 
 ```bash
-# Verify the build provenance came from this repository's CI:
-gh attestation verify sestrav-2.0.2-py3-none-any.whl --repo Gavin-Borges/SESTRAV
+# Verify the build provenance came from release.yml running on the v2.0.2 tag.
+# --repo alone would accept an attestation from any workflow in the repository.
+gh attestation verify sestrav-2.0.2-py3-none-any.whl --repo Gavin-Borges/SESTRAV --signer-workflow Gavin-Borges/SESTRAV/.github/workflows/release.yml --source-ref refs/tags/v2.0.2
 
 # Verify the checksum manifest:
 sha256sum -c SHA256SUMS.txt

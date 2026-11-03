@@ -4,15 +4,29 @@ Generates Cb-Cb distance tensors (.pt files) for use as structural graph edges
 in GNN v2.5 (build_pyg_structural_graph) and as SASA/torsion feature inputs
 for RF modes 37/39 (M11).
 
-SETUP REQUIRED BEFORE RUNNING:
+SETUP REQUIRED BEFORE RUNNING (the commands in steps 2 to 4 are upstream's, from
+https://github.com/X-lab-3D/PANDORA, README read 2026-10-19):
   1. Obtain a MODELLER license (free for academic use):
        https://salilab.org/modeller/registration.html
-  2. Install MODELLER via conda:
-       conda install -c salilab modeller
-  3. Install PANDORA and dependencies:
-       pip install pandora pdb2sql mhctools
-  4. Download MHC template database used by PANDORA:
-       python -c "import pandora; pandora.fetch_templates()"
+  2. Install MODELLER and PANDORA's external tools via conda:
+       export KEY_MODELLER='<your MODELLER license key>'
+       conda install -y -c salilab modeller
+       conda install -c bioconda muscle=5.1 blast=2.10
+  3. Install PANDORA itself, either from conda:
+       conda install -c csb-nijmegen csb-pandora -c salilab -c bioconda
+     or from a clone of https://github.com/X-lab-3D/PANDORA.git, by running
+     `pip install -e .` inside it.
+     Do NOT install the PyPI package named `pandora`. That name belongs to CNES's
+     stereo-matching framework (pypi.org/project/pandora, read 2026-10-19), so it
+     installs another vendor's code and no PANDORA at all.
+  4. Download PANDORA's template database:
+       pandora-fetch
+
+KNOWN GAP, not yet fixed: the import and the modelling calls below name a lowercase
+`pandora` package, `pandora.peptide.Peptide` and `.run()`. Upstream's package is
+`PANDORA`, and its documented API is `from PANDORA import Target, Pandora, Database`.
+As written, this script therefore cannot import upstream PANDORA, and it needs porting
+to that API before it can model anything.
 
 Usage:
   python scripts/run_pandora_structures.py \\
@@ -54,8 +68,9 @@ try:
     from pandora.peptide import Peptide
 except ImportError:
     sys.exit(
-        "PANDORA is not installed. Follow the SETUP instructions in this script's "
-        "docstring to install MODELLER (license required), PANDORA, pdb2sql, and mhctools."
+        "PANDORA is not importable as `pandora`. Read this script's docstring: the "
+        "SETUP section gives upstream's install routes, and KNOWN GAP explains why "
+        "upstream PANDORA (package `PANDORA`) does not satisfy this import yet."
     )
 
 CANONICAL_10_ALLELES = [

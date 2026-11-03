@@ -7,5 +7,5 @@ build==1.6.1
 # pin (tests/test_release_build_uses_hashed_backend.py checks both). wheel is in
 # [build-system].requires too, and `build --no-isolation` refuses to run without
 # it ("Unmet dependencies").
-setuptools==84.0.0
+setuptools==84.1.0
 wheel==0.48.0

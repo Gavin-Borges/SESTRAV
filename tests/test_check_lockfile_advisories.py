@@ -20,13 +20,19 @@ import textwrap
 import pytest
 
 from tools.check_lockfile_advisories import (
+    DEFAULT_LOCKFILE,
+    REPO_ROOT,
     Acceptance,
     Finding,
     ReportError,
+    acceptances_for_lock,
     evaluate,
     filter_in_scope,
     load_acceptances,
+    load_all_acceptances,
+    lock_identity,
     main,
+    normalize_lock,
     unregistered_acceptances,
     parse_lockfile_packages,
     parse_report,
@@ -341,9 +347,12 @@ def test_main_accepted_finding_returns_zero(tmp_path, capsys):
     )
     lockfile = _write_lockfile(tmp_path, "torch")
     register = _write_register(tmp_path, "SECURITY.md")
+    # The tmp lockfile stands in for the production lock, which an entry with no
+    # `lock` field covers; since per-lock scoping it has to say so (see
+    # test_main_out_of_tree_lockfile_borrows_no_acceptances below).
     exit_code = main(
         [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
-         "--register", str(register)]
+         "--register", str(register), "--lock-id", "environments/requirements.lock"]
     )
     assert exit_code == 0
     assert "accepted: 1" in capsys.readouterr().out
@@ -408,7 +417,7 @@ def test_main_stale_acceptance_still_returns_zero_but_notices(tmp_path, capsys):
     register = _write_register(tmp_path, "SECURITY.md")
     exit_code = main(
         [str(report), "--accept", str(accept), "--lockfile", str(lockfile),
-         "--register", str(register)]
+         "--register", str(register), "--lock-id", "environments/requirements.lock"]
     )
     out = capsys.readouterr().out
     assert exit_code == 0
@@ -549,3 +558,175 @@ def test_the_shipped_acceptance_list_is_fully_registered():
     register_text = (repo_root / "SECURITY.md").read_text(encoding="utf-8")
     missing = [e for e in entries if str(e["register_entry"]).strip() not in register_text]
     assert missing == [], f"acceptances with no SECURITY.md register entry: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Per-lock acceptance scoping (2026-10-17)
+# ---------------------------------------------------------------------------
+#
+# tools/audit_all_locks.py applies this gate's policy to every tracked lock, so an
+# acceptance has to say which lock it covers: the production lock's acceptance of an
+# (id, package) pair was never an assessment of the same pin in a CI tool lock.
+# Backward compatibility is the property most worth pinning: an entry with no `lock`
+# field must keep meaning exactly what it meant before - environments/requirements.lock.
+
+SEMGREP_LOCK = "environments/requirements-semgrep.txt"
+_ENTRY = """\
+[[accepted]]
+id = "CVE-1"
+package = "mcp"
+reason = "r"
+register_entry = "REG"
+"""
+
+
+def test_entry_without_a_lock_field_covers_the_production_lock_only(tmp_path):
+    path = _write_toml(tmp_path / "accepted.toml", _ENTRY)
+    everything = load_all_acceptances(path)
+    assert list(everything) == [("CVE-1", "mcp", DEFAULT_LOCKFILE)]
+    assert DEFAULT_LOCKFILE == "environments/requirements.lock"
+    # The pre-scoping call, unchanged, still sees it ...
+    assert ("CVE-1", "mcp") in load_acceptances(path)
+    # ... and no other lock does.
+    assert load_acceptances(path, SEMGREP_LOCK) == {}
+
+
+def test_entry_with_a_lock_field_covers_that_lock_only(tmp_path):
+    path = _write_toml(tmp_path / "accepted.toml", _ENTRY + f'lock = "{SEMGREP_LOCK}"\n')
+    assert load_acceptances(path) == {}
+    scoped = load_acceptances(path, SEMGREP_LOCK)
+    assert scoped == {("CVE-1", "mcp"): Acceptance("CVE-1", "mcp", "r", "REG", lock=SEMGREP_LOCK)}
+
+
+def test_the_same_pair_can_be_accepted_for_two_locks_independently(tmp_path):
+    path = _write_toml(
+        tmp_path / "accepted.toml",
+        _ENTRY + f'lock = "{SEMGREP_LOCK}"\n\n' + _ENTRY.replace('"r"', '"prod reason"'),
+    )
+    everything = load_all_acceptances(path)
+    assert len(everything) == 2
+    assert acceptances_for_lock(everything, SEMGREP_LOCK)[("CVE-1", "mcp")].reason == "r"
+    assert acceptances_for_lock(everything, DEFAULT_LOCKFILE)[("CVE-1", "mcp")].reason == (
+        "prod reason"
+    )
+
+
+def test_lock_field_spellings_normalize_to_one_form(tmp_path):
+    path = _write_toml(
+        tmp_path / "accepted.toml", _ENTRY + 'lock = ".\\\\environments\\\\requirements-semgrep.txt"\n'
+    )
+    assert ("CVE-1", "mcp", SEMGREP_LOCK) in load_all_acceptances(path)
+    assert normalize_lock("  ./environments/requirements.lock ") == DEFAULT_LOCKFILE
+
+
+@pytest.mark.parametrize("bad", ['lock = ""', 'lock = "   "', "lock = 3"])
+def test_present_but_empty_or_non_string_lock_is_an_error(tmp_path, bad):
+    # Never a silent "covers nothing", and never "covers every lock".
+    path = _write_toml(tmp_path / "accepted.toml", _ENTRY + bad + "\n")
+    with pytest.raises(ValueError, match="invalid lock"):
+        load_all_acceptances(path)
+
+
+def test_lock_identity_is_repo_relative_inside_the_repo_and_absolute_outside(tmp_path):
+    assert lock_identity(REPO_ROOT / "environments" / "requirements.lock") == DEFAULT_LOCKFILE
+    outside = tmp_path / "requirements.lock"
+    assert lock_identity(outside) == outside.resolve().as_posix()
+
+
+def _mcp_report(tmp_path) -> pathlib.Path:
+    report = tmp_path / "report.json"
+    report.write_text(
+        _report([{"name": "mcp", "version": "1.29.0",
+                  "vulns": [{"id": "CVE-1", "fix_versions": ["1.30.0"]}]}]),
+        encoding="utf-8",
+    )
+    return report
+
+
+def test_main_production_acceptance_does_not_cover_a_tool_lock(tmp_path, capsys):
+    """The positive control for scoping: same id, same package, different lock."""
+    accept = _write_toml(tmp_path / "accepted.toml", _ENTRY)  # no lock: production only
+    lockfile = _write_lockfile(tmp_path, "mcp")
+    register = _write_register(tmp_path, "REG")
+    common = [str(_mcp_report(tmp_path)), "--accept", str(accept), "--lockfile",
+              str(lockfile), "--register", str(register)]
+
+    assert main([*common, "--lock-id", SEMGREP_LOCK]) == 1
+    out = capsys.readouterr().out
+    assert f"is not accepted for {SEMGREP_LOCK}" in out
+    assert f'lock = "{SEMGREP_LOCK}"' in out
+
+    assert main([*common, "--lock-id", DEFAULT_LOCKFILE]) == 0
+
+
+def test_main_tool_lock_acceptance_covers_its_lock(tmp_path):
+    accept = _write_toml(tmp_path / "accepted.toml", _ENTRY + f'lock = "{SEMGREP_LOCK}"\n')
+    exit_code = main(
+        [str(_mcp_report(tmp_path)), "--accept", str(accept),
+         "--lockfile", str(_write_lockfile(tmp_path, "mcp")),
+         "--register", str(_write_register(tmp_path, "REG")), "--lock-id", SEMGREP_LOCK]
+    )
+    assert exit_code == 0
+
+
+def test_main_in_repo_lockfile_is_judged_as_itself_by_default(tmp_path):
+    # Without --lock-id, an in-repo --lockfile is its own identity, so the production
+    # lock's acceptance does not leak onto the semgrep lock's report.
+    accept = _write_toml(tmp_path / "accepted.toml", _ENTRY)
+    exit_code = main(
+        [str(_mcp_report(tmp_path)), "--accept", str(accept),
+         "--lockfile", str(REPO_ROOT / SEMGREP_LOCK),
+         "--register", str(_write_register(tmp_path, "REG"))]
+    )
+    assert exit_code == 1
+
+
+def test_main_out_of_tree_lockfile_borrows_no_acceptances(tmp_path, capsys):
+    # Fail closed: a copy of a lock outside the repository is nobody's lock, so it is
+    # judged with nothing accepted rather than with the production lock's list.
+    accept = _write_toml(tmp_path / "accepted.toml", _ENTRY)
+    exit_code = main(
+        [str(_mcp_report(tmp_path)), "--accept", str(accept),
+         "--lockfile", str(_write_lockfile(tmp_path, "mcp")),
+         "--register", str(_write_register(tmp_path, "REG"))]
+    )
+    assert exit_code == 1
+    assert "accepted: 0" in capsys.readouterr().out
+
+
+def test_main_register_check_covers_entries_for_other_locks(tmp_path, capsys):
+    accept = _write_toml(
+        tmp_path / "accepted.toml",
+        _ENTRY.replace('"REG"', '"not in the register"') + f'lock = "{SEMGREP_LOCK}"\n',
+    )
+    report = tmp_path / "report.json"
+    report.write_text(_report([{"name": "numpy", "version": "2.4.6", "vulns": []}]),
+                      encoding="utf-8")
+    exit_code = main(
+        [str(report), "--accept", str(accept),
+         "--lockfile", str(_write_lockfile(tmp_path, "numpy")),
+         "--register", str(_write_register(tmp_path, "REG")),
+         "--lock-id", DEFAULT_LOCKFILE]
+    )
+    assert exit_code == 1
+    assert f"CVE-1 for mcp ({SEMGREP_LOCK}) is accepted" in capsys.readouterr().out
+
+
+def test_package_names_compare_in_pep503_form(tmp_path):
+    # pip-audit reports `zope-interface`; a lock may pin `zope.interface` or with
+    # extras. Before 2026-10-17 only `_` folded, so such a finding read as out of scope.
+    lock = _write_toml(
+        tmp_path / "requirements.lock",
+        """\
+        zope.interface==7.0 \\
+            --hash=sha256:deadbeef
+        uvicorn[standard]==0.30.0 \\
+            --hash=sha256:deadbeef
+        """,
+    )
+    assert parse_lockfile_packages(lock) == {"zope-interface", "uvicorn"}
+    findings = parse_report(_report([{"name": "Zope.Interface", "version": "7.0",
+                                      "vulns": [{"id": "X-1"}]}]))
+    in_scope, out_of_scope = filter_in_scope(findings, parse_lockfile_packages(lock))
+    assert [f.package for f in in_scope] == ["zope-interface"]
+    assert out_of_scope == []

@@ -51,7 +51,7 @@ from src.artifact_guard import guard_planned_paths, planned_paths_under  # noqa:
 from src.artifact_integrity import sha256_file as _sha256_file  # noqa: E402
 from src.evaluate_metrics import evaluate  # noqa: E402
 from src.ml_utils import MultiStratifiedKFold, PeptideGroupedKFold  # noqa: E402
-from src.provenance_paths import relative_source  # noqa: E402
+from src.provenance_paths import failure_note, relative_source  # noqa: E402
 from src.train_classifier import (  # noqa: E402
     prepare_features_31,
     prepare_features_35,
@@ -405,7 +405,9 @@ def _feature_mode_ab(active: pd.DataFrame) -> list[dict]:
         ap_mean, ap_std, roc_mean, _oof = _cv_auc(X35, y, groups)
         rows.append({"config": "peptide_grouped_splitter", "metric": "mode35_grouped_auc_pr", "value": ap_mean, "std": ap_std})
     except Exception as exc:  # noqa: BLE001 - record the failure, do not abort the run
-        rows.append({"config": "peptide_grouped_splitter", "metric": "mode35_grouped_auc_pr", "value": np.nan, "std": np.nan, "note": str(exc)[:200]})
+        # In a clone this is the absent, gitignored self-similarity cache, whose
+        # absolute path the exception's own text would carry into the cell.
+        rows.append({"config": "peptide_grouped_splitter", "metric": "mode35_grouped_auc_pr", "value": np.nan, "std": np.nan, "note": failure_note(exc, root=PROJECT_ROOT)[:200]})
 
     X50 = prepare_features_50(active, str(BINDING_MATRIX_PATH))
     ap_mean, ap_std, roc_mean, _oof = _cv_auc(X50, y, groups)

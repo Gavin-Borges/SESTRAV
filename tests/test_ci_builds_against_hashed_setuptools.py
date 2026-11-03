@@ -12,8 +12,10 @@ whose locked hashes include no wheel installable on Linux x86_64 for CPython
 3.11, 3.12 or 3.13. So the locks below are the ones CI builds from; the tool
 locks install from wheels. This test cannot see wheel availability offline,
 so an sdist that enters a TOOL lock later is not caught here. release.yml's
-two installs that resolve from PyPI on purpose, to behave like a user's
-(`pip install dist/*.whl` and `pip install sestrav==...`), are outside it.
+one install that resolves from PyPI on purpose, to behave like a user's
+(`pip install dist/*.whl` in the verify job), is outside it. Its smoke job
+installs no lock this rule governs, and passes --only-binary=:all: to every
+install, so it builds nothing.
 
 The rule, per job, in step order:
 - every install of one of BUILD_LOCKS, and every install of the local package

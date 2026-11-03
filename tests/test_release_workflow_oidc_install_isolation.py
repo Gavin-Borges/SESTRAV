@@ -1,8 +1,9 @@
 """Release jobs with OIDC authority must not resolve Python dependencies, the
 job that builds the release artifacts must not run unhashed third-party code,
-and every job that uses a downloaded artifact first checks it against the build
-job's digests, with a check these tests fail if it carries one of the disarmings
-they list. The digest-check tests are a regression ratchet: they refuse the
+the post-publish smoke job installs only hash-checked wheels, and every job that
+uses a downloaded artifact first checks it against the build job's digests,
+with a check these tests fail if it carries one of the disarmings they list.
+The digest-check tests are a regression ratchet: they refuse the
 listed spellings, the list is not exhaustive, and nothing here runs the
 workflow."""
 
@@ -11,10 +12,15 @@ import re
 import shlex
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
+from packaging.requirements import Requirement
+from packaging.version import Version
+
+from tools.update_dependencies import LOCK_SPECS
 
 
 WORKFLOW = Path(__file__).parents[1] / ".github" / "workflows" / "release.yml"
@@ -132,7 +138,8 @@ def test_dependency_checks_run_before_token_holding_jobs() -> None:
     assert _needs(jobs["verify"]) == {"build"}
     assert _needs(jobs["release"]) == {"build", "verify"}
     assert _needs(jobs["publish"]) == {"build", "release"}
-    assert _needs(jobs["smoke"]) == {"publish"}
+    # build: for the wheel digest the smoke job pins its install to.
+    assert _needs(jobs["smoke"]) == {"build", "publish"}
     assert not _has_oidc_write(jobs["smoke"])
     assert "pip install" in _run_script(jobs["smoke"])
     # An `if:` such as always() would run the release even when verify failed.
@@ -550,6 +557,189 @@ def test_every_token_holding_job_that_downloads_has_a_digest_check() -> None:
         )
         if downloads and _has_oidc_write(job):
             assert name in DIGEST_CHECKS, f"{name} downloads an artifact with no digest check"
+
+
+# The smoke job installs from PyPI after publish. Every install there names its
+# files by a digest recorded before the job ran: the dependency closure from a
+# tracked hashed lock, then the published wheel by the digest the build job
+# recorded. --no-deps resolves nothing and --only-binary=:all: builds nothing (an
+# sdist build fetches its build backend from PyPI with no hash), so the job can
+# only install bytes those digests name.
+_SMOKE_INSTALL_FLAGS = ("--require-hashes", "--no-deps", "--only-binary=:all:")
+# The files the smoke job installs its closure from, in order: the hash-pinned
+# pip, then the lock compiled for the job's Python that pins every
+# [project].dependencies entry. environments/requirements.lock is compiled for
+# 3.11, and requirements.txt does not carry jsonschema.
+_SMOKE_LOCKS = ["environments/requirements-pip-bootstrap.txt", "environments/requirements-api.txt"]
+# The one `grep -E` that takes the wheel's line out of the build job's digests.
+_WHEEL_LINE = r"^[0-9a-f]{64}  dist/[^/]+\.whl$"
+_PYPI = "https://pypi.org/simple/"
+_REPO_ROOT = Path(__file__).parents[1]
+
+
+def _canonical(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _option_values(words: list[str], *options: str) -> list[str]:
+    return [words[i + 1] for i, word in enumerate(words[:-1]) if word in options]
+
+
+def _published_install_step() -> dict:
+    smoke = _jobs()["smoke"]
+    index = _step_index(smoke, lambda s: (s.get("env") or {}).get("EXPECTED") == _EXPECTED)
+    assert index >= 0, "no smoke step reads the build job's digests"
+    return smoke["steps"][index]
+
+
+def _script_lines(script: str) -> list:
+    """Each line of a run script as _pipelines reads it, or the raw line where shlex
+    cannot read it alone (a line inside a multi-line quoted string)."""
+    lines: list = []
+    for line in _join_continuations(script).splitlines():
+        try:
+            lines.extend(_pipelines(line))
+        except ValueError:
+            lines.append(line)
+    return lines
+
+
+def _files_from_expected(script: str) -> set[str]:
+    """$RUNNER_TEMP files whose every write came from EXPECTED's lines: a pipeline
+    that starts `printf '%s\\n' "$EXPECTED"`, or one that reads only such files.
+    Writes are read from `>` and `>>`; a line shlex cannot read that names
+    $RUNNER_TEMP drops every file, since what it writes is unknown."""
+    derived: set[str] = set()
+    for line in _script_lines(script):
+        if isinstance(line, str):
+            if "$RUNNER_TEMP" in line:
+                derived.clear()
+            continue
+        last = line[-1]
+        target = next(
+            (last[i + 1] for i, word in enumerate(last[:-1]) if word in (">", ">>")), None
+        )
+        words = [word for stage in line for word in stage]
+        reads = {w for w in words if w.startswith("$RUNNER_TEMP/") and w != target}
+        from_expected = line[0] == _FROM_EXPECTED or (bool(reads) and reads <= derived)
+        if target is not None:
+            if from_expected:
+                derived.add(target)
+            else:
+                derived.discard(target)
+    return derived
+
+
+def test_every_smoke_install_is_hash_checked_resolves_nothing_and_builds_nothing() -> None:
+    smoke = _jobs()["smoke"]
+    installs = _pip_installs(smoke)
+    # The bootstrap, the lock and the published wheel; fewer means a parser gap.
+    assert len(installs) >= 3, installs
+    for command in installs:
+        words = shlex.split(command)
+        missing = [flag for flag in _SMOKE_INSTALL_FLAGS if flag not in words]
+        assert not missing, (command, missing)
+        assert not any(w.startswith("--no-binary") for w in words), command
+    others = [c for c in _commands(smoke) if _OTHER_INSTALLERS.search(c)]
+    assert not others, others
+    assert not _can_be_skipped_or_ignored(smoke)
+    for step in smoke.get("steps", []):
+        if "pip install" in str(step.get("run", "")):
+            assert not _can_be_skipped_or_ignored(step), step.get("name")
+
+
+def test_the_smoke_closure_comes_from_the_lock_compiled_for_its_python() -> None:
+    """The closure lock must be compiled for the smoke job's Python and pin every
+    [project].dependencies entry at a version its specifier admits. Otherwise the
+    wheel's --no-deps install leaves a dependency out, and the job's `pip check`
+    fails the release after it is published instead of failing the pull request."""
+    smoke = _jobs()["smoke"]
+    files = [
+        f
+        for c in _pip_installs(smoke)
+        for f in _option_values(shlex.split(c), "-r", "--requirement")
+    ]
+    assert files[: len(_SMOKE_LOCKS)] == _SMOKE_LOCKS, files
+    lock = _SMOKE_LOCKS[-1]
+    pythons = {
+        str((step.get("with") or {}).get("python-version"))
+        for step in smoke.get("steps", [])
+        if str(step.get("uses", "")).startswith("actions/setup-python@")
+    }
+    compiled_for = {spec.output: spec.python_version for spec in LOCK_SPECS}
+    assert pythons == {compiled_for[lock]}, (lock, compiled_for.get(lock), pythons)
+
+    pins = {}
+    for line in (_REPO_ROOT / lock).read_text(encoding="utf-8").splitlines():
+        match = re.match(r"([A-Za-z0-9][A-Za-z0-9._-]*)==(\S+)", line)
+        if match:
+            pins[_canonical(match.group(1))] = match.group(2)
+    pyproject = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = pyproject["project"]["dependencies"]
+    assert len(declared) >= 10, declared
+    problems = []
+    for raw in declared:
+        requirement = Requirement(raw)
+        name = _canonical(requirement.name)
+        if name not in pins:
+            problems.append(f"{name} is not pinned in {lock}")
+        elif Version(pins[name]) not in requirement.specifier:
+            problems.append(f"{name}=={pins[name]} is outside {requirement.specifier}")
+    assert not problems, problems
+
+
+def test_the_smoke_job_installs_the_wheel_the_build_job_recorded() -> None:
+    step = _published_install_step()
+    assert set(step.get("env") or {}) == {"EXPECTED"}, step.get("env")
+    script = str(step["run"])
+    # The wheel's line, and only it, taken from the build job's own output.
+    wheel_lines = [
+        line
+        for line in _script_lines(script)
+        if isinstance(line, list)
+        and line[0] == _FROM_EXPECTED
+        and len(line) > 1
+        and line[1][:3] == ["grep", "-E", _WHEEL_LINE]
+    ]
+    assert len(wheel_lines) == 1, script
+    installs = _pip_installs({"steps": [step]})
+    assert len(installs) == 1, installs
+    words = shlex.split(installs[0])
+    assert _option_values(words, "--index-url", "-i") == [_PYPI], installs[0]
+    requirements = _option_values(words, "-r", "--requirement")
+    assert len(requirements) == 1, installs[0]
+    assert requirements[0] in _files_from_expected(script), (requirements, script)
+
+
+def test_the_smoke_job_checks_the_closure_and_imports_outside_the_checkout() -> None:
+    """--no-deps leaves the wheel's Requires-Dist unchecked, so `pip check` must run
+    after the last install; and with a checkout in the job, a probe run from
+    $GITHUB_WORKSPACE would import the source tree instead of the installed wheel."""
+    commands = _commands(_jobs()["smoke"])
+    installs = [i for i, c in enumerate(commands) if _PIP_INSTALL.search(c)]
+    checks = [i for i, c in enumerate(commands) if re.fullmatch(r"(?:python3? -m )?pip3? check", c)]
+    assert installs and checks and checks[-1] > installs[-1], (installs, checks)
+    probes = [i for i, c in enumerate(commands) if re.match(r"python3? -c\b", c)]
+    leaves = [i for i, c in enumerate(commands) if c == 'cd "$RUNNER_TEMP"']
+    assert probes and leaves and leaves[0] < probes[0], (leaves, probes)
+    moves = [c for c in commands[leaves[0] + 1 :] if c.startswith("cd ")]
+    assert not moves, moves
+
+
+def test_files_from_expected_follows_writes_and_drops_a_rewritten_file() -> None:
+    script = "\n".join(
+        [
+            "printf '%s\\n' \"$EXPECTED\" | grep -E 'x' > \"$RUNNER_TEMP/a\"",
+            'awk \'{print $1}\' "$RUNNER_TEMP/a" > "$RUNNER_TEMP/b"',
+            'echo planted > "$RUNNER_TEMP/c"',
+            'awk \'{print $1}\' "$RUNNER_TEMP/a" "$RUNNER_TEMP/c" > "$RUNNER_TEMP/d"',
+        ]
+    )
+    assert _files_from_expected(script) == {"$RUNNER_TEMP/a", "$RUNNER_TEMP/b"}
+    rewritten = script + '\necho planted >> "$RUNNER_TEMP/b"'
+    assert _files_from_expected(rewritten) == {"$RUNNER_TEMP/a"}
+    unreadable = script + "\npython -c \"open('$RUNNER_TEMP/b', 'w')\n\""
+    assert _files_from_expected(unreadable) == set()
 
 
 def _check_step(document: dict, job_name: str) -> dict:
