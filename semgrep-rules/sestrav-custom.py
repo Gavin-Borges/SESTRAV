@@ -10,6 +10,7 @@ outside data reaches any call.
 import io
 import pickle
 import subprocess
+from typing import Any
 
 import joblib
 
@@ -50,6 +51,44 @@ read_verified_bytes("model.joblib", None, False)
 
 # ok: sestrav-require-verified-joblib-load
 read_verified_bytes("model.joblib", required=True)
+
+# A flag that is not the literal True can still be False at run time, so every
+# such spelling is the opt-out too: a name, an expression, the third positional
+# argument, or a mapping unpacked into the call.
+strict = bool(stream.getvalue())
+options: dict[str, Any] = {"required_checksum": False}
+read_options: dict[str, Any] = {"required": False}
+
+# ruleid: sestrav-require-verified-joblib-load
+load_verified_joblib("model.joblib", required_checksum=strict)
+
+# ruleid: sestrav-require-verified-joblib-load
+load_verified_joblib("model.joblib", required_checksum=not strict)
+
+# ruleid: sestrav-require-verified-joblib-load
+load_verified_joblib("model.joblib", None, strict)
+
+# ruleid: sestrav-require-verified-joblib-load
+load_verified_joblib("model.joblib", **options)
+
+# ruleid: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", required=strict)
+
+# ruleid: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", None, strict)
+
+# ruleid: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", **read_options)
+
+# The default is True, so a call that passes no flag is the verified load.
+# ok: sestrav-require-verified-joblib-load
+load_verified_joblib("model.joblib")
+
+# ok: sestrav-require-verified-joblib-load
+load_verified_joblib("model.joblib", None, True)
+
+# ok: sestrav-require-verified-joblib-load
+read_verified_bytes("model.joblib", None, True)
 
 
 def _load_joblib_impl(path):

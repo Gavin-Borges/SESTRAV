@@ -32,7 +32,22 @@ severity field, resolving one would add a network call and a token requirement t
 gate that should stay hermetic, and failing closed on everything unaccepted is both
 simpler and stricter.
 
-Scope: only packages this repo actually pins in `environments/requirements.lock`.
+Acceptances are also scoped to ONE LOCK (added 2026-10-17, with
+`tools/audit_all_locks.py`, which runs this policy over every tracked hash-pinned lock).
+An entry's optional `lock` field names the repo-relative lock it covers, and an entry
+with no `lock` field covers `environments/requirements.lock` only - which is what every
+entry meant before the field existed, since that was the only lock this gate read. So
+accepting an advisory for the production lock never silently accepts the same (id,
+package) pinned in a CI tool lock: that pin installs somewhere else, for another reason,
+and its exposure has not been assessed. The lock a report is judged against is
+`--lock-id` when given, else `--lockfile`'s path relative to the repository, else (for a
+file outside the repository) that file's own resolved path, which no acceptance names -
+an out-of-tree copy of a lock is judged with nothing accepted rather than borrowing the
+production lock's list. The Risk-Acceptance Register check below still covers every
+entry in the file, whichever lock it names.
+
+Scope: only packages this repo actually pins in the lock being judged
+(`environments/requirements.lock` unless `--lockfile` names another).
 Confirmed empirically (a real pip-audit run against a live dev environment, not just
 read from docs) that the installed set an audited venv sees is wider than that: `pip`
 itself showed a live PYSEC finding despite never appearing as a pin in the lockfile -
@@ -47,6 +62,8 @@ Usage:
     python tools/check_lockfile_advisories.py pip-audit-report.json
     python tools/check_lockfile_advisories.py report.json --accept path/to/accepted.toml \
         --lockfile path/to/requirements.lock
+    python tools/check_lockfile_advisories.py report.json \
+        --lockfile environments/requirements-semgrep.txt   # judged with that lock's entries
 
 CI usage (see .github/workflows/security.yml, job `pip-audit`):
     pip-audit --format json --output pip-audit-report.json   # no --ignore-vuln
@@ -58,13 +75,18 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_ACCEPT_FILE = "environments/accepted_advisories.toml"
 DEFAULT_REGISTER_FILE = "SECURITY.md"
+# The lock an acceptance entry with no `lock` field covers. Before per-lock scoping
+# this was the only lock the gate read, so absence keeps every older entry's meaning.
+DEFAULT_LOCKFILE = "environments/requirements.lock"
 
 
 @dataclass(frozen=True)
@@ -81,6 +103,7 @@ class Acceptance:
     package: str
     reason: str
     register_entry: str
+    lock: str = DEFAULT_LOCKFILE
 
 
 class ReportError(RuntimeError):
@@ -88,7 +111,14 @@ class ReportError(RuntimeError):
 
 
 def _normalize(name: str) -> str:
-    return name.strip().lower().replace("_", "-")
+    """PEP 503 form, the one pip-audit's JSON reports: lowercase, ``-_.`` runs to ``-``.
+
+    Until 2026-10-17 only ``_`` was folded, so a lock pin spelled ``zope.interface``
+    and pip-audit's ``zope-interface`` never matched, and a finding on it would have
+    been classed out of scope and never gated. No tracked lock pins a dotted name
+    today (measured 2026-10-17), so this changed no verdict.
+    """
+    return re.sub(r"[-_.]+", "-", name.strip()).lower()
 
 
 def parse_report(text: str) -> list[Finding]:
@@ -125,8 +155,36 @@ def parse_report(text: str) -> list[Finding]:
     return findings
 
 
-def load_acceptances(path: pathlib.Path) -> dict[tuple[str, str], Acceptance]:
-    """Load the acceptance list, keyed by (advisory_id, package).
+def normalize_lock(value: str) -> str:
+    """Spell a repo-relative lock path one way: forward slashes, no leading ``./``."""
+    lock = value.strip().replace("\\", "/")
+    while lock.startswith("./"):
+        lock = lock[2:]
+    return lock
+
+
+def lock_identity(lockfile: str | pathlib.Path) -> str:
+    """The name acceptances use for ``lockfile``: its repo-relative POSIX path.
+
+    A file outside the repository has no repo-relative name, so its own resolved
+    path is used, which no acceptance entry names. That is deliberate: an
+    out-of-tree copy of a lock is judged with nothing accepted, never with the
+    production lock's acceptances borrowed for it.
+    """
+    resolved = pathlib.Path(lockfile).resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
+def load_all_acceptances(path: pathlib.Path) -> dict[tuple[str, str, str], Acceptance]:
+    """Load every acceptance in the file, keyed by (advisory_id, package, lock).
+
+    The optional ``lock`` field names the repo-relative lock an entry covers; an
+    entry without one covers ``DEFAULT_LOCKFILE``, which preserves the meaning of
+    every entry written before the field existed. A ``lock`` that is present but
+    empty or not a string raises ValueError rather than quietly covering nothing.
 
     A missing file means nothing is accepted - every finding must fail closed rather
     than silently pass because the seed file was never created.
@@ -134,17 +192,49 @@ def load_acceptances(path: pathlib.Path) -> dict[tuple[str, str], Acceptance]:
     if not path.is_file():
         return {}
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    out: dict[tuple[str, str], Acceptance] = {}
+    out: dict[tuple[str, str, str], Acceptance] = {}
     for entry in data.get("accepted", []):
         advisory_id = str(entry["id"]).strip()
         package = _normalize(str(entry["package"]))
-        out[(advisory_id, package)] = Acceptance(
+        raw_lock = entry.get("lock", DEFAULT_LOCKFILE)
+        if not isinstance(raw_lock, str) or not normalize_lock(raw_lock):
+            raise ValueError(
+                f"acceptance {advisory_id} for {package} has an invalid lock {raw_lock!r}: "
+                f"name a repo-relative lock path, or omit the field to mean {DEFAULT_LOCKFILE}"
+            )
+        lock = normalize_lock(raw_lock)
+        out[(advisory_id, package, lock)] = Acceptance(
             advisory_id=advisory_id,
             package=package,
             reason=str(entry["reason"]).strip(),
             register_entry=str(entry["register_entry"]).strip(),
+            lock=lock,
         )
     return out
+
+
+def acceptances_for_lock(
+    acceptances: Mapping[tuple[str, str, str], Acceptance], lock: str
+) -> dict[tuple[str, str], Acceptance]:
+    """The entries covering ``lock``, keyed by (advisory_id, package) for evaluate()."""
+    wanted = normalize_lock(lock)
+    return {
+        (acceptance.advisory_id, acceptance.package): acceptance
+        for acceptance in acceptances.values()
+        if acceptance.lock == wanted
+    }
+
+
+def load_acceptances(
+    path: pathlib.Path, lock: str = DEFAULT_LOCKFILE
+) -> dict[tuple[str, str], Acceptance]:
+    """Load the acceptances covering one lock, keyed by (advisory_id, package).
+
+    ``lock`` defaults to ``DEFAULT_LOCKFILE``, so a caller written before per-lock
+    scoping still gets exactly the entries it used to: all of them, since none
+    named a lock. Entries for other locks are left out, never merged in.
+    """
+    return acceptances_for_lock(load_all_acceptances(path), lock)
 
 
 def parse_lockfile_packages(path: pathlib.Path) -> set[str]:
@@ -161,7 +251,9 @@ def parse_lockfile_packages(path: pathlib.Path) -> set[str]:
         line = raw_line.split("#", 1)[0].strip().rstrip("\\").strip()
         if "==" not in line:
             continue
-        name = line.split("==", 1)[0].strip()
+        # `pkg[extra]==1.0` pins the distribution `pkg`, which is the name pip-audit
+        # reports; keeping the brackets would class its findings out of scope.
+        name = line.split("==", 1)[0].split("[", 1)[0].strip()
         if name:
             packages.add(_normalize(name))
     return packages
@@ -177,7 +269,10 @@ def filter_in_scope(
 
 
 def unregistered_acceptances(
-    acceptances: dict[tuple[str, str], Acceptance], register_text: str
+    acceptances: (
+        Mapping[tuple[str, str], Acceptance] | Mapping[tuple[str, str, str], Acceptance]
+    ),
+    register_text: str,
 ) -> list[Acceptance]:
     """Return acceptances whose ``register_entry`` is absent from the register text.
 
@@ -191,13 +286,16 @@ def unregistered_acceptances(
     The match is a plain substring test, deliberately. No format for a register entry
     is specified anywhere, so anything cleverer would be guessing at one. An empty
     ``register_entry`` never matches, which is correct: the TOML requires a value.
+
+    Takes either keying - one lock's (id, package) view or the whole file's
+    (id, package, lock) view - since only the values are read.
     """
     missing = [
         acceptance
         for acceptance in acceptances.values()
         if not acceptance.register_entry or acceptance.register_entry not in register_text
     ]
-    return sorted(missing, key=lambda a: (a.advisory_id, a.package))
+    return sorted(missing, key=lambda a: (a.advisory_id, a.package, a.lock))
 
 
 def evaluate(
@@ -216,12 +314,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--accept",
         default=str(REPO_ROOT / DEFAULT_ACCEPT_FILE),
-        help="TOML file listing explicitly accepted (advisory id, package) pairs",
+        help="TOML file listing explicitly accepted (advisory id, package, lock) entries",
     )
     parser.add_argument(
         "--lockfile",
-        default=str(REPO_ROOT / "environments" / "requirements.lock"),
+        default=str(REPO_ROOT / DEFAULT_LOCKFILE),
         help="compiled lockfile defining which packages are in scope for this gate",
+    )
+    parser.add_argument(
+        "--lock-id",
+        default=None,
+        help=(
+            "repo-relative lock whose acceptances apply (default: --lockfile's path "
+            "relative to the repository; a file outside it gets no acceptances)"
+        ),
     )
     parser.add_argument(
         "--register",
@@ -251,11 +357,17 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     accept_path = pathlib.Path(args.accept)
-    acceptances = load_acceptances(accept_path)
+    lock_id = (
+        normalize_lock(args.lock_id) if args.lock_id is not None else lock_identity(args.lockfile)
+    )
+    all_acceptances = load_all_acceptances(accept_path)
+    acceptances = acceptances_for_lock(all_acceptances, lock_id)
 
     # The register is only consulted when something is actually accepted, so a repo
-    # with an empty acceptance list does not depend on SECURITY.md being present.
-    if acceptances:
+    # with an empty acceptance list does not depend on SECURITY.md being present. It
+    # covers every entry in the file, not only this lock's: the requirement is on the
+    # file, and an unregistered entry for another lock is no less unjustified.
+    if all_acceptances:
         register_path = pathlib.Path(args.register)
         try:
             register_text = register_path.read_text(encoding="utf-8")
@@ -267,14 +379,14 @@ def main(argv: list[str] | None = None) -> int:
                 f"entries: {exc}"
             )
             return 2
-        unregistered = unregistered_acceptances(acceptances, register_text)
+        unregistered = unregistered_acceptances(all_acceptances, register_text)
         if unregistered:
             for acceptance in unregistered:
                 shown = acceptance.register_entry or "(empty)"
                 print(
-                    f"::error::{acceptance.advisory_id} for {acceptance.package} is "
-                    f"accepted in {accept_path} with register_entry {shown!r}, which "
-                    f"does not appear in {register_path}"
+                    f"::error::{acceptance.advisory_id} for {acceptance.package} "
+                    f"({acceptance.lock}) is accepted in {accept_path} with register_entry "
+                    f"{shown!r}, which does not appear in {register_path}"
                 )
             print(
                 f"\n{len(unregistered)} acceptance(s) with no Risk-Acceptance Register "
@@ -295,9 +407,9 @@ def main(argv: list[str] | None = None) -> int:
         # audit, most likely because it was fixed. This is exactly the signal that went
         # unnoticed for four weeks with CVE-2025-3000, so it is surfaced, not silenced.
         print(
-            f"::notice::accepted advisory {advisory_id} for {package} no longer appears "
-            f"in the audit - it may be resolved; consider retiring its {accept_path} entry "
-            f"and the matching SECURITY.md register entry"
+            f"::notice::accepted advisory {advisory_id} for {package} ({lock_id}) no longer "
+            f"appears in the audit - it may be resolved; consider retiring its {accept_path} "
+            f"entry and the matching SECURITY.md register entry"
         )
 
     if not unaccepted:
@@ -308,12 +420,14 @@ def main(argv: list[str] | None = None) -> int:
         fix = ", ".join(finding.fix_versions) or "none published"
         print(
             f"::error::{finding.advisory_id} affects {finding.package}=="
-            f"{finding.version} (fix: {fix}) and is not accepted in {accept_path}"
+            f"{finding.version} (fix: {fix}) and is not accepted for {lock_id} in "
+            f"{accept_path}"
         )
     print(
         f"\n{len(unaccepted)} unaccepted advisory finding(s). Either upgrade the pin, or "
-        f"add an entry to {accept_path} together with a matching Risk-Acceptance Register "
-        f"entry in SECURITY.md that carries a re-review trigger."
+        f"add an entry to {accept_path} (with lock = \"{lock_id}\" unless it is "
+        f"{DEFAULT_LOCKFILE}) together with a matching Risk-Acceptance Register entry in "
+        f"SECURITY.md that carries a re-review trigger."
     )
     return 1
 

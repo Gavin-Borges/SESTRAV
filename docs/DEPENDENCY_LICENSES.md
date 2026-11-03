@@ -34,7 +34,7 @@
 | et_xmlfile                            | 2.0.0       | MIT License                                                                                         |
 | fastapi                               | 0.143.2     | MIT                                                                                                 |
 | fastjsonschema                        | 2.22.1      | BSD License                                                                                         |
-| filelock                              | 3.32.0      | MIT                                                                                                 |
+| filelock                              | 4.2.4       | MIT                                                                                                 |
 | fonttools                             | 4.63.0      | MIT                                                                                                 |
 | frozenlist                            | 1.8.0       | Apache-2.0                                                                                          |
 | fsspec                                | 2026.7.0    | BSD-3-Clause                                                                                        |

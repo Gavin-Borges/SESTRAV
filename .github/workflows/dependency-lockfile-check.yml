@@ -79,11 +79,29 @@ jobs:
         # slip through the same way. `pull_request.user.login`, not
         # `github.actor`, per the same reasoning pr-review-check.yml documents
         # for its own bot allowlist.
+        #
+        # `!cancelled()` is load-bearing. GitHub applies a default status check
+        # of `success()` to any `if:` that contains no status check function,
+        # so without one this step is SKIPPED whenever the freshness step above
+        # fails. Measured 2026-10-25 on the latest run of this workflow on each
+        # open Dependabot pip PR (#766, #806, #807): the freshness step failed
+        # and this step was skipped on all three, although #766 modifies the
+        # very file this step protects. `!cancelled()` is what GitHub's status
+        # check documentation recommends over `always()` for a step that must
+        # run whether earlier steps passed or failed, and a cancelled run still
+        # stops here. Not `failure()`, which would skip this guard whenever the
+        # freshness step passes. The event and login conditions are unchanged,
+        # so a human PR still never runs it.
         if: >-
+          ${{ !cancelled() &&
           github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login == 'dependabot[bot]'
+          github.event.pull_request.user.login == 'dependabot[bot]' }}
+        # base_ref reaches the script through env, never by template expansion
+        # into the script text.
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+          if git diff --name-only "origin/${BASE_REF}...HEAD" \
               | grep -qx 'environments/requirements-ci-render.txt'; then
             echo "::error file=environments/requirements-ci-render.txt::Dependabot must not modify this hand-maintained, no-.in-source tier-4 lockfile (CONTRIBUTING.md dependency tier 4). Close this PR, add the newly-reached package name(s) to the ignore: list in .github/dependabot.yml, and update this file by hand following its own header recipe (pip download + pip hash) in a separate PR." >&2
             exit 1
