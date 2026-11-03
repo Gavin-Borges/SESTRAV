@@ -280,8 +280,8 @@ def test_check_pair_flags_an_unhashed_duplicate_in_either_order(tmp_path, body):
 @pytest.mark.parametrize(
     ("line", "compiled"),
     [
-        # Compatible release: this gate compares with a digit tuple, not a
-        # PEP 440 comparator, so it cannot hold ~= to its word.
+        # Compatible release: this gate orders versions but implements no ~=
+        # semantics, so it cannot hold ~= to its word.
         ("bandit~=1.9.5", "bandit==1.8.0"),
         # A range: the old prefix match read the floor and dropped the ceiling.
         ("aiohttp>=3.14.3,<3.15", "aiohttp==3.15.0"),
