@@ -17,6 +17,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Security
+- **opentelemetry-api moves from 1.45.1 to 1.45.2 in all five locks that pin it, closing
+  CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg (medium).** Per `gh api
+  advisories/GHSA-mf5v-w3w3-f6cg`, `TraceContextTextMapPropagator.extract()` in
+  opentelemetry-api <= 1.45.1 is open to regular-expression denial of service on a crafted
+  `traceparent` value, and 1.45.2 is the fix. The five are `requirements.txt`,
+  `environments/requirements.lock`, `environments/requirements-api.txt`,
+  `environments/requirements-demo.txt` and `environments/requirements-semgrep.txt`; no other
+  tracked lock pins it. `environments/requirements.lock`, the production lock, has no
+  Dependabot alert for this advisory and moves with the other four. All five are recompiled
+  with `tools/update_dependencies.py --target opentelemetry-api`, and in the first four only
+  the api pin and its two hashes change. In the semgrep tool lock, two further runs
+  (`--target opentelemetry-sdk`, then `--target opentelemetry-instrumentation`) move seven
+  OpenTelemetry pins together, api and sdk to 1.45.2 and semantic-conventions,
+  instrumentation, instrumentation-requests, instrumentation-threading and util-http to
+  0.66b2, so that the family's own metadata stays consistent: sdk 1.45.1 and
+  semantic-conventions 0.66b1 each require `opentelemetry-api==1.45.1` exactly. The other
+  five OpenTelemetry pins in that lock do not move. The version lines in
+  `environments/semgrep-overrides.txt` are unchanged, since each already admits the new
+  versions, and installs of that lock stay `--no-deps`, as that file already requires; its
+  comments now name the second advisory beside the first. `tests/test_dependency_tooling.py`
+  raises its opentelemetry-api advisory floor to 1.45.2, so the floor test fails against the
+  previous lock and passes against this one. `docs/sbom.json` and
+  `docs/DEPENDENCY_LICENSES.md` follow in a second commit, from the CI `python-sbom`
+  artifact.
 - **The CI render lock moves tornado from 6.5.10 to 6.6 in
   `environments/requirements-ci-render.txt`, closing CVE-2026-116577 / GHSA-pcg2-g6cj-q92c,
   CVE-2026-116578 / GHSA-pw9p-v7r6-gx4p and CVE-2026-115927 / GHSA-r4j5-9xpp-3985.** No other

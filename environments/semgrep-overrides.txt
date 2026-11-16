@@ -26,6 +26,11 @@
 # `>=0.58b0, ==0.*` under PEP 440 and already admits 0.66b1); they bound the
 # family explicitly so it moves, and retires, as one unit.
 #
+# WHY, OpenTelemetry (second advisory): opentelemetry-api <= 1.45.1 carries
+# CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg (medium): a crafted `traceparent` value
+# makes `TraceContextTextMapPropagator.extract()` backtrack in quadratic time
+# (ReDoS). 1.45.2 is the fix (source: gh api advisories/GHSA-mf5v-w3w3-f6cg).
+#
 # NOT EXPLOITABLE AS USED, either of them. Read in semgrep 1.179.0's installed
 # source; the lock is fixed because patched releases exist, not because the
 # scanner was exposed.
@@ -80,7 +85,7 @@
 # EXIT CONDITION (mcp): once a semgrep release declares mcp>=1.30 (or drops its
 # mcp requirement), bump semgrep in the .in and delete the mcp line.
 # EXIT CONDITION (OpenTelemetry): once a semgrep release's OpenTelemetry ranges
-# admit opentelemetry-api>=1.45.1, bump semgrep and delete the five
+# admit opentelemetry-api>=1.45.2, bump semgrep and delete the five
 # opentelemetry lines together.
 # When both have happened, delete this file and the spec's `overrides=` entry
 # in tools/update_dependencies.py and its OVERRIDDEN_SPECS entry in
