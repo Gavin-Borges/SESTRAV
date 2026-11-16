@@ -17,6 +17,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Security
+- **The CI render lock moves tornado from 6.6 to 6.6.1 in
+  `environments/requirements-ci-render.txt`, closing CVE-2026-126347 / GHSA-5cjw-f85j-cv6r
+  (low).** Per the advisory, the open-redirect fix in `RedirectHandler` that 6.6 shipped for
+  CVE-2026-116578 is incomplete: browsers treat a string starting with three or more slashes
+  as a protocol-level redirect and Python's `urllib` does not. It affects tornado 6.6.0 and
+  earlier and lists 6.6.1 as the fix. No other tracked lock pins tornado; ipykernel and
+  jupyter_client require it, and they run the Jupyter kernel that executes the report's
+  Python cells in `ci.yml`'s Quarto render step. This file is a hand-kept hash closure for
+  Linux x86_64 and Python 3.13, and this repository maintains it by hand, not through
+  Dependabot (`CONTRIBUTING.md` dependency tier 4): tornado is listed under `ignore:` in both
+  pip blocks of `.github/dependabot.yml`, and `dependency-lockfile-check.yml` fails any
+  Dependabot pull request that modifies the file. So the pin moves by hand, and only
+  tornado's version and hash set change: all 43 files PyPI publishes for 6.6.1 are hashed, as
+  6.6's block hashed all 43 of its own, and the 43 sha256 digests PyPI lists for the release
+  are the 43 that `sha256sum` gives for the downloaded files.
+  6.6.1 satisfies ipykernel 6.29.5's `tornado>=6.1` and jupyter_client 8.9.1's
+  `tornado>=6.4.1` and declares no dependencies; under WSL Ubuntu, `pip install
+  --require-hashes` of the lock into a clean Python 3.13 venv installs 6.6.1 and nbclient
+  runs a notebook on the python3 kernel. `quarto render docs/results_report.qmd` was not
+  re-run for this change, because quarto is not installed in that WSL image. `pip-audit -s
+  osv -r <lock> --no-deps --disable-pip` reports CVE-2026-126347 against the previous lock
+  and nothing against this one. `tools/audit_all_locks.py` reports no finding in this lock;
+  across its 16 locks it reports five findings, all CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg
+  against opentelemetry-api 1.45.1 in five other locks, which this change does not touch.
 - **The CI render lock moves tornado from 6.5.10 to 6.6 in
   `environments/requirements-ci-render.txt`, closing CVE-2026-116577 / GHSA-pcg2-g6cj-q92c,
   CVE-2026-116578 / GHSA-pw9p-v7r6-gx4p and CVE-2026-115927 / GHSA-r4j5-9xpp-3985.** No other
