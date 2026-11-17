@@ -39,22 +39,26 @@
 #     importing semgrep.cli loads 47 mcp.server modules,
 #     mcp.server.streamable_http among them, under both locks.
 #   - OpenTelemetry: the only `propagate.extract` call in semgrep is
-#     semgrep/telemetry.py `extract()`. It runs only with tracing enabled
-#     (`semgrep scan --trace`, default off, and neither CI argv passes it), and
-#     its carrier is built locally as `{"traceparent": ...}` from two
-#     environment variables, with no `tracestate` key, so
-#     `TraceState.from_header` never receives input. Twelve semgrep modules
-#     import opentelemetry (telemetry, metrics, meta, rpc and eight under
-#     semgrep/mcp/); no other one calls the propagation extract path, and mcp
-#     imports no opentelemetry at all.
+#     semgrep/telemetry.py `extract()`. Its only caller is that module's
+#     `configure()`, which returns before reaching it unless tracing is ENABLED,
+#     so the gate is that enabled flag and not any one argv. `semgrep scan` and
+#     `semgrep ci` both set it from `--trace`, default off, and neither CI argv
+#     passes it; semgrep's MCP server and its four hook modules set it
+#     unconditionally (opt out with SEMGREP_MCP_DISABLE_TRACING=true), and CI
+#     starts no MCP server, per the bullet above. The carrier is built locally
+#     as `{"traceparent": ...}` from two environment variables, with no
+#     `tracestate` key, so `TraceState.from_header` never receives input.
+#     Twelve semgrep modules import opentelemetry (telemetry, metrics, meta, rpc
+#     and eight under semgrep/mcp/); no other one calls the propagation extract
+#     path, and mcp imports no opentelemetry at all.
 #     That `TraceState.from_header` clause answers the FIRST OpenTelemetry
 #     advisory only. The second one is reached through the `traceparent` value,
 #     which this carrier DOES carry, so the absent `tracestate` key says nothing
 #     about it. What covers it is the other half of the same sentence: the
-#     extract path runs only under `--trace`, which neither CI argv passes, and
-#     the two values are read from this repository's own environment rather than
-#     from an inbound request, so no caller-controlled string reaches the
-#     quadratic regex.
+#     extract path runs only with tracing enabled, which no invocation CI makes
+#     here enables, and the two values are read from this repository's own
+#     environment rather than from an inbound request, so no caller-controlled
+#     string reaches the quadratic regex.
 #
 # Measured before adopting it, semgrep 1.179.0 under the previous lock (mcp
 # 1.29.0, opentelemetry 1.37.0 / 0.58b0) and this one (mcp 1.30.0,
