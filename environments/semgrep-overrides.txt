@@ -31,9 +31,9 @@
 # makes `TraceContextTextMapPropagator.extract()` backtrack in quadratic time
 # (ReDoS). 1.45.2 is the fix (source: gh api advisories/GHSA-mf5v-w3w3-f6cg).
 #
-# NOT EXPLOITABLE AS USED, either of them. Read in semgrep 1.179.0's installed
-# source; the lock is fixed because patched releases exist, not because the
-# scanner was exposed.
+# NOT EXPLOITABLE AS USED - all three advisories above. Read in semgrep 1.179.0's
+# installed source; the lock is fixed because patched releases exist, not because
+# the scanner was exposed.
 #   - mcp: CI only runs `semgrep scan`, which never starts an MCP server, so the
 #     vulnerable transport never handles a request. It is IMPORTED on every run:
 #     importing semgrep.cli loads 47 mcp.server modules,
@@ -47,6 +47,14 @@
 #     import opentelemetry (telemetry, metrics, meta, rpc and eight under
 #     semgrep/mcp/); no other one calls the propagation extract path, and mcp
 #     imports no opentelemetry at all.
+#     That `TraceState.from_header` clause answers the FIRST OpenTelemetry
+#     advisory only. The second one is reached through the `traceparent` value,
+#     which this carrier DOES carry, so the absent `tracestate` key says nothing
+#     about it. What covers it is the other half of the same sentence: the
+#     extract path runs only under `--trace`, which neither CI argv passes, and
+#     the two values are read from this repository's own environment rather than
+#     from an inbound request, so no caller-controlled string reaches the
+#     quadratic regex.
 #
 # Measured before adopting it, semgrep 1.179.0 under the previous lock (mcp
 # 1.29.0, opentelemetry 1.37.0 / 0.58b0) and this one (mcp 1.30.0,
@@ -60,6 +68,13 @@
 #     same 3 SARIF results, all three suppressed in source, under both locks;
 #   - scripts/check_semgrep_rule_fixtures.py passed under both locks.
 # CI runs ubuntu-latest, which neither of these is.
+# That measurement PREDATES this change and was not re-run for it. The lock it
+# calls "this one" pinned opentelemetry-api 1.45.1; the move to 1.45.2 shifts
+# seven of the family's pins (api, sdk, semantic-conventions, util-http and the
+# three instrumentation lines) to 1.45.2 / 0.66b2 and leaves five otlp/proto
+# exporter pins at 1.45.1 / 0.66b1, so the lock spans both. A patch-level move
+# inside one minor is not expected to change the rule and finding counts above,
+# and nobody has re-measured them under it.
 #
 # CONSEQUENCES:
 #   - The lock no longer satisfies semgrep's own metadata (uv, given the lock
