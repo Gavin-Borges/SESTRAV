@@ -33,12 +33,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   instrumentation, instrumentation-requests, instrumentation-threading and util-http to
   0.66b2, so that the family's own metadata stays consistent: sdk 1.45.1 and
   semantic-conventions 0.66b1 each require `opentelemetry-api==1.45.1` exactly. The other
-  five OpenTelemetry pins in that lock do not move. The version lines in
-  `environments/semgrep-overrides.txt` are unchanged, since each already admits the new
-  versions, and installs of that lock stay `--no-deps`, as that file already requires; its
-  comments now name the second advisory beside the first. `tests/test_dependency_tooling.py`
-  raises its opentelemetry-api advisory floor to 1.45.2, so the floor test fails against the
-  previous lock and passes against this one. `docs/sbom.json` and
+  five OpenTelemetry pins in that lock do not move. In `environments/semgrep-overrides.txt`
+  the opentelemetry-api line's floor rises from 1.45.1 to 1.45.2, so the override no longer
+  admits a release the advisory covers; the other version lines are unchanged, since each
+  already admits the new versions. Installs of that lock stay `--no-deps`, as that file
+  already requires, and its comments now name the second advisory beside the first.
+  `tests/test_dependency_tooling.py` raises its opentelemetry-api advisory floor, which reads
+  the semgrep tool lock, to 1.45.2, so that test fails against the previous semgrep lock and
+  passes against this one. `docs/sbom.json` and
   `docs/DEPENDENCY_LICENSES.md` follow in a second commit, from the CI `python-sbom`
   artifact.
 - **The CI render lock moves tornado from 6.5.10 to 6.6 in
@@ -107,8 +109,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   source: both semgrep jobs only run `semgrep scan`, which starts no MCP server, although
   importing semgrep's CLI loads 47 `mcp.server` modules, the StreamableHTTP one included;
   and semgrep's only call into OpenTelemetry's header extraction, `extract()` in
-  `semgrep/telemetry.py`, runs only under `--trace`, which neither job passes, and hands it
-  a carrier built locally with a `traceparent` and no `tracestate`. The lock is fixed
+  `semgrep/telemetry.py`, runs only when tracing is enabled, which `semgrep scan` takes from
+  `--trace` (neither job passes it) and which `semgrep mcp`, run by neither job, turns on by
+  default; it hands OpenTelemetry a carrier built locally with a `traceparent` and no
+  `tracestate`. The lock is fixed
   because patched releases exist. `environments/semgrep-overrides.txt` returns and lifts
   exactly six packages: mcp to the 1.30 series, and opentelemetry-api, -sdk,
   -exporter-otlp-proto-http, -instrumentation-requests and -instrumentation-threading to
