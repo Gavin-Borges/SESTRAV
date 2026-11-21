@@ -31,7 +31,20 @@
 # makes `TraceContextTextMapPropagator.extract()` backtrack in quadratic time
 # (ReDoS). 1.45.2 is the fix (source: gh api advisories/GHSA-mf5v-w3w3-f6cg).
 #
-# NOT EXPLOITABLE AS USED - all three advisories above. Read in semgrep 1.179.0's
+# WHY, wcmatch: wcmatch <= 11.1 carries CVE-2026-132276 / GHSA-53pm-wgxf-c6qf
+# (medium, ReDoS): under default flags each `*` in a pattern becomes a lazy
+# `.*?`, so a pattern with k stars costs O(n^k) on an n-character name. 11.2 is
+# the fix. semgrep 1.179.0 (pinned) and 1.186.0 both declare `wcmatch~=8.3`
+# (wheel METADATA, read 2026-11-21), so no semgrep upgrade checked reaches it.
+# wcmatch 11.2 requires `bracex>=3.2`, so the lock also moves bracex 2.6 to
+# 3.2.4; nothing else moves. The same move clears four HIGH advisories that the
+# maintainers published in their own repositories and that GitHub's advisory
+# database did not carry on 2026-11-21 (`gh api advisories/<id>` returned 404),
+# so no feed this repo reads reports them: wcmatch GHSA-84v8-qmgq-9g88
+# (<= 10.2.1) and bracex GHSA-88pj-cgpg-492r, GHSA-q3p5-v4g2-85hm and
+# GHSA-f5rx-pv38-28f9 (<= 2.6).
+#
+# NOT EXPLOITABLE AS USED - every advisory above. Read in semgrep 1.179.0's
 # installed source; the lock is fixed because patched releases exist, not because
 # the scanner was exposed.
 #   - mcp: CI only runs `semgrep scan`, which never starts an MCP server, so the
@@ -59,6 +72,12 @@
 #     two values are read from the semgrep process's environment variables
 #     rather than from an inbound request, so no caller-controlled string
 #     reaches the quadratic regex.
+#   - wcmatch: semgrep's only call is semgrep/target_manager.py `_globmatch`,
+#     `glob.globmatch(path, pattern, flags=GLOBSTAR|DOTGLOB)`. The name is a
+#     scanned file path; the pattern comes from a rule's `paths:` block, so a
+#     multi-star pattern needs an edit to the rules the scan loads. No call in
+#     semgrep passes BRACE or EXTGLOB, and wcmatch reaches bracex only under
+#     BRACE, so the extglob and bracex advisories are not reached at all.
 #
 # Measured before adopting it, semgrep 1.179.0 under the previous lock (mcp
 # 1.29.0, opentelemetry 1.37.0 / 0.58b0) and this one (mcp 1.30.0,
@@ -79,6 +98,11 @@
 # (opentelemetry-proto and four opentelemetry-exporter packages) at 1.45.1 /
 # 0.66b1, so the lock spans both. The move stays inside the 1.45 and 0.66
 # series and is not expected to change the rule and finding counts above.
+# The wcmatch move was measured separately, on Linux (WSL Ubuntu) / Python 3.11
+# only, with each lock installed `--require-hashes --no-deps`: the blocking
+# custom-rules argv exited 0 with 0 results over the same file set under
+# wcmatch 8.5.2 and 11.2, and scripts/check_semgrep_rule_fixtures.py passed
+# under both. The advisory `p/python` scan was not re-run for it.
 #
 # CONSEQUENCES:
 #   - The lock no longer satisfies semgrep's own metadata (uv, given the lock
@@ -88,8 +112,8 @@
 #     install of it must pass --no-deps, which is safe because the lock is the
 #     complete hashed closure. tests/test_dependency_tooling.py fails any
 #     install that does not.
-#   - Any recompile that does not pass this file walks mcp back to 1.29.0 and
-#     OpenTelemetry back to 1.37.0 without an error. Dependabot's pip updater
+#   - Any recompile that does not pass this file walks mcp back to 1.29.0,
+#     OpenTelemetry back to 1.37.0 and wcmatch back to 8.5.2 without an error. Dependabot's pip updater
 #     recompiles with pip-compile, from options it derives from the existing
 #     lock and never from an override (dependabot-core
 #     python/lib/dependabot/python/file_updater/pip_compile_file_updater.rb,
@@ -106,7 +130,9 @@
 # EXIT CONDITION (OpenTelemetry): once a semgrep release's OpenTelemetry ranges
 # admit opentelemetry-api>=1.45.2, bump semgrep and delete the five
 # opentelemetry lines together.
-# When both have happened, delete this file and the spec's `overrides=` entry
+# EXIT CONDITION (wcmatch): once a semgrep release's wcmatch range admits
+# wcmatch>=11.2, bump semgrep and delete the wcmatch line.
+# When all three have happened, delete this file and the spec's `overrides=` entry
 # in tools/update_dependencies.py and its OVERRIDDEN_SPECS entry in
 # tests/test_dependency_tooling.py, drop --no-deps from security.yml's two
 # semgrep installs, recompile and re-verify hashes.
@@ -116,3 +142,4 @@ opentelemetry-sdk>=1.45.1,<1.46
 opentelemetry-exporter-otlp-proto-http>=1.45.1,<1.46
 opentelemetry-instrumentation-requests>=0.66b1,<0.67
 opentelemetry-instrumentation-threading>=0.66b1,<0.67
+wcmatch>=11.2,<12

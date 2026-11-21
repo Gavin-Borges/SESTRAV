@@ -96,7 +96,8 @@ class LockSpec:
     # An override makes the lock disagree with a package's own metadata, so a
     # resolving `pip install` of it fails and every install must pass --no-deps.
     # Only the semgrep spec sets one (mcp for CVE-2026-59951, opentelemetry-api
-    # for CVE-2026-114603); the override file records its exit conditions, and
+    # for CVE-2026-114603, wcmatch for CVE-2026-132276); the override file
+    # records its exit conditions, and
     # tests/test_dependency_tooling.py fails if any other spec sets one.
     overrides: str | None = None
 
@@ -177,7 +178,8 @@ LOCK_SPECS: tuple[LockSpec, ...] = (
     ),
     # overrides: every semgrep release from 1.179.0 through 1.182.1 declares
     # mcp==1.29.0 exactly (CVE-2026-59951, fixed in 1.30.0) and
-    # opentelemetry-api~=1.37.0 (CVE-2026-114603, fixed in 1.45.1). See the
+    # opentelemetry-api~=1.37.0 (CVE-2026-114603, fixed in 1.45.1), and semgrep
+    # 1.179.0 declares wcmatch~=8.3 (CVE-2026-132276, fixed in 11.2). See the
     # EPILOG and environments/semgrep-overrides.txt for why and when to retire it.
     LockSpec(
         "semgrep",
@@ -243,7 +245,10 @@ CVE-2026-59951 / GHSA-84m7-p3x7-pcfv, fixed in 1.30.0, and opentelemetry-api
 1.37.0 carries CVE-2026-114603 / GHSA-xcq7-p3pf-p88h, fixed in 1.45.1. Without
 the override no resolver can reach either fix. The override file lifts mcp to
 the 1.30 series and those five OpenTelemetry packages to the 1.45.1 / 0.66b1
-releases, and states an exit condition for each group. Every install of the
+releases, and states an exit condition for each group. In 2026-11 it gained
+wcmatch: semgrep 1.179.0 declares `wcmatch~=8.3`, and wcmatch 8.5.2 carries
+CVE-2026-132276 / GHSA-53pm-wgxf-c6qf, fixed in 11.2, which requires
+`bracex>=3.2`, so bracex moves with it. Every install of the
 semgrep lock must pass --no-deps while it is in place, because the lock no
 longer satisfies semgrep's own metadata.
 """
