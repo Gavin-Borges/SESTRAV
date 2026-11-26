@@ -50,7 +50,11 @@ on:
     # Weekly extended fuzz run (Saturday 02:00 UTC) with higher max_examples
     - cron: '0 2 * * 6'
 
-permissions: read-all
+# contents: read, not read-all. read-all also hands every other read scope
+# (actions, checks, pull-requests, ...) to each job that does not declare its
+# own permissions, and no such job here uses one.
+permissions:
+  contents: read
 
 jobs:
   fuzz:

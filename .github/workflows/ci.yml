@@ -6,7 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-permissions: read-all
+# contents: read, not read-all. read-all also hands every other read scope
+# (actions, checks, pull-requests, ...) to each job that does not declare its
+# own permissions, and no such job here uses one.
+permissions:
+  contents: read
 
 jobs:
   lint:
