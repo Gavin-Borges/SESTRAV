@@ -36,6 +36,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   a venv built in the test job's install order. `pip-audit -r <lock> --no-deps
   --disable-pip` reports the three advisories against the previous lock and none against
   this one, and `tools/audit_all_locks.py` reports no finding in any of its 16 locks.
+- **`SECURITY.md`'s Risk-Acceptance Register accepts fastapi GHSA-f56c-v883-vx8r (high) until
+  2026-12-01T20:24:47Z at the latest, on measured non-reachability.** Per the advisory,
+  fastapi `>=0.123.2,<0.163.2` "could perform excessive CPU work when extracting request
+  parameters", and 0.163.2 is the fix; the four tracked locks that pin fastapi pin 0.143.2.
+  The only FastAPI application in the tracked tree, `app` in `api/main.py`, declares no query,
+  header, cookie, form or file parameter and no dependency, so none of the advisory's affected
+  scenarios applies to it. The entry claims no mitigation and suppresses nothing:
+  `environments/accepted_advisories.toml` gains no entry, and on 2026-11-22 GitHub's global
+  advisory database returned 404 for the advisory, this repository had no Dependabot alert
+  for fastapi, and pip-audit's OSV audit of every tracked lock reported nothing against it.
+  The acceptance lapses earlier once `main` pins fastapi 0.163.2 or later in every tracked
+  lock that pins it and every fastapi floor in `pyproject.toml` requires at least 0.163.2,
+  and it is then to be marked resolved in the register rather than deleted.
 - **Dependabot's root pip block now excludes `environments/`, aimed at the stale root
   dependency-graph snapshot that kept alerts open on those locks.** `.github/dependabot.yml`'s
   `directory: "/"` pip block gains `exclude-paths: ["environments/**"]`; the
