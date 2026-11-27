@@ -17,6 +17,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 > relabel which batch an entry belonged to. Entries inside a block are not in date order.
 
 ### Security
+- **The semgrep tool lock moves wcmatch from 8.5.2 to 11.2 and bracex from 2.6 to 3.2.4,
+  closing CVE-2026-132276 / GHSA-53pm-wgxf-c6qf (medium).** wcmatch <= 11.1 turns each `*`
+  of a pattern into a lazy `.*?` under default flags, so matching costs grow polynomially
+  with the number of stars (regular-expression denial of service); 11.2 is the fix.
+  `environments/requirements-semgrep.txt` is the only tracked lock that pins wcmatch at this
+  change. semgrep 1.179.0, the pinned release, declares `wcmatch~=8.3`, so
+  `environments/semgrep-overrides.txt` gains a seventh line, `wcmatch>=11.2,<12`, and the
+  lock is recompiled with `tools/update_dependencies.py --ci-env semgrep --target wcmatch`.
+  Exactly two pins move: wcmatch, and bracex because wcmatch 11.2 requires `bracex>=3.2`.
+  The same move clears four HIGH advisories that the maintainers published in their own
+  repositories and that GitHub's advisory database did not carry on 2026-11-21, so none of
+  the feeds this repository reads reported them: wcmatch GHSA-84v8-qmgq-9g88 and bracex
+  GHSA-88pj-cgpg-492r, GHSA-q3p5-v4g2-85hm and GHSA-f5rx-pv38-28f9. None is reached as
+  semgrep is used here: semgrep 1.179.0 calls wcmatch only through `glob.globmatch` with `GLOBSTAR`
+  and `DOTGLOB`, never `BRACE` or `EXTGLOB`, and wcmatch reaches bracex only under `BRACE`.
+  The override file states a third exit condition, for wcmatch, and
+  `tests/test_dependency_tooling.py` adds wcmatch to the set the override may lift and an
+  advisory floor of 11.2 on the semgrep tool lock, so that floor test fails against the
+  previous lock and passes against this one. Installs of that lock stay `--no-deps`.
 - **opentelemetry-api moves from 1.45.1 to 1.45.2 in all five locks that pin it, closing
   CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg (medium).** Per `gh api
   advisories/GHSA-mf5v-w3w3-f6cg`, `TraceContextTextMapPropagator.extract()` in

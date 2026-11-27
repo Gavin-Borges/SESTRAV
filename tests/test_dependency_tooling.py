@@ -150,7 +150,8 @@ OVERRIDDEN_SPECS = {"semgrep": "environments/semgrep-overrides.txt"}
 # The exact set of packages the semgrep override may lift, and nothing else:
 # mcp (CVE-2026-59951) and the five OpenTelemetry packages semgrep itself
 # declares (opentelemetry-api carries CVE-2026-114603; semgrep pins the other
-# four to the same release family, so they have to move with it).
+# four to the same release family, so they have to move with it), and wcmatch
+# (CVE-2026-132276; semgrep declares wcmatch~=8.3).
 SEMGREP_OVERRIDDEN_PACKAGES = {
     "mcp",
     "opentelemetry-api",
@@ -158,6 +159,7 @@ SEMGREP_OVERRIDDEN_PACKAGES = {
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-threading",
+    "wcmatch",
 }
 
 
@@ -217,9 +219,10 @@ def test_the_semgrep_override_lifts_exactly_its_named_set_and_states_its_exit_co
     assert len(names) == len(set(names)), f"a package is overridden twice: {names}"
     assert set(names) == SEMGREP_OVERRIDDEN_PACKAGES, names
     text = path.read_text(encoding="utf-8")
-    # One exit condition per package group: the two groups retire independently.
+    # One exit condition per package group: the three groups retire independently.
     assert "EXIT CONDITION (mcp)" in text
     assert "EXIT CONDITION (OpenTelemetry)" in text
+    assert "EXIT CONDITION (wcmatch)" in text
 
 
 def test_every_overridden_lock_pins_a_version_its_override_admits():
@@ -243,7 +246,7 @@ def test_every_overridden_lock_pins_a_version_its_override_admits():
             )
 
 
-# The two floors below are stated independently of the override file, so each
+# The floors below are stated independently of the override file, so each
 # fails a lock compiled without the override (uv then resolves semgrep's own
 # requirements without an error, which Dependabot's grouped /environments
 # updates are expected to do) even if the override file itself is edited.
@@ -256,6 +259,8 @@ MCP_ADVISORY_FLOOR = "1.30.0"
 # CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg covers <= 1.45.1 and is fixed in 1.45.2
 # (source: gh api advisories/GHSA-mf5v-w3w3-f6cg), so the floor is 1.45.2.
 OPENTELEMETRY_API_ADVISORY_FLOOR = "1.45.2"
+# CVE-2026-132276 / GHSA-53pm-wgxf-c6qf covers wcmatch <= 11.1 and is fixed in 11.2.
+WCMATCH_ADVISORY_FLOOR = "11.2"
 
 
 def _single_semgrep_lock_pin(package: str) -> str:
@@ -281,6 +286,15 @@ def test_the_semgrep_lock_pins_opentelemetry_api_at_or_above_its_advisory_fix():
     pin = _single_semgrep_lock_pin("opentelemetry-api")
     assert Version(pin) >= Version(OPENTELEMETRY_API_ADVISORY_FLOOR), (
         f"the semgrep lock pins opentelemetry-api=={pin}, below {OPENTELEMETRY_API_ADVISORY_FLOOR}"
+    )
+
+
+def test_the_semgrep_lock_pins_wcmatch_at_or_above_its_advisory_fix():
+    from packaging.version import Version
+
+    pin = _single_semgrep_lock_pin("wcmatch")
+    assert Version(pin) >= Version(WCMATCH_ADVISORY_FLOOR), (
+        f"the semgrep lock pins wcmatch=={pin}, below {WCMATCH_ADVISORY_FLOOR}"
     )
 
 
