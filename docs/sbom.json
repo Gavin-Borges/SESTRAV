@@ -392,7 +392,7 @@
   {
     "License": "Apache-2.0",
     "Name": "opentelemetry-api",
-    "Version": "1.45.1"
+    "Version": "1.45.2"
   },
   {
     "License": "Apache Software License; BSD License",
