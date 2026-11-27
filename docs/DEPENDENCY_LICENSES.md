@@ -279,7 +279,7 @@
 | nvidia-nvshmem-cu13                   | 3.4.5       | LicenseRef-NVIDIA-Proprietary                                                                       |
 | nvidia-nvtx                           | 13.0.85     | Other/Proprietary License                                                                           |
 | openpyxl                              | 3.1.5       | MIT License                                                                                         |
-| opentelemetry-api                     | 1.45.1      | Apache-2.0                                                                                          |
+| opentelemetry-api                     | 1.45.2      | Apache-2.0                                                                                          |
 | packaging                             | 25.0        | Apache Software License; BSD License                                                                |
 | pandas                                | 3.0.3       | BSD License                                                                                         |
 | pillow                                | 13.0.0      | MIT-CMU                                                                                             |

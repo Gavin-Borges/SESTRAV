@@ -253,7 +253,9 @@ def test_every_overridden_lock_pins_a_version_its_override_admits():
 MCP_ADVISORY_FLOOR = "1.30.0"
 # pip-audit reports CVE-2026-114603 / GHSA-xcq7-p3pf-p88h against
 # opentelemetry-api 1.37.0; the advisory covers <= 1.45.0 and is fixed in 1.45.1.
-OPENTELEMETRY_API_ADVISORY_FLOOR = "1.45.1"
+# CVE-2026-126360 / GHSA-mf5v-w3w3-f6cg covers <= 1.45.1 and is fixed in 1.45.2
+# (source: gh api advisories/GHSA-mf5v-w3w3-f6cg), so the floor is 1.45.2.
+OPENTELEMETRY_API_ADVISORY_FLOOR = "1.45.2"
 
 
 def _single_semgrep_lock_pin(package: str) -> str:
