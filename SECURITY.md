@@ -472,6 +472,95 @@ with no available vendor patch. Each consciously-deferred advisory is logged her
   - **Re-review trigger:** if any wrapper begins accepting subprocess arguments from
     untrusted/remote input, or switches to `shell=True`.
 
+- **fastapi denial of service via quadratic processing of request parameters
+  (GHSA-f56c-v883-vx8r):** Risk-accepted on 2026-11-22 (UTC) by maintainer decision, until
+  `main` pins fastapi 0.163.2 or later in every tracked lock that pins it and every fastapi
+  floor in its `pyproject.toml` requires at least 0.163.2, or until 2026-12-01T20:24:47Z,
+  whichever comes first. Per the advisory, fastapi `>=0.123.2,<0.163.2` "could perform
+  excessive CPU work when extracting request parameters", and requests containing many
+  parameters could block a worker's event loop. It lists three affected scenarios: in
+  `>=0.123.2,<0.157.0`, endpoints declaring query or header parameters; in
+  `>=0.157.0,<0.163.2`, endpoints using Pydantic models for query or header parameters; and
+  across the whole range, endpoints accepting form data through `Form()` or `File()`.
+  - **Identifiers:** `GHSA-f56c-v883-vx8r`, a repository advisory on `fastapi/fastapi`
+    published 2026-11-17 (UTC), with no CVE id. On 2026-11-22 GitHub's global advisory
+    database returned 404 for it, this repository had no Dependabot alert for fastapi, and
+    pip-audit, run against the OSV feed on every tracked lock, reported nothing against
+    fastapi 0.143.2, so neither Dependabot nor pip-audit reported it then.
+  - **Scope:** fastapi 0.143.2, inside the first affected range, as pinned on `main` on
+    2026-11-22 (UTC) in `requirements.txt`, `environments/requirements.lock`,
+    `environments/requirements-api.txt` and `environments/requirements-demo.txt`, the only
+    tracked locks that pin fastapi. `requirements.in`, `environments/requirements-api.in` and
+    `environments/requirements-demo.in` name the same version, and the `[dev]`, `[api]` and
+    `[demo]` extras in `pyproject.toml` declare `fastapi>=0.133.0`, a floor that admits
+    affected releases. The advisory gives 0.163.2 as the patched version.
+  - **Severity:** High (per the advisory, CVSS 3.1 7.5,
+    `AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H`). Not reachable in SESTRAV as measured on 2026-11-22
+    (UTC). The only FastAPI application in the tracked tree is `app` in `api/main.py`.
+    Imported with the locked fastapi 0.143.2 and starlette 1.3.1, its five routes
+    (`GET /health`, `GET /ready`, `POST /score`, `GET /model-card` and `GET /provenance`)
+    declare no query, header, cookie, form or file parameter, and neither the app nor any
+    route declares a dependency: `/ready` takes only an injected `Response`, and `/score`
+    takes one Pydantic model, read as a JSON body. The four routes FastAPI adds by default
+    (`/openapi.json`, `/docs`, `/docs/oauth2-redirect` and `/redoc`) are plain Starlette
+    routes whose handlers take only the request. In fastapi 0.143.2 the quadratic steps are
+    two loops in `fastapi/dependencies/utils.py`, one in `request_params_to_args`, for query
+    and header parameters, and one in `_extract_form_body`, for form data, each calling
+    `getlist`, itself a scan of every received item, once for each received key that matches
+    no declared parameter. `request_params_to_args` returns before its loop when an endpoint
+    declares no parameter of the kind being extracted. On every request for which FastAPI runs
+    `solve_dependencies` for one of the five routes, Starlette still parses the query string
+    and cookies and copies the headers, but without rescanning any of them per key. And
+    `_extract_form_body` runs only on a body that `fastapi/routing.py` has parsed as a form,
+    which it does only for an endpoint with a `Form()` or `File()` body parameter, including
+    one FastAPI infers from an `UploadFile` annotation. The demo image installs
+    `environments/requirements-demo.txt` but runs `streamlit run app/demo.py`. streamlit
+    1.66.1 serves it through its own Starlette application on uvicorn and imports no fastapi;
+    `app/demo.py` imports neither fastapi nor starlette and defines no FastAPI, Starlette or
+    `st.App` application object, which `streamlit run` would otherwise serve in place of the
+    script. The CLI image (`Dockerfile`, the image `.github/workflows/docker.yml` publishes on
+    version tags) and `singularity.def` install `environments/requirements.lock`, and so
+    fastapi 0.143.2, but run `sestrav` and `pipeline.py` and copy no `api/` directory.
+  - **Mitigation:** none is claimed. The advisory's workaround is request and rate limits at
+    a reverse proxy or cloud provider, which it says "do not guarantee protection".
+    `Dockerfile.api` starts `uvicorn` directly, with one worker, and `docker-compose.yml`
+    defines no proxy in front of it; the advisory says deployments "exposing Uvicorn directly
+    without equivalent limits can experience greater impact". `docker-compose.yml` publishes
+    the API port on the host's loopback address only, which narrows who can connect but is
+    not a request limit. uvicorn's own default request limits were not measured, so this
+    entry claims no limit-based mitigation and rests on non-reachability alone. All four
+    locks pin starlette 1.3.1, and the advisory says starlette `>=1.3.1` limits form fields
+    by default but "does not fix FastAPI's quadratic processing or mitigate the query/header
+    cases".
+  - **What would make it reachable:** a route `app` serves, or any application a deployer
+    builds on an affected fastapi release, that declares, directly or through a dependency,
+    either a query or header parameter on a release below 0.157.0 (including a plain scalar
+    parameter not named in the path, which FastAPI reads from the query string) or a Pydantic
+    model used as a query or header parameter on any affected release, or that accepts form
+    data through `Form()` or `File()`, including a parameter annotated `UploadFile`, which
+    FastAPI reads as `File()`.
+  - **Suppression:** none. There is no Dependabot alert to dismiss, and
+    `environments/accepted_advisories.toml` gains no entry. If pip-audit reports the
+    advisory against `environments/requirements.lock`, the `pip-audit` job's
+    `Fail on unaccepted lockfile advisories` step fails until an entry naming the reported id
+    and pointing back here is added. The all-locks step (`tools/audit_all_locks.py`) would
+    then report it against the other three locks too; that step is `continue-on-error` as of
+    2026-11-22, and once it blocks, each of those locks needs its own entry with a `lock`
+    field. If Dependabot alerts on it, dismiss each alert with a reason and a comment citing
+    this entry.
+  - **Expiry and re-review trigger:** this acceptance lapses when `main` pins fastapi 0.163.2
+    or later in every tracked lock that pins it and every fastapi floor in its
+    `pyproject.toml` requires at least 0.163.2, or at 2026-12-01T20:24:47Z, 14 days after the
+    advisory's publication, whichever comes first, and it does not renew without a new dated
+    maintainer decision. When it lapses, mark it resolved or expired here rather than
+    deleting it. Re-review at once if a tracked lock comes to pin an affected fastapi release
+    other than 0.143.2; if `app` or any route it serves declares a dependency, or a route
+    declares a parameter other than one JSON body model or an object FastAPI injects
+    (`Request`, `Response`, `BackgroundTasks`, `SecurityScopes`, `HTTPConnection` or
+    `WebSocket`); if another FastAPI application is added to the tracked tree; if GitHub's
+    advisory database or OSV imports the advisory, or Dependabot or pip-audit reports it; or
+    if the advisory's affected or patched versions change.
+
 - **MCP SDK transport vulnerabilities (session hijacking / origin validation):**
   Risk-accepted. The `mcp` package is pulled in transitively as a dev/CI dependency of
   `semgrep`; it is not an application dependency and no MCP server transport is ever
